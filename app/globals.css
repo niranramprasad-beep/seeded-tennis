@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme="grass"] {
+    --font-inter: "Inter", sans-serif;
+    --font-cormorant: "Cormorant Garamond", serif;
+
+    /* Grass Court — default cream & deep green */
+    --c-bg: 250 248 242;
+    --c-card: 253 252 247;
+    --c-primary: 45 74 43;
+    --c-primary-50: 241 245 239;
+    --c-primary-100: 220 231 216;
+    --c-primary-600: 58 94 55;
+    --c-primary-700: 45 74 43;
+    --c-primary-800: 34 56 32;
+    --c-primary-900: 24 40 21;
+    --c-lime: 220 232 154;
+    --c-leaf: 151 196 89;
+    --c-tennis: 216 232 74;
+    --c-ink: 31 31 26;
+    --c-stone: 107 107 95;
+    --c-stone-light: 155 155 140;
+    --c-line: 232 227 213;
+
+    --c-scroll-thumb: 217 211 194;
+    --c-thumb-ring: 253 252 247;
+  }
+
+  /* Clay — warm terracotta & sand */
+  [data-theme="clay"] {
+    --c-bg: 251 244 238;
+    --c-card: 255 249 243;
+    --c-primary: 160 67 42;
+    --c-primary-50: 251 238 231;
+    --c-primary-100: 244 219 203;
+    --c-primary-600: 181 83 47;
+    --c-primary-700: 160 67 42;
+    --c-primary-800: 130 52 32;
+    --c-primary-900: 94 37 22;
+    --c-lime: 232 196 154;
+    --c-leaf: 224 121 75;
+    --c-tennis: 242 160 61;
+    --c-ink: 42 33 28;
+    --c-stone: 122 106 95;
+    --c-stone-light: 169 155 140;
+    --c-line: 236 223 210;
+
+    --c-scroll-thumb: 219 198 180;
+    --c-thumb-ring: 255 249 243;
+  }
+
+  /* Night Match — deep navy, green accents (dark). ink is light here so
+     text-ink reads on the dark surfaces while keeping semantic class names. */
+  [data-theme="night"] {
+    --c-bg: 14 23 38;
+    --c-card: 22 34 54;
+    --c-primary: 124 196 90;
+    --c-primary-50: 28 44 40;
+    --c-primary-100: 34 56 48;
+    --c-primary-600: 140 208 104;
+    --c-primary-700: 124 196 90;
+    --c-primary-800: 150 214 116;
+    --c-primary-900: 190 232 170;
+    --c-lime: 200 224 150;
+    --c-leaf: 130 200 96;
+    --c-tennis: 216 232 74;
+    --c-ink: 237 240 233;
+    --c-stone: 160 170 186;
+    --c-stone-light: 118 130 150;
+    --c-line: 42 56 78;
+
+    --c-scroll-thumb: 52 68 92;
+    --c-thumb-ring: 22 34 54;
+  }
+
+  /* Hard Court — cool off-white, electric blue */
+  [data-theme="hard"] {
+    --c-bg: 244 246 248;
+    --c-card: 255 255 255;
+    --c-primary: 31 111 235;
+    --c-primary-50: 233 241 254;
+    --c-primary-100: 207 224 251;
+    --c-primary-600: 45 123 245;
+    --c-primary-700: 31 111 235;
+    --c-primary-800: 24 87 192;
+    --c-primary-900: 18 63 140;
+    --c-lime: 187 216 255;
+    --c-leaf: 56 189 248;
+    --c-tennis: 34 211 238;
+    --c-ink: 15 23 42;
+    --c-stone: 71 85 105;
+    --c-stone-light: 148 163 184;
+    --c-line: 226 232 240;
+
+    --c-scroll-thumb: 203 213 225;
+    --c-thumb-ring: 255 255 255;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  ::selection {
+    @apply bg-leaf-accent/40 text-ink;
+  }
+
+  /* Thin, warm scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-scroll-thumb));
+    border-radius: 999px;
+    border: 3px solid rgb(var(--c-bg));
+  }
+}
+
+@layer components {
+  .serif-accent {
+    @apply font-serif italic font-normal;
+  }
+
+  .container-px {
+    @apply px-5 sm:px-8 lg:px-10;
+  }
+
+  .hairline {
+    @apply border-[0.5px] border-line;
+  }
+
+  /* Range slider */
+  .seeded-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+  }
+  .seeded-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgb(var(--c-primary));
+    border: 4px solid rgb(var(--c-thumb-ring));
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+  }
+  .seeded-range::-webkit-slider-thumb:hover {
+    transform: scale(1.12);
+  }
+  .seeded-range:active::-webkit-slider-thumb {
+    transform: scale(0.96);
+  }
+  .seeded-range::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border: 4px solid rgb(var(--c-thumb-ring));
+    border-radius: 50%;
+    background: rgb(var(--c-primary));
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
