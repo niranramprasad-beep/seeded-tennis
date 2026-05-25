@@ -31,6 +31,13 @@ export interface TrainingFolder {
   sessionIds: string[];
 }
 
+export interface TrainingPreferences {
+  fullTime: boolean;
+  weeklyHours: number;
+  primaryGoal: string;
+  constraints: string;
+}
+
 export interface SavedTrainingTemplate {
   id: string;
   name: string;
@@ -45,6 +52,7 @@ export interface TrainingPlannerState {
   plans: TrainingFolder[];
   activePlanId: string;
   templates: SavedTrainingTemplate[];
+  preferences?: TrainingPreferences;
 }
 
 async function getUserId(): Promise<string | null> {
@@ -86,7 +94,6 @@ export async function loadTrainingPlannerState(
   }
 
   if (!plans || plans.length === 0) {
-    await saveTrainingPlannerState(fallback);
     return fallback;
   }
 
@@ -129,6 +136,9 @@ export async function loadTrainingPlannerState(
   const sessionTypes =
     (settings?.notification_preferences?.session_types as TrainingSessionType[] | undefined) ??
     fallback.sessionTypes;
+  const preferences =
+    (settings?.notification_preferences?.training_preferences as TrainingPreferences | undefined) ??
+    fallback.preferences;
 
   return {
     sessions: mappedSessions,
@@ -137,6 +147,7 @@ export async function loadTrainingPlannerState(
     activePlanId:
       (plans ?? []).find((plan: any) => plan.active)?.id ?? mappedPlans[0]?.id ?? fallback.activePlanId,
     templates: mappedTemplates,
+    preferences,
   };
 }
 
@@ -211,6 +222,7 @@ export async function saveTrainingPlannerState(
     default_training_view: "week",
     notification_preferences: {
       session_types: state.sessionTypes,
+      training_preferences: state.preferences ?? null,
     },
   });
 

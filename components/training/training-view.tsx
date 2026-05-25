@@ -19,7 +19,7 @@ import {
   Trash2,
   Trophy,
 } from "lucide-react";
-import type { Intensity, TrainingPlan, WeekdayShort } from "@/lib/types";
+import type { Intensity, TrainingPlan, Weakness, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
@@ -36,6 +36,7 @@ import {
   saveTrainingTemplate,
   type SavedTrainingTemplate,
   type TrainingFolder,
+  type TrainingPreferences,
   type TrainingPlannerSession,
   type TrainingPlannerState,
   type TrainingSessionType,
@@ -134,6 +135,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
       ],
       activePlanId: "",
       templates: [],
+      preferences: undefined,
     };
   }, [basePlan, player.currentUTR, player.targetSchoolSlugs.length]);
 
@@ -198,6 +200,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 
   useEffect(() => {
     if (!hydrated) return;
+    if (!state.preferences) return;
     localStorage.setItem(storageKey, JSON.stringify(state));
     let cancelled = false;
     async function saveRemote() {
@@ -393,6 +396,35 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
       };
     });
   };
+
+  const applyPreferences = (preferences: TrainingPreferences) => {
+    const generated = generatePersonalizedPlan({
+      preferences,
+      playerUtr: player.currentUTR,
+      grade: player.grade,
+      weaknesses: player.weaknesses,
+    });
+    setState((prev) => ({
+      ...prev,
+      preferences,
+      sessions: generated.sessions,
+      plans: [generated.plan],
+      activePlanId: generated.plan.id,
+    }));
+  };
+
+  if (!state.preferences) {
+    return (
+      <div className="mx-auto max-w-content container-px py-12">
+        <TrainingQuestionnaire
+          playerName={player.name.split(" ")[0]}
+          currentUtr={player.currentUTR}
+          grade={player.grade}
+          onComplete={applyPreferences}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1440px] container-px py-10">
@@ -757,6 +789,127 @@ function TrainingActionRail({
         </div>
       </Card>
     </aside>
+  );
+}
+
+function TrainingQuestionnaire({
+  playerName,
+  currentUtr,
+  grade,
+  onComplete,
+}: {
+  playerName: string;
+  currentUtr: number;
+  grade: number;
+  onComplete: (preferences: TrainingPreferences) => void;
+}) {
+  const [fullTime, setFullTime] = useState(false);
+  const [weeklyHours, setWeeklyHours] = useState(10);
+  const [primaryGoal, setPrimaryGoal] = useState("Raise my UTR before summer recruiting checkpoints");
+  const [constraints, setConstraints] = useState("");
+
+  const suggested = fullTime ? Math.max(15, weeklyHours) : weeklyHours;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-auto max-w-3xl overflow-hidden rounded-[24px] border-[0.5px] border-line bg-card shadow-lift"
+    >
+      <div className="bg-grass px-6 py-8 text-cream sm:px-9">
+        <p className="font-serif text-lg italic text-leaf-accent">Training setup</p>
+        <h1 className="mt-2 text-3xl font-light tracking-tight sm:text-5xl">
+          Build a real week for {playerName}.
+        </h1>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/78">
+          No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinal(grade)} grade timeline,
+          training load, and goals to create the first week.
+        </p>
+      </div>
+      <div className="space-y-7 p-6 sm:p-9">
+        <div>
+          <p className="text-sm font-medium text-ink">Are you training full-time right now?</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {[
+              { value: true, title: "Yes, full-time", body: "Usually 15+ focused hours per week." },
+              { value: false, title: "No, school-balanced", body: "I need tennis to fit around school." },
+            ].map((option) => (
+              <button
+                key={option.title}
+                onClick={() => {
+                  setFullTime(option.value);
+                  if (option.value && weeklyHours < 15) setWeeklyHours(15);
+                }}
+                className={cn(
+                  "rounded-card border-[0.5px] p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-grass/30",
+                  fullTime === option.value
+                    ? "border-grass bg-grass-50 shadow-soft"
+                    : "border-line bg-cream/50 hover:bg-card hover:shadow-soft"
+                )}
+              >
+                <p className="font-medium text-ink">{option.title}</p>
+                <p className="mt-1 text-sm text-stone">{option.body}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-ink">How many hours per week do you want to train?</p>
+              <p className="mt-1 text-sm text-stone">
+                Full-time plans start at 15 hours. You can edit every session later.
+              </p>
+            </div>
+            <span className="text-3xl font-light text-grass">{suggested}h</span>
+          </div>
+          <input
+            type="range"
+            min={fullTime ? 15 : 4}
+            max={24}
+            value={suggested}
+            onChange={(event) => setWeeklyHours(Number(event.target.value))}
+            className="seeded-range mt-4 bg-grass-100"
+          />
+        </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Main goal for this block</span>
+          <input
+            value={primaryGoal}
+            onChange={(event) => setPrimaryGoal(event.target.value)}
+            className={inputClass}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Schedule limits or notes</span>
+          <textarea
+            value={constraints}
+            onChange={(event) => setConstraints(event.target.value)}
+            placeholder="Example: school ends at 3:30, tournament most Saturdays, no gym on Wednesdays"
+            className={textAreaClass}
+          />
+        </label>
+
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() =>
+            onComplete({
+              fullTime,
+              weeklyHours: suggested,
+              primaryGoal,
+              constraints,
+            })
+          }
+        >
+          Generate my training week
+          <Sparkles className="h-4 w-4" />
+        </Button>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1326,6 +1479,78 @@ function blankSession(day: WeekdayShort, typeId: string): TrainingPlannerSession
     notes: "",
     goals: "",
     drills: [],
+    completed: false,
+  };
+}
+
+function generatePersonalizedPlan({
+  preferences,
+  playerUtr,
+  grade,
+  weaknesses,
+}: {
+  preferences: TrainingPreferences;
+  playerUtr: number;
+  grade: number;
+  weaknesses: Weakness[];
+}): { sessions: TrainingPlannerSession[]; plan: TrainingFolder } {
+  const hours = Math.max(preferences.fullTime ? 15 : 4, preferences.weeklyHours);
+  const focus = weaknesses.length ? weaknesses : ["serve", "fitness", "mental"];
+  const tennisHours = Math.round(hours * (preferences.fullTime ? 0.58 : 0.5));
+  const strengthHours = Math.max(1.5, Math.round(hours * 0.16));
+  const matchHours = Math.max(2, Math.round(hours * 0.18));
+  const recoveryHours = Math.max(1, hours - tennisHours - strengthHours - matchHours);
+
+  const intensity: Intensity = playerUtr >= 10 || preferences.fullTime ? "high" : "moderate";
+  const sessions: TrainingPlannerSession[] = [
+    makeGeneratedSession("Mon", "15:30", Math.round((tennisHours / 3) * 60), "tennis", `${sentence(focus[0])} pattern block`, intensity, focus.slice(0, 2), preferences),
+    makeGeneratedSession("Tue", "16:30", Math.round(strengthHours * 60), "strength", "Strength + movement base", "moderate", ["fitness"], preferences),
+    makeGeneratedSession("Wed", "15:30", Math.round((tennisHours / 3) * 60), "tennis", `${sentence(focus[1] ?? focus[0])} pressure reps`, intensity, focus.slice(1, 3), preferences),
+    makeGeneratedSession("Thu", "17:00", Math.round(recoveryHours * 60), "recovery", "Recovery + mobility reset", "low", ["fitness", "mental"], preferences),
+    makeGeneratedSession("Fri", "15:30", Math.round((tennisHours / 3) * 60), "tennis", "Serve plus first-ball patterns", intensity, ["serve", focus[0]], preferences),
+    makeGeneratedSession("Sat", "10:00", Math.round(matchHours * 60), "match-prep", "Filmed set play", "high", ["mental", "fitness"], preferences),
+  ].filter((session) => session.duration >= 30);
+
+  if (preferences.fullTime && hours >= 18) {
+    sessions.splice(
+      3,
+      0,
+      makeGeneratedSession("Thu", "15:30", 90, "conditioning", "Speed + repeat sprint conditioning", "high", ["fitness"], preferences)
+    );
+  }
+
+  const plan = {
+    id: createUuid(),
+    name: `${hours}h personalized recruiting week`,
+    goal: `${preferences.primaryGoal} from a ${ordinal(grade)} grade, UTR ${playerUtr.toFixed(1)} baseline by the summer before senior year.`,
+    sessionIds: sessions.map((session) => session.id),
+  };
+
+  return { sessions, plan };
+}
+
+function makeGeneratedSession(
+  day: WeekdayShort,
+  startTime: string,
+  duration: number,
+  typeId: string,
+  title: string,
+  intensity: Intensity,
+  focusAreas: string[],
+  preferences: TrainingPreferences
+): TrainingPlannerSession {
+  return {
+    id: createUuid(),
+    title,
+    typeId,
+    day,
+    date: dateForWeekday(day),
+    startTime,
+    duration: Math.max(30, Math.round(duration / 15) * 15),
+    intensity,
+    notes: preferences.constraints,
+    goals: preferences.primaryGoal,
+    drills: focusAreas.map((focus) => `${sentence(focus)} progression`).slice(0, 3),
     completed: false,
   };
 }

@@ -23,10 +23,10 @@ import { TierSwitcher } from "./tier-switcher";
 import { cn } from "@/lib/utils";
 
 const MARKETING_LINKS = [
-  { href: "/#roadmap-preview", label: "Roadmap" },
+  { href: "/roadmap", label: "Roadmap" },
   { href: "/schools", label: "Schools" },
-  { href: "/#training-preview", label: "Training" },
-  { href: "/#trust", label: "For parents" },
+  { href: "/training", label: "Training" },
+  { href: "/parents", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
 ];
 

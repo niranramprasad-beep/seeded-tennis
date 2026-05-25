@@ -126,7 +126,7 @@ export default async function HomePage() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/#how-it-works"
+                href="/how-it-works"
                 className={buttonVariants({ variant: "outline", size: "lg" })}
               >
                 See how it works

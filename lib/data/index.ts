@@ -139,7 +139,7 @@ const MILESTONES_BEFORE_GRADE: Record<number, string[]> = {
     "Take unofficial visits to top-choice campuses",
   ],
   12: [
-    "Hit your competitive UTR before junior-summer showcases",
+    "Hit your target UTR by the summer before senior year",
     "Send personalized notes to target coaches",
     "Convert interest into official-visit invitations",
   ],
@@ -175,10 +175,11 @@ export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
 
   const startGrade = Math.min(player.grade, 12);
 
-  // Upcoming summers: before each remaining grade, plus before college (13).
+  // Upcoming summers: before each remaining grade. The final target is always
+  // due by the summer before senior year, not during senior year or college.
   const grades: number[] = [];
   for (let g = startGrade + 1; g <= 12; g++) grades.push(g);
-  grades.push(13);
+  if (grades.length === 0) grades.push(12);
 
   const total = grades.length;
   return grades.map((g, i) => {
@@ -188,15 +189,12 @@ export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
       10;
     // Summer before grade g falls in this calendar year.
     const calendarYear = player.graduationYear - 13 + g;
-    const tournamentsNeeded = g === 13 ? 6 : 10 + i * 2;
-    const isCollege = g === 13;
+    const tournamentsNeeded = 10 + i * 2;
 
     return {
       calendarYear,
-      gradeLabel: isCollege
-        ? "By summer before college"
-        : `By summer before ${ordinal(g)} grade`,
-      shortLabel: isCollege ? "College" : `${ordinal(g)}`,
+      gradeLabel: `By summer before ${ordinal(g)} grade`,
+      shortLabel: `${ordinal(g)}`,
       utrTarget,
       tournamentsNeeded,
       milestones: MILESTONES_BEFORE_GRADE[g] ?? [

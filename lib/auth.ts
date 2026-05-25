@@ -161,7 +161,12 @@ export async function signIn(
   const supa = getSupabase();
   if (supa) {
     const { data, error } = await supa.auth.signInWithPassword({ email, password });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      const message = error.message.toLowerCase().includes("not confirmed")
+        ? "Check your inbox to confirm your email."
+        : error.message;
+      return { ok: false, error: message };
+    }
     if (data.user) {
       const metadata = data.user.user_metadata ?? {};
       const familyCode = String(metadata.family_code ?? generateFamilyCode(metadata.name ?? email));

@@ -59,7 +59,7 @@ export function LoginForm() {
     router.push("/dashboard");
   };
 
-  const needsConfirmation = error?.toLowerCase().includes("not confirmed");
+  const needsConfirmation = error?.toLowerCase().includes("confirm your email");
 
   const resend = async () => {
     setError(null);
