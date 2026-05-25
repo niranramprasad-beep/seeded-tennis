@@ -29,3 +29,6 @@ next-env.d.ts
 
 # local tool state
 .claude/
+
+# accidental nested local copy
+/Seeded/
