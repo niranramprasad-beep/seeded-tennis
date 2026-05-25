@@ -12,6 +12,9 @@ import {
   Plus,
   Target,
   Users,
+  Trophy,
+  Calculator,
+  ShieldCheck,
 } from "lucide-react";
 import type { School, TrainingPlan, Tournament } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
@@ -27,6 +30,7 @@ import { LockedOverlay } from "@/components/shared/locked-overlay";
 import { UTRLineChart } from "@/components/charts/utr-line-chart";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { TournamentProgress } from "./tournament-progress";
+import { DailyCheckinCard } from "./daily-checkin-card";
 import { ACTIVITY_META } from "@/lib/activity-style";
 import { formatUTR, monthsBetween, cn } from "@/lib/utils";
 import {
@@ -276,6 +280,37 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         </Card>
       </div>
 
+      <div className="mt-4">
+        <DailyCheckinCard player={player} trainingHours={plan.weeklyHours} />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardAction
+          href="/match-mode"
+          icon={Trophy}
+          label="Match mode"
+          body="Build a prep plan, log results, and track patterns."
+        />
+        <DashboardAction
+          href="/matches"
+          icon={Target}
+          label="Match history"
+          body="Save notes, video links, and AI takeaways."
+        />
+        <DashboardAction
+          href="/badges"
+          icon={ShieldCheck}
+          label="Badges"
+          body="See milestones for UTR, training, matches, and recruiting."
+        />
+        <DashboardAction
+          href="/cost-calculator"
+          icon={Calculator}
+          label="Cost calculator"
+          body="Estimate tennis spend against scholarship ranges."
+        />
+      </div>
+
       {/* main grid */}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         {/* roadmap preview */}
@@ -464,6 +499,30 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         onSave={handleSaveUtr}
       />
     </div>
+  );
+}
+
+function DashboardAction({
+  href,
+  icon: Icon,
+  label,
+  body,
+}: {
+  href: string;
+  icon: typeof Target;
+  label: string;
+  body: string;
+}) {
+  return (
+    <Link href={href}>
+      <Card interactive className="group h-full p-5">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-grass-50 text-grass transition-all group-hover:-translate-y-0.5 group-hover:bg-grass group-hover:text-cream">
+          <Icon className="h-5 w-5" />
+        </span>
+        <h3 className="mt-4 font-medium text-ink">{label}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-stone">{body}</p>
+      </Card>
+    </Link>
   );
 }
 

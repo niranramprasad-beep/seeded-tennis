@@ -12,6 +12,8 @@ import {
   Menu,
   Route,
   School,
+  Trophy,
+  Users,
   X,
   LogOut,
   Settings,
@@ -34,8 +36,10 @@ const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Route },
   { href: "/training", label: "Training", icon: CalendarDays },
+  { href: "/match-mode", label: "Match mode", icon: Trophy },
   { href: "/schools", label: "Schools", icon: School },
   { href: "/coaches", label: "Coaches", icon: Mail },
+  { href: "/friends", label: "Friends", icon: Users },
 ];
 
 export function Nav() {

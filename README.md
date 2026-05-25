@@ -32,11 +32,15 @@ Add these to `.env.local` locally and to Vercel Project Settings for production:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` come from Supabase Project Settings → API.
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in client components, browser code, or public logs.
+
+`OPENAI_API_KEY` is server-only and powers the match-analysis endpoint. Without it, the app returns a safe fallback analysis so match logging still works.
 
 ## Supabase setup
 
@@ -45,6 +49,10 @@ SUPABASE_SERVICE_ROLE_KEY=
 3. Fill in the Supabase URL and publishable key.
 4. In Supabase SQL Editor, run:
    - `supabase/migrations/001_initial_saas_schema.sql`
+   - `supabase/migrations/002_utr_entries.sql`
+   - `supabase/migrations/003_families_signup_fix.sql`
+   - `supabase/migrations/004_fix_profiles_recursion.sql`
+   - `supabase/migrations/005_feature_expansion.sql`
 5. Confirm Row Level Security is enabled on:
    - `profiles`
    - `training_plans`
@@ -53,6 +61,17 @@ SUPABASE_SERVICE_ROLE_KEY=
    - `session_exercises`
    - `saved_templates`
    - `user_settings`
+   - `daily_checkins`
+   - `matches`
+   - `badges`
+   - `friendships`
+   - `cost_calculations`
+   - `parent_reports`
+
+Create these private Supabase Storage buckets:
+
+- `parent-reports`
+- `match-videos`
 
 See `SUPABASE_SETUP.md` for more detail.
 

@@ -373,6 +373,9 @@ async function ensureSupabaseProfile(input: {
     if (familyInsertError && familyInsertError.code !== "23505") {
       return { ok: false, error: familyInsertError.message };
     }
+    await supa
+      .from("family_codes")
+      .upsert({ code: input.familyCode, player_id: input.userId }, { onConflict: "code" });
   }
 
   const graduationYear = graduationYearForGrade(input.grade);
@@ -393,5 +396,18 @@ async function ensureSupabaseProfile(input: {
   });
 
   if (profileError) return { ok: false, error: profileError.message };
+
+  if (input.role === "parent") {
+    const { error: parentError } = await supa.from("parent_accounts").upsert(
+      {
+        user_id: input.userId,
+        family_code: input.familyCode,
+        relationship: "parent",
+      },
+      { onConflict: "user_id,family_code" }
+    );
+    if (parentError) return { ok: false, error: parentError.message };
+  }
+
   return { ok: true, familyCode: input.familyCode };
 }

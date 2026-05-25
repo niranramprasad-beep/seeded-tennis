@@ -24,6 +24,7 @@ Fill in:
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+OPENAI_API_KEY=...
 ```
 
 ## 3. Run the database migration
@@ -40,6 +41,14 @@ Then run the follow-up migration:
 -- contents of supabase/migrations/002_utr_entries.sql
 ```
 
+Then run these in order:
+
+```sql
+-- contents of supabase/migrations/003_families_signup_fix.sql
+-- contents of supabase/migrations/004_fix_profiles_recursion.sql
+-- contents of supabase/migrations/005_feature_expansion.sql
+```
+
 This creates:
 
 - `families`
@@ -51,6 +60,15 @@ This creates:
 - `saved_templates`
 - `user_settings`
 - `utr_entries`
+- `daily_checkins`
+- `matches`
+- `badges`
+- `friendships`
+- `family_codes`
+- `parent_accounts`
+- `cost_calculations`
+- `parent_reports`
+- `encouragement_notes`
 
 It also adds:
 
@@ -73,7 +91,27 @@ For production, review:
 
 If email confirmations are enabled, users may need to confirm email before logging in.
 
-## 5. Security notes
+## 5. Storage buckets
+
+Open Supabase → Storage and create these buckets:
+
+- `parent-reports` → private
+- `match-videos` → private
+
+The app uses the server-side service role key for parent report uploads. Match videos upload from the signed-in user account.
+
+## 6. AI match analysis
+
+Add this in local `.env.local` and Vercel Environment Variables:
+
+```bash
+OPENAI_API_KEY=your_openai_key
+OPENAI_MODEL=gpt-4o-mini
+```
+
+If the key is missing, match logging still works, but the app shows a fallback analysis instead of a real AI response.
+
+## 7. Security notes
 
 - Browser code uses only the publishable key.
 - RLS ensures users can access only rows where `user_id = auth.uid()` or `id = auth.uid()`.
