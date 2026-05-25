@@ -44,9 +44,14 @@ const inputClass =
 
 const STEPS = ["Account", "About you", "Family"];
 
-export function SignupFlow() {
+export function SignupFlow({
+  accountType = "player",
+}: {
+  accountType?: FamilyRole;
+}) {
   const router = useRouter();
   const { beginSession } = usePlayer();
+  const isParentSignup = accountType === "parent";
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
@@ -62,8 +67,10 @@ export function SignupFlow() {
   const [country, setCountry] = useState("United States");
   const [gender, setGender] = useState<PlayerGender>("male");
   const [grade, setGrade] = useState(10);
-  const [role, setRole] = useState<FamilyRole>("player");
-  const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
+  const [role, setRole] = useState<FamilyRole>(accountType);
+  const [familyMode, setFamilyMode] = useState<"create" | "join">(
+    isParentSignup ? "join" : "create"
+  );
   const [joinCode, setJoinCode] = useState("");
 
   const go = (d: number) => {
@@ -77,14 +84,16 @@ export function SignupFlow() {
 
   const submit = async () => {
     setError(null);
-    if (familyMode === "join" && !joinCode.trim()) {
+    if ((familyMode === "join" || isParentSignup) && !joinCode.trim()) {
       setError("Enter a family code to join.");
       return;
     }
     setSubmitting(true);
     const result = await signUp(
-      { name, email, password, country, gender, grade, role },
-      familyMode === "create" ? { mode: "create" } : { mode: "join", code: joinCode }
+      { name, email, password, country, gender, grade, role: isParentSignup ? "parent" : role },
+      isParentSignup || familyMode === "join"
+        ? { mode: "join", code: joinCode }
+        : { mode: "create" }
     );
     setSubmitting(false);
     if (!result.ok) {
@@ -107,17 +116,19 @@ export function SignupFlow() {
       commitmentDate: `${graduationYear - 1}-09-01`,
       gender,
       country,
-      role,
+      role: isParentSignup ? "parent" : role,
       familyCode: result.familyCode,
       targetSchoolSlugs: [],
       weaknesses: [],
       tournamentsPlayed: 0,
       tournamentsGoal: 12,
-      onboarded: false,
+      onboarded: isParentSignup,
     };
     beginSession(player);
 
-    if (familyMode === "create" && result.familyCode) {
+    if (isParentSignup) {
+      router.push("/family");
+    } else if (familyMode === "create" && result.familyCode) {
       setCreatedCode(result.familyCode);
     } else {
       router.push("/onboarding");
@@ -250,15 +261,17 @@ export function SignupFlow() {
             {step === 0 && (
               <div>
                 <h1 className="text-3xl font-light tracking-tight text-ink">
-                  Create your account
+                  {isParentSignup ? "Create your parent account" : "Create your account"}
                 </h1>
                 <p className="mt-2 text-stone">
-                  This is the player's profile. Parents can join with a code next.
+                  {isParentSignup
+                    ? "Use the family code from your player to connect to their progress."
+                    : "This is the player's profile. Parents can join with a code next."}
                 </p>
                 <div className="mt-6 space-y-3">
                   <input
                     className={inputClass}
-                    placeholder="Player's full name"
+                    placeholder={isParentSignup ? "Parent full name" : "Player's full name"}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -334,18 +347,6 @@ export function SignupFlow() {
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <Label>I'm the…</Label>
-                    <Segmented
-                      options={[
-                        { value: "player", label: "Player" },
-                        { value: "parent", label: "Parent" },
-                      ]}
-                      value={role}
-                      onChange={(v) => setRole(v as FamilyRole)}
-                      layoutId="signup-role"
-                    />
-                  </div>
                 </div>
               </div>
             )}
@@ -353,11 +354,14 @@ export function SignupFlow() {
             {step === 2 && (
               <div>
                 <h1 className="text-3xl font-light tracking-tight text-ink">
-                  Your family
+                  {isParentSignup ? "Join your player's family" : "Your family"}
                 </h1>
                 <p className="mt-2 text-stone">
-                  Families share one player's data with different roles.
+                  {isParentSignup
+                    ? "Enter the code your player created. This gives you the parent dashboard."
+                    : "Families share one player's data with different roles."}
                 </p>
+                {!isParentSignup && (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <FamilyOption
                     icon={UserPlus}
@@ -374,7 +378,8 @@ export function SignupFlow() {
                     onClick={() => setFamilyMode("join")}
                   />
                 </div>
-                {familyMode === "join" && (
+                )}
+                {(familyMode === "join" || isParentSignup) && (
                   <motion.input
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -421,7 +426,7 @@ export function SignupFlow() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  Create account
+                  {isParentSignup ? "Create parent account" : "Create account"}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -434,6 +439,14 @@ export function SignupFlow() {
           <Link href="/login" className="font-medium text-grass hover:underline">
             Sign in
           </Link>
+          {!isParentSignup && (
+            <>
+              <span className="mx-2 text-stone-light">or</span>
+              <Link href="/parent-signup" className="font-medium text-grass hover:underline">
+                parent signup
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </Centered>

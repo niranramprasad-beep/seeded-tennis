@@ -17,12 +17,22 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     if (!isAuthed) {
       router.replace("/login");
-    } else if (!player.onboarded && pathname !== "/onboarding") {
+    } else if (player.role === "parent" && !pathname.startsWith("/family") && !pathname.startsWith("/parent-dashboard") && pathname !== "/settings") {
+      router.replace("/family");
+    } else if (player.role !== "parent" && !player.onboarded && pathname !== "/onboarding") {
       router.replace("/onboarding");
     }
-  }, [hydrated, isAuthed, player.onboarded, pathname, router]);
+  }, [hydrated, isAuthed, player.onboarded, player.role, pathname, router]);
 
-  if (!hydrated || !isAuthed || (!player.onboarded && pathname !== "/onboarding")) {
+  const blockedForOnboarding =
+    player.role !== "parent" && !player.onboarded && pathname !== "/onboarding";
+  const blockedForParent =
+    player.role === "parent" &&
+    !pathname.startsWith("/family") &&
+    !pathname.startsWith("/parent-dashboard") &&
+    pathname !== "/settings";
+
+  if (!hydrated || !isAuthed || blockedForOnboarding || blockedForParent) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <motion.span

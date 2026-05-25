@@ -42,14 +42,21 @@ const APP_LINKS = [
   { href: "/friends", label: "Friends", icon: Users },
 ];
 
+const PARENT_LINKS = [
+  { href: "/family", label: "Family", icon: Users },
+  { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
+  { href: "/schools", label: "Schools", icon: School },
+];
+
 export function Nav() {
-  const { isAuthed, hydrated, signOut } = usePlayer();
+  const { isAuthed, hydrated, player, signOut } = usePlayer();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const showApp = hydrated && isAuthed;
-  const links = showApp ? APP_LINKS : MARKETING_LINKS;
+  const isParent = showApp && player.role === "parent";
+  const links = showApp ? (isParent ? PARENT_LINKS : APP_LINKS) : MARKETING_LINKS;
 
   const handleSignOut = () => {
     signOut();
@@ -219,7 +226,7 @@ export function Nav() {
               <span>Recruiting workspace</span>
             </div>
             <div className="flex items-center gap-1">
-              {APP_LINKS.map((l) => {
+              {(isParent ? PARENT_LINKS : APP_LINKS).map((l) => {
                 const Icon = l.icon;
                 return (
                   <Link

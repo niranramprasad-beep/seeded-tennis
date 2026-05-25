@@ -31,6 +31,7 @@ import { UTRLineChart } from "@/components/charts/utr-line-chart";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { TournamentProgress } from "./tournament-progress";
 import { DailyCheckinCard } from "./daily-checkin-card";
+import { FamilyHubCard } from "./family-hub-card";
 import { ACTIVITY_META } from "@/lib/activity-style";
 import { formatUTR, monthsBetween, cn } from "@/lib/utils";
 import {
@@ -280,11 +281,15 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         </Card>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <DailyCheckinCard player={player} trainingHours={plan.weeklyHours} />
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5">
+        <FamilyHubCard />
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardAction
           href="/match-mode"
           icon={Trophy}

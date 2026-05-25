@@ -120,6 +120,16 @@ export interface EncouragementNote {
   createdAt: string;
 }
 
+export interface FamilyMember {
+  id: string;
+  name: string;
+  email: string;
+  role: "player" | "parent";
+  currentUtr: number;
+  grade: number;
+  onboarded: boolean;
+}
+
 async function userId(): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -143,13 +153,15 @@ export function localDateKey(date = new Date()): string {
 export async function loadDailyCheckins(): Promise<DailyCheckin[]> {
   const supabase = getSupabase();
   const id = await userId();
+  const p = await profile();
   if (!supabase || !id) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("daily_checkins")
     .select("*")
-    .eq("user_id", id)
     .gte("checkin_date", localDateKey(new Date(Date.now() - 31 * 86400000)))
     .order("checkin_date", { ascending: true });
+  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map(mapCheckin);
 }
@@ -243,12 +255,14 @@ export function generatePrepPlan(args: {
 export async function loadMatches(): Promise<MatchRecord[]> {
   const supabase = getSupabase();
   const id = await userId();
+  const p = await profile();
   if (!supabase || !id) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("matches")
     .select("*")
-    .eq("user_id", id)
     .order("match_date", { ascending: false });
+  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map(mapMatch);
 }
@@ -384,8 +398,11 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
 export async function loadCostCalculations(): Promise<CostCalculation[]> {
   const supabase = getSupabase();
   const id = await userId();
+  const p = await profile();
   if (!supabase || !id) return [];
-  const { data } = await supabase.from("cost_calculations").select("*").eq("user_id", id).order("created_at", { ascending: false });
+  let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false });
+  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  const { data } = await query;
   return (data ?? []).map(mapCost);
 }
 
@@ -397,14 +414,13 @@ export async function searchProfiles(query: string): Promise<FriendProfile[]> {
   const { data } = await supabase
     .from("profiles")
     .select("id,email,name,username,current_utr,privacy_level")
-    .or(`email.ilike.${q},name.ilike.${q},username.ilike.${q}`)
+    .or(`email.ilike.${q},name.ilike.${q}`)
     .neq("id", id)
     .limit(12);
   return (data ?? []).map(mapFriendProfile);
 }
 
 export async function updateProfileDiscovery(input: {
-  username: string;
   privacyLevel: FriendProfile["privacyLevel"];
 }) {
   const supabase = getSupabase();
@@ -413,11 +429,30 @@ export async function updateProfileDiscovery(input: {
   const { error } = await supabase
     .from("profiles")
     .update({
-      username: input.username.trim() || null,
       privacy_level: input.privacyLevel,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+export async function loadFamilyMembers(): Promise<FamilyMember[]> {
+  const supabase = getSupabase();
+  const p = await profile();
+  if (!supabase || !p?.family_code) return [];
+  const { data } = await supabase
+    .from("profiles")
+    .select("id,email,name,role,current_utr,grade,onboarded")
+    .eq("family_code", p.family_code)
+    .order("role", { ascending: false });
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.name ?? "Family member",
+    email: row.email ?? "",
+    role: row.role ?? "player",
+    currentUtr: Number(row.current_utr ?? 0),
+    grade: Number(row.grade ?? 0),
+    onboarded: Boolean(row.onboarded),
+  }));
 }
 
 export async function sendFriendRequest(addresseeId: string) {

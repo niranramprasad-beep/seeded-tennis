@@ -41,7 +41,7 @@ const config: Config = {
         serif: ["var(--font-cormorant)", "ui-serif", "Georgia", "serif"],
       },
       borderRadius: {
-        card: "12px",
+        card: "22px",
         pill: "30px",
       },
       borderWidth: {
@@ -69,8 +69,8 @@ const config: Config = {
         float: "float 7s ease-in-out infinite",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(31, 31, 26, 0.04), 0 8px 24px rgba(31, 31, 26, 0.05)",
-        lift: "0 12px 32px rgba(31, 31, 26, 0.10)",
+        soft: "0 1px 2px rgba(31, 31, 26, 0.035), 0 16px 44px rgba(31, 31, 26, 0.055)",
+        lift: "0 18px 52px rgba(31, 31, 26, 0.12)",
       },
     },
   },

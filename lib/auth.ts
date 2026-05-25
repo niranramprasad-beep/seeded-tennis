@@ -392,7 +392,7 @@ async function ensureSupabaseProfile(input: {
     commitment_date: `${graduationYear - 1}-09-01`,
     current_utr: 7,
     tournaments_goal: 12,
-    onboarded: false,
+    onboarded: input.role === "parent",
   });
 
   if (profileError) return { ok: false, error: profileError.message };

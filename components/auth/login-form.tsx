@@ -39,6 +39,10 @@ export function LoginForm() {
     }
     if (result.player) {
       beginSession(result.player);
+      if (result.player.role === "parent") {
+        router.push("/family");
+        return;
+      }
       router.push(result.player.onboarded ? "/dashboard" : "/onboarding");
       return;
     }
@@ -60,6 +64,10 @@ export function LoginForm() {
         onboarded: false,
       };
       beginSession(player);
+      if (player.role === "parent") {
+        router.push("/family");
+        return;
+      }
       router.push("/onboarding");
       return;
     }
@@ -152,6 +160,10 @@ export function LoginForm() {
           New here?{" "}
           <Link href="/signup" className="font-medium text-grass hover:underline">
             Create an account
+          </Link>
+          <span className="mx-2 text-stone-light">or</span>
+          <Link href="/parent-signup" className="font-medium text-grass hover:underline">
+            parent signup
           </Link>
         </p>
       </div>

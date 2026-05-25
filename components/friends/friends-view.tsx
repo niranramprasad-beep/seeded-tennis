@@ -30,9 +30,8 @@ function FriendsInner() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FriendProfile[]>([]);
   const [friendships, setFriendships] = useState<Friendship[]>([]);
-  const [username, setUsername] = useState("");
   const [privacyLevel, setPrivacyLevel] = useState<FriendProfile["privacyLevel"]>("friends");
-  const [status, setStatus] = useState("Search by username or email.");
+  const [status, setStatus] = useState("Search by name or email.");
 
   const refresh = () => loadFriendships().then(setFriendships);
   useEffect(() => {
@@ -55,7 +54,7 @@ function FriendsInner() {
   };
 
   const saveDiscovery = async () => {
-    await updateProfileDiscovery({ username, privacyLevel });
+    await updateProfileDiscovery({ privacyLevel });
     setStatus("Privacy settings saved.");
   };
 
@@ -81,16 +80,10 @@ function FriendsInner() {
         <div className="space-y-5">
           <Card className="p-5">
             <h2 className="font-medium text-ink">Discovery settings</h2>
-            <input
-              className="mt-4 h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm focus:outline-none focus:ring-2 focus:ring-grass/30"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
             <select
               value={privacyLevel}
               onChange={(e) => setPrivacyLevel(e.target.value as FriendProfile["privacyLevel"])}
-              className="mt-3 h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm focus:outline-none focus:ring-2 focus:ring-grass/30"
+              className="mt-4 h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm focus:outline-none focus:ring-2 focus:ring-grass/30"
             >
               <option value="public">Public</option>
               <option value="friends">Friends only</option>
@@ -106,7 +99,7 @@ function FriendsInner() {
             <div className="mt-4 flex gap-2">
               <input
                 className="h-11 min-w-0 flex-1 rounded-xl border-[0.5px] border-line bg-card px-4 text-sm focus:outline-none focus:ring-2 focus:ring-grass/30"
-                placeholder="Email, name, username"
+                placeholder="Email or name"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -188,7 +181,7 @@ function FriendCard({ profile, action }: { profile: FriendProfile; action?: Reac
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-ink">{profile.name}</p>
-          <p className="mt-1 text-xs text-stone-light">{profile.username || profile.email}</p>
+          <p className="mt-1 text-xs text-stone-light">{profile.email}</p>
         </div>
         <Badge variant="outline">{formatUTR(profile.currentUtr)} UTR</Badge>
       </div>

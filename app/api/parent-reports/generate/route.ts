@@ -23,6 +23,13 @@ export async function POST(request: Request) {
   }
 
   const familyCode = profile.family_code as string;
+  const { data: playerProfile } = await supabase
+    .from("profiles")
+    .select("id,name")
+    .eq("family_code", familyCode)
+    .eq("role", "player")
+    .maybeSingle();
+  const playerId = playerProfile?.id ?? userData.user.id;
   const month = new Date();
   month.setDate(1);
   const monthKey = month.toISOString().slice(0, 10);
@@ -32,15 +39,15 @@ export async function POST(request: Request) {
   const [{ data: checkins }, { data: sessions }, { data: matches }, { data: badges }] =
     await Promise.all([
       supabase.from("daily_checkins").select("*").eq("family_code", familyCode).gte("checkin_date", monthStart).lte("checkin_date", monthEnd),
-      supabase.from("workout_sessions").select("*").eq("user_id", userData.user.id).gte("scheduled_date", monthStart).lte("scheduled_date", monthEnd),
+      supabase.from("workout_sessions").select("*").eq("user_id", playerId).gte("scheduled_date", monthStart).lte("scheduled_date", monthEnd),
       supabase.from("matches").select("*").eq("family_code", familyCode).gte("match_date", monthStart).lte("match_date", monthEnd),
-      supabase.from("badges").select("*").eq("user_id", userData.user.id).order("earned_at", { ascending: false }).limit(5),
+      supabase.from("badges").select("*").eq("user_id", playerId).order("earned_at", { ascending: false }).limit(5),
     ]);
 
   const hours = (sessions ?? []).reduce((sum: number, row: any) => sum + Number(row.duration_minutes ?? 0) / 60, 0);
   const completed = (sessions ?? []).filter((row: any) => row.completed).length;
   const areas = [...new Set((checkins ?? []).flatMap((row: any) => row.focus_areas ?? []))].slice(0, 8);
-  const title = `${profile.name ?? "Player"} monthly report`;
+  const title = `${playerProfile?.name ?? profile.name ?? "Player"} monthly report`;
   const summary = {
     hoursTrained: Math.round(hours * 10) / 10,
     sessionsCompleted: completed,
@@ -77,7 +84,7 @@ export async function POST(request: Request) {
     .upsert(
       {
         family_code: familyCode,
-        player_id: userData.user.id,
+        player_id: playerId,
         month: monthKey,
         title,
         summary,

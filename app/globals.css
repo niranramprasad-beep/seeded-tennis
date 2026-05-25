@@ -107,6 +107,11 @@
   body {
     @apply bg-cream text-ink font-sans antialiased;
     font-feature-settings: "ss01", "cv01";
+    background-image:
+      radial-gradient(circle at 12% 8%, rgb(var(--c-lime) / 0.18), transparent 28%),
+      radial-gradient(circle at 86% 18%, rgb(var(--c-leaf) / 0.12), transparent 26%),
+      linear-gradient(180deg, rgb(var(--c-bg)), rgb(var(--c-primary-50) / 0.32));
+    background-attachment: fixed;
   }
 
   ::selection {
@@ -139,6 +144,14 @@
 
   .hairline {
     @apply border-[0.5px] border-line;
+  }
+
+  .surface-panel {
+    @apply rounded-[28px] border-[0.5px] border-line/80 bg-card/88 shadow-soft backdrop-blur-sm;
+  }
+
+  .soft-band {
+    @apply rounded-[32px] border-[0.5px] border-line/70 bg-gradient-to-br from-card via-card to-grass-50/60 shadow-soft;
   }
 
   /* Range slider */

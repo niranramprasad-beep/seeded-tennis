@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, FileText, Heart, MessageCircle, TrendingUp } from "lucide-react";
+import { Download, FileText, Heart, MessageCircle, Shield, TrendingUp, Users } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,13 @@ import { getSupabase } from "@/lib/supabase/client";
 import {
   loadDailyCheckins,
   loadEncouragementNotes,
+  loadFamilyMembers,
   loadMatches,
   loadParentReports,
   saveEncouragementNote,
   type DailyCheckin,
   type EncouragementNote,
+  type FamilyMember,
   type MatchRecord,
   type ParentReport,
 } from "@/lib/supabase/features";
@@ -36,20 +38,23 @@ function ParentDashboardInner() {
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [reports, setReports] = useState<ParentReport[]>([]);
   const [notes, setNotes] = useState<EncouragementNote[]>([]);
+  const [members, setMembers] = useState<FamilyMember[]>([]);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
 
   const refresh = async () => {
-    const [c, m, r, n] = await Promise.all([
+    const [c, m, r, n, family] = await Promise.all([
       loadDailyCheckins(),
       loadMatches(),
       loadParentReports(),
       loadEncouragementNotes(),
+      loadFamilyMembers(),
     ]);
     setCheckins(c);
     setMatches(m);
     setReports(r);
     setNotes(n);
+    setMembers(family);
   };
 
   useEffect(() => {
@@ -88,17 +93,18 @@ function ParentDashboardInner() {
 
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
+  const playerMember = members.find((member) => member.role === "player");
 
   return (
     <main className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">Parent dashboard</p>
+          <p className="font-serif text-lg italic text-leaf-accent">Family dashboard</p>
           <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
-            A clear read on the whole tennis path.
+            Everything your family needs in one place.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">
-            Parents can follow progress, download monthly reports, and leave encouragement notes.
+            Track your player, view family members, download reports, and leave encouragement notes.
           </p>
         </div>
         <Badge variant="leaf" size="md">
@@ -106,15 +112,52 @@ function ParentDashboardInner() {
         </Badge>
       </div>
 
-      <div className="mt-7 grid gap-4 md:grid-cols-4">
-        <Metric label="Current UTR" value={formatUTR(player.currentUTR)} />
+      <div className="mt-7 soft-band p-4 md:p-5">
+        <div className="grid gap-4 md:grid-cols-4">
+        <Metric label="Player UTR" value={formatUTR(playerMember?.currentUtr ?? player.currentUTR)} />
         <Metric label="Check-ins" value={String(checkins.length)} />
         <Metric label="Matches logged" value={String(completedMatches)} />
-        <Metric label="Upcoming" value={String(upcomingMatches.length)} />
+        <Metric label="Family members" value={String(members.length || 1)} />
+        </div>
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_380px]">
         <div className="space-y-5">
+          <Card className="overflow-hidden border-grass/15 p-0">
+            <div className="bg-grass p-6 text-cream">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-leaf-accent" />
+              <h2 className="font-medium">Family members</h2>
+            </div>
+            <p className="mt-2 text-sm text-cream/75">
+              Everyone connected to this family can see the same progress and notes.
+            </p>
+            </div>
+            <div className="grid gap-3 p-5 md:grid-cols-2">
+              {members.map((member) => (
+                <div key={member.id} className="rounded-[22px] border-[0.5px] border-line bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-ink">{member.name}</p>
+                      <p className="mt-1 text-xs text-stone-light">{member.email}</p>
+                    </div>
+                    <Badge variant={member.role === "player" ? "leaf" : "outline"}>{member.role}</Badge>
+                  </div>
+                  {member.role === "player" && (
+                    <p className="mt-3 text-sm text-stone">
+                      {formatUTR(member.currentUtr)} UTR · {member.grade}th grade
+                    </p>
+                  )}
+                </div>
+              ))}
+              {!members.length && (
+                <p className="text-sm text-stone">
+                  No family members loaded yet. Make sure the family code was entered exactly.
+                </p>
+              )}
+            </div>
+          </Card>
+
           <Card className="p-6">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-grass" />
@@ -147,6 +190,23 @@ function ParentDashboardInner() {
         </div>
 
         <div className="space-y-5">
+          <Card className="bg-grass p-6 text-cream">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-leaf-accent" />
+              <h2 className="font-medium">Parent access</h2>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-cream/78">
+              You are connected to family code {player.familyCode ?? "not set"}. This view is built
+              for parents: quick progress, family members, reports, and notes.
+            </p>
+            <div className="mt-4 rounded-[22px] bg-cream/10 p-4">
+              <p className="text-xs text-cream/60">What the player sees</p>
+              <p className="mt-1 text-sm text-cream/90">
+                Notes you leave here now appear in the player dashboard family hub.
+              </p>
+            </div>
+          </Card>
+
           <Card className="p-6">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-grass" />
