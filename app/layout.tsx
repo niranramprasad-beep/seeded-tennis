@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "@/components/layout/nav";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -50,6 +51,7 @@ export default function RootLayout({
           <main>{children}</main>
         </Providers>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
