@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  Check,
   Gauge,
   Mail,
+  Plus,
   Target,
   Users,
 } from "lucide-react";
@@ -19,13 +21,19 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Drawer } from "@/components/ui/drawer";
 import { LockedOverlay } from "@/components/shared/locked-overlay";
 import { UTRLineChart } from "@/components/charts/utr-line-chart";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { TournamentProgress } from "./tournament-progress";
 import { ACTIVITY_META } from "@/lib/activity-style";
 import { formatUTR, monthsBetween, cn } from "@/lib/utils";
+import {
+  createUtrEntry,
+  loadUtrEntries,
+  type UtrEntry,
+} from "@/lib/supabase/utr";
 
 interface DashboardViewProps {
   schools: School[];
@@ -42,8 +50,12 @@ export function DashboardView(props: DashboardViewProps) {
 }
 
 function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
-  const { player } = usePlayer();
+  const { player, updatePlayer } = usePlayer();
   const { tier } = useTier();
+  const [utrEntries, setUtrEntries] = useState<UtrEntry[]>([]);
+  const [utrDrawerOpen, setUtrDrawerOpen] = useState(false);
+  const [utrStatus, setUtrStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
+  const [utrError, setUtrError] = useState("");
 
   const targetSchools = useMemo(
     () => schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)),
@@ -81,6 +93,76 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
   );
 
   const firstName = player.name.split(" ")[0];
+  const today = new Date().toISOString().slice(0, 10);
+  const latestUtrEntry = utrEntries[utrEntries.length - 1];
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setUtrStatus("loading");
+        const entries = await loadUtrEntries();
+        if (!cancelled) {
+          setUtrEntries(entries);
+          setUtrStatus("idle");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setUtrStatus("error");
+          setUtrError(error instanceof Error ? error.message : "Could not load UTR history.");
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const recentUtrChartData = useMemo(() => {
+    const entries = utrEntries.length
+      ? utrEntries
+      : [
+          {
+            id: "baseline",
+            utr: player.currentUTR,
+            recordedAt: today,
+            note: "Current profile UTR",
+          },
+        ];
+    return entries.slice(-6).map((entry) => ({
+      label: new Date(`${entry.recordedAt}T00:00:00`).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      utr: entry.utr,
+    }));
+  }, [player.currentUTR, today, utrEntries]);
+
+  const handleSaveUtr = async (input: { utr: number; recordedAt: string; note: string }) => {
+    setUtrStatus("saving");
+    setUtrError("");
+    try {
+      const saved = await createUtrEntry(input);
+      const entry =
+        saved ??
+        ({
+          id: `local-${Date.now()}`,
+          utr: input.utr,
+          recordedAt: input.recordedAt,
+          note: input.note,
+        } satisfies UtrEntry);
+      setUtrEntries((prev) =>
+        [...prev, entry].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
+      );
+      updatePlayer({ currentUTR: input.utr });
+      setUtrDrawerOpen(false);
+      setUtrStatus("idle");
+    } catch (error) {
+      setUtrStatus("error");
+      setUtrError(error instanceof Error ? error.message : "Could not save UTR entry.");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
@@ -99,13 +181,19 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
             {targetSchools.length === 1 ? "school" : "schools"}
           </p>
         </div>
-        <Badge variant={tier === "free" ? "outline" : "leaf"} size="md">
-          {tier === "free"
-            ? "Free plan"
-            : tier === "player"
-              ? "Player plan"
-              : "Family plan"}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" size="sm" onClick={() => setUtrDrawerOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Update UTR
+          </Button>
+          <Badge variant={tier === "free" ? "outline" : "leaf"} size="md">
+            {tier === "free"
+              ? "Free plan"
+              : tier === "player"
+                ? "Player plan"
+                : "Family plan"}
+          </Badge>
+        </div>
       </div>
 
       {/* stat cards */}
@@ -133,6 +221,59 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
           accent="tennis"
           hint={`Goal: verbal by ${new Date(player.commitmentDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
         />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-3 p-6 pb-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-medium text-ink">Recent UTR progress</h2>
+              <p className="text-sm text-stone">
+                Logged ratings tied to your account, newest entry updates your profile UTR.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setUtrDrawerOpen(true)}>
+              Log rating
+            </Button>
+          </div>
+          <div className="px-3 pb-4">
+            <UTRLineChart
+              data={recentUtrChartData}
+              target={targetUTR}
+              height={190}
+              showAxis={recentUtrChartData.length > 1}
+            />
+          </div>
+        </Card>
+        <Card className="p-6">
+          <p className="font-serif text-base italic text-leaf-accent">Latest checkpoint</p>
+          <div className="mt-3 flex items-end justify-between">
+            <div>
+              <p className="text-4xl font-light tracking-tight text-ink">
+                {formatUTR(latestUtrEntry?.utr ?? player.currentUTR)}
+              </p>
+              <p className="mt-1 text-sm text-stone">
+                {latestUtrEntry
+                  ? new Date(`${latestUtrEntry.recordedAt}T00:00:00`).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "No history logged yet"}
+              </p>
+            </div>
+            <Gauge className="h-9 w-9 text-grass/35" />
+          </div>
+          <div className="mt-5 rounded-2xl bg-grass-50 p-4">
+            <p className="text-sm leading-relaxed text-stone">
+              {formatUTR(Math.max(targetUTR - player.currentUTR, 0))} UTR gap to your current
+              target. Log ratings after verified updates so the roadmap stays honest.
+            </p>
+          </div>
+          {utrStatus === "error" && (
+            <p className="mt-3 text-xs text-[#9C3B22]">{utrError}</p>
+          )}
+        </Card>
       </div>
 
       {/* main grid */}
@@ -311,7 +452,113 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
           </div>
         </div>
       )}
+      <UtrLogDrawer
+        open={utrDrawerOpen}
+        currentUtr={player.currentUTR}
+        loading={utrStatus === "saving"}
+        error={utrError}
+        onClose={() => {
+          setUtrDrawerOpen(false);
+          setUtrError("");
+        }}
+        onSave={handleSaveUtr}
+      />
     </div>
+  );
+}
+
+function UtrLogDrawer({
+  open,
+  currentUtr,
+  loading,
+  error,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  currentUtr: number;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+  onSave: (input: { utr: number; recordedAt: string; note: string }) => void;
+}) {
+  const [utr, setUtr] = useState(currentUtr.toFixed(1));
+  const [recordedAt, setRecordedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setUtr(currentUtr.toFixed(1));
+    setRecordedAt(new Date().toISOString().slice(0, 10));
+    setNote("");
+    setLocalError("");
+  }, [currentUtr, open]);
+
+  const submit = () => {
+    const value = Number(utr);
+    if (!Number.isFinite(value) || value < 1 || value > 16) {
+      setLocalError("Enter a UTR between 1.0 and 16.0.");
+      return;
+    }
+    if (!recordedAt) {
+      setLocalError("Choose the date this rating was recorded.");
+      return;
+    }
+    onSave({ utr: value, recordedAt, note });
+  };
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      eyebrow="Update UTR"
+      title="Log a verified rating"
+      footer={
+        <Button className="w-full" onClick={submit} disabled={loading}>
+          {loading ? "Saving..." : "Save UTR entry"}
+          <Check className="h-4 w-4" />
+        </Button>
+      }
+    >
+      <div className="space-y-5">
+        {(localError || error) && (
+          <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+            {localError || error}
+          </p>
+        )}
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-stone-light">Current UTR</span>
+          <input
+            type="number"
+            min={1}
+            max={16}
+            step={0.1}
+            value={utr}
+            onChange={(event) => setUtr(event.target.value)}
+            className="h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-stone-light">Date</span>
+          <input
+            type="date"
+            value={recordedAt}
+            onChange={(event) => setRecordedAt(event.target.value)}
+            className="h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-stone-light">Optional note</span>
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Example: new verified singles result after L4 Bethesda draw"
+            className="min-h-[104px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
+          />
+        </label>
+      </div>
+    </Drawer>
   );
 }
 

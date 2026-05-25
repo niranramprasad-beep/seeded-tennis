@@ -34,6 +34,12 @@ Open Supabase → SQL Editor and run:
 -- contents of supabase/migrations/001_initial_saas_schema.sql
 ```
 
+Then run the follow-up migration:
+
+```sql
+-- contents of supabase/migrations/002_utr_entries.sql
+```
+
 This creates:
 
 - `profiles`
@@ -43,6 +49,7 @@ This creates:
 - `session_exercises`
 - `saved_templates`
 - `user_settings`
+- `utr_entries`
 
 It also adds:
 

@@ -5,12 +5,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Dumbbell,
   GripVertical,
   LayoutList,
   Plus,
+  RotateCcw,
   Settings,
   Sparkles,
   Target,
@@ -157,6 +159,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const [editingSession, setEditingSession] = useState<TrainingPlannerSession | null>(null);
   const [editingPlan, setEditingPlan] = useState<TrainingFolder | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -392,8 +395,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   };
 
   return (
-    <div className="mx-auto max-w-content container-px py-8">
-      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+    <div className="mx-auto max-w-[1440px] container-px py-10">
+      <div className="grid gap-7 xl:grid-cols-[292px_1fr]">
         <TrainingActionRail
           view={view}
           setView={setView}
@@ -413,11 +416,11 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             animate={{ opacity: 1, y: 0 }}
             className="overflow-hidden rounded-[22px] border-[0.5px] border-line bg-card shadow-soft"
           >
-            <div className="border-b-[0.5px] border-line bg-grass px-5 py-7 text-cream sm:px-8">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="border-b-[0.5px] border-line bg-grass px-6 py-8 text-cream sm:px-9 lg:px-10">
+              <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <p className="font-serif text-lg italic text-leaf-accent">Training planner</p>
-                  <h1 className="mt-1 text-3xl font-light tracking-tight sm:text-5xl">
+                  <h1 className="mt-1 max-w-3xl text-3xl font-light tracking-tight sm:text-5xl">
                     Build the week that moves your UTR.
                   </h1>
                   <p className="mt-3 max-w-2xl text-sm leading-relaxed text-cream/78 sm:text-base">
@@ -426,7 +429,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                     with match play and recovery protected.
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-2 rounded-card bg-cream/10 p-2 text-center">
+                <div className="grid w-full gap-3 rounded-[20px] border border-cream/12 bg-cream/10 p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:grid-cols-3 xl:max-w-[460px]">
                   <MiniMetric label="planned" value={`${Math.round(totalMinutes / 60)}h`} />
                   <MiniMetric label="complete" value={`${progress}%`} />
                   <MiniMetric label="sessions" value={String(activeSessions.length)} />
@@ -434,9 +437,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
               </div>
             </div>
 
-            <div className="grid gap-5 p-5 sm:p-8 xl:grid-cols-[1fr_280px]">
+            <div className="grid gap-7 p-6 sm:p-9 lg:p-10 2xl:grid-cols-[1fr_320px]">
               <section className="min-w-0">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <select
@@ -469,7 +472,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                       <p className="mt-2 text-xs text-[#9C3B22]">{syncError}</p>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -509,6 +512,31 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                   </div>
                 </div>
 
+                <div className="mt-6 flex flex-col gap-3 rounded-[18px] border-[0.5px] border-line bg-cream/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      {weekLabel(weekOffset)}
+                    </p>
+                    <p className="text-xs text-stone-light">
+                      Drag sessions between days, then open any card to edit the details.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setWeekOffset((value) => value - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button variant="subtle" size="sm" onClick={() => setWeekOffset(0)}>
+                      <RotateCcw className="h-4 w-4" />
+                      Today
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setWeekOffset((value) => value + 1)}>
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={view}
@@ -534,6 +562,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                         onMove={moveSession}
                         onDrag={setDraggingId}
                         onToggle={toggleComplete}
+                        weekOffset={weekOffset}
                       />
                     )}
                     {view === "day" && (
@@ -563,7 +592,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                 </AnimatePresence>
               </section>
 
-              <aside className="space-y-4">
+              <aside className="space-y-5">
                 <Card className="p-5">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-grass" />
@@ -681,21 +710,21 @@ function TrainingActionRail({
   ];
 
   return (
-    <aside className="lg:sticky lg:top-24 lg:self-start">
-      <Card className="overflow-hidden p-3">
-        <div className="border-b-[0.5px] border-line px-2 pb-3">
+    <aside className="xl:sticky xl:top-32 xl:self-start">
+      <Card className="overflow-hidden p-4">
+        <div className="border-b-[0.5px] border-line px-2 pb-4">
           <p className="font-serif text-base italic text-leaf-accent">Plan actions</p>
           <p className="mt-1 text-xs leading-relaxed text-stone">
             Create, organize, and review every session in one place.
           </p>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
+        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-1">
           {actions.map((a) => (
             <button
               key={a.label}
               onClick={a.onClick}
               className={cn(
-                "group flex items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition-all focus:outline-none focus:ring-2 focus:ring-grass/30",
+                "group flex items-center justify-between rounded-2xl px-3.5 py-3.5 text-left text-sm transition-all focus:outline-none focus:ring-2 focus:ring-grass/30",
                 a.primary
                   ? "bg-grass text-cream shadow-soft hover:shadow-lift"
                   : "bg-cream/60 text-ink hover:bg-grass-50"
@@ -709,7 +738,7 @@ function TrainingActionRail({
             </button>
           ))}
         </div>
-        <div className="mt-3 rounded-2xl bg-grass-50 p-2">
+        <div className="mt-4 rounded-2xl bg-grass-50 p-3">
           <p className="px-1 text-xs font-medium text-stone">Calendar view</p>
           <div className="mt-2 grid grid-cols-3 gap-1">
             {(["day", "week", "month"] as const).map((v) => (
@@ -742,13 +771,15 @@ function WeekPlanner(props: {
   onMove: (sessionId: string, day: WeekdayShort) => void;
   onDrag: (id: string | null) => void;
   onToggle: (id: string) => void;
+  weekOffset: number;
 }) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-3">
+    <div className="flex gap-4 overflow-x-auto pb-4">
       {WEEK_ORDER.map((day) => {
         const sessions = props.sessionsByDay.get(day) ?? [];
         const minutes = sessions.reduce((sum, s) => sum + s.duration, 0);
         const isDropTarget = Boolean(props.draggingId);
+        const date = dateForWeekday(day, props.weekOffset);
         return (
           <motion.div
             key={day}
@@ -756,19 +787,29 @@ function WeekPlanner(props: {
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => props.draggingId && props.onMove(props.draggingId, day)}
             className={cn(
-              "min-h-[300px] w-[190px] shrink-0 rounded-card border-[0.5px] border-line bg-cream/55 p-3 transition-colors 2xl:w-[205px]",
+              "min-h-[410px] w-[220px] shrink-0 rounded-[18px] border-[0.5px] border-line bg-cream/55 p-4 transition-colors 2xl:w-[238px]",
               props.selectedDay === day && "ring-2 ring-grass/20",
               isDropTarget && "hover:bg-grass-50"
             )}
           >
             <button
               onClick={() => props.onSelectDay(day)}
-              className="flex w-full items-center justify-between rounded-xl px-1 py-1 text-left focus:outline-none focus:ring-2 focus:ring-grass/30"
+              className="flex w-full items-start justify-between rounded-xl px-1 py-1 text-left focus:outline-none focus:ring-2 focus:ring-grass/30"
             >
-              <span className="font-medium text-ink">{day}</span>
-              <span className="text-xs text-stone-light">{Math.round(minutes / 60)}h</span>
+              <span>
+                <span className="block text-lg font-medium text-ink">{day}</span>
+                <span className="text-xs text-stone-light">
+                  {new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </span>
+              <span className="rounded-full bg-card px-2 py-1 text-xs text-stone">
+                {Math.round(minutes / 60)}h
+              </span>
             </button>
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-3">
               {sessions.map((session) => (
                 <SessionCard
                   key={session.id}
@@ -782,7 +823,7 @@ function WeekPlanner(props: {
               {sessions.length === 0 && (
                 <button
                   onClick={() => props.onAdd(day)}
-                  className="flex min-h-[92px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-line text-center text-xs text-stone-light transition-colors hover:border-grass/40 hover:bg-card hover:text-grass focus:outline-none focus:ring-2 focus:ring-grass/30"
+                  className="flex min-h-[148px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-line text-center text-sm text-stone-light transition-colors hover:border-grass/40 hover:bg-card hover:text-grass focus:outline-none focus:ring-2 focus:ring-grass/30"
                 >
                   <Plus className="mb-1 h-4 w-4" />
                   Add a session
@@ -792,7 +833,7 @@ function WeekPlanner(props: {
             {sessions.length > 0 && (
               <button
                 onClick={() => props.onAdd(day)}
-                className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl py-2 text-xs font-medium text-stone transition-colors hover:bg-card hover:text-grass focus:outline-none focus:ring-2 focus:ring-grass/30"
+                className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl py-2.5 text-xs font-medium text-stone transition-colors hover:bg-card hover:text-grass focus:outline-none focus:ring-2 focus:ring-grass/30"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add
@@ -949,12 +990,13 @@ function SessionCard({
       onDragEnd={() => onDrag(null)}
       whileHover={{ y: -2 }}
       className={cn(
-        "group rounded-2xl border-[0.5px] border-line bg-card p-3 shadow-[0_8px_24px_rgba(31,31,26,0.04)]",
+        "group rounded-2xl border-[0.5px] border-line bg-card p-4 shadow-[0_8px_24px_rgba(31,31,26,0.04)] transition-shadow hover:shadow-lift",
         session.completed && "bg-grass-50/80",
-        wide && "p-4"
+        wide && "p-5"
       )}
+      style={{ borderLeftColor: type.color, borderLeftWidth: 3 }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(session.id)}
           className={cn(
@@ -978,7 +1020,7 @@ function SessionCard({
               {session.startTime} · {session.duration}m
             </span>
           </div>
-          <h3 className={cn("mt-2 truncate text-sm font-medium text-ink", session.completed && "line-through decoration-grass/40")}>
+          <h3 className={cn("mt-3 truncate text-sm font-medium text-ink", session.completed && "line-through decoration-grass/40")}>
             {session.title}
           </h3>
           <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone">{session.goals || session.notes}</p>
@@ -1264,9 +1306,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-cream/10 px-4 py-3">
-      <p className="text-2xl font-light text-leaf-accent">{value}</p>
-      <p className="mt-0.5 text-[11px] uppercase tracking-wide text-cream/62">{label}</p>
+    <div className="rounded-2xl bg-cream/12 px-5 py-4">
+      <p className="text-3xl font-light leading-none text-leaf-accent">{value}</p>
+      <p className="mt-2 text-[11px] uppercase tracking-wide text-cream/68">{label}</p>
     </div>
   );
 }
@@ -1292,13 +1334,24 @@ function getType(types: TrainingSessionType[], id: string): TrainingSessionType 
   return types.find((t) => t.id === id) ?? types[0] ?? DEFAULT_TYPES[0];
 }
 
-function dateForWeekday(day: WeekdayShort): string {
+function dateForWeekday(day: WeekdayShort, weekOffset = 0): string {
   const now = new Date();
   const current = (now.getDay() + 6) % 7;
   const target = WEEK_ORDER.indexOf(day);
   const date = new Date(now);
-  date.setDate(now.getDate() + (target - current));
+  date.setDate(now.getDate() + (target - current) + weekOffset * 7);
   return date.toISOString().slice(0, 10);
+}
+
+function weekLabel(weekOffset: number): string {
+  const start = new Date(`${dateForWeekday("Mon", weekOffset)}T00:00:00`);
+  const end = new Date(`${dateForWeekday("Sun", weekOffset)}T00:00:00`);
+  const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (weekOffset === 0) return `This week, ${startLabel} - ${endLabel}`;
+  if (weekOffset === -1) return `Last week, ${startLabel} - ${endLabel}`;
+  if (weekOffset === 1) return `Next week, ${startLabel} - ${endLabel}`;
+  return `${startLabel} - ${endLabel}`;
 }
 
 function ordinal(grade: number): string {

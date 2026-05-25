@@ -129,9 +129,9 @@ export function PricingView() {
             <Card
               key={plan.tier}
               className={cn(
-                "relative flex h-full flex-col p-7",
+                "relative flex h-full flex-col overflow-hidden p-7",
                 plan.popular
-                  ? "border-2 border-grass shadow-lift"
+                  ? "border-2 border-grass pt-10 shadow-lift"
                   : "border-[0.5px]"
               )}
             >
@@ -139,7 +139,7 @@ export function PricingView() {
                 <Badge
                   variant="leaf"
                   size="md"
-                  className="absolute -top-3 left-1/2 -translate-x-1/2"
+                  className="absolute right-5 top-5 shadow-soft"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   Most popular
