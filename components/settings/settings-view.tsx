@@ -48,7 +48,7 @@ function SettingsInner() {
           <h2 className="text-lg font-medium text-ink">Appearance</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
-          Pick a court. Your theme is saved across sessions.
+          Pick a court mood. Your theme is saved across sessions.
         </p>
         <div className="mt-5">
           <ThemeSwitcher />
@@ -92,7 +92,7 @@ function SettingsInner() {
           <h2 className="text-lg font-medium text-ink">Account</h2>
         </div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Player" value={player.name} />
+          <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name} />
           <Field label="Current UTR" value={player.currentUTR.toFixed(1)} />
           <Field label="Grade" value={`${player.grade}th grade`} />
           <Field label="Class of" value={String(player.graduationYear)} />

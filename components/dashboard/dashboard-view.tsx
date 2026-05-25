@@ -201,8 +201,9 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         </div>
       </div>
 
+      <div className="mt-8 court-surface p-4 sm:p-5">
       {/* stat cards */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="relative grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Current UTR"
           value={player.currentUTR}
@@ -227,8 +228,9 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
           hint={`Goal: verbal by ${new Date(player.commitmentDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
         />
       </div>
+      </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_340px]">
         <Card className="overflow-hidden">
           <div className="flex flex-col gap-3 p-6 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

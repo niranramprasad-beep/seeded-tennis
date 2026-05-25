@@ -118,6 +118,8 @@ export interface EncouragementNote {
   id: string;
   body: string;
   createdAt: string;
+  authorName: string;
+  authorRole: "player" | "parent";
 }
 
 export interface FamilyMember {
@@ -498,8 +500,32 @@ export async function loadEncouragementNotes(): Promise<EncouragementNote[]> {
   const supabase = getSupabase();
   const p = await profile();
   if (!supabase || !p?.family_code) return [];
-  const { data } = await supabase.from("encouragement_notes").select("*").eq("family_code", p.family_code).order("created_at", { ascending: false });
-  return (data ?? []).map((row: any) => ({ id: row.id, body: row.body, createdAt: row.created_at }));
+  const { data } = await supabase
+    .from("encouragement_notes")
+    .select("*")
+    .eq("family_code", p.family_code)
+    .order("created_at", { ascending: false });
+  const authorIds = [...new Set((data ?? []).map((row: any) => row.parent_id).filter(Boolean))];
+  let authors = new Map<string, { name: string; role: "player" | "parent" }>();
+  if (authorIds.length) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id,name,role")
+      .in("id", authorIds);
+    authors = new Map(
+      (profileRows ?? []).map((row: any) => [
+        row.id,
+        { name: row.name ?? "Family member", role: row.role ?? "parent" },
+      ])
+    );
+  }
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    body: row.body,
+    createdAt: row.created_at,
+    authorName: authors.get(row.parent_id)?.name ?? "Family member",
+    authorRole: authors.get(row.parent_id)?.role ?? "parent",
+  }));
 }
 
 export async function saveEncouragementNote(body: string) {

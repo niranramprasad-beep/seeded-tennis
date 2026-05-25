@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type ThemeId = "grass" | "clay" | "night" | "hard";
+export type ThemeId = "grass" | "clay" | "night" | "hard" | "utr" | "championship";
 
 export const THEMES: {
   id: ThemeId;
@@ -43,6 +43,18 @@ export const THEMES: {
     name: "Hard Court",
     description: "Cool off-white, electric blue",
     swatch: ["#F4F6F8", "#1F6FEB", "#22D3EE"],
+  },
+  {
+    id: "utr",
+    name: "UTR Pulse",
+    description: "Clean white, black ink, electric rating green",
+    swatch: ["#F8FAF7", "#141610", "#B7FF3C"],
+  },
+  {
+    id: "championship",
+    name: "Championship",
+    description: "Ivory, navy graphite, trophy gold",
+    swatch: ["#FAF7EF", "#162033", "#C8A84E"],
   },
 ];
 

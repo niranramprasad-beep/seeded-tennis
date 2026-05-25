@@ -249,9 +249,13 @@ function ParentDashboardInner() {
             </Button>
             <div className="mt-4 space-y-2">
               {notes.slice(0, 4).map((n) => (
-                <p key={n.id} className="rounded-xl bg-cream px-4 py-3 text-sm text-stone">
-                  {n.body}
-                </p>
+                <div key={n.id} className="rounded-[18px] bg-cream px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-ink">{n.authorName}</p>
+                    <span className="text-[11px] capitalize text-stone-light">{n.authorRole}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-stone">{n.body}</p>
+                </div>
               ))}
             </div>
           </Card>

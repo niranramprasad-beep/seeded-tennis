@@ -108,9 +108,13 @@ export function FamilyHubCard() {
 
           <div className="mt-4 space-y-2">
             {notes.slice(0, 3).map((item) => (
-              <p key={item.id} className="rounded-[18px] bg-cream/80 px-4 py-3 text-sm text-stone">
-                {item.body}
-              </p>
+              <div key={item.id} className="rounded-[18px] bg-cream/80 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-ink">{item.authorName}</p>
+                  <span className="text-[11px] capitalize text-stone-light">{item.authorRole}</span>
+                </div>
+                <p className="mt-1 text-sm text-stone">{item.body}</p>
+              </div>
             ))}
             {!notes.length && (
               <p className="rounded-[18px] bg-cream/80 px-4 py-3 text-sm text-stone">

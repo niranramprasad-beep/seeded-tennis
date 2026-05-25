@@ -45,33 +45,35 @@ export function TournamentProgress({
     new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
-    <Card className="p-6">
+    <Card className="overflow-hidden p-0">
+      <div className="bg-gradient-to-br from-grass to-grass-800 p-6 text-cream">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-grass-50 text-grass">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream/14 text-leaf-accent">
             <Trophy className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-medium text-ink">Tournament progress</h2>
-            <p className="text-sm text-stone">2026 season</p>
+            <h2 className="text-lg font-medium">Tournament progress</h2>
+            <p className="text-sm text-cream/70">2026 season</p>
           </div>
         </div>
-        <span className="text-2xl font-light text-ink">
+        <span className="text-2xl font-light">
           {played}
-          <span className="text-stone-light">/{goal}</span>
+          <span className="text-cream/50">/{goal}</span>
         </span>
       </div>
 
       <div className="mt-5">
         <Progress value={pct} />
-        <div className="mt-2 flex justify-between text-xs text-stone-light">
+        <div className="mt-2 flex justify-between text-xs text-cream/60">
           <span>{played} played</span>
           <span>{Math.max(0, goal - played)} to reach your goal</span>
         </div>
       </div>
+      </div>
 
       {/* filter chips */}
-      <div className="mt-5 flex gap-2">
+      <div className="flex gap-2 px-6 pt-5">
         {(["all", "completed", "upcoming"] as Filter[]).map((f) => (
           <button
             key={f}
@@ -89,14 +91,14 @@ export function TournamentProgress({
       </div>
 
       {/* drillable list */}
-      <div className="mt-4 flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2 p-6 pt-4">
         {filtered.map((t) => {
           const open = openId === t.id;
           const status = STATUS_STYLE[t.status];
           return (
             <div
               key={t.id}
-              className="overflow-hidden rounded-card border-[0.5px] border-line"
+              className="overflow-hidden rounded-[18px] border-[0.5px] border-line bg-card"
             >
               <button
                 onClick={() => setOpenId(open ? null : t.id)}
