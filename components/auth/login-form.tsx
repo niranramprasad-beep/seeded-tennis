@@ -54,7 +54,8 @@ export function LoginForm() {
       };
       beginSession(player);
     } else {
-      signInAsSample();
+      setError("Signed in, but Seeded could not load your profile. Try refreshing once.");
+      return;
     }
     router.push("/dashboard");
   };

@@ -169,23 +169,42 @@ export async function signIn(
     }
     if (data.user) {
       const metadata = data.user.user_metadata ?? {};
-      const familyCode = String(metadata.family_code ?? generateFamilyCode(metadata.name ?? email));
+      const emailName = (data.user.email ?? email).split("@")[0] ?? sampledPlayer.name;
+      const name = String(metadata.name ?? emailName);
+      const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
       const grade = Number(metadata.grade ?? sampledPlayer.grade);
+      const gender = (metadata.gender ?? sampledPlayer.gender) as PlayerGender;
+      const country = String(metadata.country ?? sampledPlayer.country);
+      const role = (metadata.role ?? sampledPlayer.role) as FamilyRole;
       const profileResult = await ensureSupabaseProfile({
         userId: data.user.id,
         email: data.user.email ?? email,
-        name: String(metadata.name ?? data.user.email ?? sampledPlayer.name),
-        country: String(metadata.country ?? sampledPlayer.country),
-        gender: (metadata.gender ?? sampledPlayer.gender) as PlayerGender,
+        name,
+        country,
+        gender,
         grade,
-        role: (metadata.role ?? sampledPlayer.role) as FamilyRole,
+        role,
         familyCode,
         familyMode: (metadata.family_mode === "join" ? "join" : "create") as "create" | "join",
       });
       if (!profileResult.ok) return profileResult;
+      const player = await getCurrentPlayer();
+      return {
+        ok: true,
+        player:
+          player ??
+          buildPlayerFromAuthProfile({
+            name,
+            email: data.user.email ?? email,
+            country,
+            gender,
+            grade,
+            role,
+            familyCode,
+          }),
+      };
     }
-    const player = data.user ? await getCurrentPlayer() : undefined;
-    return { ok: true, player: player ?? undefined };
+    return { ok: false, error: "Supabase did not return a signed-in user." };
   }
   const users = readLocal<Record<string, StoredAccount>>(
     LOCAL_USERS_KEY,
@@ -196,6 +215,35 @@ export async function signIn(
   if (account.password !== password)
     return { ok: false, error: "Incorrect password." };
   return { ok: true, account };
+}
+
+function buildPlayerFromAuthProfile(input: {
+  name: string;
+  email: string;
+  country: string;
+  gender: PlayerGender;
+  grade: number;
+  role: FamilyRole;
+  familyCode: string;
+}): Player {
+  const graduationYear = graduationYearForGrade(input.grade);
+  return {
+    ...sampledPlayer,
+    name: input.name || input.email,
+    currentUTR: 7,
+    grade: input.grade,
+    graduationYear,
+    commitmentDate: `${graduationYear - 1}-09-01`,
+    gender: input.gender,
+    country: input.country,
+    role: input.role,
+    familyCode: input.familyCode,
+    targetSchoolSlugs: [],
+    weaknesses: [],
+    tournamentsPlayed: 0,
+    tournamentsGoal: 12,
+    onboarded: false,
+  };
 }
 
 export async function resendConfirmationEmail(email: string): Promise<AuthResult> {
