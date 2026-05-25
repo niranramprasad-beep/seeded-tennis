@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Player } from "@/lib/types";
-import { sampledPlayer } from "@/lib/data/user";
+import { emptyPlayer } from "@/lib/data/user";
 import {
   getCurrentPlayer,
   isSupabaseConfigured,
@@ -25,7 +25,6 @@ interface PlayerContextValue {
   player: Player;
   isAuthed: boolean;
   hydrated: boolean;
-  signInAsSample: () => void;
   beginSession: (player: Player) => void;
   completeOnboarding: (player: Player) => void;
   updatePlayer: (patch: Partial<Player>) => void;
@@ -35,7 +34,7 @@ interface PlayerContextValue {
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const [player, setPlayer] = useState<Player>(sampledPlayer);
+  const [player, setPlayer] = useState<Player>(emptyPlayer);
   const [isAuthed, setIsAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -48,44 +47,54 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load persisted state once on the client.
+  const clearStorage = useCallback(() => {
+    try {
+      window.localStorage.removeItem(PLAYER_KEY);
+      window.localStorage.setItem(AUTH_KEY, "false");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // On load, the Supabase session is the source of truth (when configured).
   useEffect(() => {
     let cancelled = false;
-    try {
-      const storedPlayer = window.localStorage.getItem(PLAYER_KEY);
-      const storedAuth = window.localStorage.getItem(AUTH_KEY);
-      if (storedPlayer) setPlayer(JSON.parse(storedPlayer) as Player);
-      if (storedAuth === "true") setIsAuthed(true);
-    } catch {
-      // ignore malformed storage
-    }
-    async function hydrateSupabaseSession() {
-      if (!isSupabaseConfigured) {
-        if (!cancelled) setHydrated(true);
+
+    async function hydrate() {
+      if (isSupabaseConfigured) {
+        const current = await getCurrentPlayer();
+        if (cancelled) return;
+        if (current) {
+          setPlayer(current);
+          setIsAuthed(true);
+          persist(current, true);
+        } else {
+          // No active session → treat as signed out (AuthGate redirects to /login).
+          setPlayer(emptyPlayer);
+          setIsAuthed(false);
+          clearStorage();
+        }
+        setHydrated(true);
         return;
       }
 
-      const current = await getCurrentPlayer();
-      if (cancelled) return;
-      if (current) {
-        setPlayer(current);
-        setIsAuthed(true);
-        persist(current, true);
+      // Local fallback (no Supabase keys): trust localStorage.
+      try {
+        const storedPlayer = window.localStorage.getItem(PLAYER_KEY);
+        const storedAuth = window.localStorage.getItem(AUTH_KEY);
+        if (storedPlayer) setPlayer(JSON.parse(storedPlayer) as Player);
+        if (storedAuth === "true") setIsAuthed(true);
+      } catch {
+        // ignore malformed storage
       }
       setHydrated(true);
     }
 
-    hydrateSupabaseSession();
+    hydrate();
     return () => {
       cancelled = true;
     };
-  }, [persist]);
-
-  const signInAsSample = useCallback(() => {
-    setPlayer(sampledPlayer);
-    setIsAuthed(true);
-    persist(sampledPlayer, true);
-  }, [persist]);
+  }, [persist, clearStorage]);
 
   // Start an authenticated session with a (possibly not-yet-onboarded) player —
   // used right after sign-up, before the tennis profile is filled in.
@@ -123,37 +132,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     setIsAuthed(false);
-    setPlayer(sampledPlayer);
+    setPlayer(emptyPlayer);
     void signOutOfSupabase();
-    try {
-      window.localStorage.removeItem(PLAYER_KEY);
-      window.localStorage.setItem(AUTH_KEY, "false");
-    } catch {
-      // ignore
-    }
-  }, []);
+    clearStorage();
+  }, [clearStorage]);
 
   const value = useMemo(
     () => ({
       player,
       isAuthed,
       hydrated,
-      signInAsSample,
       beginSession,
       completeOnboarding,
       updatePlayer,
       signOut,
     }),
-    [
-      player,
-      isAuthed,
-      hydrated,
-      signInAsSample,
-      beginSession,
-      completeOnboarding,
-      updatePlayer,
-      signOut,
-    ]
+    [player, isAuthed, hydrated, beginSession, completeOnboarding, updatePlayer, signOut]
   );
 
   return (

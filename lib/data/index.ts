@@ -181,11 +181,14 @@ export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
   for (let g = startGrade + 1; g <= 12; g++) grades.push(g);
   if (grades.length === 0) grades.push(12);
 
-  const total = grades.length;
+  // The goal UTR must be reached by the SUMMER BEFORE SENIOR YEAR (the summer
+  // before 12th grade) — the key recruiting window — then held through to
+  // college. So we ramp to the goal at the grade-12 checkpoint, not at college.
+  const goalIndex = grades.indexOf(12);
   return grades.map((g, i) => {
-    const fraction = (i + 1) / total;
+    const progress = goalIndex < 0 ? 1 : Math.min(1, (i + 1) / (goalIndex + 1));
     const utrTarget =
-      Math.round((player.currentUTR + (goalUTR - player.currentUTR) * fraction) * 10) /
+      Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 10) /
       10;
     // Summer before grade g falls in this calendar year.
     const calendarYear = player.graduationYear - 13 + g;

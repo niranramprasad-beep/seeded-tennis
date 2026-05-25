@@ -8,7 +8,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import type { Player } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { resendConfirmationEmail, signIn } from "@/lib/auth";
-import { sampledPlayer } from "@/lib/data/user";
+import { emptyPlayer } from "@/lib/data/user";
 import { Button } from "@/components/ui/button";
 import { FloatingDots } from "@/components/shared/floating-dots";
 
@@ -18,7 +18,7 @@ const inputClass =
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { beginSession, signInAsSample } = usePlayer();
+  const { beginSession } = usePlayer();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -39,25 +39,31 @@ export function LoginForm() {
     }
     if (result.player) {
       beginSession(result.player);
-    } else if (result.account) {
-      // Local fallback: rehydrate the player from the stored account, keeping
-      // the sample tennis profile so the dashboard is populated for the demo.
+      router.push(result.player.onboarded ? "/dashboard" : "/onboarding");
+      return;
+    }
+    if (result.account) {
+      // Local fallback (no Supabase keys): build the player from the stored
+      // account only — no sample data — and send them through onboarding.
+      const graduationYear = result.account.grade
+        ? new Date().getFullYear() + (12 - result.account.grade)
+        : emptyPlayer.graduationYear;
       const player: Player = {
-        ...sampledPlayer,
+        ...emptyPlayer,
         name: result.account.name,
         gender: result.account.gender,
         grade: result.account.grade,
+        graduationYear,
         country: result.account.country,
         role: result.account.role,
         familyCode: result.account.familyCode,
-        onboarded: true,
+        onboarded: false,
       };
       beginSession(player);
-    } else {
-      setError("Signed in, but Seeded could not load your profile. Try refreshing once.");
+      router.push("/onboarding");
       return;
     }
-    router.push("/dashboard");
+    setError("Signed in, but Seeded could not load your profile. Try refreshing once.");
   };
 
   const needsConfirmation = error?.toLowerCase().includes("confirm your email");
@@ -148,18 +154,6 @@ export function LoginForm() {
             Create an account
           </Link>
         </p>
-
-        <div className="mt-6 border-t-[0.5px] border-line pt-6 text-center">
-          <button
-            onClick={() => {
-              signInAsSample();
-              router.push("/dashboard");
-            }}
-            className="text-sm text-stone-light transition-colors hover:text-ink"
-          >
-            Explore the demo as Alex Chen →
-          </button>
-        </div>
       </div>
     </div>
   );

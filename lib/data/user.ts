@@ -19,6 +19,25 @@ export const sampledPlayer: Player = {
   onboarded: true,
 };
 
+// Neutral, identity-free player. Used as the baseline so a logged-in user never
+// inherits the Alex Chen sample's tennis data, and as the signed-out default
+// (which is never shown — AuthGate redirects signed-out visitors to /login).
+export const emptyPlayer: Player = {
+  name: "",
+  currentUTR: 7,
+  grade: 10,
+  graduationYear: 2028,
+  commitmentDate: "2027-09-01",
+  gender: "male",
+  country: "United States",
+  role: "player",
+  targetSchoolSlugs: [],
+  weaknesses: [],
+  tournamentsPlayed: 0,
+  tournamentsGoal: 12,
+  onboarded: false,
+};
+
 // Used to seed a brand-new onboarding session (nothing chosen yet).
 export const blankPlayer: Player = {
   name: "Alex Chen",

@@ -133,11 +133,11 @@ export function SignupFlow() {
             <Check className="h-6 w-6" />
           </span>
           <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
-            Check your email.
+            Check your inbox to confirm your email
           </h1>
           <p className="mt-2 text-stone">
-            Supabase sent a confirmation link to {confirmationEmail}. Open it,
-            then come back and sign in.
+            We sent a confirmation link to {confirmationEmail}. Open it, then come
+            back and sign in.
           </p>
           {createdCode && (
             <div className="mx-auto mt-6 flex max-w-xs items-center justify-between gap-3 rounded-card border-[0.5px] border-line bg-card p-4">

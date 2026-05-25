@@ -1,6 +1,6 @@
 import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { sampledPlayer } from "@/lib/data/user";
+import { emptyPlayer } from "@/lib/data/user";
 
 export { isSupabaseConfigured };
 
@@ -168,31 +168,35 @@ export async function signIn(
       return { ok: false, error: message };
     }
     if (data.user) {
-      const metadata = data.user.user_metadata ?? {};
-      const emailName = (data.user.email ?? email).split("@")[0] ?? sampledPlayer.name;
-      const name = String(metadata.name ?? emailName);
-      const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
-      const grade = Number(metadata.grade ?? sampledPlayer.grade);
-      const gender = (metadata.gender ?? sampledPlayer.gender) as PlayerGender;
-      const country = String(metadata.country ?? sampledPlayer.country);
-      const role = (metadata.role ?? sampledPlayer.role) as FamilyRole;
-      const profileResult = await ensureSupabaseProfile({
-        userId: data.user.id,
-        email: data.user.email ?? email,
-        name,
-        country,
-        gender,
-        grade,
-        role,
-        familyCode,
-        familyMode: (metadata.family_mode === "join" ? "join" : "create") as "create" | "join",
-      });
-      if (!profileResult.ok) return profileResult;
-      const player = await getCurrentPlayer();
-      return {
-        ok: true,
-        player:
-          player ??
+      // Load the existing profile FIRST — never reset a returning user's data.
+      let player = await getCurrentPlayer();
+      if (!player) {
+        // No profile row yet (e.g. first login after email confirmation):
+        // create it from the signup metadata, then re-read.
+        const metadata = data.user.user_metadata ?? {};
+        const emailName = (data.user.email ?? email).split("@")[0] ?? emptyPlayer.name;
+        const name = String(metadata.name ?? emailName);
+        const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
+        const grade = Number(metadata.grade ?? emptyPlayer.grade);
+        const gender = (metadata.gender ?? emptyPlayer.gender) as PlayerGender;
+        const country = String(metadata.country ?? emptyPlayer.country);
+        const role = (metadata.role ?? emptyPlayer.role) as FamilyRole;
+        const created = await ensureSupabaseProfile({
+          userId: data.user.id,
+          email: data.user.email ?? email,
+          name,
+          country,
+          gender,
+          grade,
+          role,
+          familyCode,
+          familyMode: (metadata.family_mode === "join" ? "join" : "create") as
+            | "create"
+            | "join",
+        });
+        if (!created.ok) return created;
+        player =
+          (await getCurrentPlayer()) ??
           buildPlayerFromAuthProfile({
             name,
             email: data.user.email ?? email,
@@ -201,8 +205,9 @@ export async function signIn(
             grade,
             role,
             familyCode,
-          }),
-      };
+          });
+      }
+      return { ok: true, player };
     }
     return { ok: false, error: "Supabase did not return a signed-in user." };
   }
@@ -228,7 +233,7 @@ function buildPlayerFromAuthProfile(input: {
 }): Player {
   const graduationYear = graduationYearForGrade(input.grade);
   return {
-    ...sampledPlayer,
+    ...emptyPlayer,
     name: input.name || input.email,
     currentUTR: 7,
     grade: input.grade,
@@ -286,28 +291,28 @@ export async function getCurrentPlayer(): Promise<Player | null> {
   if (!profile) return null;
 
   return {
-    ...sampledPlayer,
-    name: profile.name || userData.user.email || sampledPlayer.name,
-    currentUTR: Number(profile.current_utr ?? sampledPlayer.currentUTR),
-    grade: Number(profile.grade ?? sampledPlayer.grade),
+    ...emptyPlayer,
+    name: profile.name || userData.user.email || emptyPlayer.name,
+    currentUTR: Number(profile.current_utr ?? emptyPlayer.currentUTR),
+    grade: Number(profile.grade ?? emptyPlayer.grade),
     graduationYear: Number(
-      profile.graduation_year ?? graduationYearForGrade(profile.grade ?? sampledPlayer.grade)
+      profile.graduation_year ?? graduationYearForGrade(profile.grade ?? emptyPlayer.grade)
     ),
     commitmentDate:
       profile.commitment_date ??
-      `${graduationYearForGrade(profile.grade ?? sampledPlayer.grade) - 1}-09-01`,
-    gender: (profile.gender ?? sampledPlayer.gender) as PlayerGender,
-    country: profile.country ?? sampledPlayer.country,
-    role: (profile.role ?? sampledPlayer.role) as FamilyRole,
+      `${graduationYearForGrade(profile.grade ?? emptyPlayer.grade) - 1}-09-01`,
+    gender: (profile.gender ?? emptyPlayer.gender) as PlayerGender,
+    country: profile.country ?? emptyPlayer.country,
+    role: (profile.role ?? emptyPlayer.role) as FamilyRole,
     familyCode: profile.family_code ?? undefined,
     targetSchoolSlugs:
       (profile.target_school_slugs as string[] | null) ??
-      sampledPlayer.targetSchoolSlugs,
-    weaknesses: profile.weaknesses ?? sampledPlayer.weaknesses,
+      emptyPlayer.targetSchoolSlugs,
+    weaknesses: profile.weaknesses ?? emptyPlayer.weaknesses,
     tournamentsPlayed: Number(
-      profile.tournaments_played ?? sampledPlayer.tournamentsPlayed
+      profile.tournaments_played ?? emptyPlayer.tournamentsPlayed
     ),
-    tournamentsGoal: Number(profile.tournaments_goal ?? sampledPlayer.tournamentsGoal),
+    tournamentsGoal: Number(profile.tournaments_goal ?? emptyPlayer.tournamentsGoal),
     onboarded: Boolean(profile.onboarded),
   };
 }
