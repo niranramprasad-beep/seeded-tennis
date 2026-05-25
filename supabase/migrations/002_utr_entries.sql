@@ -1,5 +1,19 @@
 -- UTR history for player progress charts.
 
+create extension if not exists pgcrypto;
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create table if not exists public.utr_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,

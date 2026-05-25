@@ -93,39 +93,52 @@ export async function signUp(
     });
     if (error) return { ok: false, error: error.message };
 
-    // Best-effort family + profile writes (require the SQL in supabase/migrations).
-    try {
-      if (family.mode === "join") {
-        const { data: fam } = await supa
-          .from("families")
-          .select("code")
-          .eq("code", familyCode)
-          .maybeSingle();
-        if (!fam) return { ok: false, error: "That family code wasn't found." };
-      } else {
-        await supa.from("families").insert({ code: familyCode, name: `${input.name}'s family` });
-      }
-      const userId = data.user?.id;
-      if (userId) {
-        await supa.from("profiles").upsert({
-          id: userId,
-          name: input.name,
-          email: input.email,
-          country: input.country,
-          gender: input.gender,
-          grade: input.grade,
-          role: input.role,
-          family_code: familyCode,
-          graduation_year: graduationYearForGrade(input.grade),
-          commitment_date: `${graduationYearForGrade(input.grade) - 1}-09-01`,
-          current_utr: 7,
-          tournaments_goal: 12,
-          onboarded: false,
-        });
-      }
-    } catch {
-      // Tables may not exist yet — auth still succeeded.
+    if (!data.session) {
+      return {
+        ok: false,
+        error:
+          "Supabase created the account but requires email confirmation before Seeded can finish setup. Check your inbox, or turn off Confirm email in Supabase Auth settings for this MVP.",
+      };
     }
+
+    if (family.mode === "join") {
+      const { data: fam, error: familyLookupError } = await supa
+        .from("families")
+        .select("code")
+        .eq("code", familyCode)
+        .maybeSingle();
+      if (familyLookupError) return { ok: false, error: familyLookupError.message };
+      if (!fam) return { ok: false, error: "That family code wasn't found." };
+    } else {
+      const { error: familyInsertError } = await supa
+        .from("families")
+        .insert({ code: familyCode, name: `${input.name}'s family` });
+      if (familyInsertError && familyInsertError.code !== "23505") {
+        return { ok: false, error: familyInsertError.message };
+      }
+    }
+
+    const userId = data.user?.id;
+    if (!userId) return { ok: false, error: "Supabase did not return a user id." };
+
+    const { error: profileError } = await supa.from("profiles").upsert({
+      id: userId,
+      name: input.name,
+      email: input.email,
+      country: input.country,
+      gender: input.gender,
+      grade: input.grade,
+      role: input.role,
+      family_code: familyCode,
+      graduation_year: graduationYearForGrade(input.grade),
+      commitment_date: `${graduationYearForGrade(input.grade) - 1}-09-01`,
+      current_utr: 7,
+      tournaments_goal: 12,
+      onboarded: false,
+    });
+
+    if (profileError) return { ok: false, error: profileError.message };
+
     return { ok: true, familyCode };
   }
 

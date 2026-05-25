@@ -20,6 +20,31 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- families
+
+create table if not exists public.families (
+  id uuid primary key default gen_random_uuid(),
+  code text unique not null,
+  name text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.families enable row level security;
+
+drop policy if exists "families readable" on public.families;
+drop policy if exists "families insertable" on public.families;
+
+create policy "families readable"
+on public.families for select
+to authenticated
+using (true);
+
+create policy "families insertable"
+on public.families for insert
+to authenticated
+with check (auth.role() = 'authenticated');
+
+-- ---------------------------------------------------------------------------
 -- profiles
 
 create table if not exists public.profiles (
@@ -43,11 +68,27 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists family_code text;
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 alter table public.profiles add column if not exists commitment_date date;
 alter table public.profiles add column if not exists tournaments_played integer not null default 0;
 alter table public.profiles add column if not exists tournaments_goal integer not null default 12;
 alter table public.profiles add column if not exists onboarded boolean not null default false;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'profiles_family_code_fkey'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_family_code_fkey
+      foreign key (family_code)
+      references public.families (code);
+  end if;
+end $$;
 
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at

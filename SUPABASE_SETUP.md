@@ -42,6 +42,7 @@ Then run the follow-up migration:
 
 This creates:
 
+- `families`
 - `profiles`
 - `training_plans`
 - `workout_sessions`
