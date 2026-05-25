@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
@@ -16,6 +17,7 @@ const inputClass =
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { beginSession, signInAsSample } = usePlayer();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,6 +64,11 @@ export function LoginForm() {
         <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
           Sign in to Seeded
         </h1>
+        {searchParams.get("confirmed") === "1" && (
+          <p className="mt-4 rounded-xl border-[0.5px] border-line bg-grass-50 px-4 py-3 text-sm text-grass">
+            Email confirmed. Sign in to finish setting up your profile.
+          </p>
+        )}
 
         <form onSubmit={submit} className="mt-6 space-y-3">
           <input

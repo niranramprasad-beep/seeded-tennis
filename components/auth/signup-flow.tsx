@@ -53,6 +53,7 @@ export function SignupFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const [name, setName] = useState("");
@@ -91,6 +92,12 @@ export function SignupFlow() {
       return;
     }
 
+    if (result.confirmationRequired) {
+      setConfirmationEmail(email);
+      if (familyMode === "create" && result.familyCode) setCreatedCode(result.familyCode);
+      return;
+    }
+
     const graduationYear = graduationYearForGrade(grade);
     const player: Player = {
       name,
@@ -118,6 +125,52 @@ export function SignupFlow() {
   };
 
   // Success screen showing the family code to share.
+  if (confirmationEmail) {
+    return (
+      <Centered>
+        <div className="text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+            <Check className="h-6 w-6" />
+          </span>
+          <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
+            Check your email.
+          </h1>
+          <p className="mt-2 text-stone">
+            Supabase sent a confirmation link to {confirmationEmail}. Open it,
+            then come back and sign in.
+          </p>
+          {createdCode && (
+            <div className="mx-auto mt-6 flex max-w-xs items-center justify-between gap-3 rounded-card border-[0.5px] border-line bg-card p-4">
+              <span className="font-mono text-2xl tracking-wider text-grass">
+                {createdCode}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(createdCode);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 text-grass transition-colors hover:bg-grass-100"
+                aria-label="Copy family code"
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+          <Button
+            variant="primary"
+            size="lg"
+            className="mt-8"
+            onClick={() => router.push("/login")}
+          >
+            Go to sign in
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </Centered>
+    );
+  }
+
   if (createdCode) {
     return (
       <Centered>

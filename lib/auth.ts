@@ -22,6 +22,7 @@ export interface AuthResult {
   ok: boolean;
   error?: string;
   familyCode?: string;
+  confirmationRequired?: boolean;
 }
 
 export interface StoredAccount extends AccountInput {
@@ -89,55 +90,46 @@ export async function signUp(
     const { data, error } = await supa.auth.signUp({
       email: input.email,
       password: input.password,
-      options: { data: { name: input.name } },
+      options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/login?confirmed=1`
+            : undefined,
+        data: {
+          name: input.name,
+          country: input.country,
+          gender: input.gender,
+          grade: input.grade,
+          role: input.role,
+          family_code: familyCode,
+          family_mode: family.mode,
+        },
+      },
     });
     if (error) return { ok: false, error: error.message };
 
     if (!data.session) {
       return {
-        ok: false,
-        error:
-          "Supabase created the account but requires email confirmation before Seeded can finish setup. Check your inbox, or turn off Confirm email in Supabase Auth settings for this MVP.",
+        ok: true,
+        familyCode,
+        confirmationRequired: true,
       };
-    }
-
-    if (family.mode === "join") {
-      const { data: fam, error: familyLookupError } = await supa
-        .from("families")
-        .select("code")
-        .eq("code", familyCode)
-        .maybeSingle();
-      if (familyLookupError) return { ok: false, error: familyLookupError.message };
-      if (!fam) return { ok: false, error: "That family code wasn't found." };
-    } else {
-      const { error: familyInsertError } = await supa
-        .from("families")
-        .insert({ code: familyCode, name: `${input.name}'s family` });
-      if (familyInsertError && familyInsertError.code !== "23505") {
-        return { ok: false, error: familyInsertError.message };
-      }
     }
 
     const userId = data.user?.id;
     if (!userId) return { ok: false, error: "Supabase did not return a user id." };
-
-    const { error: profileError } = await supa.from("profiles").upsert({
-      id: userId,
-      name: input.name,
+    const profileResult = await ensureSupabaseProfile({
+      userId,
       email: input.email,
+      name: input.name,
       country: input.country,
       gender: input.gender,
       grade: input.grade,
       role: input.role,
-      family_code: familyCode,
-      graduation_year: graduationYearForGrade(input.grade),
-      commitment_date: `${graduationYearForGrade(input.grade) - 1}-09-01`,
-      current_utr: 7,
-      tournaments_goal: 12,
-      onboarded: false,
+      familyCode,
+      familyMode: family.mode,
     });
-
-    if (profileError) return { ok: false, error: profileError.message };
+    if (!profileResult.ok) return profileResult;
 
     return { ok: true, familyCode };
   }
@@ -170,6 +162,23 @@ export async function signIn(
   if (supa) {
     const { data, error } = await supa.auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: error.message };
+    if (data.user) {
+      const metadata = data.user.user_metadata ?? {};
+      const familyCode = String(metadata.family_code ?? generateFamilyCode(metadata.name ?? email));
+      const grade = Number(metadata.grade ?? sampledPlayer.grade);
+      const profileResult = await ensureSupabaseProfile({
+        userId: data.user.id,
+        email: data.user.email ?? email,
+        name: String(metadata.name ?? data.user.email ?? sampledPlayer.name),
+        country: String(metadata.country ?? sampledPlayer.country),
+        gender: (metadata.gender ?? sampledPlayer.gender) as PlayerGender,
+        grade,
+        role: (metadata.role ?? sampledPlayer.role) as FamilyRole,
+        familyCode,
+        familyMode: (metadata.family_mode === "join" ? "join" : "create") as "create" | "join",
+      });
+      if (!profileResult.ok) return profileResult;
+    }
     const player = data.user ? await getCurrentPlayer() : undefined;
     return { ok: true, player: player ?? undefined };
   }
@@ -256,4 +265,56 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
     tournaments_goal: player.tournamentsGoal,
     onboarded: player.onboarded,
   });
+}
+
+async function ensureSupabaseProfile(input: {
+  userId: string;
+  email: string;
+  name: string;
+  country: string;
+  gender: PlayerGender;
+  grade: number;
+  role: FamilyRole;
+  familyCode: string;
+  familyMode: "create" | "join";
+}): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return { ok: true, familyCode: input.familyCode };
+
+  if (input.familyMode === "join") {
+    const { data: fam, error: familyLookupError } = await supa
+      .from("families")
+      .select("code")
+      .eq("code", input.familyCode)
+      .maybeSingle();
+    if (familyLookupError) return { ok: false, error: familyLookupError.message };
+    if (!fam) return { ok: false, error: "That family code wasn't found." };
+  } else {
+    const { error: familyInsertError } = await supa
+      .from("families")
+      .insert({ code: input.familyCode, name: `${input.name}'s family` });
+    if (familyInsertError && familyInsertError.code !== "23505") {
+      return { ok: false, error: familyInsertError.message };
+    }
+  }
+
+  const graduationYear = graduationYearForGrade(input.grade);
+  const { error: profileError } = await supa.from("profiles").upsert({
+    id: input.userId,
+    name: input.name,
+    email: input.email,
+    country: input.country,
+    gender: input.gender,
+    grade: input.grade,
+    role: input.role,
+    family_code: input.familyCode,
+    graduation_year: graduationYear,
+    commitment_date: `${graduationYear - 1}-09-01`,
+    current_utr: 7,
+    tournaments_goal: 12,
+    onboarded: false,
+  });
+
+  if (profileError) return { ok: false, error: profileError.message };
+  return { ok: true, familyCode: input.familyCode };
 }
