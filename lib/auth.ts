@@ -193,6 +193,25 @@ export async function signIn(
   return { ok: true, account };
 }
 
+export async function resendConfirmationEmail(email: string): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return { ok: false, error: "Supabase is not configured." };
+
+  const { error } = await supa.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo:
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login?confirmed=1`
+          : undefined,
+    },
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function signOut(): Promise<void> {
   const supa = getSupabase();
   if (supa) await supa.auth.signOut();

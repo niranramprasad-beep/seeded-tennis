@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 import type { Player } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { signIn } from "@/lib/auth";
+import { resendConfirmationEmail, signIn } from "@/lib/auth";
 import { sampledPlayer } from "@/lib/data/user";
 import { Button } from "@/components/ui/button";
 import { FloatingDots } from "@/components/shared/floating-dots";
@@ -22,11 +22,14 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setSubmitting(true);
     const result = await signIn(email, password);
     setSubmitting(false);
@@ -54,6 +57,21 @@ export function LoginForm() {
       signInAsSample();
     }
     router.push("/dashboard");
+  };
+
+  const needsConfirmation = error?.toLowerCase().includes("not confirmed");
+
+  const resend = async () => {
+    setError(null);
+    setNotice(null);
+    setResending(true);
+    const result = await resendConfirmationEmail(email);
+    setResending(false);
+    if (!result.ok) {
+      setError(result.error ?? "Could not resend confirmation email.");
+      return;
+    }
+    setNotice("Confirmation email sent. Check your inbox and spam folder.");
   };
 
   return (
@@ -86,8 +104,23 @@ export function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
           />
           {error && (
-            <p className="rounded-xl bg-[#FBEAE5] px-4 py-2.5 text-sm text-[#9C3B22]">
-              {error}
+            <div className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+              <p>{error}</p>
+              {needsConfirmation && (
+                <button
+                  type="button"
+                  onClick={resend}
+                  disabled={resending || !email}
+                  className="mt-2 font-medium text-[#6F2816] underline underline-offset-4 disabled:opacity-50"
+                >
+                  {resending ? "Sending..." : "Resend confirmation email"}
+                </button>
+              )}
+            </div>
+          )}
+          {notice && (
+            <p className="rounded-xl border-[0.5px] border-line bg-grass-50 px-4 py-2.5 text-sm text-grass">
+              {notice}
             </p>
           )}
           <Button
