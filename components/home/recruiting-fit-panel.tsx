@@ -101,7 +101,7 @@ export function RecruitingFitPanel() {
   }, [division, gpa, gradYear, utr]);
 
   return (
-    <div className="rounded-[28px] border-hairline border-cream/24 bg-cream/92 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+    <div className="rounded-[28px] border-hairline border-cream/45 bg-[#F8F6EE]/96 p-5 text-ink shadow-[0_28px_80px_rgba(0,0,0,0.24)]">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="eyebrow text-gold">Fit check</p>
@@ -155,22 +155,22 @@ export function RecruitingFitPanel() {
         </Field>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-card border-hairline border-line bg-cream/60">
+      <div className="mt-5 overflow-hidden rounded-card border-hairline border-line bg-white/72">
         <div className="flex items-center justify-between border-b-hairline border-line px-4 py-3">
-          <span className="text-sm text-stone">Fit by summer before senior year</span>
+          <span className="text-sm font-medium text-stone">Fit by summer before senior year</span>
           <span className="text-sm font-medium text-[#0E6A7A]">{fit.label}</span>
         </div>
         <div className="p-4">
           <div className="flex items-end justify-between">
             <div>
               <p className="text-4xl font-light tracking-tight text-ink">{fit.score}</p>
-              <p className="eyebrow mt-1">confidence score</p>
+              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone">confidence score</p>
             </div>
             <div className="text-right text-sm">
               <p className="font-medium text-ink">
                 {fit.gap > 0 ? `${fit.gap.toFixed(1)} UTR short` : "Clears the recruitable band"}
               </p>
-              <p className="mt-0.5 text-xs text-stone-light">
+              <p className="mt-0.5 text-xs text-stone">
                 proj. {fit.projectedDeadline.toFixed(1)} by summer {fit.deadlineYear} · target {fit.target.toFixed(1)}
               </p>
             </div>
@@ -181,7 +181,7 @@ export function RecruitingFitPanel() {
               style={{ width: `${fit.score}%` }}
             />
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-stone">
+          <p className="mt-3 text-xs font-medium leading-relaxed text-stone">
             Needed pace from today: {fit.monthlyPace.toFixed(2)} UTR/month to reach the recruitable {division} band.
           </p>
         </div>
@@ -209,7 +209,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-card border-hairline border-line bg-cream/50 p-4">
+    <div className="rounded-card border-hairline border-line bg-white/68 p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm text-stone">
           <Icon className="h-4 w-4 text-gold" />

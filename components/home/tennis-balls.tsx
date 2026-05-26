@@ -12,11 +12,8 @@ interface Ball {
 
 // Restrained, slow-floating tennis balls — ambient motion that stays premium.
 const BALLS: Ball[] = [
-  { top: "14%", left: "6%", size: 34, delay: "0s", duration: "9s", opacity: 0.5 },
-  { top: "62%", left: "3%", size: 22, delay: "1.4s", duration: "11s", opacity: 0.4 },
-  { top: "30%", right: "8%", size: 16, delay: "0.8s", duration: "8s", opacity: 0.35 },
-  { top: "76%", right: "12%", size: 28, delay: "2.1s", duration: "12s", opacity: 0.45 },
-  { top: "8%", right: "26%", size: 12, delay: "1.1s", duration: "10s", opacity: 0.3 },
+  { top: "18%", left: "7%", size: 18, delay: "0s", duration: "12s", opacity: 0.28 },
+  { top: "76%", right: "9%", size: 20, delay: "1.6s", duration: "13s", opacity: 0.24 },
 ];
 
 function TennisBall({ size, opacity }: { size: number; opacity: number }) {

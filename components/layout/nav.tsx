@@ -75,7 +75,7 @@ export function Nav() {
       className={cn(
         "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-cream/15 bg-grass-900/12 text-cream"
+          ? "fixed inset-x-0 border-cream/14 bg-[#071220]/38 text-cream"
           : "sticky border-line bg-cream/85"
       )}
     >
@@ -107,7 +107,7 @@ export function Nav() {
             className={cn(
               "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
               isMarketingHome
-                ? "border-cream/18 bg-cream/12 text-cream backdrop-blur-2xl"
+                ? "border-cream/24 bg-[#071220]/30 text-cream backdrop-blur-2xl"
                 : "border-line bg-card/70"
             )}
           >
@@ -166,7 +166,7 @@ export function Nav() {
                   buttonVariants({ variant: "primary", size: "sm" }),
                   "group",
                   isMarketingHome &&
-                    "bg-cream text-grass hover:bg-tennis hover:text-grass-900 hover:shadow-[0_0_38px_rgba(216,232,74,0.32)]"
+                    "bg-tennis text-[#071220] hover:bg-cream hover:text-[#071220] hover:shadow-[0_0_34px_rgba(216,232,74,0.28)]"
                 )}
               >
                 Request access

@@ -83,11 +83,11 @@ export default async function HomePage() {
             alt="College-style tennis player on a blue and green hard court"
             className="absolute inset-0 h-full w-full object-cover object-[58%_50%] sm:object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#06111F]/94 via-[#0B3B46]/66 to-[#103D32]/16" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#06111F]/86 via-[#06111F]/14 to-[#06111F]/42" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(28,125,190,0.28),transparent_28%),radial-gradient(circle_at_18%_76%,rgba(216,232,74,0.22),transparent_34%)]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#06111F]/88 via-[#06111F]/48 to-[#103D32]/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#06111F]/82 via-[#06111F]/20 to-[#06111F]/38" />
+          <div className="absolute inset-y-0 left-0 w-[58%] bg-[#06111F]/28 backdrop-blur-[1px]" />
           <TennisBalls />
-          <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-14 container-px pb-20 pt-32 lg:grid-cols-[1.05fr_440px] lg:items-center lg:pb-24 lg:pt-32">
+          <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-12 container-px pb-20 pt-32 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
               <span className="eyebrow text-gold">College tennis recruiting</span>
               <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-cream drop-shadow-[0_12px_34px_rgba(0,0,0,0.34)] sm:text-6xl lg:text-7xl">
@@ -95,7 +95,7 @@ export default async function HomePage() {
                 <span className="italic text-tennis">realistically</span> fit in
                 college tennis.
               </h1>
-              <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-cream/80">
+              <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-cream/86">
                 Seeded turns your UTR, academics, and target division into an
                 honest, roster-matched recruiting plan — the kind serious tennis
                 families make real decisions on.
@@ -123,15 +123,15 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-cream/20 border-t-hairline border-cream/20 pt-6">
+              <div className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-cream/22 border-t-hairline border-cream/22 pt-6">
                 {[
                   ["1,200+", "programs tracked"],
                   ["D1–D3", "men's & women's"],
                   ["Summer", "grade checkpoints"],
                 ].map(([value, label]) => (
                   <div key={label} className="px-4 first:pl-0">
-                    <p className="font-serif text-3xl text-tennis">{value}</p>
-                    <p className="eyebrow mt-2 text-cream/58">{label}</p>
+                    <p className="font-serif text-3xl text-tennis drop-shadow">{value}</p>
+                    <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/82">{label}</p>
                   </div>
                 ))}
               </div>
@@ -145,8 +145,20 @@ export default async function HomePage() {
 
         {/* -------------------------------------------------------- MOMENTS */}
         <section className="bg-[#06111F]">
-          <div className="mx-auto max-w-content container-px py-14">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="mx-auto max-w-content container-px py-16">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <span className="eyebrow text-[#38D7F2]">Inside Seeded</span>
+              <h2 className="display-serif mt-3 text-3xl text-cream sm:text-4xl">
+                Recruiting work, organized like a season.
+              </h2>
+            </div>
+            <p className="max-w-md text-sm leading-relaxed text-cream/68">
+              Match results, training blocks, school fit, and outreach stay connected
+              so families can make decisions without guessing.
+            </p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
             {MOMENTS.map((m, i) => (
               <FadeIn key={m.title} delay={i * 0.08}>
                 <div className="group relative aspect-[4/3] overflow-hidden rounded-card border-hairline border-cream/14 bg-cream/5">
