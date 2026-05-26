@@ -75,7 +75,7 @@ export function Nav() {
       className={cn(
         "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-line/70 bg-[#FBFAF3]/78 text-ink"
+          ? "fixed inset-x-0 border-cream/12 bg-[#06111F]/82 text-cream shadow-[0_1px_0_rgba(255,255,255,0.04)]"
           : "sticky border-line bg-cream/85"
       )}
     >
@@ -88,13 +88,13 @@ export function Nav() {
           <span
             className={cn(
               "h-2.5 w-2.5 rounded-full bg-tennis",
-              isMarketingHome ? "ring-1 ring-grass/15" : "ring-1 ring-grass/15"
+              isMarketingHome ? "ring-1 ring-tennis/35" : "ring-1 ring-grass/15"
             )}
           />
           <span
             className={cn(
               "font-serif text-[26px] italic leading-none",
-              isMarketingHome ? "text-grass" : "text-grass"
+              isMarketingHome ? "text-cream" : "text-grass"
             )}
           >
             Seeded
@@ -107,7 +107,7 @@ export function Nav() {
             className={cn(
               "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
               isMarketingHome
-                ? "border-line bg-white/70 text-ink backdrop-blur-2xl"
+                ? "border-cream/18 bg-cream/10 text-cream backdrop-blur-2xl"
                 : "border-line bg-card/70"
             )}
           >
@@ -120,7 +120,7 @@ export function Nav() {
                   isActive(l.href)
                     ? "bg-grass text-cream shadow-soft"
                     : isMarketingHome
-                      ? "text-stone hover:bg-[#EAF7F8] hover:text-[#0E526A] hover:shadow-[0_0_24px_rgba(56,215,242,0.18)]"
+                      ? "text-cream/72 hover:bg-cream/10 hover:text-cream"
                       : "text-stone hover:bg-grass-50 hover:text-ink"
                 )}
               >
@@ -155,7 +155,7 @@ export function Nav() {
                 href="/login"
                 className={cn(
                   "text-sm transition-all duration-200 hover:-translate-y-0.5",
-                  isMarketingHome ? "text-stone hover:text-ink" : "text-stone hover:text-ink"
+                  isMarketingHome ? "text-cream/70 hover:text-cream" : "text-stone hover:text-ink"
                 )}
               >
                 Sign in
@@ -176,7 +176,12 @@ export function Nav() {
 
         {/* Mobile toggle */}
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden",
+            isMarketingHome
+              ? "text-cream hover:bg-cream/10"
+              : "text-ink hover:bg-grass-50"
+          )}
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -192,7 +197,12 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="border-t-[0.5px] border-line bg-cream/96 shadow-lift lg:hidden"
+            className={cn(
+              "border-t-[0.5px] shadow-lift lg:hidden",
+              isMarketingHome
+                ? "border-cream/10 bg-[#06111F]/96 text-cream"
+                : "border-line bg-cream/96"
+            )}
           >
             <div className="flex flex-col gap-1 container-px py-4">
               {mobileLinks.map((l) => (
@@ -204,14 +214,21 @@ export function Nav() {
                     "flex items-center justify-between rounded-2xl px-3 py-3 text-sm transition-colors",
                     isActive(l.href)
                       ? "bg-grass text-cream"
-                      : "text-stone hover:bg-grass-50 hover:text-ink"
+                      : isMarketingHome
+                        ? "text-cream/70 hover:bg-cream/10 hover:text-cream"
+                        : "text-stone hover:bg-grass-50 hover:text-ink"
                   )}
                 >
                   <span>{l.label}</span>
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               ))}
-              <div className="mt-3 border-t-[0.5px] border-line pt-4">
+              <div
+                className={cn(
+                  "mt-3 border-t-[0.5px] pt-4",
+                  isMarketingHome ? "border-cream/10" : "border-line"
+                )}
+              >
                 {showApp ? (
                   <div className="flex flex-col gap-4">
                     <TierSwitcher />
