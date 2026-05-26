@@ -76,16 +76,16 @@ export default async function HomePage() {
     <>
       <main className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
-        <section className="relative min-h-screen overflow-hidden bg-grass-900 text-cream">
+        <section className="relative min-h-screen overflow-hidden bg-[#071714] text-cream">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/hero-celebration.jpg"
             alt="Tennis player celebrating after a match"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-grass-900/88 via-grass-900/54 to-grass-900/18" />
-          <div className="absolute inset-0 bg-gradient-to-t from-grass-900/78 via-transparent to-grass-900/40" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_28%,rgba(216,232,74,0.22),transparent_24%),radial-gradient(circle_at_22%_78%,rgba(253,252,247,0.14),transparent_28%)]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#071714]/92 via-[#102820]/58 to-[#102820]/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#071714]/86 via-[#071714]/12 to-[#071714]/52" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_24%,rgba(126,202,165,0.22),transparent_24%),radial-gradient(circle_at_18%_76%,rgba(216,232,74,0.18),transparent_30%)]" />
           <TennisBalls />
           <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-14 container-px pb-20 pt-32 lg:grid-cols-[1.05fr_440px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
@@ -105,7 +105,7 @@ export default async function HomePage() {
                   href="/signup"
                   className={cn(
                     buttonVariants({ variant: "primary", size: "lg" }),
-                    "group bg-cream text-grass hover:bg-tennis hover:text-grass-900 hover:shadow-[0_0_48px_rgba(216,232,74,0.32)]"
+                    "group bg-tennis text-[#102018] hover:bg-cream hover:text-grass-900 hover:shadow-[0_0_48px_rgba(216,232,74,0.34)]"
                   )}
                 >
                   Build my fit report
@@ -144,11 +144,12 @@ export default async function HomePage() {
         </section>
 
         {/* -------------------------------------------------------- MOMENTS */}
-        <section className="mx-auto max-w-content container-px py-14">
+        <section className="bg-[#071714]">
+          <div className="mx-auto max-w-content container-px py-14">
           <div className="grid gap-4 sm:grid-cols-3">
             {MOMENTS.map((m, i) => (
               <FadeIn key={m.title} delay={i * 0.08}>
-                <div className="group relative aspect-[4/3] overflow-hidden rounded-card border-hairline border-line">
+                <div className="group relative aspect-[4/3] overflow-hidden rounded-card border-hairline border-cream/14 bg-cream/5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={m.img}
@@ -156,7 +157,7 @@ export default async function HomePage() {
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-grass-900/85 via-grass-900/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#071714]/90 via-[#071714]/10 to-transparent" />
                   <span className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-tennis shadow-soft transition-transform duration-500 group-hover:scale-125" />
                   <div className="absolute inset-x-0 bottom-0 p-5">
                     <p className="font-serif text-xl text-cream">{m.title}</p>
@@ -166,11 +167,13 @@ export default async function HomePage() {
               </FadeIn>
             ))}
           </div>
+          </div>
         </section>
 
         {/* -------------------------------------------------------- TENNIS WORLD */}
-        <section className="mx-auto max-w-content container-px pb-24">
-          <div className="grid gap-8 rounded-[34px] border-hairline border-line bg-card p-4 shadow-soft lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
+        <section className="bg-gradient-to-b from-[#071714] to-cream">
+          <div className="mx-auto max-w-content container-px pb-24">
+          <div className="grid gap-8 rounded-[34px] border-hairline border-cream/18 bg-card/96 p-4 shadow-lift lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
             <FadeIn className="relative min-h-[420px] overflow-hidden rounded-[28px] bg-grass-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -214,6 +217,7 @@ export default async function HomePage() {
                 ))}
               </div>
             </FadeIn>
+          </div>
           </div>
         </section>
 
