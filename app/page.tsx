@@ -101,15 +101,14 @@ export default async function HomePage() {
       <main className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
         <section className="relative min-h-screen overflow-hidden border-b-hairline border-line bg-[#FBFAF3] text-ink">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(216,232,74,0.34),transparent_24%),radial-gradient(circle_at_80%_26%,rgba(56,215,242,0.20),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.86),rgba(250,248,242,0.92))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(216,232,74,0.20),transparent_24%),radial-gradient(circle_at_82%_24%,rgba(151,196,89,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.92),rgba(250,248,242,0.96))]" />
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#EDF7EC] to-transparent" />
-          <div className="absolute left-[-10%] top-[18%] h-[420px] w-[420px] rounded-full border border-[#38D7F2]/20 bg-[#38D7F2]/10 blur-3xl" />
-          <div className="absolute right-[-12%] top-[8%] h-[520px] w-[520px] rounded-full border border-tennis/20 bg-tennis/20 blur-3xl" />
-          <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(90deg,transparent_0_49.8%,rgba(45,74,43,0.20)_49.8%_50.2%,transparent_50.2%),linear-gradient(180deg,transparent_0_33%,rgba(45,74,43,0.16)_33%_33.25%,transparent_33.25%_66.75%,rgba(45,74,43,0.16)_66.75%_67%,transparent_67%)]" />
+          <div className="absolute left-[-10%] top-[18%] h-[420px] w-[420px] rounded-full bg-leaf-accent/10 blur-3xl" />
+          <div className="absolute right-[-12%] top-[8%] h-[520px] w-[520px] rounded-full bg-tennis/14 blur-3xl" />
           <TennisBalls />
           <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-12 container-px pb-20 pt-32 lg:grid-cols-[minmax(0,0.92fr)_430px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
-              <span className="eyebrow text-[#1A8FC7]">College tennis recruiting</span>
+              <span className="eyebrow text-grass">College tennis recruiting</span>
               <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-ink sm:text-6xl lg:text-7xl">
                 Find where you{" "}
                 <span className="italic text-grass">realistically</span> fit in
@@ -125,7 +124,7 @@ export default async function HomePage() {
                   href="/signup"
                   className={cn(
                     buttonVariants({ variant: "primary", size: "lg" }),
-                    "group bg-gradient-to-r from-grass via-[#1F8A70] to-[#1A5FB8] text-cream hover:shadow-[0_0_54px_rgba(56,215,242,0.30)]"
+                    "group"
                   )}
                 >
                   Build my fit report
@@ -135,7 +134,7 @@ export default async function HomePage() {
                   href="/schools"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "lg" }),
-                    "group border-[#1A8FC7]/35 bg-white/70 text-[#0E526A] backdrop-blur hover:border-[#1A8FC7] hover:bg-[#EAF7F8] hover:text-[#0E526A] hover:shadow-[0_0_38px_rgba(56,215,242,0.22)]"
+                    "group bg-white/70 backdrop-blur"
                   )}
                 >
                   Browse schools free
@@ -158,15 +157,15 @@ export default async function HomePage() {
             </FadeIn>
 
             <FadeIn delay={0.12}>
-              <div className="relative overflow-hidden rounded-[30px] border-hairline border-line bg-white/84 p-5 shadow-[0_24px_70px_rgba(26,95,184,0.14),0_0_60px_rgba(216,232,74,0.18)] backdrop-blur-xl">
-                <div className="absolute right-[-80px] top-[-80px] h-44 w-44 rounded-full bg-[#38D7F2]/20 blur-2xl" />
-                <div className="absolute bottom-[-90px] left-[-70px] h-48 w-48 rounded-full bg-tennis/25 blur-2xl" />
+              <div className="relative overflow-hidden rounded-[30px] border-hairline border-line bg-white/88 p-5 shadow-[0_24px_70px_rgba(45,74,43,0.10)] backdrop-blur-xl">
+                <div className="absolute right-[-80px] top-[-80px] h-44 w-44 rounded-full bg-leaf-accent/14 blur-2xl" />
+                <div className="absolute bottom-[-90px] left-[-70px] h-48 w-48 rounded-full bg-tennis/16 blur-2xl" />
                 <div className="relative flex items-center gap-3 border-b border-line pb-5">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-tennis to-[#38D7F2] text-[#071220] shadow-[0_12px_34px_rgba(56,215,242,0.22)]">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-leaf-accent text-grass-900 shadow-[0_12px_30px_rgba(151,196,89,0.18)]">
                     <ListChecks className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="eyebrow text-[#1A8FC7]">What Seeded does</p>
+                    <p className="eyebrow text-grass">What Seeded does</p>
                     <h2 className="mt-1 font-serif text-2xl text-ink">
                       A recruiting system for serious families.
                     </h2>
@@ -176,9 +175,9 @@ export default async function HomePage() {
                   {HERO_FEATURES.map((feature) => (
                     <div
                       key={feature.label}
-                      className="group grid grid-cols-[38px_1fr] gap-3 rounded-[20px] border border-line bg-[#FBFAF3]/78 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-[#38D7F2]/45 hover:bg-white hover:shadow-[0_14px_36px_rgba(26,95,184,0.12)]"
+                      className="group grid grid-cols-[38px_1fr] gap-3 rounded-[20px] border border-line bg-[#FBFAF3]/78 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-grass/25 hover:bg-white hover:shadow-[0_14px_36px_rgba(45,74,43,0.10)]"
                     >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EAF7F8] text-[#0E6A7A] transition-colors group-hover:bg-[#38D7F2] group-hover:text-[#071220]">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 text-grass transition-colors group-hover:bg-leaf-accent group-hover:text-grass-900">
                         <feature.icon className="h-4 w-4" />
                       </span>
                       <div>
@@ -192,7 +191,7 @@ export default async function HomePage() {
                 </div>
                 <Link
                   href="/how-it-works"
-                  className="group relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-pill border border-[#1A8FC7]/25 bg-gradient-to-r from-[#EAF7F8] via-white to-[#F2F8DC] px-5 py-3 text-sm font-medium text-[#0E526A] transition-all hover:-translate-y-0.5 hover:border-[#1A8FC7]/55 hover:shadow-[0_0_34px_rgba(56,215,242,0.24)]"
+                  className="group relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-pill border border-grass/20 bg-grass-50 px-5 py-3 text-sm font-medium text-grass transition-all hover:-translate-y-0.5 hover:border-grass/35 hover:bg-grass hover:text-cream hover:shadow-[0_14px_34px_rgba(45,74,43,0.14)]"
                 >
                   See the workflow
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

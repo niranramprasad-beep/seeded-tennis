@@ -164,9 +164,7 @@ export function Nav() {
                 href="/signup"
                 className={cn(
                   buttonVariants({ variant: "primary", size: "sm" }),
-                  "group",
-                  isMarketingHome &&
-                    "bg-gradient-to-r from-grass to-[#1A5FB8] text-cream hover:shadow-[0_0_34px_rgba(56,215,242,0.24)]"
+                  "group"
                 )}
               >
                 Request access
