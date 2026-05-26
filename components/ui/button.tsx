@@ -8,11 +8,11 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-grass text-cream hover:bg-grass-600 shadow-soft hover:shadow-[0_18px_48px_rgba(216,232,74,0.22),0_16px_44px_rgba(31,31,26,0.16)]",
+          "bg-gradient-to-r from-grass via-[#1F6F5B] to-[#1A5FB8] text-cream shadow-soft hover:shadow-[0_18px_48px_rgba(46,164,214,0.28),0_16px_44px_rgba(31,31,26,0.16)]",
         outline:
-          "border-[1.5px] border-grass/30 text-grass hover:border-grass hover:bg-grass-50 hover:shadow-[0_14px_34px_rgba(45,74,43,0.12)]",
+          "border-[1.5px] border-grass/30 text-grass hover:border-[#1A8FC7] hover:bg-[#EAF7F8] hover:text-[#0E526A] hover:shadow-[0_14px_34px_rgba(26,143,199,0.16)]",
         dark: "bg-ink text-cream hover:bg-ink/90",
-        leaf: "bg-leaf-accent text-grass-900 hover:brightness-105 shadow-soft",
+        leaf: "bg-gradient-to-r from-leaf-accent to-tennis text-grass-900 hover:brightness-105 shadow-soft hover:shadow-[0_16px_40px_rgba(216,232,74,0.3)]",
         ghost: "text-ink hover:bg-grass-50",
         subtle: "bg-grass-50 text-grass hover:bg-grass-100",
       },

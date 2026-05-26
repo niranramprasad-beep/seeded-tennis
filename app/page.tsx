@@ -76,16 +76,16 @@ export default async function HomePage() {
     <>
       <main className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
-        <section className="relative min-h-screen overflow-hidden bg-[#08162E] text-cream">
+        <section className="relative min-h-screen overflow-hidden bg-[#071A2F] text-cream">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/hero-celebration.jpg"
             alt="College-style tennis player on a blue and green hard court"
-            className="absolute inset-0 h-full w-full object-cover object-[68%_48%] sm:object-center"
+            className="absolute inset-0 h-full w-full object-cover object-[58%_50%] sm:object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#071220]/94 via-[#123C35]/64 to-[#08162E]/18" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#071220]/88 via-[#071220]/18 to-[#071220]/46" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_20%,rgba(39,79,158,0.28),transparent_28%),radial-gradient(circle_at_22%_74%,rgba(105,142,76,0.24),transparent_32%)]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#06111F]/94 via-[#0B3B46]/66 to-[#103D32]/16" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#06111F]/86 via-[#06111F]/14 to-[#06111F]/42" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(28,125,190,0.28),transparent_28%),radial-gradient(circle_at_18%_76%,rgba(216,232,74,0.22),transparent_34%)]" />
           <TennisBalls />
           <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-14 container-px pb-20 pt-32 lg:grid-cols-[1.05fr_440px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
@@ -105,7 +105,7 @@ export default async function HomePage() {
                   href="/signup"
                   className={cn(
                     buttonVariants({ variant: "primary", size: "lg" }),
-                    "group bg-tennis text-[#102018] hover:bg-cream hover:text-grass-900 hover:shadow-[0_0_48px_rgba(216,232,74,0.34)]"
+                    "group bg-gradient-to-r from-tennis via-[#8FE66D] to-[#38D7F2] text-[#071A2F] hover:from-cream hover:via-tennis hover:to-[#8FE66D] hover:text-[#071A2F] hover:shadow-[0_0_54px_rgba(56,215,242,0.34)]"
                   )}
                 >
                   Build my fit report
@@ -115,7 +115,7 @@ export default async function HomePage() {
                   href="/schools"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "lg" }),
-                    "group border-cream/40 bg-cream/8 text-cream backdrop-blur hover:border-tennis hover:bg-cream/14 hover:text-cream hover:shadow-[0_0_38px_rgba(216,232,74,0.2)]"
+                    "group border-cream/45 bg-cream/9 text-cream backdrop-blur hover:border-[#38D7F2] hover:bg-[#38D7F2]/12 hover:text-cream hover:shadow-[0_0_38px_rgba(56,215,242,0.25)]"
                   )}
                 >
                   Browse schools free
@@ -144,7 +144,7 @@ export default async function HomePage() {
         </section>
 
         {/* -------------------------------------------------------- MOMENTS */}
-        <section className="bg-[#071220]">
+        <section className="bg-[#06111F]">
           <div className="mx-auto max-w-content container-px py-14">
           <div className="grid gap-4 sm:grid-cols-3">
             {MOMENTS.map((m, i) => (
@@ -157,7 +157,7 @@ export default async function HomePage() {
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#071220]/90 via-[#071220]/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#06111F]/90 via-[#06111F]/10 to-transparent" />
                   <span className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-tennis shadow-soft transition-transform duration-500 group-hover:scale-125" />
                   <div className="absolute inset-x-0 bottom-0 p-5">
                     <p className="font-serif text-xl text-cream">{m.title}</p>
@@ -171,7 +171,7 @@ export default async function HomePage() {
         </section>
 
         {/* -------------------------------------------------------- TENNIS WORLD */}
-        <section className="bg-gradient-to-b from-[#071220] via-[#123C35] to-cream">
+        <section className="bg-gradient-to-b from-[#06111F] via-[#0B3B46] to-cream">
           <div className="mx-auto max-w-content container-px pb-24">
           <div className="grid gap-8 rounded-[34px] border-hairline border-cream/18 bg-card/96 p-4 shadow-lift lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
             <FadeIn className="relative min-h-[420px] overflow-hidden rounded-[28px] bg-grass-900">

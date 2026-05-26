@@ -13,15 +13,26 @@ type Division = (typeof divisions)[number];
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-// Senior-year competitive band per division — the UTR a recruit realistically
-// needs by the time they arrive on campus. (Blended across men's/women's and
-// program tiers; top D1 runs higher, low D1 a touch lower.)
-const SENIOR_BAND: Record<Division, number> = { D1: 12.0, D2: 10.2, D3: 8.5 };
+const DEADLINE_YEAR_BY_CLASS: Record<number, number> = {
+  2026: 2025,
+  2027: 2026,
+  2028: 2027,
+  2029: 2028,
+};
 
-// UTR development tapers as you climb: a 7.0 junior improves faster than a 13.0
-// junior who is already near their ceiling. Returns expected UTR gain per year.
-function growthPerYear(utr: number): number {
-  return clamp(0.9 - (utr - 7) * 0.06, 0.2, 0.9);
+// Minimum realistic recruiting bands by the summer before senior year.
+// Top programs run higher, but this is a better "can I start conversations?"
+// threshold than using final college roster averages.
+const TARGET_BAND: Record<Division, number> = { D1: 10.8, D2: 9.2, D3: 7.8 };
+const STRONG_BAND: Record<Division, number> = { D1: 12.2, D2: 10.5, D3: 9.2 };
+
+function annualGrowth(utr: number): number {
+  if (utr < 5) return 1.05;
+  if (utr < 7) return 0.9;
+  if (utr < 9) return 0.7;
+  if (utr < 11) return 0.5;
+  if (utr < 13) return 0.33;
+  return 0.18;
 }
 
 function gradeFromGradYear(gradYear: number): number {
@@ -46,37 +57,47 @@ export function RecruitingFitPanel() {
 
   const fit = useMemo(() => {
     const gradeNow = gradeFromGradYear(gradYear);
-    const yearsLeft = Math.max(0, 12 - gradeNow);
+    const deadlineYear = DEADLINE_YEAR_BY_CLASS[gradYear] ?? gradYear - 1;
+    const currentYear = 2026;
+    const yearsToDeadline = clamp(deadlineYear - currentYear + 0.25, 0, 3);
+    const projectedDeadline = Math.min(16, utr + yearsToDeadline * annualGrowth(utr));
+    const target = TARGET_BAND[division];
+    const strong = STRONG_BAND[division];
+    const tennisGap = projectedDeadline - target;
+    const strongGap = projectedDeadline - strong;
 
-    // Project the player's UTR forward with a tapering growth curve, then judge
-    // that projection against the division's senior-year band.
-    const projectedSenior = Math.min(16, utr + yearsLeft * growthPerYear(utr));
-    const band = SENIOR_BAND[division];
-    const aheadBy = projectedSenior - band; // + = clears the bar, - = short
+    const tennisScore = clamp(50 + tennisGap * 24, 4, 98);
+    const academicScore = clamp(50 + (gpa - 3.2) * 28, 15, 96);
+    const score = Math.round(tennisScore * 0.72 + academicScore * 0.28);
 
-    // GPA is a real recruiting lever (eligibility, academic-index schools).
-    const gpaAdj = clamp((gpa - 3.3) * 18, -18, 18);
-
-    let score = Math.round(64 + aheadBy * 20 + gpaAdj);
     let label: string;
-
-    if (projectedSenior >= 15) {
-      label = "Professional level";
-      score = Math.max(score, 98);
-    } else if (aheadBy >= 0.8) {
-      label = `Lock for ${division}`;
-    } else if (aheadBy >= 0) {
-      label = `Strong ${division} match`;
-    } else if (aheadBy >= -1) {
-      label = `Developing — ${division} reach`;
+    if (projectedDeadline >= 13.8 && division === "D1") {
+      label = "Power D1 range";
+    } else if (strongGap >= 0) {
+      label = `Strong ${division} range`;
+    } else if (tennisGap >= 0) {
+      label = `Recruitable ${division} fit`;
+    } else if (tennisGap >= -0.8) {
+      label = `Close ${division} reach`;
     } else {
-      label = `Long reach for ${division}`;
+      label = `${division} stretch`;
     }
 
-    score = clamp(score, 5, 99);
-    const gap = Math.max(0, band - projectedSenior);
+    const neededGain = Math.max(0, target - utr);
+    const monthlyPace =
+      yearsToDeadline > 0 ? neededGain / Math.max(1, yearsToDeadline * 12) : neededGain;
 
-    return { score, label, gap, band, projectedSenior, gradeNow };
+    return {
+      score: clamp(score, 4, 98),
+      label,
+      gap: Math.max(0, target - projectedDeadline),
+      target,
+      strong,
+      projectedDeadline,
+      gradeNow,
+      deadlineYear,
+      monthlyPace,
+    };
   }, [division, gpa, gradYear, utr]);
 
   return (
@@ -88,8 +109,8 @@ export function RecruitingFitPanel() {
             Where do you realistically fit?
           </h2>
         </div>
-        <span className="shrink-0 rounded-pill border-hairline border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold">
-          Live estimate
+        <span className="shrink-0 rounded-pill border-hairline border-[#38D7F2]/35 bg-[#38D7F2]/10 px-3 py-1 text-[11px] font-medium text-[#0E6A7A]">
+          Summer checkpoint
         </span>
       </div>
 
@@ -108,7 +129,7 @@ export function RecruitingFitPanel() {
                 onClick={() => setGradYear(year)}
                 className={cn(
                   "rounded-pill px-2 py-1.5 text-xs transition-colors",
-                  gradYear === year ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                  gradYear === year ? "bg-[#1A5FB8] text-cream" : "bg-[#EAF7F8] text-stone hover:text-ink"
                 )}
               >
                 {year}
@@ -124,7 +145,7 @@ export function RecruitingFitPanel() {
                 onClick={() => setDivision(item)}
                 className={cn(
                   "rounded-pill px-2 py-1.5 text-xs transition-colors",
-                  division === item ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                  division === item ? "bg-[#1A5FB8] text-cream" : "bg-[#EAF7F8] text-stone hover:text-ink"
                 )}
               >
                 {item}
@@ -136,8 +157,8 @@ export function RecruitingFitPanel() {
 
       <div className="mt-5 overflow-hidden rounded-card border-hairline border-line bg-cream/60">
         <div className="flex items-center justify-between border-b-hairline border-line px-4 py-3">
-          <span className="text-sm text-stone">Projected recruiting fit</span>
-          <span className="text-sm font-medium text-grass">{fit.label}</span>
+          <span className="text-sm text-stone">Fit by summer before senior year</span>
+          <span className="text-sm font-medium text-[#0E6A7A]">{fit.label}</span>
         </div>
         <div className="p-4">
           <div className="flex items-end justify-between">
@@ -147,19 +168,22 @@ export function RecruitingFitPanel() {
             </div>
             <div className="text-right text-sm">
               <p className="font-medium text-ink">
-                {fit.gap > 0 ? `${fit.gap.toFixed(1)} UTR to the band` : "Clears the band"}
+                {fit.gap > 0 ? `${fit.gap.toFixed(1)} UTR short` : "Clears the recruitable band"}
               </p>
               <p className="mt-0.5 text-xs text-stone-light">
-                proj. senior {fit.projectedSenior.toFixed(1)} · {division} band {fit.band.toFixed(1)}
+                proj. {fit.projectedDeadline.toFixed(1)} by summer {fit.deadlineYear} · target {fit.target.toFixed(1)}
               </p>
             </div>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-pill bg-grass-50">
             <div
-              className="h-full rounded-pill bg-gradient-to-r from-leaf-accent to-grass transition-[width] duration-500"
+              className="h-full rounded-pill bg-gradient-to-r from-tennis via-[#38D7F2] to-[#1A5FB8] transition-[width] duration-500"
               style={{ width: `${fit.score}%` }}
             />
           </div>
+          <p className="mt-3 text-xs leading-relaxed text-stone">
+            Needed pace from today: {fit.monthlyPace.toFixed(2)} UTR/month to reach the recruitable {division} band.
+          </p>
         </div>
       </div>
 
