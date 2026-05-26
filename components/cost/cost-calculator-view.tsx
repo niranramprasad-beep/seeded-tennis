@@ -59,8 +59,8 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
     <main className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">Cost calculator</p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
+          <span className="eyebrow text-gold">Cost calculator</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
             See the real cost of the pursuit.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">

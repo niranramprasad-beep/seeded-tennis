@@ -104,7 +104,7 @@ function MatchModeInner() {
             <Trophy className="h-3.5 w-3.5" />
             Match mode
           </Badge>
-          <h1 className="mt-4 text-3xl font-light tracking-tight text-ink">
+          <h1 className="display-serif mt-4 text-3xl text-ink sm:text-4xl">
             Build your next-match routine.
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-stone">

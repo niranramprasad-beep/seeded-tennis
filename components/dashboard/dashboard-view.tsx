@@ -174,13 +174,11 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
       {/* greeting */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">
-            Welcome back
-          </p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink sm:text-4xl">
+          <span className="eyebrow text-gold">Your workspace</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
             Good to see you, {firstName}.
           </h1>
-          <p className="mt-2 text-stone">
+          <p className="mt-3 text-stone">
             Class of {player.graduationYear} · {player.grade}th grade ·{" "}
             {targetSchools.length} target{" "}
             {targetSchools.length === 1 ? "school" : "schools"}

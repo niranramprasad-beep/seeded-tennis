@@ -69,8 +69,8 @@ function BadgesInner() {
     <main className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">Badge collection</p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
+          <span className="eyebrow text-gold">Badge collection</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
             Milestones that show the work.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">

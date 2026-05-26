@@ -86,10 +86,8 @@ function RoadmapInner({ schools }: { schools: School[] }) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="max-w-2xl">
-        <p className="font-serif text-lg italic text-leaf-accent">
-          Your roadmap
-        </p>
-        <h1 className="mt-1 text-3xl font-light tracking-tight text-ink sm:text-4xl">
+        <span className="eyebrow text-gold">Your roadmap</span>
+        <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
           From {formatUTR(player.currentUTR)} to{" "}
           <span className="serif-accent text-grass">{formatUTR(goalUTR)}</span>,
           year by year.

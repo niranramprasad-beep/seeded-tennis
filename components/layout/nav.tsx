@@ -19,20 +19,22 @@ import {
   Settings,
   ChevronRight,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TierSwitcher } from "./tier-switcher";
 import { cn } from "@/lib/utils";
 
-const MARKETING_LINKS = [
-  { href: "/roadmap", label: "Roadmap" },
+type NavLink = { href: string; label: string; icon?: LucideIcon };
+
+const MARKETING_LINKS: NavLink[] = [
   { href: "/schools", label: "Schools" },
-  { href: "/training", label: "Training" },
+  { href: "/how-it-works", label: "How it works" },
   { href: "/parents", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
 ];
 
-const APP_LINKS = [
+const APP_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Route },
   { href: "/training", label: "Training", icon: CalendarDays },
@@ -42,7 +44,7 @@ const APP_LINKS = [
   { href: "/friends", label: "Friends", icon: Users },
 ];
 
-const PARENT_LINKS = [
+const PARENT_LINKS: NavLink[] = [
   { href: "/family", label: "Family", icon: Users },
   { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
   { href: "/schools", label: "Schools", icon: School },
@@ -56,7 +58,8 @@ export function Nav() {
 
   const showApp = hydrated && isAuthed;
   const isParent = showApp && player.role === "parent";
-  const links = showApp ? (isParent ? PARENT_LINKS : APP_LINKS) : MARKETING_LINKS;
+  const appLinks = isParent ? PARENT_LINKS : APP_LINKS;
+  const mobileLinks = showApp ? appLinks : MARKETING_LINKS;
 
   const handleSignOut = () => {
     signOut();
@@ -64,10 +67,10 @@ export function Nav() {
   };
 
   const isActive = (href: string) =>
-    href.startsWith("/#") ? false : pathname === href || pathname.startsWith(href + "/");
+    pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <header className="sticky top-0 z-50 border-b-[0.5px] border-line bg-cream/88 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b-[0.5px] border-line bg-cream/85 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between container-px">
         <Link
           href={showApp ? "/dashboard" : "/"}
@@ -80,25 +83,27 @@ export function Nav() {
           </span>
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden items-center gap-1 rounded-full border-[0.5px] border-line bg-card/72 p-1 shadow-soft lg:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={cn(
-                "relative rounded-full px-3.5 py-2 text-sm transition-all duration-200 hover:text-ink",
-                isActive(l.href)
-                  ? "bg-grass text-cream shadow-soft"
-                  : "text-stone hover:bg-grass-50"
-              )}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </div>
+        {/* Marketing-only top links (app links live in the workspace row below) */}
+        {!showApp && (
+          <div className="hidden items-center gap-1 rounded-full border-[0.5px] border-line bg-card/70 p-1 shadow-soft lg:flex">
+            {MARKETING_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={cn(
+                  "rounded-full px-3.5 py-2 text-sm transition-colors duration-200",
+                  isActive(l.href)
+                    ? "bg-grass text-cream shadow-soft"
+                    : "text-stone hover:bg-grass-50 hover:text-ink"
+                )}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        )}
 
-        <div className="hidden items-center gap-4 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           {showApp ? (
             <>
               <TierSwitcher showLabel={false} />
@@ -127,10 +132,10 @@ export function Nav() {
               </Link>
               <Link
                 href="/signup"
-                className={buttonVariants({ variant: "primary", size: "sm" })}
+                className={cn(buttonVariants({ variant: "primary", size: "sm" }), "group")}
               >
-                Build roadmap
-                <ChevronRight className="h-4 w-4" />
+                Request access
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </>
           )}
@@ -138,7 +143,7 @@ export function Nav() {
 
         {/* Mobile toggle */}
         <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -157,7 +162,7 @@ export function Nav() {
             className="border-t-[0.5px] border-line bg-cream/96 shadow-lift lg:hidden"
           >
             <div className="flex flex-col gap-1 container-px py-4">
-              {links.map((l) => (
+              {mobileLinks.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
@@ -209,7 +214,7 @@ export function Nav() {
                       onClick={() => setOpen(false)}
                       className={buttonVariants({ variant: "primary", size: "md" })}
                     >
-                      Get started
+                      Request access
                     </Link>
                   </div>
                 )}
@@ -218,33 +223,29 @@ export function Nav() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Single workspace nav row (app links live here only) */}
       {showApp && (
-        <div className="hidden border-t-[0.5px] border-line/70 bg-card/52 lg:block">
-          <div className="mx-auto flex h-12 max-w-content items-center justify-between gap-4 container-px">
-            <div className="flex items-center gap-2 text-xs text-stone-light">
-              <BarChart3 className="h-3.5 w-3.5 text-grass" />
-              <span>Recruiting workspace</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {(isParent ? PARENT_LINKS : APP_LINKS).map((l) => {
-                const Icon = l.icon;
-                return (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    className={cn(
-                      "group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all duration-200",
-                      isActive(l.href)
-                        ? "bg-grass-50 text-grass ring-1 ring-grass/12"
-                        : "text-stone hover:bg-cream hover:text-ink"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
-                    {l.label}
-                  </Link>
-                );
-              })}
-            </div>
+        <div className="hidden border-t-[0.5px] border-line/70 bg-card/55 lg:block">
+          <div className="mx-auto flex h-12 max-w-content items-center gap-1 overflow-x-auto container-px">
+            {appLinks.map((l) => {
+              const Icon = l.icon!;
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={cn(
+                    "group flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-all duration-200",
+                    isActive(l.href)
+                      ? "bg-grass text-cream shadow-soft"
+                      : "text-stone hover:bg-grass-50 hover:text-ink"
+                  )}
+                >
+                  <Icon className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
+                  {l.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

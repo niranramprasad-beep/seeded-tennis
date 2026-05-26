@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Brain, Filter, Upload, Video } from "lucide-react";
+import { Filter, Trophy } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,16 @@ import {
   generatePrepPlan,
   loadMatches,
   saveMatch,
-  uploadMatchVideo,
-  type MatchAnalysis,
   type MatchRecord,
 } from "@/lib/supabase/features";
 import { cn } from "@/lib/utils";
 
 const filters = ["all", "last 30", "wins", "losses"] as const;
+
+const inputClass =
+  "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+const areaClass =
+  "min-h-[86px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
 
 export function MatchHistoryView() {
   return (
@@ -60,7 +63,7 @@ function MatchHistoryInner() {
   }, [filter, matches]);
 
   const save = async () => {
-    setSaving("Saving match...");
+    setSaving("Saving match…");
     const saved = await saveMatch({
       matchDate: form.matchDate,
       opponent: form.opponent,
@@ -83,74 +86,42 @@ function MatchHistoryInner() {
     setSaving("Saved");
   };
 
-  const analyze = async (match: MatchRecord) => {
-    setSaving("Analyzing match...");
-    const response = await fetch("/api/match-analysis", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        currentUtr: player.currentUTR,
-        weaknesses: player.weaknesses,
-        match,
-      }),
-    });
-    const payload = (await response.json()) as MatchAnalysis;
-    const saved = await saveMatch({ ...match, aiAnalysis: payload });
-    if (saved) setMatches((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
-    setSaving(payload.source === "fallback" ? "Saved fallback analysis. Add OPENAI_API_KEY for AI." : "AI analysis saved");
-  };
-
-  const upload = async (match: MatchRecord, file: File | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("video/")) {
-      setSaving("Choose a video file.");
-      return;
-    }
-    if (file.size > 80 * 1024 * 1024) {
-      setSaving("Video is too large. Keep clips short, around 30 seconds.");
-      return;
-    }
-    setSaving("Uploading video...");
-    const videoUrl = await uploadMatchVideo(file);
-    if (!videoUrl) return;
-    const saved = await saveMatch({ ...match, videoUrl });
-    if (saved) setMatches((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
-    setSaving("Video uploaded");
-  };
-
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <main className="mx-auto max-w-content container-px py-12">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">Match history</p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
+          <span className="eyebrow text-gold">Match history</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
             Turn matches into next-week work.
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-stone">
-            Log the score, what worked, what broke down, and save AI takeaways to your training history.
+          <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
+            Log the score, what worked, and what broke down — your record builds a
+            clear picture coaches can trust.
           </p>
         </div>
-        <Badge variant="outline" size="md">
-          <Brain className="h-4 w-4" />
-          {saving || `${matches.length} matches`}
+        <Badge variant="outline" size="md" className="shrink-0">
+          <Trophy className="h-4 w-4" />
+          {saving || `${matches.length} matches logged`}
         </Badge>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[400px_1fr]">
-        <Card className="p-6">
+      <div className="rule-gold mt-8 max-w-[140px]" />
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-[380px_1fr]">
+        <Card className="h-fit p-6">
           <h2 className="text-lg font-medium text-ink">Log a match</h2>
           <div className="mt-4 grid gap-3">
-            <input className={inputClass} type="date" value={form.matchDate} onChange={(e) => setForm({ ...form, matchDate: e.target.value })} />
+            <input className={inputClass} type="date" value={form.matchDate} onChange={(e) => setForm({ ...form, matchDate: e.target.value })} aria-label="Match date" />
             <input className={inputClass} placeholder="Tournament name" value={form.tournamentName} onChange={(e) => setForm({ ...form, tournamentName: e.target.value })} />
             <input className={inputClass} placeholder="Opponent" value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
-            <input className={inputClass} type="number" placeholder="Opponent UTR optional" value={form.opponentUtr} onChange={(e) => setForm({ ...form, opponentUtr: e.target.value })} />
+            <input className={inputClass} type="number" placeholder="Opponent UTR (optional)" value={form.opponentUtr} onChange={(e) => setForm({ ...form, opponentUtr: e.target.value })} />
             <div className="grid grid-cols-2 gap-2">
               {(["win", "loss"] as const).map((result) => (
                 <button
                   key={result}
                   className={cn(
-                    "rounded-full border-[0.5px] py-2 text-sm capitalize",
-                    form.result === result ? "border-grass bg-grass text-cream" : "border-line bg-card text-stone"
+                    "rounded-pill border-[0.5px] py-2 text-sm capitalize transition-colors",
+                    form.result === result ? "border-grass bg-grass text-cream" : "border-line bg-card text-stone hover:text-ink"
                   )}
                   onClick={() => setForm({ ...form, result })}
                 >
@@ -160,9 +131,9 @@ function MatchHistoryInner() {
             </div>
             <input className={inputClass} placeholder="Score, e.g. 6-4, 6-3" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} />
             <textarea className={areaClass} placeholder="What worked?" value={form.worked} onChange={(e) => setForm({ ...form, worked: e.target.value })} />
-            <textarea className={areaClass} placeholder="What did not work?" value={form.needsWork} onChange={(e) => setForm({ ...form, needsWork: e.target.value })} />
+            <textarea className={areaClass} placeholder="What didn't work?" value={form.needsWork} onChange={(e) => setForm({ ...form, needsWork: e.target.value })} />
             <textarea className={areaClass} placeholder="Other notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            <Button onClick={save}>Save match</Button>
+            <Button variant="primary" size="md" onClick={save}>Save match</Button>
           </div>
         </Card>
 
@@ -174,8 +145,8 @@ function MatchHistoryInner() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-sm transition",
-                  filter === f ? "bg-grass text-cream" : "bg-card text-stone hover:text-ink"
+                  "rounded-pill px-3 py-1.5 text-sm capitalize transition-colors",
+                  filter === f ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
                 {f}
@@ -184,56 +155,35 @@ function MatchHistoryInner() {
           </div>
           <div className="space-y-3">
             {visible.map((match) => (
-              <Card key={match.id} className="p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={match.result === "win" ? "leaf" : "outline"}>{match.result ?? "planned"}</Badge>
-                      <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
-                    </div>
-                    <p className="mt-1 text-xs text-stone">
-                      {match.matchDate} · {match.opponent || "opponent not listed"} · {match.score || "no score"}
-                    </p>
-                    <p className="mt-3 text-sm text-stone">{match.worked || match.notes || "No notes yet."}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => analyze(match)}>
-                      <Brain className="h-4 w-4" />
-                      Analyze
-                    </Button>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border-[0.5px] border-line bg-card px-3 py-2 text-sm text-stone transition hover:text-ink">
-                      <Upload className="h-4 w-4" />
-                      Video
-                      <input className="sr-only" type="file" accept="video/*" onChange={(e) => upload(match, e.target.files?.[0] ?? null)} />
-                    </label>
-                  </div>
+              <Card key={match.id} interactive className="p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={match.result === "win" ? "leaf" : "outline"}>
+                    {match.result ?? "planned"}
+                  </Badge>
+                  <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
                 </div>
-                {match.videoUrl && (
-                  <p className="mt-3 flex items-center gap-2 text-xs text-stone-light">
-                    <Video className="h-3.5 w-3.5" />
-                    Video saved to Supabase Storage.
-                  </p>
+                <p className="mt-1 text-xs text-stone-light">
+                  {match.matchDate} · {match.opponent || "opponent not listed"} · {match.score || "no score"}
+                </p>
+                {(match.worked || match.notes) && (
+                  <p className="mt-3 text-sm text-stone">{match.worked || match.notes}</p>
                 )}
-                {match.aiAnalysis && (
-                  <div className="mt-4 rounded-2xl bg-grass-50 p-4">
-                    <p className="text-sm font-medium text-ink">{match.aiAnalysis.summary}</p>
-                    <ul className="mt-2 space-y-1 text-sm text-stone">
-                      {match.aiAnalysis.drills.map((drill) => (
-                        <li key={drill}>{drill}</li>
-                      ))}
-                    </ul>
-                  </div>
+                {match.needsWork && (
+                  <p className="mt-2 text-sm text-stone">
+                    <span className="font-medium text-ink">To work on: </span>
+                    {match.needsWork}
+                  </p>
                 )}
               </Card>
             ))}
+            {!visible.length && (
+              <Card className="p-10 text-center">
+                <p className="text-sm text-stone">No matches in this view yet — log your first on the left.</p>
+              </Card>
+            )}
           </div>
         </div>
       </div>
     </main>
   );
 }
-
-const inputClass =
-  "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
-const areaClass =
-  "min-h-[86px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";

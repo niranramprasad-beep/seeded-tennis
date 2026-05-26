@@ -118,6 +118,14 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <div className="flex justify-end">
+            <Link
+              href="/reset-password"
+              className="text-xs text-stone-light transition-colors hover:text-grass"
+            >
+              Forgot password?
+            </Link>
+          </div>
           {error && (
             <div className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
               <p>{error}</p>
@@ -161,11 +169,13 @@ export function LoginForm() {
           <Link href="/signup" className="font-medium text-grass hover:underline">
             Create an account
           </Link>
-          <span className="mx-2 text-stone-light">or</span>
-          <Link href="/parent-signup" className="font-medium text-grass hover:underline">
-            parent signup
-          </Link>
         </p>
+        <div className="mt-5 rounded-card border-hairline border-line bg-card/60 px-4 py-3 text-center text-sm">
+          <span className="text-stone">Following your child?</span>{" "}
+          <Link href="/parent-login" className="font-medium text-grass hover:underline">
+            Parent sign in
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -1,504 +1,435 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  CheckCircle2,
-  ClipboardList,
-  GraduationCap,
-  Map,
-  CalendarDays,
+  ArrowUpRight,
+  BarChart3,
+  Clock3,
   Mail,
-  Quote,
   Route,
   School,
   ShieldCheck,
-  Sparkles,
-  Target,
-  TrendingUp,
 } from "lucide-react";
 import { getSchools, getTestimonials } from "@/lib/data";
+import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { FadeIn } from "@/components/shared/fade-in";
-import { FloatingDots } from "@/components/shared/floating-dots";
-import { AnimatedNumber } from "@/components/shared/animated-number";
 import { SchoolMarquee } from "@/components/home/school-marquee";
+import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
+import { TennisBalls } from "@/components/home/tennis-balls";
+import { CinematicBand } from "@/components/home/cinematic-band";
 import { Footer } from "@/components/layout/footer";
 
-const HOW_IT_WORKS = [
-  {
-    numeral: "i",
-    title: "Tell us where you stand",
-    body: "Your UTR, your grade, the schools you dream about, and the parts of your game you want to grow. Two minutes, no pressure.",
-  },
-  {
-    numeral: "ii",
-    title: "Get your honest roadmap",
-    body: "A year-by-year plan with realistic UTR targets and the exact tournaments that move the needle for your level.",
-  },
-  {
-    numeral: "iii",
-    title: "Reach out with confidence",
-    body: "Personalized coach emails, a structured training week, and progress tracking the whole family can follow.",
-  },
+const MOMENTS: { img: string; title: string; body: string }[] = [
+  { img: "/images/hero-match.jpg", title: "Match play", body: "Results that move your UTR" },
+  { img: "/images/hero-court.jpg", title: "On the court", body: "Training that targets the gap" },
+  { img: "/images/hero-craft.jpg", title: "The craft", body: "Details that earn a roster spot" },
 ];
 
-const FEATURES = [
+const CAPABILITIES = [
   {
-    icon: Map,
-    badge: "Roadmap",
-    title: "A path mapped match by match",
-    body: "See exactly which UTR to target each year and how many tournaments it takes to get there. No guesswork, no fantasy reaches.",
+    icon: School,
+    title: "Roster fit engine",
+    body: "Measure your level against the roster bands coaches genuinely recruit into — by division and gender.",
   },
   {
-    icon: CalendarDays,
-    badge: "Training",
-    title: "A week built around your game",
-    body: "Court, gym, match play, and recovery — balanced for your level, with a plan-health indicator that keeps you honest.",
+    icon: Route,
+    title: "Year-by-year roadmap",
+    body: "UTR targets framed by the summer before each grade, so the timeline is honest, not aspirational.",
   },
   {
     icon: Mail,
-    badge: "Coach outreach",
-    title: "Emails coaches actually read",
-    body: "Generate personalized introductions from your real stats, track who you've contacted, and never stare at a blank page again.",
+    title: "Coach outreach",
+    body: "Compose specific, credible emails and track every program conversation in one place.",
+  },
+  {
+    icon: BarChart3,
+    title: "Training & match signal",
+    body: "Turn sessions, check-ins, and match logs into a recruiting trajectory you can actually follow.",
   },
 ];
 
-const PRODUCT_STEPS = [
-  {
-    icon: Route,
-    id: "roadmap-preview",
-    eyebrow: "Roadmap",
-    title: "See the UTR target before the pressure hits.",
-    body: "Targets are framed by the summer before each grade year, with tournament volume and school fit shown in one clean recruiting timeline.",
-  },
-  {
-    icon: School,
-    id: "school-matching",
-    eyebrow: "School matching",
-    title: "Rank programs by tennis level and academics.",
-    body: "Compare men's and women's programs across D1, D2 and D3 with roster UTR, minimum competitive UTR, conference, and academic ranking.",
-  },
-  {
-    icon: ClipboardList,
-    id: "training-preview",
-    eyebrow: "Training planning",
-    title: "Turn the roadmap into the actual week.",
-    body: "Build sessions, save custom training types, organize full plans, and keep match play, strength, recovery and school life in balance.",
-  },
+const METHODOLOGY: [string, string][] = [
+  ["Roster reality", "Average roster UTR, minimum competitive UTR, and division-specific bands for men's and women's programs."],
+  ["Academic context", "GPA, graduation year, and US News standing — fit signals a parent can read at a glance."],
+  ["Timeline pressure", "Summer-before-grade checkpoints and tournament volume, shown as confidence bands, never guarantees."],
+];
+
+const LOOP: [string, string][] = [
+  ["Assess", "UTR, GPA, grad year, and target division."],
+  ["Match", "Rank programs by tennis and academic fit."],
+  ["Train", "Build the week around the actual gap."],
+  ["Track", "Log check-ins, matches, and coach replies."],
+];
+
+const PATH_NOTES: [string, string, string][] = [
+  ["01", "Tournament signal", "Which events actually move the profile, and when the calendar needs more volume."],
+  ["02", "Roster window", "The exact range where your UTR and academics make a coach conversation realistic."],
+  ["03", "Weekly edge", "Training hours, recovery, and match prep shaped around the gap to your next target."],
 ];
 
 export default async function HomePage() {
-  const [schools, testimonials] = await Promise.all([
-    getSchools(),
-    getTestimonials(),
-  ]);
-
-  const marqueeSchools = schools.slice(0, 16);
+  const [schools, testimonials] = await Promise.all([getSchools(), getTestimonials()]);
+  const marqueeSchools = schools.slice(0, 18);
 
   return (
     <>
-      {/* ---------------------------------------------------------- HERO */}
-      <section className="relative overflow-hidden">
-        <FloatingDots />
-        <div className="relative mx-auto max-w-content container-px pb-16 pt-20 sm:pt-28">
-          <FadeIn className="mx-auto max-w-3xl text-center">
-            <Badge variant="leaf" size="md" className="mb-6">
-              <Sparkles className="h-3.5 w-3.5" />
-              For junior players UTR 5–12
-            </Badge>
-            <h1 className="text-balance text-4xl font-light leading-[1.08] tracking-tight text-ink sm:text-6xl">
-              Your path to{" "}
-              <span className="serif-accent text-grass">college tennis</span>,
-              mapped match by match.
-            </h1>
-            <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-stone">
-              Seeded turns the chaos of recruiting into one clear plan — honest
-              target schools, year-by-year UTR goals, and the outreach to get
-              you there.
-            </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className={buttonVariants({ variant: "primary", size: "lg" })}
-              >
-                Build my roadmap
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/how-it-works"
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-              >
-                See how it works
-              </Link>
-            </div>
-          </FadeIn>
+      <main className="bg-cream text-ink">
+        {/* ----------------------------------------------------------- HERO */}
+        <section className="relative overflow-hidden border-b-hairline border-line">
+          <TennisBalls />
+          <div className="relative z-10 mx-auto grid max-w-content gap-14 container-px py-16 lg:grid-cols-[1.05fr_440px] lg:items-center lg:py-24">
+            <FadeIn className="flex flex-col">
+              <span className="eyebrow text-gold">College tennis recruiting</span>
+              <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-ink sm:text-6xl lg:text-7xl">
+                Find where you{" "}
+                <span className="italic text-grass">realistically</span> fit in
+                college tennis.
+              </h1>
+              <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-stone">
+                Seeded turns your UTR, academics, and target division into an
+                honest, roster-matched recruiting plan — the kind serious tennis
+                families make real decisions on.
+              </p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/signup"
+                  className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}
+                >
+                  Build my fit report
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  href="/schools"
+                  className={cn(buttonVariants({ variant: "outline", size: "lg" }), "group")}
+                >
+                  Browse schools free
+                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </Link>
+              </div>
 
-          <FadeIn delay={0.18} className="mx-auto mt-12 max-w-5xl">
-            <div className="relative overflow-hidden rounded-[28px] border-[0.5px] border-line bg-card p-3 shadow-lift">
-              <div className="grid gap-3 rounded-[22px] bg-cream/70 p-3 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[20px] bg-grass p-6 text-cream">
-                  <div className="flex items-center justify-between">
-                    <p className="font-serif text-lg italic text-leaf-accent">
-                      Recruiting roadmap
-                    </p>
-                    <Badge variant="lime" size="sm">live plan</Badge>
+              <div className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-line border-t-hairline border-line pt-6">
+                {[
+                  ["1,200+", "programs tracked"],
+                  ["D1–D3", "men's & women's"],
+                  ["Summer", "grade checkpoints"],
+                ].map(([value, label]) => (
+                  <div key={label} className="px-4 first:pl-0">
+                    <p className="font-serif text-3xl text-grass">{value}</p>
+                    <p className="eyebrow mt-2 text-stone-light">{label}</p>
                   </div>
-                  <h2 className="mt-7 max-w-md text-3xl font-light leading-tight">
-                    7.5 → 10.2 UTR by summer before 12th grade.
-                  </h2>
-                  <div className="mt-8 grid grid-cols-4 items-end gap-3">
-                    {[38, 52, 70, 90].map((height, i) => (
-                      <div key={height} className="space-y-2">
-                        <div
-                          style={{ height }}
-                          className="rounded-full bg-leaf-accent"
-                        />
-                        <p className="text-center text-[10px] text-cream/70">
-                          {["now", "pre-11", "pre-12", "college"][i]}
-                        </p>
-                      </div>
-                    ))}
+                ))}
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={0.12}>
+              <RecruitingFitPanel />
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- MOMENTS */}
+        <section className="mx-auto max-w-content container-px py-14">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {MOMENTS.map((m, i) => (
+              <FadeIn key={m.title} delay={i * 0.08}>
+                <div className="group relative aspect-[4/3] overflow-hidden rounded-card border-hairline border-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.img}
+                    alt={m.title}
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-grass-900/85 via-grass-900/10 to-transparent" />
+                  <span className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-tennis shadow-soft transition-transform duration-500 group-hover:scale-125" />
+                  <div className="absolute inset-x-0 bottom-0 p-5">
+                    <p className="font-serif text-xl text-cream">{m.title}</p>
+                    <p className="mt-0.5 text-sm text-cream/75">{m.body}</p>
                   </div>
                 </div>
-                <div className="grid gap-3">
-                  {[
-                    ["Cornell fit", "1.3 UTR gap", "Ivy League · academic reach"],
-                    ["This week", "9.5h planned", "serve pattern + match set"],
-                    ["Coach outreach", "3 drafts ready", "specific to roster needs"],
-                  ].map(([title, stat, detail], i) => (
-                    <div
-                      key={title}
-                      className="rounded-[18px] border-[0.5px] border-line bg-card p-5"
-                    >
-                      <p className="text-xs uppercase tracking-wide text-stone-light">
-                        {title}
+              </FadeIn>
+            ))}
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- TENNIS WORLD */}
+        <section className="mx-auto max-w-content container-px pb-24">
+          <div className="grid gap-8 rounded-[34px] border-hairline border-line bg-card p-4 shadow-soft lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
+            <FadeIn className="relative min-h-[420px] overflow-hidden rounded-[28px] bg-grass-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/hero-court.jpg"
+                alt="Tennis court at golden hour"
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover opacity-95"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-grass-900/88 via-grass-900/20 to-transparent" />
+              <div className="absolute left-5 top-5 rounded-full border-hairline border-cream/20 bg-cream/10 px-4 py-2 text-xs font-medium text-cream backdrop-blur">
+                Recruiting fit, live
+              </div>
+              <div className="absolute inset-x-0 bottom-0 p-6 text-cream sm:p-8">
+                <p className="font-serif text-4xl italic">Bethesda to campus</p>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-cream/75">
+                  A calmer way to read the season: courts, results, school fit,
+                  and outreach moving together instead of scattered tabs.
+                </p>
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={0.08} className="flex flex-col justify-center p-2 sm:p-6">
+              <span className="eyebrow text-gold">The recruiting landscape</span>
+              <h2 className="display-serif mt-4 text-balance text-4xl text-ink sm:text-5xl">
+                Scroll through the season with a plan that feels alive.
+              </h2>
+              <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-stone">
+                Seeded connects the parts families usually manage separately:
+                UTR movement, tournament choices, college lists, training load,
+                and coach communication.
+              </p>
+              <div className="mt-8 divide-y divide-line">
+                {PATH_NOTES.map(([number, title, body]) => (
+                  <div key={title} className="grid grid-cols-[44px_1fr] gap-4 py-5">
+                    <span className="font-serif text-2xl italic text-gold">{number}</span>
+                    <div>
+                      <p className="font-medium text-ink">{title}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-stone">{body}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- TRUST STRIP */}
+        <section className="border-b-hairline border-line bg-card">
+          <div className="mx-auto flex max-w-content flex-col gap-3 container-px py-5 text-sm text-stone sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-gold" />
+              School & roster data reviewed recently
+            </p>
+            <span className="hidden h-4 w-px bg-line sm:block" />
+            <p className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-gold" />
+              Projections shown as confidence bands, never guarantees
+            </p>
+            <span className="hidden h-4 w-px bg-line sm:block" />
+            <p className="flex items-center gap-2">
+              <School className="h-4 w-4 text-gold" />
+              Built by competitive juniors and recruiting families
+            </p>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- CAPABILITIES */}
+        <section className="mx-auto max-w-content container-px py-24">
+          <FadeIn className="max-w-2xl">
+            <span className="eyebrow text-gold">What you get</span>
+            <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
+              A recruiting workflow that feels considered.
+            </h2>
+            <p className="mt-4 text-pretty text-lg leading-relaxed text-stone">
+              Organized around the questions tennis families actually ask: where
+              can I play, what needs to change, and how do we reach coaches well.
+            </p>
+          </FadeIn>
+
+          <div className="mt-14 grid gap-px overflow-hidden rounded-card border-hairline border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {CAPABILITIES.map((item, i) => (
+              <FadeIn key={item.title} delay={i * 0.06}>
+                <div className="h-full bg-card p-7">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold">
+                    <item.icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-6 text-lg font-medium text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-stone">
+                    {item.body}
+                  </p>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        </section>
+
+        {/* ---------------------------------------------- METHODOLOGY (dark band) */}
+        <section className="bg-grass-900 text-cream">
+          <div className="mx-auto grid max-w-content gap-12 container-px py-24 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <FadeIn>
+              <span className="eyebrow text-gold">Our methodology</span>
+              <h2 className="display-serif mt-4 text-4xl text-cream sm:text-5xl">
+                Grounded projections, never recruiting fantasy.
+              </h2>
+              <p className="mt-5 max-w-md text-pretty leading-relaxed text-cream/70">
+                Every fit estimate is built from real program data and honest
+                timelines, so the plan holds up to a coach's scrutiny.
+              </p>
+              <div className="rule-gold mt-8 max-w-xs" />
+              <div className="mt-8 space-y-6">
+                {METHODOLOGY.map(([title, body], i) => (
+                  <div key={title} className="flex gap-4">
+                    <span className="font-serif text-2xl italic text-gold">
+                      {`0${i + 1}`}
+                    </span>
+                    <div>
+                      <p className="font-medium text-cream">{title}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-cream/65">
+                        {body}
                       </p>
-                      <p className="mt-1 text-2xl font-light text-ink">{stat}</p>
-                      <p className="mt-1 text-sm text-stone">{detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+
+            {/* sample recruiting board */}
+            <FadeIn delay={0.1}>
+              <div className="overflow-hidden rounded-card border-hairline border-cream/15 bg-cream/[0.04]">
+                <div className="flex items-center justify-between border-b-hairline border-cream/15 px-5 py-4">
+                  <p className="text-sm font-medium text-cream/80">Recruiting board</p>
+                  <span className="eyebrow text-cream/40">sample</span>
+                </div>
+                <div className="divide-y divide-cream/10">
+                  {[
+                    ["Cornell", "Ivy League", "10.0", "Developing"],
+                    ["Duke", "ACC", "11.5", "Reach"],
+                    ["Northwestern", "Big Ten", "10.5", "Match / reach"],
+                    ["Emory", "UAA · D3", "10.5", "Strong fit"],
+                  ].map(([name, conf, utr, status]) => (
+                    <div
+                      key={name}
+                      className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-3.5 sm:grid-cols-[1fr_72px_120px]"
+                    >
+                      <div>
+                        <p className="font-medium text-cream">{name}</p>
+                        <p className="text-xs text-cream/45">{conf}</p>
+                      </div>
+                      <p className="hidden text-sm text-cream/60 sm:block">
+                        {utr} avg
+                      </p>
+                      <span className="justify-self-end rounded-pill border-hairline border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
+                        {status}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- PROGRAM UNIVERSE */}
+        <section className="border-b-hairline border-line py-20">
+          <div className="mx-auto mb-8 flex max-w-content flex-col justify-between gap-4 container-px sm:flex-row sm:items-end">
+            <div>
+              <span className="eyebrow text-gold">Program universe</span>
+              <h2 className="display-serif mt-3 text-3xl text-ink sm:text-4xl">
+                Compare programs like these.
+              </h2>
             </div>
-          </FadeIn>
-
-          {/* hero stat strip */}
-          <FadeIn delay={0.15} className="mx-auto mt-16 max-w-3xl">
-            <div className="grid grid-cols-1 divide-y-[0.5px] divide-line rounded-card border-[0.5px] border-line bg-card/70 py-6 shadow-soft backdrop-blur-sm sm:grid-cols-3 sm:divide-x-[0.5px] sm:divide-y-0">
-              <div className="px-4 py-3 text-center sm:py-0">
-                <div className="text-3xl font-light text-grass">
-                  <AnimatedNumber value={1200} suffix="+" />
-                </div>
-                <p className="mt-1 text-xs text-stone-light">
-                  D1 · D2 · D3 programs tracked
-                </p>
-              </div>
-              <div className="px-4 py-3 text-center sm:py-0">
-                <div className="font-serif text-3xl italic text-grass">
-                  Men's &amp; women's
-                </div>
-                <p className="mt-1 text-xs text-stone-light">
-                  roadmaps, tuned separately
-                </p>
-              </div>
-              <div className="px-4 py-3 text-center sm:py-0">
-                <div className="text-3xl font-light text-grass">
-                  Grade <span className="text-stone-light">+</span> gender
-                </div>
-                <p className="mt-1 text-xs text-stone-light">
-                  personalized UTR targets
-                </p>
-              </div>
-            </div>
-            <p className="mt-4 text-center text-xs text-stone-light">
-              Built by competitive juniors who lived the recruiting maze.
-            </p>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------ PRODUCT EXPLAINERS */}
-      <section className="py-24">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn className="mx-auto max-w-2xl text-center">
-            <p className="font-serif text-lg italic text-leaf-accent">
-              What families actually use
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-              A recruiting system, not another spreadsheet.
-            </h2>
-          </FadeIn>
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {PRODUCT_STEPS.map((item, i) => (
-              <FadeIn key={item.id} delay={i * 0.1}>
-                <Card id={item.id} interactive className="h-full scroll-mt-24 p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-grass text-cream">
-                    <item.icon className="h-5 w-5" />
-                  </span>
-                  <p className="mt-5 font-serif text-base italic text-leaf-accent">
-                    {item.eyebrow}
-                  </p>
-                  <h3 className="mt-2 text-xl font-medium text-ink">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-stone">{item.body}</p>
-                </Card>
-              </FadeIn>
-            ))}
+            <Link
+              href="/schools"
+              className="inline-flex items-center gap-1 text-sm font-medium text-grass transition-colors hover:text-grass-600"
+            >
+              Open the rankings
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
           </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------ RECRUITING TIMELINE */}
-      <section className="bg-grass py-24 text-cream">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn className="max-w-2xl">
-            <p className="font-serif text-lg italic text-leaf-accent">
-              Recruiting timeline
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight sm:text-4xl">
-              Know what matters before coaches start comparing lists.
-            </h2>
-          </FadeIn>
-          <div className="mt-12 grid gap-4 md:grid-cols-4">
-            {[
-              ["8th-9th", "Build technical base and tournament rhythm."],
-              ["10th", "Identify schools where your UTR arc is credible."],
-              ["11th", "Play the right events and send specific updates."],
-              ["12th", "Narrow fit, visits, applications, and coach dialogue."],
-            ].map(([label, body], i) => (
-              <FadeIn key={label} delay={i * 0.08}>
-                <div className="rounded-card border border-cream/12 bg-cream/8 p-5">
-                  <p className="flex h-9 w-9 items-center justify-center rounded-full bg-leaf-accent text-sm font-medium text-grass">
-                    {i + 1}
-                  </p>
-                  <h3 className="mt-5 text-lg font-medium">{label}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-cream/72">{body}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------ TRUST */}
-      <section id="trust" className="scroll-mt-20 py-24">
-        <div className="mx-auto grid max-w-content gap-10 container-px lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <FadeIn>
-            <p className="font-serif text-lg italic text-leaf-accent">
-              Why parents trust it
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-              Clear enough for the player. Detailed enough for the parent.
-            </h2>
-            <p className="mt-4 leading-relaxed text-stone">
-              Seeded keeps the emotional parts of recruiting grounded in real inputs:
-              UTR, grade, gender, target schools, training load, and outreach history.
-            </p>
-          </FadeIn>
-          <div className="grid gap-3">
-            {[
-              [ShieldCheck, "Transparent fit", "See whether a school is a reach, match, or safer target before spending a tournament weekend chasing the wrong level."],
-              [GraduationCap, "Academic context", "Balance tennis ambition with rankings, deadlines, cost signals, and campus fit."],
-              [CheckCircle2, "Actionable next steps", "Every page points toward something concrete: add a session, compare a school, draft an email, or update progress."],
-            ].map(([Icon, title, body], i) => (
-              <FadeIn key={String(title)} delay={i * 0.08}>
-                <Card className="flex gap-4 p-5">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-grass-50 text-grass">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <h3 className="font-medium text-ink">{String(title)}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-stone">{String(body)}</p>
-                  </div>
-                </Card>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------- TARGETING / MARQUEE */}
-      <section className="border-y-[0.5px] border-line bg-cream py-12">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn className="mb-6 text-center">
-            <p className="text-sm text-stone">
-              Families on Seeded are targeting programs like
-            </p>
-          </FadeIn>
-        </div>
-        <FadeIn delay={0.1}>
           <SchoolMarquee schools={marqueeSchools} />
-        </FadeIn>
-      </section>
+        </section>
 
-      {/* ------------------------------------------------------ HOW IT WORKS */}
-      <section id="how-it-works" className="scroll-mt-20 py-24">
-        <div className="mx-auto max-w-content container-px">
+        {/* ----------------------------------------------------- CINEMATIC BAND */}
+        <CinematicBand
+          image="/images/band-court.jpg"
+          eyebrow="Earn your place"
+          title="Recruiting should feel like a privilege, not a guess."
+          body="Seeded is built for players serious about the climb — every projection grounded, every step deliberate, every decision yours to own."
+        />
+
+        {/* -------------------------------------------------------- THE LOOP */}
+        <section className="mx-auto max-w-content container-px py-24">
           <FadeIn className="max-w-2xl">
-            <p className="font-serif text-lg italic text-leaf-accent">
-              How it works
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-              From confused to committed, in three steps.
+            <span className="eyebrow text-gold">How it works</span>
+            <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
+              One guided loop, assessment to outreach.
             </h2>
           </FadeIn>
-
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
-            {HOW_IT_WORKS.map((step, i) => (
-              <FadeIn key={step.numeral} delay={i * 0.12}>
-                <div className="flex flex-col">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-grass font-serif text-2xl italic text-cream shadow-soft">
-                    {step.numeral}
+          <div className="mt-14 grid gap-px overflow-hidden rounded-card border-hairline border-line bg-line md:grid-cols-2 lg:grid-cols-4">
+            {LOOP.map(([title, body], i) => (
+              <FadeIn key={title} delay={i * 0.06}>
+                <div className="flex h-full flex-col bg-card p-7">
+                  <span className="font-serif text-3xl italic text-gold">
+                    {`0${i + 1}`}
                   </span>
-                  <h3 className="mt-6 text-xl font-medium text-ink">
-                    {step.title}
-                  </h3>
-                  <p className="mt-3 text-pretty leading-relaxed text-stone">
-                    {step.body}
-                  </p>
+                  <h3 className="mt-6 text-xl font-medium text-ink">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-stone">{body}</p>
                 </div>
               </FadeIn>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ---------------------------------------------------------- FEATURES */}
-      <section className="bg-grass-50/40 py-24">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn className="mx-auto max-w-2xl text-center">
-            <p className="font-serif text-lg italic text-grass">
-              Everything in one place
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-              The recruiting tools families wish they'd had sooner.
-            </h2>
-          </FadeIn>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {FEATURES.map((f, i) => (
-              <FadeIn key={f.badge} delay={i * 0.12}>
-                <Card interactive className="h-full p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-grass text-cream">
-                    <f.icon className="h-5 w-5" />
-                  </span>
-                  <Badge variant="lime" size="sm" className="mt-5">
-                    {f.badge}
-                  </Badge>
-                  <h3 className="mt-3 text-xl font-medium text-ink">
-                    {f.title}
-                  </h3>
-                  <p className="mt-3 text-pretty leading-relaxed text-stone">
-                    {f.body}
-                  </p>
-                </Card>
-              </FadeIn>
-            ))}
+        {/* -------------------------------------------------------- TESTIMONIALS */}
+        <section className="border-t-hairline border-line bg-card py-24">
+          <div className="mx-auto max-w-content container-px">
+            <FadeIn className="max-w-2xl">
+              <span className="eyebrow text-gold">Parent confidence</span>
+              <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
+                Trusted with real recruiting decisions.
+              </h2>
+            </FadeIn>
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {testimonials.slice(0, 3).map((item, i) => (
+                <FadeIn key={item.id} delay={i * 0.06}>
+                  <Card className="flex h-full flex-col p-7">
+                    <span className="font-serif text-5xl leading-none text-gold/50">
+                      &ldquo;
+                    </span>
+                    <p className="mt-3 flex-1 text-pretty leading-relaxed text-ink">
+                      {item.quote}
+                    </p>
+                    <div className="mt-6 border-t-hairline border-line pt-4">
+                      <p className="font-medium text-ink">{item.parentName}</p>
+                      <p className="mt-0.5 text-xs text-stone-light">
+                        {item.relationship} · {item.location}
+                      </p>
+                    </div>
+                  </Card>
+                </FadeIn>
+              ))}
+            </div>
           </div>
+        </section>
 
-          {/* highlight banner */}
-          <FadeIn delay={0.2} className="mt-10">
-            <Card className="flex flex-col items-start justify-between gap-6 bg-grass p-8 text-cream sm:flex-row sm:items-center">
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cream/15">
-                  <TrendingUp className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-xl font-medium">
-                    Browsing schools is always free.
-                  </h3>
-                  <p className="mt-1 max-w-lg text-pretty text-cream/80">
-                    Search every program across men's and women's D1, D2 and D3 —
-                    real roster UTRs, minimum competitive levels, and academic
-                    rankings. No account required.
-                  </p>
-                </div>
-              </div>
+        {/* -------------------------------------------------------- CTA */}
+        <section className="mx-auto max-w-content container-px py-24 text-center">
+          <FadeIn className="mx-auto max-w-2xl">
+            <span className="eyebrow text-gold">Begin</span>
+            <h2 className="display-serif mt-4 text-balance text-4xl text-ink sm:text-5xl">
+              Start with an honest fit check.
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-pretty text-lg leading-relaxed text-stone">
+              Build your player profile, compare programs, and turn recruiting
+              into a clear weekly plan.
+            </p>
+            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
-                href="/schools"
-                className={buttonVariants({ variant: "leaf", size: "md" })}
+                href="/signup"
+                className={buttonVariants({ variant: "primary", size: "lg" })}
               >
-                Explore schools
+                Create your profile
                 <ArrowRight className="h-4 w-4" />
               </Link>
-            </Card>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------ TESTIMONIALS */}
-      <section id="testimonials" className="scroll-mt-20 py-24">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn className="max-w-2xl">
-            <p className="font-serif text-lg italic text-leaf-accent">
-              From the families
-            </p>
-            <h2 className="mt-2 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-              Built for the parents in the bleachers.
-            </h2>
-          </FadeIn>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {testimonials.map((t, i) => (
-              <FadeIn key={t.id} delay={i * 0.12}>
-                <Card className="flex h-full flex-col p-7">
-                  <Quote className="h-7 w-7 text-leaf-accent" />
-                  <p className="mt-4 flex-1 text-pretty leading-relaxed text-ink">
-                    "{t.quote}"
-                  </p>
-                  <div className="mt-6 border-t-[0.5px] border-line pt-4">
-                    <p className="font-medium text-ink">{t.parentName}</p>
-                    <p className="text-sm text-stone">
-                      {t.relationship} · {t.location}
-                    </p>
-                    <Badge variant="default" size="sm" className="mt-3">
-                      <Target className="h-3 w-3" />
-                      {t.outcome}
-                    </Badge>
-                  </div>
-                </Card>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------ CTA */}
-      <section className="pb-24">
-        <div className="mx-auto max-w-content container-px">
-          <FadeIn>
-            <div className="relative overflow-hidden rounded-card border-[0.5px] border-line bg-card px-6 py-16 text-center shadow-soft">
-              <FloatingDots />
-              <div className="relative mx-auto max-w-2xl">
-                <h2 className="text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-                  Start mapping your path to{" "}
-                  <span className="serif-accent text-grass">college tennis</span>{" "}
-                  today.
-                </h2>
-                <p className="mx-auto mt-4 max-w-md text-pretty text-stone">
-                  Two minutes to your first roadmap. Free to explore, always.
-                </p>
-                <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Link
-                    href="/signup"
-                    className={buttonVariants({ variant: "primary", size: "lg" })}
-                  >
-                    Build my roadmap
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/pricing"
-                    className={buttonVariants({ variant: "outline", size: "lg" })}
-                  >
-                    See pricing
-                  </Link>
-                </div>
-              </div>
+              <Link
+                href="/schools"
+                className={buttonVariants({ variant: "outline", size: "lg" })}
+              >
+                Browse the database
+              </Link>
             </div>
           </FadeIn>
-        </div>
-      </section>
-
+        </section>
+      </main>
       <Footer />
     </>
   );

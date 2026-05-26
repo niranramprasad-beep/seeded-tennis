@@ -184,10 +184,8 @@ function CoachesInner({
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="max-w-2xl">
-          <p className="font-serif text-lg italic text-leaf-accent">
-            Coach outreach
-          </p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink sm:text-4xl">
+          <span className="eyebrow text-gold">Coach outreach</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
             Emails that sound like{" "}
             <span className="serif-accent text-grass">you</span>.
           </h1>

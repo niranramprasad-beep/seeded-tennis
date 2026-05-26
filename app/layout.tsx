@@ -3,6 +3,7 @@ import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "@/components/layout/nav";
+import { ScrollProgress } from "@/components/shared/scroll-progress";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-cream">
         <Providers>
+          <ScrollProgress />
           <Nav />
           <main>{children}</main>
         </Providers>

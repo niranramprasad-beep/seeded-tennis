@@ -275,6 +275,38 @@ export async function signOut(): Promise<void> {
   if (supa) await supa.auth.signOut();
 }
 
+// Sends a password-reset email with a link back to /reset-password.
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) {
+    return { ok: false, error: "Password reset needs Supabase configured." };
+  }
+  const { error } = await supa.auth.resetPasswordForEmail(email, {
+    redirectTo:
+      typeof window !== "undefined"
+        ? `${window.location.origin}/reset-password`
+        : undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// True when the user arrived via a recovery link (a session is present).
+export async function hasRecoverySession(): Promise<boolean> {
+  const supa = getSupabase();
+  if (!supa) return false;
+  const { data } = await supa.auth.getSession();
+  return Boolean(data.session);
+}
+
+export async function updatePassword(newPassword: string): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return { ok: false, error: "Password reset needs Supabase configured." };
+  const { error } = await supa.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function getCurrentPlayer(): Promise<Player | null> {
   const supa = getSupabase();
   if (!supa) return null;

@@ -26,6 +26,9 @@
     --c-stone-light: 155 155 140;
     --c-line: 232 227 213;
 
+    /* Brass / gold accent — set on :root so it cascades to every theme. */
+    --c-gold: 176 141 87;
+
     --c-scroll-thumb: 217 211 194;
     --c-thumb-ring: 253 252 247;
   }
@@ -153,11 +156,7 @@
   body {
     @apply bg-cream text-ink font-sans antialiased;
     font-feature-settings: "ss01", "cv01";
-    background-image:
-      radial-gradient(circle at 12% 8%, rgb(var(--c-lime) / 0.18), transparent 28%),
-      radial-gradient(circle at 86% 18%, rgb(var(--c-leaf) / 0.12), transparent 26%),
-      linear-gradient(180deg, rgb(var(--c-bg)), rgb(var(--c-primary-50) / 0.32));
-    background-attachment: fixed;
+    /* Clean, flat surface — no glow. Depth comes from layered cards, not gradients. */
   }
 
   ::selection {
@@ -182,6 +181,29 @@
 @layer components {
   .serif-accent {
     @apply font-serif italic font-normal;
+  }
+
+  /* Luxury editorial display headline (Cormorant). */
+  .display-serif {
+    @apply font-serif font-normal tracking-tight;
+    letter-spacing: -0.01em;
+  }
+
+  /* Small-caps tracked label used above section titles. */
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase text-stone;
+    letter-spacing: 0.22em;
+  }
+
+  /* Thin brass divider. */
+  .rule-gold {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--c-gold) / 0.55),
+      transparent
+    );
   }
 
   .container-px {

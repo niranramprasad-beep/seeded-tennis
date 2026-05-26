@@ -451,8 +451,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             <div className="border-b-[0.5px] border-line bg-grass px-6 py-8 text-cream sm:px-9 lg:px-10">
               <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <p className="font-serif text-lg italic text-leaf-accent">Training planner</p>
-                  <h1 className="mt-1 max-w-3xl text-3xl font-light tracking-tight sm:text-5xl">
+                  <span className="eyebrow text-gold">Training planner</span>
+                  <h1 className="display-serif mt-3 max-w-3xl text-4xl sm:text-5xl">
                     Build the week that moves your UTR.
                   </h1>
                   <p className="mt-3 max-w-2xl text-sm leading-relaxed text-cream/78 sm:text-base">

@@ -1,26 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Download, FileText, Heart, MessageCircle, Shield, TrendingUp, Users } from "lucide-react";
+import {
+  CalendarDays,
+  GraduationCap,
+  Heart,
+  MessageCircle,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { usePlayer } from "@/lib/context/player-context";
-import { getSupabase } from "@/lib/supabase/client";
 import {
   loadDailyCheckins,
   loadEncouragementNotes,
   loadFamilyMembers,
   loadMatches,
-  loadParentReports,
   saveEncouragementNote,
   type DailyCheckin,
   type EncouragementNote,
   type FamilyMember,
   type MatchRecord,
-  type ParentReport,
 } from "@/lib/supabase/features";
 import { formatUTR } from "@/lib/utils";
 
@@ -36,23 +42,20 @@ function ParentDashboardInner() {
   const { player } = usePlayer();
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [matches, setMatches] = useState<MatchRecord[]>([]);
-  const [reports, setReports] = useState<ParentReport[]>([]);
   const [notes, setNotes] = useState<EncouragementNote[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
 
   const refresh = async () => {
-    const [c, m, r, n, family] = await Promise.all([
+    const [c, m, n, family] = await Promise.all([
       loadDailyCheckins(),
       loadMatches(),
-      loadParentReports(),
       loadEncouragementNotes(),
       loadFamilyMembers(),
     ]);
     setCheckins(c);
     setMatches(m);
-    setReports(r);
     setNotes(n);
     setMembers(family);
   };
@@ -65,94 +68,158 @@ function ParentDashboardInner() {
     if (!note.trim()) return;
     await saveEncouragementNote(note.trim());
     setNote("");
-    setStatus("Encouragement note saved.");
+    setStatus("Note shared with the player.");
     await refresh();
   };
 
-  const generateReport = async () => {
-    const supabase = getSupabase();
-    const session = await supabase?.auth.getSession();
-    const token = session?.data.session?.access_token;
-    if (!token) {
-      setStatus("Sign in again before generating a report.");
-      return;
-    }
-    setStatus("Generating report...");
-    const response = await fetch("/api/parent-reports/generate", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      setStatus(payload?.error ?? "Report failed. Check Supabase Storage bucket.");
-      return;
-    }
-    setStatus("Report generated.");
-    await refresh();
-  };
-
+  const playerMember = members.find((m) => m.role === "player");
+  const playerName = playerMember?.name ?? player.name ?? "your player";
+  const firstName = playerName.split(" ")[0];
+  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+  const grade = playerMember?.grade ?? player.grade;
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
-  const playerMember = members.find((member) => member.role === "player");
+  const tournamentPct = Math.round(
+    (player.tournamentsPlayed / Math.max(1, player.tournamentsGoal)) * 100
+  );
 
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <main className="mx-auto max-w-content container-px py-12">
+      {/* header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-serif text-lg italic text-leaf-accent">Family dashboard</p>
-          <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
-            Everything your family needs in one place.
+          <span className="eyebrow text-gold">Family dashboard</span>
+          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+            Follow {firstName}&rsquo;s climb.
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-stone">
-            Track your player, view family members, download reports, and leave encouragement notes.
+          <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
+            A clear, read-only window into your player&rsquo;s progress — UTR,
+            training, matches, and the path ahead.
           </p>
         </div>
-        <Badge variant="leaf" size="md">
-          Family code {player.familyCode ?? "not set"}
+        <Badge variant="outline" size="md" className="shrink-0">
+          Family code · {player.familyCode ?? "not set"}
         </Badge>
       </div>
 
-      <div className="mt-7 soft-band p-4 md:p-5">
-        <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Player UTR" value={formatUTR(playerMember?.currentUtr ?? player.currentUTR)} />
-        <Metric label="Check-ins" value={String(checkins.length)} />
-        <Metric label="Matches logged" value={String(completedMatches)} />
-        <Metric label="Family members" value={String(members.length || 1)} />
-        </div>
+      <div className="rule-gold mt-8 max-w-[140px]" />
+
+      {/* stat tiles */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile icon={TrendingUp} label="Current UTR" value={formatUTR(currentUTR)} />
+        <StatTile icon={GraduationCap} label="Grade" value={`${grade}th`} />
+        <StatTile icon={CalendarDays} label="Check-ins" value={String(checkins.length)} />
+        <StatTile icon={Trophy} label="Matches logged" value={String(completedMatches)} />
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_380px]">
-        <div className="space-y-5">
-          <Card className="overflow-hidden border-grass/15 p-0">
-            <div className="bg-grass p-6 text-cream">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-4">
+          {/* player snapshot */}
+          <Card className="p-6">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-leaf-accent" />
-              <h2 className="font-medium">Family members</h2>
+              <Target className="h-4 w-4 text-grass" />
+              <h2 className="text-lg font-medium text-ink">Player snapshot</h2>
             </div>
-            <p className="mt-2 text-sm text-cream/75">
-              Everyone connected to this family can see the same progress and notes.
-            </p>
+            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+              <Field label="Class of" value={String(player.graduationYear)} />
+              <Field label="Target schools" value={String(player.targetSchoolSlugs.length)} />
+              <Field label="Country" value={player.country} />
+            </dl>
+            <div className="mt-5 border-t-hairline border-line pt-5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-stone">Tournament season</span>
+                <span className="font-medium text-ink">
+                  {player.tournamentsPlayed}
+                  <span className="text-stone-light">/{player.tournamentsGoal}</span>
+                </span>
+              </div>
+              <Progress value={tournamentPct} className="mt-3" />
             </div>
-            <div className="grid gap-3 p-5 md:grid-cols-2">
+          </Card>
+
+          {/* training feel */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-grass" />
+              <h2 className="text-lg font-medium text-ink">Recent training feel</h2>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {checkins.slice(-6).reverse().map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-card border-hairline border-line bg-cream/50 p-4"
+                >
+                  <p className="text-xs text-stone-light">{row.date}</p>
+                  <p className="mt-2 font-serif text-3xl text-grass">{row.mood}/5</p>
+                  <p className="mt-1 truncate text-xs text-stone">
+                    {row.focusAreas.join(", ") || "—"}
+                  </p>
+                </div>
+              ))}
+              {!checkins.length && (
+                <p className="text-sm text-stone">No check-ins logged yet.</p>
+              )}
+            </div>
+          </Card>
+
+          {/* upcoming matches */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-grass" />
+              <h2 className="text-lg font-medium text-ink">Upcoming matches</h2>
+            </div>
+            <div className="mt-4 space-y-2">
+              {upcomingMatches.map((match) => (
+                <div
+                  key={match.id}
+                  className="flex items-center justify-between rounded-card border-hairline border-line bg-cream/50 px-4 py-3"
+                >
+                  <p className="font-medium text-ink">
+                    {match.tournamentName || "Match"}
+                  </p>
+                  <p className="text-xs text-stone-light">
+                    {match.matchDate} · {match.surface}
+                  </p>
+                </div>
+              ))}
+              {!upcomingMatches.length && (
+                <p className="text-sm text-stone">No upcoming matches scheduled.</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* right column */}
+        <div className="space-y-4">
+          <Card className="p-6">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-grass" />
+              <h2 className="text-lg font-medium text-ink">Family</h2>
+            </div>
+            <div className="mt-4 space-y-2.5">
               {members.map((member) => (
-                <div key={member.id} className="rounded-[22px] border-[0.5px] border-line bg-card p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-ink">{member.name}</p>
-                      <p className="mt-1 text-xs text-stone-light">{member.email}</p>
-                    </div>
-                    <Badge variant={member.role === "player" ? "leaf" : "outline"}>{member.role}</Badge>
-                  </div>
-                  {member.role === "player" && (
-                    <p className="mt-3 text-sm text-stone">
-                      {formatUTR(member.currentUtr)} UTR · {member.grade}th grade
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between rounded-card border-hairline border-line bg-cream/50 p-3.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">
+                      {member.name}
                     </p>
-                  )}
+                    <p className="truncate text-xs text-stone-light">{member.email}</p>
+                  </div>
+                  <Badge
+                    variant={member.role === "player" ? "leaf" : "outline"}
+                    size="sm"
+                    className="capitalize"
+                  >
+                    {member.role}
+                  </Badge>
                 </div>
               ))}
               {!members.length && (
                 <p className="text-sm text-stone">
-                  No family members loaded yet. Make sure the family code was entered exactly.
+                  No members yet. Check the family code was entered exactly.
                 </p>
               )}
             </div>
@@ -160,99 +227,31 @@ function ParentDashboardInner() {
 
           <Card className="p-6">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-grass" />
-              <h2 className="font-medium text-ink">Recent training feel</h2>
+              <Heart className="h-4 w-4 text-grass" />
+              <h2 className="text-lg font-medium text-ink">Encouragement</h2>
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {checkins.slice(-6).map((row) => (
-                <div key={row.id} className="rounded-2xl border-[0.5px] border-line bg-card p-4">
-                  <p className="text-xs text-stone-light">{row.date}</p>
-                  <p className="mt-2 text-2xl font-light text-ink">{row.mood}/5</p>
-                  <p className="mt-1 text-xs text-stone">{row.focusAreas.join(", ")}</p>
-                </div>
-              ))}
-              {!checkins.length && <p className="text-sm text-stone">No check-ins yet.</p>}
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="font-medium text-ink">Upcoming matches</h2>
-            <div className="mt-4 space-y-3">
-              {upcomingMatches.map((match) => (
-                <div key={match.id} className="rounded-2xl border-[0.5px] border-line bg-card p-4">
-                  <p className="font-medium text-ink">{match.tournamentName || "Match"}</p>
-                  <p className="mt-1 text-xs text-stone">{match.matchDate} · {match.surface}</p>
-                </div>
-              ))}
-              {!upcomingMatches.length && <p className="text-sm text-stone">No upcoming matches logged.</p>}
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-5">
-          <Card className="bg-grass p-6 text-cream">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-leaf-accent" />
-              <h2 className="font-medium">Parent access</h2>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-cream/78">
-              You are connected to family code {player.familyCode ?? "not set"}. This view is built
-              for parents: quick progress, family members, reports, and notes.
+            <p className="mt-1 text-sm text-stone">
+              Notes you leave appear on {firstName}&rsquo;s dashboard.
             </p>
-            <div className="mt-4 rounded-[22px] bg-cream/10 p-4">
-              <p className="text-xs text-cream/60">What the player sees</p>
-              <p className="mt-1 text-sm text-cream/90">
-                Notes you leave here now appear in the player dashboard family hub.
-              </p>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-grass" />
-              <h2 className="font-medium text-ink">Monthly reports</h2>
-            </div>
-            <Button className="mt-4 w-full" onClick={generateReport}>
-              Generate report
-            </Button>
-            <p className="mt-2 text-xs text-stone-light">{status}</p>
-            <div className="mt-4 space-y-2">
-              {reports.map((report) => (
-                <Link
-                  key={report.id}
-                  href={report.publicUrl || "#"}
-                  target="_blank"
-                  className="flex items-center justify-between rounded-xl bg-cream px-4 py-3 text-sm text-stone transition hover:text-ink"
-                >
-                  <span>{report.title}</span>
-                  <Download className="h-4 w-4" />
-                </Link>
-              ))}
-              {!reports.length && <p className="text-sm text-stone">No reports yet.</p>}
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-grass" />
-              <h2 className="font-medium text-ink">Encouragement notes</h2>
-            </div>
             <textarea
               value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="Leave a quick note after a tough week or big result..."
-              className="mt-4 min-h-[92px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-grass/30"
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="After a tough week or a big result…"
+              className="mt-4 min-h-[88px] w-full rounded-card border-hairline border-line bg-cream/50 px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/25"
             />
-            <Button className="mt-3 w-full" onClick={saveNote}>
+            <Button variant="primary" size="md" className="mt-3 w-full" onClick={saveNote}>
               <MessageCircle className="h-4 w-4" />
-              Save note
+              Share note
             </Button>
+            {status && <p className="mt-2 text-xs text-grass">{status}</p>}
             <div className="mt-4 space-y-2">
               {notes.slice(0, 4).map((n) => (
-                <div key={n.id} className="rounded-[18px] bg-cream px-4 py-3">
+                <div key={n.id} className="rounded-card bg-cream/60 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-medium text-ink">{n.authorName}</p>
-                    <span className="text-[11px] capitalize text-stone-light">{n.authorRole}</span>
+                    <span className="text-[11px] capitalize text-stone-light">
+                      {n.authorRole}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-stone">{n.body}</p>
                 </div>
@@ -265,11 +264,31 @@ function ParentDashboardInner() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+}) {
   return (
-    <Card className="p-5">
-      <p className="text-xs text-stone-light">{label}</p>
-      <p className="mt-2 text-2xl font-light text-ink">{value}</p>
+    <Card interactive className="p-5">
+      <div className="flex items-center justify-between">
+        <span className="eyebrow">{label}</span>
+        <Icon className="h-4 w-4 text-gold" />
+      </div>
+      <p className="mt-3 font-serif text-4xl text-ink">{value}</p>
     </Card>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="eyebrow">{label}</dt>
+      <dd className="mt-1.5 text-lg font-medium text-ink">{value}</dd>
+    </div>
   );
 }

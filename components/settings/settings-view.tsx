@@ -36,8 +36,8 @@ function SettingsInner() {
 
   return (
     <div className="mx-auto max-w-3xl container-px py-10">
-      <p className="font-serif text-lg italic text-leaf-accent">Settings</p>
-      <h1 className="mt-1 text-3xl font-light tracking-tight text-ink sm:text-4xl">
+      <span className="eyebrow text-gold">Settings</span>
+      <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
         Make Seeded yours.
       </h1>
 
