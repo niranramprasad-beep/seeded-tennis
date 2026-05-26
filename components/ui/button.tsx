@@ -3,14 +3,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 font-medium whitespace-nowrap select-none transition-[transform,background-color,color,box-shadow,border-color] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:pointer-events-none",
+  "inline-flex items-center justify-center gap-2 font-medium whitespace-nowrap select-none transition-[transform,background-color,color,box-shadow,border-color] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:pointer-events-none",
   {
     variants: {
       variant: {
         primary:
-          "bg-grass text-cream hover:bg-grass-600 shadow-soft hover:shadow-lift",
+          "bg-grass text-cream hover:bg-grass-600 shadow-soft hover:shadow-[0_18px_48px_rgba(216,232,74,0.22),0_16px_44px_rgba(31,31,26,0.16)]",
         outline:
-          "border-[1.5px] border-grass/30 text-grass hover:border-grass hover:bg-grass-50",
+          "border-[1.5px] border-grass/30 text-grass hover:border-grass hover:bg-grass-50 hover:shadow-[0_14px_34px_rgba(45,74,43,0.12)]",
         dark: "bg-ink text-cream hover:bg-ink/90",
         leaf: "bg-leaf-accent text-grass-900 hover:brightness-105 shadow-soft",
         ghost: "text-ink hover:bg-grass-50",

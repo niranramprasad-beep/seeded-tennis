@@ -76,17 +76,26 @@ export default async function HomePage() {
     <>
       <main className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
-        <section className="relative overflow-hidden border-b-hairline border-line">
+        <section className="relative min-h-screen overflow-hidden bg-grass-900 text-cream">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/hero-celebration.jpg"
+            alt="Tennis player celebrating after a match"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-grass-900/88 via-grass-900/54 to-grass-900/18" />
+          <div className="absolute inset-0 bg-gradient-to-t from-grass-900/78 via-transparent to-grass-900/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_28%,rgba(216,232,74,0.22),transparent_24%),radial-gradient(circle_at_22%_78%,rgba(253,252,247,0.14),transparent_28%)]" />
           <TennisBalls />
-          <div className="relative z-10 mx-auto grid max-w-content gap-14 container-px py-16 lg:grid-cols-[1.05fr_440px] lg:items-center lg:py-24">
+          <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-14 container-px pb-20 pt-32 lg:grid-cols-[1.05fr_440px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
               <span className="eyebrow text-gold">College tennis recruiting</span>
-              <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-ink sm:text-6xl lg:text-7xl">
+              <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-cream drop-shadow-[0_12px_34px_rgba(0,0,0,0.34)] sm:text-6xl lg:text-7xl">
                 Find where you{" "}
-                <span className="italic text-grass">realistically</span> fit in
+                <span className="italic text-tennis">realistically</span> fit in
                 college tennis.
               </h1>
-              <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-stone">
+              <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-cream/80">
                 Seeded turns your UTR, academics, and target division into an
                 honest, roster-matched recruiting plan — the kind serious tennis
                 families make real decisions on.
@@ -94,29 +103,35 @@ export default async function HomePage() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}
+                  className={cn(
+                    buttonVariants({ variant: "primary", size: "lg" }),
+                    "group bg-cream text-grass hover:bg-tennis hover:text-grass-900 hover:shadow-[0_0_48px_rgba(216,232,74,0.32)]"
+                  )}
                 >
                   Build my fit report
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </Link>
                 <Link
                   href="/schools"
-                  className={cn(buttonVariants({ variant: "outline", size: "lg" }), "group")}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "group border-cream/40 bg-cream/8 text-cream backdrop-blur hover:border-tennis hover:bg-cream/14 hover:text-cream hover:shadow-[0_0_38px_rgba(216,232,74,0.2)]"
+                  )}
                 >
                   Browse schools free
                   <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </Link>
               </div>
 
-              <div className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-line border-t-hairline border-line pt-6">
+              <div className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-cream/20 border-t-hairline border-cream/20 pt-6">
                 {[
                   ["1,200+", "programs tracked"],
                   ["D1–D3", "men's & women's"],
                   ["Summer", "grade checkpoints"],
                 ].map(([value, label]) => (
                   <div key={label} className="px-4 first:pl-0">
-                    <p className="font-serif text-3xl text-grass">{value}</p>
-                    <p className="eyebrow mt-2 text-stone-light">{label}</p>
+                    <p className="font-serif text-3xl text-tennis">{value}</p>
+                    <p className="eyebrow mt-2 text-cream/58">{label}</p>
                   </div>
                 ))}
               </div>

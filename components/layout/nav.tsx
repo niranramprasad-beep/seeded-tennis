@@ -60,6 +60,7 @@ export function Nav() {
   const isParent = showApp && player.role === "parent";
   const appLinks = isParent ? PARENT_LINKS : APP_LINKS;
   const mobileLinks = showApp ? appLinks : MARKETING_LINKS;
+  const isMarketingHome = !showApp && pathname === "/";
 
   const handleSignOut = () => {
     signOut();
@@ -70,31 +71,57 @@ export function Nav() {
     pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <header className="sticky top-0 z-50 border-b-[0.5px] border-line bg-cream/85 backdrop-blur-xl">
+    <header
+      className={cn(
+        "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
+        isMarketingHome
+          ? "fixed inset-x-0 border-cream/15 bg-grass-900/12 text-cream"
+          : "sticky border-line bg-cream/85"
+      )}
+    >
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between container-px">
         <Link
           href={showApp ? "/dashboard" : "/"}
           className="flex items-center gap-2"
           onClick={() => setOpen(false)}
         >
-          <span className="h-2.5 w-2.5 rounded-full bg-tennis ring-1 ring-grass/15" />
-          <span className="font-serif text-[26px] italic leading-none text-grass">
+          <span
+            className={cn(
+              "h-2.5 w-2.5 rounded-full bg-tennis",
+              isMarketingHome ? "ring-1 ring-cream/40" : "ring-1 ring-grass/15"
+            )}
+          />
+          <span
+            className={cn(
+              "font-serif text-[26px] italic leading-none",
+              isMarketingHome ? "text-cream drop-shadow" : "text-grass"
+            )}
+          >
             Seeded
           </span>
         </Link>
 
         {/* Marketing-only top links (app links live in the workspace row below) */}
         {!showApp && (
-          <div className="hidden items-center gap-1 rounded-full border-[0.5px] border-line bg-card/70 p-1 shadow-soft lg:flex">
+          <div
+            className={cn(
+              "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
+              isMarketingHome
+                ? "border-cream/18 bg-cream/12 text-cream backdrop-blur-2xl"
+                : "border-line bg-card/70"
+            )}
+          >
             {MARKETING_LINKS.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "rounded-full px-3.5 py-2 text-sm transition-colors duration-200",
+                  "rounded-full px-3.5 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5",
                   isActive(l.href)
                     ? "bg-grass text-cream shadow-soft"
-                    : "text-stone hover:bg-grass-50 hover:text-ink"
+                    : isMarketingHome
+                      ? "text-cream/78 hover:bg-cream/14 hover:text-cream hover:shadow-[0_0_28px_rgba(216,232,74,0.18)]"
+                      : "text-stone hover:bg-grass-50 hover:text-ink"
                 )}
               >
                 {l.label}
@@ -126,13 +153,21 @@ export function Nav() {
             <>
               <Link
                 href="/login"
-                className="text-sm text-stone transition-colors hover:text-ink"
+                className={cn(
+                  "text-sm transition-all duration-200 hover:-translate-y-0.5",
+                  isMarketingHome ? "text-cream/80 hover:text-cream" : "text-stone hover:text-ink"
+                )}
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className={cn(buttonVariants({ variant: "primary", size: "sm" }), "group")}
+                className={cn(
+                  buttonVariants({ variant: "primary", size: "sm" }),
+                  "group",
+                  isMarketingHome &&
+                    "bg-cream text-grass hover:bg-tennis hover:text-grass-900 hover:shadow-[0_0_38px_rgba(216,232,74,0.32)]"
+                )}
               >
                 Request access
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

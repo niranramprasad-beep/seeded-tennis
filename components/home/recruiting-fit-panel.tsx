@@ -80,7 +80,7 @@ export function RecruitingFitPanel() {
   }, [division, gpa, gradYear, utr]);
 
   return (
-    <div className="rounded-card border-hairline border-line bg-card p-5 shadow-soft">
+    <div className="rounded-[28px] border-hairline border-cream/24 bg-cream/92 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="eyebrow text-gold">Fit check</p>
