@@ -75,7 +75,7 @@ export function Nav() {
       className={cn(
         "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-cream/14 bg-[#071220]/38 text-cream"
+          ? "fixed inset-x-0 border-line/70 bg-[#FBFAF3]/78 text-ink"
           : "sticky border-line bg-cream/85"
       )}
     >
@@ -88,13 +88,13 @@ export function Nav() {
           <span
             className={cn(
               "h-2.5 w-2.5 rounded-full bg-tennis",
-              isMarketingHome ? "ring-1 ring-cream/40" : "ring-1 ring-grass/15"
+              isMarketingHome ? "ring-1 ring-grass/15" : "ring-1 ring-grass/15"
             )}
           />
           <span
             className={cn(
               "font-serif text-[26px] italic leading-none",
-              isMarketingHome ? "text-cream drop-shadow" : "text-grass"
+              isMarketingHome ? "text-grass" : "text-grass"
             )}
           >
             Seeded
@@ -107,7 +107,7 @@ export function Nav() {
             className={cn(
               "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
               isMarketingHome
-                ? "border-cream/24 bg-[#071220]/30 text-cream backdrop-blur-2xl"
+                ? "border-line bg-white/70 text-ink backdrop-blur-2xl"
                 : "border-line bg-card/70"
             )}
           >
@@ -120,7 +120,7 @@ export function Nav() {
                   isActive(l.href)
                     ? "bg-grass text-cream shadow-soft"
                     : isMarketingHome
-                      ? "text-cream/78 hover:bg-cream/14 hover:text-cream hover:shadow-[0_0_28px_rgba(216,232,74,0.18)]"
+                      ? "text-stone hover:bg-[#EAF7F8] hover:text-[#0E526A] hover:shadow-[0_0_24px_rgba(56,215,242,0.18)]"
                       : "text-stone hover:bg-grass-50 hover:text-ink"
                 )}
               >
@@ -155,7 +155,7 @@ export function Nav() {
                 href="/login"
                 className={cn(
                   "text-sm transition-all duration-200 hover:-translate-y-0.5",
-                  isMarketingHome ? "text-cream/80 hover:text-cream" : "text-stone hover:text-ink"
+                  isMarketingHome ? "text-stone hover:text-ink" : "text-stone hover:text-ink"
                 )}
               >
                 Sign in
@@ -166,7 +166,7 @@ export function Nav() {
                   buttonVariants({ variant: "primary", size: "sm" }),
                   "group",
                   isMarketingHome &&
-                    "bg-tennis text-[#071220] hover:bg-cream hover:text-[#071220] hover:shadow-[0_0_34px_rgba(216,232,74,0.28)]"
+                    "bg-gradient-to-r from-grass to-[#1A5FB8] text-cream hover:shadow-[0_0_34px_rgba(56,215,242,0.24)]"
                 )}
               >
                 Request access
