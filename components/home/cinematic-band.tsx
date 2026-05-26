@@ -27,7 +27,7 @@ export function CinematicBand({
   return (
     <section
       ref={ref}
-      className="relative flex min-h-[460px] items-center justify-center overflow-hidden lg:min-h-[560px]"
+      className="relative flex min-h-[420px] items-center justify-center overflow-hidden border-y-hairline border-line bg-card lg:min-h-[520px]"
     >
       <motion.div style={{ y, scale }} className="absolute inset-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -38,10 +38,10 @@ export function CinematicBand({
           aria-hidden
         />
       </motion.div>
-      <div className="absolute inset-0 bg-grass-900/65" />
+      <div className="absolute inset-0 bg-cream/82" />
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-grass-900/80 via-transparent to-grass-900/40"
+        className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(151,196,89,0.18),transparent_30%),linear-gradient(180deg,rgba(250,248,242,0.92),rgba(253,252,247,0.86))]"
       />
 
       <motion.div
@@ -49,13 +49,13 @@ export function CinematicBand({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 mx-auto max-w-2xl px-6 text-center text-cream"
+        className="relative z-10 mx-auto max-w-2xl px-6 text-center text-ink"
       >
-        <span className="eyebrow text-gold">{eyebrow}</span>
-        <h2 className="display-serif mt-5 text-balance text-4xl text-cream sm:text-6xl">
+        <span className="eyebrow text-grass">{eyebrow}</span>
+        <h2 className="display-serif mt-5 text-balance text-4xl text-ink sm:text-6xl">
           {title}
         </h2>
-        <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-cream/80">
+        <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-stone">
           {body}
         </p>
       </motion.div>

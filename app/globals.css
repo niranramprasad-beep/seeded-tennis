@@ -206,6 +206,16 @@
     );
   }
 
+  .rule-green {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--c-grass) / 0.32),
+      transparent
+    );
+  }
+
   .container-px {
     @apply px-5 sm:px-8 lg:px-10;
   }
