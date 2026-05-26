@@ -8,6 +8,8 @@ import {
   Route,
   School,
   ShieldCheck,
+  Dumbbell,
+  ListChecks,
 } from "lucide-react";
 import { getSchools, getTestimonials } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -15,7 +17,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/shared/fade-in";
 import { SchoolMarquee } from "@/components/home/school-marquee";
-import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
 import { TennisBalls } from "@/components/home/tennis-balls";
 import { CinematicBand } from "@/components/home/cinematic-band";
 import { Footer } from "@/components/layout/footer";
@@ -68,6 +69,29 @@ const PATH_NOTES: [string, string, string][] = [
   ["03", "Weekly edge", "Training hours, recovery, and match prep shaped around the gap to your next target."],
 ];
 
+const HERO_FEATURES = [
+  {
+    icon: School,
+    label: "School matching",
+    text: "Compare programs by roster UTR, academics, location, and division fit.",
+  },
+  {
+    icon: Route,
+    label: "Recruiting roadmap",
+    text: "See targets by the summer before each grade year, not vague senior-year goals.",
+  },
+  {
+    icon: Dumbbell,
+    label: "Training plan",
+    text: "Turn the UTR gap into weekly court, strength, match-play, and recovery work.",
+  },
+  {
+    icon: Mail,
+    label: "Coach outreach",
+    text: "Draft specific emails and track conversations with target programs.",
+  },
+];
+
 export default async function HomePage() {
   const [schools, testimonials] = await Promise.all([getSchools(), getTestimonials()]);
   const marqueeSchools = schools.slice(0, 18);
@@ -87,7 +111,7 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-[#06111F]/82 via-[#06111F]/20 to-[#06111F]/38" />
           <div className="absolute inset-y-0 left-0 w-[58%] bg-[#06111F]/28 backdrop-blur-[1px]" />
           <TennisBalls />
-          <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-12 container-px pb-20 pt-32 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:items-center lg:pb-24 lg:pt-32">
+          <div className="relative z-10 mx-auto grid min-h-screen max-w-content gap-12 container-px pb-20 pt-32 lg:grid-cols-[minmax(0,0.92fr)_430px] lg:items-center lg:pb-24 lg:pt-32">
             <FadeIn className="flex flex-col">
               <span className="eyebrow text-gold">College tennis recruiting</span>
               <h1 className="display-serif mt-6 text-balance text-5xl leading-[1.02] text-cream drop-shadow-[0_12px_34px_rgba(0,0,0,0.34)] sm:text-6xl lg:text-7xl">
@@ -138,7 +162,44 @@ export default async function HomePage() {
             </FadeIn>
 
             <FadeIn delay={0.12}>
-              <RecruitingFitPanel />
+              <div className="rounded-[30px] border-hairline border-cream/22 bg-[#071220]/64 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.22)] backdrop-blur-md">
+                <div className="flex items-center gap-3 border-b border-cream/12 pb-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-tennis text-[#071220]">
+                    <ListChecks className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="eyebrow text-[#38D7F2]">What Seeded does</p>
+                    <h2 className="mt-1 font-serif text-2xl text-cream">
+                      A recruiting system for serious families.
+                    </h2>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  {HERO_FEATURES.map((feature) => (
+                    <div
+                      key={feature.label}
+                      className="group grid grid-cols-[38px_1fr] gap-3 rounded-[20px] border border-cream/10 bg-cream/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#38D7F2]/45 hover:bg-cream/[0.11]"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#38D7F2]/14 text-[#8FE8FF]">
+                        <feature.icon className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="font-medium text-cream">{feature.label}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-cream/70">
+                          {feature.text}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link
+                  href="/how-it-works"
+                  className="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-pill border border-cream/18 bg-cream/10 px-5 py-3 text-sm font-medium text-cream transition-all hover:-translate-y-0.5 hover:border-tennis/60 hover:bg-tennis hover:text-[#071220]"
+                >
+                  See the workflow
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
             </FadeIn>
           </div>
         </section>
