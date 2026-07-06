@@ -50,13 +50,21 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
     setInputs((prev) => ({ ...prev, [key]: Number(value) || 0 }));
 
   const save = async () => {
-    const row = await saveCostCalculation(inputs, "Seeded cost projection");
-    if (row) setSaved((prev) => [row, ...prev]);
-    setStatus("Projection saved to Supabase.");
+    try {
+      const row = await saveCostCalculation(inputs, "Seeded cost projection");
+      if (row) {
+        setSaved((prev) => [row, ...prev]);
+        setStatus("Projection saved to your account.");
+      } else {
+        setStatus("Sign in with Supabase configured to save projections.");
+      }
+    } catch (err) {
+      setStatus(err instanceof Error ? `Could not save: ${err.message}` : "Could not save the projection.");
+    }
   };
 
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Cost calculator</span>
@@ -130,7 +138,7 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
           </Card>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

@@ -15,7 +15,7 @@ const STATUS_STYLE: Record<
   Tournament["status"],
   { label: string; variant: "leaf" | "default" | "muted" }
 > = {
-  completed: { label: "Played", variant: "leaf" },
+  completed: { label: "Completed", variant: "leaf" },
   registered: { label: "Registered", variant: "default" },
   upcoming: { label: "Upcoming", variant: "muted" },
 };
@@ -54,7 +54,9 @@ export function TournamentProgress({
           </span>
           <div>
             <h2 className="text-lg font-medium">Tournament progress</h2>
-            <p className="text-sm text-cream/70">2026 season</p>
+            <p className="text-sm text-cream/70">
+              Your count vs. this season&apos;s goal
+            </p>
           </div>
         </div>
         <span className="text-2xl font-light">
@@ -72,8 +74,16 @@ export function TournamentProgress({
       </div>
       </div>
 
-      {/* filter chips */}
-      <div className="flex gap-2 px-6 pt-5">
+      {/* example calendar — sample events, not the player's own history */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-5">
+        <div>
+          <p className="text-sm font-medium text-ink">Example season calendar</p>
+          <p className="text-xs text-stone-light">
+            A balanced L1-L6 schedule to model yours on — not your logged events.
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-2 px-6 pt-3">
         {(["all", "completed", "upcoming"] as Filter[]).map((f) => (
           <button
             key={f}
@@ -112,7 +122,7 @@ export function TournamentProgress({
                   <p className="text-xs text-stone-light">{fmtDate(t.date)}</p>
                 </div>
                 <Badge variant={status.variant} size="sm">
-                  {t.result ?? status.label}
+                  {status.label}
                 </Badge>
                 <ChevronDown
                   className={cn(
@@ -138,10 +148,7 @@ export function TournamentProgress({
                         value={`${t.city}, ${t.state}`}
                         icon
                       />
-                      <Detail
-                        label="Status"
-                        value={t.result ?? status.label}
-                      />
+                      <Detail label="Status" value={status.label} />
                     </div>
                   </motion.div>
                 )}

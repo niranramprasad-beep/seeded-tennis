@@ -45,7 +45,8 @@ function utrBand(utr: number): string {
   if (utr < 6) return "Developing";
   if (utr < 8) return "Competitive";
   if (utr < 10.5) return "High performance";
-  return "College-ready";
+  if (utr < 13) return "College-ready";
+  return "Elite college level";
 }
 
 function graduationYearForGrade(grade: number): number {
@@ -175,15 +176,15 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                     <Slider
                       value={utr}
                       min={1}
-                      max={16}
-                      step={0.5}
+                      max={16.5}
+                      step={0.25}
                       onChange={setUtr}
                       aria-label="Current UTR"
                     />
                     <div className="mt-2 flex justify-between text-xs text-stone-light">
                       <span>1.0</span>
-                      <span>8.0</span>
-                      <span>16.0</span>
+                      <span>8.75</span>
+                      <span>16.5</span>
                     </div>
                   </div>
                 </StepShell>

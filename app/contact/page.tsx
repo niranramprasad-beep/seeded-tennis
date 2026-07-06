@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 export default function ContactPage() {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center container-px py-16">
+    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center container-px py-16">
       <Card className="w-full overflow-hidden">
         <div className="bg-grass px-6 py-10 text-cream sm:px-10">
           <p className="font-serif text-lg italic text-leaf-accent">Contact Seeded</p>
@@ -34,6 +34,6 @@ export default function ContactPage() {
           </div>
         </div>
       </Card>
-    </main>
+    </div>
   );
 }

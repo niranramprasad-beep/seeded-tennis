@@ -349,7 +349,7 @@ export function evaluateBadges(args: {
   repliedCoaches: number;
 }): Omit<EarnedBadge, "id" | "earnedAt">[] {
   const result: Omit<EarnedBadge, "id" | "earnedAt">[] = [];
-  [6, 7, 8, 9, 10, 11, 12].forEach((level) => {
+  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((level) => {
     if (args.currentUtr >= level) result.push({ key: `utr-${level}`, type: "UTR", title: `${level}.0 UTR`, description: `Reached ${level}.0 UTR.` });
   });
   [5, 10, 25, 50].forEach((count) => {

@@ -48,6 +48,7 @@ export function DailyCheckinCard({
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [earned, setEarned] = useState<EarnedBadge | null>(null);
 
   useEffect(() => {
@@ -79,10 +80,21 @@ export function DailyCheckinCard({
 
   const submit = async () => {
     setSaving(true);
-    const saved = await saveDailyCheckin({ mood, focusAreas, notes });
+    setError("");
+    let saved: DailyCheckin | null = null;
+    try {
+      saved = await saveDailyCheckin({ mood, focusAreas, notes });
+    } catch (err) {
+      setSaving(false);
+      setError(err instanceof Error ? err.message : "Could not save your check-in. Try again.");
+      return;
+    }
     setSaving(false);
-    if (!saved) return;
-    const next = [...checkins.filter((row) => row.date !== saved.date), saved].sort((a, b) =>
+    if (!saved) {
+      setError("You need to be signed in with Supabase configured to save check-ins.");
+      return;
+    }
+    const next = [...checkins.filter((row) => row.date !== saved!.date), saved].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
     setCheckins(next);
@@ -182,6 +194,9 @@ export function DailyCheckinCard({
             className="mt-4 min-h-[88px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
           />
 
+          {error && (
+            <p className="mt-4 rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+          )}
           <Button className="mt-4" onClick={submit} disabled={saving || focusAreas.length === 0}>
             {saving ? "Saving..." : todayDone ? "Update today's check-in" : "Save check-in"}
             {todayDone ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}

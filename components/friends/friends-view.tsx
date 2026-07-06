@@ -59,7 +59,7 @@ function FriendsInner() {
   };
 
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Teammates</span>
@@ -171,7 +171,7 @@ function FriendsInner() {
           </Card>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

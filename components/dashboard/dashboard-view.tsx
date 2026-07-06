@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  Compass,
   Gauge,
   Mail,
   Plus,
@@ -97,7 +98,7 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
     [player.currentUTR, roadmap]
   );
 
-  const firstName = player.name.split(" ")[0];
+  const firstName = player.name.trim().split(/\s+/)[0] || "";
   const today = new Date().toISOString().slice(0, 10);
   const latestUtrEntry = utrEntries[utrEntries.length - 1];
 
@@ -176,7 +177,7 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         <div>
           <span className="eyebrow text-gold">Your workspace</span>
           <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-            Good to see you, {firstName}.
+            {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
           </h1>
           <p className="mt-3 text-stone">
             Class of {player.graduationYear} · {player.grade}th grade ·{" "}
@@ -289,7 +290,7 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
         <FamilyHubCard />
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <DashboardAction
           href="/match-mode"
           icon={Trophy}
@@ -301,6 +302,12 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
           icon={Target}
           label="Match history"
           body="Save notes, video links, and AI takeaways."
+        />
+        <DashboardAction
+          href="/tournament-fit"
+          icon={Compass}
+          label="Tournament fit"
+          body="Check if an event is worth the draw, cost, and drive."
         />
         <DashboardAction
           href="/badges"
@@ -561,8 +568,8 @@ function UtrLogDrawer({
 
   const submit = () => {
     const value = Number(utr);
-    if (!Number.isFinite(value) || value < 1 || value > 16) {
-      setLocalError("Enter a UTR between 1.0 and 16.0.");
+    if (!Number.isFinite(value) || value < 1 || value > 16.5) {
+      setLocalError("Enter a UTR between 1.00 and 16.50.");
       return;
     }
     if (!recordedAt) {
@@ -596,8 +603,8 @@ function UtrLogDrawer({
           <input
             type="number"
             min={1}
-            max={16}
-            step={0.1}
+            max={16.5}
+            step={0.01}
             value={utr}
             onChange={(event) => setUtr(event.target.value)}
             className="h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"

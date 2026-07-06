@@ -285,9 +285,10 @@ function ordinal(n: number): string {
 }
 
 // Blend of academics (US News) and tennis level (avg roster UTR), 0-100.
-// Exported for the leaderboard's "combined score" sort.
+// Exported for the leaderboard's "combined score" sort. 14.5 ≈ the strongest
+// college roster average on the real UTR scale, so it anchors the tennis axis.
 export function combinedScore(school: School): number {
   const academic = Math.max(0, 100 - school.usNewsRanking * 0.62);
-  const tennis = Math.min(100, (school.avgRosterUTR / 12.5) * 100);
+  const tennis = Math.min(100, (school.avgRosterUTR / 14.5) * 100);
   return Math.round(academic * 0.5 + tennis * 0.5);
 }

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { usePlayer } from "@/lib/context/player-context";
 import {
+  awardBadges,
   calculateStreak,
   evaluateBadges,
   loadBadges,
@@ -17,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const catalog = [
-  ...[6, 7, 8, 9, 10, 11, 12].map((n) => ({ key: `utr-${n}`, type: "UTR", title: `${n}.0 UTR` })),
+  ...[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((n) => ({ key: `utr-${n}`, type: "UTR", title: `${n}.0 UTR` })),
   ...[5, 10, 25, 50].map((n) => ({ key: `tournaments-${n}`, type: "Tournament", title: `${n} tournaments` })),
   { key: "upset-1-utr", type: "Match", title: "Rated upset" },
   { key: "win-streak-5", type: "Match", title: "Five match streak" },
@@ -41,15 +42,19 @@ function BadgesInner() {
   const [streak, setStreak] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       const [badges, checkins, matches] = await Promise.all([
         loadBadges(),
         loadDailyCheckins(),
         loadMatches(),
       ]);
+      if (cancelled) return;
       setEarned(badges);
       setStreak(calculateStreak(checkins));
-      evaluateBadges({
+      // Award anything newly qualified for, then show it immediately.
+      const existingKeys = new Set(badges.map((b) => b.key));
+      const newlyQualified = evaluateBadges({
         currentUtr: player.currentUTR,
         tournamentsPlayed: player.tournamentsPlayed,
         streak: calculateStreak(checkins),
@@ -57,16 +62,25 @@ function BadgesInner() {
         trainingHours: 0,
         contactedCoaches: 0,
         repliedCoaches: 0,
-      });
+      }).filter((badge) => !existingKeys.has(badge.key));
+      if (newlyQualified.length > 0) {
+        const awarded = await awardBadges(newlyQualified);
+        if (!cancelled && awarded.length > 0) {
+          setEarned((prev) => [...awarded, ...prev]);
+        }
+      }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [player.currentUTR, player.tournamentsPlayed]);
 
   const earnedMap = useMemo(() => new Map(earned.map((b) => [b.key, b])), [earned]);
   const groups = ["UTR", "Tournament", "Match", "Training", "Recruiting"];
 
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Badge collection</span>
@@ -131,6 +145,6 @@ function BadgesInner() {
           </section>
         ))}
       </div>
-    </main>
+    </div>
   );
 }
