@@ -30,6 +30,7 @@ type NavLink = { href: string; label: string; icon?: LucideIcon };
 
 const MARKETING_LINKS: NavLink[] = [
   { href: "/schools", label: "Schools" },
+  { href: "/tournament-fit", label: "Tournament fit" },
   { href: "/how-it-works", label: "How it works" },
   { href: "/parents", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
