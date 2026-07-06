@@ -35,6 +35,7 @@ function MatchHistoryInner() {
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [filter, setFilter] = useState<(typeof filters)[number]>("all");
   const [saving, setSaving] = useState("");
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     matchDate: new Date().toISOString().slice(0, 10),
     opponent: "",
@@ -63,31 +64,42 @@ function MatchHistoryInner() {
   }, [filter, matches]);
 
   const save = async () => {
+    setError("");
+    const opponentUtr = form.opponentUtr ? Number(form.opponentUtr) : null;
+    if (opponentUtr !== null && (!Number.isFinite(opponentUtr) || opponentUtr < 1 || opponentUtr > 16.5)) {
+      setError("Opponent UTR must be between 1.00 and 16.50.");
+      return;
+    }
     setSaving("Saving match…");
-    const saved = await saveMatch({
-      matchDate: form.matchDate,
-      opponent: form.opponent,
-      opponentUtr: form.opponentUtr ? Number(form.opponentUtr) : null,
-      tournamentName: form.tournamentName,
-      surface: form.surface,
-      result: form.result,
-      score: form.score,
-      worked: form.worked,
-      needsWork: form.needsWork,
-      notes: form.notes,
-      prepPlan: generatePrepPlan({
-        weaknesses: player.weaknesses,
+    try {
+      const saved = await saveMatch({
+        matchDate: form.matchDate,
+        opponent: form.opponent,
+        opponentUtr,
+        tournamentName: form.tournamentName,
         surface: form.surface,
-        currentUtr: player.currentUTR,
-        opponentUtr: form.opponentUtr ? Number(form.opponentUtr) : null,
-      }),
-    });
-    if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
-    setSaving("Saved");
+        result: form.result,
+        score: form.score,
+        worked: form.worked,
+        needsWork: form.needsWork,
+        notes: form.notes,
+        prepPlan: generatePrepPlan({
+          weaknesses: player.weaknesses,
+          surface: form.surface,
+          currentUtr: player.currentUTR,
+          opponentUtr,
+        }),
+      });
+      if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
+      setSaving("Saved");
+    } catch (err) {
+      setSaving("");
+      setError(err instanceof Error ? err.message : "Could not save the match. Try again.");
+    }
   };
 
   return (
-    <main className="mx-auto max-w-content container-px py-12">
+    <div className="mx-auto max-w-content container-px py-12">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Match history</span>
@@ -114,7 +126,7 @@ function MatchHistoryInner() {
             <input className={inputClass} type="date" value={form.matchDate} onChange={(e) => setForm({ ...form, matchDate: e.target.value })} aria-label="Match date" />
             <input className={inputClass} placeholder="Tournament name" value={form.tournamentName} onChange={(e) => setForm({ ...form, tournamentName: e.target.value })} />
             <input className={inputClass} placeholder="Opponent" value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
-            <input className={inputClass} type="number" placeholder="Opponent UTR (optional)" value={form.opponentUtr} onChange={(e) => setForm({ ...form, opponentUtr: e.target.value })} />
+            <input className={inputClass} type="number" min={1} max={16.5} step={0.01} placeholder="Opponent UTR (optional)" value={form.opponentUtr} onChange={(e) => setForm({ ...form, opponentUtr: e.target.value })} />
             <div className="grid grid-cols-2 gap-2">
               {(["win", "loss"] as const).map((result) => (
                 <button
@@ -133,6 +145,9 @@ function MatchHistoryInner() {
             <textarea className={areaClass} placeholder="What worked?" value={form.worked} onChange={(e) => setForm({ ...form, worked: e.target.value })} />
             <textarea className={areaClass} placeholder="What didn't work?" value={form.needsWork} onChange={(e) => setForm({ ...form, needsWork: e.target.value })} />
             <textarea className={areaClass} placeholder="Other notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            {error && (
+              <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+            )}
             <Button variant="primary" size="md" onClick={save}>Save match</Button>
           </div>
         </Card>
@@ -184,6 +199,6 @@ function MatchHistoryInner() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

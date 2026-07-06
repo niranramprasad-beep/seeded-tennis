@@ -2,7 +2,8 @@ import type { TrainingPlan } from "@/lib/types";
 
 // Weekly training templates keyed by UTR band. A real backend would
 // personalize these; here they scale realistically in volume and intensity
-// from a developing junior (UTR 6, ~14h) to a college-ready player (UTR 12, ~26h).
+// from a developing junior (UTR 6, ~14h) to an elite college-track player
+// (UTR 13+, ~28h). Players are matched to the nearest band.
 
 export const trainingPlans: TrainingPlan[] = [
   {
@@ -527,6 +528,140 @@ export const trainingPlans: TrainingPlan[] = [
             hours: 2,
             intensity: "low",
             detail: "Mobility, massage, contrast therapy, performance-data review with team.",
+            focusAreas: ["fitness", "mental"],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    utrLevel: 14,
+    label: "Elite college track — UTR 13+",
+    summary:
+      "Top-D1 roster level. Managed like a professional block: heavy sparring against college and pro-level hitters, individualized strength cycles, and recovery treated as training.",
+    weeklyHours: 28,
+    days: [
+      {
+        day: "Mon",
+        activities: [
+          {
+            id: "u14-mon-1",
+            type: "court",
+            title: "AM: First-strike patterns",
+            hours: 2,
+            intensity: "high",
+            detail: "Serve +1 and return +1 at match pace vs. 13+ sparring partners, error-rate tracked.",
+            focusAreas: ["serve", "forehand"],
+          },
+          {
+            id: "u14-mon-2",
+            type: "gym",
+            title: "PM: Strength cycle",
+            hours: 1.5,
+            intensity: "high",
+            detail: "Individualized periodized lift: posterior chain, rotational power, shoulder care.",
+            focusAreas: ["fitness"],
+          },
+        ],
+      },
+      {
+        day: "Tue",
+        activities: [
+          {
+            id: "u14-tue-1",
+            type: "court",
+            title: "College-level sparring",
+            hours: 2.5,
+            intensity: "high",
+            detail: "Sets against college or futures-level players; every set charted and reviewed.",
+            focusAreas: ["forehand", "backhand"],
+          },
+          {
+            id: "u14-tue-2",
+            type: "mental",
+            title: "Performance review",
+            hours: 0.5,
+            intensity: "moderate",
+            detail: "Video and stat review with coach: patterns won/lost, pressure-point execution.",
+            focusAreas: ["mental"],
+          },
+        ],
+      },
+      {
+        day: "Wed",
+        activities: [
+          {
+            id: "u14-wed-1",
+            type: "match",
+            title: "Full match play",
+            hours: 3,
+            intensity: "high",
+            detail: "Best-of-three at tournament intensity with full pre-match routine.",
+            focusAreas: ["mental", "fitness"],
+          },
+        ],
+      },
+      {
+        day: "Thu",
+        activities: [
+          {
+            id: "u14-thu-1",
+            type: "court",
+            title: "Serve & return precision",
+            hours: 2,
+            intensity: "high",
+            detail: "Location-first serving under fatigue, second-serve aggression, return depth windows.",
+            focusAreas: ["serve", "backhand"],
+          },
+          {
+            id: "u14-thu-2",
+            type: "gym",
+            title: "Speed & elasticity",
+            hours: 1,
+            intensity: "high",
+            detail: "Sprint mechanics, reactive plyometrics, deceleration under control.",
+            focusAreas: ["fitness"],
+          },
+        ],
+      },
+      {
+        day: "Fri",
+        activities: [
+          {
+            id: "u14-fri-1",
+            type: "court",
+            title: "Situational sets",
+            hours: 2.5,
+            intensity: "high",
+            detail: "Start sets at 4-4, tiebreaks only, and serving-down scenarios to sharpen closing.",
+            focusAreas: ["mental", "forehand"],
+          },
+        ],
+      },
+      {
+        day: "Sat",
+        activities: [
+          {
+            id: "u14-sat-1",
+            type: "match",
+            title: "Tournament or showcase",
+            hours: 3,
+            intensity: "high",
+            detail: "Sanctioned match play — L1-L3 or UTR verified events that hold the rating.",
+            focusAreas: ["mental", "fitness"],
+          },
+        ],
+      },
+      {
+        day: "Sun",
+        activities: [
+          {
+            id: "u14-sun-1",
+            type: "recovery",
+            title: "Pro-style recovery day",
+            hours: 2,
+            intensity: "low",
+            detail: "Soft tissue, contrast therapy, mobility, sleep audit, week debrief with the team.",
             focusAreas: ["fitness", "mental"],
           },
         ],

@@ -51,7 +51,7 @@ export function ParentLoginForm() {
       return;
     }
     beginSession(player);
-    router.push(player.role === "parent" ? "/parent-dashboard" : "/dashboard");
+    router.push(player.role === "parent" ? "/family" : "/dashboard");
   };
 
   return (

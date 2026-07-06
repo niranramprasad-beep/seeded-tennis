@@ -31,6 +31,7 @@ function MatchModeInner() {
   const { player } = usePlayer();
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [status, setStatus] = useState("Ready");
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     matchDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     opponent: "",
@@ -51,24 +52,39 @@ function MatchModeInner() {
   const plan = nextMatch?.prepPlan;
 
   const create = async () => {
+    setError("");
+    const opponentUtr = form.opponentUtr ? Number(form.opponentUtr) : null;
+    if (opponentUtr !== null && (!Number.isFinite(opponentUtr) || opponentUtr < 1 || opponentUtr > 16.5)) {
+      setError("Opponent UTR must be between 1.00 and 16.50.");
+      return;
+    }
+    if (!form.matchDate) {
+      setError("Pick a match date first.");
+      return;
+    }
     const prepPlan = generatePrepPlan({
       weaknesses: player.weaknesses,
       surface: form.surface,
       currentUtr: player.currentUTR,
-      opponentUtr: form.opponentUtr ? Number(form.opponentUtr) : null,
+      opponentUtr,
     });
     setStatus("Saving match prep...");
-    const saved = await saveMatch({
-      matchDate: form.matchDate,
-      opponent: form.opponent,
-      opponentUtr: form.opponentUtr ? Number(form.opponentUtr) : null,
-      tournamentName: form.tournamentName,
-      surface: form.surface,
-      prepPlan,
-      notificationRequested: false,
-    });
-    if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
-    setStatus("Prep plan saved");
+    try {
+      const saved = await saveMatch({
+        matchDate: form.matchDate,
+        opponent: form.opponent,
+        opponentUtr,
+        tournamentName: form.tournamentName,
+        surface: form.surface,
+        prepPlan,
+        notificationRequested: false,
+      });
+      if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
+      setStatus("Prep plan saved");
+    } catch (err) {
+      setStatus("Ready");
+      setError(err instanceof Error ? err.message : "Could not save the match. Try again.");
+    }
   };
 
   const requestNotification = async (match: MatchRecord) => {
@@ -88,16 +104,22 @@ function MatchModeInner() {
     setStatus("Notification enabled. Browser reminders work while the app is open.");
   };
 
-  const logResult = async (match: MatchRecord, result: "win" | "loss") => {
-    const score = window.prompt("Score? Example: 6-4, 3-6, 10-8") ?? "";
-    const worked = window.prompt("What worked?") ?? "";
-    const needsWork = window.prompt("What needs work?") ?? "";
-    const saved = await saveMatch({ ...match, result, score, worked, needsWork });
-    if (saved) setMatches((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
+  const logResult = async (
+    match: MatchRecord,
+    input: { result: "win" | "loss"; score: string; worked: string; needsWork: string }
+  ) => {
+    setError("");
+    try {
+      const saved = await saveMatch({ ...match, ...input });
+      if (saved) setMatches((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
+      setStatus("Result logged");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not log the result. Try again.");
+    }
   };
 
   return (
-    <main className="mx-auto max-w-content container-px py-10">
+    <div className="mx-auto max-w-content container-px py-10">
       <div className="grid gap-5 lg:grid-cols-[390px_1fr]">
         <Card className="p-6">
           <Badge variant="lime" size="sm">
@@ -115,7 +137,7 @@ function MatchModeInner() {
             <Input label="Match date" type="date" value={form.matchDate} onChange={(v) => setForm({ ...form, matchDate: v })} />
             <Input label="Tournament" value={form.tournamentName} onChange={(v) => setForm({ ...form, tournamentName: v })} placeholder="USTA L4 Bethesda" />
             <Input label="Opponent optional" value={form.opponent} onChange={(v) => setForm({ ...form, opponent: v })} placeholder="Opponent name" />
-            <Input label="Opponent UTR optional" type="number" value={form.opponentUtr} onChange={(v) => setForm({ ...form, opponentUtr: v })} placeholder="8.2" />
+            <Input label="Opponent UTR optional" type="number" min={1} max={16.5} step={0.01} value={form.opponentUtr} onChange={(v) => setForm({ ...form, opponentUtr: v })} placeholder="8.2" />
             <div>
               <span className="mb-2 block text-xs font-medium text-stone-light">Court surface</span>
               <div className="grid grid-cols-4 gap-2">
@@ -139,6 +161,9 @@ function MatchModeInner() {
               <Plus className="h-4 w-4" />
               Generate prep plan
             </Button>
+            {error && (
+              <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+            )}
             <p className="text-xs text-stone-light">{status}</p>
           </div>
         </Card>
@@ -184,7 +209,7 @@ function MatchModeInner() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -199,8 +224,16 @@ function PrepPlanCard({
   plan: PrepPlan;
   currentUtr: number;
   onNotify: () => void;
-  onLog: (match: MatchRecord, result: "win" | "loss") => void;
+  onLog: (
+    match: MatchRecord,
+    input: { result: "win" | "loss"; score: string; worked: string; needsWork: string }
+  ) => void;
 }) {
+  const [logging, setLogging] = useState<"win" | "loss" | null>(null);
+  const [score, setScore] = useState("");
+  const [worked, setWorked] = useState("");
+  const [needsWork, setNeedsWork] = useState("");
+
   const sections = [
     ["Warm-up", plan.warmup],
     ["Tactics", plan.tactics],
@@ -250,14 +283,63 @@ function PrepPlanCard({
           </motion.div>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2 border-t-[0.5px] border-line p-5">
-        <Button variant="primary" size="sm" onClick={() => onLog(match, "win")}>
-          <Check className="h-4 w-4" />
-          Log win
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => onLog(match, "loss")}>
-          Log loss
-        </Button>
+      <div className="border-t-[0.5px] border-line p-5">
+        {logging === null ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" size="sm" onClick={() => setLogging("win")}>
+              <Check className="h-4 w-4" />
+              Log win
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setLogging("loss")}>
+              Log loss
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-ink">
+              Logging a {logging} — add the details
+            </p>
+            <Input
+              label="Score"
+              value={score}
+              onChange={setScore}
+              placeholder="6-4, 3-6, 10-8"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="What worked"
+                value={worked}
+                onChange={setWorked}
+                placeholder="Serve +1 patterns held up"
+              />
+              <Input
+                label="What needs work"
+                value={needsWork}
+                onChange={setNeedsWork}
+                placeholder="Second-serve returns"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  onLog(match, { result: logging, score, worked, needsWork });
+                  setLogging(null);
+                  setScore("");
+                  setWorked("");
+                  setNeedsWork("");
+                }}
+              >
+                <Check className="h-4 w-4" />
+                Save {logging}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setLogging(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -269,12 +351,18 @@ function Input({
   onChange,
   type = "text",
   placeholder,
+  min,
+  max,
+  step,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
 }) {
   return (
     <label className="block">
@@ -283,6 +371,9 @@ function Input({
         type={type}
         value={value}
         placeholder={placeholder}
+        min={min}
+        max={max}
+        step={step}
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
       />

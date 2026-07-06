@@ -17,11 +17,15 @@ const TERMS = [
     title: "Training plans",
     body: "Training content is not medical advice. Players should adapt workloads with coaches, trainers, parents, and healthcare professionals as needed.",
   },
+  {
+    title: "Privacy",
+    body: "Seeded stores your account details, tennis profile, and activity (check-ins, matches, UTR history) to power your dashboard and family features. Your data is never sold, and family members only see data shared through your family code. You can request deletion of your account and data at any time via the contact page.",
+  },
 ];
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-4xl container-px py-16">
+    <div className="mx-auto max-w-4xl container-px py-16">
       <div className="mb-8">
         <p className="font-serif text-lg italic text-leaf-accent">Seeded terms</p>
         <h1 className="mt-2 text-4xl font-light tracking-tight text-ink">Simple terms for the MVP.</h1>
@@ -37,6 +41,6 @@ export default function TermsPage() {
           </section>
         ))}
       </Card>
-    </main>
+    </div>
   );
 }

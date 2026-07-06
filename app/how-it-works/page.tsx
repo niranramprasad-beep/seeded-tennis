@@ -31,7 +31,7 @@ const steps = [
 export default function HowItWorksPage() {
   return (
     <>
-      <main className="mx-auto max-w-content container-px py-16">
+      <div className="mx-auto max-w-content container-px py-16">
         <Badge variant="leaf" size="md">How it works</Badge>
         <h1 className="mt-5 max-w-3xl text-balance text-4xl font-light tracking-tight text-ink sm:text-6xl">
           Recruiting clarity from the first profile to the first coach reply.
@@ -59,7 +59,7 @@ export default function HowItWorksPage() {
             Build my roadmap
           </Link>
         </div>
-      </main>
+      </div>
       <Footer />
     </>
   );

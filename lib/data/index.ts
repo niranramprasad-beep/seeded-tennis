@@ -23,7 +23,6 @@ import { getSchoolProfile, combinedScore } from "./school-detail";
 import { trainingPlans as trainingPlansData } from "./training-plans";
 import { tournaments as tournamentsData } from "./tournaments";
 import { testimonials as testimonialsData } from "./testimonials";
-import { sampledPlayer, blankPlayer } from "./user";
 
 // The full catalog. Swapping to Supabase means replacing this with a query.
 const schoolsData: School[] = [
@@ -107,16 +106,6 @@ export async function getTestimonials(): Promise<Testimonial[]> {
   return resolve(testimonialsData);
 }
 
-/* ------------------------------------------------------------------ player */
-
-export async function getSamplePlayer(): Promise<Player> {
-  return resolve(sampledPlayer);
-}
-
-export async function getBlankPlayer(): Promise<Player> {
-  return resolve(blankPlayer);
-}
-
 /* ---------------------------------------------------------------- roadmap */
 
 // Milestones are framed around the SUMMER BEFORE the given grade — the window
@@ -167,7 +156,9 @@ function ordinal(grade: number): string {
 // minimum-competitive bar among the targets — already gender-correct because the
 // targets come from the matching men's/women's program data.
 export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
-  const genderCap = player.gender === "female" ? 11.5 : 12.5;
+  // Fallback goal when no targets are chosen: aim ~2.5 above today, capped at
+  // a realistic top-of-college-tennis level for each gender (real UTR scale).
+  const genderCap = player.gender === "female" ? 12.5 : 14;
   const goalUTR =
     targets.length > 0
       ? Math.max(...targets.map((s) => s.minCompetitiveUTR))

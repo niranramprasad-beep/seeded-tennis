@@ -84,7 +84,7 @@ function ParentDashboardInner() {
   );
 
   return (
-    <main className="mx-auto max-w-content container-px py-12">
+    <div className="mx-auto max-w-content container-px py-12">
       {/* header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
@@ -260,7 +260,7 @@ function ParentDashboardInner() {
           </Card>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

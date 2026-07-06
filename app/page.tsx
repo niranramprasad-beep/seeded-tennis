@@ -98,7 +98,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <main className="bg-cream text-ink">
+      <div className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
         <section className="relative min-h-screen overflow-hidden border-b-hairline border-line bg-[#FBFAF3] text-ink">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(216,232,74,0.20),transparent_24%),radial-gradient(circle_at_82%_24%,rgba(151,196,89,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.92),rgba(250,248,242,0.96))]" />
@@ -436,7 +436,7 @@ export default async function HomePage() {
         />
 
         {/* -------------------------------------------------------- THE LOOP */}
-        <section className="mx-auto max-w-content container-px py-24">
+        <section id="how-it-works" className="mx-auto max-w-content container-px py-24">
           <FadeIn className="max-w-2xl">
             <span className="eyebrow text-grass">How it works</span>
             <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
@@ -459,7 +459,7 @@ export default async function HomePage() {
         </section>
 
         {/* -------------------------------------------------------- TESTIMONIALS */}
-        <section className="border-t-hairline border-line bg-card py-24">
+        <section id="testimonials" className="border-t-hairline border-line bg-card py-24">
           <div className="mx-auto max-w-content container-px">
             <FadeIn className="max-w-2xl">
               <span className="eyebrow text-grass">Parent confidence</span>
@@ -518,7 +518,7 @@ export default async function HomePage() {
             </div>
           </FadeIn>
         </section>
-      </main>
+      </div>
       <Footer />
     </>
   );

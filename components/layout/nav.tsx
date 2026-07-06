@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
   CalendarDays,
+  Compass,
   LayoutDashboard,
   Mail,
   Menu,
@@ -39,6 +40,7 @@ const APP_LINKS: NavLink[] = [
   { href: "/roadmap", label: "Roadmap", icon: Route },
   { href: "/training", label: "Training", icon: CalendarDays },
   { href: "/match-mode", label: "Match mode", icon: Trophy },
+  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
   { href: "/schools", label: "Schools", icon: School },
   { href: "/coaches", label: "Coaches", icon: Mail },
   { href: "/friends", label: "Friends", icon: Users },
@@ -47,6 +49,7 @@ const APP_LINKS: NavLink[] = [
 const PARENT_LINKS: NavLink[] = [
   { href: "/family", label: "Family", icon: Users },
   { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
+  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
   { href: "/schools", label: "Schools", icon: School },
 ];
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
 import type { SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
+import { usePlayer } from "@/lib/context/player-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,11 +101,13 @@ const MATRIX: { group: string; rows: Row[] }[] = [
 
 export function PricingView() {
   const { tier, setTier } = useTier();
+  const { isAuthed, hydrated } = usePlayer();
   const router = useRouter();
 
   const choose = (t: SubscriptionTier) => {
     setTier(t);
-    router.push("/dashboard");
+    // Signed-out visitors need an account first; their plan choice is kept.
+    router.push(hydrated && isAuthed ? "/dashboard" : "/signup");
   };
 
   return (

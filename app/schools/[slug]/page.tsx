@@ -137,6 +137,13 @@ export default async function SchoolDetailPage({
           ))}
         </div>
 
+        <p className="mt-3 text-xs leading-relaxed text-stone-light">
+          UTR benchmarks are Seeded estimates for planning. Roster names,
+          results, standings, and recruiting classes below are illustrative
+          sample data — always verify details with the program before making
+          recruiting decisions.
+        </p>
+
         {/* roster + coach */}
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2 p-6">

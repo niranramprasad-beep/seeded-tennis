@@ -31,7 +31,7 @@ const items = [
 export default function ParentsPage() {
   return (
     <>
-      <main className="mx-auto max-w-content container-px py-16">
+      <div className="mx-auto max-w-content container-px py-16">
         <div className="max-w-3xl">
           <Badge variant="leaf" size="md">For parents</Badge>
           <h1 className="mt-5 text-balance text-4xl font-light tracking-tight text-ink sm:text-6xl">
@@ -63,7 +63,7 @@ export default function ParentsPage() {
             </Card>
           ))}
         </div>
-      </main>
+      </div>
       <Footer />
     </>
   );

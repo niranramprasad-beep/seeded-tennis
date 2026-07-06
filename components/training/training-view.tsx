@@ -442,7 +442,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
           onSettings={() => setDrawer("settings")}
         />
 
-        <main className="min-w-0">
+        <div className="min-w-0">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -661,7 +661,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
               </aside>
             </div>
           </motion.div>
-        </main>
+        </div>
       </div>
 
       <SessionDrawer

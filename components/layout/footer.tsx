@@ -7,13 +7,14 @@ const COLUMNS = [
       { href: "/schools", label: "Browse schools" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/training", label: "Training plans" },
+      { href: "/tournament-fit", label: "Tournament fit" },
       { href: "/coaches", label: "Coach outreach" },
     ],
   },
   {
     title: "Company",
     links: [
-      { href: "/#how-it-works", label: "How it works" },
+      { href: "/how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/#testimonials", label: "Stories" },
       { href: "/signup", label: "Get started" },
@@ -22,9 +23,8 @@ const COLUMNS = [
   {
     title: "Support",
     links: [
-      { href: "#", label: "Help center" },
       { href: "/contact", label: "Contact" },
-      { href: "#", label: "Privacy" },
+      { href: "/terms", label: "Privacy" },
       { href: "/terms", label: "Terms" },
     ],
   },

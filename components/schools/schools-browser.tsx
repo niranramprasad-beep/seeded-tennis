@@ -41,7 +41,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
   const [conference, setConference] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
   const [division, setDivision] = useState<"all" | Division>("all");
-  const [maxMinUTR, setMaxMinUTR] = useState(16);
+  const [maxMinUTR, setMaxMinUTR] = useState(16.5);
   const [maxRank, setMaxRank] = useState(RANK_MAX);
   const [sort, setSort] = useState<SortKey>("combined");
 
@@ -50,7 +50,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
     conference !== "all" ||
     stateFilter !== "all" ||
     division !== "all" ||
-    maxMinUTR < 16 ||
+    maxMinUTR < 16.5 ||
     maxRank < RANK_MAX;
 
   const ranked = useMemo(() => {
@@ -90,7 +90,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
     setConference("all");
     setStateFilter("all");
     setDivision("all");
-    setMaxMinUTR(16);
+    setMaxMinUTR(16.5);
     setMaxRank(RANK_MAX);
   };
 
@@ -162,9 +162,9 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
           <div>
             <label className="mb-2 flex items-center justify-between text-xs text-stone-light">
               <span>Min UTR ≤</span>
-              <span className="font-medium text-grass">{maxMinUTR >= 16 ? "Any" : maxMinUTR.toFixed(1)}</span>
+              <span className="font-medium text-grass">{maxMinUTR >= 16.5 ? "Any" : maxMinUTR.toFixed(1)}</span>
             </label>
-            <Slider value={maxMinUTR} min={1} max={16} step={0.5} onChange={setMaxMinUTR} aria-label="Max minimum UTR" />
+            <Slider value={maxMinUTR} min={1} max={16.5} step={0.5} onChange={setMaxMinUTR} aria-label="Max minimum UTR" />
           </div>
           <div className="lg:col-span-2">
             <label className="mb-2 flex items-center justify-between text-xs text-stone-light">
