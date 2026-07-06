@@ -246,12 +246,13 @@ export function buildCoachEmail(
 ): CoachEmail {
   const programType = school.gender === "women" ? "women's" : "men's";
 
-  // 1) A concrete results sentence from real tournament data.
+  // 1) A concrete results sentence from the player's REAL logged results.
+  // Never fabricate results — with nothing logged, speak to schedule volume.
   const top = results.slice(0, 2);
   const resultsSentence =
     top.length > 0
       ? `This season I ${top
-          .map((r) => `${describeResult(r.result)} at the ${r.level} ${r.name}`)
+          .map((r) => `${describeResult(r.result)} at the ${[r.level, r.name].filter(Boolean).join(" ")}`)
           .join(" and ")}.`
       : `I'm playing a full sectional and national schedule this season (${player.tournamentsPlayed} events so far, building toward ${player.tournamentsGoal}).`;
 
@@ -313,11 +314,13 @@ UTR ${player.currentUTR.toFixed(1)} · Class of ${player.graduationYear}`;
 
 function describeResult(result: string): string {
   const r = result.toLowerCase();
+  if (r.startsWith("beat")) return result; // already a full phrase, keep casing
   if (r.includes("champion") || r.includes("won")) return "won the title";
   if (r.includes("final")) return "reached the final";
   if (r.includes("semi")) return "made the semifinals";
   if (r.includes("quarter")) return "reached the quarterfinals";
   if (r.includes("round of 16") || r.includes("r16")) return "reached the round of 16";
+  if (r === "win" || r === "wins") return "picked up wins";
   return result.toLowerCase();
 }
 

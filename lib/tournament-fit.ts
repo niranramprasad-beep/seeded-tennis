@@ -278,9 +278,14 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   }
 
   /* ------------------------------------------------------------- combine */
-  const score = Math.round(
+  let score = Math.round(
     competitionScore * 0.45 + costScore * 0.3 + travelScore * 0.25
   );
+  // A cheap, nearby event can't rescue a worthless field: if the competition
+  // gives your rating almost nothing, the event is a bad (or at best decent)
+  // fit no matter how convenient it is.
+  if (competitionScore <= 25) score = Math.min(score, 40);
+  else if (competitionScore <= 40) score = Math.min(score, 60);
   const verdict: Verdict = score >= 70 ? "good" : score >= 45 ? "decent" : "bad";
 
   if (verdict === "good" && suggestions.length === 0) {

@@ -14,9 +14,10 @@ import {
   Reply,
   Send,
 } from "lucide-react";
-import type { School, Tournament } from "@/lib/types";
+import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
+import { loadMatches } from "@/lib/supabase/features";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -30,13 +31,7 @@ const OUTREACH_KEY = "seeded.outreach";
 type OutreachStatus = "contacted" | "replied";
 type StatusMap = Record<string, OutreachStatus>;
 
-export function CoachesView({
-  schools,
-  tournaments,
-}: {
-  schools: School[];
-  tournaments: Tournament[];
-}) {
+export function CoachesView({ schools }: { schools: School[] }) {
   return (
     <AuthGate>
       <PaidGate
@@ -50,19 +45,13 @@ export function CoachesView({
           "Organized by your target schools",
         ]}
       >
-        <CoachesInner schools={schools} tournaments={tournaments} />
+        <CoachesInner schools={schools} />
       </PaidGate>
     </AuthGate>
   );
 }
 
-function CoachesInner({
-  schools,
-  tournaments,
-}: {
-  schools: School[];
-  tournaments: Tournament[];
-}) {
+function CoachesInner({ schools }: { schools: School[] }) {
   const { player } = usePlayer();
 
   const targetSchools = useMemo(
@@ -70,22 +59,32 @@ function CoachesInner({
     [schools, player.targetSchoolSlugs]
   );
 
-  // Best real results (lowest level number = most competitive), for the email.
-  const results = useMemo<CoachEmailResult[]>(() => {
-    return tournaments
-      .filter((t) => t.status === "completed" && t.result)
-      .sort((a, b) => {
-        const rank = (r?: string) =>
-          (r || "").toLowerCase().includes("champ")
-            ? 0
-            : (r || "").toLowerCase().includes("final")
-              ? 1
-              : 2;
-        const lvl = (l: string) => Number(l.replace("L", "")) || 9;
-        return lvl(a.level) - lvl(b.level) || rank(a.result) - rank(b.result);
-      })
-      .map((t) => ({ name: t.name, level: t.level, result: t.result as string }));
-  }, [tournaments]);
+  // The email only ever cites the player's OWN logged wins — never sample
+  // data — so nothing fabricated goes in front of a real coach. Best wins
+  // (highest-rated opponents) lead.
+  const [results, setResults] = useState<CoachEmailResult[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadMatches().then((matches) => {
+      if (cancelled) return;
+      const wins = matches
+        .filter((m) => m.result === "win" && m.tournamentName)
+        .sort((a, b) => (b.opponentUtr ?? 0) - (a.opponentUtr ?? 0))
+        .slice(0, 2)
+        .map((m) => ({
+          name: m.tournamentName,
+          level: "",
+          result:
+            m.opponentUtr && m.opponentUtr >= player.currentUTR
+              ? `beat a UTR ${m.opponentUtr.toFixed(1)} opponent`
+              : "picked up wins",
+        }));
+      setResults(wins);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [player.currentUTR]);
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
     targetSchools[0]?.slug ?? null

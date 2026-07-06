@@ -380,10 +380,10 @@ export default async function HomePage() {
                 </div>
                 <div className="divide-y divide-line">
                   {[
-                    ["Cornell", "Ivy League", "10.0", "Developing"],
-                    ["Duke", "ACC", "11.5", "Reach"],
-                    ["Northwestern", "Big Ten", "10.5", "Match / reach"],
-                    ["Emory", "UAA · D3", "10.5", "Strong fit"],
+                    ["Cornell", "Ivy League", "11.8", "Developing"],
+                    ["Duke", "ACC", "13.3", "Reach"],
+                    ["Northwestern", "Big Ten", "12.3", "Match / reach"],
+                    ["Emory", "UAA · D3", "11.5", "Strong fit"],
                   ].map(([name, conf, utr, status]) => (
                     <div
                       key={name}
