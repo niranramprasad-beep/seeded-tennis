@@ -28,9 +28,10 @@ import { cn } from "@/lib/utils";
 
 type NavLink = { href: string; label: string; icon?: LucideIcon };
 
+// Note: the Tournament Fit Finder intentionally has no top-nav tab here — it
+// lives as its own section on the landing page (which links to the full tool).
 const MARKETING_LINKS: NavLink[] = [
   { href: "/schools", label: "Schools" },
-  { href: "/tournament-fit", label: "Tournament fit" },
   { href: "/how-it-works", label: "How it works" },
   { href: "/parents", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
