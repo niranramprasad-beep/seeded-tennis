@@ -39,11 +39,14 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ["var(--font-cormorant)", "ui-serif", "Georgia", "serif"],
+        // Repointed at the sans stack: every `font-serif` / `.display-serif`
+        // usage across the app now renders as confident sans type instead of
+        // the old italic serif, without having to touch each component.
+        serif: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       borderRadius: {
-        card: "22px",
-        pill: "30px",
+        card: "14px",
+        pill: "999px",
       },
       borderWidth: {
         hairline: "0.5px",
@@ -70,8 +73,8 @@ const config: Config = {
         float: "float 7s ease-in-out infinite",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(31, 31, 26, 0.035), 0 16px 44px rgba(31, 31, 26, 0.055)",
-        lift: "0 18px 52px rgba(31, 31, 26, 0.12)",
+        soft: "0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 24px rgba(17, 24, 39, 0.05)",
+        lift: "0 12px 32px rgba(17, 24, 39, 0.10)",
       },
     },
   },

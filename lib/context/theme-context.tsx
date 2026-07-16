@@ -22,8 +22,8 @@ export const THEMES: {
   {
     id: "grass",
     name: "Grass Court",
-    description: "Warm cream & deep court green",
-    swatch: ["#FAF8F2", "#2D4A2B", "#97C459"],
+    description: "Clean white & confident emerald",
+    swatch: ["#FAFAFA", "#15803D", "#22C55E"],
   },
   {
     id: "clay",
@@ -117,16 +117,16 @@ export interface ThemeColors {
 }
 
 const FALLBACK: ThemeColors = {
-  primary: "#2D4A2B",
-  leaf: "#97C459",
-  lime: "#DCE89A",
-  tennis: "#D8E84A",
-  ink: "#1F1F1A",
-  stone: "#6B6B5F",
-  stoneLight: "#9B9B8C",
-  line: "#E8E3D5",
-  card: "#FDFCF7",
-  bg: "#FAF8F2",
+  primary: "#15803D",
+  leaf: "#22C55E",
+  lime: "#D9F99D",
+  tennis: "#BEF264",
+  ink: "#111827",
+  stone: "#4B5563",
+  stoneLight: "#9CA3AF",
+  line: "#E5E7EB",
+  card: "#FFFFFF",
+  bg: "#FAFAFA",
 };
 
 // Reads resolved theme colors from CSS variables so charts (which need concrete

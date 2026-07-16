@@ -8,29 +8,29 @@
     --font-inter: "Inter", sans-serif;
     --font-cormorant: "Cormorant Garamond", serif;
 
-    /* Grass Court — default cream & deep green */
-    --c-bg: 250 248 242;
-    --c-card: 253 252 247;
-    --c-primary: 45 74 43;
-    --c-primary-50: 241 245 239;
-    --c-primary-100: 220 231 216;
-    --c-primary-600: 58 94 55;
-    --c-primary-700: 45 74 43;
-    --c-primary-800: 34 56 32;
-    --c-primary-900: 24 40 21;
-    --c-lime: 220 232 154;
-    --c-leaf: 151 196 89;
-    --c-tennis: 216 232 74;
-    --c-ink: 31 31 26;
-    --c-stone: 107 107 95;
-    --c-stone-light: 155 155 140;
-    --c-line: 232 227 213;
+    /* Grass Court — modern flat white, near-black ink, confident emerald */
+    --c-bg: 250 250 250;
+    --c-card: 255 255 255;
+    --c-primary: 21 128 61;
+    --c-primary-50: 240 253 244;
+    --c-primary-100: 220 252 231;
+    --c-primary-600: 22 163 74;
+    --c-primary-700: 21 128 61;
+    --c-primary-800: 22 101 52;
+    --c-primary-900: 20 83 45;
+    --c-lime: 217 249 157;
+    --c-leaf: 34 197 94;
+    --c-tennis: 190 242 100;
+    --c-ink: 17 24 39;
+    --c-stone: 75 85 99;
+    --c-stone-light: 156 163 175;
+    --c-line: 229 231 235;
 
-    /* Brass / gold accent — set on :root so it cascades to every theme. */
-    --c-gold: 176 141 87;
+    /* Warm accent — set on :root so it cascades to every theme. */
+    --c-gold: 180 138 74;
 
-    --c-scroll-thumb: 217 211 194;
-    --c-thumb-ring: 253 252 247;
+    --c-scroll-thumb: 209 213 219;
+    --c-thumb-ring: 255 255 255;
   }
 
   /* Clay — warm terracotta & sand */
@@ -183,16 +183,16 @@
     @apply font-serif italic font-normal;
   }
 
-  /* Luxury editorial display headline (Cormorant). */
+  /* Confident sans display headline (replaces the old serif-italic treatment). */
   .display-serif {
-    @apply font-serif font-normal tracking-tight;
-    letter-spacing: -0.01em;
+    @apply font-sans font-semibold tracking-tight text-ink;
+    letter-spacing: -0.02em;
   }
 
   /* Small-caps tracked label used above section titles. */
   .eyebrow {
-    @apply text-[11px] font-medium uppercase text-stone;
-    letter-spacing: 0.22em;
+    @apply text-[11px] font-semibold uppercase text-stone;
+    letter-spacing: 0.14em;
   }
 
   /* Thin brass divider. */
@@ -225,26 +225,15 @@
   }
 
   .surface-panel {
-    @apply rounded-[28px] border-[0.5px] border-line/80 bg-card/88 shadow-soft backdrop-blur-sm;
+    @apply rounded-[20px] border border-line bg-card shadow-soft;
   }
 
   .soft-band {
-    @apply rounded-[32px] border-[0.5px] border-line/70 bg-gradient-to-br from-card via-card to-grass-50/60 shadow-soft;
+    @apply rounded-[20px] border border-line bg-card shadow-soft;
   }
 
   .court-surface {
-    @apply relative overflow-hidden rounded-[34px] border-[0.5px] border-line/70 bg-card/85 shadow-soft backdrop-blur-sm;
-  }
-
-  .court-surface::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(90deg, transparent 0 49.7%, rgb(var(--c-line) / 0.38) 49.7% 50.3%, transparent 50.3%),
-      linear-gradient(180deg, transparent 0 28%, rgb(var(--c-line) / 0.32) 28% 28.4%, transparent 28.4% 71.6%, rgb(var(--c-line) / 0.32) 71.6% 72%, transparent 72%);
-    opacity: 0.5;
+    @apply relative overflow-hidden rounded-[20px] border border-line bg-card shadow-soft;
   }
 
   /* Range slider */

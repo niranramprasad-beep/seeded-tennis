@@ -65,10 +65,10 @@ export default async function HomePage() {
     <>
       <div className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
-        <section className="relative overflow-hidden border-b-hairline border-line bg-[#FBFAF3]">
+        <section className="relative overflow-hidden border-b-hairline border-line bg-cream">
           <div
             aria-hidden
-            className="absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(151,196,89,0.12),transparent_70%)]"
+            className="absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(34,197,94,0.10),transparent_70%)]"
           />
           <div className="relative mx-auto grid max-w-content items-center gap-14 container-px pb-16 pt-28 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-32">
             <FadeIn>

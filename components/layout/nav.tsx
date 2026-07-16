@@ -80,7 +80,7 @@ export function Nav() {
       className={cn(
         "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-line/70 bg-[#FBFAF3]/78 text-ink"
+          ? "fixed inset-x-0 border-line/70 bg-cream/80 text-ink"
           : "sticky border-line bg-cream/85"
       )}
     >
