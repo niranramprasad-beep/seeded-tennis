@@ -52,6 +52,26 @@ export function generateFamilyCode(name: string): string {
 const LOCAL_USERS_KEY = "seeded.localUsers";
 const LOCAL_FAMILIES_KEY = "seeded.localFamilies";
 
+// Turn raw Supabase/network error strings into something a player can act on.
+// A bare "Failed to fetch" almost always means the request never reached
+// Supabase — the project is paused, the URL env var is wrong, or the network
+// is down — so say that instead of leaking the developer-level message.
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (
+    m.includes("failed to fetch") ||
+    m.includes("networkerror") ||
+    m.includes("load failed") ||
+    m.includes("fetch failed")
+  ) {
+    return "Can't reach the server right now. Check your connection, or the Seeded backend may be temporarily unavailable. Please try again in a moment.";
+  }
+  if (m.includes("not confirmed")) {
+    return "Check your inbox to confirm your email.";
+  }
+  return message;
+}
+
 function readLocal<T>(key: string, fallback: T): T {
   try {
     const v = window.localStorage.getItem(key);
@@ -87,26 +107,35 @@ export async function signUp(
   }
 
   if (supa) {
-    const { data, error } = await supa.auth.signUp({
-      email: input.email,
-      password: input.password,
-      options: {
-        emailRedirectTo:
-          typeof window !== "undefined"
-            ? `${window.location.origin}/login?confirmed=1`
-            : undefined,
-        data: {
-          name: input.name,
-          country: input.country,
-          gender: input.gender,
-          grade: input.grade,
-          role: input.role,
-          family_code: familyCode,
-          family_mode: family.mode,
+    let data;
+    try {
+      const res = await supa.auth.signUp({
+        email: input.email,
+        password: input.password,
+        options: {
+          emailRedirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}/login?confirmed=1`
+              : undefined,
+          data: {
+            name: input.name,
+            country: input.country,
+            gender: input.gender,
+            grade: input.grade,
+            role: input.role,
+            family_code: familyCode,
+            family_mode: family.mode,
+          },
         },
-      },
-    });
-    if (error) return { ok: false, error: error.message };
+      });
+      if (res.error) return { ok: false, error: friendlyAuthError(res.error.message) };
+      data = res.data;
+    } catch (e) {
+      return {
+        ok: false,
+        error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+      };
+    }
 
     if (!data.session) {
       return {
@@ -160,12 +189,20 @@ export async function signIn(
 ): Promise<AuthResult & { account?: StoredAccount; player?: Player }> {
   const supa = getSupabase();
   if (supa) {
-    const { data, error } = await supa.auth.signInWithPassword({ email, password });
-    if (error) {
-      const message = error.message.toLowerCase().includes("not confirmed")
-        ? "Check your inbox to confirm your email."
-        : error.message;
-      return { ok: false, error: message };
+    let data;
+    try {
+      const res = await supa.auth.signInWithPassword({ email, password });
+      if (res.error) {
+        return { ok: false, error: friendlyAuthError(res.error.message) };
+      }
+      data = res.data;
+    } catch (e) {
+      // signInWithPassword can throw (not just return an error) on a hard
+      // network failure; catch it so the sign-in button never hangs.
+      return {
+        ok: false,
+        error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+      };
     }
     if (data.user) {
       // Load the existing profile FIRST — never reset a returning user's data.
