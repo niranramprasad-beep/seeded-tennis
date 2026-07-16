@@ -24,7 +24,6 @@ import { usePlayer } from "@/lib/context/player-context";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { HoursDonutChart } from "@/components/charts/hours-donut-chart";
@@ -432,7 +431,6 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         <TrainingActionRail
           view={view}
           setView={setView}
-          onNewSession={() => openNewSession()}
           onNewPlan={() => {
             setEditingPlan(null);
             setDrawer("plan");
@@ -448,20 +446,15 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             animate={{ opacity: 1, y: 0 }}
             className="overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
           >
-            <div className="border-b-[0.5px] border-line bg-grass px-6 py-9 text-cream sm:px-10 lg:px-12">
-              <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+            <div className="border-b-[0.5px] border-line bg-grass px-6 py-7 text-cream sm:px-10 lg:px-12">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <span className="eyebrow text-gold">Training planner</span>
-                  <h1 className="display-serif mt-3 max-w-3xl text-4xl sm:text-5xl">
+                  <h1 className="display-serif mt-2 max-w-2xl text-3xl sm:text-4xl">
                     Build the week that moves your UTR.
                   </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-cream/78 sm:text-base">
-                    {player.name.split(" ")[0]}, at UTR {player.currentUTR.toFixed(1)} in {ordinal(player.grade)} grade, your target range calls for about{" "}
-                    <span className="font-medium text-leaf-accent">{Math.round(recommendedHours)} focused hours</span>{" "}
-                    with match play and recovery protected.
-                  </p>
                 </div>
-                <div className="grid w-full gap-3 rounded-[24px] border border-cream/12 bg-cream/10 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:grid-cols-3 xl:max-w-[560px]">
+                <div className="grid w-full gap-3 rounded-[24px] border border-cream/12 bg-cream/10 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:grid-cols-3 xl:max-w-[480px]">
                   <MiniMetric label="planned" value={`${Math.round(totalMinutes / 60)}h`} />
                   <MiniMetric label="complete" value={`${progress}%`} />
                   <MiniMetric label="sessions" value={String(activeSessions.length)} />
@@ -471,72 +464,56 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 
             <div className="grid gap-8 p-5 sm:p-8 lg:p-10 2xl:grid-cols-[minmax(0,1fr)_360px]">
               <section className="min-w-0">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={state.activePlanId}
-                        onChange={(e) => setState((prev) => ({ ...prev, activePlanId: e.target.value }))}
-                        className="h-10 rounded-xl border-[0.5px] border-line bg-card px-3 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
-                        aria-label="Choose training plan"
-                      >
-                        {state.plans.map((plan) => (
-                          <option key={plan.id} value={plan.id}>
-                            {plan.name}
-                          </option>
-                        ))}
-                      </select>
-                      <Badge variant="leaf" size="sm">
-                        {view} view
-                      </Badge>
-                      <Badge variant={syncStatus === "error" ? "outline" : "default"} size="sm">
-                        {syncStatus === "saving"
-                          ? "saving"
-                          : syncStatus === "saved"
-                            ? "saved"
-                            : syncStatus === "local"
-                              ? "local mode"
-                              : syncStatus}
-                      </Badge>
-                    </div>
-                    <p className="mt-2 text-sm text-stone">{activePlan?.goal}</p>
-                    {syncError && (
-                      <p className="mt-2 text-xs text-[#9C3B22]">{syncError}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingPlan(null);
-                        setDrawer("plan");
-                      }}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <select
+                      value={state.activePlanId}
+                      onChange={(e) => setState((prev) => ({ ...prev, activePlanId: e.target.value }))}
+                      className="h-10 max-w-full rounded-xl border-[0.5px] border-line bg-card px-3 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+                      aria-label="Choose training plan"
                     >
-                      <Plus className="h-4 w-4" />
-                      New plan
-                    </Button>
-                    <Button
-                      variant="subtle"
-                      size="sm"
+                      {state.plans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 truncate text-sm text-stone">{activePlan?.goal}</p>
+                    <p className="mt-1 text-xs text-stone-light">
+                      {syncStatus === "saving"
+                        ? "Saving…"
+                        : syncStatus === "saved"
+                          ? "Synced"
+                          : syncStatus === "local"
+                            ? "Local mode"
+                            : syncStatus === "error"
+                              ? syncError ?? "Sync error"
+                              : "Loading…"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
                       onClick={() => {
                         setEditingPlan(activePlan ?? null);
                         setDrawer("plan");
                       }}
+                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
                     >
                       Edit
-                    </Button>
-                    <Button variant="subtle" size="sm" onClick={duplicateActivePlan}>
+                    </button>
+                    <button
+                      onClick={duplicateActivePlan}
+                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+                    >
                       Duplicate
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    </button>
+                    <button
                       onClick={deleteActivePlan}
                       disabled={state.plans.length <= 1}
+                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Delete
-                    </Button>
+                    </button>
                     <Button size="sm" onClick={() => openNewSession()}>
                       <Plus className="h-4 w-4" />
                       New session
@@ -719,7 +696,6 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 function TrainingActionRail({
   view,
   setView,
-  onNewSession,
   onNewPlan,
   onTemplates,
   onProgress,
@@ -727,15 +703,13 @@ function TrainingActionRail({
 }: {
   view: PlannerView;
   setView: (v: PlannerView) => void;
-  onNewSession: () => void;
   onNewPlan: () => void;
   onTemplates: () => void;
   onProgress: () => void;
   onSettings: () => void;
 }) {
   const actions = [
-    { label: "New Session", icon: Plus, onClick: onNewSession, primary: true },
-    { label: "New Plan", icon: LayoutList, onClick: onNewPlan },
+    { label: "New plan", icon: LayoutList, onClick: onNewPlan },
     { label: "Templates", icon: Sparkles, onClick: onTemplates },
     { label: "Progress", icon: Trophy, onClick: onProgress },
     { label: "Settings", icon: Settings, onClick: onSettings },
@@ -743,49 +717,36 @@ function TrainingActionRail({
 
   return (
     <aside className="xl:sticky xl:top-32 xl:self-start">
-      <Card className="overflow-hidden rounded-[30px] p-5 shadow-lift">
-        <div className="border-b-[0.5px] border-line px-2 pb-5">
-          <p className="font-serif text-2xl italic text-leaf-accent">Plan actions</p>
-          <p className="mt-2 text-sm leading-relaxed text-stone">
-            Create, organize, and review every session in one place.
-          </p>
+      <Card className="p-5">
+        <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-light">
+          Calendar view
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {(["day", "week", "month"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "rounded-2xl px-3 py-2.5 text-xs font-medium capitalize transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
+                view === v ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+              )}
+            >
+              {v}
+            </button>
+          ))}
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-1">
+
+        <div className="mt-5 space-y-1 border-t-[0.5px] border-line pt-4">
           {actions.map((a) => (
             <button
               key={a.label}
               onClick={a.onClick}
-              className={cn(
-                "group flex min-h-[58px] items-center justify-between rounded-[22px] px-4 py-4 text-left text-sm transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-grass/30",
-                a.primary
-                  ? "bg-grass text-cream shadow-soft hover:shadow-[0_18px_48px_rgba(216,232,74,0.22),0_16px_44px_rgba(31,31,26,0.16)]"
-                  : "bg-cream/70 text-ink hover:bg-grass-50 hover:shadow-soft"
-              )}
+              className="group flex w-full items-center gap-2.5 rounded-xl px-2 py-2.5 text-left text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
             >
-              <span className="flex items-center gap-2">
-                <a.icon className="h-4 w-4" />
-                {a.label}
-              </span>
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <a.icon className="h-4 w-4 text-grass" />
+              {a.label}
             </button>
           ))}
-        </div>
-        <div className="mt-5 rounded-[24px] bg-grass-50 p-4">
-          <p className="px-1 text-sm font-medium text-stone">Calendar view</p>
-          <div className="mt-3 grid grid-cols-3 gap-1.5">
-            {(["day", "week", "month"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={cn(
-                  "rounded-2xl px-3 py-3 text-xs font-medium capitalize transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-grass/30",
-                  view === v ? "bg-card text-grass shadow-soft" : "text-stone hover:text-ink"
-                )}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
         </div>
       </Card>
     </aside>
