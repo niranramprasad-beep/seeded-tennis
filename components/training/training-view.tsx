@@ -412,6 +412,23 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     }));
   };
 
+  const applyTemplate = (key: TemplateKey) => {
+    const def = TEMPLATE_DEFINITIONS.find((t) => t.key === key);
+    if (!def || !state.preferences) return;
+    const sessions = buildTemplateSessions(key, state.preferences);
+    const planId = createUuid();
+    setState((prev) => ({
+      ...prev,
+      sessions: [...prev.sessions, ...sessions],
+      plans: [
+        ...prev.plans,
+        { id: planId, name: def.name, goal: def.goal, sessionIds: sessions.map((s) => s.id) },
+      ],
+      activePlanId: planId,
+    }));
+    setDrawer(null);
+  };
+
   if (!state.preferences) {
     return (
       <div className="mx-auto max-w-content container-px py-12">
@@ -664,16 +681,10 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         }}
         onSave={savePlan}
       />
-      <InfoDrawer
+      <TemplatesDrawer
         open={drawer === "templates"}
         onClose={() => setDrawer(null)}
-        eyebrow="Templates"
-        title="Use a proven recruiting week"
-        body={
-          state.templates.length
-            ? `Saved templates: ${state.templates.map((template) => template.name).join(", ")}.`
-            : "Start with a balanced UTR build week, a tournament taper week, or an academic-heavy maintenance week. Templates can be copied into any plan, then edited session by session."
-        }
+        onApply={applyTemplate}
       />
       <InfoDrawer
         open={drawer === "progress"}
@@ -1397,12 +1408,43 @@ function InfoDrawer({
   return (
     <Drawer open={open} onClose={onClose} eyebrow={eyebrow} title={title}>
       <p className="text-sm leading-relaxed text-stone">{body}</p>
+    </Drawer>
+  );
+}
+
+function TemplatesDrawer({
+  open,
+  onClose,
+  onApply,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onApply: (key: TemplateKey) => void;
+}) {
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      eyebrow="Templates"
+      title="Start from a proven recruiting week"
+    >
+      <p className="text-sm leading-relaxed text-stone">
+        Replaces your active plan with a ready-made week. You can edit every
+        session afterward.
+      </p>
       <div className="mt-5 grid gap-3">
-        {["Tournament taper", "UTR build week", "Recovery reset"].map((item) => (
-          <div key={item} className="rounded-card border-[0.5px] border-line bg-card p-4">
-            <p className="font-medium text-ink">{item}</p>
-            <p className="mt-1 text-sm text-stone">A polished template designed for junior recruiting rhythms.</p>
-          </div>
+        {TEMPLATE_DEFINITIONS.map((template) => (
+          <button
+            key={template.key}
+            onClick={() => onApply(template.key)}
+            className="group rounded-card border-[0.5px] border-line bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-grass/30 hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-grass/30"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-medium text-ink">{template.name}</p>
+              <ChevronRight className="h-4 w-4 text-stone-light transition-transform group-hover:translate-x-0.5 group-hover:text-grass" />
+            </div>
+            <p className="mt-1 text-sm text-stone">{template.description}</p>
+          </button>
         ))}
       </div>
     </Drawer>
@@ -1514,6 +1556,70 @@ function makeGeneratedSession(
     drills: focusAreas.map((focus) => `${sentence(focus)} progression`).slice(0, 3),
     completed: false,
   };
+}
+
+type TemplateKey = "taper" | "build" | "recovery";
+
+const TEMPLATE_DEFINITIONS: {
+  key: TemplateKey;
+  name: string;
+  description: string;
+  goal: string;
+}[] = [
+  {
+    key: "taper",
+    name: "Tournament taper",
+    description: "Lower volume, sharper reps, and a simulated match before you compete.",
+    goal: "Arrive at the tournament fresh, not over-trained.",
+  },
+  {
+    key: "build",
+    name: "UTR build week",
+    description: "High-volume tennis with a filmed match-play block to move your rating.",
+    goal: "Push UTR with pressure reps and a recorded set.",
+  },
+  {
+    key: "recovery",
+    name: "Recovery reset",
+    description: "A light, low-intensity week to reset the body after a heavy stretch.",
+    goal: "Rebuild volume without losing the week entirely.",
+  },
+];
+
+// Canned, ready-to-edit weeks for the Templates drawer — distinct from the
+// personalized plan generated from the onboarding questionnaire.
+function buildTemplateSessions(
+  key: TemplateKey,
+  preferences: TrainingPreferences
+): TrainingPlannerSession[] {
+  if (key === "taper") {
+    return [
+      makeGeneratedSession("Mon", "15:30", 60, "tennis", "Serve + return taper reps", "moderate", ["serve"], preferences),
+      makeGeneratedSession("Tue", "16:00", 45, "recovery", "Mobility + light hitting", "low", ["fitness"], preferences),
+      makeGeneratedSession("Wed", "15:30", 90, "match-prep", "Simulated match, best of three", "moderate", ["mental"], preferences),
+      makeGeneratedSession("Thu", "16:00", 30, "recovery", "Full recovery day", "low", ["fitness"], preferences),
+      makeGeneratedSession("Fri", "15:30", 60, "tennis", "Sharpen patterns, no overload", "moderate", ["match play"], preferences),
+      makeGeneratedSession("Sat", "10:00", 120, "match-prep", "Tournament day one", "high", ["mental", "match play"], preferences),
+    ];
+  }
+  if (key === "build") {
+    return [
+      makeGeneratedSession("Mon", "15:30", 90, "tennis", "Pattern + pressure reps", "high", ["serve"], preferences),
+      makeGeneratedSession("Tue", "16:30", 60, "strength", "Strength + movement base", "moderate", ["fitness"], preferences),
+      makeGeneratedSession("Wed", "15:30", 90, "tennis", "Live-ball pressure sets", "high", ["backhand"], preferences),
+      makeGeneratedSession("Thu", "16:00", 45, "conditioning", "Repeat-sprint conditioning", "moderate", ["fitness"], preferences),
+      makeGeneratedSession("Fri", "15:30", 90, "tennis", "Serve + first-ball combos", "high", ["serve"], preferences),
+      makeGeneratedSession("Sat", "10:00", 120, "match-prep", "Filmed set play", "high", ["mental", "match play"], preferences),
+      makeGeneratedSession("Sun", "11:00", 30, "recovery", "Recovery + mobility", "low", ["fitness"], preferences),
+    ];
+  }
+  return [
+    makeGeneratedSession("Mon", "16:00", 45, "recovery", "Mobility + light footwork", "low", ["fitness"], preferences),
+    makeGeneratedSession("Tue", "16:00", 30, "mental", "Visualization + goal review", "low", ["mental"], preferences),
+    makeGeneratedSession("Wed", "15:30", 45, "tennis", "Easy rally, no drilling pressure", "low", ["match play"], preferences),
+    makeGeneratedSession("Thu", "16:00", 45, "recovery", "Full body mobility + stretch", "low", ["fitness"], preferences),
+    makeGeneratedSession("Fri", "15:30", 60, "tennis", "Light technical tune-up", "moderate", ["forehand"], preferences),
+  ];
 }
 
 function getType(types: TrainingSessionType[], id: string): TrainingSessionType {
