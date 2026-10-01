@@ -1,14 +1,8 @@
-import { getSchools, getTournaments, getTrainingPlans } from "@/lib/data";
+import { getSchools, getTrainingPlans } from "@/lib/data";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export default async function DashboardPage() {
-  const [schools, tournaments, plans] = await Promise.all([
-    getSchools(),
-    getTournaments(),
-    getTrainingPlans(),
-  ]);
+  const [schools, plans] = await Promise.all([getSchools(), getTrainingPlans()]);
 
-  return (
-    <DashboardView schools={schools} tournaments={tournaments} plans={plans} />
-  );
+  return <DashboardView schools={schools} plans={plans} />;
 }
