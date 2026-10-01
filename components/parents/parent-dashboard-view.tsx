@@ -29,6 +29,7 @@ import {
   type MatchRecord,
 } from "@/lib/supabase/features";
 import { formatUTR } from "@/lib/utils";
+import { getCurrentGrade } from "@/lib/time";
 
 export function ParentDashboardView() {
   return (
@@ -76,7 +77,8 @@ function ParentDashboardInner() {
   const playerName = playerMember?.name ?? player.name ?? "your player";
   const firstName = playerName.split(" ")[0];
   const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
-  const grade = playerMember?.grade ?? player.grade;
+  const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
+  const grade = getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
   const tournamentPct = Math.round(

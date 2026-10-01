@@ -24,6 +24,7 @@ import { SchoolBadge } from "@/components/shared/school-badge";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FloatingDots } from "@/components/shared/floating-dots";
 import { formatUTR, cn } from "@/lib/utils";
+import { getCurrentGrade, getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 
 const GRADES = [8, 9, 10, 11, 12];
 const MAX_SCHOOLS = 5;
@@ -49,13 +50,6 @@ function utrBand(utr: number): string {
   return "Elite college level";
 }
 
-function graduationYearForGrade(grade: number): number {
-  const now = new Date();
-  // School year flips in August.
-  const schoolYearEnd = now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
-  return schoolYearEnd + (12 - grade);
-}
-
 const STEPS = ["Current UTR", "Grade", "Target schools", "Focus areas"];
 
 export function OnboardingFlow({ schools }: { schools: School[] }) {
@@ -67,7 +61,9 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
 
   // Seed from the session player when arriving from sign-up.
   const [utr, setUtr] = useState(player.currentUTR || 7);
-  const [grade, setGrade] = useState(player.grade || 10);
+  const [grade, setGrade] = useState(
+    Math.min(12, Math.max(8, getCurrentGrade(player.graduationYear))) || 10
+  );
   const [gender, setGender] = useState<PlayerGender>(player.gender || "male");
   const [selected, setSelected] = useState<string[]>([]);
   const [weaknesses, setWeaknesses] = useState<Weakness[]>([]);
@@ -103,13 +99,12 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
   };
 
   const finish = () => {
-    const graduationYear = graduationYearForGrade(grade);
+    const graduationYear = getGradYearFromGrade(grade);
     const next: Player = {
       ...player,
       currentUTR: utr,
-      grade,
       graduationYear,
-      commitmentDate: `${graduationYear - 1}-09-01`,
+      commitmentDate: getDefaultCommitDate(graduationYear),
       gender,
       targetSchoolSlugs: selected,
       weaknesses,
@@ -226,7 +221,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                   <p className="mt-6 text-center text-sm text-stone">
                     You'd graduate in{" "}
                     <span className="font-medium text-grass">
-                      {graduationYearForGrade(grade)}
+                      {getGradYearFromGrade(grade)}
                     </span>
                     .
                   </p>

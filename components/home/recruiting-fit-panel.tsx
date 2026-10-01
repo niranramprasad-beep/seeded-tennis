@@ -7,18 +7,19 @@ import { ArrowRight, Gauge, GraduationCap, School, ShieldCheck } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { getCurrentGrade, getCurrentSchoolYear, getSummerBeforeGradeYear } from "@/lib/time";
 
 const divisions = ["D1", "D2", "D3"] as const;
 type Division = (typeof divisions)[number];
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-const DEADLINE_YEAR_BY_CLASS: Record<number, number> = {
-  2026: 2025,
-  2027: 2026,
-  2028: 2027,
-  2029: 2028,
-};
+// The next 4 graduating classes currently in high school, senior class
+// first — e.g. in fall 2026 that's [2027, 2028, 2029, 2030] (12th-9th grade).
+function upcomingGradYears(today: Date = new Date()): number[] {
+  const seniorClassYear = getCurrentSchoolYear(today);
+  return [0, 1, 2, 3].map((offset) => seniorClassYear + offset);
+}
 
 // Minimum realistic recruiting bands by the summer before senior year.
 // Top programs run higher, but this is a better "can I start conversations?"
@@ -35,22 +36,18 @@ function annualGrowth(utr: number): number {
   return 0.18;
 }
 
-function gradeFromGradYear(gradYear: number): number {
-  // As of the 2025-26 school year, the class of 2026 are seniors (12th grade),
-  // so a 9th grader graduates in 2029.
-  return clamp(12 - (gradYear - 2026), 8, 12);
-}
-
 export function RecruitingFitPanel() {
   const [utr, setUtr] = useState(7.5);
   const [gpa, setGpa] = useState(3.7);
-  const [gradYear, setGradYear] = useState(2028);
+  const gradYearOptions = useMemo(() => upcomingGradYears(), []);
+  const [gradYear, setGradYear] = useState(gradYearOptions[2]); // default to 10th grade
   const [division, setDivision] = useState<Division>("D3");
 
   const fit = useMemo(() => {
-    const gradeNow = gradeFromGradYear(gradYear);
-    const deadlineYear = DEADLINE_YEAR_BY_CLASS[gradYear] ?? gradYear - 1;
-    const currentYear = 2026;
+    const today = new Date();
+    const gradeNow = clamp(getCurrentGrade(gradYear, today), 8, 12);
+    const deadlineYear = getSummerBeforeGradeYear(gradYear, 12);
+    const currentYear = today.getFullYear();
     const yearsToDeadline = clamp(deadlineYear - currentYear + 0.25, 0, 3);
     const projectedDeadline = Math.min(16, utr + yearsToDeadline * annualGrowth(utr));
     const target = TARGET_BAND[division];
@@ -100,7 +97,7 @@ export function RecruitingFitPanel() {
         </Field>
         <Field icon={School} label="Grad year" value={`${gradYear}`}>
           <div className="mt-2.5 grid grid-cols-4 gap-1.5">
-            {[2026, 2027, 2028, 2029].map((year) => (
+            {gradYearOptions.map((year) => (
               <button
                 key={year}
                 onClick={() => setGradYear(year)}

@@ -1,4 +1,5 @@
 import type { School } from "@/lib/types";
+import { getCurrentSchoolYear } from "@/lib/time";
 
 // Rich, *derived* school profiles. Rather than hand-author rosters/results for
 // 70 programs, we deterministically generate plausible, stable detail from each
@@ -125,12 +126,17 @@ function mulberry32(seed: number) {
 
 export function getSchoolProfile(
   school: School,
-  allSchools: School[]
+  allSchools: School[],
+  today: Date = new Date()
 ): SchoolProfile {
   const rng = mulberry32(hash(school.slug));
   const pick = <T,>(arr: T[]) => arr[Math.floor(rng() * arr.length)];
   const between = (lo: number, hi: number) => lo + rng() * (hi - lo);
   const intBetween = (lo: number, hi: number) => Math.floor(between(lo, hi + 1));
+  // College class years float with the current academic year rather than
+  // being pinned to a fixed year, so a roster/recruiting-class page never
+  // looks like it's displaying a prior decade's data.
+  const currentCollegeYear = getCurrentSchoolYear(today);
 
   const firstNames = school.gender === "women" ? FEMALE_FIRST : MALE_FIRST;
 
@@ -143,7 +149,7 @@ export function getSchoolProfile(
     const utr = Math.round((top - (top - bottom) * t + (rng() - 0.5) * 0.3) * 10) / 10;
     return {
       name: `${pick(firstNames)} ${pick(LAST)}`,
-      classYear: 2025 + intBetween(0, 3),
+      classYear: currentCollegeYear + intBetween(0, 3),
       utr,
       position: i + 1,
       hometown: pick(HOMETOWNS),
@@ -189,14 +195,14 @@ export function getSchoolProfile(
   // Recruiting classes: most recent uses real recruit data, plus two prior.
   const recruitingClasses: RecruitingClass[] = [
     {
-      classYear: 2028,
+      classYear: currentCollegeYear + 1,
       recruits: school.recentRecruits.map((r) => ({
         name: r.name,
         hometown: r.hometown,
         utr: r.utr,
       })),
     },
-    ...[2027, 2026].map((year) => ({
+    ...[currentCollegeYear, currentCollegeYear - 1].map((year) => ({
       classYear: year,
       recruits: Array.from({ length: 2 + intBetween(0, 1) }, () => ({
         name: `${pick(firstNames)} ${pick(LAST)}`,

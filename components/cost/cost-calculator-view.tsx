@@ -15,6 +15,7 @@ import {
   type CostInputs,
 } from "@/lib/supabase/features";
 import { usePlayer } from "@/lib/context/player-context";
+import { getCurrentGrade } from "@/lib/time";
 
 export function CostCalculatorView({ schools }: { schools: School[] }) {
   return (
@@ -30,7 +31,7 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
   const [status, setStatus] = useState("");
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)).slice(0, 5);
   const [inputs, setInputs] = useState<CostInputs>({
-    yearsRemaining: Math.max(1, 12 - player.grade + 1),
+    yearsRemaining: Math.max(1, 12 - getCurrentGrade(player.graduationYear) + 1),
     tournamentsPerYear: player.tournamentsGoal || 12,
     coachingHoursPerWeek: 3,
     lessonRate: 115,

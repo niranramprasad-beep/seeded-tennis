@@ -1,4 +1,5 @@
 import type { Weakness } from "@/lib/types";
+import { resolveGraduationYear } from "@/lib/time";
 import { getSupabase } from "./client";
 
 export type FocusArea =
@@ -128,7 +129,7 @@ export interface FamilyMember {
   email: string;
   role: "player" | "parent";
   currentUtr: number;
-  grade: number;
+  graduationYear: number | null;
   onboarded: boolean;
 }
 
@@ -443,7 +444,7 @@ export async function loadFamilyMembers(): Promise<FamilyMember[]> {
   if (!supabase || !p?.family_code) return [];
   const { data } = await supabase
     .from("profiles")
-    .select("id,email,name,role,current_utr,grade,onboarded")
+    .select("id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded")
     .eq("family_code", p.family_code)
     .order("role", { ascending: false });
   return (data ?? []).map((row: any) => ({
@@ -452,7 +453,7 @@ export async function loadFamilyMembers(): Promise<FamilyMember[]> {
     email: row.email ?? "",
     role: row.role ?? "player",
     currentUtr: Number(row.current_utr ?? 0),
-    grade: Number(row.grade ?? 0),
+    graduationYear: resolveGraduationYear(row),
     onboarded: Boolean(row.onboarded),
   }));
 }

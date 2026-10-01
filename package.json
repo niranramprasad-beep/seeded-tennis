@@ -7,7 +7,8 @@
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/next/dist/bin/next lint",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "test": "node node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
@@ -33,6 +34,7 @@
     "eslint-config-next": "14.2.35",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^1.6.1"
   }
 }

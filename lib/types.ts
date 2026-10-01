@@ -103,7 +103,9 @@ export type FamilyRole = "player" | "parent";
 export interface Player {
   name: string;
   currentUTR: number;
-  grade: number; // 8 - 12
+  // Grade is never stored — it's derived from graduationYear + today's date
+  // via lib/time.ts getCurrentGrade(). Storing it would go stale every
+  // August when the school year rolls over.
   graduationYear: number;
   commitmentDate: string; // ISO date — the realistic verbal-commit target
   gender: PlayerGender;

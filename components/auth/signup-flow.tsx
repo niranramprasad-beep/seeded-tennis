@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import type { Player, PlayerGender, FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { graduationYearForGrade, signUp } from "@/lib/auth";
+import { signUp } from "@/lib/auth";
+import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { FloatingDots } from "@/components/shared/floating-dots";
 import { cn } from "@/lib/utils";
@@ -107,13 +108,12 @@ export function SignupFlow({
       return;
     }
 
-    const graduationYear = graduationYearForGrade(grade);
+    const graduationYear = getGradYearFromGrade(grade);
     const player: Player = {
       name,
       currentUTR: 7,
-      grade,
       graduationYear,
-      commitmentDate: `${graduationYear - 1}-09-01`,
+      commitmentDate: getDefaultCommitDate(graduationYear),
       gender,
       country,
       role: isParentSignup ? "parent" : role,

@@ -21,8 +21,10 @@ import { womensD1Schools } from "./schools-womens";
 import { extraSchools } from "./schools-extra";
 import { getSchoolProfile, combinedScore } from "./school-detail";
 import { trainingPlans as trainingPlansData } from "./training-plans";
-import { tournaments as tournamentsData } from "./tournaments";
+import { buildTournaments } from "./tournaments";
 import { testimonials as testimonialsData } from "./testimonials";
+import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
+import { getCurrentGrade, getSummerBeforeGradeYear, ordinalGrade } from "@/lib/time";
 
 // The full catalog. Swapping to Supabase means replacing this with a query.
 const schoolsData: School[] = [
@@ -96,7 +98,7 @@ export async function getTrainingPlanForUTR(utr: number): Promise<TrainingPlan> 
 
 export async function getTournaments(): Promise<Tournament[]> {
   return resolve(
-    [...tournamentsData].sort((a, b) => a.date.localeCompare(b.date))
+    buildTournaments(new Date()).sort((a, b) => a.date.localeCompare(b.date))
   );
 }
 
@@ -107,48 +109,6 @@ export async function getTestimonials(): Promise<Testimonial[]> {
 }
 
 /* ---------------------------------------------------------------- roadmap */
-
-// Milestones are framed around the SUMMER BEFORE the given grade — the window
-// that actually matters for recruiting. Keyed by the grade the summer precedes
-// (13 = the summer before college / freshman year).
-const MILESTONES_BEFORE_GRADE: Record<number, string[]> = {
-  9: [
-    "Lock in a year-round training base",
-    "Bank 6+ sectional results before the season",
-    "Have a dependable second serve",
-  ],
-  10: [
-    "Be a fixture in sectional L4-L5 main draws",
-    "Own one weapon you can win points with",
-    "Start a realistic target-school shortlist",
-  ],
-  11: [
-    "Be ready for 2+ national L1/L2 events this year",
-    "NCAA contact opens June 15 — have your email ready",
-    "Take unofficial visits to top-choice campuses",
-  ],
-  12: [
-    "Hit your target UTR by the summer before senior year",
-    "Send personalized notes to target coaches",
-    "Convert interest into official-visit invitations",
-  ],
-  13: [
-    "Lock in your verbal commitment",
-    "Hold your UTR through the signing window",
-    "Arrive on campus physically college-ready",
-  ],
-};
-
-function ordinal(grade: number): string {
-  const map: Record<number, string> = {
-    8: "8th",
-    9: "9th",
-    10: "10th",
-    11: "11th",
-    12: "12th",
-  };
-  return map[grade] ?? `${grade}th`;
-}
 
 // Pure derivation. Given a player and their resolved target schools, produce a
 // checkpoint-by-checkpoint UTR roadmap. Each checkpoint is the SUMMER BEFORE a
@@ -164,7 +124,7 @@ export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
       ? Math.max(...targets.map((s) => s.minCompetitiveUTR))
       : Math.min(player.currentUTR + 2.5, genderCap);
 
-  const startGrade = Math.min(player.grade, 12);
+  const startGrade = Math.min(getCurrentGrade(player.graduationYear), 12);
 
   // Upcoming summers: before each remaining grade. The final target is always
   // due by the summer before senior year, not during senior year or college.
@@ -181,14 +141,13 @@ export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
     const utrTarget =
       Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 10) /
       10;
-    // Summer before grade g falls in this calendar year.
-    const calendarYear = player.graduationYear - 13 + g;
+    const calendarYear = getSummerBeforeGradeYear(player.graduationYear, g);
     const tournamentsNeeded = 10 + i * 2;
 
     return {
       calendarYear,
-      gradeLabel: `By summer before ${ordinal(g)} grade`,
-      shortLabel: `${ordinal(g)}`,
+      gradeLabel: `By summer before ${ordinalGrade(g)} grade`,
+      shortLabel: `${ordinalGrade(g)}`,
       utrTarget,
       tournamentsNeeded,
       milestones: MILESTONES_BEFORE_GRADE[g] ?? [
@@ -292,7 +251,7 @@ export function buildCoachEmail(
 
   const body = `Coach ${lastName(school.coachName)},
 
-I'm ${player.name}, a ${ordinal(player.grade)}-grade ${programType} player (class of ${
+I'm ${player.name}, a ${ordinalGrade(getCurrentGrade(player.graduationYear))}-grade ${programType} player (class of ${
     player.graduationYear
   })${player.country && player.country !== "United States" ? ` from ${player.country}` : ""}, and I'm reaching out because ${school.shortName} is high on my list.
 
@@ -331,7 +290,7 @@ function programFootprint(school: School): string {
     return `Your recent classes pull talent from everywhere — ${intl[0].hometown.split(",").slice(-1)[0].trim()} to the States — which tells me you build genuinely competitive lineups.`;
   }
   if (recruits.length > 0) {
-    return `Bringing in players like your class of ${recruits[0].classYear} shows the kind of standard you recruit to.`;
+    return `Bringing in players like your recent signees shows the kind of standard you recruit to.`;
   }
   return "";
 }

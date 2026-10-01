@@ -35,6 +35,7 @@ import { DailyCheckinCard } from "./daily-checkin-card";
 import { FamilyHubCard } from "./family-hub-card";
 import { ACTIVITY_META } from "@/lib/activity-style";
 import { formatUTR, monthsBetween, cn } from "@/lib/utils";
+import { getCurrentGrade } from "@/lib/time";
 import {
   createUtrEntry,
   loadUtrEntries,
@@ -180,7 +181,7 @@ function DashboardInner({ schools, tournaments, plans }: DashboardViewProps) {
             {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
           </h1>
           <p className="mt-2 text-sm text-stone">
-            Class of {player.graduationYear} · {player.grade}th grade ·{" "}
+            Class of {player.graduationYear} · {getCurrentGrade(player.graduationYear)}th grade ·{" "}
             {targetSchools.length} target{" "}
             {targetSchools.length === 1 ? "school" : "schools"}
           </p>

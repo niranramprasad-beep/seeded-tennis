@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, LogOut, Palette, Users, User2 } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
+import { getCurrentGrade } from "@/lib/time";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +95,7 @@ function SettingsInner() {
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name} />
           <Field label="Current UTR" value={player.currentUTR.toFixed(1)} />
-          <Field label="Grade" value={`${player.grade}th grade`} />
+          <Field label="Grade" value={`${getCurrentGrade(player.graduationYear)}th grade`} />
           <Field label="Class of" value={String(player.graduationYear)} />
           <Field label="Gender" value={player.gender === "female" ? "Female" : "Male"} />
           <Field label="Country" value={player.country} />

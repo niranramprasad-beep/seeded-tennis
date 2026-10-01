@@ -1,6 +1,7 @@
 import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
+import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 
 export { isSupabaseConfigured };
 
@@ -23,13 +24,6 @@ export interface AuthResult {
   error?: string;
   familyCode?: string;
   confirmationRequired?: boolean;
-}
-
-export function graduationYearForGrade(grade: number): number {
-  const now = new Date();
-  const schoolYearEnd =
-    now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
-  return schoolYearEnd + (12 - grade);
 }
 
 export function generateFamilyCode(name: string): string {
@@ -189,7 +183,7 @@ export async function signIn(
       const emailName = (data.user.email ?? email).split("@")[0] ?? emptyPlayer.name;
       const name = String(metadata.name ?? emailName);
       const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
-      const grade = Number(metadata.grade ?? emptyPlayer.grade);
+      const grade = Number(metadata.grade ?? 10);
       const gender = (metadata.gender ?? emptyPlayer.gender) as PlayerGender;
       const country = String(metadata.country ?? emptyPlayer.country);
       const role = (metadata.role ?? emptyPlayer.role) as FamilyRole;
@@ -237,14 +231,13 @@ function buildPlayerFromAuthProfile(input: {
   role: FamilyRole;
   familyCode: string;
 }): Player {
-  const graduationYear = graduationYearForGrade(input.grade);
+  const graduationYear = getGradYearFromGrade(input.grade);
   return {
     ...emptyPlayer,
     name: input.name || input.email,
     currentUTR: 7,
-    grade: input.grade,
     graduationYear,
-    commitmentDate: `${graduationYear - 1}-09-01`,
+    commitmentDate: getDefaultCommitDate(graduationYear),
     gender: input.gender,
     country: input.country,
     role: input.role,
@@ -314,17 +307,13 @@ export async function updatePassword(newPassword: string): Promise<AuthResult> {
 }
 
 function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
+  const graduationYear = resolveGraduationYear(profile) ?? emptyPlayer.graduationYear;
   return {
     ...emptyPlayer,
     name: profile.name || fallbackEmail || emptyPlayer.name,
     currentUTR: Number(profile.current_utr ?? emptyPlayer.currentUTR),
-    grade: Number(profile.grade ?? emptyPlayer.grade),
-    graduationYear: Number(
-      profile.graduation_year ?? graduationYearForGrade(profile.grade ?? emptyPlayer.grade)
-    ),
-    commitmentDate:
-      profile.commitment_date ??
-      `${graduationYearForGrade(profile.grade ?? emptyPlayer.grade) - 1}-09-01`,
+    graduationYear,
+    commitmentDate: profile.commitment_date ?? getDefaultCommitDate(graduationYear),
     gender: (profile.gender ?? emptyPlayer.gender) as PlayerGender,
     country: profile.country ?? emptyPlayer.country,
     role: (profile.role ?? emptyPlayer.role) as FamilyRole,
@@ -360,7 +349,19 @@ export async function getCurrentPlayer(): Promise<Player | null> {
   if (profileError) throw new Error(profileError.message);
   if (!profile) return null;
 
-  return mapProfileToPlayer(profile, userData.user.email ?? "");
+  const player = mapProfileToPlayer(profile, userData.user.email ?? "");
+
+  // One-time migration: a legacy row stored only `grade`. Persist the
+  // derived graduationYear now so future loads read it directly instead of
+  // re-deriving it from a `grade` value that will only get staler.
+  if (profile.graduation_year == null) {
+    void supa
+      .from("profiles")
+      .update({ graduation_year: player.graduationYear })
+      .eq("id", userData.user.id);
+  }
+
+  return player;
 }
 
 export type SessionState =
@@ -405,7 +406,6 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
     name: player.name,
     country: player.country,
     gender: player.gender,
-    grade: player.grade,
     role: player.role,
     family_code: player.familyCode ?? null,
     current_utr: player.currentUTR,
@@ -453,18 +453,17 @@ async function ensureSupabaseProfile(input: {
       .upsert({ code: input.familyCode, player_id: input.userId }, { onConflict: "code" });
   }
 
-  const graduationYear = graduationYearForGrade(input.grade);
+  const graduationYear = getGradYearFromGrade(input.grade);
   const { error: profileError } = await supa.from("profiles").upsert({
     id: input.userId,
     name: input.name,
     email: input.email,
     country: input.country,
     gender: input.gender,
-    grade: input.grade,
     role: input.role,
     family_code: input.familyCode,
     graduation_year: graduationYear,
-    commitment_date: `${graduationYear - 1}-09-01`,
+    commitment_date: getDefaultCommitDate(graduationYear),
     current_utr: 7,
     tournaments_goal: 12,
     onboarded: input.role === "parent",

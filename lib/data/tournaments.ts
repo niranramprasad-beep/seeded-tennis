@@ -1,111 +1,150 @@
 import type { Tournament } from "@/lib/types";
 
-// Sample USTA junior tournament calendar for the 2026 season, weighted toward
-// the Mid-Atlantic / DC section to match the target market. Levels run L1
-// (national, most competitive) through L7 (entry-level sectional).
-export const tournaments: Tournament[] = [
+// Sample USTA junior tournament calendar, weighted toward the Mid-Atlantic /
+// DC section to match the target market. Levels run L1 (national, most
+// competitive) through L7 (entry-level sectional).
+//
+// Dates are generated relative to "today" (via dayOffset) rather than
+// hardcoded, so the calendar never goes stale — there's always a mix of
+// recently-completed, registered, and upcoming events, no matter when this
+// runs. Status is derived from the offset, never set independently of it.
+
+interface TournamentTemplate {
+  id: string;
+  name: string;
+  level: Tournament["level"];
+  city: string;
+  state: string;
+  surface: Tournament["surface"];
+  dayOffset: number; // negative = in the past, positive = upcoming
+  result?: string;
+  /** Only meaningful for future events; signals "I've registered" vs. just on the calendar. */
+  registered?: boolean;
+}
+
+const TEMPLATES: TournamentTemplate[] = [
   {
-    id: "t-2026-01",
+    id: "t-01",
     name: "Mid-Atlantic Open",
     level: "L4",
-    date: "2026-02-14",
     city: "Rockville",
     state: "MD",
     surface: "Indoor",
-    status: "completed",
+    dayOffset: -120,
     result: "Quarterfinal",
   },
   {
-    id: "t-2026-02",
+    id: "t-02",
     name: "Maryland Spring Junior Open",
     level: "L5",
-    date: "2026-03-21",
     city: "College Park",
     state: "MD",
     surface: "Hard",
-    status: "completed",
+    dayOffset: -90,
     result: "Semifinal",
   },
   {
-    id: "t-2026-03",
+    id: "t-03",
     name: "Mid-Atlantic Closed Championships",
     level: "L3",
-    date: "2026-04-11",
     city: "Richmond",
     state: "VA",
     surface: "Hard",
-    status: "completed",
+    dayOffset: -60,
     result: "Round of 16",
   },
   {
-    id: "t-2026-04",
+    id: "t-04",
     name: "DC Junior Classic",
     level: "L6",
-    date: "2026-05-02",
     city: "Washington",
     state: "DC",
     surface: "Hard",
-    status: "completed",
+    dayOffset: -30,
     result: "Champion",
   },
   {
-    id: "t-2026-05",
+    id: "t-05",
     name: "USTA National Spring Championships",
     level: "L2",
-    date: "2026-06-13",
     city: "Mobile",
     state: "AL",
     surface: "Hard",
-    status: "registered",
+    dayOffset: 20,
+    registered: true,
   },
   {
-    id: "t-2026-06",
+    id: "t-06",
     name: "Virginia Summer Open",
     level: "L4",
-    date: "2026-06-27",
     city: "Charlottesville",
     state: "VA",
     surface: "Clay",
-    status: "registered",
+    dayOffset: 40,
+    registered: true,
   },
   {
-    id: "t-2026-07",
+    id: "t-07",
     name: "Mid-Atlantic Summer Championships",
     level: "L3",
-    date: "2026-07-18",
     city: "Fairfax",
     state: "VA",
     surface: "Hard",
-    status: "upcoming",
+    dayOffset: 70,
   },
   {
-    id: "t-2026-08",
+    id: "t-08",
     name: "USTA National Hardcourt Championships",
     level: "L1",
-    date: "2026-08-01",
     city: "San Diego",
     state: "CA",
     surface: "Hard",
-    status: "upcoming",
+    dayOffset: 100,
   },
   {
-    id: "t-2026-09",
+    id: "t-09",
     name: "Bethesda Junior Open",
     level: "L5",
-    date: "2026-09-12",
     city: "Bethesda",
     state: "MD",
     surface: "Hard",
-    status: "upcoming",
+    dayOffset: 130,
   },
   {
-    id: "t-2026-10",
+    id: "t-10",
     name: "Maryland Fall Classic",
     level: "L4",
-    date: "2026-10-10",
     city: "Baltimore",
     state: "MD",
     surface: "Indoor",
-    status: "upcoming",
+    dayOffset: 160,
   },
 ];
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function buildTournaments(today: Date = new Date()): Tournament[] {
+  return TEMPLATES.map((t) => {
+    const status: Tournament["status"] =
+      t.dayOffset < 0 ? "completed" : t.registered ? "registered" : "upcoming";
+    return {
+      id: t.id,
+      name: t.name,
+      level: t.level,
+      date: toISODate(addDays(today, t.dayOffset)),
+      city: t.city,
+      state: t.state,
+      surface: t.surface,
+      status,
+      result: status === "completed" ? t.result : undefined,
+    };
+  });
+}

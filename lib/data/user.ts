@@ -8,7 +8,6 @@ import type { Player } from "@/lib/types";
 export const emptyPlayer: Player = {
   name: "",
   currentUTR: 7,
-  grade: 10,
   graduationYear: 2028,
   commitmentDate: "2027-09-01",
   gender: "male",

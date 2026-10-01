@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { HoursDonutChart } from "@/components/charts/hours-donut-chart";
 import { cn } from "@/lib/utils";
+import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 import {
   createUuid,
   loadTrainingPlannerState,
@@ -83,6 +84,7 @@ export function TrainingView({ plans }: { plans: TrainingPlan[] }) {
 
 function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const { player } = usePlayer();
+  const currentGrade = getCurrentGrade(player.graduationYear);
   const storageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
 
   const basePlan = useMemo(
@@ -400,7 +402,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     const generated = generatePersonalizedPlan({
       preferences,
       playerUtr: player.currentUTR,
-      grade: player.grade,
+      grade: currentGrade,
       weaknesses: player.weaknesses,
     });
     setState((prev) => ({
@@ -435,7 +437,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         <TrainingQuestionnaire
           playerName={player.name.split(" ")[0]}
           currentUtr={player.currentUTR}
-          grade={player.grade}
+          grade={currentGrade}
           onComplete={applyPreferences}
         />
       </div>
@@ -645,7 +647,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                 <Card className="p-6">
                   <h2 className="text-base font-medium text-ink">Recommended next move</h2>
                   <p className="mt-2 text-sm leading-relaxed text-stone">
-                    {recommendation(player.currentUTR, activeSessions, player.grade)}
+                    {recommendation(player.currentUTR, activeSessions, currentGrade)}
                   </p>
                   <Button variant="subtle" size="sm" className="mt-4 w-full" onClick={() => openNewSession("Sat")}>
                     Add suggested session
@@ -794,7 +796,7 @@ function TrainingQuestionnaire({
           Build a real week for {playerName}.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/78">
-          No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinal(grade)} grade timeline,
+          No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinalGrade(grade)} grade timeline,
           training load, and goals to create the first week.
         </p>
       </div>
@@ -1525,7 +1527,7 @@ function generatePersonalizedPlan({
   const plan = {
     id: createUuid(),
     name: `${hours}h personalized recruiting week`,
-    goal: `${preferences.primaryGoal} from a ${ordinal(grade)} grade, UTR ${playerUtr.toFixed(1)} baseline by the summer before senior year.`,
+    goal: `${preferences.primaryGoal} from a ${ordinalGrade(grade)} grade, UTR ${playerUtr.toFixed(1)} baseline by the summer before senior year.`,
     sessionIds: sessions.map((session) => session.id),
   };
 
@@ -1646,14 +1648,6 @@ function weekLabel(weekOffset: number): string {
   return `${startLabel} - ${endLabel}`;
 }
 
-function ordinal(grade: number): string {
-  if (grade === 11) return "11th";
-  if (grade === 12) return "12th";
-  if (grade === 10) return "10th";
-  if (grade === 9) return "9th";
-  return `${grade}th`;
-}
-
 function sentence(value: string): string {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
@@ -1665,7 +1659,7 @@ function recommendation(utr: number, sessions: TrainingPlannerSession[], grade: 
     return `Add one match-prep block this week. At UTR ${utr.toFixed(1)}, coaches need to see point patterns under pressure, not just clean drilling.`;
   }
   if (recovery === 0) {
-    return `Protect one recovery session. ${ordinal(grade)} grade recruiting weeks only work if the body can repeat quality sessions.`;
+    return `Protect one recovery session. ${ordinalGrade(grade)} grade recruiting weeks only work if the body can repeat quality sessions.`;
   }
   return `This plan is balanced. The best upgrade is a short filmed set after your highest-intensity session.`;
 }
