@@ -127,11 +127,11 @@ export function SignupFlow({
     beginSession(player);
 
     if (isParentSignup) {
-      router.push("/family");
+      router.replace("/family");
     } else if (familyMode === "create" && result.familyCode) {
       setCreatedCode(result.familyCode);
     } else {
-      router.push("/onboarding");
+      router.replace("/onboarding");
     }
   };
 
@@ -172,7 +172,7 @@ export function SignupFlow({
             variant="primary"
             size="lg"
             className="mt-8"
-            onClick={() => router.push("/login")}
+            onClick={() => router.replace("/login")}
           >
             Go to sign in
             <ArrowRight className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function SignupFlow({
             variant="primary"
             size="lg"
             className="mt-8"
-            onClick={() => router.push("/onboarding")}
+            onClick={() => router.replace("/onboarding")}
           >
             Build my roadmap
             <ArrowRight className="h-4 w-4" />

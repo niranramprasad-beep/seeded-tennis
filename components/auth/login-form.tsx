@@ -5,10 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
-import type { Player } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { resendConfirmationEmail, signIn } from "@/lib/auth";
-import { emptyPlayer } from "@/lib/data/user";
 import { Button } from "@/components/ui/button";
 import { FloatingDots } from "@/components/shared/floating-dots";
 
@@ -40,35 +38,10 @@ export function LoginForm() {
     if (result.player) {
       beginSession(result.player);
       if (result.player.role === "parent") {
-        router.push("/family");
+        router.replace("/family");
         return;
       }
-      router.push(result.player.onboarded ? "/dashboard" : "/onboarding");
-      return;
-    }
-    if (result.account) {
-      // Local fallback (no Supabase keys): build the player from the stored
-      // account only — no sample data — and send them through onboarding.
-      const graduationYear = result.account.grade
-        ? new Date().getFullYear() + (12 - result.account.grade)
-        : emptyPlayer.graduationYear;
-      const player: Player = {
-        ...emptyPlayer,
-        name: result.account.name,
-        gender: result.account.gender,
-        grade: result.account.grade,
-        graduationYear,
-        country: result.account.country,
-        role: result.account.role,
-        familyCode: result.account.familyCode,
-        onboarded: false,
-      };
-      beginSession(player);
-      if (player.role === "parent") {
-        router.push("/family");
-        return;
-      }
-      router.push("/onboarding");
+      router.replace(result.player.onboarded ? "/dashboard" : "/onboarding");
       return;
     }
     setError("Signed in, but Seeded could not load your profile. Try refreshing once.");

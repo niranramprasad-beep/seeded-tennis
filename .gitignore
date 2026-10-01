@@ -32,3 +32,6 @@ next-env.d.ts
 
 # accidental nested local copy
 /Seeded/
+.vercel
+.env*
+supabase/.temp/

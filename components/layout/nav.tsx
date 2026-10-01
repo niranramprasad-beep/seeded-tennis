@@ -53,6 +53,7 @@ const PARENT_LINKS: NavLink[] = [
   { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
   { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
   { href: "/schools", label: "Schools", icon: School },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Nav() {
@@ -66,6 +67,9 @@ export function Nav() {
   const appLinks = isParent ? PARENT_LINKS : APP_LINKS;
   const mobileLinks = showApp ? appLinks : MARKETING_LINKS;
   const isMarketingHome = !showApp && pathname === "/";
+  // Tier switching is a dev-only testing aid. Real tier comes from the
+  // subscription in the database, never a client-side toggle in production.
+  const showTierSwitcher = showApp && process.env.NODE_ENV === "development";
 
   const handleSignOut = () => {
     signOut();
@@ -138,14 +142,17 @@ export function Nav() {
         <div className="hidden items-center gap-3 lg:flex">
           {showApp ? (
             <>
-              <TierSwitcher showLabel={false} />
-              <Link
-                href="/settings"
-                aria-label="Settings"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
-              >
-                <Settings className="h-4 w-4" />
-              </Link>
+              {showTierSwitcher && <TierSwitcher showLabel={false} />}
+              {/* Parents already get Settings in PARENT_LINKS below — avoid showing it twice. */}
+              {!isParent && (
+                <Link
+                  href="/settings"
+                  aria-label="Settings"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+                >
+                  <Settings className="h-4 w-4" />
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-1.5 text-sm text-stone transition-colors hover:text-ink"
@@ -219,14 +226,17 @@ export function Nav() {
               <div className="mt-3 border-t-[0.5px] border-line pt-4">
                 {showApp ? (
                   <div className="flex flex-col gap-4">
-                    <TierSwitcher />
-                    <Link
-                      href="/settings"
-                      onClick={() => setOpen(false)}
-                      className="rounded-xl px-3 py-2.5 text-sm text-stone"
-                    >
-                      Settings
-                    </Link>
+                    {showTierSwitcher && <TierSwitcher />}
+                    {/* Parents already get Settings in PARENT_LINKS above — avoid showing it twice. */}
+                    {!isParent && (
+                      <Link
+                        href="/settings"
+                        onClick={() => setOpen(false)}
+                        className="rounded-xl px-3 py-2.5 text-sm text-stone"
+                      >
+                        Settings
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

@@ -25,10 +25,6 @@ export interface AuthResult {
   confirmationRequired?: boolean;
 }
 
-export interface StoredAccount extends AccountInput {
-  familyCode: string;
-}
-
 export function graduationYearForGrade(grade: number): number {
   const now = new Date();
   const schoolYearEnd =
@@ -49,8 +45,19 @@ export function generateFamilyCode(name: string): string {
   return `${prefix}-${rand}`;
 }
 
-const LOCAL_USERS_KEY = "seeded.localUsers";
-const LOCAL_FAMILIES_KEY = "seeded.localFamilies";
+// Thrown when Supabase isn't configured. Auth has exactly one backend — there
+// is no local/offline fallback that fabricates accounts. In development this
+// surfaces as a loud, unmissable error instead of a silently-working demo.
+const NOT_CONFIGURED_MESSAGE =
+  "Seeded isn't connected to Supabase. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local and restart the dev server.";
+
+function notConfiguredResult(): AuthResult {
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.error(`[seeded/auth] ${NOT_CONFIGURED_MESSAGE}`);
+  }
+  return { ok: false, error: NOT_CONFIGURED_MESSAGE };
+}
 
 // Turn raw Supabase/network error strings into something a player can act on.
 // A bare "Failed to fetch" almost always means the request never reached
@@ -72,30 +79,14 @@ function friendlyAuthError(message: string): string {
   return message;
 }
 
-function readLocal<T>(key: string, fallback: T): T {
-  try {
-    const v = window.localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function writeLocal(key: string, value: unknown) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
-}
-
-// Create an account. Uses real Supabase Auth + profile/family tables when
-// configured; otherwise simulates everything in the browser so the flow works
-// end-to-end before keys are added.
+// Create an account. Supabase is the only backend — if it isn't configured,
+// this fails loudly instead of fabricating a local account.
 export async function signUp(
   input: AccountInput,
   family: FamilyChoice
 ): Promise<AuthResult> {
   const supa = getSupabase();
+  if (!supa) return notConfiguredResult();
 
   // Resolve the family code (create new or validate join).
   let familyCode: string;
@@ -106,157 +97,135 @@ export async function signUp(
     if (!familyCode) return { ok: false, error: "Enter a family code to join." };
   }
 
-  if (supa) {
-    let data;
-    try {
-      const res = await supa.auth.signUp({
-        email: input.email,
-        password: input.password,
-        options: {
-          emailRedirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/login?confirmed=1`
-              : undefined,
-          data: {
-            name: input.name,
-            country: input.country,
-            gender: input.gender,
-            grade: input.grade,
-            role: input.role,
-            family_code: familyCode,
-            family_mode: family.mode,
-          },
-        },
-      });
-      if (res.error) return { ok: false, error: friendlyAuthError(res.error.message) };
-      data = res.data;
-    } catch (e) {
-      return {
-        ok: false,
-        error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
-      };
-    }
-
-    if (!data.session) {
-      return {
-        ok: true,
-        familyCode,
-        confirmationRequired: true,
-      };
-    }
-
-    const userId = data.user?.id;
-    if (!userId) return { ok: false, error: "Supabase did not return a user id." };
-    const profileResult = await ensureSupabaseProfile({
-      userId,
+  let data;
+  try {
+    const res = await supa.auth.signUp({
       email: input.email,
-      name: input.name,
-      country: input.country,
-      gender: input.gender,
-      grade: input.grade,
-      role: input.role,
-      familyCode,
-      familyMode: family.mode,
+      password: input.password,
+      options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/login?confirmed=1`
+            : undefined,
+        data: {
+          name: input.name,
+          country: input.country,
+          gender: input.gender,
+          grade: input.grade,
+          role: input.role,
+          family_code: familyCode,
+          family_mode: family.mode,
+        },
+      },
     });
-    if (!profileResult.ok) return profileResult;
-
-    return { ok: true, familyCode };
+    if (res.error) return { ok: false, error: friendlyAuthError(res.error.message) };
+    data = res.data;
+  } catch (e) {
+    return {
+      ok: false,
+      error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
   }
 
-  // --- Local fallback ---
-  const users = readLocal<Record<string, AccountInput & { familyCode: string }>>(
-    LOCAL_USERS_KEY,
-    {}
-  );
-  if (users[input.email.toLowerCase()]) {
-    return { ok: false, error: "An account with that email already exists." };
+  if (!data.session) {
+    return {
+      ok: true,
+      familyCode,
+      confirmationRequired: true,
+    };
   }
-  const families = readLocal<string[]>(LOCAL_FAMILIES_KEY, []);
-  if (family.mode === "join" && !families.includes(familyCode)) {
-    // For the demo we accept any well-formed code, but record it.
-    families.push(familyCode);
-  }
-  if (family.mode === "create") families.push(familyCode);
-  writeLocal(LOCAL_FAMILIES_KEY, families);
-  users[input.email.toLowerCase()] = { ...input, familyCode };
-  writeLocal(LOCAL_USERS_KEY, users);
+
+  const userId = data.user?.id;
+  if (!userId) return { ok: false, error: "Supabase did not return a user id." };
+  const profileResult = await ensureSupabaseProfile({
+    userId,
+    email: input.email,
+    name: input.name,
+    country: input.country,
+    gender: input.gender,
+    grade: input.grade,
+    role: input.role,
+    familyCode,
+    familyMode: family.mode,
+  });
+  if (!profileResult.ok) return profileResult;
+
   return { ok: true, familyCode };
 }
 
 export async function signIn(
   email: string,
   password: string
-): Promise<AuthResult & { account?: StoredAccount; player?: Player }> {
+): Promise<AuthResult & { player?: Player }> {
   const supa = getSupabase();
-  if (supa) {
-    let data;
-    try {
-      const res = await supa.auth.signInWithPassword({ email, password });
-      if (res.error) {
-        return { ok: false, error: friendlyAuthError(res.error.message) };
-      }
-      data = res.data;
-    } catch (e) {
-      // signInWithPassword can throw (not just return an error) on a hard
-      // network failure; catch it so the sign-in button never hangs.
-      return {
-        ok: false,
-        error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
-      };
+  if (!supa) return notConfiguredResult();
+
+  let data;
+  try {
+    const res = await supa.auth.signInWithPassword({ email, password });
+    if (res.error) {
+      return { ok: false, error: friendlyAuthError(res.error.message) };
     }
-    if (data.user) {
-      // Load the existing profile FIRST — never reset a returning user's data.
-      let player = await getCurrentPlayer();
-      if (!player) {
-        // No profile row yet (e.g. first login after email confirmation):
-        // create it from the signup metadata, then re-read.
-        const metadata = data.user.user_metadata ?? {};
-        const emailName = (data.user.email ?? email).split("@")[0] ?? emptyPlayer.name;
-        const name = String(metadata.name ?? emailName);
-        const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
-        const grade = Number(metadata.grade ?? emptyPlayer.grade);
-        const gender = (metadata.gender ?? emptyPlayer.gender) as PlayerGender;
-        const country = String(metadata.country ?? emptyPlayer.country);
-        const role = (metadata.role ?? emptyPlayer.role) as FamilyRole;
-        const created = await ensureSupabaseProfile({
-          userId: data.user.id,
-          email: data.user.email ?? email,
+    data = res.data;
+  } catch (e) {
+    // signInWithPassword can throw (not just return an error) on a hard
+    // network failure; catch it so the sign-in button never hangs.
+    return {
+      ok: false,
+      error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
+  }
+  if (!data.user) {
+    return { ok: false, error: "Supabase did not return a signed-in user." };
+  }
+
+  try {
+    // Load the existing profile FIRST — never reset a returning user's data.
+    let player = await getCurrentPlayer();
+    if (!player) {
+      // No profile row yet (e.g. first login after email confirmation):
+      // create it from the signup metadata, then re-read.
+      const metadata = data.user.user_metadata ?? {};
+      const emailName = (data.user.email ?? email).split("@")[0] ?? emptyPlayer.name;
+      const name = String(metadata.name ?? emailName);
+      const familyCode = String(metadata.family_code ?? generateFamilyCode(name));
+      const grade = Number(metadata.grade ?? emptyPlayer.grade);
+      const gender = (metadata.gender ?? emptyPlayer.gender) as PlayerGender;
+      const country = String(metadata.country ?? emptyPlayer.country);
+      const role = (metadata.role ?? emptyPlayer.role) as FamilyRole;
+      const created = await ensureSupabaseProfile({
+        userId: data.user.id,
+        email: data.user.email ?? email,
+        name,
+        country,
+        gender,
+        grade,
+        role,
+        familyCode,
+        familyMode: (metadata.family_mode === "join" ? "join" : "create") as
+          | "create"
+          | "join",
+      });
+      if (!created.ok) return created;
+      player =
+        (await getCurrentPlayer()) ??
+        buildPlayerFromAuthProfile({
           name,
+          email: data.user.email ?? email,
           country,
           gender,
           grade,
           role,
           familyCode,
-          familyMode: (metadata.family_mode === "join" ? "join" : "create") as
-            | "create"
-            | "join",
         });
-        if (!created.ok) return created;
-        player =
-          (await getCurrentPlayer()) ??
-          buildPlayerFromAuthProfile({
-            name,
-            email: data.user.email ?? email,
-            country,
-            gender,
-            grade,
-            role,
-            familyCode,
-          });
-      }
-      return { ok: true, player };
     }
-    return { ok: false, error: "Supabase did not return a signed-in user." };
+    return { ok: true, player };
+  } catch (e) {
+    return {
+      ok: false,
+      error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
   }
-  const users = readLocal<Record<string, StoredAccount>>(
-    LOCAL_USERS_KEY,
-    {}
-  );
-  const account = users[email.toLowerCase()];
-  if (!account) return { ok: false, error: "No account found. Try signing up." };
-  if (account.password !== password)
-    return { ok: false, error: "Incorrect password." };
-  return { ok: true, account };
 }
 
 function buildPlayerFromAuthProfile(input: {
@@ -344,24 +313,10 @@ export async function updatePassword(newPassword: string): Promise<AuthResult> {
   return { ok: true };
 }
 
-export async function getCurrentPlayer(): Promise<Player | null> {
-  const supa = getSupabase();
-  if (!supa) return null;
-
-  const { data: userData, error: userError } = await supa.auth.getUser();
-  if (userError || !userData.user) return null;
-
-  const { data: profile } = await supa
-    .from("profiles")
-    .select("*")
-    .eq("id", userData.user.id)
-    .maybeSingle();
-
-  if (!profile) return null;
-
+function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
   return {
     ...emptyPlayer,
-    name: profile.name || userData.user.email || emptyPlayer.name,
+    name: profile.name || fallbackEmail || emptyPlayer.name,
     currentUTR: Number(profile.current_utr ?? emptyPlayer.currentUTR),
     grade: Number(profile.grade ?? emptyPlayer.grade),
     graduationYear: Number(
@@ -384,6 +339,57 @@ export async function getCurrentPlayer(): Promise<Player | null> {
     tournamentsGoal: Number(profile.tournaments_goal ?? emptyPlayer.tournamentsGoal),
     onboarded: Boolean(profile.onboarded),
   };
+}
+
+// Throws on a real Supabase/network failure so callers can tell "no profile
+// row" apart from "couldn't reach Supabase" — never silently treat the two
+// the same way (the latter must never look like a normal signed-out state).
+export async function getCurrentPlayer(): Promise<Player | null> {
+  const supa = getSupabase();
+  if (!supa) return null;
+
+  const { data: userData, error: userError } = await supa.auth.getUser();
+  if (userError || !userData.user) return null;
+
+  const { data: profile, error: profileError } = await supa
+    .from("profiles")
+    .select("*")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+
+  if (profileError) throw new Error(profileError.message);
+  if (!profile) return null;
+
+  return mapProfileToPlayer(profile, userData.user.email ?? "");
+}
+
+export type SessionState =
+  | { status: "authed"; player: Player }
+  | { status: "signed-out" }
+  | { status: "error"; message: string };
+
+// Used on app load to restore a session. Unlike getCurrentPlayer(), this
+// distinguishes "there is no session" (status: signed-out) from "Supabase
+// could not be reached" (status: error) — the two must never be conflated,
+// since a paused/unreachable backend should never silently look like a
+// logged-out user.
+export async function getSessionState(): Promise<SessionState> {
+  const supa = getSupabase();
+  if (!supa) return { status: "error", message: NOT_CONFIGURED_MESSAGE };
+
+  try {
+    const { data: userData, error: userError } = await supa.auth.getUser();
+    if (userError || !userData.user) return { status: "signed-out" };
+
+    const player = await getCurrentPlayer();
+    if (!player) return { status: "signed-out" };
+    return { status: "authed", player };
+  } catch (e) {
+    return {
+      status: "error",
+      message: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
+  }
 }
 
 export async function saveCurrentPlayer(player: Player): Promise<void> {

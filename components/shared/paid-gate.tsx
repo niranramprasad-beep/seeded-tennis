@@ -103,11 +103,13 @@ export function PaidGate({
           </Link>
         </div>
 
-        <p className="mt-6 max-w-sm text-xs text-stone-light">
-          Demo tip: use the{" "}
-          <span className="font-medium text-stone">Demo tier</span> switcher in
-          the top nav to preview this page unlocked.
-        </p>
+        {process.env.NODE_ENV === "development" && (
+          <p className="mt-6 max-w-sm text-xs text-stone-light">
+            Dev tip: use the{" "}
+            <span className="font-medium text-stone">Demo tier</span> switcher in
+            the top nav to preview this page unlocked.
+          </p>
+        )}
       </div>
     </div>
   );

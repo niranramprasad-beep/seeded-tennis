@@ -4,10 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2, Users } from "lucide-react";
-import type { Player } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { signIn } from "@/lib/auth";
-import { emptyPlayer } from "@/lib/data/user";
 import { Button } from "@/components/ui/button";
 import { FloatingDots } from "@/components/shared/floating-dots";
 
@@ -33,25 +31,13 @@ export function ParentLoginForm() {
       return;
     }
 
-    let player: Player | undefined = result.player;
-    if (!player && result.account) {
-      player = {
-        ...emptyPlayer,
-        name: result.account.name,
-        gender: result.account.gender,
-        grade: result.account.grade,
-        country: result.account.country,
-        role: result.account.role,
-        familyCode: result.account.familyCode,
-        onboarded: true,
-      };
-    }
+    const player = result.player;
     if (!player) {
       setError("Signed in, but couldn't load your account. Try again.");
       return;
     }
     beginSession(player);
-    router.push(player.role === "parent" ? "/family" : "/dashboard");
+    router.replace(player.role === "parent" ? "/family" : "/dashboard");
   };
 
   return (

@@ -116,7 +116,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
       onboarded: true,
     };
     completeOnboarding(next);
-    router.push("/dashboard");
+    router.replace("/dashboard");
   };
 
   const variants = {
