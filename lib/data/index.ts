@@ -11,7 +11,6 @@ import type {
   Player,
   RoadmapYear,
   School,
-  Testimonial,
   Tournament,
   TrainingPlan,
 } from "@/lib/types";
@@ -22,7 +21,6 @@ import { extraSchools } from "./schools-extra";
 import { getSchoolProfile, combinedScore } from "./school-detail";
 import { trainingPlans as trainingPlansData } from "./training-plans";
 import { buildTournaments } from "./tournaments";
-import { testimonials as testimonialsData } from "./testimonials";
 import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
 import { getCurrentGrade, getSummerBeforeGradeYear, ordinalGrade } from "@/lib/time";
 
@@ -100,12 +98,6 @@ export async function getTournaments(): Promise<Tournament[]> {
   return resolve(
     buildTournaments(new Date()).sort((a, b) => a.date.localeCompare(b.date))
   );
-}
-
-/* ------------------------------------------------------------ testimonials */
-
-export async function getTestimonials(): Promise<Testimonial[]> {
-  return resolve(testimonialsData);
 }
 
 /* ---------------------------------------------------------------- roadmap */

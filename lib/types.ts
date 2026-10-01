@@ -136,15 +136,6 @@ export interface Tournament {
   result?: string;
 }
 
-export interface Testimonial {
-  id: string;
-  quote: string;
-  parentName: string;
-  relationship: string;
-  location: string;
-  outcome: string;
-}
-
 export interface RoadmapYear {
   calendarYear: number; // the summer this checkpoint falls in
   gradeLabel: string; // e.g. "By summer before 11th grade"

@@ -10,10 +10,9 @@ import {
   School,
   ShieldCheck,
 } from "lucide-react";
-import { getSchools, getTestimonials } from "@/lib/data";
+import { getSchools } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/shared/fade-in";
 import { SchoolMarquee } from "@/components/home/school-marquee";
 import { CinematicBand } from "@/components/home/cinematic-band";
@@ -58,7 +57,7 @@ const LOOP: [string, string][] = [
 ];
 
 export default async function HomePage() {
-  const [schools, testimonials] = await Promise.all([getSchools(), getTestimonials()]);
+  const schools = await getSchools();
   const marqueeSchools = schools.slice(0, 18);
 
   return (
@@ -309,38 +308,6 @@ export default async function HomePage() {
                 </div>
               </FadeIn>
             ))}
-          </div>
-        </section>
-
-        {/* -------------------------------------------------------- TESTIMONIALS */}
-        <section id="testimonials" className="border-t-hairline border-line bg-card py-20">
-          <div className="mx-auto max-w-content container-px">
-            <FadeIn className="max-w-2xl">
-              <span className="eyebrow text-grass">Parent confidence</span>
-              <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
-                Trusted with real recruiting decisions.
-              </h2>
-            </FadeIn>
-            <div className="mt-10 grid gap-6 lg:grid-cols-3">
-              {testimonials.slice(0, 3).map((item, i) => (
-                <FadeIn key={item.id} delay={i * 0.06}>
-                  <Card className="flex h-full flex-col p-7">
-                    <span className="font-serif text-5xl leading-none text-grass/50">
-                      &ldquo;
-                    </span>
-                    <p className="mt-3 flex-1 text-pretty leading-relaxed text-ink">
-                      {item.quote}
-                    </p>
-                    <div className="mt-6 border-t-hairline border-line pt-4">
-                      <p className="font-medium text-ink">{item.parentName}</p>
-                      <p className="mt-0.5 text-xs text-stone-light">
-                        {item.relationship} · {item.location}
-                      </p>
-                    </div>
-                  </Card>
-                </FadeIn>
-              ))}
-            </div>
           </div>
         </section>
 
