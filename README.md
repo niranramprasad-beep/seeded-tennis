@@ -75,6 +75,26 @@ Create these private Supabase Storage buckets:
 
 See `SUPABASE_SETUP.md` for more detail.
 
+## Stripe billing
+
+Player and Family tiers are real Stripe subscriptions. Set up:
+
+1. Create a Stripe account, then two Products with monthly recurring Prices
+   (Player, Family) in **test mode** first.
+2. Add `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PLAYER`, `STRIPE_PRICE_FAMILY` to
+   `.env.local` and Vercel.
+3. Create a webhook endpoint in Stripe pointing at
+   `https://<your-domain>/api/stripe/webhook`, subscribed to
+   `checkout.session.completed`, `customer.subscription.updated`, and
+   `customer.subscription.deleted`. Add its signing secret as
+   `STRIPE_WEBHOOK_SECRET`.
+4. Without these env vars, the Pricing page shows a clear error instead of
+   starting checkout — nothing else in the app is affected.
+
+`profiles.subscription_tier` is the source of truth for a user's plan and is
+only ever written by the webhook (`app/api/stripe/webhook/route.ts`) — never
+set directly by the client.
+
 ## Production checks
 
 ```bash

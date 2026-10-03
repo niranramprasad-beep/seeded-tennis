@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
 import type { SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
+import { getSupabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,15 +101,73 @@ const MATRIX: { group: string; rows: Row[] }[] = [
   },
 ];
 
+async function getAccessToken(): Promise<string | undefined> {
+  const supabase = getSupabase();
+  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+  return data.session?.access_token;
+}
+
 export function PricingView() {
-  const { tier, setTier } = useTier();
+  const { tier } = useTier();
   const { isAuthed, hydrated } = usePlayer();
   const router = useRouter();
+  const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
+  const [error, setError] = useState("");
 
-  const choose = (t: SubscriptionTier) => {
-    setTier(t);
-    // Signed-out visitors need an account first; their plan choice is kept.
-    router.push(hydrated && isAuthed ? "/dashboard" : "/signup");
+  const choose = async (t: SubscriptionTier) => {
+    // Signed-out visitors need an account first — nothing to bill yet.
+    if (!hydrated || !isAuthed) {
+      router.push("/signup");
+      return;
+    }
+
+    if (t === "free") {
+      // Downgrading an existing paid plan happens through Stripe's own
+      // cancel flow, not an instant local switch.
+      await manageBilling();
+      return;
+    }
+
+    setError("");
+    setLoadingTier(t);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ tier: t }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.url) throw new Error(payload.error || "Could not start checkout.");
+      window.location.href = payload.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start checkout.");
+      setLoadingTier(null);
+    }
+  };
+
+  const manageBilling = async () => {
+    setError("");
+    setLoadingTier("free");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.url) throw new Error(payload.error || "Could not open billing.");
+      window.location.href = payload.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open billing.");
+      setLoadingTier(null);
+    }
   };
 
   return (
@@ -122,6 +182,20 @@ export function PricingView() {
           Browsing schools is always free. Choose a plan to unlock your roadmap,
           training, and coach outreach.
         </p>
+        {error && (
+          <p className="mx-auto mt-4 max-w-md rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+            {error}
+          </p>
+        )}
+        {tier !== "free" && (
+          <button
+            onClick={manageBilling}
+            disabled={loadingTier !== null}
+            className="mt-4 text-sm text-stone underline decoration-stone-light underline-offset-4 transition-colors hover:text-ink"
+          >
+            Manage billing / cancel plan
+          </button>
+        )}
       </div>
 
       {/* plan cards */}
@@ -171,13 +245,15 @@ export function PricingView() {
                 size="lg"
                 className="mt-6 w-full"
                 onClick={() => choose(plan.tier)}
-                disabled={current}
+                disabled={current || loadingTier === plan.tier}
               >
-                {current
-                  ? "Current plan"
-                  : plan.tier === "free"
-                    ? "Switch to Free"
-                    : `Choose ${plan.name}`}
+                {loadingTier === plan.tier
+                  ? "Redirecting..."
+                  : current
+                    ? "Current plan"
+                    : plan.tier === "free"
+                      ? "Switch to Free"
+                      : `Choose ${plan.name}`}
               </Button>
 
               <ul className="mt-6 space-y-3 border-t-[0.5px] border-line pt-6">
