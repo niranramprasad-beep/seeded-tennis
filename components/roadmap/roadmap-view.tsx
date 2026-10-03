@@ -191,7 +191,7 @@ function RoadmapInner({ schools }: { schools: School[] }) {
               <Card className="flex h-full flex-col p-5">
                 <div className="flex items-center justify-between">
                   <Badge variant="default" size="md">
-                    {year.shortLabel === "College" ? "College" : `Grade ${year.shortLabel}`}
+                    {year.shortLabel} Grade
                   </Badge>
                   <span className="text-sm text-stone">Summer {year.calendarYear}</span>
                 </div>

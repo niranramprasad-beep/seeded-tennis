@@ -146,7 +146,7 @@ export default async function SchoolDetailPage({
 
         {/* roster + coach */}
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2 p-6">
+          <Card className="min-w-0 lg:col-span-2 p-6">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">
@@ -160,8 +160,8 @@ export default async function SchoolDetailPage({
                 height={160}
               />
             </div>
-            <div className="mt-4 overflow-hidden rounded-card border-[0.5px] border-line">
-              <table className="w-full text-sm">
+            <div className="mt-4 overflow-x-auto rounded-card border-[0.5px] border-line">
+              <table className="w-full min-w-[480px] text-sm">
                 <thead>
                   <tr className="border-b-[0.5px] border-line bg-cream/50 text-left text-xs text-stone-light">
                     <th className="px-4 py-2.5 font-medium">#</th>
@@ -174,11 +174,11 @@ export default async function SchoolDetailPage({
                 <tbody>
                   {profile.roster.map((p, i) => (
                     <tr key={p.name + i} className={i % 2 ? "bg-cream/30" : undefined}>
-                      <td className="px-4 py-2.5 text-stone-light">{p.position}</td>
-                      <td className="px-4 py-2.5 font-medium text-ink">{p.name}</td>
-                      <td className="px-4 py-2.5 text-stone">'{String(p.classYear).slice(2)}</td>
-                      <td className="px-4 py-2.5 text-stone">{p.hometown}</td>
-                      <td className="px-4 py-2.5 text-right font-medium text-grass">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{p.position}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{p.name}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">'{String(p.classYear).slice(2)}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{p.hometown}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium text-grass">
                         {p.utr.toFixed(1)}
                       </td>
                     </tr>
@@ -251,15 +251,15 @@ export default async function SchoolDetailPage({
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="min-w-0 p-6">
             <div className="flex items-center gap-2">
               <Award className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">
                 {school.conference} standings
               </h2>
             </div>
-            <div className="mt-4 overflow-hidden rounded-card border-[0.5px] border-line">
-              <table className="w-full text-sm">
+            <div className="mt-4 overflow-x-auto rounded-card border-[0.5px] border-line">
+              <table className="w-full min-w-[380px] text-sm">
                 <thead>
                   <tr className="border-b-[0.5px] border-line bg-cream/50 text-left text-xs text-stone-light">
                     <th className="px-4 py-2.5 font-medium">#</th>
@@ -276,10 +276,10 @@ export default async function SchoolDetailPage({
                         row.isThis ? "bg-grass-50 font-medium" : i % 2 ? "bg-cream/30" : undefined
                       }
                     >
-                      <td className="px-4 py-2.5 text-stone-light">{i + 1}</td>
-                      <td className="px-4 py-2.5 text-ink">{row.team}</td>
-                      <td className="px-4 py-2.5 text-stone">{row.confRecord}</td>
-                      <td className="px-4 py-2.5 text-right text-grass">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{i + 1}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-ink">{row.team}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{row.confRecord}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right text-grass">
                         {row.avgUTR.toFixed(1)}
                       </td>
                     </tr>

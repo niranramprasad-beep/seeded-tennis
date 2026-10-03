@@ -26,6 +26,7 @@ import { UTRTrajectoryChart } from "@/components/charts/utr-trajectory-chart";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { DailyCheckinCard } from "./daily-checkin-card";
 import { ACTIVITY_META } from "@/lib/activity-style";
+import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import {
   createUtrEntry,
@@ -367,14 +368,14 @@ function UtrLogDrawer({
   onSave: (input: { utr: number; recordedAt: string; note: string }) => void;
 }) {
   const [utr, setUtr] = useState(currentUtr.toFixed(1));
-  const [recordedAt, setRecordedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [recordedAt, setRecordedAt] = useState(localDateKey());
   const [note, setNote] = useState("");
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setUtr(currentUtr.toFixed(1));
-    setRecordedAt(new Date().toISOString().slice(0, 10));
+    setRecordedAt(localDateKey());
     setNote("");
     setLocalError("");
   }, [currentUtr, open]);

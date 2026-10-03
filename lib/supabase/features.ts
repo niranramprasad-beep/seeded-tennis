@@ -1,6 +1,8 @@
 import type { Weakness } from "@/lib/types";
-import { resolveGraduationYear } from "@/lib/time";
+import { localDateKey, resolveGraduationYear } from "@/lib/time";
 import { getSupabase } from "./client";
+
+export { localDateKey };
 
 export type FocusArea =
   | "forehand"
@@ -146,11 +148,6 @@ async function profile() {
   if (!supabase || !id) return null;
   const { data } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
   return data;
-}
-
-export function localDateKey(date = new Date()): string {
-  const offset = date.getTimezoneOffset();
-  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
 export async function loadDailyCheckins(): Promise<DailyCheckin[]> {

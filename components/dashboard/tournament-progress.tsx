@@ -7,6 +7,7 @@ import type { Tournament } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { parseLocalDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "completed" | "upcoming";
@@ -42,7 +43,7 @@ export function TournamentProgress({
   }, [tournaments, filter]);
 
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    parseLocalDate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
     <Card className="overflow-hidden p-0">

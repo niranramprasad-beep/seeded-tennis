@@ -1,4 +1,5 @@
 import type { Tournament } from "@/lib/types";
+import { localDateKey } from "@/lib/time";
 
 // Sample USTA junior tournament calendar, weighted toward the Mid-Atlantic /
 // DC section to match the target market. Levels run L1 (national, most
@@ -128,7 +129,7 @@ function addDays(date: Date, days: number): Date {
 }
 
 function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 export function buildTournaments(today: Date = new Date()): Tournament[] {

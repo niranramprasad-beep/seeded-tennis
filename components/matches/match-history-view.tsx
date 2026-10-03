@@ -10,9 +10,11 @@ import { usePlayer } from "@/lib/context/player-context";
 import {
   generatePrepPlan,
   loadMatches,
+  localDateKey,
   saveMatch,
   type MatchRecord,
 } from "@/lib/supabase/features";
+import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const filters = ["all", "last 30", "wins", "losses"] as const;
@@ -37,7 +39,7 @@ function MatchHistoryInner() {
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    matchDate: new Date().toISOString().slice(0, 10),
+    matchDate: localDateKey(),
     opponent: "",
     opponentUtr: "",
     tournamentName: "",
@@ -54,7 +56,7 @@ function MatchHistoryInner() {
   }, []);
 
   const visible = useMemo(() => {
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const cutoff = localDateKey(new Date(Date.now() - 30 * 86400000));
     return matches.filter((m) => {
       if (filter === "last 30") return m.matchDate >= cutoff;
       if (filter === "wins") return m.result === "win";
@@ -178,7 +180,7 @@ function MatchHistoryInner() {
                   <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
-                  {match.matchDate} · {match.opponent || "opponent not listed"} · {match.score || "no score"}
+                  {formatDate(match.matchDate)} · {match.opponent || "opponent not listed"} · {match.score || "no score"}
                 </p>
                 {(match.worked || match.notes) && (
                   <p className="mt-3 text-sm text-stone">{match.worked || match.notes}</p>

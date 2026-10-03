@@ -94,6 +94,34 @@ export function ordinalGrade(grade: number): string {
   return map[grade] ?? `${grade}th`;
 }
 
+/** Parses a plain "YYYY-MM-DD" string as local midnight. `new Date(isoDate)`
+ * parses date-only strings as UTC midnight, which displays as the previous
+ * day in any timezone behind UTC — this avoids that off-by-one. */
+export function parseLocalDate(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00`);
+}
+
+/** The one date display format for the app: "Oct 3, 2026". Accepts a
+ * plain date string, a full timestamp string, or a Date. */
+export function formatDate(input: Date | string): string {
+  const date =
+    typeof input === "string"
+      ? /^\d{4}-\d{2}-\d{2}$/.test(input)
+        ? parseLocalDate(input)
+        : new Date(input)
+      : input;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Today's date (or `date`'s) as "YYYY-MM-DD" in the browser's local
+ * timezone. `new Date().toISOString().slice(0, 10)` is the common mistake
+ * here — toISOString() is always UTC, so in the evening in any US timezone
+ * it silently returns tomorrow's date. */
+export function localDateKey(date: Date = new Date()): string {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
 /**
  * Resolves a player's graduationYear from a raw profile row, migrating
  * legacy rows that only stored `grade`. If `graduation_year` is present it

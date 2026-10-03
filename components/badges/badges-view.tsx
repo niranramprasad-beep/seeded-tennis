@@ -15,6 +15,7 @@ import {
   loadMatches,
   type EarnedBadge,
 } from "@/lib/supabase/features";
+import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const catalog = [
@@ -129,7 +130,7 @@ function BadgesInner() {
                       <h3 className="mt-4 font-medium text-ink">{item.title}</h3>
                       <p className="mt-1 text-xs text-stone">
                         {hit
-                          ? `Earned ${new Date(hit.earnedAt).toLocaleDateString()}`
+                          ? `Earned ${formatDate(hit.earnedAt)}`
                           : "Not earned yet"}
                       </p>
                       {hit && (

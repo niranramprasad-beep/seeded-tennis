@@ -15,7 +15,7 @@ import {
   type CostInputs,
 } from "@/lib/supabase/features";
 import { usePlayer } from "@/lib/context/player-context";
-import { getCurrentGrade } from "@/lib/time";
+import { formatDate, getCurrentGrade } from "@/lib/time";
 
 export function CostCalculatorView({ schools }: { schools: School[] }) {
   return (
@@ -130,7 +130,7 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
             <div className="mt-4 space-y-2">
               {saved.slice(0, 4).map((row) => (
                 <div key={row.id} className="flex items-center justify-between rounded-xl bg-cream px-4 py-3 text-sm">
-                  <span className="text-stone">{new Date(row.createdAt).toLocaleDateString()}</span>
+                  <span className="text-stone">{formatDate(row.createdAt)}</span>
                   <span className="font-medium text-ink">{money(row.results.total)}</span>
                 </div>
               ))}

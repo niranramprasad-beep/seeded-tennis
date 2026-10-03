@@ -11,10 +11,12 @@ import { usePlayer } from "@/lib/context/player-context";
 import {
   generatePrepPlan,
   loadMatches,
+  localDateKey,
   saveMatch,
   type MatchRecord,
   type PrepPlan,
 } from "@/lib/supabase/features";
+import { formatDate } from "@/lib/time";
 import { cn, formatUTR } from "@/lib/utils";
 
 const surfaces: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];
@@ -33,7 +35,7 @@ function MatchModeInner() {
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    matchDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+    matchDate: localDateKey(new Date(Date.now() + 86400000)),
     opponent: "",
     opponentUtr: "",
     tournamentName: "",
@@ -44,8 +46,17 @@ function MatchModeInner() {
     loadMatches().then(setMatches);
   }, []);
 
+  // Status messages (saved/notification/error) are informational, not a
+  // persistent state — fade back to "Ready" so a message from a minute ago
+  // doesn't look like it's still in progress.
+  useEffect(() => {
+    if (status === "Ready") return;
+    const timeout = setTimeout(() => setStatus("Ready"), 4000);
+    return () => clearTimeout(timeout);
+  }, [status]);
+
   const upcoming = useMemo(
-    () => matches.filter((m) => !m.result && m.matchDate >= new Date().toISOString().slice(0, 10)),
+    () => matches.filter((m) => !m.result && m.matchDate >= localDateKey()),
     [matches]
   );
   const nextMatch = upcoming[0] ?? null;
@@ -199,7 +210,7 @@ function MatchModeInner() {
                   <div>
                     <p className="font-medium text-ink">{match.tournamentName || "Match"}</p>
                     <p className="mt-1 text-xs text-stone">
-                      {match.matchDate} · {match.surface} · {match.opponent || "Opponent TBD"}
+                      {formatDate(match.matchDate)} · {match.surface} · {match.opponent || "Opponent TBD"}
                     </p>
                   </div>
                   {match.result && <Badge variant={match.result === "win" ? "leaf" : "outline"}>{match.result}</Badge>}
@@ -247,7 +258,7 @@ function PrepPlanCard({
           <div>
             <p className="font-serif text-lg italic text-leaf-accent">Next up</p>
             <h2 className="mt-1 text-2xl font-light">
-              {match.tournamentName || "Upcoming match"} · {match.matchDate}
+              {match.tournamentName || "Upcoming match"} · {formatDate(match.matchDate)}
             </h2>
             <p className="mt-2 text-sm text-cream/75">
               You: {formatUTR(currentUtr)} UTR · Opponent:{" "}

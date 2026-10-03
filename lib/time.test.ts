@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDate,
   getCurrentGrade,
   getCurrentSchoolYear,
   getDefaultCommitDate,
@@ -8,7 +9,9 @@ import {
   getRecruitingPhase,
   getSummerBeforeGradeYear,
   hasGraduated,
+  localDateKey,
   ordinalGrade,
+  parseLocalDate,
   resolveGraduationYear,
 } from "./time";
 
@@ -186,5 +189,42 @@ describe("resolveGraduationYear", () => {
 
   it("returns null when there is nothing to derive from", () => {
     expect(resolveGraduationYear({ graduation_year: null, grade: null })).toBeNull();
+  });
+});
+
+describe("parseLocalDate", () => {
+  it("parses a plain date string as local midnight, not UTC midnight", () => {
+    const date = parseLocalDate("2026-10-03");
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(9);
+    expect(date.getDate()).toBe(3);
+    expect(date.getHours()).toBe(0);
+  });
+});
+
+describe("formatDate", () => {
+  it("formats a plain date string without shifting the day", () => {
+    expect(formatDate("2026-10-03")).toBe("Oct 3, 2026");
+  });
+
+  it("formats a full timestamp string", () => {
+    expect(formatDate("2026-01-15T12:00:00Z")).toMatch(/Jan 1[45], 2026/);
+  });
+
+  it("formats a Date object", () => {
+    expect(formatDate(new Date(2026, 11, 25))).toBe("Dec 25, 2026");
+  });
+});
+
+describe("localDateKey", () => {
+  it("round-trips through parseLocalDate back to the same calendar day", () => {
+    const today = new Date(2026, 9, 3, 23, 30);
+    expect(localDateKey(today)).toBe("2026-10-03");
+  });
+
+  it("never drifts a day from the Date it was given, regardless of time of day", () => {
+    const lateNight = new Date(2026, 9, 3, 23, 59);
+    const earlyMorning = new Date(2026, 9, 3, 0, 1);
+    expect(localDateKey(lateNight)).toBe(localDateKey(earlyMorning));
   });
 });

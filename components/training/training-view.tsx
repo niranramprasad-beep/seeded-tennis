@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { HoursDonutChart } from "@/components/charts/hours-donut-chart";
 import { cn } from "@/lib/utils";
-import { getCurrentGrade, ordinalGrade } from "@/lib/time";
+import { getCurrentGrade, localDateKey, ordinalGrade } from "@/lib/time";
 import {
   createUuid,
   loadTrainingPlannerState,
@@ -1634,7 +1634,7 @@ function dateForWeekday(day: WeekdayShort, weekOffset = 0): string {
   const target = WEEK_ORDER.indexOf(day);
   const date = new Date(now);
   date.setDate(now.getDate() + (target - current) + weekOffset * 7);
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 function weekLabel(weekOffset: number): string {
