@@ -75,25 +75,31 @@ Create these private Supabase Storage buckets:
 
 See `SUPABASE_SETUP.md` for more detail.
 
-## Stripe billing
+## Whop billing
 
-Player and Family tiers are real Stripe subscriptions. Set up:
+Player and Family tiers are real Whop memberships — this is what the live
+Pricing page actually calls. Set up:
 
-1. Create a Stripe account, then two Products with monthly recurring Prices
-   (Player, Family) in **test mode** first.
-2. Add `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PLAYER`, `STRIPE_PRICE_FAMILY` to
-   `.env.local` and Vercel.
-3. Create a webhook endpoint in Stripe pointing at
-   `https://<your-domain>/api/stripe/webhook`, subscribed to
-   `checkout.session.completed`, `customer.subscription.updated`, and
-   `customer.subscription.deleted`. Add its signing secret as
-   `STRIPE_WEBHOOK_SECRET`.
-4. Without these env vars, the Pricing page shows a clear error instead of
+1. In your Whop dashboard, create two Products with monthly Plans (Player,
+   Family) and copy each Plan ID (`plan_...`).
+2. Grab a server API key from Developer → API keys.
+3. Add `WHOP_API_KEY`, `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY` to `.env.local`
+   and Vercel.
+4. Create a webhook endpoint in Whop pointing at
+   `https://<your-domain>/api/whop/webhook`, subscribed to
+   `membership.activated`, `membership.updated`, and
+   `membership.deactivated`. Add its signing secret as
+   `WHOP_WEBHOOK_SECRET`.
+5. Without these env vars, the Pricing page shows a clear error instead of
    starting checkout — nothing else in the app is affected.
 
 `profiles.subscription_tier` is the source of truth for a user's plan and is
-only ever written by the webhook (`app/api/stripe/webhook/route.ts`) — never
-set directly by the client.
+only ever written by the webhook (`app/api/whop/webhook/route.ts`) — never
+set directly by the client. "Manage billing" links straight to Whop's own
+`https://whop.com/@me/settings/memberships/` page, no API call needed.
+
+A parallel Stripe integration exists (`app/api/stripe/*`) but isn't wired
+into the UI — see `.env.example` if you ever want to switch back.
 
 ## Production checks
 

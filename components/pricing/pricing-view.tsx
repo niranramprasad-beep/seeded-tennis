@@ -122,9 +122,9 @@ export function PricingView() {
     }
 
     if (t === "free") {
-      // Downgrading an existing paid plan happens through Stripe's own
-      // cancel flow, not an instant local switch.
-      await manageBilling();
+      // Downgrading an existing paid plan happens on Whop's own membership
+      // page, not an instant local switch.
+      manageBilling();
       return;
     }
 
@@ -132,7 +132,7 @@ export function PricingView() {
     setLoadingTier(t);
     try {
       const token = await getAccessToken();
-      const res = await fetch("/api/stripe/checkout", {
+      const res = await fetch("/api/whop/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -149,25 +149,8 @@ export function PricingView() {
     }
   };
 
-  const manageBilling = async () => {
-    setError("");
-    setLoadingTier("free");
-    try {
-      const token = await getAccessToken();
-      const res = await fetch("/api/stripe/portal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload.url) throw new Error(payload.error || "Could not open billing.");
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not open billing.");
-      setLoadingTier(null);
-    }
+  const manageBilling = () => {
+    window.location.href = "https://whop.com/@me/settings/memberships/";
   };
 
   return (

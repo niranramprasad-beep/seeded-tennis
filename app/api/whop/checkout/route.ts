@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/api-auth";
-import { getStripe, STRIPE_PRICE_IDS } from "@/lib/stripe";
+import { getWhop, WHOP_PLAN_IDS } from "@/lib/whop";
 import type { SubscriptionTier } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const stripe = getStripe();
-  if (!stripe) {
+  const whop = getWhop();
+  if (!whop) {
     return NextResponse.json({ error: "Billing isn't configured yet." }, { status: 500 });
   }
 
@@ -14,8 +14,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
   const tier = body.tier;
-  const priceId = STRIPE_PRICE_IDS[tier];
-  if (!priceId) {
+  const planId = WHOP_PLAN_IDS[tier];
+  if (!planId) {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
 
@@ -25,16 +25,19 @@ export async function POST(req: Request) {
   }
 
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price: priceId, quantity: 1 }],
-    customer_email: user.email ?? undefined,
-    client_reference_id: user.id,
+  const config = await whop.checkoutConfigurations.create({
+    plan_id: planId,
     metadata: { supabase_user_id: user.id, tier },
-    subscription_data: { metadata: { supabase_user_id: user.id, tier } },
-    success_url: `${origin}/dashboard?checkout=success`,
-    cancel_url: `${origin}/pricing?checkout=cancelled`,
+    redirect_url: `${origin}/dashboard?checkout=success`,
   });
 
-  return NextResponse.json({ url: session.url });
+  if (!config.purchase_url) {
+    return NextResponse.json({ error: "Could not start checkout." }, { status: 500 });
+  }
+
+  const url = config.purchase_url.startsWith("http")
+    ? config.purchase_url
+    : `https://whop.com${config.purchase_url}`;
+
+  return NextResponse.json({ url });
 }
