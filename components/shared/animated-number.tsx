@@ -85,7 +85,7 @@ export function AnimatedNumber({
   }, [value, duration]);
 
   return (
-    <span ref={ref} className={className}>
+    <span ref={ref} className={`stat-number ${className ?? ""}`}>
       {prefix}
       {display.toLocaleString("en-US", {
         minimumFractionDigits: decimals,

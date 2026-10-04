@@ -187,6 +187,132 @@
       0 0 28px rgb(74 222 128 / 0.1);
   }
 
+  /* ---- Design concepts (draft) ----
+     Three live, toggleable directions for finalizing the overall look —
+     pick one via Settings → Theme, compare across real pages, then we
+     finalize and remove the other two. */
+
+  /* Match Point — bold sports-broadcast energy. Deep forest, not navy;
+     volt-chartreuse accent; display type carries real weight. */
+  [data-theme="concept-matchpoint"] {
+    --c-bg: 15 23 16;
+    --c-card: 22 32 26;
+    --c-primary: 198 241 53;
+    --c-primary-50: 32 42 20;
+    --c-primary-100: 40 54 24;
+    --c-primary-600: 180 220 60;
+    --c-primary-700: 198 241 53;
+    --c-primary-800: 210 245 90;
+    --c-primary-900: 225 250 140;
+    --c-lime: 216 232 74;
+    --c-leaf: 120 200 110;
+    --c-tennis: 216 232 74;
+    --c-ink: 243 246 238;
+    --c-stone: 155 166 154;
+    --c-stone-light: 107 118 106;
+    --c-line: 27 38 31;
+    --c-error-bg: 45 24 24;
+    --c-error: 248 113 113;
+    --c-error-strong: 254 202 202;
+
+    --c-scroll-thumb: 48 56 46;
+    --c-thumb-ring: 22 32 26;
+  }
+  [data-theme="concept-matchpoint"] .display-serif,
+  [data-theme="concept-matchpoint"] .stat-number {
+    font-family: var(--font-space-grotesk);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  [data-theme="concept-matchpoint"] .shadow-soft {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 24px rgb(0 0 0 / 0.45);
+  }
+  [data-theme="concept-matchpoint"] .shadow-lift {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.07),
+      0 16px 40px rgb(0 0 0 / 0.55),
+      0 0 32px rgb(198 241 53 / 0.12);
+  }
+
+  /* Clubhouse — heritage tennis club, executed crisp and cool rather than
+     warm/cream: sage-neutral base, deep pine primary, brass accent. */
+  [data-theme="concept-clubhouse"] {
+    --c-bg: 246 245 240;
+    --c-card: 255 255 255;
+    --c-primary: 30 58 52;
+    --c-primary-50: 230 238 234;
+    --c-primary-100: 210 225 218;
+    --c-primary-600: 40 72 64;
+    --c-primary-700: 30 58 52;
+    --c-primary-800: 22 45 40;
+    --c-primary-900: 15 32 28;
+    --c-lime: 224 204 150;
+    --c-leaf: 184 149 79;
+    --c-tennis: 200 168 96;
+    --c-ink: 21 32 28;
+    --c-stone: 92 102 94;
+    --c-stone-light: 150 158 148;
+    --c-line: 225 222 212;
+    --c-gold: 184 149 79;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
+
+    --c-scroll-thumb: 211 206 194;
+    --c-thumb-ring: 255 255 255;
+  }
+  [data-theme="concept-clubhouse"] .display-serif {
+    font-family: var(--font-cormorant);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  [data-theme="concept-clubhouse"] .serif-accent {
+    font-family: var(--font-cormorant);
+    font-style: italic;
+  }
+
+  /* Night Rally — refined precision-instrument dark mode. Cooler and more
+     restrained than Match Point; every stat number renders in a mono face
+     for a "this is a measuring tool" feel. */
+  [data-theme="concept-nightrally"] {
+    --c-bg: 10 10 12;
+    --c-card: 19 19 22;
+    --c-primary: 52 211 153;
+    --c-primary-50: 16 36 30;
+    --c-primary-100: 20 46 38;
+    --c-primary-600: 70 224 170;
+    --c-primary-700: 52 211 153;
+    --c-primary-800: 110 231 185;
+    --c-primary-900: 170 240 210;
+    --c-lime: 167 243 208;
+    --c-leaf: 52 211 153;
+    --c-tennis: 110 231 185;
+    --c-ink: 237 237 239;
+    --c-stone: 139 139 147;
+    --c-stone-light: 99 99 107;
+    --c-line: 24 24 28;
+    --c-error-bg: 45 20 24;
+    --c-error: 248 113 140;
+    --c-error-strong: 254 202 214;
+
+    --c-scroll-thumb: 46 46 52;
+    --c-thumb-ring: 19 19 22;
+  }
+  [data-theme="concept-nightrally"] .stat-number {
+    font-family: var(--font-plex-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  [data-theme="concept-nightrally"] .shadow-soft {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 24px rgb(0 0 0 / 0.5);
+  }
+  [data-theme="concept-nightrally"] .shadow-lift {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.07),
+      0 16px 40px rgb(0 0 0 / 0.6),
+      0 0 32px rgb(52 211 153 / 0.14);
+  }
+
   html {
     scroll-behavior: smooth;
   }

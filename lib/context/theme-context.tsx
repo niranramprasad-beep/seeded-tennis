@@ -10,7 +10,16 @@ import {
   type ReactNode,
 } from "react";
 
-export type ThemeId = "grass" | "clay" | "night" | "hard" | "utr" | "championship";
+export type ThemeId =
+  | "grass"
+  | "clay"
+  | "night"
+  | "hard"
+  | "utr"
+  | "championship"
+  | "concept-matchpoint"
+  | "concept-clubhouse"
+  | "concept-nightrally";
 
 export const THEMES: {
   id: ThemeId;
@@ -55,6 +64,26 @@ export const THEMES: {
     name: "Championship",
     description: "Ivory, navy graphite, trophy gold",
     swatch: ["#FAF7EF", "#162033", "#C8A84E"],
+  },
+  {
+    id: "concept-matchpoint",
+    name: "Match Point (concept)",
+    description: "Bold broadcast energy — forest & volt chartreuse",
+    swatch: ["#0F1710", "#C6F135", "#16201A"],
+    dark: true,
+  },
+  {
+    id: "concept-clubhouse",
+    name: "Clubhouse (concept)",
+    description: "Heritage club, crisp not cream — pine & brass",
+    swatch: ["#F6F5F0", "#1E3A34", "#B8954F"],
+  },
+  {
+    id: "concept-nightrally",
+    name: "Night Rally (concept)",
+    description: "Precision instrument dark — mono stat numbers",
+    swatch: ["#0A0A0C", "#34D399", "#131316"],
+    dark: true,
   },
 ];
 

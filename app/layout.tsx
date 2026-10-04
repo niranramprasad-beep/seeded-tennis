@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Inter, Cormorant_Garamond, Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "@/components/layout/nav";
@@ -21,6 +21,23 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
+// Used only by the "Match Point" design concept theme.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+// Used only by the "Night Rally" design concept theme — every stat number
+// renders in this mono face there, for a precision-instrument feel.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Seeded — your path to college tennis, mapped",
   description:
@@ -35,7 +52,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${cormorant.variable}`}
+      className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable}`}
       suppressHydrationWarning
     >
       <head>
