@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 import {
   Area,
   CartesianGrid,
@@ -97,8 +98,15 @@ export function UTRTrajectoryChart({
       (v): v is number => v != null
     )
   );
-  const min = allValues.length ? Math.floor(Math.min(...allValues) - 0.5) : 1;
-  const max = allValues.length ? Math.ceil(Math.max(...allValues) + 0.5) : 16.5;
+  // Guarantee a minimum 3-point visual span — with only one or two logged
+  // results, the real min/max sit a hair apart and the chart reads as an
+  // empty box with a dot floating in it rather than an actual chart.
+  const rawMin = allValues.length ? Math.min(...allValues) : 1;
+  const rawMax = allValues.length ? Math.max(...allValues) : 16.5;
+  const mid = (rawMin + rawMax) / 2;
+  const span = Math.max(3, rawMax - rawMin + 1);
+  const min = Math.floor(mid - span / 2);
+  const max = Math.ceil(mid + span / 2);
 
   return (
     <div>
@@ -195,8 +203,8 @@ export function UTRTrajectoryChart({
               dataKey="actual"
               stroke={c.primary}
               strokeWidth={3}
-              dot={{ r: 3.5, fill: c.primary, strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: c.primary }}
+              dot={{ r: 5, fill: c.primary, strokeWidth: 2, stroke: c.card }}
+              activeDot={{ r: 7, fill: c.primary, strokeWidth: 2, stroke: c.card }}
               connectNulls
               animationDuration={1200}
             />
@@ -205,13 +213,19 @@ export function UTRTrajectoryChart({
       </div>
 
       {summary ? (
-        <p className="mt-3 text-center text-sm text-stone sm:text-left">{summary}</p>
-      ) : (
-        <p className="mt-3 text-center text-sm text-stone-light sm:text-left">
-          {hasProjection
-            ? ""
-            : "Add more results to see your projection — it unlocks after your 3rd logged UTR."}
+        <p className="mt-4 rounded-xl bg-grass-50 px-4 py-3 text-center text-sm font-medium text-grass-900 sm:text-left">
+          {summary}
         </p>
+      ) : (
+        !hasProjection && (
+          <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-cream/70 px-4 py-3 text-sm text-stone">
+            <Sparkles className="h-4 w-4 shrink-0 text-leaf-accent" />
+            <span>
+              Log {Math.max(0, 3 - actualEntries.length)} more result
+              {Math.max(0, 3 - actualEntries.length) === 1 ? "" : "s"} to unlock your projection line.
+            </span>
+          </div>
+        )
       )}
     </div>
   );
@@ -219,27 +233,27 @@ export function UTRTrajectoryChart({
 
 function Legend({ c }: { c: ReturnType<typeof useThemeColors> }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs text-stone">
-      <span className="flex items-center gap-1.5">
-        <span className="h-0.5 w-5 rounded-full" style={{ backgroundColor: c.primary }} />
+    <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-stone">
+      <span className="flex items-center gap-2">
+        <span className="h-1 w-6 rounded-full" style={{ backgroundColor: c.primary }} />
         Actual
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span
-          className="h-0.5 w-5"
+          className="h-1 w-6 rounded-full"
           style={{
             backgroundImage: `linear-gradient(to right, ${c.tennis} 60%, transparent 40%)`,
-            backgroundSize: "9px 2px",
+            backgroundSize: "9px 3px",
           }}
         />
         Projected
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span
-          className="h-0.5 w-5"
+          className="h-1 w-6 rounded-full"
           style={{
             backgroundImage: `linear-gradient(to right, ${c.stone} 30%, transparent 30%)`,
-            backgroundSize: "6px 2px",
+            backgroundSize: "6px 3px",
           }}
         />
         Target
