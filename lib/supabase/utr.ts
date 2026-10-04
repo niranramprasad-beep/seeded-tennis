@@ -62,9 +62,24 @@ export async function createUtrEntry(input: {
 
   if (error) throw new Error(error.message);
 
+  // The profile's current_utr must always reflect whichever entry is most
+  // recently DATED, not whichever one was just logged — backfilling an
+  // older result (e.g. adding a missed April reading after already being
+  // ahead of it) must never override a newer value already on record.
+  const { data: latest, error: latestError } = await supabase
+    .from("utr_entries")
+    .select("utr")
+    .eq("user_id", userId)
+    .order("recorded_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latestError) throw new Error(latestError.message);
+
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ current_utr: input.utr })
+    .update({ current_utr: latest.utr })
     .eq("id", userId);
 
   if (profileError) throw new Error(profileError.message);

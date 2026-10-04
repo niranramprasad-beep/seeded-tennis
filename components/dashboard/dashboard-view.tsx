@@ -138,10 +138,15 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
           recordedAt: input.recordedAt,
           note: input.note,
         } satisfies UtrEntry);
-      setUtrEntries((prev) =>
-        [...prev, entry].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
+      const nextEntries = [...utrEntries, entry].sort((a, b) =>
+        a.recordedAt.localeCompare(b.recordedAt)
       );
-      updatePlayer({ currentUTR: input.utr });
+      setUtrEntries(nextEntries);
+      // currentUTR must track whichever entry is most recently dated, not
+      // whichever one was just logged — a backfilled older result must
+      // never override a newer value already on record.
+      const mostRecent = nextEntries[nextEntries.length - 1];
+      updatePlayer({ currentUTR: mostRecent.utr });
       setUtrDrawerOpen(false);
       setUtrStatus("idle");
     } catch (error) {
