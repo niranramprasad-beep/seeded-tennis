@@ -82,10 +82,10 @@ export function RecruitingFitPanel() {
   }, [division, gpa, gradYear, utr]);
 
   return (
-    <div className="rounded-card border-hairline border-line bg-white p-6">
+    <div className="rounded-card border-hairline border-line bg-card p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow text-grass">Fit check</p>
-        <span className="text-sm font-medium text-[#0E6A7A]">{fit.label}</span>
+        <span className="text-sm font-medium text-leaf-accent">{fit.label}</span>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

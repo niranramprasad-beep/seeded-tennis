@@ -167,7 +167,7 @@ export function PricingView() {
           training, and coach outreach.
         </p>
         {error && (
-          <p className="mx-auto mt-4 max-w-md rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+          <p className="mx-auto mt-4 max-w-md rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
             {error}
           </p>
         )}

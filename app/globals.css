@@ -180,6 +180,9 @@
     --c-stone: 95 91 82;
     --c-stone-light: 149 143 130;
     --c-line: 229 222 207;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     --c-scroll-thumb: 211 202 185;
     --c-thumb-ring: 255 253 247;

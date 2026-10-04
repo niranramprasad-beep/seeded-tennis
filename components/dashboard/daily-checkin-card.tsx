@@ -195,7 +195,7 @@ export function DailyCheckinCard({
           />
 
           {error && (
-            <p className="mt-4 rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+            <p className="mt-4 rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
           )}
           <Button className="mt-4" onClick={submit} disabled={saving || focusAreas.length === 0}>
             {saving ? "Saving..." : todayDone ? "Update today's check-in" : "Save check-in"}

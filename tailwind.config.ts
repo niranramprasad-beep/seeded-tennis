@@ -37,6 +37,9 @@ const config: Config = {
         line: "rgb(var(--c-line) / <alpha-value>)",
         gold: "rgb(var(--c-gold) / <alpha-value>)",
         "on-primary": "rgb(var(--c-on-primary) / <alpha-value>)",
+        "error-bg": "rgb(var(--c-error-bg) / <alpha-value>)",
+        error: "rgb(var(--c-error) / <alpha-value>)",
+        "error-strong": "rgb(var(--c-error-strong) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],

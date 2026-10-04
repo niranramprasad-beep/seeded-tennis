@@ -148,7 +148,7 @@ function MatchHistoryInner() {
             <textarea className={areaClass} placeholder="What didn't work?" value={form.needsWork} onChange={(e) => setForm({ ...form, needsWork: e.target.value })} />
             <textarea className={areaClass} placeholder="Other notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             {error && (
-              <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+              <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
             )}
             <Button variant="primary" size="md" onClick={save}>Save match</Button>
           </div>

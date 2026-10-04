@@ -39,7 +39,7 @@ const VERDICT_STYLE = {
   bad: {
     label: "BAD FIT",
     icon: XCircle,
-    wrap: "border-[#9C3B22]/40 bg-[#8F3A24] text-on-primary",
+    wrap: "border-error/40 bg-[#8F3A24] text-on-primary",
   },
 } as const;
 

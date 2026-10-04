@@ -51,14 +51,16 @@ const WEEK_ORDER: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "S
 type PlannerView = "day" | "week" | "month";
 type PlannerDrawer = "session" | "plan" | "templates" | "progress" | "settings" | null;
 
+// bg/text pairs use theme CSS variables (never fixed hex) so contrast holds
+// in both light and dark themes — see lib/activity-style.ts for the same fix.
 const DEFAULT_TYPES: TrainingSessionType[] = [
   { id: "tennis", label: "Tennis", color: "#2D4A2B", bg: "bg-grass-50", text: "text-grass" },
-  { id: "strength", label: "Strength", color: "#97C459", bg: "bg-[#EAF2DA]", text: "text-grass-900" },
-  { id: "conditioning", label: "Conditioning", color: "#CDB52E", bg: "bg-[#FAF4D2]", text: "text-[#6B6A2E]" },
-  { id: "recovery", label: "Recovery", color: "#BBC79B", bg: "bg-[#EEF1E3]", text: "text-stone" },
+  { id: "strength", label: "Strength", color: "#97C459", bg: "bg-leaf-accent/15", text: "text-leaf-accent" },
+  { id: "conditioning", label: "Conditioning", color: "#CDB52E", bg: "bg-gold/15", text: "text-gold" },
+  { id: "recovery", label: "Recovery", color: "#BBC79B", bg: "bg-stone/10", text: "text-stone" },
   { id: "match-prep", label: "Match prep", color: "#4F6F52", bg: "bg-grass-100", text: "text-grass-900" },
-  { id: "mobility", label: "Mobility", color: "#8EA58B", bg: "bg-[#EEF5EC]", text: "text-grass" },
-  { id: "mental", label: "Mental work", color: "#6B6B5F", bg: "bg-[#ECEAE2]", text: "text-stone" },
+  { id: "mobility", label: "Mobility", color: "#8EA58B", bg: "bg-leaf-accent/10", text: "text-grass" },
+  { id: "mental", label: "Mental work", color: "#6B6B5F", bg: "bg-ink/10", text: "text-stone" },
 ];
 
 const inputClass =
@@ -1405,7 +1407,7 @@ function SessionDrawer({
               </button>
               <button
                 onClick={() => onDelete(session.id)}
-                className="flex items-center gap-1.5 text-sm text-[#9C3B22] transition-colors hover:text-[#6F2816] focus:outline-none focus:ring-2 focus:ring-[#9C3B22]/30"
+                className="flex items-center gap-1.5 text-sm text-error transition-colors hover:text-error-strong focus:outline-none focus:ring-2 focus:ring-error/30"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -1422,7 +1424,7 @@ function SessionDrawer({
       }
     >
       <div className="space-y-4">
-        {error && <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>}
+        {error && <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>}
         <Field label="Session name">
           <input
             className={inputClass}
@@ -1563,7 +1565,7 @@ function PlanDrawer({
       }
     >
       <div className="space-y-4">
-        {error && <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>}
+        {error && <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>}
         <Field label="Plan name">
           <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Example: Summer tournament block" />
         </Field>
@@ -1713,7 +1715,7 @@ function PlanMenu({
           <button
             onClick={() => choose(onDelete)}
             disabled={deleteDisabled}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-[#9C3B22] transition-colors hover:bg-[#FBEAE5] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-error transition-colors hover:bg-error-bg disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete plan

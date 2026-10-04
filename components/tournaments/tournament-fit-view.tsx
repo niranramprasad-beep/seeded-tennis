@@ -52,7 +52,7 @@ const VERDICT_META = {
     label: "BAD FIT",
     icon: XCircle,
     blurb: "Hard pass for now — this event won't give you results, value, or both.",
-    card: "border-[#9C3B22]/50 bg-[#8F3A24] text-on-primary",
+    card: "border-error/50 bg-[#8F3A24] text-on-primary",
     chip: "bg-on-primary/15 text-on-primary",
     bar: "bg-[#F0A98F]",
   },
@@ -355,7 +355,7 @@ export function TournamentFitView() {
             </div>
 
             {error && (
-              <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+              <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
                 {error}
               </p>
             )}

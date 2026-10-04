@@ -8,6 +8,11 @@ export interface ActivityStyle {
   dot: string;
 }
 
+// Every chipBg/chipText pair below uses a theme CSS variable (never a fixed
+// hex), so contrast holds in both light and dark themes automatically —
+// these used to be fixed light-mode hex pairs (e.g. bg-[#FAF4D2] +
+// text-[#6B6A2E]) that went low-contrast or invisible once the page
+// background itself could be dark.
 export const ACTIVITY_META: Record<ActivityType, ActivityStyle> = {
   court: {
     label: "Court",
@@ -19,30 +24,30 @@ export const ACTIVITY_META: Record<ActivityType, ActivityStyle> = {
   gym: {
     label: "Gym",
     color: "#97C459",
-    chipBg: "bg-[#EAF2DA]",
-    chipText: "text-grass-900",
+    chipBg: "bg-leaf-accent/15",
+    chipText: "text-leaf-accent",
     dot: "bg-leaf-accent",
   },
   match: {
     label: "Match",
     color: "#CDB52E",
-    chipBg: "bg-[#FAF4D2]",
-    chipText: "text-[#6B6A2E]",
-    dot: "bg-tennis",
+    chipBg: "bg-gold/15",
+    chipText: "text-gold",
+    dot: "bg-gold",
   },
   recovery: {
     label: "Recovery",
     color: "#BBC79B",
-    chipBg: "bg-[#EEF1E3]",
+    chipBg: "bg-stone/10",
     chipText: "text-stone",
-    dot: "bg-[#BBC79B]",
+    dot: "bg-stone",
   },
   mental: {
     label: "Mental",
     color: "#6B6B5F",
-    chipBg: "bg-[#ECEAE2]",
+    chipBg: "bg-ink/10",
     chipText: "text-stone",
-    dot: "bg-stone",
+    dot: "bg-ink/60",
   },
 };
 
@@ -50,11 +55,11 @@ export const INTENSITY_META: Record<
   Intensity,
   { label: string; chipBg: string; chipText: string }
 > = {
-  low: { label: "Low", chipBg: "bg-grass-50", chipText: "text-stone" },
+  low: { label: "Low", chipBg: "bg-grass-50", chipText: "text-grass" },
   moderate: {
     label: "Moderate",
-    chipBg: "bg-[#EAF2DA]",
-    chipText: "text-grass-900",
+    chipBg: "bg-leaf-accent/15",
+    chipText: "text-leaf-accent",
   },
-  high: { label: "High", chipBg: "bg-[#FAF4D2]", chipText: "text-[#6B6A2E]" },
+  high: { label: "High", chipBg: "bg-gold/15", chipText: "text-gold" },
 };

@@ -148,7 +148,7 @@ export function TrainingCopilot({
                 </div>
               )}
               {error && (
-                <p className="rounded-2xl bg-[#FBEAE5] px-3.5 py-2.5 text-sm text-[#9C3B22]">{error}</p>
+                <p className="rounded-2xl bg-error-bg px-3.5 py-2.5 text-sm text-error">{error}</p>
               )}
             </div>
 

@@ -187,7 +187,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-ink">Your UTR progress</h2>
               {utrStatus === "error" && (
-                <p className="text-xs text-[#9C3B22]">{utrError}</p>
+                <p className="text-xs text-error">{utrError}</p>
               )}
             </div>
             <div className="mt-4">
@@ -438,7 +438,7 @@ function UtrLogDrawer({
     >
       <div className="space-y-5">
         {(localError || error) && (
-          <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+          <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
             {localError || error}
           </p>
         )}

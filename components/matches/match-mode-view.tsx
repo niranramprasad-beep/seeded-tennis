@@ -173,7 +173,7 @@ function MatchModeInner() {
               Generate prep plan
             </Button>
             {error && (
-              <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+              <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
             )}
             <p className="text-xs text-stone-light">{status}</p>
           </div>
