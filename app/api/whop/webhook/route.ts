@@ -57,13 +57,28 @@ export async function POST(req: Request) {
     const membership = event.data;
     const supabaseUserId = membership.metadata?.supabase_user_id;
     if (typeof supabaseUserId === "string") {
-      const tier = ACCESS_GRANTING_STATUSES.has(membership.status)
-        ? tierForPlanId(membership.plan_id)
-        : "free";
-      await admin
-        .from("profiles")
-        .update({ subscription_tier: tier, whop_membership_id: membership.id })
-        .eq("id", supabaseUserId);
+      if (ACCESS_GRANTING_STATUSES.has(membership.status)) {
+        // An active/trialing membership always wins, and records itself as
+        // the membership currently backing this user's tier.
+        await admin
+          .from("profiles")
+          .update({
+            subscription_tier: tierForPlanId(membership.plan_id),
+            whop_membership_id: membership.id,
+          })
+          .eq("id", supabaseUserId);
+      } else {
+        // Only downgrade if THIS is the membership currently on record for
+        // the user. A user can have more than one membership over time
+        // (e.g. they tried Family, canceled it, and are still on an active
+        // Player plan) — an old, already-superseded membership canceling
+        // must never stomp a different, still-active one.
+        await admin
+          .from("profiles")
+          .update({ subscription_tier: "free" })
+          .eq("id", supabaseUserId)
+          .eq("whop_membership_id", membership.id);
+      }
     }
   }
 
