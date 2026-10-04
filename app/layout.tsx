@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Nav } from "@/components/layout/nav";
+import { AppShell } from "@/components/layout/app-shell";
 import { ScrollProgress } from "@/components/shared/scroll-progress";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -66,8 +66,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-cream">
         <Providers>
           <ScrollProgress />
-          <Nav />
-          <main>{children}</main>
+          <AppShell>{children}</AppShell>
         </Providers>
         <Analytics />
         <SpeedInsights />

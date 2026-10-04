@@ -1,36 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  BarChart3,
-  CalendarDays,
-  Compass,
-  LayoutDashboard,
-  Mail,
-  Menu,
-  Route,
-  School,
-  Trophy,
-  Users,
-  X,
-  LogOut,
-  Settings,
-  ChevronRight,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { usePlayer } from "@/lib/context/player-context";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { TierSwitcher } from "./tier-switcher";
+import { Menu, X, ChevronRight } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
 import { cn } from "@/lib/utils";
 
-type NavLink = { href: string; label: string; icon?: LucideIcon };
+type NavLink = { href: string; label: string };
 
-// Note: the Tournament Fit Finder intentionally has no top-nav tab here — it
-// lives as its own section on the landing page (which links to the full tool).
+// This is the marketing-site header only — signed-in users get the app
+// shell's left sidebar (components/layout/sidebar.tsx) instead. See
+// components/layout/app-shell.tsx for the switch between the two.
 const MARKETING_LINKS: NavLink[] = [
   { href: "/schools", label: "Schools" },
   { href: "/how-it-works", label: "How it works" },
@@ -38,44 +21,10 @@ const MARKETING_LINKS: NavLink[] = [
   { href: "/pricing", label: "Pricing" },
 ];
 
-const APP_LINKS: NavLink[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/roadmap", label: "Roadmap", icon: Route },
-  { href: "/training", label: "Training", icon: CalendarDays },
-  { href: "/match-mode", label: "Match mode", icon: Trophy },
-  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
-  { href: "/schools", label: "Schools", icon: School },
-  { href: "/coaches", label: "Coaches", icon: Mail },
-  { href: "/friends", label: "Friends", icon: Users },
-];
-
-const PARENT_LINKS: NavLink[] = [
-  { href: "/family", label: "Family", icon: Users },
-  { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
-  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
-  { href: "/schools", label: "Schools", icon: School },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
 export function Nav() {
-  const { isAuthed, hydrated, player, signOut } = usePlayer();
   const pathname = usePathname();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-
-  const showApp = hydrated && isAuthed;
-  const isParent = showApp && player.role === "parent";
-  const appLinks = isParent ? PARENT_LINKS : APP_LINKS;
-  const mobileLinks = showApp ? appLinks : MARKETING_LINKS;
-  const isMarketingHome = !showApp && pathname === "/";
-  // Tier switching is a dev-only testing aid. Real tier comes from the
-  // subscription in the database, never a client-side toggle in production.
-  const showTierSwitcher = showApp && process.env.NODE_ENV === "development";
-
-  const handleSignOut = () => {
-    signOut();
-    router.push("/");
-  };
+  const isMarketingHome = pathname === "/";
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -90,103 +39,55 @@ export function Nav() {
       )}
     >
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between container-px">
-        <Link
-          href={showApp ? "/dashboard" : "/"}
-          className="flex items-center gap-2"
-          onClick={() => setOpen(false)}
-        >
-          <span
-            className={cn(
-              "h-2.5 w-2.5 rounded-full bg-tennis",
-              isMarketingHome ? "ring-1 ring-grass/15" : "ring-1 ring-grass/15"
-            )}
-          />
-          <span
-            className={cn(
-              "font-serif text-[26px] italic leading-none",
-              isMarketingHome ? "text-grass" : "text-grass"
-            )}
-          >
-            Seeded
-          </span>
+        <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
+          <span className="h-2.5 w-2.5 rounded-full bg-tennis ring-1 ring-grass/15" />
+          <span className="font-serif text-[26px] italic leading-none text-grass">Seeded</span>
         </Link>
 
-        {/* Marketing-only top links (app links live in the workspace row below) */}
-        {!showApp && (
-          <div
-            className={cn(
-              "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
-              isMarketingHome
-                ? "border-line bg-white/70 text-ink backdrop-blur-2xl"
-                : "border-line bg-card/70"
-            )}
-          >
-            {MARKETING_LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  "rounded-full px-3.5 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5",
-                  isActive(l.href)
-                    ? "bg-grass text-on-primary shadow-soft"
-                    : isMarketingHome
-                      ? "text-stone hover:bg-grass-50 hover:text-grass"
-                      : "text-stone hover:bg-grass-50 hover:text-ink"
-                )}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-        )}
+        <div
+          className={cn(
+            "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
+            isMarketingHome
+              ? "border-line bg-white/70 text-ink backdrop-blur-2xl"
+              : "border-line bg-card/70"
+          )}
+        >
+          {MARKETING_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={cn(
+                "rounded-full px-3.5 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5",
+                isActive(l.href)
+                  ? "bg-grass text-on-primary shadow-soft"
+                  : isMarketingHome
+                    ? "text-stone hover:bg-grass-50 hover:text-grass"
+                    : "text-stone hover:bg-grass-50 hover:text-ink"
+              )}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
 
         <div className="hidden items-center gap-3 lg:flex">
-          {showApp ? (
-            <>
-              {showTierSwitcher && <TierSwitcher showLabel={false} />}
-              <DarkModeToggle />
-              {/* Parents already get Settings in PARENT_LINKS below — avoid showing it twice. */}
-              {!isParent && (
-                <Link
-                  href="/settings"
-                  aria-label="Settings"
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
-                >
-                  <Settings className="h-4 w-4" />
-                </Link>
-              )}
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-1.5 text-sm text-stone transition-colors hover:text-ink"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign out
-              </button>
-            </>
-          ) : (
-            <>
-              <DarkModeToggle />
-              <Link
-                href="/login"
-                className={cn(
-                  "text-sm transition-all duration-200 hover:-translate-y-0.5",
-                  isMarketingHome ? "text-stone hover:text-ink" : "text-stone hover:text-ink"
-                )}
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/signup"
-                className={cn(
-                  buttonVariants({ variant: "primary", size: "sm" }),
-                  "group"
-                )}
-              >
-                Request access
-                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </>
-          )}
+          <DarkModeToggle />
+          <Link
+            href="/login"
+            className={cn(
+              "text-sm transition-all duration-200 hover:-translate-y-0.5",
+              isMarketingHome ? "text-stone hover:text-ink" : "text-stone hover:text-ink"
+            )}
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/signup"
+            className={cn(buttonVariants({ variant: "primary", size: "sm" }), "group")}
+          >
+            Request access
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </div>
 
         {/* Mobile toggle */}
@@ -211,7 +112,7 @@ export function Nav() {
           >
             <div className="flex flex-col gap-1 container-px py-4">
               <DarkModeToggle showLabel className="mb-2 border-[0.5px] border-line" />
-              {mobileLinks.map((l) => (
+              {MARKETING_LINKS.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
@@ -227,80 +128,26 @@ export function Nav() {
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               ))}
-              <div className="mt-3 border-t-[0.5px] border-line pt-4">
-                {showApp ? (
-                  <div className="flex flex-col gap-4">
-                    {showTierSwitcher && <TierSwitcher />}
-                    {/* Parents already get Settings in PARENT_LINKS above — avoid showing it twice. */}
-                    {!isParent && (
-                      <Link
-                        href="/settings"
-                        onClick={() => setOpen(false)}
-                        className="rounded-xl px-3 py-2.5 text-sm text-stone"
-                      >
-                        Settings
-                      </Link>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        handleSignOut();
-                        setOpen(false);
-                      }}
-                    >
-                      Sign out
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className={buttonVariants({ variant: "outline", size: "md" })}
-                    >
-                      Sign in
-                    </Link>
-                    <Link
-                      href="/signup"
-                      onClick={() => setOpen(false)}
-                      className={buttonVariants({ variant: "primary", size: "md" })}
-                    >
-                      Request access
-                    </Link>
-                  </div>
-                )}
+              <div className="mt-3 flex flex-col gap-2 border-t-[0.5px] border-line pt-4">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className={buttonVariants({ variant: "outline", size: "md" })}
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setOpen(false)}
+                  className={buttonVariants({ variant: "primary", size: "md" })}
+                >
+                  Request access
+                </Link>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Single workspace nav row (app links live here only) */}
-      {showApp && (
-        <div className="hidden border-t-[0.5px] border-line/70 bg-card/55 lg:block">
-          <div className="mx-auto flex h-12 max-w-content items-center gap-1 overflow-x-auto container-px">
-            {appLinks.map((l) => {
-              const Icon = l.icon!;
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={cn(
-                    "group flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-all duration-200",
-                    isActive(l.href)
-                      ? "bg-grass text-on-primary shadow-soft"
-                      : "text-stone hover:bg-grass-50 hover:text-ink"
-                  )}
-                >
-                  <Icon className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
-                  {l.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </header>
   );
 }
