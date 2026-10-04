@@ -5,6 +5,8 @@
 // history yet).
 
 import { getCurrentGrade } from "@/lib/time";
+import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
+import type { PlayerGender } from "@/lib/types";
 
 export interface UtrDataPoint {
   date: Date;
@@ -25,14 +27,49 @@ export interface UtrProjection {
 const MIN_POINTS_FOR_PROJECTION = 3;
 const MS_PER_DAY = 86_400_000;
 
+// A raw linear fit through a hot recent streak extrapolates forever — with
+// no ceiling, a real month-over-month jump can "predict" a UTR that doesn't
+// exist on the actual scale (max 16.50). Default ceiling matches the higher
+// of the two gender caps; callers that know the player's gender should pass
+// the exact REALISTIC_UTR_CEILING value instead.
+const DEFAULT_PROJECTION_CEILING = REALISTIC_UTR_CEILING.male;
+const PROJECTION_FLOOR = 1.0;
+// How far past the ceiling/floor the soft cap still allows, asymptotically —
+// small enough that the number never reads as "impossible" again.
+const SOFT_CAP_RANGE = 0.3;
+
+/**
+ * Lets values move freely inside [floor, ceiling], but values that would
+ * cross either edge get compressed so they approach floor-SOFT_CAP_RANGE /
+ * ceiling+SOFT_CAP_RANGE asymptotically instead of blowing past it. A hard
+ * clamp would put a visible kink in the line right at the ceiling; this
+ * keeps the curve smooth while still ruling out "impossible" numbers.
+ */
+function softCap(value: number, ceiling: number, floor: number): number {
+  if (value > ceiling) {
+    const excess = value - ceiling;
+    return ceiling + SOFT_CAP_RANGE * (1 - Math.exp(-excess / SOFT_CAP_RANGE));
+  }
+  if (value < floor) {
+    const deficit = floor - value;
+    return floor - SOFT_CAP_RANGE * (1 - Math.exp(-deficit / SOFT_CAP_RANGE));
+  }
+  return value;
+}
+
 /**
  * Weighted linear regression over UTR history, where later entries count
  * more than earlier ones (linear rank weighting: the most recent point
  * counts `n` times as much as the first). Returns null with fewer than 3
  * points — a trend line from 1-2 points isn't a trend, it's a guess.
  */
-export function computeUtrProjection(points: UtrDataPoint[]): UtrProjection | null {
+export function computeUtrProjection(
+  points: UtrDataPoint[],
+  options?: { ceiling?: number; floor?: number }
+): UtrProjection | null {
   if (points.length < MIN_POINTS_FOR_PROJECTION) return null;
+  const ceiling = options?.ceiling ?? DEFAULT_PROJECTION_CEILING;
+  const floor = options?.floor ?? PROJECTION_FLOOR;
 
   const sorted = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());
   const t0 = sorted[0].date.getTime();
@@ -67,7 +104,10 @@ export function computeUtrProjection(points: UtrDataPoint[]): UtrProjection | nu
 
   const toDays = (date: Date) => (date.getTime() - t0) / MS_PER_DAY;
   const lastDay = xs[n - 1];
-  const predict = (date: Date) => intercept + slope * toDays(date);
+  // Pure linear fit, uncapped — the soft cap is applied uniformly below so
+  // predict/upperBound/lowerBound stay consistently ordered even once one of
+  // them crosses the ceiling or floor.
+  const rawPredict = (date: Date) => intercept + slope * toDays(date);
   const bandWidth = (date: Date) => {
     const daysAhead = Math.max(0, toDays(date) - lastDay);
     const monthsAhead = daysAhead / 30;
@@ -76,9 +116,9 @@ export function computeUtrProjection(points: UtrDataPoint[]): UtrProjection | nu
 
   return {
     slope,
-    predict,
-    upperBound: (date) => predict(date) + bandWidth(date),
-    lowerBound: (date) => predict(date) - bandWidth(date),
+    predict: (date) => softCap(rawPredict(date), ceiling, floor),
+    upperBound: (date) => softCap(rawPredict(date) + bandWidth(date), ceiling, floor),
+    lowerBound: (date) => softCap(rawPredict(date) - bandWidth(date), ceiling, floor),
   };
 }
 
@@ -132,6 +172,9 @@ export interface BuildUtrSeriesInput {
   /** Real roadmap checkpoints (from buildRoadmap), used for the target line. */
   targetPoints: UtrDataPoint[];
   range: UtrRangeOption;
+  /** Caps the projected line at this player's realistic UTR ceiling. Falls
+   * back to the higher of the two gender caps when omitted. */
+  gender?: PlayerGender;
   today?: Date;
 }
 
@@ -211,7 +254,10 @@ export function buildUtrChartSeries(input: BuildUtrSeriesInput): BuiltUtrSeries 
     (a, b) => a.date.getTime() - b.date.getTime()
   );
   const start = rangeStartDate(input.range, sortedActual, today);
-  const projection = computeUtrProjection(sortedActual);
+  const projection = computeUtrProjection(
+    sortedActual,
+    input.gender ? { ceiling: REALISTIC_UTR_CEILING[input.gender] } : undefined
+  );
   const horizon = projectionHorizon(input.range, today, input.targetPoints);
 
   const rows = new Map<number, UtrChartRow>();

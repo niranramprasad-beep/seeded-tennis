@@ -21,7 +21,7 @@ import { extraSchools } from "./schools-extra";
 import { getSchoolProfile, combinedScore } from "./school-detail";
 import { trainingPlans as trainingPlansData } from "./training-plans";
 import { buildTournaments } from "./tournaments";
-import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
+import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import { getCurrentGrade, getSummerBeforeGradeYear, ordinalGrade } from "@/lib/time";
 
 // The full catalog. Swapping to Supabase means replacing this with a query.
@@ -110,7 +110,7 @@ export async function getTournaments(): Promise<Tournament[]> {
 export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
   // Fallback goal when no targets are chosen: aim ~2.5 above today, capped at
   // a realistic top-of-college-tennis level for each gender (real UTR scale).
-  const genderCap = player.gender === "female" ? 12.5 : 14;
+  const genderCap = REALISTIC_UTR_CEILING[player.gender];
   const goalUTR =
     targets.length > 0
       ? Math.max(...targets.map((s) => s.minCompetitiveUTR))

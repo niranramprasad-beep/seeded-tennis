@@ -16,6 +16,8 @@ import {
   saveCurrentPlayer,
   signOut as signOutOfSupabase,
 } from "@/lib/auth";
+import { createUtrEntry } from "@/lib/supabase/utr";
+import { localDateKey } from "@/lib/time";
 
 interface PlayerContextValue {
   player: Player;
@@ -81,6 +83,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlayer(finalized);
     setIsAuthed(true);
     void saveCurrentPlayer(finalized);
+    // The onboarding UTR must count as a dated entry from day one — otherwise
+    // it has no date to compare against, and the first later backfill (even
+    // an older one) would wrongly become "the most recent entry on record."
+    void createUtrEntry({
+      utr: finalized.currentUTR,
+      recordedAt: localDateKey(),
+      note: "Starting UTR",
+    });
   }, []);
 
   const updatePlayer = useCallback((patch: Partial<Player>) => {

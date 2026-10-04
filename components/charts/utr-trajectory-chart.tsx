@@ -20,6 +20,7 @@ import {
   type UtrDataPoint,
   type UtrRangeOption,
 } from "@/lib/utr-projection";
+import type { PlayerGender } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const RANGE_OPTIONS: { value: UtrRangeOption; label: string }[] = [
@@ -36,6 +37,7 @@ interface UTRTrajectoryChartProps {
   targetPoints: UtrDataPoint[];
   graduationYear: number;
   targetUTR: number;
+  gender: PlayerGender;
   height?: number;
 }
 
@@ -78,14 +80,15 @@ export function UTRTrajectoryChart({
   targetPoints,
   graduationYear,
   targetUTR,
+  gender,
   height = 340,
 }: UTRTrajectoryChartProps) {
   const c = useThemeColors();
   const [range, setRange] = useState<UtrRangeOption>("ALL");
 
   const { rows, hasProjection, projection } = useMemo(
-    () => buildUtrChartSeries({ actualEntries, targetPoints, range }),
-    [actualEntries, targetPoints, range]
+    () => buildUtrChartSeries({ actualEntries, targetPoints, range, gender }),
+    [actualEntries, targetPoints, range, gender]
   );
 
   const summary = useMemo(

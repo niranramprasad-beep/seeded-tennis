@@ -196,6 +196,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
                 targetPoints={targetPoints}
                 graduationYear={player.graduationYear}
                 targetUTR={targetUTR}
+                gender={player.gender}
               />
             </div>
           </Card>

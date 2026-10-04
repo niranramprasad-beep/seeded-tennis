@@ -75,6 +75,44 @@ describe("computeUtrProjection", () => {
     const widthLater = projection.upperBound(later) - projection.lowerBound(later);
     expect(widthLater).toBeGreaterThan(widthSoon);
   });
+
+  it("never predicts past the realistic ceiling, even on a hot streak", () => {
+    // +1.5 UTR every month for 4 months — a real, fast improvement — but
+    // extrapolated 2 years out a raw linear fit would blow well past 18.
+    const points: UtrDataPoint[] = [
+      { date: d("2026-01-01"), utr: 4.0 },
+      { date: d("2026-02-01"), utr: 5.5 },
+      { date: d("2026-03-01"), utr: 7.0 },
+      { date: d("2026-04-01"), utr: 8.5 },
+    ];
+    const projection = computeUtrProjection(points, { ceiling: 14, floor: 1 })!;
+    const twoYearsOut = d("2028-04-01");
+    expect(projection.predict(twoYearsOut)).toBeLessThan(14.5);
+    expect(projection.upperBound(twoYearsOut)).toBeLessThan(14.5);
+  });
+
+  it("keeps predictions strictly linear (unaffected by the cap) while well under the ceiling", () => {
+    const points: UtrDataPoint[] = [
+      { date: d("2026-01-01"), utr: 7.0 },
+      { date: d("2026-02-01"), utr: 7.2 },
+      { date: d("2026-03-01"), utr: 7.4 },
+    ];
+    const uncapped = computeUtrProjection(points)!;
+    const capped = computeUtrProjection(points, { ceiling: 14, floor: 1 })!;
+    const soon = d("2026-05-01");
+    expect(capped.predict(soon)).toBeCloseTo(uncapped.predict(soon), 5);
+  });
+
+  it("respects a custom (e.g. female) ceiling", () => {
+    const points: UtrDataPoint[] = [
+      { date: d("2026-01-01"), utr: 4.0 },
+      { date: d("2026-02-01"), utr: 5.5 },
+      { date: d("2026-03-01"), utr: 7.0 },
+      { date: d("2026-04-01"), utr: 8.5 },
+    ];
+    const projection = computeUtrProjection(points, { ceiling: 12.5, floor: 1 })!;
+    expect(projection.predict(d("2028-04-01"))).toBeLessThan(13);
+  });
 });
 
 describe("nextFallDate", () => {
@@ -208,5 +246,25 @@ describe("buildUtrChartSeries", () => {
     });
     const actualValues = result.rows.filter((r) => r.actual != null).map((r) => r.actual);
     expect(actualValues.sort()).toEqual([6.5, 7, 7.5, 8]);
+  });
+
+  it("caps the projected line at the player's gender ceiling", () => {
+    const hotStreak: UtrDataPoint[] = [
+      { date: d("2026-01-01"), utr: 4.0 },
+      { date: d("2026-02-01"), utr: 5.5 },
+      { date: d("2026-03-01"), utr: 7.0 },
+      { date: d("2026-04-01"), utr: 8.5 },
+    ];
+    const result = buildUtrChartSeries({
+      actualEntries: hotStreak,
+      targetPoints: [],
+      range: "ALL",
+      gender: "female",
+      today: d("2026-04-15"),
+    });
+    const projectedValues = result.rows
+      .filter((r) => r.projected != null)
+      .map((r) => r.projected as number);
+    expect(Math.max(...projectedValues)).toBeLessThan(13);
   });
 });
