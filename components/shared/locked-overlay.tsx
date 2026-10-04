@@ -52,7 +52,7 @@ export function LockedOverlay({
         transition={{ duration: 0.4 }}
         className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-cream/55 px-6 text-center backdrop-blur-[2px]"
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
           <Lock className="h-5 w-5" />
         </div>
         <Badge variant="leaf" size="md">

@@ -118,12 +118,12 @@ function RoadmapInner({ schools }: { schools: School[] }) {
           </div>
         </Card>
 
-        <Card className="flex flex-col justify-center bg-grass p-6 text-cream">
-          <p className="text-sm text-cream/80">Goal UTR to be competitive</p>
+        <Card className="flex flex-col justify-center bg-grass p-6 text-on-primary">
+          <p className="text-sm text-on-primary/80">Goal UTR to be competitive</p>
           <div className="mt-1 text-6xl font-light">
             <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
           </div>
-          <p className="mt-3 text-sm text-cream/80">
+          <p className="mt-3 text-sm text-on-primary/80">
             +{formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you
             are today
           </p>
@@ -132,7 +132,7 @@ function RoadmapInner({ schools }: { schools: School[] }) {
               <Badge
                 key={s.id}
                 size="sm"
-                className="bg-cream/15 text-cream"
+                className="bg-on-primary/15 text-on-primary"
               >
                 {s.shortName}
               </Badge>

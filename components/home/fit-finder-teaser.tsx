@@ -29,17 +29,17 @@ const VERDICT_STYLE = {
   good: {
     label: "GOOD FIT",
     icon: CheckCircle2,
-    wrap: "border-grass/30 bg-grass text-cream",
+    wrap: "border-grass/30 bg-grass text-on-primary",
   },
   decent: {
     label: "DECENT FIT",
     icon: MinusCircle,
-    wrap: "border-gold/40 bg-[#8A6D2F] text-cream",
+    wrap: "border-gold/40 bg-[#8A6D2F] text-on-primary",
   },
   bad: {
     label: "BAD FIT",
     icon: XCircle,
-    wrap: "border-[#9C3B22]/40 bg-[#8F3A24] text-cream",
+    wrap: "border-[#9C3B22]/40 bg-[#8F3A24] text-on-primary",
   },
 } as const;
 
@@ -87,7 +87,7 @@ export function FitFinderTeaser() {
                   className={cn(
                     "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors",
                     level === l.value
-                      ? "bg-grass text-cream"
+                      ? "bg-grass text-on-primary"
                       : "bg-grass-50 text-stone hover:text-ink"
                   )}
                 >
@@ -185,7 +185,7 @@ export function FitFinderTeaser() {
 
           <Link
             href="/tournament-fit"
-            className="group flex items-center justify-center gap-2 rounded-pill bg-grass px-5 py-3 text-sm font-medium text-cream transition-all hover:-translate-y-0.5 hover:shadow-lift"
+            className="group flex items-center justify-center gap-2 rounded-pill bg-grass px-5 py-3 text-sm font-medium text-on-primary transition-all hover:-translate-y-0.5 hover:shadow-lift"
           >
             Open the full finder
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

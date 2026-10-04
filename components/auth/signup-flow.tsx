@@ -140,7 +140,7 @@ export function SignupFlow({
     return (
       <Centered>
         <div className="text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
             <Check className="h-6 w-6" />
           </span>
           <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
@@ -186,7 +186,7 @@ export function SignupFlow({
     return (
       <Centered>
         <div className="text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
             <Check className="h-6 w-6" />
           </span>
           <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
@@ -338,7 +338,7 @@ export function SignupFlow({
                           className={cn(
                             "rounded-xl border-[0.5px] py-3 text-sm font-medium transition-all",
                             grade === g
-                              ? "border-grass bg-grass text-cream"
+                              ? "border-grass bg-grass text-on-primary"
                               : "border-line bg-card text-ink hover:shadow-soft"
                           )}
                         >
@@ -533,7 +533,7 @@ function FamilyOption({
       <span
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-2xl",
-          active ? "bg-grass text-cream" : "bg-grass-50 text-grass"
+          active ? "bg-grass text-on-primary" : "bg-grass-50 text-grass"
         )}
       >
         <Icon className="h-5 w-5" />

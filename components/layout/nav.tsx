@@ -128,7 +128,7 @@ export function Nav() {
                 className={cn(
                   "rounded-full px-3.5 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5",
                   isActive(l.href)
-                    ? "bg-grass text-cream shadow-soft"
+                    ? "bg-grass text-on-primary shadow-soft"
                     : isMarketingHome
                       ? "text-stone hover:bg-grass-50 hover:text-grass"
                       : "text-stone hover:bg-grass-50 hover:text-ink"
@@ -219,7 +219,7 @@ export function Nav() {
                   className={cn(
                     "flex items-center justify-between rounded-2xl px-3 py-3 text-sm transition-colors",
                     isActive(l.href)
-                      ? "bg-grass text-cream"
+                      ? "bg-grass text-on-primary"
                       : "text-stone hover:bg-grass-50 hover:text-ink"
                   )}
                 >
@@ -289,7 +289,7 @@ export function Nav() {
                   className={cn(
                     "group flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-all duration-200",
                     isActive(l.href)
-                      ? "bg-grass text-cream shadow-soft"
+                      ? "bg-grass text-on-primary shadow-soft"
                       : "text-stone hover:bg-grass-50 hover:text-ink"
                   )}
                 >

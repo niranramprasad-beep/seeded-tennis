@@ -43,8 +43,8 @@ export const THEMES: {
   {
     id: "night",
     name: "Night Match",
-    description: "Near-black, vibrant green accents",
-    swatch: ["#09090B", "#4ADE80", "#18181B"],
+    description: "Whop-style near-black, blue accent",
+    swatch: ["#111111", "#1754D8", "#191919"],
     dark: true,
   },
   {

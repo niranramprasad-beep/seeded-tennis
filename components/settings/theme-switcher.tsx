@@ -46,7 +46,7 @@ export function ThemeSwitcher() {
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-grass text-cream"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-grass text-on-primary"
               >
                 <Check className="h-3.5 w-3.5" />
               </motion.span>

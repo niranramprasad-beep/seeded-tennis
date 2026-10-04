@@ -250,7 +250,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
                       i === 0
-                        ? "bg-grass text-cream"
+                        ? "bg-grass text-on-primary"
                         : i < 3
                           ? "bg-leaf-accent/50 text-grass-900"
                           : "bg-grass-50 text-grass"

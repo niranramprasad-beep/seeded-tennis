@@ -36,6 +36,7 @@ const config: Config = {
         },
         line: "rgb(var(--c-line) / <alpha-value>)",
         gold: "rgb(var(--c-gold) / <alpha-value>)",
+        "on-primary": "rgb(var(--c-on-primary) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],

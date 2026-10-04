@@ -57,7 +57,7 @@ export default function ParentsPage() {
           {items.map((item, i) => (
             <FadeIn key={item.title} delay={i * 0.08}>
               <Card interactive className="h-full p-7">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-cream">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-on-primary">
                   <item.icon className="h-5 w-5" />
                 </span>
                 <h2 className="mt-5 text-xl font-medium text-ink">{item.title}</h2>

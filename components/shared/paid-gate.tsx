@@ -59,7 +59,7 @@ export function PaidGate({
     <div className="relative overflow-hidden">
       <FloatingDots />
       <div className="relative mx-auto flex max-w-xl flex-col items-center px-5 py-20 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
           <Lock className="h-6 w-6" />
         </span>
         <Badge variant="leaf" size="md" className="mt-5">

@@ -32,6 +32,15 @@
     /* Warm accent — set on :root so it cascades to every theme. */
     --c-gold: 180 138 74;
 
+    /* Text/overlay color for content sitting directly on a solid --c-primary
+     * fill (e.g. `bg-grass text-on-primary`). This is NOT the same thing as
+     * the page background (--c-bg/"cream") — those only happen to be the
+     * same shade in light themes. Every shipped theme's primary is dark/
+     * saturated enough for white text, so this is set once here and only
+     * overridden by themes whose primary is bright (see concept themes
+     * below). */
+    --c-on-primary: 255 255 255;
+
     --c-scroll-thumb: 209 213 219;
     --c-thumb-ring: 255 255 255;
   }
@@ -62,38 +71,43 @@
     --c-thumb-ring: 255 249 243;
   }
 
-  /* Night Match — the app's dark mode. Near-black neutral surfaces (not
-     navy-tinted) with a vibrant green accent, modeled on modern dark SaaS
-     UIs: elevation comes from a clear brightness step between page and card
-     background, not from visible borders. --c-line intentionally matches
-     --c-card almost exactly, so the border-line hairline every Card/tile
-     already uses effectively disappears against card surfaces — the few
-     structural dividers that sit directly on --c-bg (nav, footer) still
-     read as the one intentional line. ink is light here so text-ink reads
-     on the dark surfaces while keeping semantic class names. */
+  /* Night Match — the app's dark mode, built directly off Whop's real design
+     tokens (pulled from whop.com's shipped CSS, not approximated): the exact
+     near-black neutral scale (#111 / #191919 / #222 / ...), their blue-9
+     brand accent (#1754d8), and their green/sky/amber semantic colors reused
+     as Seeded's leaf/tennis/lime secondary accents. Borders are a real,
+     visible (if subtle) gray-6 hairline rather than an invisible one —
+     that's Whop's own card convention, not ours.
+     Fonts: body text already matches (Inter, same as every theme). Headings
+     reuse --font-space-grotesk here in place of the serif — Whop's actual
+     display face (FFF Acid Grotesk) is a commercial font we can't bundle;
+     Space Grotesk is the closest free equivalent in spirit (bold geometric
+     grotesque) and is already loaded in this project. */
   [data-theme="night"] {
-    --c-bg: 9 9 11;
-    --c-card: 24 24 27;
-    --c-primary: 74 222 128;
-    --c-primary-50: 20 36 26;
-    --c-primary-100: 28 48 34;
-    --c-primary-600: 94 234 143;
-    --c-primary-700: 74 222 128;
-    --c-primary-800: 134 239 172;
-    --c-primary-900: 187 247 208;
-    --c-lime: 190 242 100;
-    --c-leaf: 74 222 128;
-    --c-tennis: 217 249 157;
-    --c-ink: 244 244 245;
-    --c-stone: 161 161 170;
-    --c-stone-light: 113 113 122;
-    --c-line: 30 30 34;
-    --c-error-bg: 45 24 24;
-    --c-error: 248 113 113;
-    --c-error-strong: 254 202 202;
+    --font-cormorant: var(--font-space-grotesk);
 
-    --c-scroll-thumb: 63 63 70;
-    --c-thumb-ring: 24 24 27;
+    --c-bg: 17 17 17;
+    --c-card: 25 25 25;
+    --c-primary: 23 84 216;
+    --c-primary-50: 17 37 76;
+    --c-primary-100: 20 47 102;
+    --c-primary-600: 64 108 200;
+    --c-primary-700: 23 84 216;
+    --c-primary-800: 136 181 255;
+    --c-primary-900: 209 226 255;
+    --c-lime: 255 197 61;
+    --c-leaf: 48 164 108;
+    --c-tennis: 124 226 254;
+    --c-ink: 238 238 238;
+    --c-stone: 180 180 180;
+    --c-stone-light: 110 110 110;
+    --c-line: 58 58 58;
+    --c-error-bg: 57 23 20;
+    --c-error: 229 77 46;
+    --c-error-strong: 255 151 125;
+
+    --c-scroll-thumb: 72 72 72;
+    --c-thumb-ring: 25 25 25;
   }
 
   /* Hard Court — cool off-white, electric blue */
@@ -173,8 +187,9 @@
 
   /* A black shadow is invisible on a near-black background, so dark mode
      gets its own elevation treatment: a faint light ring standing in for a
-     border, plus a soft green-tinted glow on the "lift" variant (hover /
-     elevated states) instead of a plain drop shadow. */
+     border, plus a soft blue-tinted glow on the "lift" variant (hover /
+     elevated states) instead of a plain drop shadow — matching Whop's own
+     glossy hover-glow card treatment. */
   [data-theme="night"] .shadow-soft {
     box-shadow:
       0 0 0 1px rgb(255 255 255 / 0.06),
@@ -182,9 +197,9 @@
   }
   [data-theme="night"] .shadow-lift {
     box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.08),
+      0 0 0 1px rgb(255 255 255 / 0.1),
       0 16px 40px rgb(0 0 0 / 0.5),
-      0 0 28px rgb(74 222 128 / 0.1);
+      0 0 32px rgb(23 84 216 / 0.18);
   }
 
   /* ---- Design concepts (draft) ----
@@ -198,6 +213,9 @@
     --c-bg: 15 23 16;
     --c-card: 22 32 26;
     --c-primary: 198 241 53;
+    /* This theme's primary is a bright volt-chartreuse — white text would be
+     * low-contrast, so dark text wins here instead of the site-wide default. */
+    --c-on-primary: 15 23 16;
     --c-primary-50: 32 42 20;
     --c-primary-100: 40 54 24;
     --c-primary-600: 180 220 60;
@@ -278,6 +296,9 @@
     --c-bg: 10 10 12;
     --c-card: 19 19 22;
     --c-primary: 52 211 153;
+    /* Bright mint primary — dark text reads better here than the site-wide
+     * white default. */
+    --c-on-primary: 10 10 12;
     --c-primary-50: 16 36 30;
     --c-primary-100: 20 46 38;
     --c-primary-600: 70 224 170;

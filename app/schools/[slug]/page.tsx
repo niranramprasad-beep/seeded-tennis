@@ -230,7 +230,7 @@ export default async function SchoolDetailPage({
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                       m.result === "W"
-                        ? "bg-grass text-cream"
+                        ? "bg-grass text-on-primary"
                         : "bg-[#F0E7E2] text-[#9C3B22]"
                     }`}
                   >

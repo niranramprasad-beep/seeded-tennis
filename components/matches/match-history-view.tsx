@@ -135,7 +135,7 @@ function MatchHistoryInner() {
                   key={result}
                   className={cn(
                     "rounded-pill border-[0.5px] py-2 text-sm capitalize transition-colors",
-                    form.result === result ? "border-grass bg-grass text-cream" : "border-line bg-card text-stone hover:text-ink"
+                    form.result === result ? "border-grass bg-grass text-on-primary" : "border-line bg-card text-stone hover:text-ink"
                   )}
                   onClick={() => setForm({ ...form, result })}
                 >
@@ -163,7 +163,7 @@ function MatchHistoryInner() {
                 onClick={() => setFilter(f)}
                 className={cn(
                   "rounded-pill px-3 py-1.5 text-sm capitalize transition-colors",
-                  filter === f ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                  filter === f ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
                 {f}

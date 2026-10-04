@@ -132,7 +132,7 @@ function BadgesInner() {
                       <span
                         className={cn(
                           "flex h-11 w-11 items-center justify-center rounded-2xl",
-                          hit ? "bg-grass text-cream" : "bg-cream text-stone-light"
+                          hit ? "bg-grass text-on-primary" : "bg-cream text-stone-light"
                         )}
                       >
                         {hit ? <CheckCircle2 className="h-5 w-5" /> : <Award className="h-5 w-5" />}

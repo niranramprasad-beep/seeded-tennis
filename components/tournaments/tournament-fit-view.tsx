@@ -36,24 +36,24 @@ const VERDICT_META = {
     label: "GOOD FIT",
     icon: CheckCircle2,
     blurb: "This event checks out — the field, cost, and travel all pull in your favor.",
-    card: "border-grass/40 bg-grass text-cream",
-    chip: "bg-cream/15 text-cream",
+    card: "border-grass/40 bg-grass text-on-primary",
+    chip: "bg-on-primary/15 text-on-primary",
     bar: "bg-tennis",
   },
   decent: {
     label: "DECENT FIT",
     icon: MinusCircle,
     blurb: "Playable, with trade-offs. Worth entering if the calendar has room — see what's dragging it down below.",
-    card: "border-gold/50 bg-[#8A6D2F] text-cream",
-    chip: "bg-cream/15 text-cream",
+    card: "border-gold/50 bg-[#8A6D2F] text-on-primary",
+    chip: "bg-on-primary/15 text-on-primary",
     bar: "bg-[#E9C566]",
   },
   bad: {
     label: "BAD FIT",
     icon: XCircle,
     blurb: "Hard pass for now — this event won't give you results, value, or both.",
-    card: "border-[#9C3B22]/50 bg-[#8F3A24] text-cream",
-    chip: "bg-cream/15 text-cream",
+    card: "border-[#9C3B22]/50 bg-[#8F3A24] text-on-primary",
+    chip: "bg-on-primary/15 text-on-primary",
     bar: "bg-[#F0A98F]",
   },
 } as const;
@@ -169,7 +169,7 @@ export function TournamentFitView() {
                     className={cn(
                       "rounded-xl border-[0.5px] px-2 py-2 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
                       level === l.value
-                        ? "border-grass bg-grass text-cream"
+                        ? "border-grass bg-grass text-on-primary"
                         : "border-line bg-card text-stone hover:text-ink"
                     )}
                   >
@@ -210,7 +210,7 @@ export function TournamentFitView() {
                       className={cn(
                         "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
                         travelMode === mode
-                          ? "bg-grass text-cream"
+                          ? "bg-grass text-on-primary"
                           : "bg-grass-50 text-stone hover:text-ink"
                       )}
                     >
@@ -240,7 +240,7 @@ export function TournamentFitView() {
                     onClick={() => setDrawKnown(true)}
                     className={cn(
                       "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      drawKnown ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                      drawKnown ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                     )}
                   >
                     I can estimate it
@@ -249,7 +249,7 @@ export function TournamentFitView() {
                     onClick={() => setDrawKnown(false)}
                     className={cn(
                       "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      !drawKnown ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                      !drawKnown ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                     )}
                   >
                     Not sure

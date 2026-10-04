@@ -538,13 +538,13 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             animate={{ opacity: 1, y: 0 }}
             className="overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
           >
-            <div className="border-b-[0.5px] border-line bg-grass px-6 py-5 text-cream sm:px-10 lg:px-12">
+            <div className="border-b-[0.5px] border-line bg-grass px-6 py-5 text-on-primary sm:px-10 lg:px-12">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <select
                     value={state.activePlanId}
                     onChange={(e) => setState((prev) => ({ ...prev, activePlanId: e.target.value }))}
-                    className="h-9 max-w-full rounded-xl border border-cream/25 bg-cream/10 px-3 text-sm font-medium text-cream focus:outline-none focus:ring-2 focus:ring-cream/40"
+                    className="h-9 max-w-full rounded-xl border border-on-primary/25 bg-on-primary/10 px-3 text-sm font-medium text-on-primary focus:outline-none focus:ring-2 focus:ring-on-primary/40"
                     aria-label="Choose training plan"
                   >
                     {state.plans.map((plan) => (
@@ -553,7 +553,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 truncate text-sm text-cream/85">{activePlan?.goal}</p>
+                  <p className="mt-2 truncate text-sm text-on-primary/85">{activePlan?.goal}</p>
                 </div>
                 <div className="flex gap-5 sm:gap-7">
                   <MiniMetric label="planned" value={`${Math.round(totalMinutes / 60)}h`} />
@@ -791,7 +791,7 @@ function TrainingActionRail({
               onClick={() => setView(v)}
               className={cn(
                 "rounded-2xl px-3 py-2.5 text-xs font-medium capitalize transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
-                view === v ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                view === v ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
               )}
             >
               {v}
@@ -840,12 +840,12 @@ function TrainingQuestionnaire({
       animate={{ opacity: 1, y: 0 }}
       className="mx-auto max-w-3xl overflow-hidden rounded-[24px] border-[0.5px] border-line bg-card shadow-lift"
     >
-      <div className="bg-grass px-6 py-8 text-cream sm:px-9">
+      <div className="bg-grass px-6 py-8 text-on-primary sm:px-9">
         <p className="font-serif text-lg italic text-leaf-accent">Training setup</p>
         <h1 className="mt-2 text-3xl font-light tracking-tight sm:text-5xl">
           Build a real week for {playerName}.
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/78">
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-on-primary/78">
           No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinalGrade(grade)} grade timeline,
           training load, and goals to create the first week.
         </p>
@@ -1028,7 +1028,7 @@ function WeekPlanner(props: {
               <span
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium text-ink",
-                  isToday && "bg-grass text-cream"
+                  isToday && "bg-grass text-on-primary"
                 )}
               >
                 {new Date(`${date}T00:00:00`).getDate()}
@@ -1176,7 +1176,7 @@ function DayPlanner({
             onClick={() => onDayChange(d)}
             className={cn(
               "rounded-pill px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
-              day === d ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+              day === d ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
             )}
           >
             {d}
@@ -1305,7 +1305,7 @@ function SessionCard({
           onClick={() => onToggle(session.id)}
           className={cn(
             "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
-            session.completed ? "border-grass bg-grass text-cream" : "border-line text-stone-light hover:border-grass"
+            session.completed ? "border-grass bg-grass text-on-primary" : "border-line text-stone-light hover:border-grass"
           )}
           aria-label={session.completed ? "Mark session incomplete" : "Mark session complete"}
         >
@@ -1647,7 +1647,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-right sm:text-left">
       <p className="text-2xl font-light leading-none text-leaf-accent">{value}</p>
-      <p className="mt-1.5 text-[11px] uppercase tracking-wide text-cream/68">{label}</p>
+      <p className="mt-1.5 text-[11px] uppercase tracking-wide text-on-primary/68">{label}</p>
     </div>
   );
 }

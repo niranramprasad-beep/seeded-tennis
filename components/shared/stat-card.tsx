@@ -18,7 +18,7 @@ interface StatCardProps {
 }
 
 const ACCENT: Record<string, string> = {
-  grass: "bg-grass text-cream",
+  grass: "bg-grass text-on-primary",
   leaf: "bg-leaf-accent text-grass-900",
   tennis: "bg-tennis text-grass-900",
 };

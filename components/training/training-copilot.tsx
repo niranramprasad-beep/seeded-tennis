@@ -109,12 +109,12 @@ export function TrainingCopilot({
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             className="flex h-[520px] w-[360px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-[24px] border-[0.5px] border-line bg-card shadow-lift"
           >
-            <div className="flex items-center gap-2 border-b-[0.5px] border-line bg-grass px-5 py-4 text-cream">
+            <div className="flex items-center gap-2 border-b-[0.5px] border-line bg-grass px-5 py-4 text-on-primary">
               <Sparkles className="h-4 w-4" />
               <p className="text-sm font-medium">Training copilot</p>
               <button
                 onClick={() => setOpen(false)}
-                className="ml-auto rounded-lg p-1 text-cream/80 transition-colors hover:bg-cream/15 hover:text-cream"
+                className="ml-auto rounded-lg p-1 text-on-primary/80 transition-colors hover:bg-on-primary/15 hover:text-on-primary"
                 aria-label="Close copilot"
               >
                 <X className="h-4 w-4" />
@@ -134,7 +134,7 @@ export function TrainingCopilot({
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                     m.role === "user"
-                      ? "ml-auto bg-grass text-cream"
+                      ? "ml-auto bg-grass text-on-primary"
                       : "bg-grass-50 text-ink"
                   )}
                 >
@@ -168,7 +168,7 @@ export function TrainingCopilot({
               <button
                 onClick={send}
                 disabled={loading || !input.trim()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-grass text-cream transition-opacity disabled:opacity-40"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-grass text-on-primary transition-opacity disabled:opacity-40"
                 aria-label="Send"
               >
                 <Send className="h-4 w-4" />
@@ -182,7 +182,7 @@ export function TrainingCopilot({
         onClick={() => setOpen((v) => !v)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-grass text-cream shadow-lift transition-colors hover:bg-grass-900"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-lift transition-colors hover:bg-grass-900"
         aria-label={open ? "Close training copilot" : "Open training copilot"}
       >
         <AnimatePresence mode="wait" initial={false}>

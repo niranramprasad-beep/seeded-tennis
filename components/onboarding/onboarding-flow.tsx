@@ -201,7 +201,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                           className={cn(
                             "flex flex-col items-center rounded-card border-[0.5px] px-3 py-5 transition-all",
                             active
-                              ? "border-grass bg-grass text-cream shadow-soft"
+                              ? "border-grass bg-grass text-on-primary shadow-soft"
                               : "border-line bg-card text-ink hover:-translate-y-0.5 hover:shadow-soft"
                           )}
                         >
@@ -209,7 +209,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                           <span
                             className={cn(
                               "mt-1 text-[11px]",
-                              active ? "text-cream/75" : "text-stone-light"
+                              active ? "text-on-primary/75" : "text-stone-light"
                             )}
                           >
                             grade
@@ -276,7 +276,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                             className={cn(
                               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                               active
-                                ? "border-grass bg-grass text-cream"
+                                ? "border-grass bg-grass text-on-primary"
                                 : "border-line"
                             )}
                           >
@@ -313,7 +313,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                             className={cn(
                               "flex h-11 w-11 items-center justify-center rounded-2xl transition-colors",
                               active
-                                ? "bg-grass text-cream"
+                                ? "bg-grass text-on-primary"
                                 : "bg-grass-50 text-grass"
                             )}
                           >

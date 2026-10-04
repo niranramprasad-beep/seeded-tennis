@@ -49,7 +49,7 @@ export default function HowItWorksPage() {
             <FadeIn key={step.title} delay={index * 0.08}>
               <Card interactive className="h-full p-7">
                 <div className="flex items-center justify-between">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-cream">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-on-primary">
                     <step.icon className="h-5 w-5" />
                   </span>
                   <span className="font-serif text-3xl italic text-leaf-accent">0{index + 1}</span>

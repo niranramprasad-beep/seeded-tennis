@@ -48,18 +48,18 @@ export function FamilyHubCard() {
   return (
     <Card className="overflow-hidden border-grass/15">
       <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="bg-grass p-6 text-cream">
+        <div className="bg-grass p-6 text-on-primary">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-serif text-lg italic text-leaf-accent">Family hub</p>
               <h2 className="mt-1 text-2xl font-light">Everyone sees the same path.</h2>
-              <p className="mt-2 text-sm leading-relaxed text-cream/78">
+              <p className="mt-2 text-sm leading-relaxed text-on-primary/78">
                 Parent notes, family members, and player progress stay connected here.
               </p>
             </div>
             <Link
               href="/family"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream/12 text-cream transition hover:bg-cream/20"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-on-primary/12 text-on-primary transition hover:bg-on-primary/20"
               aria-label="Open family dashboard"
             >
               <ArrowUpRight className="h-5 w-5" />
@@ -67,12 +67,12 @@ export function FamilyHubCard() {
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[22px] bg-cream/10 p-4">
-              <p className="text-xs text-cream/60">Connected parents</p>
+            <div className="rounded-[22px] bg-on-primary/10 p-4">
+              <p className="text-xs text-on-primary/60">Connected parents</p>
               <p className="mt-1 text-3xl font-light">{parents.length}</p>
             </div>
-            <div className="rounded-[22px] bg-cream/10 p-4">
-              <p className="text-xs text-cream/60">Player UTR</p>
+            <div className="rounded-[22px] bg-on-primary/10 p-4">
+              <p className="text-xs text-on-primary/60">Player UTR</p>
               <p className="mt-1 text-3xl font-light">
                 {formatUTR(player?.currentUtr ?? 0)}
               </p>
@@ -83,7 +83,7 @@ export function FamilyHubCard() {
             {members.slice(0, 5).map((member) => (
               <span
                 key={member.id}
-                className="inline-flex items-center gap-2 rounded-full bg-cream/12 px-3 py-2 text-xs text-cream/85"
+                className="inline-flex items-center gap-2 rounded-full bg-on-primary/12 px-3 py-2 text-xs text-on-primary/85"
               >
                 <Users className="h-3.5 w-3.5 text-leaf-accent" />
                 {member.name} · {member.role}

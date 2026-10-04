@@ -201,12 +201,12 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
             </div>
           </Card>
 
-          <Card className="flex flex-col justify-center bg-grass p-6 text-cream">
-            <p className="text-sm text-cream/80">Your current UTR</p>
+          <Card className="flex flex-col justify-center bg-grass p-6 text-on-primary">
+            <p className="text-sm text-on-primary/80">Your current UTR</p>
             <div className="mt-1 text-6xl font-light">
               <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
             </div>
-            <p className="mt-3 text-sm text-cream/80">
+            <p className="mt-3 text-sm text-on-primary/80">
               {targetUTR > player.currentUTR
                 ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
                 : "You're at or above your current goal"}
@@ -214,7 +214,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
             <Button
               variant="outline"
               size="sm"
-              className="mt-4 border-cream/30 bg-transparent text-cream hover:bg-cream/10"
+              className="mt-4 border-on-primary/30 bg-transparent text-on-primary hover:bg-on-primary/10"
               onClick={() => setUtrDrawerOpen(true)}
             >
               <Plus className="h-4 w-4" />

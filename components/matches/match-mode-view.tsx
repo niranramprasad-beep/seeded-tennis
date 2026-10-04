@@ -159,7 +159,7 @@ function MatchModeInner() {
                     className={cn(
                       "rounded-full border-[0.5px] px-3 py-2 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-grass/30",
                       form.surface === surface
-                        ? "border-grass bg-grass text-cream"
+                        ? "border-grass bg-grass text-on-primary"
                         : "border-line bg-card text-stone hover:text-ink"
                     )}
                   >
@@ -253,14 +253,14 @@ function PrepPlanCard({
   ] as const;
   return (
     <Card className="overflow-hidden">
-      <div className="border-b-[0.5px] border-line bg-grass p-6 text-cream">
+      <div className="border-b-[0.5px] border-line bg-grass p-6 text-on-primary">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="font-serif text-lg italic text-leaf-accent">Next up</p>
             <h2 className="mt-1 text-2xl font-light">
               {match.tournamentName || "Upcoming match"} · {formatDate(match.matchDate)}
             </h2>
-            <p className="mt-2 text-sm text-cream/75">
+            <p className="mt-2 text-sm text-on-primary/75">
               You: {formatUTR(currentUtr)} UTR · Opponent:{" "}
               {match.opponentUtr ? formatUTR(match.opponentUtr) : "unknown"} · {match.surface}
             </p>

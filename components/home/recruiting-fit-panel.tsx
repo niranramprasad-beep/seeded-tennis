@@ -103,7 +103,7 @@ export function RecruitingFitPanel() {
                 onClick={() => setGradYear(year)}
                 className={cn(
                   "rounded-pill px-2 py-1.5 text-xs font-medium transition-colors",
-                  gradYear === year ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                  gradYear === year ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
                 {year}
@@ -119,7 +119,7 @@ export function RecruitingFitPanel() {
                 onClick={() => setDivision(item)}
                 className={cn(
                   "rounded-pill px-2 py-1.5 text-xs font-medium transition-colors",
-                  division === item ? "bg-grass text-cream" : "bg-grass-50 text-stone hover:text-ink"
+                  division === item ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
                 {item}

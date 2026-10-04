@@ -6,7 +6,7 @@ export default function ContactPage() {
   return (
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl items-center container-px py-16">
       <Card className="w-full overflow-hidden">
-        <div className="bg-grass px-6 py-10 text-cream sm:px-10">
+        <div className="bg-grass px-6 py-10 text-on-primary sm:px-10">
           <p className="font-serif text-lg italic text-leaf-accent">Contact Seeded</p>
           <h1 className="mt-2 text-4xl font-light tracking-tight">Questions, feedback, or support.</h1>
         </div>

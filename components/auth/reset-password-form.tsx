@@ -63,7 +63,7 @@ export function ResetPasswordForm() {
 
         {mode === "sent" && (
           <>
-            <span className="mt-6 flex h-10 w-10 items-center justify-center rounded-full bg-grass text-cream">
+            <span className="mt-6 flex h-10 w-10 items-center justify-center rounded-full bg-grass text-on-primary">
               <Check className="h-5 w-5" />
             </span>
             <h1 className="display-serif mt-4 text-3xl text-ink">Check your inbox.</h1>

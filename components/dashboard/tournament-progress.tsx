@@ -47,7 +47,7 @@ export function TournamentProgress({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="bg-gradient-to-br from-grass to-grass-800 p-6 text-cream">
+      <div className="bg-gradient-to-br from-grass to-grass-800 p-6 text-on-primary">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream/14 text-leaf-accent">
@@ -55,20 +55,20 @@ export function TournamentProgress({
           </span>
           <div>
             <h2 className="text-lg font-medium">Tournament progress</h2>
-            <p className="text-sm text-cream/70">
+            <p className="text-sm text-on-primary/70">
               Your count vs. this season&apos;s goal
             </p>
           </div>
         </div>
         <span className="text-2xl font-light">
           {played}
-          <span className="text-cream/50">/{goal}</span>
+          <span className="text-on-primary/50">/{goal}</span>
         </span>
       </div>
 
       <div className="mt-5">
         <Progress value={pct} />
-        <div className="mt-2 flex justify-between text-xs text-cream/60">
+        <div className="mt-2 flex justify-between text-xs text-on-primary/60">
           <span>{played} played</span>
           <span>{Math.max(0, goal - played)} to reach your goal</span>
         </div>
@@ -92,7 +92,7 @@ export function TournamentProgress({
             className={cn(
               "rounded-pill px-3 py-1.5 text-xs font-medium capitalize transition-colors",
               filter === f
-                ? "bg-grass text-cream"
+                ? "bg-grass text-on-primary"
                 : "bg-grass-50 text-stone hover:text-ink"
             )}
           >

@@ -160,7 +160,7 @@ export function DailyCheckinCard({
                 className={cn(
                   "rounded-2xl border-[0.5px] py-3 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-grass/30",
                   mood === value
-                    ? "border-grass bg-grass text-cream shadow-soft"
+                    ? "border-grass bg-grass text-on-primary shadow-soft"
                     : "border-line bg-cream/60 text-stone hover:bg-card hover:text-ink"
                 )}
               >
