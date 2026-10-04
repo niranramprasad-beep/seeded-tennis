@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { HoursDonutChart } from "@/components/charts/hours-donut-chart";
+import { TrainingCopilot, type CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
 import { getCurrentGrade, localDateKey, ordinalGrade } from "@/lib/time";
 import {
@@ -403,6 +404,73 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     });
   };
 
+  const resolveCopilotTypeId = (action: CopilotAction): string => {
+    const existingById = state.sessionTypes.find((t) => t.id === action.typeId);
+    if (existingById) return existingById.id;
+    const cleanLabel = action.typeLabel.trim();
+    const existingByLabel = state.sessionTypes.find(
+      (t) => t.label.toLowerCase() === cleanLabel.toLowerCase()
+    );
+    if (existingByLabel) return existingByLabel.id;
+    const slug = cleanLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "custom";
+    const newId = `custom-${slug}`;
+    setState((prev) => {
+      if (prev.sessionTypes.some((t) => t.id === newId)) return prev;
+      return {
+        ...prev,
+        sessionTypes: [
+          ...prev.sessionTypes,
+          { id: newId, label: cleanLabel || "Custom", color: "#4F6F52", bg: "bg-grass-50", text: "text-grass" },
+        ],
+      };
+    });
+    return newId;
+  };
+
+  const applyCopilotActions = (actions: CopilotAction[]) => {
+    actions.forEach((action) => {
+      if (action.action === "delete") {
+        if (action.sessionId) deleteSession(action.sessionId);
+        return;
+      }
+
+      const typeId = resolveCopilotTypeId(action);
+
+      if (action.action === "update" && action.sessionId) {
+        const existing = state.sessions.find((s) => s.id === action.sessionId);
+        if (!existing) return;
+        saveSession({
+          ...existing,
+          title: action.title || existing.title,
+          typeId,
+          day: action.day,
+          date: dateForWeekday(action.day),
+          startTime: action.startTime,
+          duration: action.duration || existing.duration,
+          intensity: action.intensity,
+          notes: action.notes,
+          goals: action.goals,
+        });
+        return;
+      }
+
+      saveSession({
+        id: createUuid(),
+        title: action.title || "Training session",
+        typeId,
+        day: action.day,
+        date: dateForWeekday(action.day),
+        startTime: action.startTime || "16:00",
+        duration: action.duration || 60,
+        intensity: action.intensity || "moderate",
+        notes: action.notes,
+        goals: action.goals,
+        drills: [],
+        completed: false,
+      });
+    });
+  };
+
   const applyPreferences = (preferences: TrainingPreferences) => {
     const generated = generatePersonalizedPlan({
       preferences,
@@ -677,6 +745,12 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         eyebrow="Planner settings"
         title="Reusable session types"
         body={`Saved types: ${state.sessionTypes.map((t) => t.label).join(", ")}. Add new types inside any session form and Seeded will remember them for your next plan.`}
+      />
+
+      <TrainingCopilot
+        sessions={activeSessions}
+        sessionTypes={state.sessionTypes}
+        onActions={applyCopilotActions}
       />
     </div>
   );
