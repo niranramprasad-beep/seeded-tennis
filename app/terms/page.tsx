@@ -28,9 +28,9 @@ export default function TermsPage() {
     <div className="mx-auto max-w-4xl container-px py-16">
       <div className="mb-8">
         <p className="font-serif text-lg italic text-leaf-accent">Seeded terms</p>
-        <h1 className="mt-2 text-4xl font-light tracking-tight text-ink">Simple terms for the MVP.</h1>
+        <h1 className="mt-2 text-4xl font-light tracking-tight text-ink">Terms, kept simple.</h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
-          These placeholder terms are written for the current startup MVP. Official legal terms may be updated later.
+          These are the current terms for using Seeded. We'll post an update here if anything changes.
         </p>
       </div>
       <Card className="divide-y-[0.5px] divide-line">

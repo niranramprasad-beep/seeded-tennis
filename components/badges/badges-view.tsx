@@ -5,6 +5,7 @@ import { Award, CheckCircle2, Medal, Sparkles } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   awardBadges,
@@ -41,6 +42,7 @@ function BadgesInner() {
   const { player } = usePlayer();
   const [earned, setEarned] = useState<EarnedBadge[]>([]);
   const [streak, setStreak] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +55,7 @@ function BadgesInner() {
       if (cancelled) return;
       setEarned(badges);
       setStreak(calculateStreak(checkins));
+      setLoading(false);
       // Award anything newly qualified for, then show it immediately.
       const existingKeys = new Set(badges.map((b) => b.key));
       const newlyQualified = evaluateBadges({
@@ -100,7 +103,14 @@ function BadgesInner() {
       </div>
 
       <div className="mt-8 space-y-8">
-        {groups.map((group) => (
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton key={i} className="h-[140px]" />
+            ))}
+          </div>
+        ) : (
+        groups.map((group) => (
           <section key={group}>
             <div className="mb-3 flex items-center gap-2">
               <Medal className="h-4 w-4 text-grass" />
@@ -144,7 +154,8 @@ function BadgesInner() {
                 })}
             </div>
           </section>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
