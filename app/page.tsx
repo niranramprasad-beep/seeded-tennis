@@ -122,8 +122,8 @@ export default async function HomePage() {
                 <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-lift">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/images/hero-match.jpg"
-                    alt="Junior tennis player mid-match"
+                    src="/images/hero-celebration.jpg"
+                    alt="Tennis player mid-match, full extension on a forehand"
                     className="aspect-[4/5] w-full object-cover"
                   />
                 </div>

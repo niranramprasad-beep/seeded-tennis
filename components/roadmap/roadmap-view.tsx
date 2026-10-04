@@ -186,9 +186,12 @@ function RoadmapInner({ schools }: { schools: School[] }) {
             <motion.div
               key={`${year.calendarYear}-${i}`}
               layout
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
               className="w-[280px] shrink-0"
             >
-              <Card className="flex h-full flex-col p-5">
+              <Card className="flex h-full flex-col p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-lift">
                 <div className="flex items-center justify-between">
                   <Badge variant="default" size="md">
                     {year.shortLabel} Grade

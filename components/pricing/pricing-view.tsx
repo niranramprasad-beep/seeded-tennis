@@ -10,6 +10,7 @@ import { getSupabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FadeIn } from "@/components/shared/fade-in";
 import { cn } from "@/lib/utils";
 
 interface Plan {
@@ -183,11 +184,11 @@ export function PricingView() {
 
       {/* plan cards */}
       <div className="mt-12 grid items-start gap-5 lg:grid-cols-3">
-        {PLANS.map((plan) => {
+        {PLANS.map((plan, i) => {
           const current = tier === plan.tier;
           return (
+            <FadeIn key={plan.tier} delay={i * 0.08}>
             <Card
-              key={plan.tier}
               className={cn(
                 "relative flex h-full flex-col overflow-hidden p-7",
                 plan.popular
@@ -248,12 +249,13 @@ export function PricingView() {
                 ))}
               </ul>
             </Card>
+            </FadeIn>
           );
         })}
       </div>
 
       {/* comparison table */}
-      <div className="mt-16">
+      <FadeIn className="mt-16">
         <h2 className="text-center text-2xl font-light tracking-tight text-ink">
           Compare every feature
         </h2>
@@ -279,7 +281,7 @@ export function PricingView() {
             </tbody>
           </table>
         </div>
-      </div>
+      </FadeIn>
     </div>
   );
 }

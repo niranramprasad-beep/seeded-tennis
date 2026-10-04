@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -8,9 +8,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
   Dumbbell,
   GripVertical,
   LayoutList,
+  MoreHorizontal,
+  Pencil,
   Plus,
   RotateCcw,
   Settings,
@@ -465,15 +468,24 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             animate={{ opacity: 1, y: 0 }}
             className="overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
           >
-            <div className="border-b-[0.5px] border-line bg-grass px-6 py-7 text-cream sm:px-10 lg:px-12">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                  <span className="eyebrow text-gold">Training planner</span>
-                  <h1 className="display-serif mt-2 max-w-2xl text-3xl sm:text-4xl">
-                    Build the week that moves your UTR.
-                  </h1>
+            <div className="border-b-[0.5px] border-line bg-grass px-6 py-5 text-cream sm:px-10 lg:px-12">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <select
+                    value={state.activePlanId}
+                    onChange={(e) => setState((prev) => ({ ...prev, activePlanId: e.target.value }))}
+                    className="h-9 max-w-full rounded-xl border border-cream/25 bg-cream/10 px-3 text-sm font-medium text-cream focus:outline-none focus:ring-2 focus:ring-cream/40"
+                    aria-label="Choose training plan"
+                  >
+                    {state.plans.map((plan) => (
+                      <option key={plan.id} value={plan.id} className="text-ink">
+                        {plan.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 truncate text-sm text-cream/85">{activePlan?.goal}</p>
                 </div>
-                <div className="grid w-full gap-3 rounded-[24px] border border-cream/12 bg-cream/10 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:grid-cols-3 xl:max-w-[480px]">
+                <div className="flex gap-5 sm:gap-7">
                   <MiniMetric label="planned" value={`${Math.round(totalMinutes / 60)}h`} />
                   <MiniMetric label="complete" value={`${progress}%`} />
                   <MiniMetric label="sessions" value={String(activeSessions.length)} />
@@ -483,22 +495,10 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 
             <div className="grid gap-8 p-5 sm:p-8 lg:p-10 2xl:grid-cols-[minmax(0,1fr)_360px]">
               <section className="min-w-0">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <select
-                      value={state.activePlanId}
-                      onChange={(e) => setState((prev) => ({ ...prev, activePlanId: e.target.value }))}
-                      className="h-10 max-w-full rounded-xl border-[0.5px] border-line bg-card px-3 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
-                      aria-label="Choose training plan"
-                    >
-                      {state.plans.map((plan) => (
-                        <option key={plan.id} value={plan.id}>
-                          {plan.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 truncate text-sm text-stone">{activePlan?.goal}</p>
-                    <p className="mt-1 text-xs text-stone-light">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-ink">{weekLabel(weekOffset)}</p>
+                    <p className="text-xs text-stone-light">
                       {syncStatus === "saving"
                         ? "Saving…"
                         : syncStatus === "saved"
@@ -506,61 +506,34 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                           : syncStatus === "local"
                             ? "Local mode"
                             : syncStatus === "error"
-                              ? syncError ?? "Sync error"
-                              : "Loading…"}
+                              ? (syncError ?? "Sync error")
+                              : "Drag sessions between days to rearrange."}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      onClick={() => {
-                        setEditingPlan(activePlan ?? null);
-                        setDrawer("plan");
-                      }}
-                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={duplicateActivePlan}
-                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
-                    >
-                      Duplicate
-                    </button>
-                    <button
-                      onClick={deleteActivePlan}
-                      disabled={state.plans.length <= 1}
-                      className="rounded-full px-3 py-2 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Delete
-                    </button>
-                    <Button size="sm" onClick={() => openNewSession()}>
-                      <Plus className="h-4 w-4" />
-                      New session
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-8 flex flex-col gap-3 rounded-[24px] border-[0.5px] border-line bg-cream/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-ink">
-                      {weekLabel(weekOffset)}
-                    </p>
-                    <p className="text-xs text-stone-light">
-                      Drag sessions between days, then open any card to edit the details.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setWeekOffset((value) => value - 1)}>
+                    <Button variant="ghost" size="sm" onClick={() => setWeekOffset((value) => value - 1)}>
                       <ChevronLeft className="h-4 w-4" />
-                      Previous
                     </Button>
                     <Button variant="subtle" size="sm" onClick={() => setWeekOffset(0)}>
                       <RotateCcw className="h-4 w-4" />
                       Today
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setWeekOffset((value) => value + 1)}>
-                      Next
+                    <Button variant="ghost" size="sm" onClick={() => setWeekOffset((value) => value + 1)}>
                       <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <span className="mx-1 h-5 w-px bg-line" />
+                    <PlanMenu
+                      onEdit={() => {
+                        setEditingPlan(activePlan ?? null);
+                        setDrawer("plan");
+                      }}
+                      onDuplicate={duplicateActivePlan}
+                      onDelete={deleteActivePlan}
+                      deleteDisabled={state.plans.length <= 1}
+                    />
+                    <Button size="sm" onClick={() => openNewSession()}>
+                      <Plus className="h-4 w-4" />
+                      New session
                     </Button>
                   </div>
                 </div>
@@ -1464,9 +1437,81 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-cream/12 px-5 py-4">
-      <p className="text-3xl font-light leading-none text-leaf-accent">{value}</p>
-      <p className="mt-2 text-[11px] uppercase tracking-wide text-cream/68">{label}</p>
+    <div className="text-right sm:text-left">
+      <p className="text-2xl font-light leading-none text-leaf-accent">{value}</p>
+      <p className="mt-1.5 text-[11px] uppercase tracking-wide text-cream/68">{label}</p>
+    </div>
+  );
+}
+
+/** Edit/Duplicate/Delete collapsed into one menu instead of three permanent
+ * buttons — the plan header row was competing with the week-navigation row
+ * right above the calendar. */
+function PlanMenu({
+  onEdit,
+  onDuplicate,
+  onDelete,
+  deleteDisabled,
+}: {
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  deleteDisabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const choose = (action: () => void) => {
+    action();
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Plan options"
+        aria-expanded={open}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-1.5 w-44 overflow-hidden rounded-xl border-[0.5px] border-line bg-card py-1.5 shadow-lift">
+          <button
+            onClick={() => choose(onEdit)}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit plan
+          </button>
+          <button
+            onClick={() => choose(onDuplicate)}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Duplicate
+          </button>
+          <button
+            onClick={() => choose(onDelete)}
+            disabled={deleteDisabled}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-[#9C3B22] transition-colors hover:bg-[#FBEAE5] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete plan
+          </button>
+        </div>
+      )}
     </div>
   );
 }

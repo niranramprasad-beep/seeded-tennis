@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Footer } from "@/components/layout/footer";
+import { FadeIn } from "@/components/shared/fade-in";
 
 const items = [
   {
@@ -32,7 +33,7 @@ export default function ParentsPage() {
   return (
     <>
       <div className="mx-auto max-w-content container-px py-16">
-        <div className="max-w-3xl">
+        <FadeIn className="max-w-3xl">
           <Badge variant="leaf" size="md">For parents</Badge>
           <h1 className="mt-5 text-balance text-4xl font-light tracking-tight text-ink sm:text-6xl">
             A calmer way to manage{" "}
@@ -50,17 +51,19 @@ export default function ParentsPage() {
               See plans
             </Link>
           </div>
-        </div>
+        </FadeIn>
 
         <div className="mt-14 grid gap-4 md:grid-cols-2">
-          {items.map((item) => (
-            <Card key={item.title} interactive className="p-7">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-cream">
-                <item.icon className="h-5 w-5" />
-              </span>
-              <h2 className="mt-5 text-xl font-medium text-ink">{item.title}</h2>
-              <p className="mt-2 leading-relaxed text-stone">{item.body}</p>
-            </Card>
+          {items.map((item, i) => (
+            <FadeIn key={item.title} delay={i * 0.08}>
+              <Card interactive className="h-full p-7">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-cream">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                <h2 className="mt-5 text-xl font-medium text-ink">{item.title}</h2>
+                <p className="mt-2 leading-relaxed text-stone">{item.body}</p>
+              </Card>
+            </FadeIn>
           ))}
         </div>
       </div>

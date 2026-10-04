@@ -39,10 +39,11 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        // Repointed at the sans stack: every `font-serif` / `.display-serif`
-        // usage across the app now renders as confident sans type instead of
-        // the old italic serif, without having to touch each component.
-        serif: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Restored to the real display serif (Cormorant Garamond, already
+        // loaded) rather than faking italics with Inter — this is the font
+        // the "Seeded" wordmark, italic accent words, and numbered section
+        // markers all render in across the site.
+        serif: ["var(--font-cormorant)", "Georgia", "serif"],
       },
       borderRadius: {
         card: "14px",
