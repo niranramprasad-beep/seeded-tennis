@@ -24,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TierSwitcher } from "./tier-switcher";
+import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
 import { cn } from "@/lib/utils";
 
 type NavLink = { href: string; label: string; icon?: LucideIcon };
@@ -143,6 +144,7 @@ export function Nav() {
           {showApp ? (
             <>
               {showTierSwitcher && <TierSwitcher showLabel={false} />}
+              <DarkModeToggle />
               {/* Parents already get Settings in PARENT_LINKS below — avoid showing it twice. */}
               {!isParent && (
                 <Link
@@ -163,6 +165,7 @@ export function Nav() {
             </>
           ) : (
             <>
+              <DarkModeToggle />
               <Link
                 href="/login"
                 className={cn(
@@ -207,6 +210,7 @@ export function Nav() {
             className="border-t-[0.5px] border-line bg-cream/96 shadow-lift lg:hidden"
           >
             <div className="flex flex-col gap-1 container-px py-4">
+              <DarkModeToggle showLabel className="mb-2 border-[0.5px] border-line" />
               {mobileLinks.map((l) => (
                 <Link
                   key={l.href}
