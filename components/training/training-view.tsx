@@ -163,6 +163,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const [selectedDay, setSelectedDay] = useState<WeekdayShort>("Mon");
   const [drawer, setDrawer] = useState<PlannerDrawer>(null);
   const [editingSession, setEditingSession] = useState<TrainingPlannerSession | null>(null);
+  const [defaultTime, setDefaultTime] = useState<string | undefined>(undefined);
   const [editingPlan, setEditingPlan] = useState<TrainingFolder | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -252,8 +253,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     });
   }, [activeSessions, state.sessionTypes]);
 
-  const openNewSession = (day = selectedDay) => {
+  const openNewSession = (day = selectedDay, time?: string) => {
     setSelectedDay(day);
+    setDefaultTime(time);
     setEditingSession(null);
     setDrawer("session");
   };
@@ -637,6 +639,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         open={drawer === "session"}
         session={editingSession}
         defaultDay={selectedDay}
+        defaultTime={defaultTime}
         types={state.sessionTypes}
         onClose={() => {
           setDrawer(null);
@@ -860,88 +863,215 @@ function TrainingQuestionnaire({
   );
 }
 
+// Google Calendar-style time grid: hours run down the side, sessions are
+// absolutely positioned by start time and sized by duration, instead of a
+// simple stacked list of cards per day.
+const GRID_START_HOUR = 6;
+const GRID_END_HOUR = 22;
+const HOUR_HEIGHT = 64;
+const GRID_HOURS = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i);
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(minutes: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, minutes));
+  const h = Math.floor(clamped / 60);
+  const m = Math.round((clamped % 60) / 15) * 15;
+  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Side-by-side columns for sessions whose time ranges overlap, so two
+ * things booked at once don't render on top of each other. */
+function layoutOverlaps(sessions: TrainingPlannerSession[]) {
+  const sorted = [...sessions].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  const columns: TrainingPlannerSession[][] = [];
+  return sorted.map((session) => {
+    const start = timeToMinutes(session.startTime);
+    let col = columns.findIndex((c) => timeToMinutes(c[c.length - 1].startTime) + c[c.length - 1].duration <= start);
+    if (col === -1) {
+      col = columns.length;
+      columns.push([]);
+    }
+    columns[col].push(session);
+    return { session, col };
+  }).map(({ session, col }, _i, all) => ({
+    session,
+    col,
+    totalCols: Math.max(...all.filter((o) => rangesOverlap(o.session, session)).map((o) => o.col)) + 1,
+  }));
+}
+
+function rangesOverlap(a: TrainingPlannerSession, b: TrainingPlannerSession): boolean {
+  const aStart = timeToMinutes(a.startTime);
+  const bStart = timeToMinutes(b.startTime);
+  return aStart < bStart + b.duration && bStart < aStart + a.duration;
+}
+
 function WeekPlanner(props: {
   sessionsByDay: Map<WeekdayShort, TrainingPlannerSession[]>;
   types: TrainingSessionType[];
   selectedDay: WeekdayShort;
   draggingId: string | null;
   onSelectDay: (day: WeekdayShort) => void;
-  onAdd: (day: WeekdayShort) => void;
+  onAdd: (day: WeekdayShort, time?: string) => void;
   onEdit: (session: TrainingPlannerSession) => void;
   onMove: (sessionId: string, day: WeekdayShort) => void;
   onDrag: (id: string | null) => void;
   onToggle: (id: string) => void;
   weekOffset: number;
 }) {
+  const now = new Date();
+  const isCurrentWeek = props.weekOffset === 0;
+  const todayShort = WEEK_ORDER[(now.getDay() + 6) % 7];
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const gridTop = GRID_START_HOUR * 60;
+
   return (
-    <div className="flex gap-5 overflow-x-auto pb-5">
-      {WEEK_ORDER.map((day) => {
-        const sessions = props.sessionsByDay.get(day) ?? [];
-        const minutes = sessions.reduce((sum, s) => sum + s.duration, 0);
-        const isDropTarget = Boolean(props.draggingId);
-        const date = dateForWeekday(day, props.weekOffset);
-        return (
-          <motion.div
-            key={day}
-            layout
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => props.draggingId && props.onMove(props.draggingId, day)}
-            className={cn(
-              "min-h-[520px] w-[274px] shrink-0 rounded-[26px] border-[0.5px] border-line bg-cream/65 p-5 transition-colors 2xl:w-[300px]",
-              props.selectedDay === day && "ring-2 ring-grass/20",
-              isDropTarget && "hover:bg-grass-50"
-            )}
-          >
+    <div className="overflow-x-auto rounded-[26px] border-[0.5px] border-line bg-cream/65">
+      <div className="grid min-w-[760px] grid-cols-[52px_repeat(7,1fr)]">
+        {/* header row */}
+        <div />
+        {WEEK_ORDER.map((day) => {
+          const sessions = props.sessionsByDay.get(day) ?? [];
+          const minutes = sessions.reduce((sum, s) => sum + s.duration, 0);
+          const date = dateForWeekday(day, props.weekOffset);
+          const isToday = isCurrentWeek && day === todayShort;
+          return (
             <button
+              key={day}
               onClick={() => props.onSelectDay(day)}
-              className="flex w-full items-start justify-between rounded-2xl px-1 py-1 text-left focus:outline-none focus:ring-2 focus:ring-grass/30"
-            >
-              <span>
-                <span className="block text-2xl font-medium text-ink">{day}</span>
-                <span className="text-sm text-stone-light">
-                  {new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </span>
-              <span className="rounded-full bg-card px-3 py-1.5 text-xs text-stone shadow-soft">
-                {Math.round(minutes / 60)}h
-              </span>
-            </button>
-            <div className="mt-5 space-y-4">
-              {sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  type={getType(props.types, session.typeId)}
-                  onEdit={props.onEdit}
-                  onDrag={props.onDrag}
-                  onToggle={props.onToggle}
-                />
-              ))}
-              {sessions.length === 0 && (
-                <button
-                  onClick={() => props.onAdd(day)}
-                  className="flex min-h-[220px] w-full flex-col items-center justify-center rounded-[22px] border border-dashed border-line text-center text-sm text-stone-light transition-all hover:-translate-y-0.5 hover:border-grass/40 hover:bg-card hover:text-grass hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-grass/30"
-                >
-                  <Plus className="mb-1 h-4 w-4" />
-                  Add a session
-                </button>
+              className={cn(
+                "flex flex-col items-center gap-0.5 border-l-[0.5px] border-line px-2 py-3 text-center transition-colors hover:bg-card/60",
+                props.selectedDay === day && "bg-card/80"
               )}
-            </div>
-            {sessions.length > 0 && (
-              <button
-                onClick={() => props.onAdd(day)}
-                className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl py-3 text-sm font-medium text-stone transition-all hover:-translate-y-0.5 hover:bg-card hover:text-grass hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-grass/30"
+            >
+              <span className={cn("text-[11px] font-semibold uppercase tracking-wide text-stone-light", isToday && "text-grass")}>
+                {day}
+              </span>
+              <span
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium text-ink",
+                  isToday && "bg-grass text-cream"
+                )}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add
-              </button>
-            )}
-          </motion.div>
-        );
-      })}
+                {new Date(`${date}T00:00:00`).getDate()}
+              </span>
+              <span className="text-[10px] text-stone-light">{Math.round(minutes / 60)}h</span>
+            </button>
+          );
+        })}
+
+        {/* scrollable time grid */}
+        <div className="col-span-8 max-h-[640px] overflow-y-auto">
+          <div className="grid grid-cols-[52px_repeat(7,1fr)]" style={{ height: GRID_HOURS.length * HOUR_HEIGHT }}>
+            {/* hour labels */}
+            <div className="relative">
+              {GRID_HOURS.map((h) => (
+                <div
+                  key={h}
+                  className="absolute right-2 -translate-y-1/2 text-[10px] text-stone-light"
+                  style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}
+                >
+                  {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
+                </div>
+              ))}
+            </div>
+
+            {/* day columns */}
+            {WEEK_ORDER.map((day) => {
+              const sessions = props.sessionsByDay.get(day) ?? [];
+              const placed = layoutOverlaps(sessions);
+              const isToday = isCurrentWeek && day === todayShort;
+              return (
+                <div
+                  key={day}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => props.draggingId && props.onMove(props.draggingId, day)}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const offsetY = e.clientY - rect.top;
+                    const minutes = gridTop + (offsetY / HOUR_HEIGHT) * 60;
+                    props.onAdd(day, minutesToTime(minutes));
+                  }}
+                  className={cn(
+                    "relative cursor-pointer border-l-[0.5px] border-line transition-colors hover:bg-card/40",
+                    isToday && "bg-grass-50/40"
+                  )}
+                >
+                  {GRID_HOURS.map((h) => (
+                    <div
+                      key={h}
+                      className="absolute inset-x-0 border-t-[0.5px] border-line/60"
+                      style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}
+                    />
+                  ))}
+                  {isToday && nowMinutes >= gridTop && (
+                    <div
+                      className="absolute inset-x-0 z-10 h-px bg-[#D14343]"
+                      style={{ top: ((nowMinutes - gridTop) / 60) * HOUR_HEIGHT }}
+                    >
+                      <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-[#D14343]" />
+                    </div>
+                  )}
+                  {placed.map(({ session, col, totalCols }) => {
+                    const start = timeToMinutes(session.startTime);
+                    const top = ((start - gridTop) / 60) * HOUR_HEIGHT;
+                    const height = Math.max(22, (session.duration / 60) * HOUR_HEIGHT - 2);
+                    const type = getType(props.types, session.typeId);
+                    return (
+                      <button
+                        key={session.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          props.onDrag(session.id);
+                        }}
+                        onDragEnd={() => props.onDrag(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onEdit(session);
+                        }}
+                        className={cn(
+                          "absolute overflow-hidden rounded-lg border-[0.5px] border-line/80 px-2 py-1 text-left shadow-sm transition-shadow hover:z-20 hover:shadow-lift",
+                          session.completed ? "bg-grass-50/90" : "bg-card"
+                        )}
+                        style={{
+                          top,
+                          height,
+                          left: `calc(${(col / totalCols) * 100}% + 2px)`,
+                          width: `calc(${100 / totalCols}% - 4px)`,
+                          borderLeftColor: type.color,
+                          borderLeftWidth: 3,
+                        }}
+                        title={`${session.title} · ${session.startTime} · ${session.duration}m`}
+                      >
+                        <p className="truncate text-[11px] font-medium leading-tight text-ink">
+                          {session.title || type.label}
+                        </p>
+                        {height > 34 && (
+                          <p className="truncate text-[10px] leading-tight text-stone-light">
+                            {session.startTime} · {session.duration}m
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <button
+        onClick={() => props.onAdd(props.selectedDay)}
+        className="flex w-full items-center justify-center gap-1.5 border-t-[0.5px] border-line py-3 text-sm font-medium text-stone transition-colors hover:bg-card/60 hover:text-grass"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add a session
+      </button>
     </div>
   );
 }
@@ -1135,6 +1265,7 @@ function SessionDrawer({
   open,
   session,
   defaultDay,
+  defaultTime,
   types,
   onClose,
   onSave,
@@ -1145,6 +1276,7 @@ function SessionDrawer({
   open: boolean;
   session: TrainingPlannerSession | null;
   defaultDay: WeekdayShort;
+  defaultTime?: string;
   types: TrainingSessionType[];
   onClose: () => void;
   onSave: (session: TrainingPlannerSession) => void;
@@ -1152,19 +1284,21 @@ function SessionDrawer({
   onAddType: (label: string) => void;
   onSaveTemplate: (session: TrainingPlannerSession) => void;
 }) {
-  const [form, setForm] = useState<TrainingPlannerSession>(() => blankSession(defaultDay, types[0]?.id ?? "tennis"));
+  const [form, setForm] = useState<TrainingPlannerSession>(() =>
+    blankSession(defaultDay, types[0]?.id ?? "tennis", defaultTime)
+  );
   const [customType, setCustomType] = useState("");
   const [drillText, setDrillText] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
-      setForm(session ?? blankSession(defaultDay, types[0]?.id ?? "tennis"));
+      setForm(session ?? blankSession(defaultDay, types[0]?.id ?? "tennis", defaultTime));
       setCustomType("");
       setDrillText((session?.drills ?? []).join("\n"));
       setError("");
     }
-  }, [open, session, defaultDay, types]);
+  }, [open, session, defaultDay, defaultTime, types]);
 
   const submit = () => {
     if (!form.title.trim()) {
@@ -1516,14 +1650,14 @@ function PlanMenu({
   );
 }
 
-function blankSession(day: WeekdayShort, typeId: string): TrainingPlannerSession {
+function blankSession(day: WeekdayShort, typeId: string, startTime = "16:00"): TrainingPlannerSession {
   return {
     id: createUuid(),
     title: "",
     typeId,
     day,
     date: dateForWeekday(day),
-    startTime: "16:00",
+    startTime,
     duration: 90,
     intensity: "moderate",
     notes: "",
