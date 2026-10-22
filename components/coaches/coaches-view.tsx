@@ -17,7 +17,13 @@ import {
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
-import { loadMatches } from "@/lib/supabase/features";
+import {
+  loadCoachOutreach,
+  loadMatches,
+  saveCoachOutreachStatus,
+  type OutreachStatus,
+  type OutreachStatusMap,
+} from "@/lib/supabase/features";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -26,10 +32,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { cn } from "@/lib/utils";
 
-const OUTREACH_KEY = "seeded.outreach";
+// Legacy key from before outreach status was synced to Supabase — still read
+// once on load so no one's existing tracking silently disappears when this
+// switches from a local-only store to a real per-account one.
+const LEGACY_OUTREACH_KEY = "seeded.outreach";
 
-type OutreachStatus = "contacted" | "replied";
-type StatusMap = Record<string, OutreachStatus>;
+type StatusMap = OutreachStatusMap;
 
 export function CoachesView({ schools }: { schools: School[] }) {
   return (
@@ -93,14 +101,32 @@ function CoachesInner({ schools }: { schools: School[] }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
+  const [outreachError, setOutreachError] = useState("");
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(OUTREACH_KEY);
-      if (stored) setStatuses(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
+    (async () => {
+      const remote = await loadCoachOutreach();
+      if (Object.keys(remote).length > 0) {
+        setStatuses(remote);
+      } else {
+        // First load after the localStorage -> Supabase migration: push any
+        // existing local tracking up once so it isn't silently lost, then
+        // treat Supabase as the source of truth from here on.
+        try {
+          const stored = window.localStorage.getItem(LEGACY_OUTREACH_KEY);
+          const legacy = stored ? (JSON.parse(stored) as StatusMap) : null;
+          if (legacy && Object.keys(legacy).length > 0) {
+            await Promise.all(
+              Object.entries(legacy).map(([slug, status]) => saveCoachOutreachStatus(slug, status))
+            );
+            setStatuses(legacy);
+            window.localStorage.removeItem(LEGACY_OUTREACH_KEY);
+          }
+        } catch {
+          // Legacy data is best-effort only — never block the page on it.
+        }
+      }
+    })();
     const qs = new URLSearchParams(window.location.search).get("school");
     if (qs && player.targetSchoolSlugs.includes(qs)) setSelectedSlug(qs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,20 +145,21 @@ function CoachesInner({ schools }: { schools: School[] }) {
     setCopied(false);
   }, [selectedSchool, player, results]);
 
-  const persist = (next: StatusMap) => {
-    setStatuses(next);
-    try {
-      window.localStorage.setItem(OUTREACH_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  };
-
-  const setStatus = (slug: string, status: OutreachStatus | null) => {
+  const setStatus = async (slug: string, status: OutreachStatus | null) => {
+    const previous = statuses;
     const next = { ...statuses };
     if (status === null) delete next[slug];
     else next[slug] = status;
-    persist(next);
+    setStatuses(next);
+    setOutreachError("");
+    try {
+      await saveCoachOutreachStatus(slug, status);
+    } catch (err) {
+      setStatuses(previous);
+      setOutreachError(
+        err instanceof Error ? err.message : "Could not save that — try again."
+      );
+    }
   };
 
   const regenerate = () => {
@@ -353,6 +380,11 @@ function CoachesInner({ schools }: { schools: School[] }) {
                     ? "Coach replied"
                     : "Mark replied"}
                 </Button>
+                {outreachError && (
+                  <p className="w-full rounded-xl bg-error-bg px-4 py-2.5 text-sm text-error">
+                    {outreachError}
+                  </p>
+                )}
               </div>
             </Card>
           </motion.div>

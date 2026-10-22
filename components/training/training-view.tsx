@@ -1024,7 +1024,7 @@ function WeekPlanner(props: {
                 props.selectedDay === day && "bg-card/80"
               )}
             >
-              <span className={cn("text-[11px] font-semibold uppercase tracking-wide text-stone-light", isToday && "text-grass")}>
+              <span className={cn("text-xs font-semibold uppercase tracking-wide text-stone-light", isToday && "text-grass")}>
                 {day}
               </span>
               <span
@@ -1035,7 +1035,7 @@ function WeekPlanner(props: {
               >
                 {new Date(`${date}T00:00:00`).getDate()}
               </span>
-              <span className="text-[10px] text-stone-light">{Math.round(minutes / 60)}h</span>
+              <span className="text-xs text-stone-light">{Math.round(minutes / 60)}h</span>
             </button>
           );
         })}
@@ -1048,7 +1048,7 @@ function WeekPlanner(props: {
               {GRID_HOURS.map((h) => (
                 <div
                   key={h}
-                  className="absolute right-2 -translate-y-1/2 text-[10px] text-stone-light"
+                  className="absolute right-2 -translate-y-1/2 text-xs text-stone-light"
                   style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}
                 >
                   {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
@@ -1124,11 +1124,11 @@ function WeekPlanner(props: {
                         }}
                         title={`${session.title} · ${session.startTime} · ${session.duration}m`}
                       >
-                        <p className="truncate text-[11px] font-medium leading-tight text-ink">
+                        <p className="truncate text-xs font-medium leading-tight text-ink">
                           {session.title || type.label}
                         </p>
                         {height > 34 && (
-                          <p className="truncate text-[10px] leading-tight text-stone-light">
+                          <p className="truncate text-xs leading-tight text-stone-light">
                             {session.startTime} · {session.duration}m
                           </p>
                         )}
@@ -1240,7 +1240,7 @@ function MonthPlanner({
       <h2 className="mb-3 text-lg font-medium text-ink">{monthLabel}</h2>
       <div className="grid grid-cols-7 gap-1.5">
         {WEEK_ORDER.map((d) => (
-          <div key={d} className="pb-1 text-center text-[11px] font-medium uppercase tracking-wide text-stone-light">
+          <div key={d} className="pb-1 text-center text-xs font-medium uppercase tracking-wide text-stone-light">
             {d}
           </div>
         ))}
@@ -1264,7 +1264,11 @@ function MonthPlanner({
                   <span key={s.id} className="h-1.5 w-1.5 rounded-full bg-grass" />
                 ))}
               </div>
-              {sessions.length > 0 && <span className="mt-1 text-[10px] text-stone-light">{sessions.length} sessions</span>}
+              {sessions.length > 0 && (
+                <span className="mt-1 text-xs text-stone-light">
+                  {sessions.length} session{sessions.length === 1 ? "" : "s"}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1305,23 +1309,29 @@ function SessionCard({
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(session.id)}
-          className={cn(
-            "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30",
-            session.completed ? "border-grass bg-grass text-on-primary" : "border-line text-stone-light hover:border-grass"
-          )}
+          className="group/toggle -m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-grass/30"
           aria-label={session.completed ? "Mark session incomplete" : "Mark session complete"}
         >
-          {session.completed && <Check className="h-3.5 w-3.5" />}
+          <span
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full border transition-colors",
+              session.completed
+                ? "border-grass bg-grass text-on-primary"
+                : "border-line text-stone-light group-hover/toggle:border-grass"
+            )}
+          >
+            {session.completed && <Check className="h-3.5 w-3.5" />}
+          </span>
         </button>
         <button
           onClick={() => onEdit(session)}
           className="min-w-0 flex-1 text-left focus:outline-none focus:ring-2 focus:ring-grass/30"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("rounded-pill px-2.5 py-1 text-[11px] font-medium", type.bg, type.text)}>
+            <span className={cn("rounded-pill px-2.5 py-1 text-xs font-medium", type.bg, type.text)}>
               {type.label}
             </span>
-            <span className="flex items-center gap-1 text-[11px] text-stone-light">
+            <span className="flex items-center gap-1 text-xs text-stone-light">
               <Clock className="h-3 w-3" />
               {session.startTime} · {session.duration}m
             </span>
@@ -1649,7 +1659,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-right sm:text-left">
       <p className="text-2xl font-light leading-none text-leaf-accent">{value}</p>
-      <p className="mt-1.5 text-[11px] uppercase tracking-wide text-on-primary/68">{label}</p>
+      <p className="mt-1.5 text-xs uppercase tracking-wide text-on-primary/68">{label}</p>
     </div>
   );
 }

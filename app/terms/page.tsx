@@ -35,7 +35,11 @@ export default function TermsPage() {
       </div>
       <Card className="divide-y-[0.5px] divide-line">
         {TERMS.map((term) => (
-          <section key={term.title} className="p-6 sm:p-8">
+          <section
+            key={term.title}
+            id={term.title === "Privacy" ? "privacy" : undefined}
+            className="scroll-mt-20 p-6 sm:p-8"
+          >
             <h2 className="text-xl font-medium text-ink">{term.title}</h2>
             <p className="mt-3 leading-relaxed text-stone">{term.body}</p>
           </section>

@@ -313,6 +313,48 @@ export async function uploadMatchVideo(file: File): Promise<string | null> {
   return data?.signedUrl ?? path;
 }
 
+export type OutreachStatus = "contacted" | "replied";
+export type OutreachStatusMap = Record<string, OutreachStatus>;
+
+export async function loadCoachOutreach(): Promise<OutreachStatusMap> {
+  const supabase = getSupabase();
+  const id = await userId();
+  const p = await profile();
+  if (!supabase || !id) return {};
+  let query = supabase.from("coach_outreach").select("school_slug, status");
+  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  const { data, error } = await query;
+  if (error) return {};
+  const map: OutreachStatusMap = {};
+  for (const row of data ?? []) {
+    map[row.school_slug as string] = row.status as OutreachStatus;
+  }
+  return map;
+}
+
+export async function saveCoachOutreachStatus(
+  schoolSlug: string,
+  status: OutreachStatus | null
+): Promise<void> {
+  const supabase = getSupabase();
+  const id = await userId();
+  const p = await profile();
+  if (!supabase || !id) return;
+
+  if (status === null) {
+    await supabase.from("coach_outreach").delete().eq("user_id", id).eq("school_slug", schoolSlug);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("coach_outreach")
+    .upsert(
+      { user_id: id, family_code: p?.family_code ?? null, school_slug: schoolSlug, status },
+      { onConflict: "user_id,school_slug" }
+    );
+  if (error) throw new Error(error.message);
+}
+
 export async function loadBadges(): Promise<EarnedBadge[]> {
   const supabase = getSupabase();
   const id = await userId();
