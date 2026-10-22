@@ -44,7 +44,7 @@ export function RosterDistributionChart({
           dataKey="label"
           tickLine={false}
           axisLine={false}
-          tick={{ fill: c.stoneLight, fontSize: 11 }}
+          tick={{ fill: c.stoneLight, fontSize: 12 }}
           dy={6}
         />
         <Tooltip
@@ -69,7 +69,7 @@ export function RosterDistributionChart({
             value: "Min competitive",
             position: "top",
             fill: c.stone,
-            fontSize: 10,
+            fontSize: 12,
           }}
         />
         <Bar dataKey="players" radius={[6, 6, 0, 0]} animationDuration={1200}>

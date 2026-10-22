@@ -240,7 +240,7 @@ function CheckinHeatmap({ checkins }: { checkins: DailyCheckin[] }) {
           />
         ))}
       </div>
-      <div className="mt-4 flex items-center justify-between text-[11px] text-stone-light">
+      <div className="mt-4 flex items-center justify-between text-xs text-stone-light">
         <span>Less</span>
         <div className="flex gap-1">
           {["bg-card", "bg-grass-50", "bg-grass-100", "bg-leaf-accent/65", "bg-grass"].map((c) => (

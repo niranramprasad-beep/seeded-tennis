@@ -176,7 +176,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={() => setMobileOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
@@ -205,7 +205,7 @@ export function Sidebar() {
                 <span className="font-serif text-[22px] italic leading-none text-grass">Seeded</span>
                 <button
                   onClick={() => setMobileOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />

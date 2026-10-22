@@ -48,7 +48,7 @@ export function Nav() {
           className={cn(
             "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
             isMarketingHome
-              ? "border-line bg-white/70 text-ink backdrop-blur-2xl"
+              ? "border-line bg-card/70 text-ink backdrop-blur-2xl"
               : "border-line bg-card/70"
           )}
         >
@@ -92,7 +92,7 @@ export function Nav() {
 
         {/* Mobile toggle */}
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >

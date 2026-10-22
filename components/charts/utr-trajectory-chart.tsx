@@ -121,7 +121,7 @@ export function UTRTrajectoryChart({
               key={opt.value}
               onClick={() => setRange(opt.value)}
               className={cn(
-                "rounded-pill px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex h-11 min-w-11 items-center justify-center rounded-pill px-3 text-xs font-medium transition-colors sm:h-auto sm:min-w-0 sm:py-1.5",
                 range === opt.value
                   ? "bg-card text-grass-900 shadow-soft"
                   : "text-stone hover:text-ink"
@@ -144,7 +144,7 @@ export function UTRTrajectoryChart({
               tickFormatter={formatTick}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: c.stoneLight, fontSize: 11 }}
+              tick={{ fill: c.stoneLight, fontSize: 12 }}
               minTickGap={32}
               dy={8}
             />
@@ -152,7 +152,7 @@ export function UTRTrajectoryChart({
               domain={[min, max]}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: c.stoneLight, fontSize: 11 }}
+              tick={{ fill: c.stoneLight, fontSize: 12 }}
               width={28}
             />
             <Tooltip content={<ChartTooltip c={c} />} cursor={{ stroke: c.leaf, strokeDasharray: "4 4" }} />

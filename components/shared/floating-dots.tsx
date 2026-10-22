@@ -19,7 +19,12 @@ export function FloatingDots({ className }: { className?: string }) {
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden",
+        // Percentage-positioned across the whole container — on narrow
+        // screens the form card fills nearly the full width, so the dots
+        // land on top of it instead of in the margins. Hidden below `sm`
+        // rather than repositioned, since there's no reliable margin for
+        // them to live in once the card is full-bleed.
+        "pointer-events-none absolute inset-0 hidden overflow-hidden sm:block",
         className
       )}
     >

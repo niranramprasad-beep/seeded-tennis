@@ -208,7 +208,7 @@ export function OnboardingFlow({ schools }: { schools: School[] }) {
                           <span className="text-2xl font-light">{g}th</span>
                           <span
                             className={cn(
-                              "mt-1 text-[11px]",
+                              "mt-1 text-xs",
                               active ? "text-on-primary/75" : "text-stone-light"
                             )}
                           >

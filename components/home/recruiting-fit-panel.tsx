@@ -102,7 +102,7 @@ export function RecruitingFitPanel() {
                 key={year}
                 onClick={() => setGradYear(year)}
                 className={cn(
-                  "rounded-pill px-2 py-1.5 text-xs font-medium transition-colors",
+                  "flex min-h-11 items-center justify-center rounded-pill px-2 text-xs font-medium transition-colors",
                   gradYear === year ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
@@ -118,7 +118,7 @@ export function RecruitingFitPanel() {
                 key={item}
                 onClick={() => setDivision(item)}
                 className={cn(
-                  "rounded-pill px-2 py-1.5 text-xs font-medium transition-colors",
+                  "flex min-h-11 items-center justify-center rounded-pill px-2 text-xs font-medium transition-colors",
                   division === item ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >
@@ -133,7 +133,7 @@ export function RecruitingFitPanel() {
         <div className="flex items-end justify-between">
           <div>
             <p className="font-serif text-5xl leading-none text-ink">{fit.score}</p>
-            <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-light">
+            <p className="mt-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-stone-light">
               confidence score
             </p>
           </div>

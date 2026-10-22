@@ -208,7 +208,7 @@ export function TournamentFitView() {
                       key={mode}
                       onClick={() => setTravelMode(mode)}
                       className={cn(
-                        "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors",
                         travelMode === mode
                           ? "bg-grass text-on-primary"
                           : "bg-grass-50 text-stone hover:text-ink"
@@ -239,7 +239,7 @@ export function TournamentFitView() {
                   <button
                     onClick={() => setDrawKnown(true)}
                     className={cn(
-                      "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors",
                       drawKnown ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                     )}
                   >
@@ -248,7 +248,7 @@ export function TournamentFitView() {
                   <button
                     onClick={() => setDrawKnown(false)}
                     className={cn(
-                      "rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors",
                       !drawKnown ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                     )}
                   >
@@ -268,7 +268,7 @@ export function TournamentFitView() {
                     onChange={(e) => setDrawUtr(e.target.value)}
                     placeholder="Average UTR of entrants, e.g. 8.5"
                   />
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-stone-light">
+                  <p className="mt-1.5 text-xs leading-relaxed text-stone-light">
                     Check the entry list or last year's draw for typical entrant ratings.
                   </p>
                 </>
@@ -457,7 +457,7 @@ function VerdictCard({
               )}
             >
               <span className="text-3xl font-light">{result.score}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
                 fit score
               </span>
             </motion.div>

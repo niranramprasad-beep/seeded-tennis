@@ -23,7 +23,7 @@ export function TierSwitcher({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {showLabel && (
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-stone-light">
+        <span className="text-xs font-medium uppercase tracking-[0.14em] text-stone-light">
           Demo tier
         </span>
       )}
@@ -35,7 +35,7 @@ export function TierSwitcher({
               key={t.value}
               onClick={() => setTier(t.value)}
               className={cn(
-                "relative rounded-pill px-3 py-1.5 text-xs font-medium transition-colors",
+                "relative flex min-h-11 items-center rounded-pill px-3 text-xs font-medium transition-colors",
                 active ? "text-grass-900" : "text-stone hover:text-ink"
               )}
             >

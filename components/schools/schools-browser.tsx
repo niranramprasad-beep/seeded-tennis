@@ -278,7 +278,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
                       <span className="block text-sm font-medium text-grass">
                         {mobileValue(s, sort)}
                       </span>
-                      <span className="block text-[10px] text-stone-light">
+                      <span className="block text-xs text-stone-light">
                         {COLUMNS.find((c) => c.key === sort)?.label ?? "Conf."}
                       </span>
                     </span>

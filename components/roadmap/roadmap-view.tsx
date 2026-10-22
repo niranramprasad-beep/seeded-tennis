@@ -160,14 +160,14 @@ function RoadmapInner({ schools }: { schools: School[] }) {
                 onClick={() => toggle(s.slug)}
                 disabled={disabled}
                 className={cn(
-                  "flex items-center gap-2 rounded-pill border-[0.5px] py-1.5 pl-1.5 pr-3 text-sm transition-all",
+                  "flex min-h-11 items-center gap-2 rounded-pill border-[0.5px] py-1.5 pl-1.5 pr-3 text-sm transition-all",
                   active
                     ? "border-grass bg-grass-50 text-grass"
                     : "border-line bg-card text-stone hover:text-ink",
                   disabled && "opacity-40"
                 )}
               >
-                <SchoolBadge school={s} size={24} />
+                <SchoolBadge school={s} size={28} />
                 {s.shortName}
                 {active && <Check className="h-3.5 w-3.5" />}
               </button>
@@ -255,7 +255,7 @@ function RoadmapInner({ schools }: { schools: School[] }) {
                       {tournamentMix(year.tournamentsNeeded).map((level) => (
                         <span
                           key={level}
-                          className="rounded-pill bg-card px-2.5 py-1 text-[11px] font-medium text-stone"
+                          className="rounded-pill bg-card px-2.5 py-1 text-xs font-medium text-stone"
                         >
                           {level}
                         </span>

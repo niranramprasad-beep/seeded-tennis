@@ -90,7 +90,7 @@ export function TournamentProgress({
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "rounded-pill px-3 py-1.5 text-xs font-medium capitalize transition-colors",
+              "flex min-h-11 items-center rounded-pill px-3 text-xs font-medium capitalize transition-colors",
               filter === f
                 ? "bg-grass text-on-primary"
                 : "bg-grass-50 text-stone hover:text-ink"
@@ -178,7 +178,7 @@ function Detail({
 }) {
   return (
     <div>
-      <p className="flex items-center gap-1 text-[11px] text-stone-light">
+      <p className="flex items-center gap-1 text-xs text-stone-light">
         {icon && <MapPin className="h-3 w-3" />}
         {label}
       </p>

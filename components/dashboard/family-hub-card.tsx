@@ -59,7 +59,7 @@ export function FamilyHubCard() {
             </div>
             <Link
               href="/family"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-on-primary/12 text-on-primary transition hover:bg-on-primary/20"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-on-primary/12 text-on-primary transition hover:bg-on-primary/20"
               aria-label="Open family dashboard"
             >
               <ArrowUpRight className="h-5 w-5" />
@@ -111,7 +111,7 @@ export function FamilyHubCard() {
               <div key={item.id} className="rounded-[18px] bg-cream/80 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-medium text-ink">{item.authorName}</p>
-                  <span className="text-[11px] capitalize text-stone-light">{item.authorRole}</span>
+                  <span className="text-xs capitalize text-stone-light">{item.authorRole}</span>
                 </div>
                 <p className="mt-1 text-sm text-stone">{item.body}</p>
               </div>

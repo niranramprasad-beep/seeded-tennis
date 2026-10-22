@@ -379,7 +379,7 @@
 
   /* Small-caps tracked label used above section titles. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase text-stone;
+    @apply text-xs font-semibold uppercase text-stone;
     letter-spacing: 0.14em;
   }
 

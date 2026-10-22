@@ -26,7 +26,7 @@ export function SchoolMarquee({ schools }: { schools: School[] }) {
               <p className="text-sm font-medium leading-tight text-ink">
                 {s.shortName}
               </p>
-              <p className="text-[11px] leading-tight text-stone-light">
+              <p className="text-xs leading-tight text-stone-light">
                 {s.conference}
               </p>
             </div>

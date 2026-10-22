@@ -88,7 +88,7 @@ export function UTRLineChart({
               value: `Target ${target.toFixed(1)}`,
               position: "insideTopRight",
               fill: c.stone,
-              fontSize: 11,
+              fontSize: 12,
             }}
           />
         )}

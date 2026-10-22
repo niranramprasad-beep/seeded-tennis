@@ -17,10 +17,13 @@ export const buttonVariants = cva(
         subtle: "bg-grass-50 text-grass-700 hover:bg-grass-100",
       },
       size: {
-        sm: "h-9 px-4 text-sm rounded-pill",
+        // 44px (the mobile touch-target floor) below the `sm:` breakpoint,
+        // stepping down to the compact 36px it was designed at from there —
+        // desktop is mouse-driven and doesn't need the thumb-sized hit area.
+        sm: "h-11 px-4 text-sm rounded-pill sm:h-9",
         md: "h-11 px-6 text-sm rounded-pill",
         lg: "h-[52px] px-8 text-base rounded-pill",
-        icon: "h-10 w-10 rounded-full",
+        icon: "h-11 w-11 rounded-full",
       },
     },
     defaultVariants: {

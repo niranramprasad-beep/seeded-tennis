@@ -162,7 +162,7 @@ function MatchHistoryInner() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={cn(
-                  "rounded-pill px-3 py-1.5 text-sm capitalize transition-colors",
+                  "flex min-h-11 items-center rounded-pill px-3 text-sm capitalize transition-colors",
                   filter === f ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
                 )}
               >

@@ -85,7 +85,7 @@ export function FitFinderTeaser() {
                   key={l.value}
                   onClick={() => setLevel(l.value)}
                   className={cn(
-                    "rounded-pill px-2.5 py-1 text-xs font-medium transition-colors",
+                    "flex min-h-11 min-w-11 items-center justify-center rounded-pill px-3 text-xs font-medium transition-colors",
                     level === l.value
                       ? "bg-grass text-on-primary"
                       : "bg-grass-50 text-stone hover:text-ink"
@@ -151,7 +151,7 @@ export function FitFinderTeaser() {
         {/* live verdict */}
         <div className="flex flex-col justify-between gap-6 border-t-hairline border-line bg-cream/60 p-6 sm:p-8 lg:border-l-hairline lg:border-t-0">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-light">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-light">
               Verdict
             </p>
             <AnimatePresence mode="wait">

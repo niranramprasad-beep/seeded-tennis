@@ -251,7 +251,7 @@ function ParentDashboardInner() {
                 <div key={n.id} className="rounded-card bg-cream/60 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-medium text-ink">{n.authorName}</p>
-                    <span className="text-[11px] capitalize text-stone-light">
+                    <span className="text-xs capitalize text-stone-light">
                       {n.authorRole}
                     </span>
                   </div>

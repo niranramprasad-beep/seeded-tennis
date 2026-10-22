@@ -93,7 +93,7 @@ export default async function HomePage() {
                   href="/schools"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "lg" }),
-                    "group bg-white/70"
+                    "group bg-card/70"
                   )}
                 >
                   Browse schools free
@@ -109,7 +109,7 @@ export default async function HomePage() {
                 ].map(([value, label]) => (
                   <div key={label} className="px-4 first:pl-0">
                     <p className="font-serif text-3xl text-grass">{value}</p>
-                    <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone">
+                    <p className="mt-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-stone">
                       {label}
                     </p>
                   </div>
@@ -129,7 +129,7 @@ export default async function HomePage() {
                 </div>
                 {/* floating proof chips */}
                 <div className="absolute -left-4 bottom-8 rounded-2xl border-hairline border-line bg-card/95 px-4 py-3 shadow-lift backdrop-blur sm:-left-8">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-light">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-light">
                     Roadmap
                   </p>
                   <p className="mt-0.5 font-serif text-xl text-ink">

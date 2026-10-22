@@ -34,7 +34,7 @@ export function GenderToggle({
             key={o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative rounded-pill px-4 py-1.5 text-sm font-medium transition-colors",
+              "relative flex min-h-11 items-center justify-center rounded-pill px-4 text-sm font-medium transition-colors",
               active ? "text-grass-900" : "text-stone hover:text-ink"
             )}
           >

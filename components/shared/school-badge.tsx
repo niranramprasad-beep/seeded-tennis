@@ -30,7 +30,9 @@ export function SchoolBadge({ school, size = 48, className }: SchoolBadgeProps) 
         backgroundColor: school.primaryColor,
         color: school.textColor,
         boxShadow: `inset 0 0 0 ${Math.max(2, size * 0.06)}px ${school.secondaryColor}`,
-        fontSize: size * 0.34,
+        // Never let the initials render below the site-wide 12px floor,
+        // even inside a small avatar circle.
+        fontSize: Math.max(12, size * 0.34),
         letterSpacing: "-0.02em",
       }}
       aria-hidden

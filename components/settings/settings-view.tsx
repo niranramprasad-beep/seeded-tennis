@@ -73,7 +73,7 @@ function SettingsInner() {
             {player.familyCode && (
               <button
                 onClick={copyCode}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-grass-50 text-grass transition-colors hover:bg-grass-100"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-grass-50 text-grass transition-colors hover:bg-grass-100"
                 aria-label="Copy family code"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
