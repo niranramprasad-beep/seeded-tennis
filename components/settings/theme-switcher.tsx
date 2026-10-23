@@ -6,12 +6,17 @@ import { THEMES, useTheme } from "@/lib/context/theme-context";
 import { cn } from "@/lib/utils";
 
 export function ThemeSwitcher() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, hydrated } = useTheme();
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {THEMES.map((t) => {
-        const active = theme === t.id;
+        // Same hydration gap as the sidebar toggle: `theme` defaults to
+        // "grass" until the provider's effect reads the real saved value.
+        // Without the `hydrated` check, this card would flash as
+        // selected/checked for every user whose real theme isn't Grass
+        // Court.
+        const active = hydrated && theme === t.id;
         return (
           <button
             key={t.id}

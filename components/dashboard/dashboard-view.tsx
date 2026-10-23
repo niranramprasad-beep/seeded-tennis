@@ -232,7 +232,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
             </div>
             <Link
               href="/training"
-              className="flex shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
+              className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
             >
               Open planner
               <ArrowUpRight className="h-4 w-4" />
@@ -291,7 +291,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
             <h2 className="text-lg font-medium text-ink">Your target schools</h2>
             <Link
               href="/roadmap"
-              className="flex items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
+              className="flex min-h-11 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
             >
               Full roadmap
               <ArrowUpRight className="h-4 w-4" />

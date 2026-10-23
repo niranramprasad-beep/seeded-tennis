@@ -92,12 +92,22 @@ export const THEME_STORAGE_KEY = "seeded.theme";
 interface ThemeContextValue {
   theme: ThemeId;
   setTheme: (t: ThemeId) => void;
+  /** False until the real saved theme has been read from localStorage.
+   * The inline pre-paint <script> in app/layout.tsx already sets the DOM's
+   * data-theme attribute synchronously (so colors/backgrounds never flash
+   * wrong), but this React state starts at the "grass" default on both the
+   * server render and the first client render to avoid a hydration
+   * mismatch — so anything that renders theme-specific UI (the dark-mode
+   * toggle's icon/label) should wait for `hydrated` before trusting
+   * `theme`, rather than briefly showing the wrong one. */
+  hydrated: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>("grass");
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
@@ -109,6 +119,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+    setHydrated(true);
   }, []);
 
   const setTheme = useCallback((t: ThemeId) => {
@@ -121,7 +132,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  const value = useMemo(
+    () => ({ theme, setTheme, hydrated }),
+    [theme, setTheme, hydrated]
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

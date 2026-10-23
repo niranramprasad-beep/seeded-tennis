@@ -134,7 +134,14 @@ export function Sidebar() {
           {showTierSwitcher && !collapsed && <TierSwitcher className="px-0" />}
           <DarkModeToggle
             showLabel={!collapsed}
-            className={collapsed ? "mx-auto flex w-auto justify-center px-0" : undefined}
+            // DarkModeToggle's icon-only variant already renders a correctly
+            // centered 44x44 button (flex/w-11/items-center/justify-center
+            // are baked into its base classes) — the only thing needed here
+            // is to center THAT button within the collapsed rail. Overriding
+            // width (previously "w-auto") replaced the fixed w-11 via the
+            // cn()/tailwind-merge className merge, shrinking the tap target
+            // down to the bare icon's ~16px intrinsic width.
+            className={collapsed ? "mx-auto" : undefined}
           />
           {!isParent && (
             <Link
