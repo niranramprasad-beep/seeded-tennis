@@ -53,21 +53,29 @@ function notConfiguredResult(): AuthResult {
   return { ok: false, error: NOT_CONFIGURED_MESSAGE };
 }
 
-// Turn raw Supabase/network error strings into something a player can act on.
-// A bare "Failed to fetch" almost always means the request never reached
+// A bare "Failed to fetch" (or supabase-js's AuthRetryableFetchError, which
+// wraps the same thing) almost always means the request never reached
 // Supabase — the project is paused, the URL env var is wrong, or the network
-// is down — so say that instead of leaking the developer-level message.
-function friendlyAuthError(message: string): string {
+// is down. Shared by friendlyAuthError (for messages) and getSessionState
+// (which gets this back as a resolved { error }, not a thrown exception —
+// see that function for why the distinction matters).
+function isNetworkFailureMessage(message: string): boolean {
   const m = message.toLowerCase();
-  if (
+  return (
     m.includes("failed to fetch") ||
     m.includes("networkerror") ||
     m.includes("load failed") ||
     m.includes("fetch failed")
-  ) {
+  );
+}
+
+// Turn raw Supabase/network error strings into something a player can act on
+// instead of leaking the developer-level message.
+function friendlyAuthError(message: string): string {
+  if (isNetworkFailureMessage(message)) {
     return "Can't reach the server right now. Check your connection, or the Seeded backend may be temporarily unavailable. Please try again in a moment.";
   }
-  if (m.includes("not confirmed")) {
+  if (message.toLowerCase().includes("not confirmed")) {
     return "Check your inbox to confirm your email.";
   }
   return message;
@@ -380,6 +388,20 @@ export async function getSessionState(): Promise<SessionState> {
 
   try {
     const { data: userData, error: userError } = await supa.auth.getUser();
+    // A network failure here resolves as { error }, not a thrown exception —
+    // supabase-js catches "Failed to fetch" into an AuthRetryableFetchError
+    // internally (confirmed live: it even retries a few times first; this
+    // is NOT a theoretical case, caught via a real simulated outage).
+    // Treating every userError as "signed out" would silently log out an
+    // already-authenticated user the moment Supabase is unreachable —
+    // exactly the failure this whole status split exists to prevent.
+    if (
+      userError &&
+      (userError.name === "AuthRetryableFetchError" ||
+        isNetworkFailureMessage(userError.message))
+    ) {
+      return { status: "error", message: friendlyAuthError(userError.message) };
+    }
     if (userError || !userData.user) return { status: "signed-out" };
 
     const player = await getCurrentPlayer();

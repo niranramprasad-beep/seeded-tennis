@@ -19,6 +19,7 @@ import { CinematicBand } from "@/components/home/cinematic-band";
 import { FitFinderTeaser } from "@/components/home/fit-finder-teaser";
 import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
 import { Footer } from "@/components/layout/footer";
+import { AuthedHomeRedirect } from "@/components/home/authed-home-redirect";
 
 const CAPABILITIES = [
   {
@@ -62,6 +63,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <AuthedHomeRedirect />
       <div className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
         <section className="relative overflow-hidden border-b-hairline border-line bg-cream">
