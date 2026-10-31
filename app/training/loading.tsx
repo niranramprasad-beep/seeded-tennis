@@ -10,7 +10,9 @@ export default function TrainingLoading() {
         </div>
         <Skeleton className="h-10 w-40" />
       </div>
-      <div className="mt-8 grid grid-cols-7 gap-2">
+      <Skeleton className="mt-8 h-44" />
+      <Skeleton className="mt-4 h-28" />
+      <div className="mt-4 grid grid-cols-7 gap-2">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <Skeleton key={i} className="h-72" />
         ))}

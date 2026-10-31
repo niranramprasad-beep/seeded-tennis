@@ -18,7 +18,19 @@ export default function SchoolDetailLoading() {
             <Skeleton key={i} className="h-20" />
           ))}
         </div>
-        <Skeleton className="mt-4 h-72" />
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-96 lg:col-span-2" />
+          <Skeleton className="h-96" />
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-56" />
+          <Skeleton className="h-56" />
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
       </div>
     </div>
   );

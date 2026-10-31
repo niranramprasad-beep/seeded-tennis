@@ -9,7 +9,11 @@ export default function FamilyLoading() {
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
-      <Skeleton className="mt-4 h-64" />
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
+      </div>
+      <Skeleton className="mt-4 h-48" />
     </div>
   );
 }

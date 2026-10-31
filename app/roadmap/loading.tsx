@@ -12,6 +12,12 @@ export default function RoadmapLoading() {
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
+      <Skeleton className="mt-8 h-6 w-48" />
+      <div className="mt-4 flex gap-4 overflow-hidden">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-64 w-[280px] shrink-0" />
+        ))}
+      </div>
     </div>
   );
 }
