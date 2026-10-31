@@ -475,3 +475,18 @@
     text-wrap: pretty;
   }
 }
+
+/* MotionConfig (app/providers.tsx) already defers framer-motion's own
+   motion.* components to the OS reduce-motion setting. This covers
+   everything else — plain CSS transitions/animations (hover states,
+   skeleton pulse, spinners) — by collapsing them to effectively instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

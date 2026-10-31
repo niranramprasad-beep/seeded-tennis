@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { GenderToggle } from "@/components/shared/gender-toggle";
-import { FloatingDots } from "@/components/shared/floating-dots";
 import { formatUTR, cn } from "@/lib/utils";
 import { getCurrentGrade, getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 
@@ -122,7 +121,6 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-      <FloatingDots />
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col container-px py-10">
         {/* progress */}
         <div className="mb-10">
@@ -134,7 +132,7 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-pill bg-grass-50">
             <motion.div
-              className="h-full rounded-pill bg-gradient-to-r from-leaf-accent to-grass"
+              className="h-full rounded-pill bg-grass"
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             />

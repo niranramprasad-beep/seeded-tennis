@@ -71,12 +71,6 @@ export default async function SchoolDetailPage({
         className="relative overflow-hidden"
         style={{ backgroundColor: school.primaryColor, color: school.textColor }}
       >
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background: `radial-gradient(circle at 85% 20%, ${school.secondaryColor}, transparent 55%)`,
-          }}
-        />
         <div className="relative mx-auto max-w-content container-px py-12">
           <Link
             href="/schools"

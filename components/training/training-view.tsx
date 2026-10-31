@@ -1136,7 +1136,7 @@ function WeekPlanner(props: {
                           props.onEdit(session);
                         }}
                         className={cn(
-                          "absolute overflow-hidden rounded-lg border-[0.5px] border-line/80 px-2 py-1 text-left shadow-sm transition-shadow hover:z-20 hover:shadow-lift",
+                          "absolute overflow-hidden rounded-lg border-[0.5px] border-line/80 px-2 py-1 text-left shadow-sm transition-shadow hover:z-20 hover:shadow-soft",
                           session.completed ? "bg-grass-50/90" : "bg-card"
                         )}
                         style={{
@@ -1325,7 +1325,7 @@ function SessionCard({
       onDragEnd={() => onDrag(null)}
       whileHover={{ y: -2 }}
       className={cn(
-        "group rounded-[22px] border-[0.5px] border-line bg-card p-5 shadow-[0_8px_24px_rgba(31,31,26,0.04)] transition-shadow hover:shadow-lift",
+        "group rounded-[22px] border-[0.5px] border-line bg-card p-5 shadow-soft transition-shadow",
         session.completed && "bg-grass-50/80",
         wide && "p-5"
       )}

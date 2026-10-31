@@ -183,7 +183,7 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b-[0.5px] border-line bg-cream/90 px-4 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b-[0.5px] border-line bg-cream px-4 lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-tennis ring-1 ring-grass/15" />
           <span className="font-serif text-[20px] italic leading-none text-grass">Seeded</span>

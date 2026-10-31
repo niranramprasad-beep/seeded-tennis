@@ -68,10 +68,6 @@ const config: Config = {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
-        float: {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-14px)" },
-        },
         "draw-in": {
           "0%": { strokeDashoffset: "1000" },
           "100%": { strokeDashoffset: "0" },
@@ -80,7 +76,6 @@ const config: Config = {
       animation: {
         "fade-up": "fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both",
         "fade-in": "fade-in 0.15s ease-out both",
-        float: "float 7s ease-in-out infinite",
       },
       boxShadow: {
         soft: "0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 24px rgba(17, 24, 39, 0.05)",

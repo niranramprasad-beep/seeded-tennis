@@ -67,10 +67,6 @@ export default async function HomePage() {
       <div className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
         <section className="relative overflow-hidden border-b-hairline border-line bg-cream">
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(34,197,94,0.10),transparent_70%)]"
-          />
           <div className="relative mx-auto grid max-w-content items-center gap-14 container-px pb-16 pt-28 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-32">
             <FadeIn>
               <span className="eyebrow text-grass">College tennis recruiting</span>
@@ -121,7 +117,7 @@ export default async function HomePage() {
 
             <FadeIn delay={0.12}>
               <div className="relative mx-auto max-w-md lg:max-w-none">
-                <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-lift">
+                <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-soft">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/images/hero-celebration.jpg"
@@ -130,7 +126,7 @@ export default async function HomePage() {
                   />
                 </div>
                 {/* floating proof chips */}
-                <div className="absolute -left-4 bottom-8 rounded-2xl border-hairline border-line bg-card/95 px-4 py-3 shadow-lift backdrop-blur sm:-left-8">
+                <div className="absolute -left-4 bottom-8 rounded-2xl border-hairline border-line bg-card px-4 py-3 shadow-soft sm:-left-8">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-light">
                     Roadmap
                   </p>
@@ -139,7 +135,7 @@ export default async function HomePage() {
                   </p>
                   <p className="text-xs text-stone">by summer before senior year</p>
                 </div>
-                <div className="absolute -right-3 top-8 flex items-center gap-2 rounded-pill border-hairline border-line bg-card/95 px-4 py-2.5 shadow-lift backdrop-blur sm:-right-6">
+                <div className="absolute -right-3 top-8 flex items-center gap-2 rounded-pill border-hairline border-line bg-card px-4 py-2.5 shadow-soft sm:-right-6">
                   <span className="h-2 w-2 rounded-full bg-grass" />
                   <p className="text-sm font-medium text-ink">
                     Tournament: <span className="text-grass">good fit</span>

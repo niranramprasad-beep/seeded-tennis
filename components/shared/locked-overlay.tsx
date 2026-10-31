@@ -49,8 +49,8 @@ export function LockedOverlay({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-cream/55 px-6 text-center backdrop-blur-[2px]"
+        transition={{ duration: 0.15 }}
+        className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-cream/75 px-6 text-center"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
           <Lock className="h-5 w-5" />

@@ -185,7 +185,7 @@ export function FitFinderTeaser() {
 
           <Link
             href="/tournament-fit"
-            className="group flex items-center justify-center gap-2 rounded-pill bg-grass px-5 py-3 text-sm font-medium text-on-primary transition-all hover:-translate-y-0.5 hover:shadow-lift"
+            className="group flex items-center justify-center gap-2 rounded-pill bg-grass px-5 py-3 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-grass-700"
           >
             Open the full finder
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

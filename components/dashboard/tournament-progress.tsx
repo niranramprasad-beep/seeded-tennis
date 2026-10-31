@@ -47,7 +47,7 @@ export function TournamentProgress({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="bg-gradient-to-br from-grass to-grass-800 p-6 text-on-primary">
+      <div className="bg-grass p-6 text-on-primary">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream/14 text-leaf-accent">

@@ -32,10 +32,10 @@ export function Nav() {
   return (
     <header
       className={cn(
-        "top-0 z-50 border-b-[0.5px] backdrop-blur-xl transition-colors duration-300",
+        "top-0 z-50 border-b-[0.5px] transition-colors duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-line/70 bg-cream/80 text-ink"
-          : "sticky border-line bg-cream/85"
+          ? "fixed inset-x-0 border-line/70 bg-cream text-ink"
+          : "sticky border-line bg-cream"
       )}
     >
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between container-px">
@@ -46,10 +46,8 @@ export function Nav() {
 
         <div
           className={cn(
-            "hidden items-center gap-1 rounded-full border-[0.5px] p-1 shadow-soft lg:flex",
-            isMarketingHome
-              ? "border-line bg-card/70 text-ink backdrop-blur-2xl"
-              : "border-line bg-card/70"
+            "hidden items-center gap-1 rounded-full border-[0.5px] bg-card p-1 shadow-soft lg:flex",
+            isMarketingHome ? "border-line text-ink" : "border-line"
           )}
         >
           {MARKETING_LINKS.map((l) => (

@@ -192,7 +192,7 @@ export function PricingView() {
               className={cn(
                 "relative flex h-full flex-col overflow-hidden p-7",
                 plan.popular
-                  ? "border-2 border-grass pt-10 shadow-lift"
+                  ? "border-2 border-grass pt-10 shadow-soft"
                   : "border-[0.5px]"
               )}
             >

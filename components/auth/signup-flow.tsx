@@ -18,7 +18,6 @@ import { usePlayer } from "@/lib/context/player-context";
 import { signUp } from "@/lib/auth";
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
-import { FloatingDots } from "@/components/shared/floating-dots";
 import { cn } from "@/lib/utils";
 
 const COUNTRIES = [
@@ -242,7 +241,7 @@ export function SignupFlow({
         </div>
         <div className="mb-8 h-1.5 w-full overflow-hidden rounded-pill bg-grass-50">
           <motion.div
-            className="h-full rounded-pill bg-gradient-to-r from-leaf-accent to-grass"
+            className="h-full rounded-pill bg-grass"
             animate={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           />
@@ -456,7 +455,6 @@ export function SignupFlow({
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-      <FloatingDots />
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
         {children}
       </div>

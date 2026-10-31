@@ -33,15 +33,15 @@ export function Drawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-[2px]"
+            className="fixed inset-0 z-50 bg-ink/30"
           />
           <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className={cn(
               "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-cream shadow-lift",
               widthClass

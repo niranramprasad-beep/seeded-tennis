@@ -20,7 +20,7 @@ export function Progress({ value, className, barClassName }: ProgressProps) {
     >
       <motion.div
         className={cn(
-          "h-full rounded-pill bg-gradient-to-r from-leaf-accent to-grass",
+          "h-full rounded-pill bg-grass",
           barClassName
         )}
         initial={{ width: 0 }}

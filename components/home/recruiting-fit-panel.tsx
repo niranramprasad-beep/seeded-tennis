@@ -143,7 +143,7 @@ export function RecruitingFitPanel() {
         </div>
         <div className="mt-4 h-3 overflow-hidden rounded-pill bg-grass-50">
           <div
-            className="h-full rounded-pill bg-gradient-to-r from-tennis to-grass transition-[width] duration-500"
+            className="h-full rounded-pill bg-grass transition-[width] duration-500"
             style={{ width: `${fit.score}%` }}
           />
         </div>

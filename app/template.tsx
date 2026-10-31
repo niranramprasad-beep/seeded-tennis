@@ -1,8 +1,8 @@
-"use client";
-
-import { motion } from "framer-motion";
-
-// Re-mounts on every route change for an intentional slide-in transition.
+// Re-mounts on every route change (that's what template.tsx is for, unlike
+// layout.tsx) — kept for that remount behavior, not for decoration. The
+// fade itself is handled once already, in app-shell.tsx's animate-fade-in;
+// this used to ALSO slide+fade on top of that, so every navigation played
+// two overlapping entrance animations. Just a passthrough now.
 //
 // Deliberately no `filter` animation here (even a blur that settles at
 // "blur(0px)") — Framer Motion leaves the literal filter value applied at
@@ -12,13 +12,5 @@ import { motion } from "framer-motion";
 // against this wrapper instead of the viewport, pushing footer buttons like
 // "Create plan" off-screen and unclickable).
 export default function Template({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 22 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <>{children}</>;
 }
