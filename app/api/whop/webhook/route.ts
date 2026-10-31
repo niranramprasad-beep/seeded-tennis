@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { unwrapWebhook, WebhookVerificationError } from "@whop/sdk/helpers";
 import { WHOP_PLAN_IDS } from "@/lib/whop";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import type { SubscriptionTier } from "@/lib/types";
+import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
 
 // The only place subscription_tier is ever written for Whop customers —
 // Whop is the source of truth for who's paying, not anything the client
@@ -58,15 +58,36 @@ export async function POST(req: Request) {
     const supabaseUserId = membership.metadata?.supabase_user_id;
     if (typeof supabaseUserId === "string") {
       if (ACCESS_GRANTING_STATUSES.has(membership.status)) {
-        // An active/trialing membership always wins, and records itself as
-        // the membership currently backing this user's tier.
-        await admin
+        const newTier = tierForPlanId(membership.plan_id);
+
+        // A stale or duplicate event for an old membership must never
+        // clobber a currently active, higher (or equal) tier — confirmed
+        // live: a real account ended up downgraded from Family to Player
+        // with no corresponding downgrade on the Whop side, consistent
+        // with an out-of-order/replayed event for a superseded membership
+        // overwriting the correct tier. Only apply this event if it's an
+        // update to the SAME membership already on record, there's no
+        // membership on record yet, or it's a genuine upgrade.
+        const { data: current } = await admin
           .from("profiles")
-          .update({
-            subscription_tier: tierForPlanId(membership.plan_id),
-            whop_membership_id: membership.id,
-          })
-          .eq("id", supabaseUserId);
+          .select("subscription_tier, whop_membership_id")
+          .eq("id", supabaseUserId)
+          .maybeSingle();
+
+        const isSameMembership = current?.whop_membership_id === membership.id;
+        const currentTier = (current?.subscription_tier as SubscriptionTier | undefined) ?? "free";
+        const isUpgradeOrFirstTime =
+          !current?.whop_membership_id || TIER_RANK[newTier] >= TIER_RANK[currentTier];
+
+        if (isSameMembership || isUpgradeOrFirstTime) {
+          await admin
+            .from("profiles")
+            .update({
+              subscription_tier: newTier,
+              whop_membership_id: membership.id,
+            })
+            .eq("id", supabaseUserId);
+        }
       } else {
         // Only downgrade if THIS is the membership currently on record for
         // the user. A user can have more than one membership over time

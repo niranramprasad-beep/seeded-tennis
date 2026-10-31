@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SubscriptionTier } from "@/lib/types";
+import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { usePlayer } from "./player-context";
 
@@ -18,12 +18,6 @@ import { usePlayer } from "./player-context";
 // Supabase is configured, the real tier always comes from the database,
 // never this.
 const DEMO_TIER_KEY = "seeded.demo-tier";
-
-const RANK: Record<SubscriptionTier, number> = {
-  free: 0,
-  player: 1,
-  family: 2,
-};
 
 interface TierContextValue {
   tier: SubscriptionTier;
@@ -52,7 +46,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
       if (!supabase || !isAuthed) {
         try {
           const stored = window.localStorage.getItem(DEMO_TIER_KEY) as SubscriptionTier | null;
-          if (!cancelled) setTierState(stored && stored in RANK ? stored : "free");
+          if (!cancelled) setTierState(stored && stored in TIER_RANK ? stored : "free");
         } catch {
           if (!cancelled) setTierState("free");
         }
@@ -78,7 +72,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
 
       if (!cancelled) {
         const real = data?.subscription_tier as SubscriptionTier | undefined;
-        setTierState(real && real in RANK ? real : "free");
+        setTierState(real && real in TIER_RANK ? real : "free");
         setHydrated(true);
       }
     }
@@ -102,7 +96,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const canAccess = useCallback(
-    (required: SubscriptionTier) => RANK[tier] >= RANK[required],
+    (required: SubscriptionTier) => TIER_RANK[tier] >= TIER_RANK[required],
     [tier]
   );
 
@@ -112,7 +106,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
       hydrated,
       setTier,
       canAccess,
-      isPaid: RANK[tier] >= RANK.player,
+      isPaid: TIER_RANK[tier] >= TIER_RANK.player,
       isFamily: tier === "family",
     }),
     [tier, hydrated, setTier, canAccess]

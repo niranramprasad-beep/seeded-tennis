@@ -8,6 +8,17 @@ export type Gender = "men" | "women";
 
 export type SubscriptionTier = "free" | "player" | "family";
 
+// Shared ordering so "is this tier at least as good as that one" is answered
+// the same way everywhere — client-side gating (tier-context) and the Whop
+// webhook's tier-assignment guard (which must never let a stale event for
+// an old membership downgrade a currently active higher-tier one) both key
+// off this instead of keeping their own copy.
+export const TIER_RANK: Record<SubscriptionTier, number> = {
+  free: 0,
+  player: 1,
+  family: 2,
+};
+
 export type Weakness =
   | "forehand"
   | "backhand"
