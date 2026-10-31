@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -30,8 +31,8 @@ import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
-import { HoursDonutChart } from "@/components/charts/hours-donut-chart";
-import { TrainingCopilot, type CopilotAction } from "@/components/training/training-copilot";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
 import { getCurrentGrade, localDateKey, ordinalGrade } from "@/lib/time";
 import {
@@ -46,6 +47,18 @@ import {
   type TrainingPlannerState,
   type TrainingSessionType,
 } from "@/lib/supabase/training";
+
+// recharts (the donut chart) and the AI copilot panel are both secondary to
+// the actual calendar — load them on the client only once they render,
+// instead of bundling either into /training's initial JS.
+const HoursDonutChart = dynamic(
+  () => import("@/components/charts/hours-donut-chart").then((mod) => mod.HoursDonutChart),
+  { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
+);
+const TrainingCopilot = dynamic(
+  () => import("@/components/training/training-copilot").then((mod) => mod.TrainingCopilot),
+  { ssr: false }
+);
 
 const WEEK_ORDER: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

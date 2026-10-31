@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
@@ -23,7 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
-import { UTRTrajectoryChart } from "@/components/charts/utr-trajectory-chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { DailyCheckinCard } from "./daily-checkin-card";
@@ -35,6 +36,14 @@ import {
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/supabase/utr";
+
+// recharts is a genuinely heavy dependency — load it only on the client,
+// only once this chart actually renders, instead of bundling it into
+// /dashboard's main JS whether or not the chart is needed yet.
+const UTRTrajectoryChart = dynamic(
+  () => import("@/components/charts/utr-trajectory-chart").then((mod) => mod.UTRTrajectoryChart),
+  { ssr: false, loading: () => <Skeleton className="h-72 w-full" /> }
+);
 
 interface DashboardViewProps {
   schools: SchoolLite[];

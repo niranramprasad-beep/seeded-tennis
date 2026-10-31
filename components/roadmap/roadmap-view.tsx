@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
@@ -11,10 +12,16 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedNumber } from "@/components/shared/animated-number";
-import { UTRLineChart } from "@/components/charts/utr-line-chart";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { formatUTR, cn } from "@/lib/utils";
+
+// recharts only loads once this chart actually renders, on the client.
+const UTRLineChart = dynamic(
+  () => import("@/components/charts/utr-line-chart").then((mod) => mod.UTRLineChart),
+  { ssr: false, loading: () => <Skeleton className="h-64 w-full" /> }
+);
 
 const MAX_SCHOOLS = 5;
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,9 +23,18 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SchoolBadge } from "@/components/shared/school-badge";
-import { RosterDistributionChart } from "@/components/charts/roster-distribution-chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CoachEmailCTA } from "@/components/schools/coach-email-cta";
 import { Footer } from "@/components/layout/footer";
+
+// recharts loads as its own chunk instead of being bundled into every
+// school page. `ssr: false` isn't allowed here (this file is a Server
+// Component) — omitting it still code-splits the chart into a separate
+// chunk, which is the actual bundle-size win.
+const RosterDistributionChart = dynamic(
+  () => import("@/components/charts/roster-distribution-chart").then((mod) => mod.RosterDistributionChart),
+  { loading: () => <Skeleton className="h-56 w-full" /> }
+);
 
 export async function generateStaticParams() {
   const schools = await getSchools();
