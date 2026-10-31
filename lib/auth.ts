@@ -1,5 +1,5 @@
 import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 
@@ -345,7 +345,7 @@ export async function getCurrentPlayer(): Promise<Player | null> {
   const supa = getSupabase();
   if (!supa) return null;
 
-  const { data: userData, error: userError } = await supa.auth.getUser();
+  const { data: userData, error: userError } = await getAuthedUser(supa);
   if (userError || !userData.user) return null;
 
   const { data: profile, error: profileError } = await supa
@@ -387,7 +387,8 @@ export async function getSessionState(): Promise<SessionState> {
   if (!supa) return { status: "error", message: NOT_CONFIGURED_MESSAGE };
 
   try {
-    const { data: userData, error: userError } = await supa.auth.getUser();
+    const { data: userData, error: userError } = await getAuthedUser(supa);
+
     // A network failure here resolves as { error }, not a thrown exception —
     // supabase-js catches "Failed to fetch" into an AuthRetryableFetchError
     // internally (confirmed live: it even retries a few times first; this
@@ -419,7 +420,7 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
   const supa = getSupabase();
   if (!supa) return;
 
-  const { data } = await supa.auth.getUser();
+  const { data } = await getAuthedUser(supa);
   if (!data.user) return;
 
   await supa.from("profiles").upsert({

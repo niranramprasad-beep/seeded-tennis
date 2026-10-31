@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { SubscriptionTier } from "@/lib/types";
-import { getSupabase } from "@/lib/supabase/client";
+import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { usePlayer } from "./player-context";
 
 // Demo-mode-only fallback for when Supabase isn't configured at all (no env
@@ -60,7 +60,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await getAuthedUser(supabase);
       const userId = userData.user?.id;
       if (!userId) {
         if (!cancelled) {

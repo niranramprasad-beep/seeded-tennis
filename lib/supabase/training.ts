@@ -1,5 +1,5 @@
 import type { Intensity, WeekdayShort } from "@/lib/types";
-import { getSupabase } from "./client";
+import { getAuthedUser, getSupabase } from "./client";
 
 export interface TrainingSessionType {
   id: string;
@@ -58,7 +58,7 @@ export interface TrainingPlannerState {
 async function getUserId(): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getAuthedUser(supabase);
   return data.user?.id ?? null;
 }
 

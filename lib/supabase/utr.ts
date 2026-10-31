@@ -1,4 +1,4 @@
-import { getSupabase } from "./client";
+import { getAuthedUser, getSupabase } from "./client";
 
 export interface UtrEntry {
   id: string;
@@ -10,7 +10,7 @@ export interface UtrEntry {
 async function getUserId(): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getAuthedUser(supabase);
   return data.user?.id ?? null;
 }
 
