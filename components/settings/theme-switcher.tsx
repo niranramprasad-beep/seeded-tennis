@@ -9,7 +9,12 @@ export function ThemeSwitcher() {
   const { theme, setTheme, hydrated } = useTheme();
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    // grid-cols-1 isn't decorative here — without an explicit track size,
+    // a bare `grid` lets its single mobile column default to CSS Grid's
+    // implicit `auto` sizing (fit-content), which ignores the `min-w-0`/
+    // `truncate` already on the text below and overflows the viewport
+    // instead of shrinking to it. grid-cols-1 forces minmax(0, 1fr).
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {THEMES.map((t) => {
         // Same hydration gap as the sidebar toggle: `theme` defaults to
         // "grass" until the provider's effect reads the real saved value.

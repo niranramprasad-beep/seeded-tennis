@@ -109,9 +109,9 @@ export default async function HomePage() {
                   ["D1–D3", "men's & women's"],
                   ["1–16.5", "full UTR scale"],
                 ].map(([value, label]) => (
-                  <div key={label} className="px-4 first:pl-0">
-                    <p className="font-serif text-3xl text-grass">{value}</p>
-                    <p className="mt-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-stone">
+                  <div key={label} className="px-1 first:pl-0 sm:px-4">
+                    <p className="font-serif text-2xl text-grass sm:text-3xl">{value}</p>
+                    <p className="mt-1.5 whitespace-nowrap text-[9px] font-semibold uppercase tracking-normal text-stone sm:text-xs sm:tracking-[0.14em]">
                       {label}
                     </p>
                   </div>

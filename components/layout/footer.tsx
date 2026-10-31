@@ -33,7 +33,13 @@ export function Footer() {
   return (
     <footer className="border-t-[0.5px] border-line bg-card">
       <div className="mx-auto max-w-content container-px py-14">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+        {/*
+          grid-cols-1 isn't decorative — without an explicit mobile track,
+          a bare `grid` defaults to implicit auto-sized columns (sized to
+          content, e.g. "Coach outreach"/"Tournament fit" link text), which
+          can overflow the viewport instead of shrinking to it.
+        */}
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-tennis ring-1 ring-grass/15" />

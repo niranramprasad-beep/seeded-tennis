@@ -92,7 +92,14 @@ export function Sidebar() {
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {/*
+          min-h-0 overrides the flex item's default min-height (content
+          height, i.e. "never shrink below what's inside me") — without it,
+          a long link list grows the nav past its allotted flex-1 space
+          instead of scrolling internally, pushing the pinned section below
+          (theme toggle, sign out) off the bottom of the fixed-height aside.
+        */}
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {links.map((l) => {
             const Icon = l.icon;
             const active = isActive(l.href);
@@ -130,7 +137,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className={cn("space-y-2 border-t-[0.5px] border-line p-3", collapsed && "px-2")}>
+        <div className={cn("shrink-0 space-y-2 border-t-[0.5px] border-line p-3", collapsed && "px-2")}>
           {showTierSwitcher && !collapsed && <TierSwitcher className="px-0" />}
           <DarkModeToggle
             showLabel={!collapsed}
@@ -218,7 +225,7 @@ export function Sidebar() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 {links.map((l) => {
                   const Icon = l.icon;
                   const active = isActive(l.href);
@@ -238,7 +245,7 @@ export function Sidebar() {
                   );
                 })}
               </nav>
-              <div className="space-y-2 border-t-[0.5px] border-line p-3">
+              <div className="shrink-0 space-y-2 border-t-[0.5px] border-line p-3">
                 {showTierSwitcher && <TierSwitcher />}
                 <DarkModeToggle showLabel />
                 {!isParent && (
