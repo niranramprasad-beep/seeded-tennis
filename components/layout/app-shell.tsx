@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { Nav } from "./nav";
@@ -38,23 +37,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         {/*
-          mode="wait" used to force every navigation to sit through the OLD
-          page's exit animation before the NEW page was even allowed to
-          mount — the single biggest cause of navigation feeling laggy.
-          Default (sync) mode lets the new page mount immediately while the
-          old one fades out behind it, so clicking a tab feels instant.
+          AnimatePresence used to wrap this in an exit animation (mode="wait"
+          forced every nav to sit through the OLD page's exit before the NEW
+          one could mount — laggy). Removing "wait" fixed the lag but
+          introduced a worse bug: with both the exiting and entering page in
+          normal document flow at once, the old (now invisible but still
+          laid-out) page sat ABOVE the new one, so every navigation landed
+          scrolled to the bottom of a doubled-up page — "nothing loaded"
+          until you scrolled past the invisible old content to find it.
+          A plain CSS fade-in on mount (key={pathname} forces a fresh mount
+          per route) gets the same instant feel with no second page ever
+          sharing the layout.
         */}
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        <div key={pathname} className="animate-fade-in">{children}</div>
       </main>
     </>
   );
