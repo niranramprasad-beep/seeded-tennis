@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { Calculator, DollarSign, Save } from "lucide-react";
-import type { School } from "@/lib/types";
+import type { SchoolLite } from "@/lib/types";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import {
 import { usePlayer } from "@/lib/context/player-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
 
-export function CostCalculatorView({ schools }: { schools: School[] }) {
+export function CostCalculatorView({ schools }: { schools: SchoolLite[] }) {
   return (
     <AuthGate>
       <CostCalculatorInner schools={schools} />
@@ -25,9 +26,12 @@ export function CostCalculatorView({ schools }: { schools: School[] }) {
   );
 }
 
-function CostCalculatorInner({ schools }: { schools: School[] }) {
+function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
-  const [saved, setSaved] = useState<CostCalculation[]>([]);
+  const { data: saved = [], mutate: mutateSaved } = useSWR<CostCalculation[]>(
+    "cost-calculations",
+    () => loadCostCalculations()
+  );
   const [status, setStatus] = useState("");
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)).slice(0, 5);
   const [inputs, setInputs] = useState<CostInputs>({
@@ -42,10 +46,6 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
       : schools.slice(0, 3).map(toScholarshipSchool),
   });
 
-  useEffect(() => {
-    loadCostCalculations().then(setSaved);
-  }, []);
-
   const results = useMemo(() => calculateCost(inputs), [inputs]);
   const updateNumber = (key: keyof CostInputs, value: string) =>
     setInputs((prev) => ({ ...prev, [key]: Number(value) || 0 }));
@@ -54,7 +54,7 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
     try {
       const row = await saveCostCalculation(inputs, "Seeded cost projection");
       if (row) {
-        setSaved((prev) => [row, ...prev]);
+        mutateSaved([row, ...saved], { revalidate: false });
         setStatus("Projection saved to your account.");
       } else {
         setStatus("Sign in with Supabase configured to save projections.");
@@ -143,7 +143,7 @@ function CostCalculatorInner({ schools }: { schools: School[] }) {
   );
 }
 
-function toScholarshipSchool(s: School) {
+function toScholarshipSchool(s: SchoolLite) {
   const scholarshipPercent = s.division === "D1" ? 35 : s.division === "D2" ? 25 : 0;
   const annualCost = s.usNewsRanking <= 30 ? 86000 : s.division === "D3" ? 79000 : 62000;
   return { name: s.name, division: s.division, annualCost, scholarshipPercent };

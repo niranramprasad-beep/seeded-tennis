@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   CalendarDays,
   GraduationCap,
@@ -41,36 +42,25 @@ export function ParentDashboardView() {
 
 function ParentDashboardInner() {
   const { player } = usePlayer();
-  const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
-  const [matches, setMatches] = useState<MatchRecord[]>([]);
-  const [notes, setNotes] = useState<EncouragementNote[]>([]);
-  const [members, setMembers] = useState<FamilyMember[]>([]);
+  // Same keys as /dashboard's check-in card, the matches views, and the
+  // family hub card — each resource loads once and is shared across every
+  // page that shows it, instead of every page fetching its own copy.
+  const { data: checkins = [] } = useSWR<DailyCheckin[]>("daily-checkins", () => loadDailyCheckins());
+  const { data: matches = [] } = useSWR<MatchRecord[]>("matches", () => loadMatches());
+  const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
+    "encouragement-notes",
+    () => loadEncouragementNotes()
+  );
+  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
-
-  const refresh = async () => {
-    const [c, m, n, family] = await Promise.all([
-      loadDailyCheckins(),
-      loadMatches(),
-      loadEncouragementNotes(),
-      loadFamilyMembers(),
-    ]);
-    setCheckins(c);
-    setMatches(m);
-    setNotes(n);
-    setMembers(family);
-  };
-
-  useEffect(() => {
-    refresh();
-  }, []);
 
   const saveNote = async () => {
     if (!note.trim()) return;
     await saveEncouragementNote(note.trim());
     setNote("");
     setStatus("Note shared with the player.");
-    await refresh();
+    await mutateNotes();
   };
 
   const playerMember = members.find((m) => m.role === "player");

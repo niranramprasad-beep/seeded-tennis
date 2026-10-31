@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -46,9 +47,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // different states — only the former clears the session; the latter
   // surfaces connectionError so the UI can offer a retry instead of silently
   // bouncing an authenticated user to /login.
+  //
+  // This is the one check every single page waits on, and `retryConnection`
+  // lets a user re-trigger it (clicking "Try again" more than once) — a
+  // generation counter makes sure only the LATEST call is ever allowed to
+  // commit state, so a slower, now-stale hydrate() from an earlier click
+  // can never overwrite a newer, faster one.
+  const hydrateGeneration = useRef(0);
   const hydrate = useCallback(async () => {
+    const generation = ++hydrateGeneration.current;
     setHydrated(false);
     const state = await getSessionState();
+    if (generation !== hydrateGeneration.current) return;
     if (state.status === "authed") {
       setPlayer(state.player);
       setIsAuthed(true);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { Award, Check, Flame, Sparkles } from "lucide-react";
 import type { Player } from "@/lib/types";
@@ -43,7 +44,11 @@ export function DailyCheckinCard({
   contactedCoaches?: number;
   repliedCoaches?: number;
 }) {
-  const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
+  const {
+    data: checkins = [],
+    isLoading: checkinsLoading,
+    mutate: mutateCheckins,
+  } = useSWR<DailyCheckin[]>("daily-checkins", () => loadDailyCheckins());
   const [mood, setMood] = useState(4);
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([]);
   const [notes, setNotes] = useState("");
@@ -51,24 +56,20 @@ export function DailyCheckinCard({
   const [error, setError] = useState("");
   const [earned, setEarned] = useState<EarnedBadge | null>(null);
 
+  // Pre-fill the form from today's existing check-in exactly once, right
+  // after the first load resolves — never again, so a background SWR
+  // revalidation can't stomp on whatever the user is actively typing.
+  const hydratedFormRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const rows = await loadDailyCheckins();
-      if (cancelled) return;
-      setCheckins(rows);
-      const today = rows.find((row) => row.date === localDateKey());
-      if (today) {
-        setMood(today.mood);
-        setFocusAreas(today.focusAreas);
-        setNotes(today.notes);
-      }
+    if (hydratedFormRef.current || checkinsLoading) return;
+    hydratedFormRef.current = true;
+    const today = checkins.find((row) => row.date === localDateKey());
+    if (today) {
+      setMood(today.mood);
+      setFocusAreas(today.focusAreas);
+      setNotes(today.notes);
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [checkinsLoading, checkins]);
 
   const streak = useMemo(() => calculateStreak(checkins), [checkins]);
   const todayDone = checkins.some((row) => row.date === localDateKey());
@@ -97,7 +98,7 @@ export function DailyCheckinCard({
     const next = [...checkins.filter((row) => row.date !== saved!.date), saved].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
-    setCheckins(next);
+    mutateCheckins(next, { revalidate: false });
 
     const [existing, matches] = await Promise.all([loadBadges(), loadMatches()]);
     const existingKeys = new Set(existing.map((b) => b.key));

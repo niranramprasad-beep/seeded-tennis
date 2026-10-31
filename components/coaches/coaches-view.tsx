@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { motion } from "framer-motion";
 import {
   Check,
@@ -21,6 +22,7 @@ import {
   loadCoachOutreach,
   loadMatches,
   saveCoachOutreachStatus,
+  type MatchRecord,
   type OutreachStatus,
   type OutreachStatusMap,
 } from "@/lib/supabase/features";
@@ -67,15 +69,16 @@ function CoachesInner({ schools }: { schools: School[] }) {
     [schools, player.targetSchoolSlugs]
   );
 
+  // Same "matches" key as /match-mode and /matches — reuses that cached
+  // fetch instead of loading the player's whole match history a third time.
+  const { data: matches = [] } = useSWR<MatchRecord[]>("matches", () => loadMatches());
+
   // The email only ever cites the player's OWN logged wins — never sample
   // data — so nothing fabricated goes in front of a real coach. Best wins
   // (highest-rated opponents) lead.
-  const [results, setResults] = useState<CoachEmailResult[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    loadMatches().then((matches) => {
-      if (cancelled) return;
-      const wins = matches
+  const results = useMemo<CoachEmailResult[]>(
+    () =>
+      matches
         .filter((m) => m.result === "win" && m.tournamentName)
         .sort((a, b) => (b.opponentUtr ?? 0) - (a.opponentUtr ?? 0))
         .slice(0, 2)
@@ -86,47 +89,43 @@ function CoachesInner({ schools }: { schools: School[] }) {
             m.opponentUtr && m.opponentUtr >= player.currentUTR
               ? `beat a UTR ${m.opponentUtr.toFixed(1)} opponent`
               : "picked up wins",
-        }));
-      setResults(wins);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [player.currentUTR]);
+        })),
+    [matches, player.currentUTR]
+  );
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
     targetSchools[0]?.slug ?? null
   );
-  const [statuses, setStatuses] = useState<StatusMap>({});
+  // The legacy-migration fallback lives inside the fetcher itself — SWR
+  // calls it once per key and caches whichever result (remote or migrated
+  // legacy) comes back, so the migration can't re-run on every revisit.
+  const { data: statuses = {}, mutate: mutateStatuses } = useSWR<StatusMap>(
+    "coach-outreach",
+    async () => {
+      const remote = await loadCoachOutreach();
+      if (Object.keys(remote).length > 0) return remote;
+      try {
+        const stored = window.localStorage.getItem(LEGACY_OUTREACH_KEY);
+        const legacy = stored ? (JSON.parse(stored) as StatusMap) : null;
+        if (legacy && Object.keys(legacy).length > 0) {
+          await Promise.all(
+            Object.entries(legacy).map(([slug, status]) => saveCoachOutreachStatus(slug, status))
+          );
+          window.localStorage.removeItem(LEGACY_OUTREACH_KEY);
+          return legacy;
+        }
+      } catch {
+        // Legacy data is best-effort only — never block the page on it.
+      }
+      return {};
+    }
+  );
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
   const [outreachError, setOutreachError] = useState("");
 
   useEffect(() => {
-    (async () => {
-      const remote = await loadCoachOutreach();
-      if (Object.keys(remote).length > 0) {
-        setStatuses(remote);
-      } else {
-        // First load after the localStorage -> Supabase migration: push any
-        // existing local tracking up once so it isn't silently lost, then
-        // treat Supabase as the source of truth from here on.
-        try {
-          const stored = window.localStorage.getItem(LEGACY_OUTREACH_KEY);
-          const legacy = stored ? (JSON.parse(stored) as StatusMap) : null;
-          if (legacy && Object.keys(legacy).length > 0) {
-            await Promise.all(
-              Object.entries(legacy).map(([slug, status]) => saveCoachOutreachStatus(slug, status))
-            );
-            setStatuses(legacy);
-            window.localStorage.removeItem(LEGACY_OUTREACH_KEY);
-          }
-        } catch {
-          // Legacy data is best-effort only — never block the page on it.
-        }
-      }
-    })();
     const qs = new URLSearchParams(window.location.search).get("school");
     if (qs && player.targetSchoolSlugs.includes(qs)) setSelectedSlug(qs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,12 +149,12 @@ function CoachesInner({ schools }: { schools: School[] }) {
     const next = { ...statuses };
     if (status === null) delete next[slug];
     else next[slug] = status;
-    setStatuses(next);
+    mutateStatuses(next, { revalidate: false });
     setOutreachError("");
     try {
       await saveCoachOutreachStatus(slug, status);
     } catch (err) {
-      setStatuses(previous);
+      mutateStatuses(previous, { revalidate: false });
       setOutreachError(
         err instanceof Error ? err.message : "Could not save that — try again."
       );

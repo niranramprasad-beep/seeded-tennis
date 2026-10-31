@@ -62,31 +62,32 @@ async function getUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
+// Plain read across 4 tables that are all "auth.uid() = user_id" RLS, no
+// family/role sharing — identical to what these queries want, so there's
+// nothing gained by resolving the user id first and filtering by it
+// ourselves; RLS already does it, and skipping straight to the queries
+// saves a whole network round-trip. (workout_sessions/training_plans don't
+// get date-range-limited here: this planner is a recurring weekly
+// template, not a dated log — a user's current sessions stay bounded to
+// roughly "however many are in their active plan(s)," not an ever-growing
+// history, so there's no "visible range" to narrow to the way there is for
+// matches/check-ins.)
 export async function loadTrainingPlannerState(
-  fallback: TrainingPlannerState
+  fallback: TrainingPlannerState,
+  signal?: AbortSignal
 ): Promise<TrainingPlannerState | null> {
   const supabase = getSupabase();
-  const userId = await getUserId();
-  if (!supabase || !userId) return null;
+  if (!supabase) return null;
+
+  const withSignal = <T>(q: T): T =>
+    signal ? ((q as any).abortSignal(signal) as T) : q;
 
   const [{ data: plans, error: plansError }, { data: sessions, error: sessionsError }, { data: settings }, { data: templates }] =
     await Promise.all([
-      supabase
-        .from("training_plans")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("workout_sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("order_index", { ascending: true }),
-      supabase.from("user_settings").select("*").eq("user_id", userId).maybeSingle(),
-      supabase
-        .from("saved_templates")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false }),
+      withSignal(supabase.from("training_plans").select("*").order("created_at", { ascending: true })),
+      withSignal(supabase.from("workout_sessions").select("*").order("order_index", { ascending: true })),
+      withSignal(supabase.from("user_settings").select("*").maybeSingle()),
+      withSignal(supabase.from("saved_templates").select("*").order("created_at", { ascending: false })),
     ]);
 
   if (plansError || sessionsError) {

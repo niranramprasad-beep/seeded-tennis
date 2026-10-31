@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { Award, CheckCircle2, Medal, Sparkles } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
@@ -40,45 +41,47 @@ export function BadgesView() {
 
 function BadgesInner() {
   const { player } = usePlayer();
+  // Keyed on the values that can actually change which badges qualify, so
+  // crossing a new UTR threshold re-checks against fresh data instead of a
+  // cached result from before the change.
+  const { data, isLoading } = useSWR(
+    ["badges-page-data", player.currentUTR, player.tournamentsPlayed] as const,
+    () => Promise.all([loadBadges(), loadDailyCheckins(), loadMatches()])
+  );
   const [earned, setEarned] = useState<EarnedBadge[]>([]);
   const [streak, setStreak] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const loading = isLoading;
 
+  // Award anything newly qualified for, then show it immediately. Guarded
+  // by `evaluatedForRef` so this only runs once per distinct SWR result —
+  // not on every render, and not a second time if SWR re-delivers the same
+  // cached data object.
+  const evaluatedForRef = useRef<unknown>(null);
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const [badges, checkins, matches] = await Promise.all([
-        loadBadges(),
-        loadDailyCheckins(),
-        loadMatches(),
-      ]);
-      if (cancelled) return;
-      setEarned(badges);
-      setStreak(calculateStreak(checkins));
-      setLoading(false);
-      // Award anything newly qualified for, then show it immediately.
-      const existingKeys = new Set(badges.map((b) => b.key));
-      const newlyQualified = evaluateBadges({
-        currentUtr: player.currentUTR,
-        tournamentsPlayed: player.tournamentsPlayed,
-        streak: calculateStreak(checkins),
-        matches,
-        trainingHours: 0,
-        contactedCoaches: 0,
-        repliedCoaches: 0,
-      }).filter((badge) => !existingKeys.has(badge.key));
-      if (newlyQualified.length > 0) {
-        const awarded = await awardBadges(newlyQualified);
-        if (!cancelled && awarded.length > 0) {
+    if (!data || evaluatedForRef.current === data) return;
+    evaluatedForRef.current = data;
+    const [badges, checkins, matches] = data;
+    setEarned(badges);
+    setStreak(calculateStreak(checkins));
+
+    const existingKeys = new Set(badges.map((b) => b.key));
+    const newlyQualified = evaluateBadges({
+      currentUtr: player.currentUTR,
+      tournamentsPlayed: player.tournamentsPlayed,
+      streak: calculateStreak(checkins),
+      matches,
+      trainingHours: 0,
+      contactedCoaches: 0,
+      repliedCoaches: 0,
+    }).filter((badge) => !existingKeys.has(badge.key));
+    if (newlyQualified.length > 0) {
+      awardBadges(newlyQualified).then((awarded) => {
+        if (awarded.length > 0) {
           setEarned((prev) => [...awarded, ...prev]);
         }
-      }
+      });
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [player.currentUTR, player.tournamentsPlayed]);
+  }, [data, player.currentUTR, player.tournamentsPlayed]);
 
   const earnedMap = useMemo(() => new Map(earned.map((b) => [b.key, b])), [earned]);
   const groups = ["UTR", "Tournament", "Match", "Training", "Recruiting"];

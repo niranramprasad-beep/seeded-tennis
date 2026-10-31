@@ -14,7 +14,7 @@ import {
   ArrowUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { Player, PlayerGender, School, Weakness } from "@/lib/types";
+import type { Player, PlayerGender, SchoolLite, Weakness } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ function utrBand(utr: number): string {
 
 const STEPS = ["Current UTR", "Grade", "Target schools", "Focus areas"];
 
-export function OnboardingFlow({ schools }: { schools: School[] }) {
+export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
   const router = useRouter();
   const { player, completeOnboarding } = usePlayer();
 

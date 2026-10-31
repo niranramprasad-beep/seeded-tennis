@@ -142,18 +142,29 @@ async function userId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-async function profile() {
+// profile() used to call userId() again internally, duplicating the
+// getAuthedUser() network round-trip on every call site that needed both
+// (every family/role-aware loader below). userIdAndProfile() resolves the
+// user once and reuses it for the profile lookup — same two queries
+// (auth, then profile), just never asking "who am I" twice in a row.
+async function userIdAndProfile(): Promise<{ id: string | null; profile: any | null }> {
   const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return null;
-  const { data } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
-  return data;
+  if (!supabase) return { id: null, profile: null };
+  const { data: userData } = await getAuthedUser(supabase);
+  const id = userData.user?.id ?? null;
+  if (!id) return { id: null, profile: null };
+  const { data: profileData } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+  return { id, profile: profileData };
 }
 
-export async function loadDailyCheckins(): Promise<DailyCheckin[]> {
+async function profile() {
+  const { profile: p } = await userIdAndProfile();
+  return p;
+}
+
+export async function loadDailyCheckins(signal?: AbortSignal): Promise<DailyCheckin[]> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return [];
   let query = supabase
     .from("daily_checkins")
@@ -161,6 +172,7 @@ export async function loadDailyCheckins(): Promise<DailyCheckin[]> {
     .gte("checkin_date", localDateKey(new Date(Date.now() - 31 * 86400000)))
     .order("checkin_date", { ascending: true });
   query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map(mapCheckin);
@@ -172,8 +184,7 @@ export async function saveDailyCheckin(input: {
   notes: string;
 }): Promise<DailyCheckin | null> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return null;
   const { data, error } = await supabase
     .from("daily_checkins")
@@ -252,16 +263,26 @@ export function generatePrepPlan(args: {
   };
 }
 
-export async function loadMatches(): Promise<MatchRecord[]> {
+// "All time" is a real filter option in the match history view, so this
+// can't be date-range limited the way daily_checkins is — but it had NO
+// ceiling at all before, meaning a multi-year player's history would load
+// in full on every visit to /matches, /coaches, and /badges. 500 is far
+// beyond any realistic high-school career's match count (ordered newest
+// first, so if it's ever hit, only the oldest, least-relevant matches are
+// the ones left out).
+const MATCHES_LIMIT = 500;
+
+export async function loadMatches(signal?: AbortSignal): Promise<MatchRecord[]> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return [];
   let query = supabase
     .from("matches")
     .select("*")
-    .order("match_date", { ascending: false });
+    .order("match_date", { ascending: false })
+    .limit(MATCHES_LIMIT);
   query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map(mapMatch);
@@ -273,8 +294,7 @@ export async function saveMatch(match: Partial<MatchRecord> & {
   prepPlan: PrepPlan;
 }): Promise<MatchRecord | null> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return null;
   const row = {
     id: match.id,
@@ -316,13 +336,13 @@ export async function uploadMatchVideo(file: File): Promise<string | null> {
 export type OutreachStatus = "contacted" | "replied";
 export type OutreachStatusMap = Record<string, OutreachStatus>;
 
-export async function loadCoachOutreach(): Promise<OutreachStatusMap> {
+export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachStatusMap> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return {};
   let query = supabase.from("coach_outreach").select("school_slug, status");
   query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return {};
   const map: OutreachStatusMap = {};
@@ -337,8 +357,7 @@ export async function saveCoachOutreachStatus(
   status: OutreachStatus | null
 ): Promise<void> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return;
 
   if (status === null) {
@@ -355,11 +374,13 @@ export async function saveCoachOutreachStatus(
   if (error) throw new Error(error.message);
 }
 
-export async function loadBadges(): Promise<EarnedBadge[]> {
+export async function loadBadges(signal?: AbortSignal): Promise<EarnedBadge[]> {
   const supabase = getSupabase();
   const id = await userId();
   if (!supabase || !id) return [];
-  const { data } = await supabase.from("badges").select("*").eq("user_id", id).order("earned_at", { ascending: false });
+  let query = supabase.from("badges").select("*").eq("user_id", id).order("earned_at", { ascending: false });
+  if (signal) query = query.abortSignal(signal);
+  const { data } = await query;
   return (data ?? []).map(mapBadge);
 }
 
@@ -424,8 +445,7 @@ export function calculateCost(input: CostInputs): CostResults {
 
 export async function saveCostCalculation(input: CostInputs, name = "College tennis pursuit"): Promise<CostCalculation | null> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return null;
   const results = calculateCost(input);
   const { data, error } = await supabase
@@ -437,28 +457,34 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
   return mapCost(data);
 }
 
-export async function loadCostCalculations(): Promise<CostCalculation[]> {
+// The cost calculator view only ever renders the 4 most recent saved
+// projections (saved.slice(0, 4)) — there's no "view all" screen, so fetch
+// no more than the UI can show instead of pulling every projection a user
+// has ever saved.
+export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCalculation[]> {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return [];
-  let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false });
+  let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false }).limit(4);
   query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  if (signal) query = query.abortSignal(signal);
   const { data } = await query;
   return (data ?? []).map(mapCost);
 }
 
-export async function searchProfiles(query: string): Promise<FriendProfile[]> {
+export async function searchProfiles(query: string, signal?: AbortSignal): Promise<FriendProfile[]> {
   const supabase = getSupabase();
   const id = await userId();
   if (!supabase || !id || query.trim().length < 2) return [];
   const q = `%${query.trim()}%`;
-  const { data } = await supabase
+  let dbQuery = supabase
     .from("profiles")
     .select("id,email,name,username,current_utr,privacy_level")
     .or(`email.ilike.${q},name.ilike.${q}`)
     .neq("id", id)
     .limit(12);
+  if (signal) dbQuery = dbQuery.abortSignal(signal);
+  const { data } = await dbQuery;
   return (data ?? []).map(mapFriendProfile);
 }
 
@@ -477,15 +503,17 @@ export async function updateProfileDiscovery(input: {
   if (error) throw new Error(error.message);
 }
 
-export async function loadFamilyMembers(): Promise<FamilyMember[]> {
+export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMember[]> {
   const supabase = getSupabase();
   const p = await profile();
   if (!supabase || !p?.family_code) return [];
-  const { data } = await supabase
+  let query = supabase
     .from("profiles")
     .select("id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded")
     .eq("family_code", p.family_code)
     .order("role", { ascending: false });
+  if (signal) query = query.abortSignal(signal);
+  const { data } = await query;
   return (data ?? []).map((row: any) => ({
     id: row.id,
     name: row.name ?? "Family member",
@@ -510,15 +538,17 @@ export async function updateFriendship(id: string, status: "accepted" | "decline
   await supabase.from("friendships").update({ status }).eq("id", id);
 }
 
-export async function loadFriendships(): Promise<Friendship[]> {
+export async function loadFriendships(signal?: AbortSignal): Promise<Friendship[]> {
   const supabase = getSupabase();
   const id = await userId();
   if (!supabase || !id) return [];
-  const { data } = await supabase
+  let query = supabase
     .from("friendships")
     .select("*, requester:profiles!friendships_requester_id_fkey(id,email,name,username,current_utr,privacy_level), addressee:profiles!friendships_addressee_id_fkey(id,email,name,username,current_utr,privacy_level)")
     .or(`requester_id.eq.${id},addressee_id.eq.${id}`)
     .order("created_at", { ascending: false });
+  if (signal) query = query.abortSignal(signal);
+  const { data } = await query;
   return (data ?? []).map((row: any) => ({
     id: row.id,
     requesterId: row.requester_id,
@@ -528,30 +558,39 @@ export async function loadFriendships(): Promise<Friendship[]> {
   }));
 }
 
-export async function loadParentReports(): Promise<ParentReport[]> {
+export async function loadParentReports(signal?: AbortSignal): Promise<ParentReport[]> {
   const supabase = getSupabase();
   const p = await profile();
   if (!supabase || !p?.family_code) return [];
-  const { data } = await supabase.from("parent_reports").select("*").eq("family_code", p.family_code).order("month", { ascending: false });
+  let query = supabase.from("parent_reports").select("*").eq("family_code", p.family_code).order("month", { ascending: false });
+  if (signal) query = query.abortSignal(signal);
+  const { data } = await query;
   return (data ?? []).map(mapReport);
 }
 
-export async function loadEncouragementNotes(): Promise<EncouragementNote[]> {
+// Two sequential queries here are unavoidable, not a fixable waterfall —
+// the second (who wrote each note) depends on parent_ids only known after
+// the first resolves.
+export async function loadEncouragementNotes(signal?: AbortSignal): Promise<EncouragementNote[]> {
   const supabase = getSupabase();
   const p = await profile();
   if (!supabase || !p?.family_code) return [];
-  const { data } = await supabase
+  let notesQuery = supabase
     .from("encouragement_notes")
     .select("*")
     .eq("family_code", p.family_code)
     .order("created_at", { ascending: false });
+  if (signal) notesQuery = notesQuery.abortSignal(signal);
+  const { data } = await notesQuery;
   const authorIds = [...new Set((data ?? []).map((row: any) => row.parent_id).filter(Boolean))];
   let authors = new Map<string, { name: string; role: "player" | "parent" }>();
   if (authorIds.length) {
-    const { data: profileRows } = await supabase
+    let authorQuery = supabase
       .from("profiles")
       .select("id,name,role")
       .in("id", authorIds);
+    if (signal) authorQuery = authorQuery.abortSignal(signal);
+    const { data: profileRows } = await authorQuery;
     authors = new Map(
       (profileRows ?? []).map((row: any) => [
         row.id,
@@ -570,8 +609,7 @@ export async function loadEncouragementNotes(): Promise<EncouragementNote[]> {
 
 export async function saveEncouragementNote(body: string) {
   const supabase = getSupabase();
-  const id = await userId();
-  const p = await profile();
+  const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id || !p?.family_code) return;
   await supabase.from("encouragement_notes").insert({
     family_code: p.family_code,

@@ -1,7 +1,7 @@
-import { getSchools } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/data";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
 
 export default async function CostCalculatorPage() {
-  const schools = await getSchools();
+  const schools = await getSchoolsLite();
   return <CostCalculatorView schools={schools} />;
 }

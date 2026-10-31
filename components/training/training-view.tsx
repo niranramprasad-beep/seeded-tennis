@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -172,39 +173,50 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) setState(JSON.parse(raw) as TrainingPlannerState);
     } catch {
       // Ignore malformed localStorage and keep the generated seed plan.
     }
+  }, [storageKey]);
 
-    async function loadRemote() {
-      try {
-        const remote = await loadTrainingPlannerState(normalizedInitialState);
-        if (cancelled) return;
-        if (remote) {
-          setState(remote);
-          setSyncStatus("saved");
-        } else {
-          setSyncStatus("local");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setSyncStatus("error");
-          setSyncError(error instanceof Error ? error.message : "Could not load training data.");
-        }
-      } finally {
-        if (!cancelled) setHydrated(true);
-      }
+  // SWR caches the remote planner state under this key, so navigating away
+  // from /training and back shows the last-loaded plan immediately instead
+  // of re-running the full load every time. `state` itself stays plain
+  // local state below — it's a live editing buffer (drag/drop, form edits)
+  // auto-saved on every change, not something SWR should own directly.
+  const {
+    data: remoteState,
+    error: remoteStateError,
+    isLoading: remoteStateLoading,
+  } = useSWR(["training-planner-state", storageKey], () =>
+    loadTrainingPlannerState(normalizedInitialState)
+  );
+
+  // Only the FIRST resolution for a given storageKey (i.e. a given player)
+  // seeds `state` — once applied, a later background revalidation must
+  // never silently overwrite whatever the user is actively editing. If
+  // storageKey itself changes (e.g. a parent switches which child they're
+  // viewing), that's a real identity change and should re-apply once.
+  const appliedRemoteForKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (appliedRemoteForKeyRef.current === storageKey) return;
+    if (remoteStateLoading) return;
+    appliedRemoteForKeyRef.current = storageKey;
+    if (remoteStateError) {
+      setSyncStatus("error");
+      setSyncError(
+        remoteStateError instanceof Error ? remoteStateError.message : "Could not load training data."
+      );
+    } else if (remoteState) {
+      setState(remoteState);
+      setSyncStatus("saved");
+    } else {
+      setSyncStatus("local");
     }
-
-    loadRemote();
-    return () => {
-      cancelled = true;
-    };
-  }, [normalizedInitialState, storageKey]);
+    setHydrated(true);
+  }, [remoteState, remoteStateError, remoteStateLoading, storageKey]);
 
   useEffect(() => {
     if (!hydrated) return;

@@ -37,13 +37,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           ]
         )}
       >
-        <AnimatePresence mode="wait" initial={false}>
+        {/*
+          mode="wait" used to force every navigation to sit through the OLD
+          page's exit animation before the NEW page was even allowed to
+          mount — the single biggest cause of navigation feeling laggy.
+          Default (sync) mode lets the new page mount immediately while the
+          old one fades out behind it, so clicking a tab feels instant.
+        */}
+        <AnimatePresence initial={false}>
           <motion.div
             key={pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
           >
             {children}
           </motion.div>

@@ -85,6 +85,14 @@ export interface School {
   programNote?: string;
 }
 
+// `recentRecruits` (an array per school) and `programNote` are the heaviest
+// fields in the catalog and are only ever read by the coach-email generator
+// (/coaches). Pages that just list/compare/filter schools — dashboard,
+// roadmap, cost calculator — never touch either, so they use this lighter
+// shape instead of shipping the full catalog (with every school's recruit
+// history) down to the browser on every load.
+export type SchoolLite = Omit<School, "recentRecruits" | "programNote">;
+
 export interface Activity {
   id: string;
   type: ActivityType;

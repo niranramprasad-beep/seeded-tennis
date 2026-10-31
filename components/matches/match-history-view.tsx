@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { Filter, Trophy } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +35,12 @@ export function MatchHistoryView() {
 
 function MatchHistoryInner() {
   const { player } = usePlayer();
-  const [matches, setMatches] = useState<MatchRecord[]>([]);
+  // Same "matches" key as match-mode-view — shares one cached fetch across
+  // both pages instead of each loading its own copy.
+  const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
+    "matches",
+    () => loadMatches()
+  );
   const [filter, setFilter] = useState<(typeof filters)[number]>("all");
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
@@ -50,10 +56,6 @@ function MatchHistoryInner() {
     needsWork: "",
     notes: "",
   });
-
-  useEffect(() => {
-    loadMatches().then(setMatches);
-  }, []);
 
   const visible = useMemo(() => {
     const cutoff = localDateKey(new Date(Date.now() - 30 * 86400000));
@@ -92,7 +94,10 @@ function MatchHistoryInner() {
           opponentUtr,
         }),
       });
-      if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
+      if (saved)
+        mutateMatches((prev = []) => [saved, ...prev.filter((m) => m.id !== saved.id)], {
+          revalidate: false,
+        });
       setSaving("Saved");
     } catch (err) {
       setSaving("");

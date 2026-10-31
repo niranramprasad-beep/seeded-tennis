@@ -10,7 +10,7 @@ import {
   School,
   ShieldCheck,
 } from "lucide-react";
-import { getSchools } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { FadeIn } from "@/components/shared/fade-in";
@@ -58,7 +58,7 @@ const LOOP: [string, string][] = [
 ];
 
 export default async function HomePage() {
-  const schools = await getSchools();
+  const schools = await getSchoolsLite();
   const marqueeSchools = schools.slice(0, 18);
 
   return (

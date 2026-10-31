@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { School } from "@/lib/types";
+import type { SchoolLite } from "@/lib/types";
 import { SchoolBadge } from "@/components/shared/school-badge";
 
-export function SchoolMarquee({ schools }: { schools: School[] }) {
+export function SchoolMarquee({ schools }: { schools: SchoolLite[] }) {
   const track = [...schools, ...schools];
   return (
     <div className="relative overflow-hidden py-2">

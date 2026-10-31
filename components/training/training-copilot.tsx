@@ -52,6 +52,12 @@ export function TrainingCopilot({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  // If the user navigates away (or closes the panel) while a copilot reply
+  // is still in flight, cancel it instead of letting it finish and set
+  // state on an unmounted component.
+  const requestRef = useRef<AbortController | null>(null);
+  useEffect(() => () => requestRef.current?.abort(), []);
+
   const send = async () => {
     const message = input.trim();
     if (!message || loading) return;
@@ -60,6 +66,9 @@ export function TrainingCopilot({
     const nextHistory = [...messages, { role: "user" as const, content: message }];
     setMessages(nextHistory);
     setLoading(true);
+
+    const controller = new AbortController();
+    requestRef.current = controller;
 
     try {
       const token = await getAccessToken();
@@ -83,6 +92,7 @@ export function TrainingCopilot({
           })),
           sessionTypes: sessionTypes.map((t) => ({ id: t.id, label: t.label })),
         }),
+        signal: controller.signal,
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error || "The copilot hit an error.");
@@ -92,9 +102,10 @@ export function TrainingCopilot({
         onActions(payload.actions);
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "The copilot hit an error.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 

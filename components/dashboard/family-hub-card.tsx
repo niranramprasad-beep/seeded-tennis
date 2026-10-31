@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { ArrowUpRight, Heart, MessageCircle, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,30 +17,26 @@ import {
 import { formatUTR } from "@/lib/utils";
 
 export function FamilyHubCard() {
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [notes, setNotes] = useState<EncouragementNote[]>([]);
+  // Same keys as the parent dashboard — switching between /dashboard and
+  // /family reuses whichever fetch landed first instead of each page
+  // loading its own copy.
+  const { data: members = [], mutate: mutateMembers } = useSWR<FamilyMember[]>(
+    "family-members",
+    () => loadFamilyMembers()
+  );
+  const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
+    "encouragement-notes",
+    () => loadEncouragementNotes()
+  );
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
-
-  const refresh = async () => {
-    const [familyRows, noteRows] = await Promise.all([
-      loadFamilyMembers(),
-      loadEncouragementNotes(),
-    ]);
-    setMembers(familyRows);
-    setNotes(noteRows);
-  };
-
-  useEffect(() => {
-    refresh();
-  }, []);
 
   const save = async () => {
     if (!note.trim()) return;
     await saveEncouragementNote(note.trim());
     setNote("");
     setStatus("Shared with your family.");
-    await refresh();
+    await Promise.all([mutateMembers(), mutateNotes()]);
   };
 
   const parents = members.filter((member) => member.role === "parent");

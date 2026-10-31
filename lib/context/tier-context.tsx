@@ -39,25 +39,25 @@ export function TierProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!playerHydrated) return;
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       const supabase = getSupabase();
       if (!supabase || !isAuthed) {
         try {
           const stored = window.localStorage.getItem(DEMO_TIER_KEY) as SubscriptionTier | null;
-          if (!cancelled) setTierState(stored && stored in TIER_RANK ? stored : "free");
+          if (!controller.signal.aborted) setTierState(stored && stored in TIER_RANK ? stored : "free");
         } catch {
-          if (!cancelled) setTierState("free");
+          if (!controller.signal.aborted) setTierState("free");
         }
-        if (!cancelled) setHydrated(true);
+        if (!controller.signal.aborted) setHydrated(true);
         return;
       }
 
       const { data: userData } = await getAuthedUser(supabase);
       const userId = userData.user?.id;
       if (!userId) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setTierState("free");
           setHydrated(true);
         }
@@ -68,9 +68,10 @@ export function TierProvider({ children }: { children: ReactNode }) {
         .from("profiles")
         .select("subscription_tier")
         .eq("id", userId)
+        .abortSignal(controller.signal)
         .maybeSingle();
 
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         const real = data?.subscription_tier as SubscriptionTier | undefined;
         setTierState(real && real in TIER_RANK ? real : "free");
         setHydrated(true);
@@ -78,9 +79,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
     }
 
     void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [isAuthed, playerHydrated]);
 
   // Local-only override — used by the dev tier switcher (development builds

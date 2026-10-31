@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { motion } from "framer-motion";
 import { Bell, CalendarDays, Check, ClipboardList, Plus, Trophy } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
@@ -31,7 +32,13 @@ export function MatchModeView() {
 
 function MatchModeInner() {
   const { player } = usePlayer();
-  const [matches, setMatches] = useState<MatchRecord[]>([]);
+  // Same "matches" key as the history view — switching between /match-mode
+  // and /matches reuses one cached fetch instead of each page loading its
+  // own copy of the same data.
+  const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
+    "matches",
+    () => loadMatches()
+  );
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -41,10 +48,6 @@ function MatchModeInner() {
     tournamentName: "",
     surface: "hard" as MatchRecord["surface"],
   });
-
-  useEffect(() => {
-    loadMatches().then(setMatches);
-  }, []);
 
   // Status messages (saved/notification/error) are informational, not a
   // persistent state — fade back to "Ready" so a message from a minute ago
@@ -90,7 +93,10 @@ function MatchModeInner() {
         prepPlan,
         notificationRequested: false,
       });
-      if (saved) setMatches((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
+      if (saved)
+        mutateMatches((prev = []) => [saved, ...prev.filter((m) => m.id !== saved.id)], {
+          revalidate: false,
+        });
       setStatus("Prep plan saved");
     } catch (err) {
       setStatus("Ready");
@@ -109,8 +115,9 @@ function MatchModeInner() {
       return;
     }
     await saveMatch({ ...match, notificationRequested: true });
-    setMatches((prev) =>
-      prev.map((m) => (m.id === match.id ? { ...m, notificationRequested: true } : m))
+    mutateMatches(
+      (prev = []) => prev.map((m) => (m.id === match.id ? { ...m, notificationRequested: true } : m)),
+      { revalidate: false }
     );
     setStatus("Notification enabled. Browser reminders work while the app is open.");
   };
@@ -122,7 +129,10 @@ function MatchModeInner() {
     setError("");
     try {
       const saved = await saveMatch({ ...match, ...input });
-      if (saved) setMatches((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
+      if (saved)
+        mutateMatches((prev = []) => prev.map((m) => (m.id === saved.id ? saved : m)), {
+          revalidate: false,
+        });
       setStatus("Result logged");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not log the result. Try again.");

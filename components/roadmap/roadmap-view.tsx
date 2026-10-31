@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
-import type { School } from "@/lib/types";
+import type { SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { buildRoadmap } from "@/lib/data";
@@ -18,7 +18,7 @@ import { formatUTR, cn } from "@/lib/utils";
 
 const MAX_SCHOOLS = 5;
 
-export function RoadmapView({ schools }: { schools: School[] }) {
+export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
   return (
     <AuthGate>
       <PaidGate
@@ -38,7 +38,7 @@ export function RoadmapView({ schools }: { schools: School[] }) {
   );
 }
 
-function RoadmapInner({ schools }: { schools: School[] }) {
+function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
   const [whatIf, setWhatIf] = useState<string[]>(player.targetSchoolSlugs);
   const [openStage, setOpenStage] = useState<number | null>(0);

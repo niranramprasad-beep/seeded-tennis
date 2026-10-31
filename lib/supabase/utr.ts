@@ -14,17 +14,23 @@ async function getUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-export async function loadUtrEntries(): Promise<UtrEntry[]> {
+// Plain read — utr_entries' RLS policy is exactly "auth.uid() = user_id",
+// identical to what this query wants, so there's nothing to gain from
+// resolving the user id first and filtering by it client-side: skipping
+// straight to the query (RLS does the scoping) saves one whole network
+// round-trip per load, and an unauthenticated/signed-out call just comes
+// back empty instead of needing a separate check.
+export async function loadUtrEntries(signal?: AbortSignal): Promise<UtrEntry[]> {
   const supabase = getSupabase();
-  const userId = await getUserId();
-  if (!supabase || !userId) return [];
+  if (!supabase) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("utr_entries")
     .select("id, utr, recorded_at, note")
-    .eq("user_id", userId)
     .order("recorded_at", { ascending: true })
     .order("created_at", { ascending: true });
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
 
   if (error) {
     // Keep the dashboard usable if the migration has not been applied yet.

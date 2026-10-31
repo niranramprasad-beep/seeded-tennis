@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import type { ReactNode } from "react";
 import { Search, UserCheck, UserPlus, Users } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
@@ -29,20 +30,26 @@ export function FriendsView() {
 function FriendsInner() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FriendProfile[]>([]);
-  const [friendships, setFriendships] = useState<Friendship[]>([]);
+  const { data: friendships = [], mutate: refresh } = useSWR<Friendship[]>(
+    "friendships",
+    () => loadFriendships()
+  );
   const [privacyLevel, setPrivacyLevel] = useState<FriendProfile["privacyLevel"]>("friends");
   const [status, setStatus] = useState("Search by name or email.");
-
-  const refresh = () => loadFriendships().then(setFriendships);
-  useEffect(() => {
-    refresh();
-  }, []);
 
   const accepted = useMemo(() => friendships.filter((f) => f.status === "accepted"), [friendships]);
   const pending = useMemo(() => friendships.filter((f) => f.status === "pending"), [friendships]);
 
+  // Cancel the previous in-flight search if the user clicks Search again
+  // before the first one lands, so a slow earlier search can't overwrite
+  // faster, newer results.
+  const searchAbortRef = useRef<AbortController | null>(null);
   const search = async () => {
-    const rows = await searchProfiles(query);
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const rows = await searchProfiles(query, controller.signal);
+    if (controller.signal.aborted) return;
     setResults(rows);
     setStatus(rows.length ? `${rows.length} player${rows.length === 1 ? "" : "s"} found.` : "No matching players found.");
   };

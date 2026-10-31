@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   ArrowUpRight,
   Calculator,
@@ -13,7 +14,7 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
-import type { School, TrainingPlan } from "@/lib/types";
+import type { SchoolLite, TrainingPlan } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { buildRoadmap } from "@/lib/data";
@@ -36,7 +37,7 @@ import {
 } from "@/lib/supabase/utr";
 
 interface DashboardViewProps {
-  schools: School[];
+  schools: SchoolLite[];
   plans: TrainingPlan[];
 }
 
@@ -51,11 +52,35 @@ export function DashboardView(props: DashboardViewProps) {
 function DashboardInner({ schools, plans }: DashboardViewProps) {
   const { player, updatePlayer } = usePlayer();
   const { tier } = useTier();
-  const [utrEntries, setUtrEntries] = useState<UtrEntry[]>([]);
+  // SWR caches this under a stable key so flipping to another tab and back
+  // shows the last-loaded entries instantly instead of a blank/loading
+  // state, then quietly revalidates in the background.
+  const {
+    data: utrEntries = [],
+    error: utrFetchError,
+    isLoading: utrFetchLoading,
+    mutate: mutateUtrEntries,
+  } = useSWR<UtrEntry[]>("utr-entries", () => loadUtrEntries());
   const [utrDrawerOpen, setUtrDrawerOpen] = useState(false);
   const [checkinDrawerOpen, setCheckinDrawerOpen] = useState(false);
   const [utrStatus, setUtrStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
   const [utrError, setUtrError] = useState("");
+
+  // Mirror SWR's fetch state into the existing status/error pair so the
+  // render logic below (and the "saving"/"error" states the save flow
+  // already manages) doesn't need to change.
+  useEffect(() => {
+    if (utrFetchLoading) {
+      setUtrStatus("loading");
+    } else if (utrFetchError) {
+      setUtrStatus("error");
+      setUtrError(
+        utrFetchError instanceof Error ? utrFetchError.message : "Could not load UTR history."
+      );
+    } else {
+      setUtrStatus((prev) => (prev === "loading" ? "idle" : prev));
+    }
+  }, [utrFetchLoading, utrFetchError]);
 
   const targetSchools = useMemo(
     () => schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)),
@@ -80,29 +105,6 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
 
   const targetUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
   const firstName = player.name.trim().split(/\s+/)[0] || "";
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        setUtrStatus("loading");
-        const entries = await loadUtrEntries();
-        if (!cancelled) {
-          setUtrEntries(entries);
-          setUtrStatus("idle");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setUtrStatus("error");
-          setUtrError(error instanceof Error ? error.message : "Could not load UTR history.");
-        }
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Never invent data: with no logged entries yet, the only "actual" point is
   // the player's own current UTR from their profile — a real value, not a
@@ -141,7 +143,10 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
       const nextEntries = [...utrEntries, entry].sort((a, b) =>
         a.recordedAt.localeCompare(b.recordedAt)
       );
-      setUtrEntries(nextEntries);
+      // Update SWR's cache directly with the known-correct result instead
+      // of refetching — instant UI update, and `revalidate: false` means
+      // the next real load doesn't pointlessly re-request the same page.
+      mutateUtrEntries(nextEntries, { revalidate: false });
       // currentUTR must track whichever entry is most recently dated, not
       // whichever one was just logged — a backfilled older result must
       // never override a newer value already on record.

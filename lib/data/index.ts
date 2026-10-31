@@ -11,6 +11,7 @@ import type {
   Player,
   RoadmapYear,
   School,
+  SchoolLite,
   Tournament,
   TrainingPlan,
 } from "@/lib/types";
@@ -40,6 +41,14 @@ function resolve<T>(value: T): Promise<T> {
 
 export async function getSchools(): Promise<School[]> {
   return resolve(schoolsData);
+}
+
+// Lighter catalog for pages that list/compare/filter schools but never
+// render recruit history or the coach-email program blurb — see SchoolLite.
+export async function getSchoolsLite(): Promise<SchoolLite[]> {
+  return resolve(
+    schoolsData.map(({ recentRecruits, programNote, ...rest }) => rest)
+  );
 }
 
 export async function getSchool(slug: string): Promise<School | undefined> {
@@ -107,7 +116,10 @@ export async function getTournaments(): Promise<Tournament[]> {
 // grade (the recruiting-relevant window), and the goal UTR is the highest
 // minimum-competitive bar among the targets — already gender-correct because the
 // targets come from the matching men's/women's program data.
-export function buildRoadmap(player: Player, targets: School[]): RoadmapYear[] {
+export function buildRoadmap(
+  player: Player,
+  targets: Pick<School, "minCompetitiveUTR">[]
+): RoadmapYear[] {
   // Fallback goal when no targets are chosen: aim ~2.5 above today, capped at
   // a realistic top-of-college-tennis level for each gender (real UTR scale).
   const genderCap = REALISTIC_UTR_CEILING[player.gender];
