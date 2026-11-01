@@ -100,24 +100,31 @@ function SettingsInner() {
           <Field label="Gender" value={player.gender === "female" ? "Female" : "Male"} />
           <Field label="Country" value={player.country} />
         </dl>
-        <div className="mt-5 flex items-center justify-between border-t-[0.5px] border-line pt-5">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t-[0.5px] border-line pt-5">
           <div>
             <p className="text-sm text-stone">Current plan</p>
             <Badge variant={tier === "free" ? "outline" : "leaf"} size="md" className="mt-1">
               {TIER_LABEL[tier]}
             </Badge>
           </div>
-          <Button
-            variant="outline"
-            size="md"
-            onClick={() => {
-              signOut();
-              router.push("/");
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {tier !== "free" && (
+              <Button variant="outline" size="md" onClick={() => router.push("/pricing")}>
+                Manage billing
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => {
+                signOut();
+                router.push("/");
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

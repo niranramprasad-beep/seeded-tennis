@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Calculator, DollarSign, Save } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
@@ -47,8 +47,11 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
   });
 
   const results = useMemo(() => calculateCost(inputs), [inputs]);
+  // None of these quantities (years, tournaments, rates, budgets) can be
+  // negative — clamp here rather than let a stray "-" produce a negative
+  // multiplier that would flip costs negative downstream.
   const updateNumber = (key: keyof CostInputs, value: string) =>
-    setInputs((prev) => ({ ...prev, [key]: Number(value) || 0 }));
+    setInputs((prev) => ({ ...prev, [key]: Math.max(0, Number(value) || 0) }));
 
   const save = async () => {
     try {
@@ -144,7 +147,23 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
 }
 
 function toScholarshipSchool(s: SchoolLite) {
-  const scholarshipPercent = s.division === "D1" ? 35 : s.division === "D2" ? 25 : 0;
+  // Tennis is an "equivalency" sport — a roster splits a handful of
+  // scholarships across ~9-10 players, so no individual recruit gets
+  // anywhere near "35% of cost of attendance." Using the team-wide max as
+  // one player's personal award (the old numbers) made the assumed
+  // scholarship bigger than most families' actual training spend for
+  // EVERY school, so "Net" always clamped to $0 regardless of inputs.
+  // These are realistic individual-recruit averages instead.
+  // The Ivy League gives no athletic scholarships at all (NCAA rule) —
+  // any non-zero number here was simply wrong for a school like Cornell.
+  const scholarshipPercent =
+    s.conference === "Ivy League"
+      ? 0
+      : s.division === "D1"
+        ? 18
+        : s.division === "D2"
+          ? 12
+          : 0;
   const annualCost = s.usNewsRanking <= 30 ? 86000 : s.division === "D3" ? 79000 : 62000;
   return { name: s.name, division: s.division, annualCost, scholarshipPercent };
 }
@@ -154,13 +173,42 @@ function money(value: number) {
 }
 
 function NumberInput({ label, value, onChange }: { label: string; value: number; onChange: (value: string) => void }) {
+  // A plain controlled `type="number"` re-renders on every keystroke with
+  // Number(text) — typing just "-" parses to NaN, falls back to 0, and
+  // snaps the field to "0" before a minus sign can ever be followed by a
+  // digit (so "-5" became "05"). Keeping the raw text locally lets an
+  // in-progress value like "-" or "12." sit as typed; it only commits
+  // upward once it's actually a complete, valid number.
+  const [text, setText] = useState(String(value));
+
+  // No dependency array on purpose: this must re-check on every render, not
+  // just when `value` changes from its PREVIOUS value. Typing two different
+  // invalid values in a row that both clamp to the same number (e.g. "-1"
+  // then "-3", both clamped to 0) would otherwise never re-sync — `value`
+  // itself never changes (stays 0 → 0), so a dependency-gated effect would
+  // silently skip the resync and leave the invalid text on screen. The
+  // guard inside (only setState when the two actually disagree) is what
+  // keeps this from looping forever, not a dependency array.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (Number(text) !== value) setText(String(value));
+  });
+
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-stone-light">{label}</span>
       <input
-        type="number"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        type="text"
+        inputMode="decimal"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (!/^-?\d*\.?\d*$/.test(next)) return;
+          setText(next);
+          if (next !== "" && next !== "-" && !Number.isNaN(Number(next))) {
+            onChange(next);
+          }
+        }}
         className="h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
       />
     </label>

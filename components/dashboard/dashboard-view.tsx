@@ -15,7 +15,7 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
-import type { SchoolLite, TrainingPlan } from "@/lib/types";
+import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { buildRoadmap } from "@/lib/data";
@@ -28,7 +28,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { DailyCheckinCard } from "./daily-checkin-card";
-import { ACTIVITY_META } from "@/lib/activity-style";
 import { localDateKey } from "@/lib/time";
 import { cn, formatUTR } from "@/lib/utils";
 import {
@@ -36,6 +35,35 @@ import {
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/supabase/utr";
+import {
+  loadTrainingPlannerState,
+  type TrainingPlannerState,
+} from "@/lib/supabase/training";
+
+const WEEKDAYS: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const EMPTY_PLANNER_STATE: TrainingPlannerState = {
+  sessions: [],
+  sessionTypes: [],
+  plans: [],
+  activePlanId: "",
+  templates: [],
+};
+
+// Mon-Sun date keys for the week containing `today`, so "This week" can
+// filter the player's real scheduled sessions instead of showing a generic
+// template — the dashboard and /training must agree on what's planned.
+function currentWeekDateKeys(today = new Date()): string[] {
+  const weekday = today.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return localDateKey(d);
+  });
+}
 
 // recharts is a genuinely heavy dependency — load it only on the client,
 // only once this chart actually renders, instead of bundling it into
@@ -47,7 +75,6 @@ const UTRTrajectoryChart = dynamic(
 
 interface DashboardViewProps {
   schools: SchoolLite[];
-  plans: TrainingPlan[];
 }
 
 export function DashboardView(props: DashboardViewProps) {
@@ -58,9 +85,32 @@ export function DashboardView(props: DashboardViewProps) {
   );
 }
 
-function DashboardInner({ schools, plans }: DashboardViewProps) {
+function DashboardInner({ schools }: DashboardViewProps) {
   const { player, updatePlayer } = usePlayer();
   const { tier } = useTier();
+  // Same SWR key /training itself uses, so both pages share one fetch and
+  // can never disagree about what's actually scheduled this week.
+  const trainingStorageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
+  const { data: plannerState } = useSWR<TrainingPlannerState | null>(
+    ["training-planner-state", trainingStorageKey],
+    () => loadTrainingPlannerState(EMPTY_PLANNER_STATE)
+  );
+  const weekDateKeys = useMemo(() => currentWeekDateKeys(), []);
+  const weekSessions = useMemo(() => {
+    const sessions = plannerState?.sessions ?? [];
+    return weekDateKeys.map((date, i) => ({
+      day: WEEKDAYS[i],
+      sessions: sessions.filter((s) => s.date === date),
+    }));
+  }, [plannerState, weekDateKeys]);
+  const weeklyHours = useMemo(
+    () =>
+      weekSessions.reduce(
+        (sum, d) => sum + d.sessions.reduce((s, sess) => s + sess.duration / 60, 0),
+        0
+      ),
+    [weekSessions]
+  );
   // SWR caches this under a stable key so flipping to another tab and back
   // shows the last-loaded entries instantly instead of a blank/loading
   // state, then quietly revalidates in the background.
@@ -99,17 +149,6 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
   const roadmap = useMemo(
     () => buildRoadmap(player, targetSchools),
     [player, targetSchools]
-  );
-
-  const plan = useMemo(
-    () =>
-      plans.reduce((best, p) =>
-        Math.abs(p.utrLevel - player.currentUTR) <
-        Math.abs(best.utrLevel - player.currentUTR)
-          ? p
-          : best
-      ),
-    [plans, player.currentUTR]
   );
 
   const targetUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
@@ -242,7 +281,9 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-medium text-ink">This week</h2>
-              <p className="text-sm text-stone">{plan.weeklyHours} hrs planned</p>
+              <p className="text-sm text-stone">
+                {Math.round(weeklyHours * 10) / 10} hrs planned
+              </p>
             </div>
             <Link
               href="/training"
@@ -254,35 +295,40 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
           </div>
 
           <div className="mt-4 space-y-1.5">
-            {plan.days.map((d) => {
-              const hours = d.activities.reduce((sum, a) => sum + a.hours, 0);
+            {weekSessions.map(({ day, sessions }) => {
+              const hours = sessions.reduce((sum, s) => sum + s.duration / 60, 0);
               return (
                 <div
-                  key={d.day}
+                  key={day}
                   className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-cream/50 px-3 py-2.5"
                 >
                   <span className="w-9 shrink-0 text-xs font-medium uppercase text-stone-light">
-                    {d.day}
+                    {day}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                    {d.activities.length === 0 ? (
+                    {sessions.length === 0 ? (
                       <span className="text-xs text-stone-light">Rest day</span>
                     ) : (
-                      d.activities.map((a) => (
-                        <span
-                          key={a.id}
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-xs font-medium",
-                            ACTIVITY_META[a.type].chipBg,
-                            ACTIVITY_META[a.type].chipText
-                          )}
-                        >
-                          {ACTIVITY_META[a.type].label}
-                        </span>
-                      ))
+                      sessions.map((s) => {
+                        const type = plannerState?.sessionTypes.find((t) => t.id === s.typeId);
+                        return (
+                          <span
+                            key={s.id}
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-xs font-medium",
+                              type?.bg ?? "bg-grass-50",
+                              type?.text ?? "text-grass-700"
+                            )}
+                          >
+                            {type?.label ?? s.title}
+                          </span>
+                        );
+                      })
                     )}
                   </div>
-                  <span className="shrink-0 text-xs text-stone">{hours}h</span>
+                  <span className="shrink-0 text-xs text-stone">
+                    {Math.round(hours * 10) / 10}h
+                  </span>
                 </div>
               );
             })}
@@ -370,7 +416,7 @@ function DashboardInner({ schools, plans }: DashboardViewProps) {
       />
 
       <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
-        <DailyCheckinCard player={player} trainingHours={plan.weeklyHours} />
+        <DailyCheckinCard player={player} trainingHours={weeklyHours} />
       </Drawer>
     </div>
   );

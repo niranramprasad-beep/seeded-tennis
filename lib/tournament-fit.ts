@@ -76,8 +76,8 @@ export interface FitInput {
   drawUtr: number | null; // average UTR of entrants, if known/estimated
   travelHours: number | null;
   distanceMiles: number | null;
-  entryCost: number;
-  travelCost: number;
+  entryCost: number | null; // null = not entered — must not be scored as "free"
+  travelCost: number | null;
 }
 
 export interface FitResult {
@@ -214,24 +214,41 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   }
 
   /* ------------------------------------------------------- cost (weight 30) */
-  const totalCost = Math.max(0, input.entryCost) + Math.max(0, input.travelCost);
+  // A blank entry fee or travel cost means "not entered," not "$0" — treating
+  // it as free made every unanswered cost field score as a perfect 100,
+  // regardless of what the tournament actually costs.
+  const costKnown = input.entryCost != null || input.travelCost != null;
+  const costPartial =
+    costKnown && (input.entryCost == null || input.travelCost == null);
+  const totalCost = Math.max(0, input.entryCost ?? 0) + Math.max(0, input.travelCost ?? 0);
   const costPerMatch = totalCost / levelInfo.typicalMatches;
-  const costScore = costScoreFor(costPerMatch, levelInfo.scope);
+  // With nothing entered there's nothing to score honestly — a neutral
+  // default instead of the misleadingly perfect "$0/match = 100" result.
+  const costScore = costKnown ? costScoreFor(costPerMatch, levelInfo.scope) : 60;
+  const partialNote = costPartial
+    ? ` (only ${input.entryCost == null ? "travel cost" : "entry fee"} entered — add the other for a real total)`
+    : "";
 
-  if (costScore >= 85) {
+  if (!costKnown) {
+    reasons.push({
+      tone: "neutral",
+      text: "No entry fee or travel cost entered, so cost isn't scored yet — add them for a real cost-per-match read.",
+    });
+    suggestions.push("Enter the entry fee and travel cost to see whether this event is actually worth the spend.");
+  } else if (costScore >= 85) {
     reasons.push({
       tone: "positive",
-      text: `Roughly $${Math.round(costPerMatch)} per expected match (~${levelInfo.typicalMatches} matches for this format) — efficient development spend.`,
+      text: `Roughly $${Math.round(costPerMatch)} per expected match (~${levelInfo.typicalMatches} matches for this format)${partialNote} — efficient development spend.`,
     });
   } else if (costScore >= 50) {
     reasons.push({
       tone: "neutral",
-      text: `About $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total). Reasonable if the draw is right, but worth comparing to closer options.`,
+      text: `About $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total)${partialNote}. Reasonable if the draw is right, but worth comparing to closer options.`,
     });
   } else {
     reasons.push({
       tone: "negative",
-      text: `Around $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total) is expensive for what this event likely returns.`,
+      text: `Around $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total)${partialNote} is expensive for what this event likely returns.`,
     });
     suggestions.push("Compare cost per match across 2-3 candidate events — the same budget often buys twice the matches closer to home.");
   }

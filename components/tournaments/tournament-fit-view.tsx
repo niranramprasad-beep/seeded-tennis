@@ -116,8 +116,8 @@ export function TournamentFitView() {
       drawUtr: draw,
       travelHours: travelMode === "hours" ? travel : null,
       distanceMiles: travelMode === "miles" ? travel : null,
-      entryCost: Number(entryCost) || 0,
-      travelCost: Number(travelCost) || 0,
+      entryCost: entryCost !== "" ? Number(entryCost) : null,
+      travelCost: travelCost !== "" ? Number(travelCost) : null,
     });
     setResult({ ...fit, name: name.trim() || "This tournament" });
   };

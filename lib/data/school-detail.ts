@@ -22,6 +22,8 @@ export interface MatchResult {
   conference: boolean;
 }
 
+const MONTH_INDEX: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3 };
+
 export interface StandingRow {
   team: string;
   isThis: boolean;
@@ -172,7 +174,8 @@ export function getSchoolProfile(
   const pool = allSchools.filter(
     (s) => s.gender === school.gender && s.slug !== school.slug
   );
-  const recentMatches: MatchResult[] = Array.from({ length: 6 }, (_, i) => {
+  const MONTH_ORDER = ["Jan", "Feb", "Feb", "Mar", "Mar", "Apr"];
+  const generatedMatches: MatchResult[] = Array.from({ length: 6 }, (_, i) => {
     const opp = pool[Math.floor(rng() * pool.length)];
     const edge = school.avgRosterUTR - opp.avgRosterUTR;
     const win = rng() < 0.5 + edge * 0.35;
@@ -180,7 +183,7 @@ export function getSchoolProfile(
     const score = win
       ? close ? "4-3" : pick(["4-1", "4-2", "4-0"])
       : close ? "3-4" : pick(["1-4", "2-4", "0-4"]);
-    const month = ["Jan", "Feb", "Feb", "Mar", "Mar", "Apr"][i];
+    const month = MONTH_ORDER[i];
     return {
       opponent: opp.shortName,
       result: win ? "W" : "L",
@@ -188,6 +191,16 @@ export function getSchoolProfile(
       date: `${month} ${intBetween(3, 27)}`,
       conference: opp.conference === school.conference,
     };
+  });
+  // The day within each month is randomized independently, so two entries
+  // sharing a month (there are two Feb and two Mar slots above) could land
+  // in the wrong order — sort for real instead of relying on generation
+  // order to already be chronological.
+  const recentMatches = [...generatedMatches].sort((a, b) => {
+    const [aMonth, aDay] = a.date.split(" ");
+    const [bMonth, bDay] = b.date.split(" ");
+    const monthDiff = MONTH_INDEX[aMonth] - MONTH_INDEX[bMonth];
+    return monthDiff !== 0 ? monthDiff : Number(aDay) - Number(bDay);
   });
   const wins = recentMatches.filter((m) => m.result === "W").length;
   const record = `${12 + wins}-${6 + (recentMatches.length - wins)}`;

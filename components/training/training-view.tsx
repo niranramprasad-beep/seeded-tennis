@@ -306,6 +306,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   };
 
   const deleteSession = (id: string) => {
+    const session = state.sessions.find((s) => s.id === id);
+    if (!window.confirm(`Delete "${session?.title ?? "this session"}"? This can't be undone.`)) return;
     setState((prev) => ({
       ...prev,
       sessions: prev.sessions.filter((s) => s.id !== id),

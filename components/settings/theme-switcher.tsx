@@ -7,7 +7,35 @@ import { cn } from "@/lib/utils";
 
 export function ThemeSwitcher() {
   const { theme, setTheme, hydrated } = useTheme();
+  const coreThemes = THEMES.filter((t) => !t.id.startsWith("concept-"));
+  const conceptThemes = THEMES.filter((t) => t.id.startsWith("concept-"));
 
+  return (
+    <div className="space-y-5">
+      <ThemeGrid themes={coreThemes} theme={theme} setTheme={setTheme} hydrated={hydrated} />
+      {conceptThemes.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs text-stone-light">
+            Early previews we're testing — the look and name may still change.
+          </p>
+          <ThemeGrid themes={conceptThemes} theme={theme} setTheme={setTheme} hydrated={hydrated} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ThemeGrid({
+  themes,
+  theme,
+  setTheme,
+  hydrated,
+}: {
+  themes: typeof THEMES;
+  theme: ReturnType<typeof useTheme>["theme"];
+  setTheme: ReturnType<typeof useTheme>["setTheme"];
+  hydrated: boolean;
+}) {
   return (
     // grid-cols-1 isn't decorative here — without an explicit track size,
     // a bare `grid` lets its single mobile column default to CSS Grid's
@@ -15,7 +43,7 @@ export function ThemeSwitcher() {
     // `truncate` already on the text below and overflows the viewport
     // instead of shrinking to it. grid-cols-1 forces minmax(0, 1fr).
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {THEMES.map((t) => {
+      {themes.map((t) => {
         // Same hydration gap as the sidebar toggle: `theme` defaults to
         // "grass" until the provider's effect reads the real saved value.
         // Without the `hydrated` check, this card would flash as
@@ -48,7 +76,7 @@ export function ThemeSwitcher() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-ink">{t.name}</p>
-              <p className="truncate text-xs text-stone-light">
+              <p className="line-clamp-2 text-xs text-stone-light">
                 {t.description}
               </p>
             </div>

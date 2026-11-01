@@ -217,7 +217,9 @@ export function buildCoachEmail(
       ? `This season I ${top
           .map((r) => `${describeResult(r.result)} at the ${[r.level, r.name].filter(Boolean).join(" ")}`)
           .join(" and ")}.`
-      : `I'm playing a full sectional and national schedule this season (${player.tournamentsPlayed} events so far, building toward ${player.tournamentsGoal}).`;
+      : player.tournamentsPlayed > 0
+        ? `I'm playing a full sectional and national schedule this season (${player.tournamentsPlayed} events so far, building toward ${player.tournamentsGoal}).`
+        : `I'm building out a full sectional and national schedule this season, with ${player.tournamentsGoal} events planned.`;
 
   // 2) A specific, researched line about the program.
   const recruitFootprint = programFootprint(school);

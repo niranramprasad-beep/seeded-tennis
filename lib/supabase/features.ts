@@ -320,6 +320,14 @@ export async function saveMatch(match: Partial<MatchRecord> & {
   return mapMatch(data);
 }
 
+export async function deleteMatch(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { id: userId } = await userIdAndProfile();
+  if (!supabase || !userId) return;
+  const { error } = await supabase.from("matches").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
 export async function uploadMatchVideo(file: File): Promise<string | null> {
   const supabase = getSupabase();
   const id = await userId();

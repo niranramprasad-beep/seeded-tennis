@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { Filter, Trophy } from "lucide-react";
+import { Filter, Trash2, Trophy } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePlayer } from "@/lib/context/player-context";
 import {
+  deleteMatch,
   generatePrepPlan,
   loadMatches,
   localDateKey,
@@ -57,6 +58,22 @@ function MatchHistoryInner() {
     notes: "",
   });
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const remove = async (match: MatchRecord) => {
+    const label = match.tournamentName || match.opponent || "this match";
+    if (!window.confirm(`Delete ${label}? This can't be undone.`)) return;
+    setDeletingId(match.id);
+    try {
+      await deleteMatch(match.id);
+      mutateMatches((prev = []) => prev.filter((m) => m.id !== match.id), { revalidate: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the match. Try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const visible = useMemo(() => {
     const cutoff = localDateKey(new Date(Date.now() - 30 * 86400000));
     return matches.filter((m) => {
@@ -69,6 +86,10 @@ function MatchHistoryInner() {
 
   const save = async () => {
     setError("");
+    if (!form.tournamentName.trim() && !form.opponent.trim() && !form.score.trim()) {
+      setError("Add at least a tournament, opponent, or score before saving — an empty entry isn't a real match record.");
+      return;
+    }
     const opponentUtr = form.opponentUtr ? Number(form.opponentUtr) : null;
     if (opponentUtr !== null && (!Number.isFinite(opponentUtr) || opponentUtr < 1 || opponentUtr > 16.5)) {
       setError("Opponent UTR must be between 1.00 and 16.50.");
@@ -177,12 +198,23 @@ function MatchHistoryInner() {
           </div>
           <div className="space-y-3">
             {visible.map((match) => (
-              <Card key={match.id} interactive className="p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={match.result === "win" ? "leaf" : "outline"}>
-                    {match.result ?? "planned"}
-                  </Badge>
-                  <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
+              <Card key={match.id} className="p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={match.result === "win" ? "leaf" : "outline"}>
+                      {match.result ?? "planned"}
+                    </Badge>
+                    <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Delete match"
+                    onClick={() => remove(match)}
+                    disabled={deletingId === match.id}
+                    className="rounded-lg p-1.5 text-stone-light transition-colors hover:bg-error-bg hover:text-error disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
                   {formatDate(match.matchDate)} · {match.opponent || "opponent not listed"} · {match.score || "no score"}

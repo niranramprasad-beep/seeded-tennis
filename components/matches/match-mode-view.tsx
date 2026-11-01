@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePlayer } from "@/lib/context/player-context";
 import {
+  deleteMatch,
   generatePrepPlan,
   loadMatches,
   localDateKey,
@@ -139,6 +140,17 @@ function MatchModeInner() {
     }
   };
 
+  const cancelMatch = async (match: MatchRecord) => {
+    if (!window.confirm(`Cancel the planned match${match.opponent ? ` vs ${match.opponent}` : ""}? This can't be undone.`)) return;
+    try {
+      await deleteMatch(match.id);
+      mutateMatches((prev = []) => prev.filter((m) => m.id !== match.id), { revalidate: false });
+      setStatus("Match canceled");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel the match. Try again.");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="grid gap-5 lg:grid-cols-[390px_1fr]">
@@ -197,6 +209,7 @@ function MatchModeInner() {
               currentUtr={player.currentUTR}
               onNotify={() => requestNotification(nextMatch)}
               onLog={logResult}
+              onCancel={() => cancelMatch(nextMatch)}
             />
           ) : (
             <Card className="flex min-h-[430px] items-center justify-center p-8 text-center">
@@ -220,7 +233,7 @@ function MatchModeInner() {
                   <div>
                     <p className="font-medium text-ink">{match.tournamentName || "Match"}</p>
                     <p className="mt-1 text-xs text-stone">
-                      {formatDate(match.matchDate)} · {match.surface} · {match.opponent || "Opponent TBD"}
+                      {formatDate(match.matchDate)} · {match.surface} · {match.opponent || "opponent not listed"}
                     </p>
                   </div>
                   {match.result && <Badge variant={match.result === "win" ? "leaf" : "outline"}>{match.result}</Badge>}
@@ -240,6 +253,7 @@ function PrepPlanCard({
   currentUtr,
   onNotify,
   onLog,
+  onCancel,
 }: {
   match: MatchRecord;
   plan: PrepPlan;
@@ -249,6 +263,7 @@ function PrepPlanCard({
     match: MatchRecord,
     input: { result: "win" | "loss"; score: string; worked: string; needsWork: string }
   ) => void;
+  onCancel: () => void;
 }) {
   const [logging, setLogging] = useState<"win" | "loss" | null>(null);
   const [score, setScore] = useState("");
@@ -271,14 +286,19 @@ function PrepPlanCard({
               {match.tournamentName || "Upcoming match"} · {formatDate(match.matchDate)}
             </h2>
             <p className="mt-2 text-sm text-on-primary/75">
-              You: {formatUTR(currentUtr)} UTR · Opponent:{" "}
-              {match.opponentUtr ? formatUTR(match.opponentUtr) : "unknown"} · {match.surface}
+              You: {formatUTR(currentUtr)} UTR · vs {match.opponent || "opponent not listed"}
+              {match.opponentUtr ? ` (${formatUTR(match.opponentUtr)} UTR)` : ""} · {match.surface}
             </p>
           </div>
-          <Button variant="leaf" size="sm" onClick={onNotify}>
-            <Bell className="h-4 w-4" />
-            8pm reminder
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="leaf" size="sm" onClick={onNotify}>
+              <Bell className="h-4 w-4" />
+              8pm reminder
+            </Button>
+            <Button variant="outline" size="sm" onClick={onCancel}>
+              Cancel match
+            </Button>
+          </div>
         </div>
       </div>
       <div className="grid gap-4 p-5 md:grid-cols-2">
