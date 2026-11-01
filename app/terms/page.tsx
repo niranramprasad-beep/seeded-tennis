@@ -19,7 +19,7 @@ const TERMS = [
   },
   {
     title: "Privacy",
-    body: "Seeded stores your account details, tennis profile, and activity (check-ins, matches, UTR history) to power your dashboard and family features. Your data is never sold, and family members only see data shared through your family code. You can request deletion of your account and data at any time via the contact page.",
+    body: "Seeded stores your account details, tennis profile, and activity (check-ins, matches, UTR history) to power your dashboard and family features. Your data is never sold, and family members only see data shared through your family code. You can request deletion of your account and data at any time via the contact page. We also use Google Analytics to see which pages get visited and how often — this tracks page views, not who you are, and never includes your name, email, or tennis data.",
   },
 ];
 
