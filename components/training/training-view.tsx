@@ -32,6 +32,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SpotlightCard } from "@/components/shared/spotlight-card";
 import type { CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
 import { getCurrentGrade, localDateKey, ordinalGrade } from "@/lib/time";
@@ -693,7 +694,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
               </section>
 
               <aside className="space-y-5">
-                <Card className="p-6">
+                <SpotlightCard className="rounded-card border border-line bg-card p-6 shadow-soft">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-grass" />
                     <h2 className="text-base font-medium text-ink">Plan balance</h2>
@@ -714,9 +715,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                       </div>
                     ))}
                   </div>
-                </Card>
+                </SpotlightCard>
 
-                <Card className="p-6">
+                <SpotlightCard className="rounded-card border border-line bg-card p-6 shadow-soft">
                   <h2 className="text-base font-medium text-ink">Recommended next move</h2>
                   <p className="mt-2 text-sm leading-relaxed text-stone">
                     {recommendation(player.currentUTR, activeSessions, currentGrade)}
@@ -725,7 +726,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                     Add suggested session
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                </Card>
+                </SpotlightCard>
               </aside>
             </div>
           </motion.div>

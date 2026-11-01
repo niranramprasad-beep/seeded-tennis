@@ -15,6 +15,11 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Reveal } from "@/components/shared/reveal";
 import { CourtRule } from "@/components/shared/court-rule";
+import { SpotlightCard } from "@/components/shared/spotlight-card";
+import { GlowOrb } from "@/components/shared/glow-orb";
+import { Magnetic } from "@/components/shared/magnetic";
+import { Parallax } from "@/components/shared/parallax";
+import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { SchoolMarquee } from "@/components/home/school-marquee";
 import { CinematicBand } from "@/components/home/cinematic-band";
 import { FitFinderTeaser } from "@/components/home/fit-finder-teaser";
@@ -68,6 +73,9 @@ export default async function HomePage() {
       <div className="bg-cream text-ink">
         {/* ----------------------------------------------------------- HERO */}
         <section className="relative overflow-hidden border-b-hairline border-line bg-cream">
+          <div className="absolute inset-0 bg-grid-dots" />
+          <GlowOrb className="-left-32 -top-40 h-[480px] w-[480px] opacity-70" />
+          <GlowOrb className="-right-48 top-20 h-[360px] w-[360px] opacity-40" />
           <div className="relative mx-auto grid max-w-content items-center gap-14 container-px pb-16 pt-28 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-32">
             <div>
               <Reveal index={0} step={0.09}>
@@ -89,13 +97,15 @@ export default async function HomePage() {
               </Reveal>
               <Reveal index={3} step={0.09}>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Link
-                    href="/signup"
-                    className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}
-                  >
-                    Build my fit report
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-                  </Link>
+                  <Magnetic strength={0.25}>
+                    <Link
+                      href="/signup"
+                      className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}
+                    >
+                      Build my fit report
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                    </Link>
+                  </Magnetic>
                   <Link
                     href="/schools"
                     className={cn(
@@ -112,12 +122,19 @@ export default async function HomePage() {
               <Reveal index={4} step={0.09}>
                 <div className="mt-12 max-w-lg border-t-hairline border-line pt-5">
                   <div className="grid grid-cols-3 divide-x divide-line">
+                    <div className="px-1 first:pl-0 sm:px-4">
+                      <p className="font-serif text-3xl text-grass sm:text-4xl">
+                        <CountUpOnView value={67} className="font-serif text-3xl text-grass sm:text-4xl" />
+                      </p>
+                      <p className="mt-1.5 whitespace-nowrap text-[9px] font-semibold uppercase tracking-normal text-stone sm:text-xs sm:tracking-[0.14em]">
+                        programs ranked
+                      </p>
+                    </div>
                     {[
-                      ["67", "programs ranked"],
                       ["D1–D3", "men's & women's"],
                       ["1–16.5", "full UTR scale"],
                     ].map(([value, label]) => (
-                      <div key={label} className="px-1 first:pl-0 sm:px-4">
+                      <div key={label} className="px-1 sm:px-4">
                         <p className="stat-number font-serif text-3xl text-grass sm:text-4xl">
                           {value}
                         </p>
@@ -133,16 +150,21 @@ export default async function HomePage() {
 
             <Reveal index={2} step={0.12}>
               <div className="relative mx-auto max-w-md lg:max-w-none">
-                <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-lift">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/images/hero-celebration.jpg"
-                    alt="Tennis player mid-match, full extension on a forehand"
-                    className="aspect-[4/5] w-full object-cover"
-                  />
-                </div>
+                <Parallax offset={16}>
+                  <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-lift">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/images/hero-celebration.jpg"
+                      alt="Tennis player mid-match, full extension on a forehand"
+                      className="aspect-[4/5] w-full object-cover"
+                    />
+                  </div>
+                </Parallax>
                 {/* floating proof chips */}
-                <div className="absolute -left-4 bottom-8 rounded-2xl border-hairline border-line bg-card px-4 py-3 shadow-lift sm:-left-8">
+                <div
+                  className="absolute -left-4 bottom-8 animate-float rounded-2xl border-hairline border-line bg-card px-4 py-3 shadow-lift sm:-left-8"
+                  style={{ animationDelay: "0.4s" }}
+                >
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-light">
                     Roadmap
                   </p>
@@ -151,7 +173,9 @@ export default async function HomePage() {
                   </p>
                   <p className="text-xs text-stone">by summer before senior year</p>
                 </div>
-                <div className="absolute -right-3 top-8 flex items-center gap-2 rounded-pill border-hairline border-line bg-card px-4 py-2.5 shadow-lift sm:-right-6">
+                <div
+                  className="absolute -right-3 top-8 flex animate-float items-center gap-2 rounded-pill border-hairline border-line bg-card px-4 py-2.5 shadow-lift sm:-right-6"
+                >
                   <span className="h-2 w-2 rounded-full bg-grass" />
                   <p className="text-sm font-medium text-ink">
                     Tournament: <span className="text-grass">good fit</span>
@@ -194,13 +218,13 @@ export default async function HomePage() {
           <div className="mt-10 grid gap-px overflow-hidden rounded-card border-hairline border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
             {CAPABILITIES.map((item, i) => (
               <Reveal key={item.title} index={i} step={0.06}>
-                <div className="h-full bg-card p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full border-hairline border-grass/20 bg-grass-50 text-grass">
-                    <item.icon className="h-5 w-5" />
+                <SpotlightCard className="h-full bg-card p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full border-hairline border-grass/20 bg-grass-50 text-grass transition-colors duration-300 group-hover:bg-grass group-hover:text-on-primary">
+                    <item.icon className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
                   </span>
                   <h3 className="mt-6 text-lg font-medium text-ink">{item.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-stone">{item.body}</p>
-                </div>
+                </SpotlightCard>
               </Reveal>
             ))}
           </div>
@@ -232,13 +256,15 @@ export default async function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href="/tournament-fit"
-                  className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group mt-8")}
-                >
-                  Open the fit finder
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
+                <Magnetic strength={0.25} className="mt-8">
+                  <Link
+                    href="/tournament-fit"
+                    className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}
+                  >
+                    Open the fit finder
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Magnetic>
               </Reveal>
 
               <Reveal index={1} step={0.1}>
@@ -319,13 +345,13 @@ export default async function HomePage() {
           <div className="mt-10 grid gap-px overflow-hidden rounded-card border-hairline border-line bg-line md:grid-cols-2 lg:grid-cols-4">
             {LOOP.map(([title, body], i) => (
               <Reveal key={title} index={i} step={0.06}>
-                <div className="flex h-full flex-col bg-card p-7">
-                  <span className="stat-number font-serif text-4xl italic leading-none text-grass">
+                <SpotlightCard className="flex h-full flex-col bg-card p-7">
+                  <span className="stat-number font-serif text-4xl italic leading-none text-grass transition-transform duration-300 group-hover:-translate-y-1">
                     {`0${i + 1}`}
                   </span>
                   <h3 className="mt-6 text-xl font-medium text-ink">{title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-stone">{body}</p>
-                </div>
+                </SpotlightCard>
               </Reveal>
             ))}
           </div>
@@ -339,13 +365,15 @@ export default async function HomePage() {
               Start with an honest fit check.
             </h2>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className={buttonVariants({ variant: "primary", size: "lg" })}
-              >
-                Create your profile
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              <Magnetic strength={0.25}>
+                <Link
+                  href="/signup"
+                  className={buttonVariants({ variant: "primary", size: "lg" })}
+                >
+                  Create your profile
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Magnetic>
               <Link
                 href="/schools"
                 className={buttonVariants({ variant: "outline", size: "lg" })}

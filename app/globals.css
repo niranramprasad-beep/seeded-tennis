@@ -483,6 +483,15 @@
   .text-pretty {
     text-wrap: pretty;
   }
+
+  /* Faint dot-grid texture, the structural backdrop premium SaaS pages use
+     instead of a flat fill — paired with a radial mask so it fades out
+     before reaching a section's edges rather than cutting off hard. */
+  .bg-grid-dots {
+    background-image: radial-gradient(rgb(var(--c-ink) / 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent 75%);
+  }
 }
 
 /* MotionConfig (app/providers.tsx) already defers framer-motion's own

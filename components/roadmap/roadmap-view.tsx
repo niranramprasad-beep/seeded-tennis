@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { SchoolBadge } from "@/components/shared/school-badge";
+import { Reveal } from "@/components/shared/reveal";
+import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { formatUTR, cn } from "@/lib/utils";
 
 // recharts only loads once this chart actually renders, on the client.
@@ -92,7 +94,7 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="max-w-2xl">
+      <Reveal className="max-w-2xl">
         <span className="eyebrow text-gold">Your roadmap</span>
         <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
           From {formatUTR(player.currentUTR)} to{" "}
@@ -106,11 +108,12 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
           the most demanding school on your list. Adjust your what-if picks below
           and watch the plan re-tune.
         </p>
-      </div>
+      </Reveal>
 
       {/* trajectory + goal */}
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2 p-6">
+        <Reveal index={1} className="lg:col-span-2">
+        <Card className="h-full p-6">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-grass" />
             <h2 className="text-lg font-medium text-ink">UTR trajectory</h2>
@@ -124,8 +127,10 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
             />
           </div>
         </Card>
+        </Reveal>
 
-        <Card className="flex flex-col justify-center bg-grass p-6 text-on-primary">
+        <Reveal index={2}>
+        <Card className="flex h-full flex-col justify-center bg-grass p-6 text-on-primary shadow-glow">
           <p className="text-sm text-on-primary/80">Goal UTR to be competitive</p>
           <div className="mt-1 text-6xl font-light">
             <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
@@ -146,6 +151,7 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
             ))}
           </div>
         </Card>
+        </Reveal>
       </div>
 
       {/* what-if picker */}
@@ -190,8 +196,8 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
         </h2>
         <div className="mt-4 flex gap-4 overflow-x-auto pb-3">
           {roadmap.map((year, i) => (
-            <div key={`${year.calendarYear}-${i}`} className="w-[280px] shrink-0">
-              <Card className="flex h-full flex-col p-5">
+            <Reveal key={`${year.calendarYear}-${i}`} index={i} step={0.07} className="w-[280px] shrink-0">
+              <SpotlightCard className="flex h-full flex-col rounded-card border border-line bg-card p-5 shadow-soft">
                 <div className="flex items-center justify-between">
                   <Badge variant="default" size="md">
                     {year.shortLabel} Grade
@@ -285,8 +291,8 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
                     ))}
                   </ul>
                 </div>
-              </Card>
-            </div>
+              </SpotlightCard>
+            </Reveal>
           ))}
         </div>
       </div>

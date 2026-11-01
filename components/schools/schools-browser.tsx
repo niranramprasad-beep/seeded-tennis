@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { SchoolBadge } from "@/components/shared/school-badge";
+import { Reveal } from "@/components/shared/reveal";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -105,6 +106,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
       </div>
 
       {/* filters */}
+      <Reveal>
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2 text-sm font-medium text-ink">
           <SlidersHorizontal className="h-4 w-4 text-grass" />
@@ -175,6 +177,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
           </div>
         </div>
       </Card>
+      </Reveal>
 
       {/* leaderboard header */}
       <div className="mt-6 flex items-center justify-between">

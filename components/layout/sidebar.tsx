@@ -116,9 +116,12 @@ export function Sidebar() {
                 {active && (
                   <motion.span
                     layoutId="sidebar-active-pill"
-                    className="absolute inset-0 rounded-xl bg-grass shadow-soft"
+                    className="absolute inset-0 rounded-xl bg-grass shadow-glow"
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
+                )}
+                {!active && (
+                  <span className="absolute inset-0 rounded-xl bg-grass-50 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
                 )}
                 <Icon
                   className={cn(

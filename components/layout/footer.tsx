@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 
 const COLUMNS = [
   {
@@ -62,9 +63,10 @@ export function Footer() {
                   <li key={l.label}>
                     <Link
                       href={l.href}
-                      className="text-sm text-stone transition-colors hover:text-ink"
+                      className="group inline-flex items-center gap-1 text-sm text-stone transition-colors hover:text-ink"
                     >
                       {l.label}
+                      <ArrowUpRight className="h-3 w-3 -translate-x-1 opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
                     </Link>
                   </li>
                 ))}

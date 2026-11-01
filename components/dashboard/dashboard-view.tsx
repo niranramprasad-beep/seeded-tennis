@@ -265,7 +265,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
               deliberately removed those everywhere else; this stays solid
               bg-grass like every other themed surface). */}
           <Reveal index={2}>
-            <Card className="relative flex h-full flex-col justify-center overflow-hidden bg-grass p-6 text-on-primary">
+            <Card className="relative flex h-full flex-col justify-center overflow-hidden bg-grass p-6 text-on-primary shadow-glow">
               <svg
                 viewBox="0 0 160 160"
                 aria-hidden
@@ -331,11 +331,13 @@ function DashboardInner({ schools }: DashboardViewProps) {
             </div>
 
             <div className="mt-4 space-y-1.5">
-              {weekSessions.map(({ day, sessions }) => {
+              {weekSessions.map(({ day, sessions }, i) => {
                 const hours = sessions.reduce((sum, s) => sum + s.duration / 60, 0);
                 return (
-                  <div
+                  <Reveal
                     key={day}
+                    index={i}
+                    step={0.04}
                     className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-cream/50 px-3 py-2.5"
                   >
                     <span className="w-9 shrink-0 text-xs font-medium uppercase text-stone-light">
@@ -365,7 +367,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
                     <span className="shrink-0 text-xs text-stone">
                       {Math.round(hours * 10) / 10}h
                     </span>
-                  </div>
+                  </Reveal>
                 );
               })}
             </div>

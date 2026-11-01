@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { Menu, X, ChevronRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
@@ -24,7 +24,16 @@ const MARKETING_LINKS: NavLink[] = [
 export function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const isMarketingHome = pathname === "/";
+  const { scrollY } = useScroll();
+
+  // Condenses and picks up a blurred backdrop + shadow once the page has
+  // actually scrolled — a flat header reads as a static document; one that
+  // reacts to scroll reads as a live product surface.
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    setScrolled(latest > 12);
+  });
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -32,13 +41,23 @@ export function Nav() {
   return (
     <header
       className={cn(
-        "top-0 z-50 border-b-[0.5px] transition-colors duration-300",
+        "top-0 z-50 border-b-[0.5px] transition-[background-color,box-shadow,border-color] duration-300",
         isMarketingHome
-          ? "fixed inset-x-0 border-line/70 bg-cream text-ink"
-          : "sticky border-line bg-cream"
+          ? "fixed inset-x-0 text-ink"
+          : "sticky",
+        scrolled
+          ? "border-line bg-cream/80 shadow-soft backdrop-blur-xl"
+          : isMarketingHome
+            ? "border-line/70 bg-cream"
+            : "border-line bg-cream"
       )}
     >
-      <nav className="mx-auto flex h-16 max-w-content items-center justify-between container-px">
+      <nav
+        className={cn(
+          "mx-auto flex max-w-content items-center justify-between container-px transition-[height] duration-300",
+          scrolled ? "h-14" : "h-16"
+        )}
+      >
         <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <span className="h-2.5 w-2.5 rounded-full bg-tennis ring-1 ring-grass/15" />
           <span className="font-serif text-[26px] italic leading-none text-grass">Seeded</span>

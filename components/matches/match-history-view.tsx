@@ -7,6 +7,7 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Reveal } from "@/components/shared/reveal";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   deleteMatch,
@@ -128,7 +129,7 @@ function MatchHistoryInner() {
 
   return (
     <div className="mx-auto max-w-content container-px py-12">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Match history</span>
           <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
@@ -143,11 +144,12 @@ function MatchHistoryInner() {
           <Trophy className="h-4 w-4" />
           {saving || `${matches.length} matches logged`}
         </Badge>
-      </div>
+      </Reveal>
 
       <div className="rule-gold mt-8 max-w-[140px]" />
 
       <div className="mt-8 grid gap-4 lg:grid-cols-[380px_1fr]">
+        <Reveal index={1}>
         <Card className="h-fit p-6">
           <h2 className="text-lg font-medium text-ink">Log a match</h2>
           <div className="mt-4 grid gap-3">
@@ -179,6 +181,7 @@ function MatchHistoryInner() {
             <Button variant="primary" size="md" onClick={save}>Save match</Button>
           </div>
         </Card>
+        </Reveal>
 
         <div>
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -197,8 +200,9 @@ function MatchHistoryInner() {
             ))}
           </div>
           <div className="space-y-3">
-            {visible.map((match) => (
-              <Card key={match.id} className="p-5">
+            {visible.map((match, i) => (
+              <Reveal key={match.id} index={i} step={0.05}>
+              <Card interactive className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={match.result === "win" ? "leaf" : "outline"}>
@@ -229,6 +233,7 @@ function MatchHistoryInner() {
                   </p>
                 )}
               </Card>
+              </Reveal>
             ))}
             {!visible.length && (
               <Card className="p-10 text-center">

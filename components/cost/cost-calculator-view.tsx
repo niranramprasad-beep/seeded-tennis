@@ -8,6 +8,8 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Reveal } from "@/components/shared/reveal";
+import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import {
   calculateCost,
   loadCostCalculations,
@@ -69,7 +71,7 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="eyebrow text-gold">Cost calculator</span>
           <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
@@ -81,11 +83,12 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
         </div>
         <Badge variant="leaf" size="md">
           <DollarSign className="h-4 w-4" />
-          {money(results.total)}
+          <CountUpOnView value={Math.round(results.total)} prefix="$" />
         </Badge>
-      </div>
+      </Reveal>
 
       <div className="mt-7 grid gap-5 lg:grid-cols-[390px_1fr]">
+        <Reveal index={1}>
         <Card className="p-6">
           <h2 className="font-medium text-ink">Inputs</h2>
           <div className="mt-4 space-y-3">
@@ -102,13 +105,21 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
             <p className="text-xs text-stone-light">{status}</p>
           </div>
         </Card>
+        </Reveal>
 
         <div className="space-y-5">
           <div className="grid gap-4 md:grid-cols-3">
-            <CostCard label="Coaching" value={results.coaching} />
-            <CostCard label="Tournaments + travel" value={results.tournaments} />
-            <CostCard label="Equipment" value={results.equipment} />
+            {[
+              ["Coaching", results.coaching],
+              ["Tournaments + travel", results.tournaments],
+              ["Equipment", results.equipment],
+            ].map(([label, value], i) => (
+              <Reveal key={label as string} index={i} step={0.06}>
+                <CostCard label={label as string} value={value as number} />
+              </Reveal>
+            ))}
           </div>
+          <Reveal index={3}>
           <Card className="p-6">
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-grass" />
@@ -128,6 +139,8 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
               ))}
             </div>
           </Card>
+          </Reveal>
+          <Reveal index={4}>
           <Card className="p-6">
             <h2 className="font-medium text-ink">Saved projections</h2>
             <div className="mt-4 space-y-2">
@@ -140,6 +153,7 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
               {!saved.length && <p className="text-sm text-stone">No saved projections yet.</p>}
             </div>
           </Card>
+          </Reveal>
         </div>
       </div>
     </div>
@@ -217,9 +231,11 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 
 function CostCard({ label, value }: { label: string; value: number }) {
   return (
-    <Card className="p-5">
+    <Card interactive className="h-full p-5">
       <p className="text-xs text-stone-light">{label}</p>
-      <p className="mt-2 text-2xl font-light text-ink">{money(value)}</p>
+      <p className="mt-2 text-2xl font-light text-ink">
+        <CountUpOnView value={Math.round(value)} prefix="$" />
+      </p>
     </Card>
   );
 }
