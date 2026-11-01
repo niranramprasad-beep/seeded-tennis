@@ -73,7 +73,7 @@ export function FitFinderTeaser() {
   const headline = result.reasons[0]?.text ?? "";
 
   return (
-    <div className="overflow-hidden rounded-[28px] border-hairline border-line bg-card shadow-soft">
+    <div className="overflow-hidden rounded-[32px] border-hairline border-line bg-card shadow-lift">
       <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
         {/* controls */}
         <div className="p-6 sm:p-8">

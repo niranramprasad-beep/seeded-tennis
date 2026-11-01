@@ -132,7 +132,7 @@ export function RecruitingFitPanel() {
       <div className="mt-5 rounded-card border-hairline border-line bg-cream/60 p-5">
         <div className="flex items-end justify-between">
           <div>
-            <p className="font-serif text-5xl leading-none text-ink">{fit.score}</p>
+            <p className="stat-number font-serif text-6xl leading-none text-ink">{fit.score}</p>
             <p className="mt-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-stone-light">
               confidence score
             </p>
