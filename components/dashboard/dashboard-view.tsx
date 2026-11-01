@@ -27,6 +27,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { AnimatedNumber } from "@/components/shared/animated-number";
+import { Reveal } from "@/components/shared/reveal";
 import { DailyCheckinCard } from "./daily-checkin-card";
 import { localDateKey } from "@/lib/time";
 import { cn, formatUTR } from "@/lib/utils";
@@ -211,7 +212,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       {/* greeting */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <Reveal className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <span className="eyebrow text-gold">Your workspace</span>
           <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
@@ -231,122 +232,158 @@ function DashboardInner({ schools }: DashboardViewProps) {
             Update UTR
           </Button>
         </div>
-      </div>
+      </Reveal>
 
       <div className="mt-8 space-y-8">
         {/* job 1: show progress */}
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="min-w-0 lg:col-span-2 p-5 sm:p-7">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-ink">Your UTR progress</h2>
-              {utrStatus === "error" && (
-                <p className="text-xs text-error">{utrError}</p>
-              )}
-            </div>
-            <div className="mt-4">
-              <UTRTrajectoryChart
-                actualEntries={actualPoints}
-                targetPoints={targetPoints}
-                graduationYear={player.graduationYear}
-                targetUTR={targetUTR}
-                gender={player.gender}
-              />
-            </div>
-          </Card>
+          <Reveal index={1} className="min-w-0 lg:col-span-2">
+            <Card className="h-full p-5 sm:p-7">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium text-ink">Your UTR progress</h2>
+                {utrStatus === "error" && (
+                  <p className="text-xs text-error">{utrError}</p>
+                )}
+              </div>
+              <div className="mt-4">
+                <UTRTrajectoryChart
+                  actualEntries={actualPoints}
+                  targetPoints={targetPoints}
+                  graduationYear={player.graduationYear}
+                  targetUTR={targetUTR}
+                  gender={player.gender}
+                />
+              </div>
+            </Card>
+          </Reveal>
 
-          <Card className="flex flex-col justify-center bg-grass p-6 text-on-primary">
-            <p className="text-sm text-on-primary/80">Your current UTR</p>
-            <div className="mt-1 text-6xl font-light">
-              <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
-            </div>
-            <p className="mt-3 text-sm text-on-primary/80">
-              {targetUTR > player.currentUTR
-                ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
-                : "You're at or above your current goal"}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 border-on-primary/30 bg-transparent text-on-primary hover:bg-on-primary/10"
-              onClick={() => setUtrDrawerOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Log a new UTR
-            </Button>
-          </Card>
+          {/* The dashboard's thesis moment — the one number a player opens
+              this page to check — so it's the one place on this page that
+              spends the "bold" budget: biggest/heaviest type on the page,
+              plus a single restrained court-line accent bleeding off the
+              corner. No gradient/glow fill on the card itself (Phase 4
+              deliberately removed those everywhere else; this stays solid
+              bg-grass like every other themed surface). */}
+          <Reveal index={2}>
+            <Card className="relative flex h-full flex-col justify-center overflow-hidden bg-grass p-6 text-on-primary">
+              <svg
+                viewBox="0 0 160 160"
+                aria-hidden
+                className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 text-on-primary/20"
+              >
+                {/* Two concentric quarter-circles centered on the card's
+                    own bottom-right corner (160,160) — the only part of
+                    this box the card's `overflow-hidden` doesn't clip away,
+                    so the curves read as court sidelines sweeping in from
+                    the corner rather than vanishing off-card. */}
+                <path
+                  d="M20 160 A140 140 0 0 1 160 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M60 160 A100 100 0 0 1 160 60"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
+              <p className="text-sm text-on-primary/80">Your current UTR</p>
+              <div className="relative mt-1 text-6xl font-bold tracking-tight sm:text-7xl">
+                <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
+              </div>
+              <p className="relative mt-3 text-sm text-on-primary/80">
+                {targetUTR > player.currentUTR
+                  ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
+                  : "You're at or above your current goal"}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative mt-4 border-on-primary/30 bg-transparent text-on-primary hover:bg-on-primary/10"
+                onClick={() => setUtrDrawerOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Log a new UTR
+              </Button>
+            </Card>
+          </Reveal>
         </div>
 
         {/* job 2: what to do this week */}
-        <Card className="p-5 sm:p-7">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-medium text-ink">This week</h2>
-              <p className="text-sm text-stone">
-                {Math.round(weeklyHours * 10) / 10} hrs planned
-              </p>
+        <Reveal index={3}>
+          <Card className="p-5 sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-medium text-ink">This week</h2>
+                <p className="text-sm text-stone">
+                  {Math.round(weeklyHours * 10) / 10} hrs planned
+                </p>
+              </div>
+              <Link
+                href="/training"
+                className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
+              >
+                Open planner
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
             </div>
-            <Link
-              href="/training"
-              className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
-            >
-              Open planner
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
 
-          <div className="mt-4 space-y-1.5">
-            {weekSessions.map(({ day, sessions }) => {
-              const hours = sessions.reduce((sum, s) => sum + s.duration / 60, 0);
-              return (
-                <div
-                  key={day}
-                  className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-cream/50 px-3 py-2.5"
-                >
-                  <span className="w-9 shrink-0 text-xs font-medium uppercase text-stone-light">
-                    {day}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                    {sessions.length === 0 ? (
-                      <span className="text-xs text-stone-light">Rest day</span>
-                    ) : (
-                      sessions.map((s) => {
-                        const type = plannerState?.sessionTypes.find((t) => t.id === s.typeId);
-                        return (
-                          <span
-                            key={s.id}
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-xs font-medium",
-                              type?.bg ?? "bg-grass-50",
-                              type?.text ?? "text-grass-700"
-                            )}
-                          >
-                            {type?.label ?? s.title}
-                          </span>
-                        );
-                      })
-                    )}
+            <div className="mt-4 space-y-1.5">
+              {weekSessions.map(({ day, sessions }) => {
+                const hours = sessions.reduce((sum, s) => sum + s.duration / 60, 0);
+                return (
+                  <div
+                    key={day}
+                    className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-cream/50 px-3 py-2.5"
+                  >
+                    <span className="w-9 shrink-0 text-xs font-medium uppercase text-stone-light">
+                      {day}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                      {sessions.length === 0 ? (
+                        <span className="text-xs text-stone-light">Rest day</span>
+                      ) : (
+                        sessions.map((s) => {
+                          const type = plannerState?.sessionTypes.find((t) => t.id === s.typeId);
+                          return (
+                            <span
+                              key={s.id}
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-xs font-medium",
+                                type?.bg ?? "bg-grass-50",
+                                type?.text ?? "text-grass-700"
+                              )}
+                            >
+                              {type?.label ?? s.title}
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                    <span className="shrink-0 text-xs text-stone">
+                      {Math.round(hours * 10) / 10}h
+                    </span>
                   </div>
-                  <span className="shrink-0 text-xs text-stone">
-                    {Math.round(hours * 10) / 10}h
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4 w-full"
-            onClick={() => setCheckinDrawerOpen(true)}
-          >
-            <Sparkles className="h-4 w-4" />
-            Log today's check-in
-          </Button>
-        </Card>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 w-full"
+              onClick={() => setCheckinDrawerOpen(true)}
+            >
+              <Sparkles className="h-4 w-4" />
+              Log today's check-in
+            </Button>
+          </Card>
+        </Reveal>
 
         {/* job 3: target schools */}
-        <div>
+        <Reveal index={4}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-medium text-ink">Your target schools</h2>
             <Link
@@ -359,21 +396,23 @@ function DashboardInner({ schools }: DashboardViewProps) {
           </div>
           {targetSchools.length > 0 ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {targetSchools.map((s) => (
-                <Link key={s.id} href={`/schools/${s.slug}`}>
-                  <Card interactive className="flex items-center gap-3 p-4">
-                    <SchoolBadge school={s} size={42} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-ink">
-                        {s.shortName}
-                      </p>
-                      <p className="text-xs text-stone-light">
-                        Avg UTR {s.avgRosterUTR} · {s.conference}
-                      </p>
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 text-stone-light" />
-                  </Card>
-                </Link>
+              {targetSchools.map((s, i) => (
+                <Reveal key={s.id} index={i} step={0.05}>
+                  <Link href={`/schools/${s.slug}`}>
+                    <Card interactive className="flex items-center gap-3 p-4">
+                      <SchoolBadge school={s} size={42} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-ink">
+                          {s.shortName}
+                        </p>
+                        <p className="text-xs text-stone-light">
+                          Avg UTR {s.avgRosterUTR} · {s.conference}
+                        </p>
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 text-stone-light" />
+                    </Card>
+                  </Link>
+                </Reveal>
               ))}
             </div>
           ) : (
@@ -390,17 +429,17 @@ function DashboardInner({ schools }: DashboardViewProps) {
               </Link>
             </Card>
           )}
-        </div>
+        </Reveal>
 
         {/* quick links — kept so match history, badges, and cost calculator
             stay reachable without crowding the three sections above */}
-        <div className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
+        <Reveal index={5} className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
           <QuickLink href="/match-mode" icon={Trophy} label="Match mode" />
           <QuickLink href="/matches" icon={Target} label="Match history" />
           <QuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
           <QuickLink href="/badges" icon={ShieldCheck} label="Badges" />
           <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
-        </div>
+        </Reveal>
       </div>
 
       <UtrLogDrawer

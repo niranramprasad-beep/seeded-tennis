@@ -383,6 +383,15 @@
     letter-spacing: 0.14em;
   }
 
+  /* Base numeral treatment for every headline stat (AnimatedNumber renders
+     this class everywhere). Tabular figures stop digits reflowing width as
+     a count-up animates; the concept themes already layer their own
+     font-family/weight on top of this via higher-specificity selectors. */
+  .stat-number {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
   /* Thin brass divider. */
   .rule-gold {
     height: 1px;
