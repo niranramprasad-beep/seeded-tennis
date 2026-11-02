@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MotionConfig } from "framer-motion";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "@/lib/context/theme-context";
+import { DesignProvider } from "@/lib/context/design-context";
 import { PlayerProvider } from "@/lib/context/player-context";
 import { TierProvider } from "@/lib/context/tier-context";
 import { GenderProvider } from "@/lib/context/gender-context";
@@ -30,15 +31,17 @@ export function Providers({ children }: { children: ReactNode }) {
           dedupingInterval: 5000,
         }}
       >
-        <ThemeProvider>
-          <PlayerProvider>
-            <TierProvider>
-              <GenderProvider>
-                <SidebarProvider>{children}</SidebarProvider>
-              </GenderProvider>
-            </TierProvider>
-          </PlayerProvider>
-        </ThemeProvider>
+        <DesignProvider>
+          <ThemeProvider>
+            <PlayerProvider>
+              <TierProvider>
+                <GenderProvider>
+                  <SidebarProvider>{children}</SidebarProvider>
+                </GenderProvider>
+              </TierProvider>
+            </PlayerProvider>
+          </ThemeProvider>
+        </DesignProvider>
       </SWRConfig>
     </MotionConfig>
   );

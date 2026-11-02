@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { Intensity, TrainingPlan, Weakness, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -33,9 +34,26 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
+import { GradientMeshBg } from "@/components/premium/shared/gradient-mesh-bg";
+import { PremiumActionRail } from "@/components/premium/training/action-rail";
+import { PremiumWeekPlanner } from "@/components/premium/training/week-planner";
+import { PremiumDayPlanner } from "@/components/premium/training/day-planner";
+import { PremiumMonthPlanner } from "@/components/premium/training/month-planner";
 import type { CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
-import { getCurrentGrade, localDateKey, ordinalGrade } from "@/lib/time";
+import { getCurrentGrade, ordinalGrade } from "@/lib/time";
+import {
+  WEEK_ORDER,
+  GRID_START_HOUR,
+  GRID_END_HOUR,
+  HOUR_HEIGHT,
+  GRID_HOURS,
+  timeToMinutes,
+  minutesToTime,
+  layoutOverlaps,
+  rangesOverlap,
+  dateForWeekday,
+} from "@/lib/training/grid-math";
 import {
   createUuid,
   loadTrainingPlannerState,
@@ -61,14 +79,12 @@ const TrainingCopilot = dynamic(
   { ssr: false }
 );
 
-const WEEK_ORDER: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-type PlannerView = "day" | "week" | "month";
+export type PlannerView = "day" | "week" | "month";
 type PlannerDrawer = "session" | "plan" | "templates" | "progress" | "settings" | null;
 
 // bg/text pairs use theme CSS variables (never fixed hex) so contrast holds
 // in both light and dark themes — see lib/activity-style.ts for the same fix.
-const DEFAULT_TYPES: TrainingSessionType[] = [
+export const DEFAULT_TYPES: TrainingSessionType[] = [
   { id: "tennis", label: "Tennis", color: "#2D4A2B", bg: "bg-grass-50", text: "text-grass" },
   { id: "strength", label: "Strength", color: "#97C459", bg: "bg-leaf-accent/15", text: "text-leaf-accent" },
   { id: "conditioning", label: "Conditioning", color: "#CDB52E", bg: "bg-gold/15", text: "text-gold" },
@@ -105,6 +121,8 @@ export function TrainingView({ plans }: { plans: TrainingPlan[] }) {
 
 function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const { player } = usePlayer();
+  const { design } = useDesign();
+  const isPremium = design === "premium";
   const currentGrade = getCurrentGrade(player.graduationYear);
   const storageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
 
@@ -547,28 +565,45 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     );
   }
 
+  const actionRailProps: TrainingActionRailProps = {
+    view,
+    setView,
+    onNewPlan: () => {
+      setEditingPlan(null);
+      setDrawer("plan");
+    },
+    onTemplates: () => setDrawer("templates"),
+    onProgress: () => setDrawer("progress"),
+    onSettings: () => setDrawer("settings"),
+  };
+
   return (
-    <div className="mx-auto w-full max-w-[1680px] px-4 py-8 sm:px-6 lg:px-8">
+    <div className="relative mx-auto w-full max-w-[1680px] px-4 py-8 sm:px-6 lg:px-8">
+      {isPremium && <GradientMeshBg className="-z-10" />}
       <div className="grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <TrainingActionRail
-          view={view}
-          setView={setView}
-          onNewPlan={() => {
-            setEditingPlan(null);
-            setDrawer("plan");
-          }}
-          onTemplates={() => setDrawer("templates")}
-          onProgress={() => setDrawer("progress")}
-          onSettings={() => setDrawer("settings")}
-        />
+        {isPremium ? (
+          <PremiumActionRail {...actionRailProps} />
+        ) : (
+          <TrainingActionRail {...actionRailProps} />
+        )}
 
         <div className="min-w-0">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
+            className={
+              isPremium
+                ? "premium-glass overflow-hidden rounded-[30px] shadow-premium-2"
+                : "overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
+            }
           >
-            <div className="border-b-[0.5px] border-line bg-grass px-6 py-5 text-on-primary sm:px-10 lg:px-12">
+            <div
+              className={cn(
+                "px-6 py-5 text-on-primary sm:px-10 lg:px-12",
+                !isPremium && "border-b-[0.5px] border-line bg-grass"
+              )}
+              style={isPremium ? { background: "var(--p-accent-gradient)" } : undefined}
+            >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <select
@@ -647,57 +682,83 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                     transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                     className="mt-6"
                   >
-                    {view === "week" && (
-                      <WeekPlanner
-                        sessionsByDay={sessionsByDay}
-                        types={state.sessionTypes}
-                        selectedDay={selectedDay}
-                        draggingId={draggingId}
-                        onSelectDay={setSelectedDay}
-                        onAdd={openNewSession}
-                        onEdit={(session) => {
-                          setEditingSession(session);
-                          setSelectedDay(session.day);
-                          setDrawer("session");
-                        }}
-                        onMove={moveSession}
-                        onDrag={setDraggingId}
-                        onToggle={toggleComplete}
-                        weekOffset={weekOffset}
-                      />
-                    )}
-                    {view === "day" && (
-                      <DayPlanner
-                        day={selectedDay}
-                        sessions={sessionsByDay.get(selectedDay) ?? []}
-                        types={state.sessionTypes}
-                        onDayChange={setSelectedDay}
-                        onAdd={openNewSession}
-                        onEdit={(session) => {
-                          setEditingSession(session);
-                          setDrawer("session");
-                        }}
-                        onToggle={toggleComplete}
-                      />
-                    )}
-                    {view === "month" && (
-                      <MonthPlanner
-                        sessionsByDay={sessionsByDay}
-                        onSelect={(day) => {
-                          setSelectedDay(day);
-                          setView("day");
-                        }}
-                      />
-                    )}
+                    {view === "week" &&
+                      (() => {
+                        const weekProps: WeekPlannerProps = {
+                          sessionsByDay,
+                          types: state.sessionTypes,
+                          selectedDay,
+                          draggingId,
+                          onSelectDay: setSelectedDay,
+                          onAdd: openNewSession,
+                          onEdit: (session) => {
+                            setEditingSession(session);
+                            setSelectedDay(session.day);
+                            setDrawer("session");
+                          },
+                          onMove: moveSession,
+                          onDrag: setDraggingId,
+                          onToggle: toggleComplete,
+                          weekOffset,
+                        };
+                        return isPremium ? (
+                          <PremiumWeekPlanner {...weekProps} />
+                        ) : (
+                          <WeekPlanner {...weekProps} />
+                        );
+                      })()}
+                    {view === "day" &&
+                      (() => {
+                        const dayProps: DayPlannerProps = {
+                          day: selectedDay,
+                          sessions: sessionsByDay.get(selectedDay) ?? [],
+                          types: state.sessionTypes,
+                          onDayChange: setSelectedDay,
+                          onAdd: openNewSession,
+                          onEdit: (session) => {
+                            setEditingSession(session);
+                            setDrawer("session");
+                          },
+                          onToggle: toggleComplete,
+                        };
+                        return isPremium ? (
+                          <PremiumDayPlanner {...dayProps} />
+                        ) : (
+                          <DayPlanner {...dayProps} />
+                        );
+                      })()}
+                    {view === "month" &&
+                      (() => {
+                        const monthProps: MonthPlannerProps = {
+                          sessionsByDay,
+                          onSelect: (day) => {
+                            setSelectedDay(day);
+                            setView("day");
+                          },
+                        };
+                        return isPremium ? (
+                          <PremiumMonthPlanner {...monthProps} />
+                        ) : (
+                          <MonthPlanner {...monthProps} />
+                        );
+                      })()}
                   </motion.div>
                 </AnimatePresence>
               </section>
 
               <aside className="space-y-5">
-                <SpotlightCard className="rounded-card border border-line bg-card p-6 shadow-soft">
+                <SpotlightCard
+                  className={
+                    isPremium
+                      ? "premium-glass rounded-[22px] p-6 shadow-premium-1"
+                      : "rounded-card border border-line bg-card p-6 shadow-soft"
+                  }
+                >
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-grass" />
-                    <h2 className="text-base font-medium text-ink">Plan balance</h2>
+                    <h2 className={cn("text-base font-medium text-ink", isPremium && "font-premium")}>
+                      Plan balance
+                    </h2>
                   </div>
                   <HoursDonutChart
                     data={donutData}
@@ -711,21 +772,40 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
                           {d.name}
                         </span>
-                        <span className="font-medium text-ink">{d.value}h</span>
+                        <span className={cn("font-medium text-ink", isPremium && "font-mono")}>{d.value}h</span>
                       </div>
                     ))}
                   </div>
                 </SpotlightCard>
 
-                <SpotlightCard className="rounded-card border border-line bg-card p-6 shadow-soft">
-                  <h2 className="text-base font-medium text-ink">Recommended next move</h2>
+                <SpotlightCard
+                  className={
+                    isPremium
+                      ? "premium-glass rounded-[22px] p-6 shadow-premium-1"
+                      : "rounded-card border border-line bg-card p-6 shadow-soft"
+                  }
+                >
+                  <h2 className={cn("text-base font-medium text-ink", isPremium && "font-premium")}>
+                    Recommended next move
+                  </h2>
                   <p className="mt-2 text-sm leading-relaxed text-stone">
                     {recommendation(player.currentUTR, activeSessions, currentGrade)}
                   </p>
-                  <Button variant="subtle" size="sm" className="mt-4 w-full" onClick={() => openNewSession("Sat")}>
-                    Add suggested session
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  {isPremium ? (
+                    <button
+                      onClick={() => openNewSession("Sat")}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-pill py-2.5 font-premium text-sm font-medium text-on-primary"
+                      style={{ background: "var(--p-accent-gradient)" }}
+                    >
+                      Add suggested session
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <Button variant="subtle" size="sm" className="mt-4 w-full" onClick={() => openNewSession("Sat")}>
+                      Add suggested session
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
                 </SpotlightCard>
               </aside>
             </div>
@@ -786,6 +866,15 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   );
 }
 
+export interface TrainingActionRailProps {
+  view: PlannerView;
+  setView: (v: PlannerView) => void;
+  onNewPlan: () => void;
+  onTemplates: () => void;
+  onProgress: () => void;
+  onSettings: () => void;
+}
+
 function TrainingActionRail({
   view,
   setView,
@@ -793,14 +882,7 @@ function TrainingActionRail({
   onTemplates,
   onProgress,
   onSettings,
-}: {
-  view: PlannerView;
-  setView: (v: PlannerView) => void;
-  onNewPlan: () => void;
-  onTemplates: () => void;
-  onProgress: () => void;
-  onSettings: () => void;
-}) {
+}: TrainingActionRailProps) {
   const actions = [
     { label: "New plan", icon: LayoutList, onClick: onNewPlan },
     { label: "Templates", icon: Sparkles, onClick: onTemplates },
@@ -967,54 +1049,7 @@ function TrainingQuestionnaire({
   );
 }
 
-// Google Calendar-style time grid: hours run down the side, sessions are
-// absolutely positioned by start time and sized by duration, instead of a
-// simple stacked list of cards per day.
-const GRID_START_HOUR = 6;
-const GRID_END_HOUR = 22;
-const HOUR_HEIGHT = 64;
-const GRID_HOURS = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i);
-
-function timeToMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(minutes: number): string {
-  const clamped = Math.max(0, Math.min(24 * 60 - 1, minutes));
-  const h = Math.floor(clamped / 60);
-  const m = Math.round((clamped % 60) / 15) * 15;
-  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-}
-
-/** Side-by-side columns for sessions whose time ranges overlap, so two
- * things booked at once don't render on top of each other. */
-function layoutOverlaps(sessions: TrainingPlannerSession[]) {
-  const sorted = [...sessions].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-  const columns: TrainingPlannerSession[][] = [];
-  return sorted.map((session) => {
-    const start = timeToMinutes(session.startTime);
-    let col = columns.findIndex((c) => timeToMinutes(c[c.length - 1].startTime) + c[c.length - 1].duration <= start);
-    if (col === -1) {
-      col = columns.length;
-      columns.push([]);
-    }
-    columns[col].push(session);
-    return { session, col };
-  }).map(({ session, col }, _i, all) => ({
-    session,
-    col,
-    totalCols: Math.max(...all.filter((o) => rangesOverlap(o.session, session)).map((o) => o.col)) + 1,
-  }));
-}
-
-function rangesOverlap(a: TrainingPlannerSession, b: TrainingPlannerSession): boolean {
-  const aStart = timeToMinutes(a.startTime);
-  const bStart = timeToMinutes(b.startTime);
-  return aStart < bStart + b.duration && bStart < aStart + a.duration;
-}
-
-function WeekPlanner(props: {
+export interface WeekPlannerProps {
   sessionsByDay: Map<WeekdayShort, TrainingPlannerSession[]>;
   types: TrainingSessionType[];
   selectedDay: WeekdayShort;
@@ -1026,7 +1061,9 @@ function WeekPlanner(props: {
   onDrag: (id: string | null) => void;
   onToggle: (id: string) => void;
   weekOffset: number;
-}) {
+}
+
+function WeekPlanner(props: WeekPlannerProps) {
   const now = new Date();
   const isCurrentWeek = props.weekOffset === 0;
   const todayShort = WEEK_ORDER[(now.getDay() + 6) % 7];
@@ -1114,10 +1151,10 @@ function WeekPlanner(props: {
                   ))}
                   {isToday && nowMinutes >= gridTop && (
                     <div
-                      className="absolute inset-x-0 z-10 h-px bg-[#D14343]"
+                      className="absolute inset-x-0 z-10 h-px bg-error"
                       style={{ top: ((nowMinutes - gridTop) / 60) * HOUR_HEIGHT }}
                     >
-                      <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-[#D14343]" />
+                      <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-error" />
                     </div>
                   )}
                   {placed.map(({ session, col, totalCols }) => {
@@ -1180,6 +1217,16 @@ function WeekPlanner(props: {
   );
 }
 
+export interface DayPlannerProps {
+  day: WeekdayShort;
+  sessions: TrainingPlannerSession[];
+  types: TrainingSessionType[];
+  onDayChange: (day: WeekdayShort) => void;
+  onAdd: (day: WeekdayShort) => void;
+  onEdit: (session: TrainingPlannerSession) => void;
+  onToggle: (id: string) => void;
+}
+
 function DayPlanner({
   day,
   sessions,
@@ -1188,15 +1235,7 @@ function DayPlanner({
   onAdd,
   onEdit,
   onToggle,
-}: {
-  day: WeekdayShort;
-  sessions: TrainingPlannerSession[];
-  types: TrainingSessionType[];
-  onDayChange: (day: WeekdayShort) => void;
-  onAdd: (day: WeekdayShort) => void;
-  onEdit: (session: TrainingPlannerSession) => void;
-  onToggle: (id: string) => void;
-}) {
+}: DayPlannerProps) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -1248,13 +1287,12 @@ function DayPlanner({
   );
 }
 
-function MonthPlanner({
-  sessionsByDay,
-  onSelect,
-}: {
+export interface MonthPlannerProps {
   sessionsByDay: Map<WeekdayShort, TrainingPlannerSession[]>;
   onSelect: (day: WeekdayShort) => void;
-}) {
+}
+
+function MonthPlanner({ sessionsByDay, onSelect }: MonthPlannerProps) {
   const now = new Date();
   const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -1305,6 +1343,15 @@ function MonthPlanner({
   );
 }
 
+export interface SessionCardProps {
+  session: TrainingPlannerSession;
+  type: TrainingSessionType;
+  onEdit: (session: TrainingPlannerSession) => void;
+  onDrag: (id: string | null) => void;
+  onToggle: (id: string) => void;
+  wide?: boolean;
+}
+
 function SessionCard({
   session,
   type,
@@ -1312,14 +1359,7 @@ function SessionCard({
   onDrag,
   onToggle,
   wide = false,
-}: {
-  session: TrainingPlannerSession;
-  type: TrainingSessionType;
-  onEdit: (session: TrainingPlannerSession) => void;
-  onDrag: (id: string | null) => void;
-  onToggle: (id: string) => void;
-  wide?: boolean;
-}) {
+}: SessionCardProps) {
   return (
     <motion.article
       layout
@@ -1917,17 +1957,8 @@ function buildTemplateSessions(
   ];
 }
 
-function getType(types: TrainingSessionType[], id: string): TrainingSessionType {
+export function getType(types: TrainingSessionType[], id: string): TrainingSessionType {
   return types.find((t) => t.id === id) ?? types[0] ?? DEFAULT_TYPES[0];
-}
-
-function dateForWeekday(day: WeekdayShort, weekOffset = 0): string {
-  const now = new Date();
-  const current = (now.getDay() + 6) % 7;
-  const target = WEEK_ORDER.indexOf(day);
-  const date = new Date(now);
-  date.setDate(now.getDate() + (target - current) + weekOffset * 7);
-  return localDateKey(date);
 }
 
 function weekLabel(weekOffset: number): string {

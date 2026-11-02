@@ -2,15 +2,18 @@
 
 import { Moon, Sun } from "lucide-react";
 import { THEMES, useTheme } from "@/lib/context/theme-context";
+import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
 const LIGHT_THEME = "grass";
 const DARK_THEME = "night";
 
 /** The simple, prominent light/dark switch — separate from the full theme
- * picker in Settings. Treats "dark" as whichever theme is flagged dark:true,
- * so it reads correctly even if a future theme other than "night" is dark,
- * but always switches between exactly grass <-> night. */
+ * picker in Settings. Under Legacy it flips between exactly grass <-> night
+ * (treating "dark" as whichever theme is flagged dark:true, so it reads
+ * correctly even if a future theme other than "night" is dark); under
+ * Premium it instead flips that design's own dark/light sub-mode, since
+ * Premium doesn't use `data-theme` at all. */
 export function DarkModeToggle({
   className,
   showLabel = false,
@@ -18,23 +21,30 @@ export function DarkModeToggle({
   className?: string;
   showLabel?: boolean;
 }) {
-  const { theme, setTheme, hydrated } = useTheme();
-  const isDark = THEMES.find((t) => t.id === theme)?.dark ?? false;
-  // Don't claim a specific light/dark state until the real saved theme is
-  // known client-side — `theme` defaults to "grass" on both the server
-  // render and the first client render (by design, to avoid a hydration
-  // mismatch), so a returning dark-mode user would otherwise see this
-  // render as "light" for a beat before flipping to "dark" once the
-  // provider's effect runs. A neutral placeholder avoids ever showing the
-  // wrong icon/label; it resolves to the correct one on the same tick
-  // `hydrated` flips true, so the gap is effectively invisible.
-  const known = hydrated;
+  const { theme, setTheme, hydrated: themeHydrated } = useTheme();
+  const { design, premiumMode, setPremiumMode, hydrated: designHydrated } = useDesign();
+  const isPremium = design === "premium";
+  const isDark = isPremium
+    ? premiumMode === "dark"
+    : THEMES.find((t) => t.id === theme)?.dark ?? false;
+  // Don't claim a specific light/dark state until both the real saved theme
+  // and design are known client-side — see theme-context.tsx's `hydrated`
+  // doc comment for why defaulting early would flash the wrong icon/label.
+  const known = themeHydrated && designHydrated;
+
+  const toggle = () => {
+    if (isPremium) {
+      setPremiumMode(isDark ? "light" : "dark");
+    } else {
+      setTheme(isDark ? LIGHT_THEME : DARK_THEME);
+    }
+  };
 
   if (showLabel) {
     return (
       <button
         type="button"
-        onClick={() => setTheme(isDark ? LIGHT_THEME : DARK_THEME)}
+        onClick={toggle}
         aria-pressed={known ? isDark : undefined}
         className={cn(
           "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink",
@@ -69,7 +79,7 @@ export function DarkModeToggle({
   return (
     <button
       type="button"
-      onClick={() => setTheme(isDark ? LIGHT_THEME : DARK_THEME)}
+      onClick={toggle}
       aria-label={
         known ? (isDark ? "Switch to light mode" : "Switch to dark mode") : "Toggle color theme"
       }

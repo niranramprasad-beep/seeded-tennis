@@ -51,7 +51,7 @@ export function SpotlightCard({ children, className }: SpotlightCardProps) {
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] opacity-0 ring-1 ring-inset ring-grass/30 transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] opacity-0 ring-1 ring-inset ring-[rgb(var(--c-primary)/0.3)] transition-opacity duration-300 group-hover:opacity-100"
       />
       <div className="relative z-10 h-full">{children}</div>
     </div>

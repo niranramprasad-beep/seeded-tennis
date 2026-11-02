@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, LogOut, Palette, Users, User2 } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
+import { useDesign } from "@/lib/context/design-context";
 import { getCurrentGrade } from "@/lib/time";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "./theme-switcher";
+import { DesignSwitcher } from "./design-switcher";
 
 const TIER_LABEL = { free: "Free", player: "Player", family: "Family" } as const;
 
@@ -25,6 +27,7 @@ export function SettingsView() {
 function SettingsInner() {
   const { player, signOut } = usePlayer();
   const { tier } = useTier();
+  const { design } = useDesign();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
@@ -49,11 +52,17 @@ function SettingsInner() {
           <h2 className="text-lg font-medium text-ink">Appearance</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
-          Pick a court mood. Your theme is saved across sessions.
+          Legacy or Premium design, saved across sessions.
         </p>
         <div className="mt-5">
-          <ThemeSwitcher />
+          <DesignSwitcher />
         </div>
+        {design === "legacy" && (
+          <div className="mt-6 border-t-[0.5px] border-line pt-5">
+            <p className="mb-3 text-sm text-stone">Pick a court mood for Legacy.</p>
+            <ThemeSwitcher />
+          </div>
+        )}
       </Card>
 
       {/* Family */}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/app-shell";
@@ -39,6 +40,12 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// The Premium design system's display/body face (components/premium/*
+// only) — Legacy pages never reference --font-geist-sans. GeistSans ships
+// as a pre-built variable-font instance (Vercel's `geist` package) rather
+// than a next/font/google loader call, since this Next.js version (14.2)
+// predates Geist's addition to next/font/google's bundled catalog.
+
 export const metadata: Metadata = {
   title: "Seeded — your path to college tennis, mapped",
   description:
@@ -53,14 +60,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable}`}
+      data-design="legacy"
+      className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${GeistSans.variable}`}
       suppressHydrationWarning
     >
       <head>
-        {/* Apply the saved theme before paint to avoid a flash of the default. */}
+        {/* Apply the saved theme/design before paint to avoid a flash of the default. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var m=localStorage.getItem('seeded.premium-mode');if(m){document.documentElement.setAttribute('data-premium-mode',m);}}catch(e){}})();`,
           }}
         />
       </head>

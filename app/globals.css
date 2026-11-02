@@ -337,6 +337,90 @@
       0 0 32px rgb(52 211 153 / 0.14);
   }
 
+  /* ---- Premium design system ----
+     A second, structurally different design (own layout + typography, not
+     just a palette) toggled via `data-design`, fully independent of the 9
+     Legacy `data-theme` palettes above — see lib/context/design-context.tsx.
+     Each mode defines the complete --c-* set Legacy already uses, so every
+     existing var-driven primitive (SpotlightCard, GlowOrb, Button, Card,
+     Badge) works unmodified under Premium, plus Premium-only --p-* vars
+     (gradient-mesh stops, glass surfaces, elevation shadows) that only
+     components/premium/* ever reference. */
+
+  [data-design="premium"][data-premium-mode="dark"] {
+    --c-bg: 13 14 18;
+    --c-card: 21 22 28;
+    --c-primary: 109 94 245;
+    --c-primary-50: 26 24 46;
+    --c-primary-100: 36 33 64;
+    --c-primary-600: 139 125 247;
+    --c-primary-700: 109 94 245;
+    --c-primary-800: 170 160 250;
+    --c-primary-900: 214 209 253;
+    --c-lime: 245 196 76;
+    --c-leaf: 45 212 150;
+    --c-tennis: 96 165 250;
+    --c-ink: 237 238 242;
+    --c-stone: 165 167 179;
+    --c-stone-light: 108 110 122;
+    --c-line: 38 40 48;
+    --c-gold: 214 180 110;
+    --c-on-primary: 255 255 255;
+    --c-error-bg: 48 24 26;
+    --c-error: 244 95 100;
+    --c-error-strong: 252 176 178;
+    --c-scroll-thumb: 52 54 62;
+    --c-thumb-ring: 21 22 28;
+
+    --p-bg-mesh-1: 109 94 245;
+    --p-bg-mesh-2: 56 189 248;
+    --p-bg-mesh-3: 45 212 150;
+    --p-glass-bg: rgba(255, 255, 255, 0.045);
+    --p-glass-border: rgba(255, 255, 255, 0.1);
+    --p-glass-blur: 20px;
+    --p-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.24);
+    --p-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+    --p-elevation-3: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 48px rgba(109, 94, 245, 0.18);
+    --p-accent-gradient: linear-gradient(135deg, rgb(109 94 245) 0%, rgb(56 189 248) 100%);
+  }
+
+  [data-design="premium"][data-premium-mode="light"] {
+    --c-bg: 246 247 250;
+    --c-card: 255 255 255;
+    --c-primary: 91 76 219;
+    --c-primary-50: 237 236 252;
+    --c-primary-100: 222 219 250;
+    --c-primary-600: 104 89 230;
+    --c-primary-700: 91 76 219;
+    --c-primary-800: 72 60 180;
+    --c-primary-900: 53 44 138;
+    --c-lime: 217 160 42;
+    --c-leaf: 13 148 108;
+    --c-tennis: 37 99 207;
+    --c-ink: 23 24 29;
+    --c-stone: 95 98 112;
+    --c-stone-light: 150 153 166;
+    --c-line: 226 228 235;
+    --c-gold: 168 124 58;
+    --c-on-primary: 255 255 255;
+    --c-error-bg: 253 234 234;
+    --c-error: 193 52 58;
+    --c-error-strong: 139 28 33;
+    --c-scroll-thumb: 210 213 222;
+    --c-thumb-ring: 255 255 255;
+
+    --p-bg-mesh-1: 91 76 219;
+    --p-bg-mesh-2: 37 99 207;
+    --p-bg-mesh-3: 13 148 108;
+    --p-glass-bg: rgba(255, 255, 255, 0.55);
+    --p-glass-border: rgba(15, 15, 20, 0.08);
+    --p-glass-blur: 20px;
+    --p-elevation-1: 0 1px 2px rgba(15, 15, 20, 0.04), 0 2px 10px rgba(15, 15, 20, 0.05);
+    --p-elevation-2: 0 8px 24px rgba(15, 15, 20, 0.08), 0 2px 10px rgba(15, 15, 20, 0.05);
+    --p-elevation-3: 0 24px 64px rgba(15, 15, 20, 0.12), 0 0 48px rgba(91, 76, 219, 0.12);
+    --p-accent-gradient: linear-gradient(135deg, rgb(91 76 219) 0%, rgb(37 99 207) 100%);
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -390,6 +474,21 @@
   .stat-number {
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+  }
+
+  /* Premium design system only (components/premium/*). */
+  .premium-glass {
+    background: var(--p-glass-bg);
+    border: 1px solid var(--p-glass-border);
+    backdrop-filter: blur(var(--p-glass-blur));
+    -webkit-backdrop-filter: blur(var(--p-glass-blur));
+  }
+
+  .premium-gradient-text {
+    background: var(--p-accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   /* Thin brass divider. */
