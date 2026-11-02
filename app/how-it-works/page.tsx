@@ -14,7 +14,7 @@ const steps = [
   {
     icon: School,
     title: "Match schools honestly",
-    body: "Programs are compared by roster level, minimum competitive UTR, academics, conference, and location.",
+    body: "Programs are compared by roster level, the lowest UTR a coach would realistically recruit, academics, conference, and location.",
   },
   {
     icon: Route,

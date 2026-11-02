@@ -31,7 +31,7 @@ const selectClass =
 const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
   { key: "combined", label: "Seeded score", hint: "Academics + tennis blend" },
   { key: "utr", label: "Avg UTR", hint: "Average roster UTR" },
-  { key: "min", label: "Min UTR", hint: "Minimum competitive UTR" },
+  { key: "min", label: "Min UTR", hint: "Lowest UTR a coach here would still consider" },
   { key: "rank", label: "US News", hint: "Academic ranking" },
 ];
 

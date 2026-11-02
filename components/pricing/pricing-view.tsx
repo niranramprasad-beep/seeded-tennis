@@ -30,7 +30,7 @@ const PLANS: Plan[] = [
     highlights: [
       "Browse all D1 tennis programs",
       "Roster UTRs & academic rankings",
-      "Minimum competitive UTRs",
+      "The UTR cutoff for each school",
       "Full school detail pages",
     ],
   },
@@ -56,7 +56,7 @@ const PLANS: Plan[] = [
     highlights: [
       "Everything in Player",
       "Coach email generator",
-      "Contacted-coach tracking",
+      "Track which coaches you've emailed",
       "Family dashboard for parents",
     ],
     popular: true,
@@ -92,7 +92,7 @@ const MATRIX: { group: string; rows: Row[] }[] = [
     group: "Recruit",
     rows: [
       { label: "Coach email generator", free: false, player: false, family: true },
-      { label: "Contacted-coach tracking", free: false, player: false, family: true },
+      { label: "Track which coaches you've emailed", free: false, player: false, family: true },
       { label: "Progress tracking", free: false, player: false, family: true },
       { label: "Family / parent dashboard", free: false, player: false, family: true },
     ],

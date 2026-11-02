@@ -44,7 +44,7 @@ const CAPABILITIES = [
 ];
 
 const METHODOLOGY: [string, string][] = [
-  ["Roster reality", "Average and minimum competitive UTR by division, men's and women's."],
+  ["Roster reality", "The average UTR on the roster, and the lowest UTR a coach would still consider — by division, men's and women's."],
   ["Academic context", "GPA, grad year, and US News standing at a glance."],
   ["Timeline pressure", "Summer-before-grade checkpoints, shown as bands — never guarantees."],
 ];
@@ -78,8 +78,10 @@ export default async function HomePage() {
                 college tennis.
               </h1>
               <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-stone">
-                Your UTR, academics, and target division — turned into an
-                honest, roster-matched recruiting plan.
+                Your UTR — the 1 to 16.5 rating that ranks every tennis
+                player the same way — plus your academics and target
+                division, turned into an honest, roster-matched recruiting
+                plan.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
