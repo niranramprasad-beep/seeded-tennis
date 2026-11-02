@@ -26,22 +26,35 @@ const TIER_PRICE: Record<SubscriptionTier, string> = {
 
 interface PaidGateProps {
   required: SubscriptionTier;
-  feature: string;
-  blurb: string;
-  perks: string[];
+  /** "page" (default): full-page takeover for gating an entire route.
+   * "inline": blurs the wrapped content behind an upgrade prompt, for
+   * gating one card/section inside an otherwise-accessible page. */
+  layout?: "page" | "inline";
+  /** Page layout copy. */
+  feature?: string;
+  blurb?: string;
+  perks?: string[];
+  /** Inline layout copy. */
+  title?: string;
+  description?: string;
+  className?: string;
   children: ReactNode;
 }
 
 export function PaidGate({
   required,
+  layout = "page",
   feature,
   blurb,
-  perks,
+  perks = [],
+  title = "Unlock with Player",
+  description = "Upgrade to see this feature.",
+  className,
   children,
 }: PaidGateProps) {
   const { canAccess, hydrated } = useTier();
 
-  if (!hydrated) {
+  if (layout === "page" && !hydrated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <motion.span
@@ -53,7 +66,42 @@ export function PaidGate({
     );
   }
 
-  if (canAccess(required)) return <>{children}</>;
+  // Inline layout: before hydration, optimistically show content to avoid a
+  // locked flash for paying users — the gate re-applies once tier loads.
+  if ((layout === "inline" && !hydrated) || canAccess(required)) {
+    return <>{children}</>;
+  }
+
+  if (layout === "inline") {
+    return (
+      <div className={cn("relative overflow-hidden rounded-card", className)}>
+        <div className="pointer-events-none select-none blur-[6px] saturate-[0.85]">
+          {children}
+        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-cream/55 px-6 text-center backdrop-blur-[2px]"
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-grass text-cream shadow-soft">
+            <Lock className="h-5 w-5" />
+          </div>
+          <Badge variant="leaf" size="md">
+            {TIER_LABEL[required]} tier
+          </Badge>
+          <p className="max-w-xs text-balance text-base font-medium text-ink">{title}</p>
+          <p className="max-w-xs text-pretty text-sm text-stone">{description}</p>
+          <Link
+            href="/pricing"
+            className={cn(buttonVariants({ variant: "primary", size: "sm" }), "mt-1")}
+          >
+            See plans
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative overflow-hidden">
