@@ -61,6 +61,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-design="seeded"
+      data-seeded-mode="dark"
       className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${GeistSans.variable}`}
       suppressHydrationWarning
     >

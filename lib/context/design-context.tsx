@@ -41,20 +41,26 @@ export function DesignProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Resolve to a concrete value either way (stored or the default) and
+    // ALWAYS write both attributes — leaving data-seeded-mode unset when
+    // there's no stored preference would mean the
+    // [data-design="seeded"][data-seeded-mode="dark"] selector in
+    // app/globals.css never matches, silently falling through to
+    // Legacy's :root colors despite data-design correctly saying "seeded".
+    let resolvedDesign: DesignSystemId = "seeded";
+    let resolvedMode: SeededMode = "dark";
     try {
       const storedDesign = window.localStorage.getItem(DESIGN_STORAGE_KEY);
-      if (storedDesign === "legacy" || storedDesign === "seeded") {
-        setDesignState(storedDesign);
-        document.documentElement.setAttribute("data-design", storedDesign);
-      }
+      if (storedDesign === "legacy" || storedDesign === "seeded") resolvedDesign = storedDesign;
       const storedMode = window.localStorage.getItem(SEEDED_MODE_STORAGE_KEY);
-      if (storedMode === "dark" || storedMode === "light") {
-        setSeededModeState(storedMode);
-        document.documentElement.setAttribute("data-seeded-mode", storedMode);
-      }
+      if (storedMode === "dark" || storedMode === "light") resolvedMode = storedMode;
     } catch {
       // ignore
     }
+    setDesignState(resolvedDesign);
+    setSeededModeState(resolvedMode);
+    document.documentElement.setAttribute("data-design", resolvedDesign);
+    document.documentElement.setAttribute("data-seeded-mode", resolvedMode);
     setHydrated(true);
   }, []);
 
