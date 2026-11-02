@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   useDesign,
   type DesignSystemId,
-  type PremiumMode,
+  type SeededMode,
 } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
@@ -16,19 +16,19 @@ const DESIGNS: { id: DesignSystemId; name: string; description: string }[] = [
     description: "The current Seeded look — themeable below.",
   },
   {
-    id: "premium",
-    name: "Premium",
+    id: "seeded",
+    name: "Seeded",
     description: "A from-scratch SaaS redesign with its own dark and light modes.",
   },
 ];
 
-const PREMIUM_MODES: { id: PremiumMode; name: string }[] = [
+const SEEDED_MODES: { id: SeededMode; name: string }[] = [
   { id: "dark", name: "Dark" },
   { id: "light", name: "Light" },
 ];
 
 export function DesignSwitcher() {
-  const { design, setDesign, premiumMode, setPremiumMode, hydrated } = useDesign();
+  const { design, setDesign, seededMode, setSeededMode, hydrated } = useDesign();
 
   return (
     <div className="space-y-4">
@@ -64,17 +64,17 @@ export function DesignSwitcher() {
         })}
       </div>
 
-      {hydrated && design === "premium" && (
+      {hydrated && design === "seeded" && (
         <div>
-          <p className="mb-2 text-xs text-stone-light">Premium mode</p>
+          <p className="mb-2 text-xs text-stone-light">Seeded mode</p>
           <div className="inline-flex rounded-pill border-[0.5px] border-line bg-card p-1">
-            {PREMIUM_MODES.map((m) => (
+            {SEEDED_MODES.map((m) => (
               <button
                 key={m.id}
-                onClick={() => setPremiumMode(m.id)}
+                onClick={() => setSeededMode(m.id)}
                 className={cn(
                   "rounded-pill px-4 py-1.5 text-sm transition-colors",
-                  premiumMode === m.id
+                  seededMode === m.id
                     ? "bg-grass text-on-primary"
                     : "text-stone hover:text-ink"
                 )}

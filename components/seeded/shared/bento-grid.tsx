@@ -8,10 +8,10 @@ interface BentoGridProps {
   className?: string;
 }
 
-// The layout primitive that makes a Premium page actually read as a
+// The layout primitive that makes a Seeded page actually read as a
 // different composition, not just a reskinned version of Legacy's fixed
 // sidebar+content grid: an auto-flowing 12-col grid whose cells opt into a
-// column/row span. Legacy has no equivalent — this is Premium-only.
+// column/row span. Legacy has no equivalent — this is Seeded-only.
 export function BentoGrid({ children, className }: BentoGridProps) {
   return (
     <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12", className)}>

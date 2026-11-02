@@ -48,10 +48,10 @@ const config: Config = {
         // the "Seeded" wordmark, italic accent words, and numbered section
         // markers all render in across the site.
         serif: ["var(--font-cormorant)", "Georgia", "serif"],
-        // Premium design system only (components/premium/*) — Legacy never
+        // Seeded design system only (components/seeded/*) — Legacy never
         // references these. --font-geist-sans comes from the `geist`
         // package (GeistSans), not a next/font/google call — see layout.tsx.
-        premium: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        seeded: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-plex-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
@@ -91,11 +91,11 @@ const config: Config = {
         soft: "0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 24px rgba(17, 24, 39, 0.05)",
         lift: "0 12px 32px rgba(17, 24, 39, 0.10)",
         glow: "0 10px 32px rgb(var(--c-primary) / 0.22), 0 2px 10px rgb(var(--c-primary) / 0.14)",
-        // Premium design system only — full shadow values live in --p-elevation-*
+        // Seeded design system only — full shadow values live in --s-elevation-*
         // (app/globals.css) since dark/light need very different recipes.
-        "premium-1": "var(--p-elevation-1)",
-        "premium-2": "var(--p-elevation-2)",
-        "premium-3": "var(--p-elevation-3)",
+        "seeded-1": "var(--s-elevation-1)",
+        "seeded-2": "var(--s-elevation-2)",
+        "seeded-3": "var(--s-elevation-3)",
       },
     },
   },

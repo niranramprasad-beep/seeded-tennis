@@ -40,7 +40,7 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-// The Premium design system's display/body face (components/premium/*
+// The Seeded design system's display/body face (components/seeded/*
 // only) — Legacy pages never reference --font-geist-sans. GeistSans ships
 // as a pre-built variable-font instance (Vercel's `geist` package) rather
 // than a next/font/google loader call, since this Next.js version (14.2)
@@ -60,7 +60,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-design="legacy"
+      data-design="seeded"
       className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${GeistSans.variable}`}
       suppressHydrationWarning
     >
@@ -68,7 +68,7 @@ export default function RootLayout({
         {/* Apply the saved theme/design before paint to avoid a flash of the default. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var m=localStorage.getItem('seeded.premium-mode');if(m){document.documentElement.setAttribute('data-premium-mode',m);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var m=localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}}catch(e){}})();`,
           }}
         />
       </head>

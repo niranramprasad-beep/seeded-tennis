@@ -1,7 +1,7 @@
 import { BarChart3, Compass, Mail, Route, School } from "lucide-react";
 
-// Shared copy/content for both Legacy's and Premium's home page compositions
-// (components/home/legacy-home-view.tsx, components/premium/home/*) — kept
+// Shared copy/content for both Legacy's and Seeded's home page compositions
+// (components/home/legacy-home-view.tsx, components/seeded/home/*) — kept
 // in one place so the two layouts can't drift on what they actually say.
 
 export const CAPABILITIES = [

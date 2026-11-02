@@ -23,8 +23,8 @@ import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
 import { Footer } from "@/components/layout/footer";
 import { CAPABILITIES, METHODOLOGY, LOOP } from "./home-content";
 
-// Extracted verbatim out of app/page.tsx so Premium (components/premium/
-// home/premium-home-view.tsx) can get a genuinely different composition
+// Extracted verbatim out of app/page.tsx so Seeded (components/seeded/
+// home/seeded-home-view.tsx) can get a genuinely different composition
 // without touching this one — zero JSX changes from the original page.
 export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[] }) {
   return (

@@ -52,7 +52,7 @@ function SettingsInner() {
           <h2 className="text-lg font-medium text-ink">Appearance</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
-          Legacy or Premium design, saved across sessions.
+          Legacy or Seeded design, saved across sessions.
         </p>
         <div className="mt-5">
           <DesignSwitcher />

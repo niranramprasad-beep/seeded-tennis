@@ -337,17 +337,17 @@
       0 0 32px rgb(52 211 153 / 0.14);
   }
 
-  /* ---- Premium design system ----
+  /* ---- Seeded design system ----
      A second, structurally different design (own layout + typography, not
      just a palette) toggled via `data-design`, fully independent of the 9
      Legacy `data-theme` palettes above — see lib/context/design-context.tsx.
      Each mode defines the complete --c-* set Legacy already uses, so every
      existing var-driven primitive (SpotlightCard, GlowOrb, Button, Card,
-     Badge) works unmodified under Premium, plus Premium-only --p-* vars
+     Badge) works unmodified under Seeded, plus Seeded-only --s-* vars
      (gradient-mesh stops, glass surfaces, elevation shadows) that only
-     components/premium/* ever reference. */
+     components/seeded/* ever reference. */
 
-  [data-design="premium"][data-premium-mode="dark"] {
+  [data-design="seeded"][data-seeded-mode="dark"] {
     --c-bg: 13 14 18;
     --c-card: 21 22 28;
     --c-primary: 109 94 245;
@@ -372,19 +372,19 @@
     --c-scroll-thumb: 52 54 62;
     --c-thumb-ring: 21 22 28;
 
-    --p-bg-mesh-1: 109 94 245;
-    --p-bg-mesh-2: 56 189 248;
-    --p-bg-mesh-3: 45 212 150;
-    --p-glass-bg: rgba(255, 255, 255, 0.045);
-    --p-glass-border: rgba(255, 255, 255, 0.1);
-    --p-glass-blur: 20px;
-    --p-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.24);
-    --p-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
-    --p-elevation-3: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 48px rgba(109, 94, 245, 0.18);
-    --p-accent-gradient: linear-gradient(135deg, rgb(109 94 245) 0%, rgb(56 189 248) 100%);
+    --s-bg-mesh-1: 109 94 245;
+    --s-bg-mesh-2: 56 189 248;
+    --s-bg-mesh-3: 45 212 150;
+    --s-glass-bg: rgba(255, 255, 255, 0.045);
+    --s-glass-border: rgba(255, 255, 255, 0.1);
+    --s-glass-blur: 20px;
+    --s-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.24);
+    --s-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+    --s-elevation-3: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 48px rgba(109, 94, 245, 0.18);
+    --s-accent-gradient: linear-gradient(135deg, rgb(109 94 245) 0%, rgb(56 189 248) 100%);
   }
 
-  [data-design="premium"][data-premium-mode="light"] {
+  [data-design="seeded"][data-seeded-mode="light"] {
     --c-bg: 246 247 250;
     --c-card: 255 255 255;
     --c-primary: 91 76 219;
@@ -409,16 +409,16 @@
     --c-scroll-thumb: 210 213 222;
     --c-thumb-ring: 255 255 255;
 
-    --p-bg-mesh-1: 91 76 219;
-    --p-bg-mesh-2: 37 99 207;
-    --p-bg-mesh-3: 13 148 108;
-    --p-glass-bg: rgba(255, 255, 255, 0.55);
-    --p-glass-border: rgba(15, 15, 20, 0.08);
-    --p-glass-blur: 20px;
-    --p-elevation-1: 0 1px 2px rgba(15, 15, 20, 0.04), 0 2px 10px rgba(15, 15, 20, 0.05);
-    --p-elevation-2: 0 8px 24px rgba(15, 15, 20, 0.08), 0 2px 10px rgba(15, 15, 20, 0.05);
-    --p-elevation-3: 0 24px 64px rgba(15, 15, 20, 0.12), 0 0 48px rgba(91, 76, 219, 0.12);
-    --p-accent-gradient: linear-gradient(135deg, rgb(91 76 219) 0%, rgb(37 99 207) 100%);
+    --s-bg-mesh-1: 91 76 219;
+    --s-bg-mesh-2: 37 99 207;
+    --s-bg-mesh-3: 13 148 108;
+    --s-glass-bg: rgba(255, 255, 255, 0.55);
+    --s-glass-border: rgba(15, 15, 20, 0.08);
+    --s-glass-blur: 20px;
+    --s-elevation-1: 0 1px 2px rgba(15, 15, 20, 0.04), 0 2px 10px rgba(15, 15, 20, 0.05);
+    --s-elevation-2: 0 8px 24px rgba(15, 15, 20, 0.08), 0 2px 10px rgba(15, 15, 20, 0.05);
+    --s-elevation-3: 0 24px 64px rgba(15, 15, 20, 0.12), 0 0 48px rgba(91, 76, 219, 0.12);
+    --s-accent-gradient: linear-gradient(135deg, rgb(91 76 219) 0%, rgb(37 99 207) 100%);
   }
 
   html {
@@ -476,16 +476,16 @@
     letter-spacing: -0.01em;
   }
 
-  /* Premium design system only (components/premium/*). */
-  .premium-glass {
-    background: var(--p-glass-bg);
-    border: 1px solid var(--p-glass-border);
-    backdrop-filter: blur(var(--p-glass-blur));
-    -webkit-backdrop-filter: blur(var(--p-glass-blur));
+  /* Seeded design system only (components/seeded/*). */
+  .seeded-glass {
+    background: var(--s-glass-bg);
+    border: 1px solid var(--s-glass-border);
+    backdrop-filter: blur(var(--s-glass-blur));
+    -webkit-backdrop-filter: blur(var(--s-glass-blur));
   }
 
-  .premium-gradient-text {
-    background: var(--p-accent-gradient);
+  .seeded-gradient-text {
+    background: var(--s-accent-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

@@ -218,10 +218,21 @@ export async function saveTrainingPlannerState(
   }
   await planDelete;
 
+  // Read-then-merge: notification_preferences is a shared JSONB bag (also
+  // used by lib/supabase/design-preference.ts for the design/seededMode
+  // choice) — a blind overwrite here would silently wipe whatever else is
+  // sitting in that same blob on every training autosave.
+  const { data: existingSettings } = await supabase
+    .from("user_settings")
+    .select("notification_preferences")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   await supabase.from("user_settings").upsert({
     user_id: userId,
     default_training_view: "week",
     notification_preferences: {
+      ...(existingSettings?.notification_preferences as Record<string, unknown> | undefined),
       session_types: state.sessionTypes,
       training_preferences: state.preferences ?? null,
     },

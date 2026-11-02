@@ -9,7 +9,7 @@ interface ScrollHeroSequenceProps {
   className?: string;
 }
 
-// Premium's hero entrance: as the hero scrolls past, headline content
+// Seeded's hero entrance: as the hero scrolls past, headline content
 // scales/fades slightly and the ambient mesh (rendered separately, behind
 // this) reads as pulling away — a scroll-orchestrated moment instead of a
 // static hero. Built on the exact useScroll/useTransform pattern Parallax

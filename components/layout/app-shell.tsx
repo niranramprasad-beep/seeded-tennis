@@ -7,8 +7,8 @@ import { useSidebar } from "@/lib/context/sidebar-context";
 import { useDesign } from "@/lib/context/design-context";
 import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
-import { PremiumNav } from "@/components/premium/layout/nav";
-import { PremiumSidebar } from "@/components/premium/layout/sidebar";
+import { SeededNav } from "@/components/seeded/layout/nav";
+import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { cn } from "@/lib/utils";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated } = usePlayer();
   const { collapsed, hydrated: sidebarHydrated } = useSidebar();
   const { design } = useDesign();
-  const isPremium = design === "premium";
+  const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
   useScrollToTopOnRouteChange(pathname);
@@ -53,11 +53,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       {hydrated
         ? showApp
-          ? isPremium
-            ? <PremiumSidebar />
+          ? isSeeded
+            ? <SeededSidebar />
             : <Sidebar />
-          : isPremium
-            ? <PremiumNav />
+          : isSeeded
+            ? <SeededNav />
             : <Nav />
         : null}
       <main

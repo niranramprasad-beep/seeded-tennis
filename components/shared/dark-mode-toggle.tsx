@@ -12,8 +12,8 @@ const DARK_THEME = "night";
  * picker in Settings. Under Legacy it flips between exactly grass <-> night
  * (treating "dark" as whichever theme is flagged dark:true, so it reads
  * correctly even if a future theme other than "night" is dark); under
- * Premium it instead flips that design's own dark/light sub-mode, since
- * Premium doesn't use `data-theme` at all. */
+ * Seeded it instead flips that design's own dark/light sub-mode, since
+ * Seeded doesn't use `data-theme` at all. */
 export function DarkModeToggle({
   className,
   showLabel = false,
@@ -22,10 +22,10 @@ export function DarkModeToggle({
   showLabel?: boolean;
 }) {
   const { theme, setTheme, hydrated: themeHydrated } = useTheme();
-  const { design, premiumMode, setPremiumMode, hydrated: designHydrated } = useDesign();
-  const isPremium = design === "premium";
-  const isDark = isPremium
-    ? premiumMode === "dark"
+  const { design, seededMode, setSeededMode, hydrated: designHydrated } = useDesign();
+  const isSeeded = design === "seeded";
+  const isDark = isSeeded
+    ? seededMode === "dark"
     : THEMES.find((t) => t.id === theme)?.dark ?? false;
   // Don't claim a specific light/dark state until both the real saved theme
   // and design are known client-side — see theme-context.tsx's `hydrated`
@@ -33,8 +33,8 @@ export function DarkModeToggle({
   const known = themeHydrated && designHydrated;
 
   const toggle = () => {
-    if (isPremium) {
-      setPremiumMode(isDark ? "light" : "dark");
+    if (isSeeded) {
+      setSeededMode(isDark ? "light" : "dark");
     } else {
       setTheme(isDark ? LIGHT_THEME : DARK_THEME);
     }

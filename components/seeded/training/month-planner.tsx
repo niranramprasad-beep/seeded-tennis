@@ -4,7 +4,7 @@ import type { MonthPlannerProps } from "@/components/training/training-view";
 import { WEEK_ORDER } from "@/lib/training/grid-math";
 import { cn } from "@/lib/utils";
 
-export function PremiumMonthPlanner({ sessionsByDay, onSelect }: MonthPlannerProps) {
+export function SeededMonthPlanner({ sessionsByDay, onSelect }: MonthPlannerProps) {
   const now = new Date();
   const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -15,12 +15,12 @@ export function PremiumMonthPlanner({ sessionsByDay, onSelect }: MonthPlannerPro
   ];
   return (
     <div>
-      <h2 className="mb-3 font-premium text-lg font-medium text-ink">{monthLabel}</h2>
+      <h2 className="mb-3 font-seeded text-lg font-medium text-ink">{monthLabel}</h2>
       <div className="grid grid-cols-7 gap-1.5">
         {WEEK_ORDER.map((d) => (
           <div
             key={d}
-            className="pb-1 text-center font-premium text-[11px] font-medium uppercase tracking-wide text-stone-light"
+            className="pb-1 text-center font-seeded text-[11px] font-medium uppercase tracking-wide text-stone-light"
           >
             {d}
           </div>
@@ -35,11 +35,11 @@ export function PremiumMonthPlanner({ sessionsByDay, onSelect }: MonthPlannerPro
               key={date}
               onClick={() => onSelect(day)}
               className={cn(
-                "premium-glass flex aspect-square min-h-[74px] flex-col rounded-xl p-2 text-left transition-all hover:-translate-y-0.5 hover:shadow-premium-2",
-                isToday && "shadow-premium-1"
+                "seeded-glass flex aspect-square min-h-[74px] flex-col rounded-xl p-2 text-left transition-all hover:-translate-y-0.5 hover:shadow-seeded-2",
+                isToday && "shadow-seeded-1"
               )}
               style={
-                isToday ? { boxShadow: "var(--p-elevation-1), 0 0 0 1px rgb(var(--c-primary))" } : undefined
+                isToday ? { boxShadow: "var(--s-elevation-1), 0 0 0 1px rgb(var(--c-primary))" } : undefined
               }
             >
               <span className={cn("font-mono text-xs", isToday ? "font-semibold text-grass" : "text-stone")}>
@@ -47,7 +47,7 @@ export function PremiumMonthPlanner({ sessionsByDay, onSelect }: MonthPlannerPro
               </span>
               <div className="mt-auto flex flex-wrap gap-1">
                 {sessions.slice(0, 6).map((s) => (
-                  <span key={s.id} className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--p-accent-gradient)" }} />
+                  <span key={s.id} className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--s-accent-gradient)" }} />
                 ))}
               </div>
               {sessions.length > 0 && (

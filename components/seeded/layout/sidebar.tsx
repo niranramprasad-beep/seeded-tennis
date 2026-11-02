@@ -51,9 +51,9 @@ const PARENT_LINKS: NavLink[] = [
 
 // Same collapse/mobile-drawer/active-route behavior as Legacy's Sidebar
 // (components/layout/sidebar.tsx) — only the visual language differs: a
-// glass panel instead of a flat card, and the active pill is the Premium
+// glass panel instead of a flat card, and the active pill is the Seeded
 // accent gradient instead of a flat fill.
-export function PremiumSidebar() {
+export function SeededSidebar() {
   const { player, signOut } = usePlayer();
   const pathname = usePathname();
   const router = useRouter();
@@ -77,7 +77,7 @@ export function PremiumSidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "premium-glass fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-300 ease-out lg:flex",
+          "seeded-glass fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-300 ease-out lg:flex",
           collapsed ? "w-[76px]" : "w-[248px]",
           !hydrated && "duration-0"
         )}
@@ -91,10 +91,10 @@ export function PremiumSidebar() {
           <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: "var(--p-accent-gradient)" }}
+              style={{ background: "var(--s-accent-gradient)" }}
             />
             {!collapsed && (
-              <span className="font-premium text-lg font-semibold tracking-tight text-ink">Seeded</span>
+              <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
             )}
           </Link>
         </div>
@@ -108,16 +108,16 @@ export function PremiumSidebar() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-premium text-sm font-medium transition-colors duration-150",
+                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-seeded text-sm font-medium transition-colors duration-150",
                   active ? "text-on-primary" : "text-stone hover:text-ink",
                   collapsed && "justify-center px-0"
                 )}
               >
                 {active && (
                   <motion.span
-                    layoutId="premium-sidebar-active-pill"
-                    className="absolute inset-0 rounded-xl shadow-premium-1"
-                    style={{ background: "var(--p-accent-gradient)" }}
+                    layoutId="seeded-sidebar-active-pill"
+                    className="absolute inset-0 rounded-xl shadow-seeded-1"
+                    style={{ background: "var(--s-accent-gradient)" }}
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
@@ -132,7 +132,7 @@ export function PremiumSidebar() {
                 />
                 {!collapsed && <span className="relative z-10 truncate">{l.label}</span>}
                 {collapsed && (
-                  <span className="premium-glass pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 font-premium text-xs font-medium text-ink opacity-0 shadow-premium-1 transition-opacity duration-150 group-hover:opacity-100">
+                  <span className="seeded-glass pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 font-seeded text-xs font-medium text-ink opacity-0 shadow-seeded-1 transition-opacity duration-150 group-hover:opacity-100">
                     {l.label}
                   </span>
                 )}
@@ -148,7 +148,7 @@ export function PremiumSidebar() {
             <Link
               href="/settings"
               className={cn(
-                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-premium text-sm text-stone transition-colors hover:text-ink",
+                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-seeded text-sm text-stone transition-colors hover:text-ink",
                 collapsed && "justify-center px-0"
               )}
             >
@@ -159,7 +159,7 @@ export function PremiumSidebar() {
           <button
             onClick={handleSignOut}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 font-premium text-sm text-stone transition-colors hover:text-ink",
+              "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 font-seeded text-sm text-stone transition-colors hover:text-ink",
               collapsed && "justify-center px-0"
             )}
           >
@@ -168,7 +168,7 @@ export function PremiumSidebar() {
           </button>
           <button
             onClick={toggleCollapsed}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 font-premium text-xs font-medium text-stone-light transition-colors hover:text-ink"
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 font-seeded text-xs font-medium text-stone-light transition-colors hover:text-ink"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
@@ -177,10 +177,10 @@ export function PremiumSidebar() {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="premium-glass sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
+      <header className="seeded-glass sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--p-accent-gradient)" }} />
-          <span className="font-premium text-lg font-semibold tracking-tight text-ink">Seeded</span>
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--s-accent-gradient)" }} />
+          <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
         <button
           onClick={() => setMobileOpen(true)}
@@ -207,10 +207,10 @@ export function PremiumSidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 340, damping: 36 }}
-              className="premium-glass fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col shadow-premium-2 lg:hidden"
+              className="seeded-glass fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col shadow-seeded-2 lg:hidden"
             >
               <div className="flex h-16 items-center justify-between border-b border-[rgb(var(--c-line))] px-4">
-                <span className="font-premium text-lg font-semibold tracking-tight text-ink">Seeded</span>
+                <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
                 <button
                   onClick={() => setMobileOpen(false)}
                   className="flex h-11 w-11 items-center justify-center rounded-full text-stone transition-colors hover:text-ink"
@@ -229,10 +229,10 @@ export function PremiumSidebar() {
                       href={l.href}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-3 font-premium text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-xl px-3 py-3 font-seeded text-sm font-medium transition-colors",
                         active ? "text-on-primary" : "text-stone hover:text-ink"
                       )}
-                      style={active ? { background: "var(--p-accent-gradient)" } : undefined}
+                      style={active ? { background: "var(--s-accent-gradient)" } : undefined}
                     >
                       <Icon className="h-[18px] w-[18px] shrink-0" />
                       {l.label}
@@ -247,7 +247,7 @@ export function PremiumSidebar() {
                   <Link
                     href="/settings"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-premium text-sm text-stone transition-colors hover:text-ink"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-seeded text-sm text-stone transition-colors hover:text-ink"
                   >
                     <Settings className="h-4 w-4" />
                     Settings
@@ -255,7 +255,7 @@ export function PremiumSidebar() {
                 )}
                 <button
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 font-premium text-sm text-stone transition-colors hover:text-ink"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 font-seeded text-sm text-stone transition-colors hover:text-ink"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign out

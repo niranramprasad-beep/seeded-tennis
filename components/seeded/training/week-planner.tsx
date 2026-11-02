@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 // style={{top,height,left,width}} math from lib/training/grid-math, so
 // dragging a session between days behaves identically under either skin.
 // Only the visual language differs.
-export function PremiumWeekPlanner(props: WeekPlannerProps) {
+export function SeededWeekPlanner(props: WeekPlannerProps) {
   const now = new Date();
   const isCurrentWeek = props.weekOffset === 0;
   const todayShort = WEEK_ORDER[(now.getDay() + 6) % 7];
@@ -28,7 +28,7 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
   const gridTop = GRID_START_HOUR * 60;
 
   return (
-    <div className="premium-glass overflow-x-auto rounded-[28px] shadow-premium-1">
+    <div className="seeded-glass overflow-x-auto rounded-[28px] shadow-seeded-1">
       <div className="grid min-w-[760px] grid-cols-[52px_repeat(7,1fr)]">
         {/* header row */}
         <div />
@@ -48,7 +48,7 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
             >
               <span
                 className={cn(
-                  "font-premium text-[11px] font-semibold uppercase tracking-wider text-stone-light",
+                  "font-seeded text-[11px] font-semibold uppercase tracking-wider text-stone-light",
                   isToday && "text-grass"
                 )}
               >
@@ -56,10 +56,10 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
               </span>
               <span
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full font-premium text-sm font-medium text-ink",
+                  "flex h-7 w-7 items-center justify-center rounded-full font-seeded text-sm font-medium text-ink",
                   isToday && "text-on-primary"
                 )}
-                style={isToday ? { background: "var(--p-accent-gradient)" } : undefined}
+                style={isToday ? { background: "var(--s-accent-gradient)" } : undefined}
               >
                 {new Date(`${date}T00:00:00`).getDate()}
               </span>
@@ -140,7 +140,7 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
                           props.onEdit(session);
                         }}
                         className={cn(
-                          "premium-glass absolute overflow-hidden rounded-lg px-2 py-1 text-left shadow-premium-1 transition-shadow hover:z-20 hover:shadow-premium-2",
+                          "seeded-glass absolute overflow-hidden rounded-lg px-2 py-1 text-left shadow-seeded-1 transition-shadow hover:z-20 hover:shadow-seeded-2",
                           session.completed && "opacity-60"
                         )}
                         style={{
@@ -152,7 +152,7 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
                         }}
                         title={`${session.title} · ${session.startTime} · ${session.duration}m`}
                       >
-                        <p className="truncate font-premium text-xs font-medium leading-tight text-ink">
+                        <p className="truncate font-seeded text-xs font-medium leading-tight text-ink">
                           {session.title || type.label}
                         </p>
                         {height > 34 && (
@@ -171,7 +171,7 @@ export function PremiumWeekPlanner(props: WeekPlannerProps) {
       </div>
       <button
         onClick={() => props.onAdd(props.selectedDay)}
-        className="flex w-full items-center justify-center gap-1.5 border-t border-[rgb(var(--c-line))] py-3 font-premium text-sm font-medium text-stone transition-colors hover:text-grass"
+        className="flex w-full items-center justify-center gap-1.5 border-t border-[rgb(var(--c-line))] py-3 font-seeded text-sm font-medium text-stone transition-colors hover:text-grass"
       >
         <Plus className="h-3.5 w-3.5" />
         Add a session

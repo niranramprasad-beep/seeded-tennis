@@ -3,7 +3,7 @@ import type { WeekdayShort } from "@/lib/types";
 import { localDateKey } from "@/lib/time";
 
 // Extracted out of components/training/training-view.tsx so Legacy's and
-// Premium's calendar skins (components/premium/training/*) are guaranteed
+// Seeded's calendar skins (components/seeded/training/*) are guaranteed
 // to compute grid position/overlap identically by construction, rather than
 // risking silent drift between two hand-maintained copies. Pure functions
 // and constants only — no JSX, no React state.

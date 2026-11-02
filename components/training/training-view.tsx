@@ -34,11 +34,11 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { GradientMeshBg } from "@/components/premium/shared/gradient-mesh-bg";
-import { PremiumActionRail } from "@/components/premium/training/action-rail";
-import { PremiumWeekPlanner } from "@/components/premium/training/week-planner";
-import { PremiumDayPlanner } from "@/components/premium/training/day-planner";
-import { PremiumMonthPlanner } from "@/components/premium/training/month-planner";
+import { GradientMeshBg } from "@/components/seeded/shared/gradient-mesh-bg";
+import { SeededActionRail } from "@/components/seeded/training/action-rail";
+import { SeededWeekPlanner } from "@/components/seeded/training/week-planner";
+import { SeededDayPlanner } from "@/components/seeded/training/day-planner";
+import { SeededMonthPlanner } from "@/components/seeded/training/month-planner";
 import type { CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
@@ -122,7 +122,7 @@ export function TrainingView({ plans }: { plans: TrainingPlan[] }) {
 function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const { player } = usePlayer();
   const { design } = useDesign();
-  const isPremium = design === "premium";
+  const isSeeded = design === "seeded";
   const currentGrade = getCurrentGrade(player.graduationYear);
   const storageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
 
@@ -579,10 +579,10 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 
   return (
     <div className="relative mx-auto w-full max-w-[1680px] px-4 py-8 sm:px-6 lg:px-8">
-      {isPremium && <GradientMeshBg className="-z-10" />}
+      {isSeeded && <GradientMeshBg className="-z-10" />}
       <div className="grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
-        {isPremium ? (
-          <PremiumActionRail {...actionRailProps} />
+        {isSeeded ? (
+          <SeededActionRail {...actionRailProps} />
         ) : (
           <TrainingActionRail {...actionRailProps} />
         )}
@@ -592,17 +592,17 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             className={
-              isPremium
-                ? "premium-glass overflow-hidden rounded-[30px] shadow-premium-2"
+              isSeeded
+                ? "seeded-glass overflow-hidden rounded-[30px] shadow-seeded-2"
                 : "overflow-hidden rounded-[30px] border-[0.5px] border-line bg-card shadow-soft"
             }
           >
             <div
               className={cn(
                 "px-6 py-5 text-on-primary sm:px-10 lg:px-12",
-                !isPremium && "border-b-[0.5px] border-line bg-grass"
+                !isSeeded && "border-b-[0.5px] border-line bg-grass"
               )}
-              style={isPremium ? { background: "var(--p-accent-gradient)" } : undefined}
+              style={isSeeded ? { background: "var(--s-accent-gradient)" } : undefined}
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -701,8 +701,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                           onToggle: toggleComplete,
                           weekOffset,
                         };
-                        return isPremium ? (
-                          <PremiumWeekPlanner {...weekProps} />
+                        return isSeeded ? (
+                          <SeededWeekPlanner {...weekProps} />
                         ) : (
                           <WeekPlanner {...weekProps} />
                         );
@@ -721,8 +721,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                           },
                           onToggle: toggleComplete,
                         };
-                        return isPremium ? (
-                          <PremiumDayPlanner {...dayProps} />
+                        return isSeeded ? (
+                          <SeededDayPlanner {...dayProps} />
                         ) : (
                           <DayPlanner {...dayProps} />
                         );
@@ -736,8 +736,8 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                             setView("day");
                           },
                         };
-                        return isPremium ? (
-                          <PremiumMonthPlanner {...monthProps} />
+                        return isSeeded ? (
+                          <SeededMonthPlanner {...monthProps} />
                         ) : (
                           <MonthPlanner {...monthProps} />
                         );
@@ -749,14 +749,14 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
               <aside className="space-y-5">
                 <SpotlightCard
                   className={
-                    isPremium
-                      ? "premium-glass rounded-[22px] p-6 shadow-premium-1"
+                    isSeeded
+                      ? "seeded-glass rounded-[22px] p-6 shadow-seeded-1"
                       : "rounded-card border border-line bg-card p-6 shadow-soft"
                   }
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-grass" />
-                    <h2 className={cn("text-base font-medium text-ink", isPremium && "font-premium")}>
+                    <h2 className={cn("text-base font-medium text-ink", isSeeded && "font-seeded")}>
                       Plan balance
                     </h2>
                   </div>
@@ -772,7 +772,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
                           {d.name}
                         </span>
-                        <span className={cn("font-medium text-ink", isPremium && "font-mono")}>{d.value}h</span>
+                        <span className={cn("font-medium text-ink", isSeeded && "font-mono")}>{d.value}h</span>
                       </div>
                     ))}
                   </div>
@@ -780,22 +780,22 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
 
                 <SpotlightCard
                   className={
-                    isPremium
-                      ? "premium-glass rounded-[22px] p-6 shadow-premium-1"
+                    isSeeded
+                      ? "seeded-glass rounded-[22px] p-6 shadow-seeded-1"
                       : "rounded-card border border-line bg-card p-6 shadow-soft"
                   }
                 >
-                  <h2 className={cn("text-base font-medium text-ink", isPremium && "font-premium")}>
+                  <h2 className={cn("text-base font-medium text-ink", isSeeded && "font-seeded")}>
                     Recommended next move
                   </h2>
                   <p className="mt-2 text-sm leading-relaxed text-stone">
                     {recommendation(player.currentUTR, activeSessions, currentGrade)}
                   </p>
-                  {isPremium ? (
+                  {isSeeded ? (
                     <button
                       onClick={() => openNewSession("Sat")}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-pill py-2.5 font-premium text-sm font-medium text-on-primary"
-                      style={{ background: "var(--p-accent-gradient)" }}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-pill py-2.5 font-seeded text-sm font-medium text-on-primary"
+                      style={{ background: "var(--s-accent-gradient)" }}
                     >
                       Add suggested session
                       <ChevronRight className="h-4 w-4" />

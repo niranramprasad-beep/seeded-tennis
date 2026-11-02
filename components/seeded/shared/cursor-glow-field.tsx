@@ -54,7 +54,7 @@ export function CursorGlowField({ children, className }: CursorGlowFieldProps) {
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
         style={{
           background:
-            "radial-gradient(600px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgb(var(--p-bg-mesh-1) / 0.14), transparent 70%)",
+            "radial-gradient(600px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgb(var(--s-bg-mesh-1) / 0.14), transparent 70%)",
         }}
       />
       {children}

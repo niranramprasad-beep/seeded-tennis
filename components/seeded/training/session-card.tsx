@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import type { SessionCardProps } from "@/components/training/training-view";
 import { cn } from "@/lib/utils";
 
-export function PremiumSessionCard({ session, type, onEdit, onDrag, onToggle }: SessionCardProps) {
+export function SeededSessionCard({ session, type, onEdit, onDrag, onToggle }: SessionCardProps) {
   return (
     <motion.article
       layout
@@ -14,7 +14,7 @@ export function PremiumSessionCard({ session, type, onEdit, onDrag, onToggle }: 
       onDragEnd={() => onDrag(null)}
       whileHover={{ y: -2 }}
       className={cn(
-        "premium-glass group rounded-[22px] p-5 shadow-premium-1 transition-shadow",
+        "seeded-glass group rounded-[22px] p-5 shadow-seeded-1 transition-shadow",
         session.completed && "opacity-70"
       )}
       style={{ borderLeft: `3px solid ${type.color}` }}
@@ -32,14 +32,14 @@ export function PremiumSessionCard({ session, type, onEdit, onDrag, onToggle }: 
                 ? "border-transparent text-on-primary"
                 : "border-[rgb(var(--c-line))] text-stone-light group-hover/toggle:border-grass"
             )}
-            style={session.completed ? { background: "var(--p-accent-gradient)" } : undefined}
+            style={session.completed ? { background: "var(--s-accent-gradient)" } : undefined}
           >
             {session.completed && <Check className="h-3.5 w-3.5" />}
           </span>
         </button>
         <button onClick={() => onEdit(session)} className="min-w-0 flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("rounded-pill px-2.5 py-1 font-premium text-xs font-medium", type.bg, type.text)}>
+            <span className={cn("rounded-pill px-2.5 py-1 font-seeded text-xs font-medium", type.bg, type.text)}>
               {type.label}
             </span>
             <span className="flex items-center gap-1 font-mono text-xs text-stone-light">
@@ -49,7 +49,7 @@ export function PremiumSessionCard({ session, type, onEdit, onDrag, onToggle }: 
           </div>
           <h3
             className={cn(
-              "mt-4 font-premium text-base font-medium leading-snug text-ink",
+              "mt-4 font-seeded text-base font-medium leading-snug text-ink",
               session.completed && "line-through decoration-grass/40"
             )}
           >

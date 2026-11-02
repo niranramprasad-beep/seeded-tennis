@@ -35,13 +35,13 @@ const COLUMNS = [
 ];
 
 export function Footer() {
-  const { design } = useDesign();
-  const isPremium = design === "premium";
+  const { design, setDesign } = useDesign();
+  const isSeeded = design === "seeded";
 
   return (
     <footer
       className={cn(
-        isPremium ? "premium-glass border-t-0" : "border-t-[0.5px] border-line bg-card"
+        isSeeded ? "seeded-glass border-t-0" : "border-t-[0.5px] border-line bg-card"
       )}
     >
       <div className="mx-auto max-w-content container-px py-14">
@@ -56,12 +56,12 @@ export function Footer() {
             <div className="flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={isPremium ? { background: "var(--p-accent-gradient)" } : undefined}
+                style={isSeeded ? { background: "var(--s-accent-gradient)" } : undefined}
               />
               <span
                 className={cn(
-                  isPremium
-                    ? "font-premium text-xl font-semibold tracking-tight text-ink"
+                  isSeeded
+                    ? "font-seeded text-xl font-semibold tracking-tight text-ink"
                     : "font-serif text-[26px] italic leading-none text-grass"
                 )}
               >
@@ -78,7 +78,7 @@ export function Footer() {
               <h4
                 className={cn(
                   "text-xs font-medium uppercase tracking-[0.12em] text-stone-light",
-                  isPremium && "font-premium"
+                  isSeeded && "font-seeded"
                 )}
               >
                 {col.title}
@@ -90,7 +90,7 @@ export function Footer() {
                       href={l.href}
                       className={cn(
                         "group inline-flex items-center gap-1 text-sm text-stone transition-colors hover:text-ink",
-                        isPremium && "font-premium"
+                        isSeeded && "font-seeded"
                       )}
                     >
                       {l.label}
@@ -105,15 +105,23 @@ export function Footer() {
         <div
           className={cn(
             "mt-12 flex flex-col items-start justify-between gap-3 border-t pt-6 text-xs text-stone-light sm:flex-row sm:items-center",
-            isPremium ? "border-[rgb(var(--c-line))]" : "border-line"
+            isSeeded ? "border-[rgb(var(--c-line))]" : "border-line"
           )}
         >
-          <p className={cn(isPremium && "font-premium")}>
+          <p className={cn(isSeeded && "font-seeded")}>
             © {new Date().getFullYear()} Seeded. Built for tennis families.
           </p>
-          <p className={cn(isPremium ? "font-premium" : "font-serif italic", "text-stone")}>
+          <p className={cn(isSeeded ? "font-seeded" : "font-serif italic", "text-stone")}>
             Your path to college tennis, mapped match by match.
           </p>
+          {isSeeded && (
+            <button
+              onClick={() => setDesign("legacy")}
+              className="font-seeded text-xs text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline"
+            >
+              Switch to Legacy
+            </button>
+          )}
         </div>
       </div>
     </footer>
