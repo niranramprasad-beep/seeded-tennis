@@ -4,8 +4,11 @@ import { useLayoutEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
+import { useDesign } from "@/lib/context/design-context";
 import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
+import { PremiumNav } from "@/components/premium/layout/nav";
+import { PremiumSidebar } from "@/components/premium/layout/sidebar";
 import { cn } from "@/lib/utils";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
@@ -40,13 +43,23 @@ function useScrollToTopOnRouteChange(pathname: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated } = usePlayer();
   const { collapsed, hydrated: sidebarHydrated } = useSidebar();
+  const { design } = useDesign();
+  const isPremium = design === "premium";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
   useScrollToTopOnRouteChange(pathname);
 
   return (
     <>
-      {hydrated ? showApp ? <Sidebar /> : <Nav /> : null}
+      {hydrated
+        ? showApp
+          ? isPremium
+            ? <PremiumSidebar />
+            : <Sidebar />
+          : isPremium
+            ? <PremiumNav />
+            : <Nav />
+        : null}
       <main
         className={cn(
           showApp && [
