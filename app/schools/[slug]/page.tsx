@@ -26,6 +26,8 @@ import { SchoolBadge } from "@/components/shared/school-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CoachEmailCTA } from "@/components/schools/coach-email-cta";
 import { Footer } from "@/components/layout/footer";
+import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
+import { SchoolDetailSwitch } from "@/components/seeded/schools/school-detail-switch";
 
 // recharts loads as its own chunk instead of being bundled into every
 // school page. `ssr: false` isn't allowed here (this file is a Server
@@ -65,9 +67,20 @@ export default async function SchoolDetailPage({
   ];
 
   return (
-    <>
-      {/* hero */}
-      <section
+    <SchoolDetailSwitch
+      seeded={
+        <SeededSchoolDetail
+          school={school}
+          profile={profile}
+          stats={stats}
+          programType={programType}
+          inState={inState}
+        />
+      }
+      legacy={
+        <>
+          {/* hero */}
+          <section
         className="relative overflow-hidden"
         style={{ backgroundColor: school.primaryColor, color: school.textColor }}
       >
@@ -382,8 +395,10 @@ export default async function SchoolDetailPage({
           </Card>
         </div>
       </div>
-      <Footer />
-    </>
+          <Footer />
+        </>
+      }
+    />
   );
 }
 
