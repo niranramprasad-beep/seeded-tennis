@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   CheckCircle2,
@@ -32,6 +32,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SchoolBadge } from "@/components/shared/school-badge";
+import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
 // Legacy key from before outreach status was synced to Supabase — still read
@@ -62,6 +63,8 @@ export function CoachesView({ schools }: { schools: School[] }) {
 }
 
 function CoachesInner({ schools }: { schools: School[] }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player } = usePlayer();
 
   const targetSchools = useMemo(
@@ -209,10 +212,10 @@ function CoachesInner({ schools }: { schools: School[] }) {
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="max-w-2xl">
-          <span className="eyebrow text-gold">Coach outreach</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Coach outreach</span>
+          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Emails that sound like{" "}
-            <span className="serif-accent text-grass">you</span>.
+            <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>you</span>.
           </h1>
           <p className="mt-3 text-pretty leading-relaxed text-stone">
             Built from your real results and each program's specifics. Edit
@@ -238,37 +241,55 @@ function CoachesInner({ schools }: { schools: School[] }) {
                 key={s.id}
                 onClick={() => setSelectedSlug(s.slug)}
                 className={cn(
-                  "flex items-center gap-3 rounded-card border-[0.5px] p-3 text-left transition-all",
-                  active
-                    ? "border-grass bg-grass-50 shadow-soft"
-                    : "border-line bg-card hover:shadow-soft"
+                  "flex items-center gap-3 rounded-card border p-3 text-left transition-all",
+                  isSeeded
+                    ? active
+                      ? "border-transparent seeded-glass shadow-seeded-2"
+                      : "border-[rgb(var(--c-line))] hover:shadow-seeded-1"
+                    : active
+                      ? "border-grass bg-grass-50 shadow-soft"
+                      : "border-line bg-card hover:shadow-soft"
                 )}
               >
                 <SchoolBadge school={s} size={40} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">
+                  <p className={cn("truncate text-sm font-medium text-ink", isSeeded && "font-seeded")}>
                     {s.shortName}
                   </p>
                   <p className="truncate text-xs text-stone-light">
                     {s.coachName}
                   </p>
                 </div>
-                {status === "replied" ? (
-                  <Badge variant="leaf" size="sm">
-                    <MailCheck className="h-3 w-3" />
-                    Replied
-                  </Badge>
-                ) : status === "contacted" ? (
-                  <Badge variant="default" size="sm">
-                    <Check className="h-3 w-3" />
-                    Sent
-                  </Badge>
-                ) : (
-                  <Badge variant="muted" size="sm">
-                    <Inbox className="h-3 w-3" />
-                    To do
-                  </Badge>
-                )}
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={status ?? "todo"}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {status === "replied" ? (
+                      <Badge variant="leaf" size="sm">
+                        <MailCheck className="h-3 w-3" />
+                        Replied
+                      </Badge>
+                    ) : status === "contacted" ? (
+                      <Badge
+                        size="sm"
+                        variant={isSeeded ? undefined : "default"}
+                        style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+                      >
+                        <Check className="h-3 w-3" />
+                        Sent
+                      </Badge>
+                    ) : (
+                      <Badge variant="muted" size="sm">
+                        <Inbox className="h-3 w-3" />
+                        To do
+                      </Badge>
+                    )}
+                  </motion.span>
+                </AnimatePresence>
               </button>
             );
           })}
@@ -282,8 +303,8 @@ function CoachesInner({ schools }: { schools: School[] }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between border-b-[0.5px] border-line bg-cream/50 p-5">
+            <Card className={cn("overflow-hidden", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+              <div className={cn("flex items-center justify-between border-b p-5", isSeeded ? "border-[rgb(var(--c-line))]" : "border-line bg-cream/50")}>
                 <div className="flex items-center gap-3">
                   <SchoolBadge school={selectedSchool} size={42} />
                   <div>
