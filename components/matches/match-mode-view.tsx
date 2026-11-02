@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import {
   deleteMatch,
   generatePrepPlan,
@@ -32,6 +33,8 @@ export function MatchModeView() {
 }
 
 function MatchModeInner() {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player } = usePlayer();
   // Same "matches" key as the history view — switching between /match-mode
   // and /matches reuses one cached fetch instead of each page loading its
@@ -154,12 +157,16 @@ function MatchModeInner() {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="grid gap-5 lg:grid-cols-[390px_1fr]">
-        <Card className="p-6">
-          <Badge variant="lime" size="sm">
+        <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+          <Badge
+            size="sm"
+            variant={isSeeded ? undefined : "lime"}
+            style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+          >
             <Trophy className="h-3.5 w-3.5" />
             Match mode
           </Badge>
-          <h1 className="display-serif mt-4 text-3xl text-ink sm:text-4xl">
+          <h1 className={cn("mt-4 text-3xl sm:text-4xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Build your next-match routine.
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-stone">
@@ -265,6 +272,8 @@ function PrepPlanCard({
   ) => void;
   onCancel: () => void;
 }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const [logging, setLogging] = useState<"win" | "loss" | null>(null);
   const [score, setScore] = useState("");
   const [worked, setWorked] = useState("");
@@ -277,8 +286,11 @@ function PrepPlanCard({
     ["Match day", plan.matchDay],
   ] as const;
   return (
-    <Card className="overflow-hidden">
-      <div className="border-b-[0.5px] border-line bg-grass p-6 text-on-primary">
+    <Card className={cn("overflow-hidden", isSeeded && "seeded-glass border-0 shadow-seeded-2")}>
+      <div
+        className={cn("p-6 text-on-primary", !isSeeded && "border-b-[0.5px] border-line bg-grass")}
+        style={isSeeded ? { background: "var(--s-accent-gradient)" } : undefined}
+      >
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="font-serif text-lg italic text-leaf-accent">Next up</p>

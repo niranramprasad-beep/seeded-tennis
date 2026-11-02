@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import {
   deleteMatch,
   generatePrepPlan,
@@ -36,6 +37,8 @@ export function MatchHistoryView() {
 }
 
 function MatchHistoryInner() {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player } = usePlayer();
   // Same "matches" key as match-mode-view — shares one cached fetch across
   // both pages instead of each loading its own copy.
@@ -131,8 +134,8 @@ function MatchHistoryInner() {
     <div className="mx-auto max-w-content container-px py-12">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className="eyebrow text-gold">Match history</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Match history</span>
+          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Turn matches into next-week work.
           </h1>
           <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
@@ -150,8 +153,8 @@ function MatchHistoryInner() {
 
       <div className="mt-8 grid gap-4 lg:grid-cols-[380px_1fr]">
         <Reveal index={1}>
-        <Card className="h-fit p-6">
-          <h2 className="text-lg font-medium text-ink">Log a match</h2>
+        <Card className={cn("h-fit p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Log a match</h2>
           <div className="mt-4 grid gap-3">
             <input className={inputClass} type="date" value={form.matchDate} onChange={(e) => setForm({ ...form, matchDate: e.target.value })} aria-label="Match date" />
             <input className={inputClass} placeholder="Tournament name" value={form.tournamentName} onChange={(e) => setForm({ ...form, tournamentName: e.target.value })} />
@@ -202,7 +205,7 @@ function MatchHistoryInner() {
           <div className="space-y-3">
             {visible.map((match, i) => (
               <Reveal key={match.id} index={i} step={0.05}>
-              <Card interactive className="p-5">
+              <Card interactive className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={match.result === "win" ? "leaf" : "outline"}>
