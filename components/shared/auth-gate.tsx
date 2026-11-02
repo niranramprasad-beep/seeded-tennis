@@ -53,7 +53,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (hydrated && connectionError) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FBEAE5] text-[#9C3B22]">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-error-bg text-error">
           <AlertTriangle className="h-5 w-5" />
         </span>
         <h1 className="mt-4 text-xl font-medium text-ink">

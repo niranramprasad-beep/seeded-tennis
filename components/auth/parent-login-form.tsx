@@ -72,7 +72,7 @@ export function ParentLoginForm() {
             onChange={(e) => setPassword(e.target.value)}
           />
           {error && (
-            <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+            <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
               {error}
             </p>
           )}

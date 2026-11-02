@@ -25,6 +25,9 @@
     --c-stone: 75 85 99;
     --c-stone-light: 156 163 175;
     --c-line: 229 231 235;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     /* Warm accent — set on :root so it cascades to every theme. */
     --c-gold: 180 138 74;
@@ -51,6 +54,9 @@
     --c-stone: 122 106 95;
     --c-stone-light: 169 155 140;
     --c-line: 236 223 210;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     --c-scroll-thumb: 219 198 180;
     --c-thumb-ring: 255 249 243;
@@ -75,6 +81,9 @@
     --c-stone: 160 170 186;
     --c-stone-light: 118 130 150;
     --c-line: 42 56 78;
+    --c-error-bg: 58 28 24;
+    --c-error: 240 150 130;
+    --c-error-strong: 250 180 160;
 
     --c-scroll-thumb: 52 68 92;
     --c-thumb-ring: 22 34 54;
@@ -98,6 +107,9 @@
     --c-stone: 71 85 105;
     --c-stone-light: 148 163 184;
     --c-line: 226 232 240;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     --c-scroll-thumb: 203 213 225;
     --c-thumb-ring: 255 255 255;
@@ -121,6 +133,9 @@
     --c-stone: 88 94 79;
     --c-stone-light: 143 151 132;
     --c-line: 222 228 216;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     --c-scroll-thumb: 198 209 188;
     --c-thumb-ring: 255 255 253;
@@ -144,6 +159,9 @@
     --c-stone: 95 91 82;
     --c-stone-light: 149 143 130;
     --c-line: 229 222 207;
+    --c-error-bg: 251 234 229;
+    --c-error: 156 59 34;
+    --c-error-strong: 111 40 22;
 
     --c-scroll-thumb: 211 202 185;
     --c-thumb-ring: 255 253 247;
@@ -246,27 +264,32 @@
     outline: none;
     cursor: pointer;
   }
+  /* Total thumb size (border included, via border-box) is 44px to meet the
+     minimum touch-target size (WCAG 2.5.5) — same visual proportions as
+     before, just a bigger hit area. */
   .seeded-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 26px;
-    height: 26px;
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: rgb(var(--c-primary));
-    border: 4px solid rgb(var(--c-thumb-ring));
+    border: 6px solid rgb(var(--c-thumb-ring));
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
     transition: transform 0.15s ease;
   }
   .seeded-range::-webkit-slider-thumb:hover {
-    transform: scale(1.12);
+    transform: scale(1.08);
   }
   .seeded-range:active::-webkit-slider-thumb {
     transform: scale(0.96);
   }
   .seeded-range::-moz-range-thumb {
-    width: 26px;
-    height: 26px;
-    border: 4px solid rgb(var(--c-thumb-ring));
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    border: 6px solid rgb(var(--c-thumb-ring));
     border-radius: 50%;
     background: rgb(var(--c-primary));
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);

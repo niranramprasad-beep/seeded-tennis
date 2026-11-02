@@ -94,7 +94,7 @@ export function ResetPasswordForm() {
                 onChange={(e) => setEmail(e.target.value)}
               />
               {error && (
-                <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+                <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
               )}
               <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send reset link<ArrowRight className="h-4 w-4" /></>}
@@ -121,7 +121,7 @@ export function ResetPasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
               />
               {error && (
-                <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>
+                <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
               )}
               <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Update password<ArrowRight className="h-4 w-4" /></>}

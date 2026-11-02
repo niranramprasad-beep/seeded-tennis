@@ -1224,7 +1224,7 @@ function SessionDrawer({
               </button>
               <button
                 onClick={() => onDelete(session.id)}
-                className="flex items-center gap-1.5 text-sm text-[#9C3B22] transition-colors hover:text-[#6F2816] focus:outline-none focus:ring-2 focus:ring-[#9C3B22]/30"
+                className="flex items-center gap-1.5 text-sm text-error transition-colors hover:text-error-strong focus:outline-none focus:ring-2 focus:ring-error/30"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -1241,7 +1241,7 @@ function SessionDrawer({
       }
     >
       <div className="space-y-4">
-        {error && <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>}
+        {error && <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>}
         <Field label="Session name">
           <input
             className={inputClass}
@@ -1382,7 +1382,7 @@ function PlanDrawer({
       }
     >
       <div className="space-y-4">
-        {error && <p className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">{error}</p>}
+        {error && <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>}
         <Field label="Plan name">
           <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Example: Summer tournament block" />
         </Field>

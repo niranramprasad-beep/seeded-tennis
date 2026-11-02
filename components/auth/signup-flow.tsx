@@ -395,7 +395,7 @@ export function SignupFlow({
         </AnimatePresence>
 
         {error && (
-          <p className="mt-4 rounded-xl bg-[#FBEAE5] px-4 py-2.5 text-sm text-[#9C3B22]">
+          <p className="mt-4 rounded-xl bg-error-bg px-4 py-2.5 text-sm text-error">
             {error}
           </p>
         )}

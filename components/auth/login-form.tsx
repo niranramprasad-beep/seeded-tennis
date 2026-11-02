@@ -100,14 +100,14 @@ export function LoginForm() {
             </Link>
           </div>
           {error && (
-            <div className="rounded-xl bg-[#FBEAE5] px-4 py-3 text-sm text-[#9C3B22]">
+            <div className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
               <p>{error}</p>
               {needsConfirmation && (
                 <button
                   type="button"
                   onClick={resend}
                   disabled={resending || !email}
-                  className="mt-2 font-medium text-[#6F2816] underline underline-offset-4 disabled:opacity-50"
+                  className="mt-2 font-medium text-error-strong underline underline-offset-4 disabled:opacity-50"
                 >
                   {resending ? "Sending..." : "Resend confirmation email"}
                 </button>
