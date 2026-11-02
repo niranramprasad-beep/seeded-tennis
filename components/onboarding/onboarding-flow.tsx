@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { GenderToggle } from "@/components/shared/gender-toggle";
+import { useDesign } from "@/lib/context/design-context";
 import { formatUTR, cn } from "@/lib/utils";
 import { getCurrentGrade, getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 
@@ -53,6 +54,8 @@ const STEPS = ["Current UTR", "Grade", "Target schools", "Focus areas"];
 
 export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
   const router = useRouter();
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player, completeOnboarding } = usePlayer();
 
   const [step, setStep] = useState(0);
@@ -124,7 +127,7 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col container-px py-10">
         {/* progress */}
         <div className="mb-10">
-          <div className="mb-2 flex items-center justify-between text-xs text-stone">
+          <div className={cn("mb-2 flex items-center justify-between text-xs text-stone", isSeeded && "font-seeded")}>
             <span className="font-medium text-grass">
               Step {step + 1} of {STEPS.length}
             </span>
@@ -132,9 +135,10 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-pill bg-grass-50">
             <motion.div
-              className="h-full rounded-pill bg-grass"
+              className="h-full rounded-pill"
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              style={isSeeded ? { background: "var(--s-accent-gradient)" } : { background: "rgb(var(--c-primary))" }}
             />
           </div>
         </div>
@@ -158,10 +162,15 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
                   subtitle="Your Universal Tennis Rating anchors everything we build for you. Drag to your number."
                 >
                   <div className="mt-10 text-center">
-                    <div className="font-light tracking-tight text-grass">
+                    <div className={cn("tracking-tight", isSeeded ? "font-mono seeded-gradient-text" : "font-light text-grass")}>
                       <span className="text-7xl">{formatUTR(utr)}</span>
                     </div>
-                    <Badge variant="leaf" size="md" className="mt-3">
+                    <Badge
+                      size="md"
+                      variant={isSeeded ? undefined : "leaf"}
+                      className="mt-3"
+                      style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+                    >
                       {utrBand(utr)}
                     </Badge>
                   </div>
@@ -379,10 +388,14 @@ function StepShell({
   subtitle: string;
   children: React.ReactNode;
 }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   return (
     <div>
-      <p className="font-serif text-base italic text-leaf-accent">{eyebrow}</p>
-      <h1 className="mt-1 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
+      <p className={cn("text-base", isSeeded ? "font-seeded font-semibold uppercase tracking-[0.2em] text-stone" : "font-serif italic text-leaf-accent")}>
+        {eyebrow}
+      </p>
+      <h1 className={cn("mt-1 text-balance text-3xl sm:text-4xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "font-light tracking-tight text-ink")}>
         {title}
       </h1>
       <p className="mt-3 text-pretty leading-relaxed text-stone">{subtitle}</p>
