@@ -115,8 +115,8 @@ export function PricingView() {
       <div className="mx-auto max-w-2xl text-center">
         <p className="font-serif text-lg italic text-leaf-accent">Pricing</p>
         <h1 className="mt-2 text-balance text-4xl font-light tracking-tight text-ink sm:text-5xl">
-          Start free. Upgrade when you're{" "}
-          <span className="serif-accent text-grass">ready to commit</span>.
+          Start free. Upgrade when{" "}
+          <span className="serif-accent text-grass">you're ready</span>.
         </h1>
         <p className="mx-auto mt-4 max-w-lg text-pretty text-stone">
           Browsing schools is always free. Choose a plan to unlock your roadmap,
@@ -198,8 +198,10 @@ export function PricingView() {
         <h2 className="text-center text-2xl font-light tracking-tight text-ink">
           Compare every feature
         </h2>
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse">
+
+        {/* desktop: full grid table */}
+        <div className="mt-6 hidden lg:block">
+          <table className="w-full border-collapse">
             <thead>
               <tr>
                 <th className="w-2/5 py-4 text-left" />
@@ -219,6 +221,35 @@ export function PricingView() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* mobile: stacked per-feature rows, no horizontal scroll */}
+        <div className="mt-6 space-y-6 lg:hidden">
+          {MATRIX.map((section) => (
+            <div key={section.group}>
+              <p className="border-b-[0.5px] border-line pb-2 text-xs font-medium uppercase tracking-[0.12em] text-stone-light">
+                {section.group}
+              </p>
+              <div className="mt-2 divide-y divide-line">
+                {section.rows.map((row) => (
+                  <div key={row.label} className="py-3">
+                    <p className="text-sm text-ink">{row.label}</p>
+                    <div className="mt-2 flex gap-4">
+                      {PLANS.map((p) => (
+                        <span
+                          key={p.tier}
+                          className="flex items-center gap-1.5 text-xs text-stone"
+                        >
+                          <MobileCell on={row[p.tier]} />
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -245,6 +276,14 @@ function FeatureSection({ group, rows }: { group: string; rows: Row[] }) {
         </tr>
       ))}
     </>
+  );
+}
+
+function MobileCell({ on }: { on: boolean }) {
+  return on ? (
+    <Check className="h-3.5 w-3.5 text-grass" />
+  ) : (
+    <Minus className="h-3.5 w-3.5 text-stone-light/50" />
   );
 }
 
