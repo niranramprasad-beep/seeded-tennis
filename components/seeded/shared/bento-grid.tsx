@@ -23,7 +23,7 @@ export function BentoGrid({ children, className }: BentoGridProps) {
 interface BentoCellProps {
   children: ReactNode;
   /** Column span out of the 12-col track at lg (and 6-col at sm); full-width on mobile. */
-  span?: 3 | 4 | 6 | 8 | 12;
+  span?: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 12;
   rowSpan?: 1 | 2;
   className?: string;
 }
@@ -31,8 +31,11 @@ interface BentoCellProps {
 const SPAN_CLASS: Record<NonNullable<BentoCellProps["span"]>, string> = {
   3: "sm:col-span-3 lg:col-span-3",
   4: "sm:col-span-3 lg:col-span-4",
+  5: "sm:col-span-6 lg:col-span-5",
   6: "sm:col-span-6 lg:col-span-6",
+  7: "sm:col-span-6 lg:col-span-7",
   8: "sm:col-span-6 lg:col-span-8",
+  9: "sm:col-span-6 lg:col-span-9",
   12: "sm:col-span-6 lg:col-span-12",
 };
 

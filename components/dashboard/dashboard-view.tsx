@@ -28,6 +28,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { Reveal } from "@/components/shared/reveal";
+import { useDesign } from "@/lib/context/design-context";
+import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
 import { DailyCheckinCard } from "./daily-checkin-card";
 import { localDateKey } from "@/lib/time";
 import { cn, formatUTR } from "@/lib/utils";
@@ -209,8 +211,89 @@ function DashboardInner({ schools }: DashboardViewProps) {
     }
   };
 
+  const { design } = useDesign();
+  const layoutProps = {
+    firstName,
+    tier,
+    player,
+    targetUTR,
+    utrStatus,
+    utrError,
+    actualPoints,
+    targetPoints,
+    UTRTrajectoryChart,
+    weeklyHours,
+    weekSessions,
+    plannerState,
+    targetSchools,
+    setUtrDrawerOpen,
+    setCheckinDrawerOpen,
+  };
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      {design === "seeded" ? (
+        <SeededDashboardLayout {...layoutProps} />
+      ) : (
+        <LegacyDashboardLayout {...layoutProps} />
+      )}
+
+      <UtrLogDrawer
+        open={utrDrawerOpen}
+        currentUtr={player.currentUTR}
+        loading={utrStatus === "saving"}
+        error={utrError}
+        onClose={() => {
+          setUtrDrawerOpen(false);
+          setUtrError("");
+        }}
+        onSave={handleSaveUtr}
+      />
+
+      <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
+        <DailyCheckinCard player={player} trainingHours={weeklyHours} />
+      </Drawer>
+    </div>
+  );
+}
+
+export interface DashboardLayoutProps {
+  firstName: string;
+  tier: ReturnType<typeof useTier>["tier"];
+  player: ReturnType<typeof usePlayer>["player"];
+  targetUTR: number;
+  utrStatus: "idle" | "loading" | "saving" | "error";
+  utrError: string;
+  actualPoints: { date: Date; utr: number }[];
+  targetPoints: { date: Date; utr: number }[];
+  UTRTrajectoryChart: typeof UTRTrajectoryChart;
+  weeklyHours: number;
+  weekSessions: { day: WeekdayShort; sessions: TrainingPlannerState["sessions"] }[];
+  plannerState: TrainingPlannerState | null | undefined;
+  targetSchools: SchoolLite[];
+  setUtrDrawerOpen: (v: boolean) => void;
+  setCheckinDrawerOpen: (v: boolean) => void;
+}
+
+function LegacyDashboardLayout({
+  firstName,
+  tier,
+  player,
+  targetUTR,
+  utrStatus,
+  utrError,
+  actualPoints,
+  targetPoints,
+  UTRTrajectoryChart,
+  weeklyHours,
+  weekSessions,
+  plannerState,
+  targetSchools,
+  setUtrDrawerOpen,
+  setCheckinDrawerOpen,
+}: DashboardLayoutProps) {
+  return (
+    <>
       {/* greeting */}
       <Reveal className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
@@ -443,23 +526,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
           <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
         </Reveal>
       </div>
-
-      <UtrLogDrawer
-        open={utrDrawerOpen}
-        currentUtr={player.currentUTR}
-        loading={utrStatus === "saving"}
-        error={utrError}
-        onClose={() => {
-          setUtrDrawerOpen(false);
-          setUtrError("");
-        }}
-        onSave={handleSaveUtr}
-      />
-
-      <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
-        <DailyCheckinCard player={player} trainingHours={weeklyHours} />
-      </Drawer>
-    </div>
+    </>
   );
 }
 
