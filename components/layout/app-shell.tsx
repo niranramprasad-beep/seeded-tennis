@@ -9,6 +9,7 @@ import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
 import { SeededNav } from "@/components/seeded/layout/nav";
 import { SeededSidebar } from "@/components/seeded/layout/sidebar";
+import { CommandPalette } from "@/components/seeded/shared/command-palette";
 import { cn } from "@/lib/utils";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
@@ -54,7 +55,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {hydrated
         ? showApp
           ? isSeeded
-            ? <SeededSidebar />
+            ? (
+              <>
+                <SeededSidebar />
+                <CommandPalette />
+              </>
+            )
             : <Sidebar />
           : isSeeded
             ? <SeededNav />

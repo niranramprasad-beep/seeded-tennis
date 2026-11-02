@@ -15,6 +15,7 @@ import {
   Menu,
   Route,
   School,
+  Search,
   Trophy,
   Users,
   X,
@@ -97,6 +98,27 @@ export function SeededSidebar() {
               <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
             )}
           </Link>
+        </div>
+
+        <div className={cn("shrink-0 px-3 pt-3", collapsed && "px-2")}>
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-xl border border-[rgb(var(--c-line))] px-3 py-2 font-seeded text-sm text-stone-light transition-colors hover:text-ink",
+              collapsed && "justify-center px-0"
+            )}
+            aria-label="Open command palette"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left">Jump to…</span>
+                <kbd className="rounded border border-[rgb(var(--c-line))] px-1.5 py-0.5 font-mono text-[10px]">
+                  ⌘K
+                </kbd>
+              </>
+            )}
+          </button>
         </div>
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
