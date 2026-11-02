@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/shared/fade-in";
+import { CountUpOnView } from "@/components/shared/count-up-on-view";
+import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
 interface Plan {
@@ -109,6 +111,8 @@ async function getAccessToken(): Promise<string | undefined> {
 }
 
 export function PricingView() {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { tier } = useTier();
   const { isAuthed, hydrated } = usePlayer();
   const router = useRouter();
@@ -157,10 +161,17 @@ export function PricingView() {
   return (
     <div className="mx-auto max-w-content container-px py-14">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="font-serif text-lg italic text-leaf-accent">Pricing</p>
-        <h1 className="mt-2 text-balance text-4xl font-light tracking-tight text-ink sm:text-5xl">
+        <p className={cn("text-lg", isSeeded ? "font-seeded text-sm font-semibold uppercase tracking-[0.2em] text-stone" : "font-serif italic text-leaf-accent")}>
+          Pricing
+        </p>
+        <h1
+          className={cn(
+            "mt-2 text-balance text-4xl sm:text-5xl",
+            isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "font-light tracking-tight text-ink"
+          )}
+        >
           Start free. Upgrade when you're{" "}
-          <span className="serif-accent text-grass">ready to commit</span>.
+          <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>ready to commit</span>.
         </h1>
         <p className="mx-auto mt-4 max-w-lg text-pretty text-stone">
           Browsing schools is always free. Choose a plan to unlock your roadmap,
@@ -192,15 +203,21 @@ export function PricingView() {
               className={cn(
                 "relative flex h-full flex-col overflow-hidden p-7",
                 plan.popular
-                  ? "border-2 border-grass pt-10 shadow-soft"
-                  : "border-[0.5px]"
+                  ? isSeeded
+                    ? "border-0 pt-10 seeded-glass shadow-seeded-3"
+                    : "border-2 border-grass pt-10 shadow-soft"
+                  : isSeeded
+                    ? "border-0 seeded-glass shadow-seeded-1"
+                    : "border-[0.5px]"
               )}
+              style={plan.popular && isSeeded ? { boxShadow: "var(--s-elevation-3), 0 0 60px rgb(var(--c-primary) / 0.25)" } : undefined}
             >
               {plan.popular && (
                 <Badge
-                  variant="leaf"
                   size="md"
-                  className="absolute right-5 top-5 shadow-soft"
+                  className={cn("absolute right-5 top-5", !isSeeded && "shadow-soft")}
+                  style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+                  variant={isSeeded ? undefined : "leaf"}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   Most popular
@@ -208,7 +225,7 @@ export function PricingView() {
               )}
 
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-medium text-ink">{plan.name}</h2>
+                <h2 className={cn("text-xl font-medium text-ink", isSeeded && "font-seeded")}>{plan.name}</h2>
                 {current && (
                   <Badge variant="default" size="sm">
                     Current
@@ -218,8 +235,16 @@ export function PricingView() {
               <p className="mt-1 text-sm text-stone">{plan.tagline}</p>
 
               <div className="mt-5 flex items-baseline gap-1.5">
-                <span className="text-4xl font-light tracking-tight text-ink">
-                  {plan.price}
+                <span className={cn("text-4xl tracking-tight text-ink", isSeeded ? "font-mono" : "font-light")}>
+                  {isSeeded ? (
+                    <CountUpOnView
+                      value={Number(plan.price.replace(/[^0-9.]/g, "")) || 0}
+                      prefix="$"
+                      className="font-mono text-4xl tracking-tight text-ink"
+                    />
+                  ) : (
+                    plan.price
+                  )}
                 </span>
                 <span className="text-sm text-stone-light">{plan.cadence}</span>
               </div>
