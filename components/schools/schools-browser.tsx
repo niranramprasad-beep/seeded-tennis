@@ -13,6 +13,8 @@ import { Slider } from "@/components/ui/slider";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Reveal } from "@/components/shared/reveal";
+import { useDesign } from "@/lib/context/design-context";
+import { SeededSchoolsBrowser } from "@/components/seeded/schools/seeded-schools-browser";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -22,14 +24,14 @@ interface Props {
   divisions: Division[];
 }
 
-type SortKey = "combined" | "utr" | "min" | "rank" | "conf";
+export type SortKey = "combined" | "utr" | "min" | "rank" | "conf";
 
-const RANK_MAX = 150;
+export const RANK_MAX = 150;
 
 const selectClass =
   "h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-3.5 text-sm text-ink transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30";
 
-const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
+export const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
   { key: "combined", label: "Seeded score", hint: "Academics + tennis blend" },
   { key: "utr", label: "Avg UTR", hint: "Average roster UTR" },
   { key: "min", label: "Min UTR", hint: "Minimum competitive UTR" },
@@ -94,6 +96,36 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
     setMaxMinUTR(16.5);
     setMaxRank(RANK_MAX);
   };
+
+  const { design } = useDesign();
+  if (design === "seeded") {
+    return (
+      <SeededSchoolsBrowser
+        gender={gender}
+        setGender={setGender}
+        query={query}
+        setQuery={setQuery}
+        conference={conference}
+        setConference={setConference}
+        stateFilter={stateFilter}
+        setStateFilter={setStateFilter}
+        division={division}
+        setDivision={setDivision}
+        maxMinUTR={maxMinUTR}
+        setMaxMinUTR={setMaxMinUTR}
+        maxRank={maxRank}
+        setMaxRank={setMaxRank}
+        sort={sort}
+        setSort={setSort}
+        filtersActive={filtersActive}
+        ranked={ranked}
+        conferences={conferences}
+        states={states}
+        divisions={divisions}
+        reset={reset}
+      />
+    );
+  }
 
   return (
     <div>
@@ -313,7 +345,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
   );
 }
 
-function Stat({
+export function Stat({
   children,
   active,
 }: {
@@ -332,7 +364,7 @@ function Stat({
   );
 }
 
-function mobileValue(s: School, sort: SortKey): string {
+export function mobileValue(s: School, sort: SortKey): string {
   switch (sort) {
     case "utr":
       return s.avgRosterUTR.toFixed(1);
