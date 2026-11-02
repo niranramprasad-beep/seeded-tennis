@@ -17,6 +17,8 @@ import { AnimatedNumber } from "@/components/shared/animated-number";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
+import { useDesign } from "@/lib/context/design-context";
+import { SeededRoadmapLayout } from "@/components/seeded/roadmap/seeded-roadmap-layout";
 import { formatUTR, cn } from "@/lib/utils";
 
 // recharts only loads once this chart actually renders, on the client.
@@ -92,6 +94,52 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
           : prev
     );
 
+  const { design } = useDesign();
+  const layoutProps: RoadmapLayoutProps = {
+    player,
+    whatIf,
+    openStage,
+    setOpenStage,
+    targetSchools,
+    roadmap,
+    goalUTR,
+    chartData,
+    pickerSchools,
+    toggle,
+  };
+
+  return design === "seeded" ? (
+    <SeededRoadmapLayout {...layoutProps} />
+  ) : (
+    <LegacyRoadmapLayout {...layoutProps} />
+  );
+}
+
+export interface RoadmapLayoutProps {
+  player: ReturnType<typeof usePlayer>["player"];
+  whatIf: string[];
+  openStage: number | null;
+  setOpenStage: (i: number | null) => void;
+  targetSchools: SchoolLite[];
+  roadmap: ReturnType<typeof buildRoadmap>;
+  goalUTR: number;
+  chartData: { label: string; utr: number }[];
+  pickerSchools: SchoolLite[];
+  toggle: (slug: string) => void;
+}
+
+function LegacyRoadmapLayout({
+  player,
+  whatIf,
+  openStage,
+  setOpenStage,
+  targetSchools,
+  roadmap,
+  goalUTR,
+  chartData,
+  pickerSchools,
+  toggle,
+}: RoadmapLayoutProps) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <Reveal className="max-w-2xl">
