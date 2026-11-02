@@ -84,7 +84,7 @@ export function RecruitingFitPanel() {
   return (
     <div className="rounded-card border-hairline border-line bg-white p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="eyebrow text-grass">Fit check</p>
+        <p className="eyebrow text-grass">Recruiting fit check</p>
         <span className="text-sm font-medium text-[#0E6A7A]">{fit.label}</span>
       </div>
 

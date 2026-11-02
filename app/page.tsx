@@ -264,6 +264,11 @@ export default async function HomePage() {
               <h2 className="display-serif mt-4 text-4xl text-ink sm:text-5xl">
                 Grounded projections, never recruiting fantasy.
               </h2>
+              <p className="mt-4 max-w-md text-pretty leading-relaxed text-stone">
+                This is different from the tournament fit finder above —
+                drag your own UTR, GPA, and grad year into the calculator to
+                see where you stand with college coaches right now.
+              </p>
               <div className="rule-green mt-7 max-w-xs" />
               <div className="mt-7 space-y-5">
                 {METHODOLOGY.map(([title, body], i) => (
