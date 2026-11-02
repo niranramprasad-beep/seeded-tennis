@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "./theme-switcher";
 import { DesignSwitcher } from "./design-switcher";
+import { cn } from "@/lib/utils";
 
 const TIER_LABEL = { free: "Free", player: "Player", family: "Family" } as const;
 
@@ -28,6 +29,7 @@ function SettingsInner() {
   const { player, signOut } = usePlayer();
   const { tier } = useTier();
   const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
@@ -40,16 +42,16 @@ function SettingsInner() {
 
   return (
     <div className="mx-auto max-w-3xl container-px py-10">
-      <span className="eyebrow text-gold">Settings</span>
-      <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+      <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Settings</span>
+      <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
         Make Seeded yours.
       </h1>
 
       {/* Appearance */}
-      <Card className="mt-8 p-6">
+      <Card className={cn("mt-8 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-grass" />
-          <h2 className="text-lg font-medium text-ink">Appearance</h2>
+          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Appearance</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
           Legacy or Seeded design, saved across sessions.
@@ -66,10 +68,10 @@ function SettingsInner() {
       </Card>
 
       {/* Family */}
-      <Card className="mt-4 p-6">
+      <Card className={cn("mt-4 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-grass" />
-          <h2 className="text-lg font-medium text-ink">Family</h2>
+          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Family</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
           Share this code so parents and siblings can follow the same player.
@@ -96,10 +98,10 @@ function SettingsInner() {
       </Card>
 
       {/* Account */}
-      <Card className="mt-4 p-6">
+      <Card className={cn("mt-4 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
         <div className="flex items-center gap-2">
           <User2 className="h-4 w-4 text-grass" />
-          <h2 className="text-lg font-medium text-ink">Account</h2>
+          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Account</h2>
         </div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name} />

@@ -29,7 +29,8 @@ import {
   type FamilyMember,
   type MatchRecord,
 } from "@/lib/supabase/features";
-import { formatUTR } from "@/lib/utils";
+import { useDesign } from "@/lib/context/design-context";
+import { cn, formatUTR } from "@/lib/utils";
 import { getCurrentGrade } from "@/lib/time";
 
 export function ParentDashboardView() {
@@ -41,6 +42,8 @@ export function ParentDashboardView() {
 }
 
 function ParentDashboardInner() {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player } = usePlayer();
   // Same keys as /dashboard's check-in card, the matches views, and the
   // family hub card — each resource loads once and is shared across every
@@ -80,8 +83,8 @@ function ParentDashboardInner() {
       {/* header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className="eyebrow text-gold">Family dashboard</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Family dashboard</span>
+          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Follow {firstName}&rsquo;s climb.
           </h1>
           <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
@@ -265,13 +268,15 @@ function StatTile({
   label: string;
   value: string;
 }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   return (
-    <Card interactive className="p-5">
+    <Card interactive className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
       <div className="flex items-center justify-between">
-        <span className="eyebrow">{label}</span>
+        <span className={cn("eyebrow", isSeeded && "font-seeded")}>{label}</span>
         <Icon className="h-4 w-4 text-gold" />
       </div>
-      <p className="mt-3 font-serif text-4xl text-ink">{value}</p>
+      <p className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-mono" : "font-serif")}>{value}</p>
     </Card>
   );
 }

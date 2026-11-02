@@ -18,7 +18,9 @@ import {
   type CostInputs,
 } from "@/lib/supabase/features";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 export function CostCalculatorView({ schools }: { schools: SchoolLite[] }) {
   return (
@@ -29,6 +31,8 @@ export function CostCalculatorView({ schools }: { schools: SchoolLite[] }) {
 }
 
 function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { player } = usePlayer();
   const { data: saved = [], mutate: mutateSaved } = useSWR<CostCalculation[]>(
     "cost-calculations",
@@ -73,15 +77,19 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
     <div className="mx-auto max-w-content container-px py-10">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className="eyebrow text-gold">Cost calculator</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Cost calculator</span>
+          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             See the real cost of the pursuit.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">
             Estimate training, tournaments, travel, equipment, and compare against realistic scholarship ranges.
           </p>
         </div>
-        <Badge variant="leaf" size="md">
+        <Badge
+          size="md"
+          variant={isSeeded ? undefined : "leaf"}
+          style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+        >
           <DollarSign className="h-4 w-4" />
           <CountUpOnView value={Math.round(results.total)} prefix="$" />
         </Badge>
@@ -89,8 +97,8 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-7 grid gap-5 lg:grid-cols-[390px_1fr]">
         <Reveal index={1}>
-        <Card className="p-6">
-          <h2 className="font-medium text-ink">Inputs</h2>
+        <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+          <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Inputs</h2>
           <div className="mt-4 space-y-3">
             <NumberInput label="Years remaining" value={inputs.yearsRemaining} onChange={(v) => updateNumber("yearsRemaining", v)} />
             <NumberInput label="Tournaments per year" value={inputs.tournamentsPerYear} onChange={(v) => updateNumber("tournamentsPerYear", v)} />
@@ -120,14 +128,14 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
             ))}
           </div>
           <Reveal index={3}>
-          <Card className="p-6">
+          <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-grass" />
-              <h2 className="font-medium text-ink">Scholarship comparison</h2>
+              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarship comparison</h2>
             </div>
             <div className="mt-5 space-y-3">
               {results.scholarships.map((school) => (
-                <div key={school.name} className="rounded-[18px] border-[0.5px] border-line bg-card p-4">
+                <div key={school.name} className={cn("rounded-[18px] border p-4", isSeeded ? "border-[rgb(var(--c-line))]" : "border-[0.5px] border-line bg-card")}>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-medium text-ink">{school.name}</p>
@@ -141,8 +149,8 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           </Card>
           </Reveal>
           <Reveal index={4}>
-          <Card className="p-6">
-            <h2 className="font-medium text-ink">Saved projections</h2>
+          <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+            <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Saved projections</h2>
             <div className="mt-4 space-y-2">
               {saved.slice(0, 4).map((row) => (
                 <div key={row.id} className="flex items-center justify-between rounded-xl bg-cream px-4 py-3 text-sm">
@@ -230,10 +238,12 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 }
 
 function CostCard({ label, value }: { label: string; value: number }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   return (
-    <Card interactive className="h-full p-5">
+    <Card interactive className={cn("h-full p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
       <p className="text-xs text-stone-light">{label}</p>
-      <p className="mt-2 text-2xl font-light text-ink">
+      <p className={cn("mt-2 text-2xl text-ink", isSeeded ? "font-mono" : "font-light")}>
         <CountUpOnView value={Math.round(value)} prefix="$" />
       </p>
     </Card>

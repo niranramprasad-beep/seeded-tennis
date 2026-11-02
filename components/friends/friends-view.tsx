@@ -17,7 +17,8 @@ import {
   type FriendProfile,
   type Friendship,
 } from "@/lib/supabase/features";
-import { formatUTR } from "@/lib/utils";
+import { useDesign } from "@/lib/context/design-context";
+import { cn, formatUTR } from "@/lib/utils";
 
 export function FriendsView() {
   return (
@@ -28,6 +29,8 @@ export function FriendsView() {
 }
 
 function FriendsInner() {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FriendProfile[]>([]);
   const { data: friendships = [], mutate: refresh } = useSWR<Friendship[]>(
@@ -69,15 +72,19 @@ function FriendsInner() {
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className="eyebrow text-gold">Teammates</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
+          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Teammates</span>
+          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Train around people who make you sharper.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">
             Search Seeded users, request friends, and compare training momentum.
           </p>
         </div>
-        <Badge variant="leaf" size="md">
+        <Badge
+          size="md"
+          variant={isSeeded ? undefined : "leaf"}
+          style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+        >
           <Users className="h-4 w-4" />
           {accepted.length} friends
         </Badge>
@@ -85,8 +92,8 @@ function FriendsInner() {
 
       <div className="mt-7 grid gap-5 lg:grid-cols-[360px_1fr]">
         <div className="space-y-5">
-          <Card className="p-5">
-            <h2 className="font-medium text-ink">Discovery settings</h2>
+          <Card className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+            <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Discovery settings</h2>
             <select
               value={privacyLevel}
               onChange={(e) => setPrivacyLevel(e.target.value as FriendProfile["privacyLevel"])}
