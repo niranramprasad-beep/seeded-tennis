@@ -1,4 +1,8 @@
+"use client";
+
 import { Card } from "@/components/ui/card";
+import { Reveal } from "@/components/shared/reveal";
+import { useDesign } from "@/lib/context/design-context";
 
 const TERMS = [
   {
@@ -24,6 +28,11 @@ const TERMS = [
 ];
 
 export default function TermsPage() {
+  const { design } = useDesign();
+  return design === "seeded" ? <SeededTerms /> : <LegacyTerms />;
+}
+
+function LegacyTerms() {
   return (
     <div className="mx-auto max-w-4xl container-px py-16">
       <div className="mb-8">
@@ -45,6 +54,38 @@ export default function TermsPage() {
           </section>
         ))}
       </Card>
+    </div>
+  );
+}
+
+function SeededTerms() {
+  return (
+    <div className="mx-auto max-w-4xl container-px py-16">
+      <Reveal className="mb-8">
+        <p className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
+          Seeded terms
+        </p>
+        <h1 className="mt-2 font-seeded text-4xl font-semibold tracking-tight text-ink">
+          Terms, kept simple.
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
+          These are the current terms for using Seeded. We'll post an update here if anything changes.
+        </p>
+      </Reveal>
+      <Reveal index={1}>
+        <div className="seeded-glass divide-y divide-[rgb(var(--c-line))] rounded-[24px] shadow-seeded-1">
+          {TERMS.map((term) => (
+            <section
+              key={term.title}
+              id={term.title === "Privacy" ? "privacy" : undefined}
+              className="scroll-mt-20 p-6 sm:p-8"
+            >
+              <h2 className="font-seeded text-xl font-medium text-ink">{term.title}</h2>
+              <p className="mt-3 leading-relaxed text-stone">{term.body}</p>
+            </section>
+          ))}
+        </div>
+      </Reveal>
     </div>
   );
 }
