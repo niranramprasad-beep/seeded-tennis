@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,8 @@ const VERDICT_META = {
 
 export function TournamentFitView() {
   const { player, isAuthed, hydrated } = usePlayer();
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
 
   const [name, setName] = useState("");
   const [level, setLevel] = useState<FitLevel>("L4");
@@ -125,9 +128,17 @@ export function TournamentFitView() {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="max-w-2xl">
-        <span className="eyebrow text-gold">Tournament fit finder</span>
-        <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-          Is this tournament <span className="serif-accent text-grass">worth it</span>?
+        <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>
+          Tournament fit finder
+        </span>
+        <h1
+          className={cn(
+            "mt-3 text-4xl sm:text-5xl",
+            isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink"
+          )}
+        >
+          Is this tournament{" "}
+          <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>worth it</span>?
         </h1>
         <p className="mt-3 text-pretty leading-relaxed text-stone">
           Weigh the draw, the cost, and the drive before you enter. UTR moves on
@@ -138,7 +149,7 @@ export function TournamentFitView() {
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[440px_1fr]">
         {/* ------------------------------------------------------------ form */}
-        <Card className="h-fit p-6">
+        <Card className={cn("h-fit p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
           <div className="flex items-center gap-2">
             <Compass className="h-4 w-4 text-grass" />
             <h2 className="text-lg font-medium text-ink">The tournament</h2>
@@ -387,12 +398,18 @@ export function TournamentFitView() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <Card className="flex min-h-[420px] items-center justify-center p-10 text-center">
+                <Card className={cn("flex min-h-[420px] items-center justify-center p-10 text-center", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
                   <div className="max-w-sm">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass-50 text-grass">
+                    <span
+                      className={cn(
+                        "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
+                        isSeeded ? "text-white" : "bg-grass-50 text-grass"
+                      )}
+                      style={isSeeded ? { background: "var(--s-accent-gradient)" } : undefined}
+                    >
                       <Swords className="h-6 w-6" />
                     </span>
-                    <h2 className="mt-4 text-xl font-medium text-ink">
+                    <h2 className={cn("mt-4 text-xl font-medium text-ink", isSeeded && "font-seeded")}>
                       Size up an event before you enter
                     </h2>
                     <p className="mt-2 text-sm leading-relaxed text-stone">
@@ -418,12 +435,17 @@ function VerdictCard({
   result: FitResult & { name: string };
   location: string;
 }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const meta = VERDICT_META[result.verdict];
   const Icon = meta.icon;
 
   return (
     <div className="space-y-4">
-      {/* verdict banner */}
+      {/* verdict banner — kept its own good/decent/bad semantic colors in
+          both designs, same reasoning as school-brand colors on the
+          school detail page: this is a judgment signal, not a theme
+          surface. */}
       <Card className={cn("overflow-hidden border-2 p-0", meta.card)}>
         <div className="p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -491,8 +513,8 @@ function VerdictCard({
       </Card>
 
       {/* reasons */}
-      <Card className="p-6">
-        <h3 className="text-lg font-medium text-ink">Why</h3>
+      <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+        <h3 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Why</h3>
         <ul className="mt-3 space-y-2.5">
           {result.reasons.map((reason, i) => (
             <motion.li
@@ -518,10 +540,10 @@ function VerdictCard({
 
       {/* suggestions */}
       {result.suggestions.length > 0 && (
-        <Card className="p-6">
+        <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
           <div className="flex items-center gap-2">
             <Lightbulb className="h-4 w-4 text-gold" />
-            <h3 className="text-lg font-medium text-ink">Make it a better call</h3>
+            <h3 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Make it a better call</h3>
           </div>
           <ul className="mt-3 space-y-2">
             {result.suggestions.map((tip, i) => (
