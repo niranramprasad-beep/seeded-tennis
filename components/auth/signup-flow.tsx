@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { Player, PlayerGender, FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { signUp } from "@/lib/auth";
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,8 @@ export function SignupFlow({
 }) {
   const router = useRouter();
   const { beginSession } = usePlayer();
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const isParentSignup = accountType === "parent";
 
   const [step, setStep] = useState(0);
@@ -142,7 +145,7 @@ export function SignupFlow({
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
             <Check className="h-6 w-6" />
           </span>
-          <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
+          <h1 className={cn("mt-5 text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
             Check your inbox to confirm your email
           </h1>
           <p className="mt-2 text-stone">
@@ -188,7 +191,7 @@ export function SignupFlow({
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass text-on-primary shadow-soft">
             <Check className="h-6 w-6" />
           </span>
-          <h1 className="mt-5 text-3xl font-light tracking-tight text-ink">
+          <h1 className={cn("mt-5 text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
             Your family is ready.
           </h1>
           <p className="mt-2 text-stone">
@@ -259,7 +262,7 @@ export function SignupFlow({
           >
             {step === 0 && (
               <div>
-                <h1 className="text-3xl font-light tracking-tight text-ink">
+                <h1 className={cn("text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
                   {isParentSignup ? "Create your parent account" : "Create your account"}
                 </h1>
                 <p className="mt-2 text-stone">
@@ -294,7 +297,7 @@ export function SignupFlow({
 
             {step === 1 && (
               <div>
-                <h1 className="text-3xl font-light tracking-tight text-ink">
+                <h1 className={cn("text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
                   A bit about you
                 </h1>
                 <p className="mt-2 text-stone">
@@ -352,7 +355,7 @@ export function SignupFlow({
 
             {step === 2 && (
               <div>
-                <h1 className="text-3xl font-light tracking-tight text-ink">
+                <h1 className={cn("text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
                   {isParentSignup ? "Join your player's family" : "Your family"}
                 </h1>
                 <p className="mt-2 text-stone">
@@ -453,10 +456,14 @@ export function SignupFlow({
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        {children}
+        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+          {children}
+        </div>
       </div>
     </div>
   );

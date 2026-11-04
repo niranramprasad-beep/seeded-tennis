@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { resendConfirmationEmail, signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const inputClass =
   "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
@@ -15,6 +17,8 @@ const inputClass =
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { beginSession } = usePlayer();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,8 +68,16 @@ export function LoginForm() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        <p className="font-serif text-lg italic text-leaf-accent">Welcome back</p>
-        <h1 className="mt-1 text-3xl font-light tracking-tight text-ink">
+        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+        <p
+          className={cn(
+            "font-serif text-lg italic text-leaf-accent",
+            isSeeded && "font-seeded text-xs font-semibold not-italic uppercase tracking-[0.2em] text-gold"
+          )}
+        >
+          Welcome back
+        </p>
+        <h1 className={cn("mt-1 text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
           Sign in to Seeded
         </h1>
         {searchParams.get("confirmed") === "1" && (
@@ -134,6 +146,7 @@ export function LoginForm() {
             )}
           </Button>
         </form>
+        </div>
 
         <p className="mt-6 text-center text-sm text-stone">
           New here?{" "}

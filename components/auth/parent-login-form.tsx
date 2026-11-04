@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2, Users } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const inputClass =
   "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
 
 export function ParentLoginForm() {
   const router = useRouter();
+  const { design } = useDesign();
+  const isSeeded = design === "seeded";
   const { beginSession } = usePlayer();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,11 +46,18 @@ export function ParentLoginForm() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold">
+        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+        <span
+          className={cn(
+            "flex h-12 w-12 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold",
+            isSeeded && "border-0"
+          )}
+          style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+        >
           <Users className="h-5 w-5" />
         </span>
-        <p className="eyebrow mt-6 text-gold">For parents</p>
-        <h1 className="display-serif mt-3 text-4xl text-ink">
+        <p className={cn("eyebrow mt-6 text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>For parents</p>
+        <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
           Sign in to follow along.
         </h1>
         <p className="mt-3 text-pretty leading-relaxed text-stone">
@@ -91,6 +102,7 @@ export function ParentLoginForm() {
             )}
           </Button>
         </form>
+        </div>
 
         <div className="mt-7 space-y-2 border-t-hairline border-line pt-6 text-center text-sm">
           <p className="text-stone">
