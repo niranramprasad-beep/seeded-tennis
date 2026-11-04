@@ -7,6 +7,7 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfettiBurst } from "@/components/seeded/shared/confetti-burst";
 import { motion } from "framer-motion";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDesign } from "@/lib/context/design-context";
@@ -147,7 +148,7 @@ function BadgesInner() {
                     >
                       <Card
                         className={cn(
-                          "p-5 transition-all",
+                          "relative overflow-visible p-5 transition-all",
                           isSeeded
                             ? hit
                               ? "seeded-glass border-0 shadow-seeded-2"
@@ -158,6 +159,7 @@ function BadgesInner() {
                         )}
                         style={freshlyUnlocked && isSeeded ? { boxShadow: "var(--s-elevation-2), 0 0 32px rgb(var(--c-primary) / 0.4)" } : undefined}
                       >
+                        {freshlyUnlocked && <ConfettiBurst />}
                         <span
                           className={cn(
                             "flex h-11 w-11 items-center justify-center rounded-2xl",
