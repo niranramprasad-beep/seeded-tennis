@@ -1,6 +1,14 @@
 import type { Weakness } from "@/lib/types";
 import { localDateKey, resolveGraduationYear } from "@/lib/time";
 import { getAuthedUser, getSupabase } from "./client";
+import {
+  badgeDef,
+  COACH_EMAIL_COUNTS,
+  STREAK_DAYS,
+  TOURNAMENT_COUNTS,
+  TRAINING_HOURS,
+  UTR_LEVELS,
+} from "@/lib/badges";
 
 export { localDateKey };
 
@@ -418,24 +426,28 @@ export function evaluateBadges(args: {
   repliedCoaches: number;
 }): Omit<EarnedBadge, "id" | "earnedAt">[] {
   const result: Omit<EarnedBadge, "id" | "earnedAt">[] = [];
-  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((level) => {
-    if (args.currentUtr >= level) result.push({ key: `utr-${level}`, type: "UTR", title: `${level}.0 UTR`, description: `Reached ${level}.0 UTR.` });
+  UTR_LEVELS.forEach((level) => {
+    if (args.currentUtr >= level) result.push(badgeDef(`utr-${level}`));
   });
-  [5, 10, 25, 50].forEach((count) => {
-    if (args.tournamentsPlayed >= count) result.push({ key: `tournaments-${count}`, type: "Tournament", title: `${count} tournaments`, description: `Played ${count}+ tournaments.` });
+  TOURNAMENT_COUNTS.forEach((count) => {
+    if (args.tournamentsPlayed >= count) result.push(badgeDef(`tournaments-${count}`));
   });
-  [7, 30, 100].forEach((count) => {
-    if (args.streak >= count) result.push({ key: `streak-${count}`, type: "Training", title: `${count} day streak`, description: `Checked in ${count} days in a row.` });
+  STREAK_DAYS.forEach((count) => {
+    if (args.streak >= count) result.push(badgeDef(`streak-${count}`));
   });
-  [50, 100, 500].forEach((hours) => {
-    if (args.trainingHours >= hours) result.push({ key: `hours-${hours}`, type: "Training", title: `${hours} hours trained`, description: `Logged ${hours}+ planned training hours.` });
+  TRAINING_HOURS.forEach((hours) => {
+    if (args.trainingHours >= hours) result.push(badgeDef(`hours-${hours}`));
   });
   if (args.matches.some((m) => m.result === "win" && m.opponentUtr && m.opponentUtr >= args.currentUtr + 1)) {
-    result.push({ key: "upset-1-utr", type: "Match", title: "Rated upset", description: "Beat someone 1.0+ UTR higher." });
+    result.push(badgeDef("upset-1-utr"));
   }
-  if (longestWinStreak(args.matches) >= 5) result.push({ key: "win-streak-5", type: "Match", title: "Five match streak", description: "Won five matches in a row." });
-  if (args.contactedCoaches >= 5) result.push({ key: "coach-email-5", type: "Recruiting", title: "Five coaches emailed", description: "Sent outreach to five programs." });
-  if (args.repliedCoaches >= 1) result.push({ key: "first-coach-reply", type: "Recruiting", title: "First coach reply", description: "Logged a coach reply." });
+  const winStreak = longestWinStreak(args.matches);
+  if (winStreak >= 5) result.push(badgeDef("win-streak-5"));
+  if (winStreak >= 10) result.push(badgeDef("win-streak-10"));
+  COACH_EMAIL_COUNTS.forEach((count) => {
+    if (args.contactedCoaches >= count) result.push(badgeDef(`coach-email-${count}`));
+  });
+  if (args.repliedCoaches >= 1) result.push(badgeDef("first-coach-reply"));
   return result;
 }
 

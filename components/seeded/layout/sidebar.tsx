@@ -27,6 +27,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { TierSwitcher } from "@/components/layout/tier-switcher";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
+import { GlowOrb } from "@/components/shared/glow-orb";
 import { cn } from "@/lib/utils";
 
 type NavLink = { href: string; label: string; icon: LucideIcon };
@@ -103,23 +104,31 @@ export function SeededSidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "seeded-glass fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width] duration-300 ease-out lg:flex",
+          "seeded-glass fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width,background-color,border-color,box-shadow] duration-300 ease-out lg:flex",
           collapsed ? "w-[76px]" : "w-[248px]",
           !hydrated && "duration-0"
         )}
         style={{ boxShadow: "var(--s-elevation-1)" }}
       >
-        <div
-          className={cn(
-            "group/header flex h-16 shrink-0 items-center gap-2 border-b border-[rgb(var(--c-line))] px-4",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: "var(--s-accent-gradient)" }}
-            />
+        <div className="relative shrink-0 overflow-hidden">
+          <GlowOrb className="-left-10 -top-16 h-32 w-32 opacity-70" />
+          <div
+            className={cn(
+              "group/header relative flex h-16 items-center gap-2 border-b border-[rgb(var(--c-line))] px-4",
+              collapsed && "justify-center px-0"
+            )}
+          >
+          <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+              <span
+                className="absolute inset-0 rounded-full opacity-40 blur-[6px]"
+                style={{ background: "var(--s-accent-gradient)" }}
+              />
+              <span
+                className="relative h-2.5 w-2.5 rounded-full"
+                style={{ background: "var(--s-accent-gradient)" }}
+              />
+            </span>
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
                 Seeded
@@ -135,6 +144,7 @@ export function SeededSidebar() {
               <ChevronsLeft className="h-4 w-4" />
             </button>
           )}
+          </div>
         </div>
 
         {collapsed && (

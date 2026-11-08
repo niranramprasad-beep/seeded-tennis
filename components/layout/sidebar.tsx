@@ -95,7 +95,7 @@ export function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r-[0.5px] border-line bg-card shadow-soft transition-[width] duration-300 ease-out lg:flex",
+          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r-[0.5px] border-line bg-card shadow-soft transition-[width,background-color,border-color,box-shadow] duration-300 ease-out lg:flex",
           collapsed ? "w-[76px]" : "w-[248px]",
           !hydrated && "duration-0"
         )}

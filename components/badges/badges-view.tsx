@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfettiBurst } from "@/components/seeded/shared/confetti-burst";
+import { SeededBadgeRoadmap } from "@/components/seeded/badges/badge-roadmap";
 import { motion } from "framer-motion";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDesign } from "@/lib/context/design-context";
@@ -16,23 +17,14 @@ import {
   calculateStreak,
   evaluateBadges,
   loadBadges,
+  loadCoachOutreach,
   loadDailyCheckins,
   loadMatches,
   type EarnedBadge,
 } from "@/lib/supabase/features";
+import { BADGE_CATALOG as catalog } from "@/lib/badges";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-
-const catalog = [
-  ...[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((n) => ({ key: `utr-${n}`, type: "UTR", title: `${n}.0 UTR` })),
-  ...[5, 10, 25, 50].map((n) => ({ key: `tournaments-${n}`, type: "Tournament", title: `${n} tournaments` })),
-  { key: "upset-1-utr", type: "Match", title: "Rated upset" },
-  { key: "win-streak-5", type: "Match", title: "Five match streak" },
-  ...[7, 30, 100].map((n) => ({ key: `streak-${n}`, type: "Training", title: `${n} day streak` })),
-  ...[50, 100, 500].map((n) => ({ key: `hours-${n}`, type: "Training", title: `${n} hours trained` })),
-  { key: "coach-email-5", type: "Recruiting", title: "Five coaches emailed" },
-  { key: "first-coach-reply", type: "Recruiting", title: "First coach reply" },
-];
 
 export function BadgesView() {
   return (
@@ -51,7 +43,7 @@ function BadgesInner() {
   // cached result from before the change.
   const { data, isLoading } = useSWR(
     ["badges-page-data", player.currentUTR, player.tournamentsPlayed] as const,
-    () => Promise.all([loadBadges(), loadDailyCheckins(), loadMatches()])
+    () => Promise.all([loadBadges(), loadDailyCheckins(), loadMatches(), loadCoachOutreach()])
   );
   const [earned, setEarned] = useState<EarnedBadge[]>([]);
   const [streak, setStreak] = useState(0);
@@ -66,19 +58,23 @@ function BadgesInner() {
   useEffect(() => {
     if (!data || evaluatedForRef.current === data) return;
     evaluatedForRef.current = data;
-    const [badges, checkins, matches] = data;
+    const [badges, checkins, matches, outreach] = data;
     setEarned(badges);
     setStreak(calculateStreak(checkins));
 
+    const outreachStatuses = Object.values(outreach);
     const existingKeys = new Set(badges.map((b) => b.key));
     const newlyQualified = evaluateBadges({
       currentUtr: player.currentUTR,
       tournamentsPlayed: player.tournamentsPlayed,
       streak: calculateStreak(checkins),
       matches,
+      // No lifetime training-hours total exists yet (dashboard only tracks
+      // the current week's planned hours) — these badges stay unreachable
+      // until that's built, same as before this pass.
       trainingHours: 0,
-      contactedCoaches: 0,
-      repliedCoaches: 0,
+      contactedCoaches: outreachStatuses.length,
+      repliedCoaches: outreachStatuses.filter((s) => s === "replied").length,
     }).filter((badge) => !existingKeys.has(badge.key));
     if (newlyQualified.length > 0) {
       awardBadges(newlyQualified).then((awarded) => {
@@ -122,6 +118,8 @@ function BadgesInner() {
               <Skeleton key={i} className="h-[140px]" />
             ))}
           </div>
+        ) : isSeeded ? (
+          <SeededBadgeRoadmap catalog={catalog} earnedMap={earnedMap} justUnlocked={justUnlocked} />
         ) : (
         groups.map((group) => (
           <section key={group}>
