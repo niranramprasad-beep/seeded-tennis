@@ -115,7 +115,7 @@ export function Sidebar() {
           {!collapsed && (
             <button
               onClick={toggleCollapsed}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-light opacity-0 transition-opacity duration-150 hover:bg-grass-50 hover:text-ink group-hover/header:opacity-100"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light opacity-0 transition-opacity duration-150 hover:border-line hover:bg-grass-50 hover:text-ink group-hover/header:opacity-100"
               aria-label="Collapse sidebar"
             >
               <ChevronsLeft className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function Sidebar() {
           <div className="flex shrink-0 justify-center pt-3">
             <button
               onClick={toggleCollapsed}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-light transition-colors hover:bg-grass-50 hover:text-ink"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light transition-colors hover:border-line hover:bg-grass-50 hover:text-ink"
               aria-label="Expand sidebar"
             >
               <ChevronsRight className="h-4 w-4" />
@@ -225,7 +225,7 @@ export function Sidebar() {
           <button
             onClick={handleSignOut}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-xs text-stone-light transition-colors hover:text-ink",
+              "flex w-full items-center gap-2.5 rounded-xl border-[1.5px] border-transparent px-1.5 py-1.5 text-xs text-stone-light transition-colors hover:border-line hover:text-ink",
               collapsed && "justify-center px-0"
             )}
           >
@@ -243,7 +243,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={() => setMobileOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-ink transition-colors hover:border-line hover:bg-grass-50"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
@@ -272,7 +272,7 @@ export function Sidebar() {
                 <span className="font-serif text-[22px] italic leading-none text-grass">Seeded</span>
                 <button
                   onClick={() => setMobileOpen(false)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-stone transition-colors hover:border-line hover:bg-grass-50 hover:text-ink"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />
@@ -322,7 +322,7 @@ export function Sidebar() {
                 )}
                 <button
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-xs text-stone-light transition-colors hover:text-ink"
+                  className="flex w-full items-center gap-2.5 rounded-xl border-[1.5px] border-transparent px-1.5 py-1.5 text-xs text-stone-light transition-colors hover:border-line hover:text-ink"
                 >
                   <LogOut className="h-3.5 w-3.5 shrink-0" />
                   Sign out

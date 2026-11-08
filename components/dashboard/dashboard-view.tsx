@@ -10,7 +10,6 @@ import {
   Check,
   Compass,
   Plus,
-  ShieldCheck,
   Sparkles,
   Target,
   Trophy,
@@ -251,7 +250,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
       />
 
       <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
-        <DailyCheckinCard player={player} trainingHours={weeklyHours} />
+        <DailyCheckinCard />
       </Drawer>
     </div>
   );
@@ -516,13 +515,12 @@ function LegacyDashboardLayout({
           )}
         </Reveal>
 
-        {/* quick links — kept so match history, badges, and cost calculator
-            stay reachable without crowding the three sections above */}
+        {/* quick links — kept so match history and cost calculator stay
+            reachable without crowding the three sections above */}
         <Reveal index={5} className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
           <QuickLink href="/match-mode" icon={Trophy} label="Match mode" />
           <QuickLink href="/matches" icon={Target} label="Match history" />
           <QuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
-          <QuickLink href="/badges" icon={ShieldCheck} label="Badges" />
           <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
         </Reveal>
       </div>

@@ -60,7 +60,7 @@ export function Drawer({
               </div>
               <button
                 onClick={onClose}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-stone transition-colors hover:border-line hover:bg-grass-50 hover:text-ink"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />

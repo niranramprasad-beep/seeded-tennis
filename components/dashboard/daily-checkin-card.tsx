@@ -2,23 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { motion, AnimatePresence } from "framer-motion";
-import { Award, Check, Flame, Sparkles } from "lucide-react";
-import type { Player } from "@/lib/types";
+import { Check, Flame, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  awardBadges,
   calculateStreak,
-  evaluateBadges,
-  loadBadges,
   loadDailyCheckins,
-  loadMatches,
   saveDailyCheckin,
   type DailyCheckin,
-  type EarnedBadge,
   type FocusArea,
   localDateKey,
 } from "@/lib/supabase/features";
@@ -33,17 +26,7 @@ const FOCUS: FocusArea[] = [
   "recovery",
 ];
 
-export function DailyCheckinCard({
-  player,
-  trainingHours,
-  contactedCoaches = 0,
-  repliedCoaches = 0,
-}: {
-  player: Player;
-  trainingHours: number;
-  contactedCoaches?: number;
-  repliedCoaches?: number;
-}) {
+export function DailyCheckinCard() {
   const {
     data: checkins = [],
     isLoading: checkinsLoading,
@@ -54,7 +37,6 @@ export function DailyCheckinCard({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [earned, setEarned] = useState<EarnedBadge | null>(null);
 
   // Pre-fill the form from today's existing check-in exactly once, right
   // after the first load resolves — never again, so a background SWR
@@ -99,43 +81,10 @@ export function DailyCheckinCard({
       a.date.localeCompare(b.date)
     );
     mutateCheckins(next, { revalidate: false });
-
-    const [existing, matches] = await Promise.all([loadBadges(), loadMatches()]);
-    const existingKeys = new Set(existing.map((b) => b.key));
-    const newBadges = evaluateBadges({
-      currentUtr: player.currentUTR,
-      tournamentsPlayed: player.tournamentsPlayed,
-      streak: calculateStreak(next),
-      matches,
-      trainingHours,
-      contactedCoaches,
-      repliedCoaches,
-    }).filter((badge) => !existingKeys.has(badge.key));
-    const awarded = await awardBadges(newBadges);
-    if (awarded[0]) {
-      setEarned(awarded[0]);
-      setTimeout(() => setEarned(null), 4200);
-    }
   };
 
   return (
     <Card className="relative overflow-hidden p-6">
-      <AnimatePresence>
-        {earned && (
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="absolute right-4 top-4 z-10 rounded-2xl border-[0.5px] border-line bg-card px-4 py-3 shadow-lift"
-          >
-            <p className="flex items-center gap-2 text-sm font-medium text-ink">
-              <Award className="h-4 w-4 text-leaf-accent" />
-              Just earned: {earned.title}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-serif text-base italic text-leaf-accent">Daily check-in</p>

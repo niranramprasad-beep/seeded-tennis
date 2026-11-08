@@ -109,7 +109,7 @@ export function Nav() {
 
         {/* Mobile toggle */}
         <button
-          className="flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-ink transition-colors hover:border-line hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30 lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >

@@ -47,7 +47,7 @@ export function DarkModeToggle({
         onClick={toggle}
         aria-pressed={known ? isDark : undefined}
         className={cn(
-          "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-sm text-stone transition-colors hover:bg-grass-50 hover:text-ink",
+          "flex w-full items-center justify-between rounded-2xl border-[1.5px] border-transparent px-3 py-3 text-sm text-stone transition-colors hover:border-line hover:bg-grass-50 hover:text-ink",
           className
         )}
       >
@@ -85,7 +85,7 @@ export function DarkModeToggle({
       }
       aria-pressed={known ? isDark : undefined}
       className={cn(
-        "relative flex h-11 w-11 items-center justify-center rounded-full text-stone transition-colors hover:bg-grass-50 hover:text-ink",
+        "relative flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-stone transition-colors hover:border-line hover:bg-grass-50 hover:text-ink",
         className
       )}
     >

@@ -3,16 +3,19 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 font-semibold whitespace-nowrap select-none transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:pointer-events-none",
+  // border-[1.5px] border-transparent at rest, on every variant, so the
+  // hover border below is only ever a color change — never a width change,
+  // which would shift layout the instant the mouse arrives.
+  "inline-flex items-center justify-center gap-2 border-[1.5px] border-transparent font-semibold whitespace-nowrap select-none transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-50 disabled:pointer-events-none",
   {
     variants: {
       variant: {
-        primary: "bg-grass text-on-primary hover:bg-grass-600 hover:shadow-glow hover:-translate-y-0.5",
-        outline: "border-[1.5px] border-line text-ink hover:border-grass/50 hover:bg-grass-50",
-        dark: "bg-ink text-on-primary hover:bg-ink/90",
-        leaf: "bg-leaf-accent text-on-primary hover:brightness-105",
-        ghost: "text-ink hover:bg-grass-50",
-        subtle: "bg-grass-50 text-grass-700 hover:bg-grass-100",
+        primary: "bg-grass text-on-primary hover:bg-grass-600 hover:border-on-primary/25 hover:shadow-glow hover:-translate-y-0.5",
+        outline: "border-line text-ink hover:border-grass/50 hover:bg-grass-50",
+        dark: "bg-ink text-on-primary hover:bg-ink/90 hover:border-on-primary/20",
+        leaf: "bg-leaf-accent text-on-primary hover:brightness-105 hover:border-on-primary/25",
+        ghost: "text-ink hover:border-line hover:bg-grass-50",
+        subtle: "bg-grass-50 text-grass-700 hover:border-grass/30 hover:bg-grass-100",
       },
       size: {
         // 44px (the mobile touch-target floor) below the `sm:` breakpoint,

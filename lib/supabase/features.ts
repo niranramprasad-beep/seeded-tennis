@@ -1,14 +1,6 @@
 import type { Weakness } from "@/lib/types";
 import { localDateKey, resolveGraduationYear } from "@/lib/time";
 import { getAuthedUser, getSupabase } from "./client";
-import {
-  badgeDef,
-  COACH_EMAIL_COUNTS,
-  STREAK_DAYS,
-  TOURNAMENT_COUNTS,
-  TRAINING_HOURS,
-  UTR_LEVELS,
-} from "@/lib/badges";
 
 export { localDateKey };
 
@@ -61,15 +53,6 @@ export interface MatchAnalysis {
   drills: string[];
   nextWeekFocus: string;
   source: "ai" | "fallback";
-}
-
-export interface EarnedBadge {
-  id: string;
-  key: string;
-  type: string;
-  title: string;
-  description: string;
-  earnedAt: string;
 }
 
 export interface FriendProfile {
@@ -390,67 +373,6 @@ export async function saveCoachOutreachStatus(
   if (error) throw new Error(error.message);
 }
 
-export async function loadBadges(signal?: AbortSignal): Promise<EarnedBadge[]> {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return [];
-  let query = supabase.from("badges").select("*").eq("user_id", id).order("earned_at", { ascending: false });
-  if (signal) query = query.abortSignal(signal);
-  const { data } = await query;
-  return (data ?? []).map(mapBadge);
-}
-
-export async function awardBadges(badges: Omit<EarnedBadge, "id" | "earnedAt">[]): Promise<EarnedBadge[]> {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id || badges.length === 0) return [];
-  const rows = badges.map((b) => ({
-    user_id: id,
-    badge_key: b.key,
-    badge_type: b.type,
-    title: b.title,
-    description: b.description,
-  }));
-  const { data, error } = await supabase.from("badges").upsert(rows, { onConflict: "user_id,badge_key" }).select("*");
-  if (error) return [];
-  return (data ?? []).map(mapBadge);
-}
-
-export function evaluateBadges(args: {
-  currentUtr: number;
-  tournamentsPlayed: number;
-  streak: number;
-  matches: MatchRecord[];
-  trainingHours: number;
-  contactedCoaches: number;
-  repliedCoaches: number;
-}): Omit<EarnedBadge, "id" | "earnedAt">[] {
-  const result: Omit<EarnedBadge, "id" | "earnedAt">[] = [];
-  UTR_LEVELS.forEach((level) => {
-    if (args.currentUtr >= level) result.push(badgeDef(`utr-${level}`));
-  });
-  TOURNAMENT_COUNTS.forEach((count) => {
-    if (args.tournamentsPlayed >= count) result.push(badgeDef(`tournaments-${count}`));
-  });
-  STREAK_DAYS.forEach((count) => {
-    if (args.streak >= count) result.push(badgeDef(`streak-${count}`));
-  });
-  TRAINING_HOURS.forEach((hours) => {
-    if (args.trainingHours >= hours) result.push(badgeDef(`hours-${hours}`));
-  });
-  if (args.matches.some((m) => m.result === "win" && m.opponentUtr && m.opponentUtr >= args.currentUtr + 1)) {
-    result.push(badgeDef("upset-1-utr"));
-  }
-  const winStreak = longestWinStreak(args.matches);
-  if (winStreak >= 5) result.push(badgeDef("win-streak-5"));
-  if (winStreak >= 10) result.push(badgeDef("win-streak-10"));
-  COACH_EMAIL_COUNTS.forEach((count) => {
-    if (args.contactedCoaches >= count) result.push(badgeDef(`coach-email-${count}`));
-  });
-  if (args.repliedCoaches >= 1) result.push(badgeDef("first-coach-reply"));
-  return result;
-}
-
 export function calculateCost(input: CostInputs): CostResults {
   const coaching = input.coachingHoursPerWeek * input.lessonRate * 52 * input.yearsRemaining;
   const tournaments = input.tournamentsPerYear * input.travelCostPerTournament * input.yearsRemaining;
@@ -663,10 +585,6 @@ function mapMatch(row: any): MatchRecord {
   };
 }
 
-function mapBadge(row: any): EarnedBadge {
-  return { id: row.id, key: row.badge_key, type: row.badge_type, title: row.title, description: row.description ?? "", earnedAt: row.earned_at };
-}
-
 function mapFriendProfile(row: any): FriendProfile {
   return {
     id: row.id,
@@ -686,13 +604,3 @@ function mapReport(row: any): ParentReport {
   return { id: row.id, month: row.month, title: row.title, summary: row.summary ?? {}, publicUrl: row.public_url ?? "", storagePath: row.storage_path ?? "", createdAt: row.created_at };
 }
 
-function longestWinStreak(matches: MatchRecord[]): number {
-  let current = 0;
-  let best = 0;
-  [...matches].sort((a, b) => a.matchDate.localeCompare(b.matchDate)).forEach((m) => {
-    if (m.result === "win") current += 1;
-    else if (m.result === "loss") current = 0;
-    best = Math.max(best, current);
-  });
-  return best;
-}

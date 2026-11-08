@@ -6,7 +6,6 @@ import {
   Calculator,
   Compass,
   Plus,
-  ShieldCheck,
   Sparkles,
   Target,
   Trophy,
@@ -265,7 +264,6 @@ export function SeededDashboardLayout({
         <SeededQuickLink href="/match-mode" icon={Trophy} label="Match mode" />
         <SeededQuickLink href="/matches" icon={Target} label="Match history" />
         <SeededQuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
-        <SeededQuickLink href="/badges" icon={ShieldCheck} label="Badges" />
         <SeededQuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
       </Reveal>
     </>

@@ -165,8 +165,8 @@ export function CommandPalette() {
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => go(c.href)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-seeded text-sm transition-colors",
-                    i === activeIndex ? "text-on-primary" : "text-ink"
+                    "flex w-full items-center gap-3 rounded-xl border-[1.5px] px-3 py-2.5 text-left font-seeded text-sm transition-colors",
+                    i === activeIndex ? "border-transparent text-on-primary" : "border-transparent hover:border-[rgb(var(--c-line))] text-ink"
                   )}
                   style={i === activeIndex ? { background: "var(--s-accent-gradient)" } : undefined}
                 >

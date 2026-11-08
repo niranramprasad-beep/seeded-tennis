@@ -87,7 +87,7 @@ export function SeededNav() {
 
         {/* Mobile toggle */}
         <button
-          className="flex h-11 w-11 items-center justify-center rounded-full text-ink transition-colors lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-ink transition-colors hover:border-[rgb(var(--c-line))] lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
