@@ -68,6 +68,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://seededtennis.com"),
   title: "Seeded — your path to college tennis, mapped",
   description:
     "A premium recruiting platform that helps junior tennis players and their families map a clear, realistic path to playing college tennis.",

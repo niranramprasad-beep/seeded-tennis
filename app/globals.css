@@ -400,6 +400,18 @@
 
   html {
     scroll-behavior: smooth;
+    /* Without this, Android Chrome's auto-dark-for-web-content heuristic
+       desaturates/washes out the whole page on devices with a dark system
+       theme — confirmed live via emulation: identical authored colors,
+       but the actual paint comes out pastel until this is declared.
+       Light by default; genuinely dark themes override it below. */
+    color-scheme: light;
+  }
+
+  [data-theme="night"],
+  [data-theme="concept-matchpoint"],
+  [data-theme="concept-nightrally"] {
+    color-scheme: dark;
   }
 
   body {

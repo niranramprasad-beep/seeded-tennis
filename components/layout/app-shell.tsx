@@ -48,6 +48,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
+  // Seeded's pre-auth onboarding (Onboarding.dc.html) has its own dedicated
+  // progress header — pixel-exact to the mockup, which shows no separate
+  // marketing nav above it, unlike the homepage. Scoped to this one route;
+  // every other signed-out marketing page keeps the shared SeededNav.
+  const hideSeededNav = isSeeded && pathname === "/onboarding";
   useScrollToTopOnRouteChange(pathname);
 
   return (
@@ -63,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )
             : <Sidebar />
           : isSeeded
-            ? <SeededNav />
+            ? hideSeededNav ? null : <SeededNav />
             : <Nav />
         : null}
       <main

@@ -155,6 +155,33 @@ export async function signUp(
   return { ok: true, familyCode };
 }
 
+// Starts Google OAuth via Supabase. This calls the real Supabase API — it's
+// not a fabricated button. Whether it actually completes depends on the
+// Google provider being enabled (with a client ID/secret) in this project's
+// Supabase dashboard under Authentication → Providers, which can't be
+// verified or configured from application code; if it isn't enabled yet,
+// Supabase returns a clear provider error here rather than silently failing.
+export async function signInWithGoogle(): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return notConfiguredResult();
+
+  try {
+    const { error } = await supa.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: typeof window !== "undefined" ? window.location.href : undefined,
+      },
+    });
+    if (error) return { ok: false, error: friendlyAuthError(error.message) };
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
+  }
+}
+
 export async function signIn(
   email: string,
   password: string

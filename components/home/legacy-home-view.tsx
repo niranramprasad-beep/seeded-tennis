@@ -287,7 +287,7 @@ export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
 
         {/* ----------------------------------------------------- CINEMATIC BAND */}
         <CinematicBand
-          image="/images/band-court.jpg"
+          image="/images/hero-court.jpg"
           eyebrow="Earn your place"
           title="Recruiting should feel like a privilege, not a guess."
           body="Seeded is built for players serious about the climb — every projection grounded, every step deliberate, every decision yours to own."

@@ -1,354 +1,634 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, BarChart3, Clock3, ShieldCheck } from "lucide-react";
-import type { SchoolLite } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import type { Gender, SchoolLite } from "@/lib/types";
+import { getCurrentSchoolYear } from "@/lib/time";
+import { countSchoolFits } from "@/lib/school-fit";
 import { Reveal } from "@/components/shared/reveal";
-import { Parallax } from "@/components/shared/parallax";
-import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { GradientMeshBg } from "@/components/seeded/shared/gradient-mesh-bg";
-import { ScrollHeroSequence } from "@/components/seeded/shared/scroll-hero";
-import { BentoGrid, BentoCell } from "@/components/seeded/shared/bento-grid";
-import { SchoolMarquee } from "@/components/home/school-marquee";
-import { CinematicBand } from "@/components/home/cinematic-band";
-import { FitFinderTeaser } from "@/components/home/fit-finder-teaser";
-import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
-import { Footer } from "@/components/layout/footer";
-import { CAPABILITIES, METHODOLOGY, LOOP } from "@/components/home/home-content";
+import { SeededButton } from "@/components/seeded/ui/button";
 
-// A genuinely different composition from Legacy's home page
-// (components/home/legacy-home-view.tsx) — a full-bleed ambient hero with
-// scroll/cursor reactivity, asymmetric bento grids instead of uniform
-// strips, glass panels throughout. Shares the same content (home-content.ts)
-// and the same complex interactive sub-widgets (FitFinderTeaser,
-// RecruitingFitPanel, SchoolMarquee, CinematicBand) — those already reuse
-// theme CSS vars, so they don't need a Seeded fork of their own.
-export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[] }) {
+// Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No
+// JS viewport detection exists anywhere in this codebase — every other
+// responsive split here is pure CSS breakpoints within one tree (see
+// components/layout/nav.tsx), so the mobile/desktop hero split below
+// follows that same convention rather than introducing a new pattern.
+// Hero renders with no scroll-reveal (server-paintable, no fade-in above
+// the fold); everything below it keeps the existing Reveal fade-up —
+// the phase spec only calls out the hero specifically.
+export function SeededHomeView({ schools }: { schools: SchoolLite[] }) {
   return (
-    <>
-      <div className="text-ink">
-        {/* ----------------------------------------------------------- HERO */}
-        <div className="relative overflow-hidden">
-          <section className="relative flex min-h-[94vh] items-center overflow-hidden">
-            <GradientMeshBg />
-            <div className="pointer-events-none absolute inset-0 bg-grid-dots opacity-40" />
-            <ScrollHeroSequence className="relative mx-auto grid w-full max-w-content items-center gap-14 container-px py-32 lg:grid-cols-[1.05fr_0.95fr]">
-              <div>
-                <Reveal index={0} step={0.09}>
-                  <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-                    College tennis recruiting
-                  </span>
-                </Reveal>
-                <Reveal index={1} step={0.09}>
-                  <h1 className="mt-6 text-balance font-seeded text-6xl font-semibold leading-[0.95] tracking-tight text-ink sm:text-7xl lg:text-8xl">
-                    Find where you{" "}
-                    <span className="seeded-gradient-text">realistically</span> fit.
-                  </h1>
-                </Reveal>
-                <Reveal index={2} step={0.09}>
-                  <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-stone">
-                    Your UTR, academics, and target division — turned into an
-                    honest, roster-matched recruiting plan.
-                  </p>
-                </Reveal>
-                <Reveal index={3} step={0.09}>
-                  <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                    <Link
-                      href="/signup"
-                      className="group flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                      style={{ background: "var(--s-accent-gradient)" }}
-                    >
-                      Build my fit report
-                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-                    </Link>
-                    <Link
-                      href="/schools"
-                      className="seeded-glass group flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-ink"
-                    >
-                      Browse schools free
-                      <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    </Link>
-                  </div>
-                </Reveal>
+    <div className="text-ink">
+      <Hero schools={schools} />
+      <TrustStrip />
+      <WhatItDoes />
+      <ProductShot />
+      <ParentsSection />
+      <MethodAndFounder />
+      <Faq />
+      <FinalCta />
+      <HomeFooter />
+    </div>
+  );
+}
 
-                <Reveal index={4} step={0.09}>
-                  <div className="mt-14 flex max-w-lg gap-8 border-t border-[rgb(var(--c-line))] pt-6">
-                    <div>
-                      <p className="font-mono text-3xl text-ink sm:text-4xl">67</p>
-                      <p className="mt-1.5 whitespace-nowrap font-seeded text-[10px] font-semibold uppercase tracking-[0.14em] text-stone">
-                        programs ranked
-                      </p>
-                    </div>
-                    {[
-                      ["D1–D3", "men's & women's"],
-                      ["1–16.5", "full UTR scale"],
-                    ].map(([value, label]) => (
-                      <div key={label}>
-                        <p className="font-mono text-3xl text-ink sm:text-4xl">{value}</p>
-                        <p className="mt-1.5 whitespace-nowrap font-seeded text-[10px] font-semibold uppercase tracking-[0.14em] text-stone">
-                          {label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </Reveal>
-              </div>
+/* --------------------------------------------------------------- HERO */
 
-              <Reveal index={2} step={0.12}>
-                <div className="relative mx-auto max-w-md lg:max-w-none">
-                  <Parallax offset={16}>
-                    <div className="seeded-glass overflow-hidden rounded-[32px] shadow-seeded-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/images/hero-celebration.jpg"
-                        alt="Tennis player mid-match, full extension on a forehand"
-                        className="aspect-[4/5] w-full object-cover"
-                      />
-                    </div>
-                  </Parallax>
-                  <div
-                    className="seeded-glass absolute -left-4 bottom-8 animate-float rounded-2xl px-4 py-3 shadow-seeded-2 sm:-left-8"
-                    style={{ animationDelay: "0.4s" }}
-                  >
-                    <p className="font-seeded text-[10px] font-semibold uppercase tracking-[0.14em] text-stone">
-                      Roadmap
-                    </p>
-                    <p className="mt-0.5 font-mono text-xl text-ink">
-                      UTR 8.2 <span className="seeded-gradient-text">→ 10.5</span>
-                    </p>
-                    <p className="text-xs text-stone">by summer before senior year</p>
-                  </div>
-                  <div className="seeded-glass absolute -right-3 top-8 flex animate-float items-center gap-2 rounded-pill px-4 py-2.5 shadow-seeded-2 sm:-right-6">
-                    <span className="h-2 w-2 rounded-full" style={{ background: "var(--s-accent-gradient)" }} />
-                    <p className="font-seeded text-sm font-medium text-ink">
-                      Tournament: <span className="seeded-gradient-text">good fit</span>
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            </ScrollHeroSequence>
-          </section>
-        </div>
-
-        {/* -------------------------------------------------------- TRUST STRIP */}
-        <section className="seeded-glass border-y-0">
-          <div className="mx-auto flex max-w-content flex-col gap-3 container-px py-4 font-seeded text-sm text-stone sm:flex-row sm:items-center sm:justify-between">
-            <p className="flex items-center gap-2">
-              <Clock3 className="h-4 w-4 text-grass" />
-              Rosters reviewed recently
-            </p>
-            <span className="hidden h-4 w-px bg-[rgb(var(--c-line))] sm:block" />
-            <p className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-grass" />
-              Confidence bands, never guarantees
-            </p>
-            <span className="hidden h-4 w-px bg-[rgb(var(--c-line))] sm:block" />
-            <p className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-grass" />
-              Full 1–16.5 UTR scale
-            </p>
-          </div>
-        </section>
-
-        {/* -------------------------------------------------------- CAPABILITIES (bento) */}
-        <section className="mx-auto max-w-content container-px py-24">
-          <Reveal className="max-w-2xl">
-            <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-              What you get
-            </span>
-            <h2 className="mt-4 font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-              Everything recruiting asks of you.
-            </h2>
-          </Reveal>
-
-          <BentoGrid className="mt-10">
-            {CAPABILITIES.map((item, i) => (
-              <BentoCell key={item.title} span={i === 0 || i === 3 ? 8 : 4}>
-                <Reveal index={i} step={0.06} className="h-full">
-                  <SpotlightCard className="seeded-glass flex h-full flex-col justify-between rounded-[26px] p-8 shadow-seeded-1">
-                    <div>
-                      <span
-                        className="flex h-12 w-12 items-center justify-center rounded-full text-on-primary"
-                        style={{ background: "var(--s-accent-gradient)" }}
-                      >
-                        <item.icon className="h-5 w-5" />
-                      </span>
-                      <h3 className="mt-6 font-seeded text-xl font-medium text-ink">{item.title}</h3>
-                      <p className="mt-2 max-w-sm text-sm leading-relaxed text-stone">{item.body}</p>
-                    </div>
-                  </SpotlightCard>
-                </Reveal>
-              </BentoCell>
-            ))}
-          </BentoGrid>
-        </section>
-
-        {/* ---------------------------------------------- TOURNAMENT FIT FINDER */}
-        <section id="tournament-fit" className="seeded-glass border-x-0">
-          <div className="mx-auto max-w-content container-px py-20">
-            <div className="grid items-start gap-10 lg:grid-cols-[0.85fr_1.15fr]">
-              <Reveal>
-                <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-                  New — Tournament fit finder
-                </span>
-                <h2 className="mt-4 text-balance font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-                  Know if a tournament is{" "}
-                  <span className="seeded-gradient-text">worth it</span> before you
-                  enter.
-                </h2>
-                <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-stone">
-                  Seeded scores the draw against your level, cost per match, and
-                  travel — then calls it: good, decent, or bad fit.
-                </p>
-                <ul className="mt-6 space-y-2.5 text-sm text-stone">
-                  {[
-                    "Every USTA level, L1–L7, plus UTR events",
-                    "Flags fields too weak or too strong to move your rating",
-                  ].map((line) => (
-                    <li key={line} className="flex items-start gap-2.5">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-leaf-accent" />
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/tournament-fit"
-                  className="group mt-8 flex w-fit items-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                  style={{ background: "var(--s-accent-gradient)" }}
-                >
-                  Open the fit finder
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Reveal>
-
-              <Reveal index={1} step={0.1}>
-                <FitFinderTeaser />
-              </Reveal>
-            </div>
-          </div>
-        </section>
-
-        {/* -------------------------------------------------------- PROGRAM UNIVERSE */}
-        <section className="py-16">
-          <Reveal className="mx-auto mb-8 flex max-w-content flex-col justify-between gap-4 container-px sm:flex-row sm:items-end">
-            <div>
-              <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-                Program universe
-              </span>
-              <h2 className="mt-3 font-seeded text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">
-                Compare programs like these.
-              </h2>
-            </div>
-            <Link
-              href="/schools"
-              className="inline-flex items-center gap-1 font-seeded text-sm font-medium text-grass"
-            >
-              Open the rankings
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </Reveal>
-          <SchoolMarquee schools={marqueeSchools} />
-        </section>
-
-        {/* ---------------------------------------------- METHODOLOGY */}
-        <section className="seeded-glass border-x-0">
-          <div className="mx-auto grid max-w-content gap-12 container-px py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <Reveal>
-                <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-                  Our methodology
-                </span>
-                <h2 className="mt-4 font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-                  Grounded projections, never recruiting fantasy.
-                </h2>
-              </Reveal>
-              <div className="mt-7 space-y-6">
-                {METHODOLOGY.map(([title, body], i) => (
-                  <Reveal key={title} index={i + 1} step={0.08} className="flex gap-5">
-                    <span className="seeded-gradient-text font-mono text-3xl leading-none sm:text-4xl">
-                      {`0${i + 1}`}
-                    </span>
-                    <div>
-                      <p className="font-seeded font-medium text-ink">{title}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-stone">{body}</p>
-                    </div>
-                  </Reveal>
-                ))}
-              </div>
-            </div>
-
-            <Reveal index={1} step={0.1}>
-              <RecruitingFitPanel />
-            </Reveal>
-          </div>
-        </section>
-
-        {/* ----------------------------------------------------- CINEMATIC BAND */}
-        <CinematicBand
-          image="/images/band-court.jpg"
-          eyebrow="Earn your place"
-          title="Recruiting should feel like a privilege, not a guess."
-          body="Seeded is built for players serious about the climb — every projection grounded, every step deliberate, every decision yours to own."
-        />
-
-        {/* -------------------------------------------------------- HOW IT WORKS (bento) */}
-        <section id="how-it-works" className="mx-auto max-w-content container-px py-24">
-          <Reveal className="max-w-2xl">
-            <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-              How it works
-            </span>
-            <h2 className="mt-4 font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-              One guided loop, assessment to outreach.
-            </h2>
-          </Reveal>
-          <BentoGrid className="mt-10">
-            {LOOP.map(([title, body], i) => (
-              <BentoCell key={title} span={6}>
-                <Reveal index={i} step={0.06} className="h-full">
-                  <SpotlightCard className="seeded-glass flex h-full flex-col rounded-[26px] p-8 shadow-seeded-1">
-                    <span className="seeded-gradient-text font-mono text-4xl leading-none transition-transform duration-300 group-hover:-translate-y-1">
-                      {`0${i + 1}`}
-                    </span>
-                    <h3 className="mt-6 font-seeded text-xl font-medium text-ink">{title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-stone">{body}</p>
-                  </SpotlightCard>
-                </Reveal>
-              </BentoCell>
-            ))}
-          </BentoGrid>
-        </section>
-
-        {/* -------------------------------------------------------- CTA */}
-        <section className="relative overflow-hidden py-24 text-center">
-          <GradientMeshBg className="opacity-60" />
-          <Reveal className="relative mx-auto max-w-2xl container-px">
-            <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-              Begin
-            </span>
-            <h2 className="mt-4 text-balance font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-              Start with an honest fit check.
-            </h2>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className="flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                style={{ background: "var(--s-accent-gradient)" }}
-              >
-                Create your profile
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/schools"
-                className="seeded-glass flex items-center justify-center rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-ink"
-              >
-                Browse the database
-              </Link>
-            </div>
-          </Reveal>
-        </section>
+function Hero({ schools }: { schools: SchoolLite[] }) {
+  return (
+    <section className="mx-auto max-w-[1200px] px-6 pb-14 pt-10 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pb-14 lg:pt-18">
+      {/* Desktop: two-column, left copy / right live calculator */}
+      <div className="hidden min-w-0 flex-[1.05_1_480px] lg:block">
+        <HeroCopy />
       </div>
-      <Footer />
-    </>
+      <div className="hidden min-w-0 flex-[0.95_1_440px] lg:block">
+        <FitCalculatorCard schools={schools} />
+      </div>
+
+      {/* Mobile: compact hero + calculator card, matching MobileHome.dc.html */}
+      <div className="flex flex-col gap-4 lg:hidden">
+        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-grass">
+          College tennis recruiting, planned
+        </p>
+        <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-ink">
+          Know which teams you can make, and what to do this month.
+        </h1>
+        <p className="text-base leading-[1.5] text-stone">
+          Your UTR against real rosters, sorted into Reach, Target and Likely.
+        </p>
+        <FitCalculatorCard schools={schools} mobile />
+        <ul className="flex flex-col gap-2 text-sm text-stone">
+          <li>✓ Rosters show source and date</li>
+          <li>✓ Bands and confidence, never a % chance</li>
+          <li>✓ Built by a junior player</li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function HeroCopy() {
+  return (
+    <div>
+      <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
+        College tennis recruiting, planned
+      </p>
+      <h1 className="mt-4 font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
+        Know which college teams you can make, and what to do this month to
+        get there.
+      </h1>
+      <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
+        Enter your UTR and grad year. Seeded compares you to real rosters,
+        sorts schools into Reach, Target and Likely, and turns the gap into a
+        week-by-week plan your parents can see.
+      </p>
+      <div className="mt-7 flex flex-wrap gap-3">
+        <Link
+          href="/onboarding"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-grass px-6 font-sans text-base font-semibold text-on-primary hover:bg-grass-600"
+        >
+          Get my free fit report
+        </Link>
+        <Link
+          href="/tournament-fit"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-6 font-sans text-base font-semibold text-ink hover:bg-[#F1EFE8]"
+        >
+          Check a tournament
+        </Link>
+      </div>
+      <p className="mt-4 text-sm text-stone">
+        Free. No card. Takes 60 seconds. Results before you make an account.
+      </p>
+    </div>
+  );
+}
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: "women", label: "Women's" },
+  { value: "men", label: "Men's" },
+];
+
+function gradYearOptions(): number[] {
+  const start = getCurrentSchoolYear();
+  return Array.from({ length: 6 }, (_, i) => start + i);
+}
+
+// The live preview — genuinely computes Reach/Target/Likely from the real
+// catalog via lib/school-fit.ts as the visitor types. GPA is collected (and
+// passed along to /onboarding) but doesn't change the counts: the school
+// data model has no academic-range field yet, so pretending GPA moved the
+// numbers would be exactly the kind of fabricated precision the redesign
+// is explicitly removing elsewhere. Flagged in the phase report, not hidden.
+function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[]; mobile?: boolean }) {
+  const [utr, setUtr] = useState("9.4");
+  const [gradYear, setGradYear] = useState(() => gradYearOptions()[1] ?? getCurrentSchoolYear());
+  const [gender, setGender] = useState<Gender>("women");
+  const [gpa, setGpa] = useState("3.7");
+
+  const utrNum = parseFloat(utr) || 0;
+  const filtered = useMemo(
+    () => schools.filter((s) => s.gender === gender),
+    [schools, gender]
+  );
+  const counts = useMemo(() => countSchoolFits(utrNum, filtered), [utrNum, filtered]);
+  const total = counts.reach + counts.target + counts.likely;
+
+  const query = new URLSearchParams({
+    utr,
+    gradYear: String(gradYear),
+    gender,
+    gpa,
+  }).toString();
+
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
+        <div className="grid grid-cols-2 gap-2.5">
+          <MiniField label="UTR">
+            <input
+              value={utr}
+              onChange={(e) => setUtr(e.target.value)}
+              className="h-12 rounded-lg border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+              inputMode="decimal"
+            />
+          </MiniField>
+          <MiniField label="Grad year">
+            <select
+              value={gradYear}
+              onChange={(e) => setGradYear(Number(e.target.value))}
+              className="h-12 rounded-lg border border-[#D6D3C8] bg-card px-3 text-base text-ink"
+            >
+              {gradYearOptions().map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </MiniField>
+        </div>
+        <MiniField label="Team">
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value as Gender)}
+            className="h-12 rounded-lg border border-[#D6D3C8] bg-card px-3 text-base text-ink"
+          >
+            {GENDER_OPTIONS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </MiniField>
+        <Link
+          href={`/onboarding?${query}`}
+          className="flex min-h-[52px] items-center justify-center rounded-[10px] bg-grass font-sans text-base font-semibold text-on-primary hover:bg-grass-600"
+        >
+          See my schools
+        </Link>
+        <p className="text-center text-xs text-stone">Free · no account until you save</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
+      <div className="flex items-center justify-between">
+        <strong className="text-[15px]">Your fit, in 60 seconds</strong>
+        <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-medium text-stone">
+          Rosters verified Oct 2026
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <MiniField label="Current UTR">
+          <input
+            value={utr}
+            onChange={(e) => setUtr(e.target.value)}
+            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            inputMode="decimal"
+          />
+        </MiniField>
+        <MiniField label="Grad year">
+          <select
+            value={gradYear}
+            onChange={(e) => setGradYear(Number(e.target.value))}
+            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+          >
+            {gradYearOptions().map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </MiniField>
+        <MiniField label="Team">
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value as Gender)}
+            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+          >
+            {GENDER_OPTIONS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </MiniField>
+        <MiniField label="Unweighted GPA">
+          <input
+            value={gpa}
+            onChange={(e) => setGpa(e.target.value)}
+            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            inputMode="decimal"
+          />
+        </MiniField>
+      </div>
+      <div className="mt-5 grid grid-cols-3 gap-2">
+        <CountTile value={counts.reach} label="Reach" bg="#FBEDE6" fg="#9C4824" />
+        <CountTile value={counts.target} label="Target" bg="#E6F1EB" fg="#1F6B4A" />
+        <CountTile value={counts.likely} label="Likely" bg="#EEF3D6" fg="#4A5A10" />
+      </div>
+      <Link
+        href={`/onboarding?${query}`}
+        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-grass font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+      >
+        See my {total || "—"} schools
+      </Link>
+      <p className="mt-2.5 text-xs text-stone">Example output. Counts depend on your inputs.</p>
+    </div>
+  );
+}
+
+function MiniField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function CountTile({ value, label, bg, fg }: { value: number; label: string; bg: string; fg: string }) {
+  return (
+    <div className="rounded-lg p-3" style={{ background: bg }}>
+      <div className="font-mono text-2xl font-semibold tabular-nums" style={{ color: fg }}>
+        {value}
+      </div>
+      <div className="text-[13px] text-stone">{label}</div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- TRUST STRIP */
+
+function TrustStrip() {
+  return (
+    <section className="border-y border-line bg-card">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-5 text-sm text-stone">
+        <span>
+          <strong className="text-ink">Real rosters.</strong> Every team
+          rating shows its source and date.
+        </span>
+        <span>
+          <strong className="text-ink">Bands, not promises.</strong> Reach,
+          Target, Likely, with a confidence level.
+        </span>
+        <span>
+          <strong className="text-ink">Built by a junior player</strong>{" "}
+          going through recruiting now.
+        </span>
+        <Link href="#how-fit-works" className="text-grass hover:text-grass-700">
+          How we calculate fit
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------- WHAT IT DOES */
+
+const CAPABILITY_CARDS = [
+  {
+    title: "Plan",
+    body: "Your UTR now vs where your target teams need you by the summer before senior year, with checkpoints each season.",
+    caption: "You 9.4 · Emory range 9.1–10.6",
+  },
+  {
+    title: "Compete smarter",
+    body: "Check any tournament before you pay. Seeded scores the draw against your level, cost per match, and travel.",
+  },
+  {
+    title: "Reach out on time",
+    body: "A pipeline for every coach: draft, sent, replied, call, visit. Seeded reminds you when a follow-up is due.",
+  },
+] as const;
+
+function WhatItDoes() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-6 pb-6 pt-22">
+      <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
+        UTR tells you where you stand. Seeded tells you what to do next.
+      </p>
+      <h2 className="mt-3 max-w-[760px] font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-ink">
+        One plan for the three things that decide recruiting.
+      </h2>
+      <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {CAPABILITY_CARDS.map((c, i) => (
+          <Reveal key={c.title} index={i} step={0.06}>
+            <div className="h-full rounded-xl border border-line bg-card p-6">
+              <h3 className="m-0 text-lg font-semibold text-ink">{c.title}</h3>
+              <p className="mt-2 leading-[1.55] text-stone">{c.body}</p>
+              {c.title === "Plan" && (
+                <>
+                  <div className="relative mt-5 h-2 rounded-pill bg-line">
+                    <div className="absolute inset-y-0 rounded-pill bg-[#9CC8B0]" style={{ left: "28%", right: "22%" }} />
+                    <div className="absolute -top-1 h-4 w-4 rounded-full border-2 border-ink bg-lime-accent" style={{ left: "44%" }} />
+                  </div>
+                  <p className="mt-2.5 font-mono text-[13px] tabular-nums text-stone">{c.caption}</p>
+                </>
+              )}
+              {c.title === "Compete smarter" && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
+                    Good fit · L3 Richmond
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[#F0CDBC] bg-[#FBEDE6] px-2.5 py-1 text-xs font-semibold text-[#9C4824]">
+                    Skip · L5 Bethesda
+                  </span>
+                </div>
+              )}
+              {c.title === "Reach out on time" && (
+                <div className="mt-5 flex gap-1.5 text-[13px]">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
+                    Emailed 8
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
+                    Replied 3
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[#F0DCAD] bg-[#FFF4DC] px-2.5 py-1 text-xs font-semibold text-[#7A5212]">
+                    2 follow-ups due
+                  </span>
+                </div>
+              )}
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------ PRODUCT SHOT */
+
+function ProductShot() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-6 py-18">
+      <Reveal>
+        <div className="overflow-hidden rounded-xl border border-line bg-card shadow-card-lg">
+          <div className="flex items-center gap-2 border-b border-line bg-[#FBFAF7] px-4 py-3">
+            <span className="text-[13px] text-stone">seededtennis.com/today</span>
+          </div>
+          <div className="flex flex-wrap">
+            <div className="flex flex-0 flex-col gap-1.5 border-r border-line p-5 text-sm" style={{ flexBasis: 200 }}>
+              <span className="rounded-md bg-grass-50 px-2.5 py-2 font-semibold text-grass">Today</span>
+              <span className="px-2.5 py-2 text-ink">Plan</span>
+              <span className="px-2.5 py-2 text-ink">Schools</span>
+              <span className="px-2.5 py-2 text-ink">Outreach</span>
+              <span className="px-2.5 py-2 text-ink">Events</span>
+            </div>
+            <div className="min-w-0 flex-[999_1_560px] p-7">
+              <p className="m-0 text-sm text-stone">Junior fall · UTR 9.4 · on track for 6 of 12 targets</p>
+              <h3 className="mb-5 mt-1.5 text-2xl text-ink">3 things to do this week</h3>
+              <div className="flex flex-col gap-2.5">
+                <ProductShotAction
+                  title="Email the Emory coach"
+                  body="You're inside their range now. Send with your last 3 results."
+                  time="10 min"
+                  cta="Open draft"
+                  primary
+                />
+                <ProductShotAction
+                  title="Follow up with Middlebury"
+                  body="No reply in 14 days."
+                  time="5 min"
+                  cta="Follow up"
+                />
+                <ProductShotAction
+                  title="Skip the L5 on Nov 22"
+                  body="Field average 6.8 won't move your rating. 2 better events within 3 hours."
+                  time="2 min"
+                  cta="See events"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-center text-[13px] text-stone">The real Today screen. Example player.</p>
+      </Reveal>
+    </section>
+  );
+}
+
+function ProductShotAction({
+  title,
+  body,
+  time,
+  cta,
+  primary = false,
+}: {
+  title: string;
+  body: string;
+  time: string;
+  cta: string;
+  primary?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-[10px] border border-line px-4 py-3.5">
+      <div className="min-w-[200px] flex-1">
+        <strong className="text-ink">{title}</strong>
+        <div className="text-sm text-stone">{body}</div>
+      </div>
+      <span className="text-[13px] text-stone">{time}</span>
+      <span
+        className={
+          primary
+            ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-grass px-4 text-sm font-semibold text-on-primary"
+            : "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-4 text-sm font-semibold text-ink"
+        }
+      >
+        {cta}
+      </span>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- PARENTS */
+
+function ParentsSection() {
+  return (
+    <section className="bg-ink text-[#EEF1EC]">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6 py-20">
+        <Reveal className="min-w-0 flex-[1_1_420px]">
+          <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
+            For parents
+          </p>
+          <h2 className="mt-3 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-[#EEF1EC]">
+            See if the plan is working, without nagging.
+          </h2>
+          <p className="mt-4 text-[17px] leading-[1.55] text-[#B9C2BC]">
+            A Sunday email with UTR movement, coach replies, upcoming events
+            and what the season has cost so far.
+          </p>
+          <Link
+            href="#"
+            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-lime-accent px-[18px] text-[15px] font-semibold text-ink"
+          >
+            See a sample parent report
+          </Link>
+        </Reveal>
+        <Reveal index={1} step={0.1} className="min-w-0 flex-[1_1_420px] rounded-xl border border-[#26302A] bg-[#1B241F] p-6">
+          <div className="text-sm text-[#9AA59E]">Week of Nov 2</div>
+          <div className="mt-3.5 grid grid-cols-3 gap-3">
+            <div>
+              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">+0.12</div>
+              <div className="text-[13px] text-[#9AA59E]">UTR this month</div>
+            </div>
+            <div>
+              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">2</div>
+              <div className="text-[13px] text-[#9AA59E]">coach replies</div>
+            </div>
+            <div>
+              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">$1,840</div>
+              <div className="text-[13px] text-[#9AA59E]">season spend</div>
+            </div>
+          </div>
+          <div className="mt-4.5 border-t border-[#26302A] pt-4 text-sm text-[#B9C2BC]">
+            Skipped 2 bad-fit events this fall · saved about $620
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* --------------------------------------------------- METHOD + FOUNDER */
+
+function MethodAndFounder() {
+  return (
+    <section id="how-fit-works" className="mx-auto grid max-w-[1200px] grid-cols-1 gap-6 px-6 py-20 lg:grid-cols-2">
+      <Reveal className="rounded-xl border border-line bg-card p-7">
+        <h2 className="m-0 text-2xl text-ink">How fit works</h2>
+        <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
+          <li>We pull each roster&apos;s public UTRs and mark the date.</li>
+          <li>
+            We place you on that range and count seniors who graduate before
+            you arrive.
+          </li>
+          <li>We add academics and your preferences.</li>
+          <li>
+            You get a band and a confidence level. We never show a percent
+            chance.
+          </li>
+        </ol>
+        <Link href="#how-fit-works" className="mt-4 inline-block font-semibold text-grass hover:text-grass-700">
+          Read the full methodology
+        </Link>
+      </Reveal>
+      <Reveal index={1} step={0.08} className="rounded-xl border border-line bg-card p-7">
+        <h2 className="m-0 text-2xl text-ink">Who built this</h2>
+        <p className="mt-4 leading-[1.6] text-stone">
+          I&apos;m a junior tennis player going through recruiting right now.
+          I built Seeded because my family was tracking schools, tournaments
+          and coach emails in five different places.
+        </p>
+        <p className="mt-3 font-semibold text-ink">Seeded&apos;s founder</p>
+        <p className="mt-1 text-sm text-stone">
+          Found a wrong number?{" "}
+          <Link href="/contact" className="text-grass hover:text-grass-700">
+            Report it
+          </Link>{" "}
+          and we fix it within 48 hours.
+        </p>
+      </Reveal>
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------- FAQ */
+
+const FAQ_ITEMS = [
+  {
+    q: "How is this different from UTR's college tools?",
+    a: "UTR shows where your rating sits. Seeded uses that to plan your season, judge tournaments and run coach outreach, and gives parents a shared view.",
+  },
+  { q: "Where does the roster data come from?" },
+  { q: "My child is 14. Who owns the account?" },
+  { q: "What does the free plan include?" },
+] as const;
+
+function Faq() {
+  return (
+    <section className="mx-auto max-w-[880px] px-6 pb-20 pt-6">
+      <h2 className="m-0 mb-5 font-seeded text-[32px] font-bold text-ink">
+        Questions parents ask
+      </h2>
+      <div className="border-t border-line">
+        {FAQ_ITEMS.map((item) => (
+          <details key={item.q} className="border-b border-line py-4.5">
+            <summary className="cursor-pointer text-[17px] font-semibold">{item.q}</summary>
+            {"a" in item && <p className="mt-2 leading-[1.6] text-stone">{item.a}</p>}
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------ FINAL CTA */
+
+function FinalCta() {
+  return (
+    <section className="bg-grass text-on-primary">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6 py-16">
+        <h2 className="m-0 max-w-[640px] font-seeded text-[36px] font-bold leading-[1.15]">
+          Find out where you fit before your next tournament.
+        </h2>
+        <Link
+          href="/onboarding"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-ink"
+        >
+          Get my free fit report
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------- HOMEPAGE FOOTER */
+
+// Pixel-exact to Main.dc.html's own (minimal) footer — intentionally not the
+// shared components/layout/footer.tsx, which every other marketing page
+// still uses and which is out of scope for this pass.
+function HomeFooter() {
+  return (
+    <footer className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-10 text-sm text-stone">
+      <span>© {new Date().getFullYear()} Seeded</span>
+      <span className="flex flex-wrap gap-5">
+        <Link href="#how-fit-works" className="hover:text-grass">
+          Methodology
+        </Link>
+        <Link href="/how-it-works" className="hover:text-grass">
+          About
+        </Link>
+        <Link href="/terms#privacy" className="hover:text-grass">
+          Privacy (incl. minors)
+        </Link>
+        <Link href="/terms" className="hover:text-grass">
+          Terms
+        </Link>
+        <Link href="/contact" className="hover:text-grass">
+          Contact
+        </Link>
+      </span>
+    </footer>
   );
 }
