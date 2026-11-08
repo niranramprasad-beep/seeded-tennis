@@ -4,20 +4,16 @@ import {
   Award,
   ArrowLeft,
   Building2,
-  CalendarDays,
-  DollarSign,
   GraduationCap,
-  Mail,
   MapPin,
   Trophy,
   User,
   Users,
 } from "lucide-react";
 import type { School } from "@/lib/types";
-import type { getSchoolProfile } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SchoolBadge } from "@/components/shared/school-badge";
-import { CoachEmailCTA } from "@/components/schools/coach-email-cta";
+import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { Footer } from "@/components/layout/footer";
 
 const RosterDistributionChart = dynamic(
@@ -27,17 +23,22 @@ const RosterDistributionChart = dynamic(
 
 interface Props {
   school: School;
-  profile: ReturnType<typeof getSchoolProfile>;
+  nationalRank: number;
   stats: { label: string; value: string }[];
   programType: string;
   inState: boolean;
 }
 
 // Server Component (no "use client") — same shape as Legacy's detail page,
-// just the surrounding cards/typography get the glass/gradient treatment.
-// The hero banner deliberately keeps the SCHOOL's own brand colors
-// unchanged in both designs — that's the program's identity, not Seeded's.
-export function SeededSchoolDetail({ school, profile, stats, programType, inState }: Props) {
+// just the surrounding cards/typography get the Seeded treatment. The hero
+// banner deliberately keeps the SCHOOL's own brand colors unchanged in both
+// designs — that's the program's identity, not Seeded's.
+//
+// Roster, results, standings, recruiting classes, coach contact, and
+// campus/cost all used to be fabricated per-school (see lib/data/school-
+// detail.ts, removed) — every one of those sections now shows EmptyState
+// until Phase 4 (SchoolProfile.dc.html) wires up a real source.
+export function SeededSchoolDetail({ school, nationalRank, stats, programType }: Props) {
   return (
     <>
       <section
@@ -86,13 +87,7 @@ export function SeededSchoolDetail({ school, profile, stats, programType, inStat
                 className="rounded-pill px-3 py-1.5 font-seeded text-sm font-medium"
                 style={{ backgroundColor: `${school.textColor}22` }}
               >
-                #{profile.nationalRank} in {programType} {school.division}
-              </span>
-              <span
-                className="rounded-pill px-3 py-1.5 font-seeded text-sm font-medium"
-                style={{ backgroundColor: `${school.textColor}22` }}
-              >
-                {profile.record} season
+                #{nationalRank} in {programType} {school.division}
               </span>
             </div>
           </div>
@@ -102,217 +97,75 @@ export function SeededSchoolDetail({ school, profile, stats, programType, inStat
       <div className="mx-auto max-w-content container-px py-10">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {stats.map((s) => (
-            <div key={s.label} className="seeded-glass rounded-[18px] p-4 shadow-seeded-1">
+            <div key={s.label} className="rounded-[10px] border border-line bg-card p-4">
               <p className="text-xs text-stone-light">{s.label}</p>
               <p className="mt-1 font-mono text-2xl text-ink">{s.value}</p>
             </div>
           ))}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-stone-light">
-          UTR benchmarks are Seeded estimates for planning. Roster names, results,
-          standings, and recruiting classes below are illustrative sample data — always
-          verify details with the program before making recruiting decisions.
-        </p>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="seeded-glass min-w-0 rounded-[24px] p-6 shadow-seeded-1 lg:col-span-2">
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-6 lg:col-span-2">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">
-                Current roster — {profile.roster.length} players
-              </h2>
+              <h2 className="font-seeded text-lg font-medium text-ink">Roster</h2>
             </div>
             <div className="mt-3">
               <RosterDistributionChart avgUTR={school.avgRosterUTR} minUTR={school.minCompetitiveUTR} height={160} />
             </div>
-            <div className="mt-4 overflow-x-auto rounded-[18px] border border-[rgb(var(--c-line))]">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead>
-                  <tr className="border-b border-[rgb(var(--c-line))] text-left font-seeded text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Player</th>
-                    <th className="px-4 py-2.5 font-medium">Class</th>
-                    <th className="px-4 py-2.5 font-medium">Hometown</th>
-                    <th className="px-4 py-2.5 text-right font-medium">UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.roster.map((p, i) => (
-                    <tr key={p.name + i}>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{p.position}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{p.name}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">'{String(p.classYear).slice(2)}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{p.hometown}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono font-medium text-grass">
-                        {p.utr.toFixed(1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <EmptyState className="mt-4" title="Verified roster data coming soon." />
           </div>
 
-          <div className="seeded-glass flex flex-col rounded-[24px] p-6 shadow-seeded-1">
+          <div className="flex flex-col rounded-[10px] border border-line bg-card p-6">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-grass" />
               <h2 className="font-seeded text-lg font-medium text-ink">Head coach</h2>
             </div>
-            <div className="mt-4 flex items-center gap-3 rounded-[18px] border border-[rgb(var(--c-line))] p-3">
+            <div className="mt-4 flex items-center gap-3 rounded-[10px] border border-line p-3">
               <SchoolBadge school={school} size={42} />
-              <div>
-                <p className="font-seeded font-medium text-ink">{school.coachName}</p>
-                <p className="text-xs text-stone-light">{programType} Tennis</p>
-              </div>
+              <p className="text-xs text-stone-light">{programType} Tennis</p>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-stone">{profile.coachBio}</p>
-            <p className="mt-3 flex items-center gap-2 text-sm text-stone">
-              <Mail className="h-4 w-4 text-stone-light" />
-              {school.coachEmail}
-            </p>
-            <div className="mt-auto pt-5">
-              <CoachEmailCTA slug={school.slug} />
-            </div>
+            <EmptyState className="mt-4 flex-1" title="Verified coach contact coming soon." />
           </div>
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1">
+          <div className="rounded-[10px] border border-line bg-card p-6">
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-grass" />
               <h2 className="font-seeded text-lg font-medium text-ink">Recent results</h2>
             </div>
-            <div className="mt-4 space-y-2">
-              {profile.recentMatches.map((m, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-[16px] border border-[rgb(var(--c-line))] px-3.5 py-2.5">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold ${
-                      m.result === "W" ? "bg-grass text-on-primary" : "bg-error-bg text-error"
-                    }`}
-                  >
-                    {m.result}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-seeded text-sm font-medium text-ink">vs {m.opponent}</p>
-                    <p className="text-xs text-stone-light">
-                      {m.date}
-                      {m.conference ? " · Conference" : ""}
-                    </p>
-                  </div>
-                  <span className="font-mono text-sm text-stone">{m.score}</span>
-                </div>
-              ))}
-            </div>
+            <EmptyState className="mt-4" title="Verified match results coming soon." />
           </div>
 
-          <div className="seeded-glass min-w-0 rounded-[24px] p-6 shadow-seeded-1">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-6">
             <div className="flex items-center gap-2">
               <Award className="h-4 w-4 text-grass" />
               <h2 className="font-seeded text-lg font-medium text-ink">{school.conference} standings</h2>
             </div>
-            <div className="mt-4 overflow-x-auto rounded-[18px] border border-[rgb(var(--c-line))]">
-              <table className="w-full min-w-[380px] text-sm">
-                <thead>
-                  <tr className="border-b border-[rgb(var(--c-line))] text-left font-seeded text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Team</th>
-                    <th className="px-4 py-2.5 font-medium">Conf.</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Avg UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.standings.map((row, i) => (
-                    <tr key={row.team} className={row.isThis ? "font-medium" : undefined} style={row.isThis ? { background: "rgb(var(--c-primary) / 0.08)" } : undefined}>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{i + 1}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-ink">{row.team}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{row.confRecord}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono text-grass">{row.avgUTR.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <EmptyState className="mt-4" title="Verified conference standings coming soon." />
           </div>
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1 lg:col-span-2">
+          <div className="rounded-[10px] border border-line bg-card p-6 lg:col-span-2">
             <div className="flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-grass" />
               <h2 className="font-seeded text-lg font-medium text-ink">Recruiting class history</h2>
             </div>
-            <div className="mt-4 space-y-4">
-              {profile.recruitingClasses.map((cls) => (
-                <div key={cls.classYear}>
-                  <p className="mb-2 font-seeded text-sm font-medium text-ink">Class of {cls.classYear}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cls.recruits.map((r, i) => (
-                      <span
-                        key={r.name + i}
-                        className="flex items-center gap-2 rounded-pill border border-[rgb(var(--c-line))] px-3 py-1.5 text-xs"
-                      >
-                        <span className="font-medium text-ink">{r.name}</span>
-                        <span className="text-stone-light">{r.hometown}</span>
-                        <span className="font-mono font-medium text-grass">{r.utr.toFixed(1)}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <EmptyState className="mt-4" title="Verified recruiting class data coming soon." />
           </div>
 
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1">
+          <div className="rounded-[10px] border border-line bg-card p-6">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-grass" />
               <h2 className="font-seeded text-lg font-medium text-ink">Campus & cost</h2>
             </div>
-            <dl className="mt-4 space-y-3 text-sm">
-              <Row label="Type" value={profile.campus.isPublic ? "Public" : "Private"} />
-              <Row label="Setting" value={profile.campus.setting} />
-              <Row label="Enrollment" value={profile.campus.enrollment.toLocaleString()} />
-              <Row
-                label={profile.campus.isPublic ? "In-state cost" : "Tuition + fees"}
-                value={`$${profile.campus.costInState}k/yr`}
-                icon={DollarSign}
-              />
-              {profile.campus.isPublic && (
-                <Row label="Out-of-state cost" value={`$${profile.campus.costOutState}k/yr`} icon={DollarSign} />
-              )}
-              <Row label="For you" value={inState ? "In-state" : "Out-of-state"} />
-            </dl>
-            <div className="mt-4 rounded-[16px] border border-[rgb(var(--c-line))] p-3">
-              <p className="flex items-center gap-1.5 font-seeded text-xs font-medium text-ink">
-                <Award className="h-3.5 w-3.5 text-grass" />
-                Scholarships
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-stone">{profile.scholarships.detail}</p>
-            </div>
-            <div className="mt-3 rounded-[16px] border border-[rgb(var(--c-line))] p-3">
-              <p className="flex items-center gap-1.5 font-seeded text-xs font-medium text-ink">
-                <CalendarDays className="h-3.5 w-3.5 text-grass" />
-                Application deadlines
-              </p>
-              <p className="mt-1 text-xs text-stone">{profile.deadlines.earlyAction}</p>
-              <p className="text-xs text-stone">{profile.deadlines.regularDecision}</p>
-            </div>
+            <EmptyState className="mt-4" title="Verified campus and cost data coming soon." />
           </div>
         </div>
       </div>
       <Footer />
     </>
-  );
-}
-
-function Row({ label, value, icon: Icon }: { label: string; value: string; icon?: typeof DollarSign }) {
-  return (
-    <div className="flex items-center justify-between border-b border-[rgb(var(--c-line))] pb-2.5 last:border-0">
-      <dt className="flex items-center gap-1.5 text-stone-light">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {label}
-      </dt>
-      <dd className="font-mono font-medium text-ink">{value}</dd>
-    </div>
   );
 }

@@ -73,7 +73,7 @@ export function AnimatedLineChart({ data, height = 220, className }: AnimatedLin
             y={Math.max(14, p.y - 14)}
             textAnchor="middle"
             fontSize={11}
-            fontFamily="var(--font-plex-mono)"
+            fontFamily="var(--font-mono-active)"
             fill="rgb(var(--c-ink))"
           >
             {p.utr.toFixed(1)}
@@ -83,7 +83,7 @@ export function AnimatedLineChart({ data, height = 220, className }: AnimatedLin
             y={height - 6}
             textAnchor="middle"
             fontSize={10}
-            fontFamily="var(--font-geist-sans)"
+            fontFamily="var(--font-inter)"
             fill="rgb(var(--c-stone-light))"
           >
             {p.label}

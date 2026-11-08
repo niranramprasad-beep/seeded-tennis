@@ -9,7 +9,6 @@ import { Slider } from "@/components/ui/slider";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Reveal } from "@/components/shared/reveal";
-import { TiltCard } from "@/components/seeded/shared/tilt-card";
 import {
   COLUMNS,
   RANK_MAX,
@@ -48,12 +47,7 @@ interface Props {
 }
 
 // Same filter/sort/ranking state as Legacy (components/schools/schools-
-// browser.tsx) — this component owns none of it, just renders it. The
-// data-dense sortable table stays a table (restructuring it into a card
-// wall would lose the at-a-glance column comparison), but each row gets a
-// real 3D cursor-tilt (TiltCard) instead of a flat hover state, which is
-// the brief's "cards lift and glow on hover" applied to this page's actual
-// UI pattern rather than a literal card grid.
+// browser.tsx) — this component owns none of it, just renders it.
 export function SeededSchoolsBrowser({
   gender,
   setGender,
@@ -224,7 +218,6 @@ export function SeededSchoolsBrowser({
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
             >
-              <TiltCard strength={4}>
                 <Link href={`/schools/${s.slug}`}>
                   <div className="seeded-glass grid grid-cols-[36px_1fr_auto] items-center gap-3 rounded-[18px] p-3.5 shadow-seeded-1 transition-shadow hover:shadow-seeded-2 lg:grid-cols-[44px_1fr_repeat(4,92px)_24px]">
                     <span
@@ -265,7 +258,6 @@ export function SeededSchoolsBrowser({
                     <ArrowUpRight className="hidden h-4 w-4 text-stone-light lg:block" />
                   </div>
                 </Link>
-              </TiltCard>
             </motion.div>
           ))}
         </AnimatePresence>

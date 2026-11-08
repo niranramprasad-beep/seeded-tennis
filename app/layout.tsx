@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond, Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
-import { GeistSans } from "geist/font/sans";
+import {
+  Inter,
+  Inter_Tight,
+  Cormorant_Garamond,
+  Space_Grotesk,
+  IBM_Plex_Mono,
+  JetBrains_Mono,
+} from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/app-shell";
@@ -12,6 +18,27 @@ import { GoogleAnalytics } from "@/components/shared/google-analytics";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Seeded design system's display/headline face (components/seeded/ui/*,
+// text headlines in components/seeded/*) — pixel-matches the mockups'
+// "Inter Tight" spec. Legacy never references --font-inter-tight.
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
+
+// Seeded design system's data/number face (table numerals, UTR, $, dates) —
+// pixel-matches the mockups' "JetBrains Mono" spec. Selected via the
+// --font-mono-active indirection in globals.css so Legacy's "Night Rally"
+// concept theme keeps IBM Plex Mono (below) unchanged.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
@@ -40,12 +67,6 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-// The Seeded design system's display/body face (components/seeded/*
-// only) — Legacy pages never reference --font-geist-sans. GeistSans ships
-// as a pre-built variable-font instance (Vercel's `geist` package) rather
-// than a next/font/google loader call, since this Next.js version (14.2)
-// predates Geist's addition to next/font/google's bundled catalog.
-
 export const metadata: Metadata = {
   title: "Seeded — your path to college tennis, mapped",
   description:
@@ -62,7 +83,7 @@ export default function RootLayout({
       lang="en"
       data-design="seeded"
       data-seeded-mode="dark"
-      className={`${inter.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${GeistSans.variable}`}
+      className={`${inter.variable} ${interTight.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <head>

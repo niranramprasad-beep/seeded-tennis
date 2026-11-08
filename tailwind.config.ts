@@ -48,11 +48,14 @@ const config: Config = {
         // the "Seeded" wordmark, italic accent words, and numbered section
         // markers all render in across the site.
         serif: ["var(--font-cormorant)", "Georgia", "serif"],
-        // Seeded design system only (components/seeded/*) — Legacy never
-        // references these. --font-geist-sans comes from the `geist`
-        // package (GeistSans), not a next/font/google call — see layout.tsx.
-        seeded: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-plex-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        // Seeded design system's display/headline face only
+        // (components/seeded/*) — Legacy never references this. Inter Tight,
+        // per the pixel-exact mockups.
+        seeded: ["var(--font-inter-tight)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Resolves to JetBrains Mono under Seeded, IBM Plex Mono under
+        // Legacy's "Night Rally" concept theme — see --font-mono-active in
+        // globals.css.
+        mono: ["var(--font-mono-active)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
         card: "14px",
@@ -93,9 +96,15 @@ const config: Config = {
         glow: "0 10px 32px rgb(var(--c-primary) / 0.22), 0 2px 10px rgb(var(--c-primary) / 0.14)",
         // Seeded design system only — full shadow values live in --s-elevation-*
         // (app/globals.css) since dark/light need very different recipes.
+        // Transitional: slated for removal once every Seeded component is
+        // migrated to the pixel-exact mockups (see app/globals.css).
         "seeded-1": "var(--s-elevation-1)",
         "seeded-2": "var(--s-elevation-2)",
         "seeded-3": "var(--s-elevation-3)",
+        // Seeded's two recurring "elevated card" shadows, pixel-exact from
+        // DesignSystem.dc.html / Main.dc.html.
+        card: "0 12px 32px rgba(20,24,26,.08)",
+        "card-lg": "0 24px 48px rgba(20,24,26,.10)",
       },
     },
   },

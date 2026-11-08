@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import {
   calculateCost,
   loadCostCalculations,
@@ -90,8 +89,7 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           variant={isSeeded ? undefined : "leaf"}
           style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
         >
-          <DollarSign className="h-4 w-4" />
-          <CountUpOnView value={Math.round(results.total)} prefix="$" />
+          <DollarSign className="h-4 w-4" />${Math.round(results.total).toLocaleString()}
         </Badge>
       </Reveal>
 
@@ -244,7 +242,7 @@ function CostCard({ label, value }: { label: string; value: number }) {
     <Card interactive className={cn("h-full p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
       <p className="text-xs text-stone-light">{label}</p>
       <p className={cn("mt-2 text-2xl text-ink", isSeeded ? "font-mono" : "font-light")}>
-        <CountUpOnView value={Math.round(value)} prefix="$" />
+        ${Math.round(value).toLocaleString()}
       </p>
     </Card>
   );

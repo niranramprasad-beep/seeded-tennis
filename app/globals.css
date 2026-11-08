@@ -7,6 +7,9 @@
   [data-theme="grass"] {
     --font-inter: "Inter", sans-serif;
     --font-cormorant: "Cormorant Garamond", serif;
+    /* Legacy's "Night Rally" concept theme keeps IBM Plex Mono; Seeded
+       overrides this to JetBrains Mono below. */
+    --font-mono-active: var(--font-plex-mono);
 
     /* Grass Court — modern flat white, near-black ink, confident emerald */
     --c-bg: 250 250 250;
@@ -338,87 +341,61 @@
   }
 
   /* ---- Seeded design system ----
-     A second, structurally different design (own layout + typography, not
-     just a palette) toggled via `data-design`, fully independent of the 9
-     Legacy `data-theme` palettes above — see lib/context/design-context.tsx.
-     Each mode defines the complete --c-* set Legacy already uses, so every
-     existing var-driven primitive (SpotlightCard, GlowOrb, Button, Card,
-     Badge) works unmodified under Seeded, plus Seeded-only --s-* vars
-     (gradient-mesh stops, glass surfaces, elevation shadows) that only
-     components/seeded/* ever reference. */
+     Being rebuilt pixel-exact to the 11 Seeded Redesign Mockups
+     (DesignSystem.dc.html etc.) — "scoreboard calm": cream bg, court green,
+     ball yellow, clay, mono numerals. Toggled via `data-design`, fully
+     independent of the 9 Legacy `data-theme` palettes above — see
+     lib/context/design-context.tsx. Each mode defines the complete --c-* set
+     Legacy already uses, so every existing var-driven primitive (Button,
+     Card, Badge) works unmodified under Seeded.
+     The 11 mockups define only ONE (light/cream) palette — no dark variant
+     exists yet — so dark and light currently resolve to the same values.
+     --s-* vars (glass/mesh/elevation) are TRANSITIONAL: still referenced by
+     not-yet-rewritten Seeded components (sidebar, nav, command palette,
+     dashboard/roadmap/schools layouts) until later redesign phases migrate
+     them off glass/gradient styling. Grep `--s-` under components/seeded to
+     track remaining consumers; remove once that grep is empty. */
 
-  [data-design="seeded"][data-seeded-mode="dark"] {
-    --c-bg: 13 14 18;
-    --c-card: 21 22 28;
-    --c-primary: 109 94 245;
-    --c-primary-50: 26 24 46;
-    --c-primary-100: 36 33 64;
-    --c-primary-600: 139 125 247;
-    --c-primary-700: 109 94 245;
-    --c-primary-800: 170 160 250;
-    --c-primary-900: 214 209 253;
-    --c-lime: 245 196 76;
-    --c-leaf: 45 212 150;
-    --c-tennis: 96 165 250;
-    --c-ink: 237 238 242;
-    --c-stone: 165 167 179;
-    --c-stone-light: 108 110 122;
-    --c-line: 38 40 48;
-    --c-gold: 214 180 110;
-    --c-on-primary: 255 255 255;
-    --c-error-bg: 48 24 26;
-    --c-error: 244 95 100;
-    --c-error-strong: 252 176 178;
-    --c-scroll-thumb: 52 54 62;
-    --c-thumb-ring: 21 22 28;
-
-    --s-bg-mesh-1: 109 94 245;
-    --s-bg-mesh-2: 56 189 248;
-    --s-bg-mesh-3: 45 212 150;
-    --s-glass-bg: rgba(255, 255, 255, 0.045);
-    --s-glass-border: rgba(255, 255, 255, 0.1);
-    --s-glass-blur: 20px;
-    --s-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.24);
-    --s-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
-    --s-elevation-3: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 48px rgba(109, 94, 245, 0.18);
-    --s-accent-gradient: linear-gradient(135deg, rgb(109 94 245) 0%, rgb(56 189 248) 100%);
+  [data-design="seeded"] {
+    --font-mono-active: var(--font-jetbrains-mono);
   }
 
+  [data-design="seeded"][data-seeded-mode="dark"],
   [data-design="seeded"][data-seeded-mode="light"] {
-    --c-bg: 246 247 250;
+    --c-bg: 247 246 242;
     --c-card: 255 255 255;
-    --c-primary: 91 76 219;
-    --c-primary-50: 237 236 252;
-    --c-primary-100: 222 219 250;
-    --c-primary-600: 104 89 230;
-    --c-primary-700: 91 76 219;
-    --c-primary-800: 72 60 180;
-    --c-primary-900: 53 44 138;
-    --c-lime: 217 160 42;
-    --c-leaf: 13 148 108;
-    --c-tennis: 37 99 207;
-    --c-ink: 23 24 29;
-    --c-stone: 95 98 112;
-    --c-stone-light: 150 153 166;
-    --c-line: 226 228 235;
-    --c-gold: 168 124 58;
+    --c-primary: 31 107 74;
+    --c-primary-50: 230 241 235;
+    --c-primary-100: 191 220 203;
+    --c-primary-600: 24 90 62;
+    --c-primary-700: 20 73 47;
+    --c-primary-800: 16 58 37;
+    --c-primary-900: 14 20 17;
+    --c-lime: 215 242 90;
+    --c-leaf: 194 100 58;
+    --c-tennis: 215 242 90;
+    --c-ink: 20 24 26;
+    --c-stone: 92 98 95;
+    --c-stone-light: 138 143 140;
+    --c-line: 228 226 218;
+    --c-gold: 183 121 31;
     --c-on-primary: 255 255 255;
-    --c-error-bg: 253 234 234;
-    --c-error: 193 52 58;
-    --c-error-strong: 139 28 33;
-    --c-scroll-thumb: 210 213 222;
+    --c-error-bg: 252 238 237;
+    --c-error: 194 54 47;
+    --c-error-strong: 142 38 32;
+    --c-scroll-thumb: 214 211 200;
     --c-thumb-ring: 255 255 255;
 
-    --s-bg-mesh-1: 91 76 219;
-    --s-bg-mesh-2: 37 99 207;
-    --s-bg-mesh-3: 13 148 108;
-    --s-glass-bg: rgba(255, 255, 255, 0.55);
-    --s-glass-border: rgba(15, 15, 20, 0.08);
+    --s-bg-mesh-1: 31 107 74;
+    --s-bg-mesh-2: 194 100 58;
+    --s-bg-mesh-3: 215 242 90;
+    --s-glass-bg: rgba(255, 255, 255, 0.72);
+    --s-glass-border: rgba(20, 24, 26, 0.08);
     --s-glass-blur: 20px;
-    --s-elevation-1: 0 1px 2px rgba(15, 15, 20, 0.04), 0 2px 10px rgba(15, 15, 20, 0.05);
-    --s-elevation-2: 0 8px 24px rgba(15, 15, 20, 0.08), 0 2px 10px rgba(15, 15, 20, 0.05);
-    --s-elevation-3: 0 24px 64px rgba(15, 15, 20, 0.12), 0 0 48px rgba(91, 76, 219, 0.12);
-    --s-accent-gradient: linear-gradient(135deg, rgb(91 76 219) 0%, rgb(37 99 207) 100%);
+    --s-elevation-1: 0 1px 2px rgba(20, 24, 26, 0.04), 0 2px 10px rgba(20, 24, 26, 0.05);
+    --s-elevation-2: 0 8px 24px rgba(20, 24, 26, 0.08), 0 2px 10px rgba(20, 24, 26, 0.05);
+    --s-elevation-3: 0 24px 64px rgba(20, 24, 26, 0.12), 0 0 48px rgba(31, 107, 74, 0.12);
+    --s-accent-gradient: linear-gradient(135deg, rgb(31 107 74) 0%, rgb(194 100 58) 100%);
   }
 
   html {

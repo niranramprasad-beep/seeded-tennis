@@ -55,23 +55,6 @@ export interface MatchAnalysis {
   source: "ai" | "fallback";
 }
 
-export interface FriendProfile {
-  id: string;
-  email: string;
-  name: string;
-  username: string;
-  currentUtr: number;
-  privacyLevel: "public" | "friends" | "private";
-}
-
-export interface Friendship {
-  id: string;
-  requesterId: string;
-  addresseeId: string;
-  status: "pending" | "accepted" | "declined";
-  profile: FriendProfile;
-}
-
 export interface CostCalculation {
   id: string;
   name: string;
@@ -414,37 +397,6 @@ export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCa
   return (data ?? []).map(mapCost);
 }
 
-export async function searchProfiles(query: string, signal?: AbortSignal): Promise<FriendProfile[]> {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id || query.trim().length < 2) return [];
-  const q = `%${query.trim()}%`;
-  let dbQuery = supabase
-    .from("profiles")
-    .select("id,email,name,username,current_utr,privacy_level")
-    .or(`email.ilike.${q},name.ilike.${q}`)
-    .neq("id", id)
-    .limit(12);
-  if (signal) dbQuery = dbQuery.abortSignal(signal);
-  const { data } = await dbQuery;
-  return (data ?? []).map(mapFriendProfile);
-}
-
-export async function updateProfileDiscovery(input: {
-  privacyLevel: FriendProfile["privacyLevel"];
-}) {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return;
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      privacy_level: input.privacyLevel,
-    })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
 export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMember[]> {
   const supabase = getSupabase();
   const p = await profile();
@@ -464,39 +416,6 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
     currentUtr: Number(row.current_utr ?? 0),
     graduationYear: resolveGraduationYear(row),
     onboarded: Boolean(row.onboarded),
-  }));
-}
-
-export async function sendFriendRequest(addresseeId: string) {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return;
-  await supabase.from("friendships").upsert({ requester_id: id, addressee_id: addresseeId, status: "pending" }, { onConflict: "requester_id,addressee_id" });
-}
-
-export async function updateFriendship(id: string, status: "accepted" | "declined") {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase.from("friendships").update({ status }).eq("id", id);
-}
-
-export async function loadFriendships(signal?: AbortSignal): Promise<Friendship[]> {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return [];
-  let query = supabase
-    .from("friendships")
-    .select("*, requester:profiles!friendships_requester_id_fkey(id,email,name,username,current_utr,privacy_level), addressee:profiles!friendships_addressee_id_fkey(id,email,name,username,current_utr,privacy_level)")
-    .or(`requester_id.eq.${id},addressee_id.eq.${id}`)
-    .order("created_at", { ascending: false });
-  if (signal) query = query.abortSignal(signal);
-  const { data } = await query;
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    requesterId: row.requester_id,
-    addresseeId: row.addressee_id,
-    status: row.status,
-    profile: mapFriendProfile(row.requester_id === id ? row.addressee : row.requester),
   }));
 }
 
@@ -582,17 +501,6 @@ function mapMatch(row: any): MatchRecord {
     notes: row.notes ?? "",
     videoUrl: row.video_url ?? "",
     aiAnalysis: row.ai_analysis ?? null,
-  };
-}
-
-function mapFriendProfile(row: any): FriendProfile {
-  return {
-    id: row.id,
-    email: row.email ?? "",
-    name: row.name ?? "Seeded player",
-    username: row.username ?? "",
-    currentUtr: Number(row.current_utr ?? 0),
-    privacyLevel: row.privacy_level ?? "friends",
   };
 }
 

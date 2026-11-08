@@ -11,7 +11,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/shared/fade-in";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
@@ -243,15 +242,7 @@ export function PricingView() {
 
               <div className="mt-5 flex items-baseline gap-1.5">
                 <span className={cn("text-4xl tracking-tight text-ink", isSeeded ? "font-mono" : "font-light")}>
-                  {isSeeded ? (
-                    <CountUpOnView
-                      value={Number(plan.price.replace(/[^0-9.]/g, "")) || 0}
-                      prefix="$"
-                      className="font-mono text-4xl tracking-tight text-ink"
-                    />
-                  ) : (
-                    plan.price
-                  )}
+                  {plan.price}
                 </span>
                 <span className="text-sm text-stone-light">{plan.cadence}</span>
               </div>

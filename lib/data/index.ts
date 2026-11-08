@@ -19,7 +19,7 @@ import type {
 import { mensD1Schools } from "./schools";
 import { womensD1Schools } from "./schools-womens";
 import { extraSchools } from "./schools-extra";
-import { getSchoolProfile, combinedScore } from "./school-detail";
+import { combinedScore } from "./school-detail";
 import { trainingPlans as trainingPlansData } from "./training-plans";
 import { buildTournaments } from "./tournaments";
 import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
@@ -64,15 +64,7 @@ export async function getSchoolsByGender(gender: Gender): Promise<School[]> {
   return resolve(schoolsData.filter((s) => s.gender === gender));
 }
 
-// Re-export the rich-detail derivation + combined-score helper.
-export { getSchoolProfile, combinedScore };
-export type {
-  SchoolProfile,
-  RosterPlayer,
-  MatchResult,
-  StandingRow,
-  RecruitingClass,
-} from "./school-detail";
+export { combinedScore };
 
 export async function getConferences(): Promise<string[]> {
   return resolve(Array.from(new Set(schoolsData.map((s) => s.conference))).sort());

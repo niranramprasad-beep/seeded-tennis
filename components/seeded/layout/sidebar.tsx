@@ -40,7 +40,6 @@ const APP_LINKS: NavLink[] = [
   { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
   { href: "/schools", label: "Schools", icon: School },
   { href: "/coaches", label: "Coaches", icon: Mail },
-  { href: "/friends", label: "Friends", icon: Users },
 ];
 
 const PARENT_LINKS: NavLink[] = [

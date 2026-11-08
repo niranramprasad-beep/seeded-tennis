@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { AnimatedLineChart } from "@/components/seeded/shared/animated-line-chart";
 import { formatUTR, cn } from "@/lib/utils";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
@@ -67,9 +66,7 @@ export function SeededRoadmapLayout({
             style={{ background: "var(--s-accent-gradient)" }}
           >
             <p className="text-sm text-white/80">Goal UTR to be competitive</p>
-            <div className="mt-1 font-mono text-6xl">
-              <CountUpOnView value={goalUTR} decimals={1} className="font-mono text-6xl" />
-            </div>
+            <div className="mt-1 font-mono text-6xl">{formatUTR(goalUTR)}</div>
             <p className="mt-3 text-sm text-white/80">
               +{formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you are today
             </p>
@@ -141,11 +138,7 @@ export function SeededRoadmapLayout({
                   <div className="mt-4">
                     <p className="text-xs text-stone-light">Target UTR by then</p>
                     <div className="seeded-gradient-text font-mono text-4xl">
-                      <CountUpOnView
-                        value={year.utrTarget}
-                        decimals={1}
-                        className="seeded-gradient-text font-mono text-4xl"
-                      />
+                      {formatUTR(year.utrTarget)}
                     </div>
                   </div>
 

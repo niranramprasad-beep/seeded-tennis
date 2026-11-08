@@ -5,13 +5,10 @@ import { ArrowRight, ArrowUpRight, BarChart3, Clock3, ShieldCheck } from "lucide
 import type { SchoolLite } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
-import { Magnetic } from "@/components/shared/magnetic";
 import { Parallax } from "@/components/shared/parallax";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { GradientMeshBg } from "@/components/seeded/shared/gradient-mesh-bg";
 import { ScrollHeroSequence } from "@/components/seeded/shared/scroll-hero";
-import { CursorGlowField } from "@/components/seeded/shared/cursor-glow-field";
 import { BentoGrid, BentoCell } from "@/components/seeded/shared/bento-grid";
 import { SchoolMarquee } from "@/components/home/school-marquee";
 import { CinematicBand } from "@/components/home/cinematic-band";
@@ -32,7 +29,7 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
     <>
       <div className="text-ink">
         {/* ----------------------------------------------------------- HERO */}
-        <CursorGlowField className="relative overflow-hidden">
+        <div className="relative overflow-hidden">
           <section className="relative flex min-h-[94vh] items-center overflow-hidden">
             <GradientMeshBg />
             <div className="pointer-events-none absolute inset-0 bg-grid-dots opacity-40" />
@@ -57,16 +54,14 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
                 </Reveal>
                 <Reveal index={3} step={0.09}>
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                    <Magnetic strength={0.3}>
-                      <Link
-                        href="/signup"
-                        className="group flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                        style={{ background: "var(--s-accent-gradient)" }}
-                      >
-                        Build my fit report
-                        <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-                      </Link>
-                    </Magnetic>
+                    <Link
+                      href="/signup"
+                      className="group flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
+                      style={{ background: "var(--s-accent-gradient)" }}
+                    >
+                      Build my fit report
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                    </Link>
                     <Link
                       href="/schools"
                       className="seeded-glass group flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-ink"
@@ -80,9 +75,7 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
                 <Reveal index={4} step={0.09}>
                   <div className="mt-14 flex max-w-lg gap-8 border-t border-[rgb(var(--c-line))] pt-6">
                     <div>
-                      <p className="font-mono text-3xl text-ink sm:text-4xl">
-                        <CountUpOnView value={67} className="font-mono text-3xl text-ink sm:text-4xl" />
-                      </p>
+                      <p className="font-mono text-3xl text-ink sm:text-4xl">67</p>
                       <p className="mt-1.5 whitespace-nowrap font-seeded text-[10px] font-semibold uppercase tracking-[0.14em] text-stone">
                         programs ranked
                       </p>
@@ -136,7 +129,7 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
               </Reveal>
             </ScrollHeroSequence>
           </section>
-        </CursorGlowField>
+        </div>
 
         {/* -------------------------------------------------------- TRUST STRIP */}
         <section className="seeded-glass border-y-0">
@@ -219,16 +212,14 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
                     </li>
                   ))}
                 </ul>
-                <Magnetic strength={0.3} className="mt-8">
-                  <Link
-                    href="/tournament-fit"
-                    className="group flex w-fit items-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                    style={{ background: "var(--s-accent-gradient)" }}
-                  >
-                    Open the fit finder
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </Magnetic>
+                <Link
+                  href="/tournament-fit"
+                  className="group mt-8 flex w-fit items-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
+                  style={{ background: "var(--s-accent-gradient)" }}
+                >
+                  Open the fit finder
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
               </Reveal>
 
               <Reveal index={1} step={0.1}>
@@ -339,16 +330,14 @@ export function SeededHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
               Start with an honest fit check.
             </h2>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Magnetic strength={0.3}>
-                <Link
-                  href="/signup"
-                  className="flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
-                  style={{ background: "var(--s-accent-gradient)" }}
-                >
-                  Create your profile
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Magnetic>
+              <Link
+                href="/signup"
+                className="flex items-center justify-center gap-2 rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-on-primary shadow-seeded-2"
+                style={{ background: "var(--s-accent-gradient)" }}
+              >
+                Create your profile
+                <ArrowRight className="h-4 w-4" />
+              </Link>
               <Link
                 href="/schools"
                 className="seeded-glass flex items-center justify-center rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-ink"

@@ -35,7 +35,6 @@ const PLAYER_COMMANDS: Command[] = [
   { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
   { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
   { label: "Coaches", href: "/coaches", icon: Mail, keywords: "outreach" },
-  { label: "Friends", href: "/friends", icon: Users },
 ];
 
 const PARENT_COMMANDS: Command[] = [

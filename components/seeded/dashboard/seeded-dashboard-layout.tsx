@@ -15,7 +15,6 @@ import { SchoolBadge } from "@/components/shared/school-badge";
 import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { BentoGrid, BentoCell } from "@/components/seeded/shared/bento-grid";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { cn, formatUTR } from "@/lib/utils";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
@@ -124,9 +123,7 @@ export function SeededDashboardLayout({
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="font-mono text-4xl text-ink">
-                    <CountUpOnView value={player.currentUTR} decimals={1} className="font-mono text-4xl text-ink" />
-                  </span>
+                  <span className="font-mono text-4xl text-ink">{formatUTR(player.currentUTR)}</span>
                   <span className="mt-1 font-seeded text-[11px] text-stone-light">
                     goal {formatUTR(targetUTR)}
                   </span>
