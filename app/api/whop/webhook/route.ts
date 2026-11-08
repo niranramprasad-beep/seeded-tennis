@@ -3,6 +3,15 @@ import { unwrapWebhook, WebhookVerificationError } from "@whop/sdk/helpers";
 import { WHOP_PLAN_IDS } from "@/lib/whop";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
+import { reportPurchaseToGA4 } from "@/lib/ga4-server";
+
+// Hardcoded since Whop's membership payload carries no price field — these
+// must be kept in sync with the tier cards in pricing-view.tsx by hand.
+const TIER_PRICE_USD: Record<SubscriptionTier, number> = {
+  free: 0,
+  player: 19,
+  family: 39,
+};
 
 // The only place subscription_tier is ever written for Whop customers —
 // Whop is the source of truth for who's paying, not anything the client
@@ -87,6 +96,18 @@ export async function POST(req: Request) {
               whop_membership_id: membership.id,
             })
             .eq("id", supabaseUserId);
+
+          // Report to GA4 only for a genuine new activation, not a renewal
+          // or any other "updated" ping — "membership.activated" is a
+          // one-time lifecycle event per membership, so this can't
+          // double-count the way treating every "updated" as a sale would.
+          if (event.type === "membership.activated" && newTier !== "free") {
+            await reportPurchaseToGA4({
+              transactionId: membership.id,
+              value: TIER_PRICE_USD[newTier],
+              itemName: `${newTier} subscription`,
+            });
+          }
         }
       } else {
         // Only downgrade if THIS is the membership currently on record for
