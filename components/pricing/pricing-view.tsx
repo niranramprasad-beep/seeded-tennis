@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
-import type { SubscriptionTier } from "@/lib/types";
+import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
@@ -119,17 +119,14 @@ export function PricingView() {
   const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState("");
 
+  // Only ever called for a genuine upgrade — the Free card's button is
+  // always disabled (current or includedAlready), so there is no "switch to
+  // Free" checkout path here; that happens on Whop's own membership page
+  // via manageBilling() below.
   const choose = async (t: SubscriptionTier) => {
     // Signed-out visitors need an account first — nothing to bill yet.
     if (!hydrated || !isAuthed) {
       router.push("/signup");
-      return;
-    }
-
-    if (t === "free") {
-      // Downgrading an existing paid plan happens on Whop's own membership
-      // page, not an instant local switch.
-      manageBilling();
       return;
     }
 
@@ -197,12 +194,23 @@ export function PricingView() {
       <div className="mt-12 grid items-start gap-5 lg:grid-cols-3">
         {PLANS.map((plan, i) => {
           const current = tier === plan.tier;
+          // Any plan ranked at or below what the user already has must
+          // never be a live checkout target — clicking Player while already
+          // on Family would start a brand-new Whop checkout for a tier
+          // already exceeded. Only the exact current tier (badged above)
+          // and genuine upgrades stay clickable; downgrading happens on
+          // Whop's own membership page via the "Manage billing" link.
+          const includedAlready = !current && TIER_RANK[plan.tier] < TIER_RANK[tier];
+          // "Most popular" is a prompt to pick this plan — once it's the
+          // user's actual plan, that prompt is both redundant and the thing
+          // fighting the "Current" badge for the same top-right corner.
+          const highlighted = plan.popular || current;
           return (
             <FadeIn key={plan.tier} delay={i * 0.08}>
             <Card
               className={cn(
                 "relative flex h-full flex-col overflow-hidden p-7",
-                plan.popular
+                highlighted
                   ? isSeeded
                     ? "border-0 pt-10 seeded-glass shadow-seeded-3"
                     : "border-2 border-grass pt-10 shadow-soft"
@@ -212,26 +220,25 @@ export function PricingView() {
               )}
               style={plan.popular && isSeeded ? { boxShadow: "var(--s-elevation-3), 0 0 60px rgb(var(--c-primary) / 0.25)" } : undefined}
             >
-              {plan.popular && (
+              {highlighted && (
                 <Badge
                   size="md"
                   className={cn("absolute right-5 top-5", !isSeeded && "shadow-soft")}
                   style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
                   variant={isSeeded ? undefined : "leaf"}
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Most popular
+                  {current ? (
+                    "Current plan"
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Most popular
+                    </>
+                  )}
                 </Badge>
               )}
 
-              <div className="flex items-center justify-between">
-                <h2 className={cn("text-xl font-medium text-ink", isSeeded && "font-seeded")}>{plan.name}</h2>
-                {current && (
-                  <Badge variant="default" size="sm">
-                    Current
-                  </Badge>
-                )}
-              </div>
+              <h2 className={cn("text-xl font-medium text-ink", isSeeded && "font-seeded")}>{plan.name}</h2>
               <p className="mt-1 text-sm text-stone">{plan.tagline}</p>
 
               <div className="mt-5 flex items-baseline gap-1.5">
@@ -254,14 +261,14 @@ export function PricingView() {
                 size="lg"
                 className="mt-6 w-full"
                 onClick={() => choose(plan.tier)}
-                disabled={current || loadingTier === plan.tier}
+                disabled={current || includedAlready || loadingTier === plan.tier}
               >
                 {loadingTier === plan.tier
                   ? "Redirecting..."
                   : current
                     ? "Current plan"
-                    : plan.tier === "free"
-                      ? "Switch to Free"
+                    : includedAlready
+                      ? "Included in your plan"
                       : `Choose ${plan.name}`}
               </Button>
 
