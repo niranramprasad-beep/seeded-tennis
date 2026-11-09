@@ -356,14 +356,17 @@ export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachS
 }
 
 // Same rows as loadCoachOutreach, plus `updated_at` — the real "when did
-// this status last change" signal /today's follow-up-due logic needs — and
+// this status last change" signal /today's follow-up-due logic needs —
 // `remindAt`, the player-set "remind me in 14 days" check-in date (migration
-// 011_outreach_stages.sql; nullable, null until a reminder is ever set).
-// Additive: loadCoachOutreach/OutreachStatusMap are untouched so the
-// existing Outreach page keeps working unchanged.
+// 011_outreach_stages.sql; nullable, null until a reminder is ever set), and
+// `replyNote`, the optional free-text note a player can attach when marking
+// a school "replied" (migration 017_coach_outreach_reply_note.sql; nullable,
+// null until a note is ever saved). Additive: loadCoachOutreach/
+// OutreachStatusMap are untouched so the existing Outreach page keeps
+// working unchanged.
 export type OutreachStatusMapDated = Record<
   string,
-  { status: OutreachStatus; updatedAt: string; remindAt?: string | null }
+  { status: OutreachStatus; updatedAt: string; remindAt?: string | null; replyNote?: string | null }
 >;
 
 export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<OutreachStatusMapDated> {
@@ -373,16 +376,26 @@ export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<Outr
   const scoped = (q: any) =>
     p?.role === "parent" && p?.family_code ? q.eq("family_code", p.family_code) : q.eq("user_id", id);
 
-  let query = scoped(supabase.from("coach_outreach").select("school_slug, status, updated_at, remind_at"));
+  // Selects widen in three steps, from "everything this task adds" down to
+  // the original 009 columns, because remind_at (011) and reply_note (017)
+  // are each tracked-but-not-yet-applied migrations — selecting a column
+  // that doesn't exist on the live table fails the WHOLE query, which would
+  // otherwise wipe out every status this page shows. Falling back keeps
+  // outreach tracking working regardless of which of the two migrations (if
+  // either) has actually landed; the newer field(s) just stay absent.
+  let query = scoped(
+    supabase.from("coach_outreach").select("school_slug, status, updated_at, remind_at, reply_note")
+  );
   if (signal) query = query.abortSignal(signal);
   let { data, error } = await query;
 
-  // remind_at (migration 011_outreach_stages.sql) isn't applied to the live
-  // database yet — selecting a column that doesn't exist there fails the
-  // whole query, which would otherwise wipe out every status this page
-  // already shows. Fall back to the columns that do exist so outreach
-  // tracking keeps working; remindAt just stays absent until the migration
-  // lands.
+  if (error) {
+    let fallback = scoped(supabase.from("coach_outreach").select("school_slug, status, updated_at, remind_at"));
+    if (signal) fallback = fallback.abortSignal(signal);
+    const retry = await fallback;
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) {
     let fallback = scoped(supabase.from("coach_outreach").select("school_slug, status, updated_at"));
     if (signal) fallback = fallback.abortSignal(signal);
@@ -398,6 +411,7 @@ export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<Outr
       status: row.status as OutreachStatus,
       updatedAt: row.updated_at as string,
       remindAt: ((row as { remind_at?: string | null }).remind_at ?? null),
+      replyNote: ((row as { reply_note?: string | null }).reply_note ?? null),
     };
   }
   return map;
@@ -445,6 +459,23 @@ export async function saveCoachOutreachReminder(schoolSlug: string): Promise<str
     .eq("school_slug", schoolSlug);
   if (error) throw new Error(error.message);
   return remindAt;
+}
+
+// Same "update, never upsert" rule as saveCoachOutreachReminder above: a
+// reply note is meaningless without an outreach row already existing, and
+// the Outreach board only ever renders this on a row that's already marked
+// "replied". Empty string is saved as null so an emptied-out note reads the
+// same as one that was never written, not as an empty-but-present note.
+export async function saveCoachOutreachReplyNote(schoolSlug: string, note: string): Promise<void> {
+  const supabase = getSupabase();
+  const { id } = await userIdAndProfile();
+  if (!supabase || !id) return;
+  const { error } = await supabase
+    .from("coach_outreach")
+    .update({ reply_note: note.trim() || null })
+    .eq("user_id", id)
+    .eq("school_slug", schoolSlug);
+  if (error) throw new Error(error.message);
 }
 
 export function calculateCost(input: CostInputs): CostResults {

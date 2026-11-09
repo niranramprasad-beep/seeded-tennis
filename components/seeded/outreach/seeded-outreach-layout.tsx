@@ -6,9 +6,19 @@ import type { School } from "@/lib/types";
 import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/supabase/features";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/supabase/features";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
+import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
+import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn } from "@/lib/utils";
+
+// Same plain "Oct 25" (no year) format the board already used inline for
+// "Reminder set for {date}" — reused here for last-contact/follow-up-by too
+// so every date on a card reads consistently.
+function shortDate(input: string | Date): string {
+  const date = typeof input === "string" ? new Date(input) : input;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 // Pixel-exact to Outreach.dc.html's 5-column board (Researching/Emailed/
 // Replied/Call-visit/Offer), plus a 6th "Committed" column the mockup
@@ -50,6 +60,20 @@ export interface SeededOutreachLayoutProps {
   setStatus: (slug: string, status: OutreachStatus | null) => void;
   setReminder: (slug: string) => void;
   outreachError: string;
+  /** The player's real current UTR — drives each card's real fit band via
+   * classifySchoolFit, the same function /today, /plan, and the Schools
+   * browser already use. */
+  playerUtr: number;
+  /** Real UTR history + grad-year context, same shape every other
+   * classifySchoolFit caller passes — optional because a brand-new account
+   * with <3 logged entries genuinely has none yet (classifySchoolFit falls
+   * back to "reach" honestly in that case, not a fabricated band). */
+  projection?: SchoolFitProjectionInput;
+  /** Draft text for the optional note a player can attach when marking a
+   * school "replied" (migration 017_coach_outreach_reply_note.sql). */
+  replyNote: string;
+  setReplyNote: (v: string) => void;
+  saveReplyNote: (slug: string, note: string) => void;
 }
 
 export function SeededOutreachLayout({
@@ -66,10 +90,16 @@ export function SeededOutreachLayout({
   setStatus,
   setReminder,
   outreachError,
+  playerUtr,
+  projection,
+  replyNote,
+  setReplyNote,
+  saveReplyNote,
 }: SeededOutreachLayoutProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const bySlug = (slug: string) => targetSchools.find((s) => s.slug === slug);
   const selectedSchool = selectedSlug ? bySlug(selectedSlug) : undefined;
+  const currentStatus = selectedSchool ? statuses[selectedSchool.slug]?.status : undefined;
 
   const notStarted = targetSchools.filter((s) => !statuses[s.slug]);
   const emailedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "emailed").length;
@@ -133,12 +163,25 @@ export function SeededOutreachLayout({
               ) : (
                 schools.map((s) => {
                   const entry = statuses[s.slug];
+                  const band = classifySchoolFit(playerUtr, s, projection);
                   const due =
                     stage.key === "emailed" &&
                     entry &&
                     daysSince(entry.updatedAt) >= FOLLOW_UP_AFTER_DAYS;
                   const remindAt = entry?.remindAt ? new Date(entry.remindAt) : null;
                   const reminderDue = Boolean(remindAt && remindAt.getTime() <= Date.now());
+                  // "Contacted" (an email actually went out) is every status
+                  // past "researching" — the same vocabulary
+                  // legacyIsSentOrLater() in coaches-view.tsx uses.
+                  const contacted = Boolean(entry && entry.status !== "researching");
+                  // The real upcoming due date while a card is emailed but
+                  // not yet overdue — once `due` flips true, the chip below
+                  // already communicates it; this plain-text line only fills
+                  // the gap before that, so the date isn't a surprise.
+                  const followUpBy =
+                    stage.key === "emailed" && entry && !due
+                      ? new Date(new Date(entry.updatedAt).getTime() + FOLLOW_UP_AFTER_DAYS * 86_400_000)
+                      : null;
                   return (
                     <div
                       key={s.slug}
@@ -149,18 +192,26 @@ export function SeededOutreachLayout({
                       )}
                       onClick={() => setSelectedSlug(s.slug)}
                     >
-                      <strong className="text-ink">{s.shortName}</strong>
+                      <div className="flex items-start justify-between gap-2">
+                        <strong className="text-ink">{s.shortName}</strong>
+                        <FitBadge band={band} className="shrink-0" />
+                      </div>
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}
                       </span>
+                      {contacted && (
+                        <span className="text-xs text-ink/60">Last contact {shortDate(entry!.updatedAt)}</span>
+                      )}
+                      {followUpBy && (
+                        <span className="text-xs text-ink/60">Follow up by {shortDate(followUpBy)}</span>
+                      )}
                       {due && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Follow up due")}
                       {stage.key === "replied" &&
                         chip("border-grass-100 bg-grass-50 text-grass", "Replied")}
                       {reminderDue && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Reminder due")}
                       {!reminderDue && remindAt && (
                         <span className="text-xs text-ink/50">
-                          Reminder set for{" "}
-                          {remindAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          Reminder set for {shortDate(remindAt)}
                         </span>
                       )}
                       <select
@@ -205,8 +256,7 @@ export function SeededOutreachLayout({
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[17px] font-semibold text-ink">
-                {statuses[selectedSchool.slug]?.status === "emailed" ? "Follow-up" : "Email"} ·{" "}
-                {selectedSchool.shortName}
+                {currentStatus === "emailed" ? "Follow-up" : "Email"} · {selectedSchool.shortName}
               </h2>
               {chip("border-line bg-card text-ink/70", "Draft")}
             </div>
@@ -241,25 +291,12 @@ export function SeededOutreachLayout({
             </p>
             <div className="flex flex-wrap gap-2">
               <SeededButton
-                variant="primary"
-                onClick={() => {
-                  copyAll();
-                  setStatus(selectedSchool.slug, "emailed");
-                }}
-              >
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" aria-hidden /> Copy and mark sent
-                  </>
-                )}
-              </SeededButton>
-              <SeededButton
                 variant="secondary"
                 onClick={() => {
+                  // Real Gmail web compose deep link — never the Gmail API,
+                  // never sent on the player's behalf. Opens a normal
+                  // pre-filled compose window in a new tab for the player to
+                  // review and send themselves.
                   const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
                     selectedSchool.coachEmail
                   )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -268,7 +305,23 @@ export function SeededOutreachLayout({
               >
                 Open in Gmail
               </SeededButton>
-              {statuses[selectedSchool.slug]?.status === "replied" ? (
+              {currentStatus === undefined || currentStatus === "researching" ? (
+                <SeededButton variant="primary" onClick={() => setStatus(selectedSchool.slug, "emailed")}>
+                  Mark sent
+                </SeededButton>
+              ) : null}
+              <SeededButton variant="ghost" onClick={copyAll}>
+                {copied ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" aria-hidden /> Copy
+                  </>
+                )}
+              </SeededButton>
+              {currentStatus === "replied" ? (
                 chip("border-grass-100 bg-grass-50 text-grass", <><Check className="mr-1 inline h-3 w-3" aria-hidden />Coach replied</>)
               ) : (
                 <SeededButton variant="ghost" onClick={() => setStatus(selectedSchool.slug, "replied")}>
@@ -276,6 +329,19 @@ export function SeededOutreachLayout({
                 </SeededButton>
               )}
             </div>
+            {currentStatus === "replied" && (
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
+                Reply note (optional)
+                <textarea
+                  value={replyNote}
+                  onChange={(e) => setReplyNote(e.target.value)}
+                  onBlur={() => saveReplyNote(selectedSchool.slug, replyNote)}
+                  rows={2}
+                  placeholder="What did the coach say?"
+                  className="resize-y rounded-md border border-input bg-cream p-3 text-sm leading-[1.55] text-ink"
+                />
+              </label>
+            )}
             {outreachError && (
               <p className="rounded-lg bg-error-bg px-3 py-2 text-sm text-error">{outreachError}</p>
             )}

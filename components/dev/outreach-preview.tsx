@@ -32,6 +32,7 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
     "Coach, I wanted to follow up on my interest in the program. Since my last note, I won two matches at the L3 Richmond and my UTR is now 9.42. Thank you, Maya"
   );
   const [copied, setCopied] = useState(false);
+  const [replyNote, setReplyNote] = useState("Asked for a fall highlight video.");
 
   const setStatus: React.ComponentProps<typeof SeededOutreachLayout>["setStatus"] = (slug, status) => {
     setStatuses((prev) => {
@@ -69,6 +70,10 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
         setStatus={setStatus}
         setReminder={setReminder}
         outreachError=""
+        playerUtr={9.42}
+        replyNote={replyNote}
+        setReplyNote={setReplyNote}
+        saveReplyNote={() => {}}
       />
     </div>
   );

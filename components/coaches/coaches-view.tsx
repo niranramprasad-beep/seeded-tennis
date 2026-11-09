@@ -18,11 +18,13 @@ import {
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
+import { loadUtrEntries } from "@/lib/supabase/utr";
 import {
   loadCoachOutreachDated,
   loadMatches,
   REMIND_ME_AFTER_DAYS,
   saveCoachOutreachReminder,
+  saveCoachOutreachReplyNote,
   saveCoachOutreachStatus,
   type MatchRecord,
   type OutreachStatus,
@@ -110,6 +112,21 @@ function CoachesInner({ schools }: { schools: School[] }) {
     [matches, player.currentUTR]
   );
 
+  // Same "utr-entries" SWR key /today, /plan, and the Schools browser
+  // already fetch under — a real cache hit, not a second round-trip,
+  // whenever one of those loaded this session. Feeds each card's real fit
+  // band via classifySchoolFit (inside SeededOutreachLayout), the exact
+  // same function those other surfaces use — never a second fit model.
+  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  const projection = useMemo(
+    () => ({
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      graduationYear: player.graduationYear,
+      gender: player.gender,
+    }),
+    [utrEntries, player.graduationYear, player.gender]
+  );
+
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
     targetSchools[0]?.slug ?? null
   );
@@ -147,6 +164,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
   );
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [replyNote, setReplyNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [outreachError, setOutreachError] = useState("");
 
@@ -166,14 +184,24 @@ function CoachesInner({ schools }: { schools: School[] }) {
     const email = buildCoachEmail(player, selectedSchool, results);
     setSubject(email.subject);
     setBody(email.body);
+    setReplyNote(statuses[selectedSchool.slug]?.replyNote ?? "");
     setCopied(false);
+    // statuses is intentionally excluded: it updates far more often (every
+    // status/reminder click) than the player actually switches schools, and
+    // re-running this would stomp an in-progress edit to the reply note with
+    // whatever's currently in the cache. The note is re-seeded on
+    // selectedSchool change, which is the only time it should reset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool, player, results]);
 
   const setStatus = async (slug: string, status: OutreachStatus | null) => {
     const previous = statuses;
     const next = { ...statuses };
     if (status === null) delete next[slug];
-    else next[slug] = { status, updatedAt: new Date().toISOString() };
+    // Preserve any existing remindAt/replyNote across a stage change — this
+    // is a stage transition, not a reset of everything else real already
+    // tracked on the row.
+    else next[slug] = { ...statuses[slug], status, updatedAt: new Date().toISOString() };
     mutateStatuses(next, { revalidate: false });
     setOutreachError("");
     try {
@@ -199,6 +227,22 @@ function CoachesInner({ schools }: { schools: School[] }) {
       mutateStatuses(previous, { revalidate: false });
       setOutreachError(
         err instanceof Error ? err.message : "Could not set a reminder — try again."
+      );
+    }
+  };
+
+  const saveReplyNote = async (slug: string, note: string) => {
+    const previous = statuses;
+    if (!statuses[slug]) return; // a note only applies to a row already being tracked
+    const next = { ...statuses, [slug]: { ...statuses[slug], replyNote: note.trim() || null } };
+    mutateStatuses(next, { revalidate: false });
+    setOutreachError("");
+    try {
+      await saveCoachOutreachReplyNote(slug, note);
+    } catch (err) {
+      mutateStatuses(previous, { revalidate: false });
+      setOutreachError(
+        err instanceof Error ? err.message : "Could not save that note — try again."
       );
     }
   };
@@ -264,6 +308,11 @@ function CoachesInner({ schools }: { schools: School[] }) {
           setStatus={setStatus}
           setReminder={setReminder}
           outreachError={outreachError}
+          playerUtr={player.currentUTR}
+          projection={projection}
+          replyNote={replyNote}
+          setReplyNote={setReplyNote}
+          saveReplyNote={saveReplyNote}
         />
       </div>
     );
