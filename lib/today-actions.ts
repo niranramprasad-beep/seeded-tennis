@@ -5,7 +5,7 @@
 // of upcoming tournament dates yet — see lib/tournament-fit.ts, which only
 // scores a tournament a family types in by hand, not a live calendar.
 import type { SchoolLite } from "@/lib/types";
-import { classifySchoolFit } from "@/lib/school-fit";
+import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import type { OutreachStatusMapDated } from "@/lib/supabase/features";
 
 export type TodayActionKind = "email" | "followup" | "reminder";
@@ -36,7 +36,8 @@ export function buildTodayActions(
   playerUtr: number,
   targetSchools: SchoolLite[],
   outreach: OutreachStatusMapDated,
-  now: Date = new Date()
+  now: Date = new Date(),
+  projection?: SchoolFitProjectionInput
 ): TodayAction[] {
   const emails: TodayAction[] = [];
   const followups: TodayAction[] = [];
@@ -44,10 +45,13 @@ export function buildTodayActions(
 
   for (const school of targetSchools) {
     const entry = outreach[school.slug];
-    const fit = classifySchoolFit(playerUtr, school);
+    const fit = classifySchoolFit(playerUtr, school, projection);
 
     if (!entry) {
-      if (fit !== "reach") {
+      // Neither "reach" (not yet competitive) nor "out-of-range" (the gap
+      // won't close in time at the player's real pace) is ready for a
+      // coach email yet — only target/likely schools get the nudge.
+      if (fit === "target" || fit === "likely") {
         emails.push({
           id: `email-${school.slug}`,
           kind: "email",

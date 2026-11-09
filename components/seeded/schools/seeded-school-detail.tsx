@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import useSWR from "swr";
 import { ArrowLeft, Building2, GraduationCap, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { classifySchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { loadCoachOutreach } from "@/lib/supabase/features";
+import { loadUtrEntries } from "@/lib/supabase/utr";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
@@ -32,15 +34,26 @@ interface Props {
 export function SeededSchoolDetail({ school, nationalRank, programType }: Props) {
   const { player, updatePlayer } = usePlayer();
   const { data: outreach } = useSWR("coach-outreach", () => loadCoachOutreach());
+  // Same "utr-entries" SWR key /today, /plan and the Schools browser already
+  // fetch under — shares their cache instead of a fresh round-trip.
+  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  const fitProjection = useMemo(
+    () => ({
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      graduationYear: player.graduationYear,
+      gender: player.gender,
+    }),
+    [utrEntries, player.graduationYear, player.gender]
+  );
 
-  const fit = classifySchoolFit(player.currentUTR, school);
+  const fit = classifySchoolFit(player.currentUTR, school, fitProjection);
   const range = schoolUtrRange(school);
   const saved = player.targetSchoolSlugs.includes(school.slug);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
 
   const whatWouldMoveIt = (() => {
     const bits: string[] = [];
-    if (fit === "reach") {
+    if (fit === "reach" || fit === "out-of-range") {
       const gap = school.minCompetitiveUTR - player.currentUTR;
       if (gap > 0) bits.push(`+${gap.toFixed(2)} UTR would put you at their competitive floor.`);
     } else if (fit === "target") {
@@ -114,7 +127,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType }: Props)
             <FitDriverRow
               label="UTR"
               description={`You ${player.currentUTR.toFixed(1)} vs their ${range.min.toFixed(1)}–${range.max.toFixed(1)} range`}
-              chip={fit === "reach" ? "Below range" : fit === "target" ? "In range" : "Above range"}
+              chip={
+                fit === "likely"
+                  ? "Above range"
+                  : fit === "target"
+                    ? "In range"
+                    : "Below range" // reach and out-of-range are both below the team floor
+              }
             />
             <FitDriverRow
               label="Timing"

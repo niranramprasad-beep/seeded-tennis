@@ -50,17 +50,31 @@ export function SeededDashboardLayout({
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
   const { data: matches } = useSWR("matches", () => loadMatches());
 
+  // actualPoints already carries the player's real UTR history (or the
+  // single current-UTR fallback point when there's none yet — see
+  // dashboard-view.tsx), so the full 4-band projection is real here, not
+  // fabricated: a lone fallback point still fails computeUtrProjection's
+  // 3-point minimum and classifySchoolFit falls back to "reach" honestly.
+  const projection = useMemo(
+    () => ({ utrHistory: actualPoints, graduationYear: player.graduationYear, gender: player.gender, now }),
+    [actualPoints, player.graduationYear, player.gender, now]
+  );
+
   const actions = useMemo(
-    () => buildTodayActions(player.currentUTR, targetSchools, outreach ?? {}, now),
-    [player.currentUTR, targetSchools, outreach, now]
+    () => buildTodayActions(player.currentUTR, targetSchools, outreach ?? {}, now, projection),
+    [player.currentUTR, targetSchools, outreach, now, projection]
   );
   const thisWeek = useMemo(
     () => buildThisWeekItems(targetSchools, outreach ?? {}, now),
     [targetSchools, outreach, now]
   );
   const onTrackCount = useMemo(
-    () => targetSchools.filter((s) => classifySchoolFit(player.currentUTR, s) !== "reach").length,
-    [targetSchools, player.currentUTR]
+    () =>
+      targetSchools.filter((s) => {
+        const fit = classifySchoolFit(player.currentUTR, s, projection);
+        return fit !== "reach" && fit !== "out-of-range";
+      }).length,
+    [targetSchools, player.currentUTR, projection]
   );
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
@@ -160,7 +174,7 @@ export function SeededDashboardLayout({
                   <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
                     {s.shortName}
                   </Link>
-                  <FitBadge band={classifySchoolFit(player.currentUTR, s)} />
+                  <FitBadge band={classifySchoolFit(player.currentUTR, s, projection)} />
                 </li>
               ))}
             </ul>

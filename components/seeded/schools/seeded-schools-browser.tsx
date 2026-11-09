@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import { Search } from "lucide-react";
 import type { Division, Gender, School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { loadUtrEntries } from "@/lib/supabase/utr";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { GenderToggle } from "@/components/shared/gender-toggle";
@@ -57,6 +59,21 @@ export function SeededSchoolsBrowser({
   const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
 
+  // Same "utr-entries" SWR key /today and /plan already fetch under — a
+  // real cache hit here, not a second network round-trip, whenever one of
+  // those has already loaded this session. Real history unlocks the full
+  // Reach-vs-Out-of-range projection; no history still gets an honest
+  // 3-way read (see lib/school-fit.ts).
+  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  const fitProjection = useMemo(
+    () => ({
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      graduationYear: player.graduationYear,
+      gender: player.gender,
+    }),
+    [utrEntries, player.graduationYear, player.gender]
+  );
+
   // A school's profile page links here with ?compare={slug}&gender={gender}
   // to pre-select it (same plain window.location.search read
   // coaches-view.tsx already uses for its own ?school= deep link — no
@@ -81,17 +98,20 @@ export function SeededSchoolsBrowser({
   const academicValue: "all" | AcademicTier =
     maxRank <= 25 ? "top25" : maxRank <= 50 ? "top50" : maxRank <= 100 ? "top100" : "all";
 
-  const counts = useMemo(() => countSchoolFits(player.currentUTR, ranked), [player.currentUTR, ranked]);
+  const counts = useMemo(
+    () => countSchoolFits(player.currentUTR, ranked, fitProjection),
+    [player.currentUTR, ranked, fitProjection]
+  );
   const savedSlugs = useMemo(() => new Set(player.targetSchoolSlugs), [player.targetSchoolSlugs]);
 
   const visible = useMemo(() => {
     return ranked.filter((s) => {
       if (region !== "all" && regionForState(s.state) !== region) return false;
       if (chip === "saved") return savedSlugs.has(s.slug);
-      else if (chip !== "all" && classifySchoolFit(player.currentUTR, s) !== chip) return false;
+      else if (chip !== "all" && classifySchoolFit(player.currentUTR, s, fitProjection) !== chip) return false;
       return true;
     });
-  }, [ranked, region, chip, player.currentUTR, savedSlugs]);
+  }, [ranked, region, chip, player.currentUTR, savedSlugs, fitProjection]);
 
   const toggleCompare = (slug: string) => {
     setCompareSlugs((prev) =>
@@ -213,7 +233,7 @@ export function SeededSchoolsBrowser({
               <span>Data</span>
             </div>
             {visible.map((s) => {
-              const fit = classifySchoolFit(player.currentUTR, s);
+              const fit = classifySchoolFit(player.currentUTR, s, fitProjection);
               const range = schoolUtrRange(s);
               return (
                 <div
@@ -283,7 +303,7 @@ export function SeededSchoolsBrowser({
       <Drawer open={compareOpen} onClose={() => setCompareOpen(false)} title="Compare schools" widthClass="max-w-xl">
         <div className="flex flex-col gap-4">
           {compareSchools.map((s) => {
-            const fit = classifySchoolFit(player.currentUTR, s);
+            const fit = classifySchoolFit(player.currentUTR, s, fitProjection);
             return (
               <div key={s.id} className="rounded-xl border border-line p-4">
                 <div className="flex items-center justify-between gap-2">

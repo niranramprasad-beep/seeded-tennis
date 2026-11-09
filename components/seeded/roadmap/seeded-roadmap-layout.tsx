@@ -40,6 +40,14 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR }:
     const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
     return real.length > 0 ? real : [{ date: new Date(), utr: player.currentUTR }];
   }, [utrEntries, player.currentUTR]);
+  // Real history (or the single current-UTR fallback point, which honestly
+  // fails computeUtrProjection's 3-point minimum) feeds the same 4-band
+  // classification /today uses, so Plan and Today never disagree about a
+  // target school's band.
+  const fitProjection = useMemo(
+    () => ({ utrHistory: actualPoints, graduationYear: player.graduationYear, gender: player.gender }),
+    [actualPoints, player.graduationYear, player.gender]
+  );
   const sixMonthDelta = useMemo(
     () => (utrEntries ? utrDeltaOverMonths(utrEntries, 6) : null),
     [utrEntries]
@@ -156,7 +164,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR }:
                 <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
                   {s.shortName}
                 </Link>
-                <FitBadge band={classifySchoolFit(player.currentUTR, s)} />
+                <FitBadge band={classifySchoolFit(player.currentUTR, s, fitProjection)} />
               </li>
             ))}
           </ul>
