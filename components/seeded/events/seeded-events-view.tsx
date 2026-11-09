@@ -5,18 +5,30 @@ import { useSearchParams } from "next/navigation";
 import type { TrainingPlan } from "@/lib/types";
 import { TrainingView } from "@/components/training/training-view";
 import { MatchModeView } from "@/components/matches/match-mode-view";
+import { useDesign } from "@/lib/context/design-context";
+import { EventsInner } from "./events-inner";
 import { cn } from "@/lib/utils";
 
 type EventsTab = "calendar" | "matches";
 
 // Seeded's /events merges Legacy's two separate features (Training's
 // week/day/month planner and Match mode's match log/prep) into one nav
-// slot, per the redesign's 5-item IA. No mockup exists for this page — it's
-// not one of the 11 .dc.html files — so this reuses both existing views as
-// whole, working units behind a simple tab switch rather than rewriting
-// either's internals (Training's planner alone is ~2000 lines of stateful
-// drag/drop logic not worth re-deriving for a visual-only redesign pass).
+// slot. Now pixel-exact to "15 Events (schedule + results).png" for the
+// Seeded design (see events-inner.tsx) — Legacy's opt-in escape hatch never
+// had its own merged /events mockup (pre-redesign it just linked to
+// separate /training and /match-mode pages), so it keeps the original
+// tab-switcher behind the two whole, working legacy views, unchanged.
 export function SeededEventsView({ plans }: { plans: TrainingPlan[] }) {
+  const { design } = useDesign();
+
+  if (design === "seeded") {
+    return <EventsInner plans={plans} />;
+  }
+
+  return <LegacyEventsTabs plans={plans} />;
+}
+
+function LegacyEventsTabs({ plans }: { plans: TrainingPlan[] }) {
   const params = useSearchParams();
   const initialTab: EventsTab = params.get("tab") === "matches" ? "matches" : "calendar";
   const [tab, setTab] = useState<EventsTab>(initialTab);
