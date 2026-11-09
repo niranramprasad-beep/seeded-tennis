@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { SeasonBudgetSummary } from "@/lib/family-budget";
-import type { BudgetExpenseCategory } from "@/lib/supabase/budget";
+import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { cn } from "@/lib/utils";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";

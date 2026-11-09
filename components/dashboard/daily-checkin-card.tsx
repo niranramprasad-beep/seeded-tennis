@@ -7,14 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  calculateStreak,
-  loadDailyCheckins,
-  saveDailyCheckin,
-  type DailyCheckin,
-  type FocusArea,
-  localDateKey,
-} from "@/lib/supabase/features";
+import { calculateStreak, loadDailyCheckins, saveDailyCheckin, type DailyCheckin, type FocusArea } from "@/lib/db/plan";
+import { localDateKey } from "@/lib/time";
 
 const FOCUS: FocusArea[] = [
   "forehand",

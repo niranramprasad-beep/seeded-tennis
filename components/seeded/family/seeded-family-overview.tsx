@@ -6,15 +6,11 @@ import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { usePlayer } from "@/lib/context/player-context";
-import {
-  loadCoachOutreachDated,
-  loadFamilyMembers,
-  saveEncouragementNote,
-  type FamilyMember,
-} from "@/lib/supabase/features";
-import { loadUtrEntries } from "@/lib/supabase/utr";
-import { loadTournamentEntries } from "@/lib/supabase/tournaments";
-import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/supabase/budget";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { loadFamilyMembers, saveEncouragementNote, type FamilyMember } from "@/lib/db/family";
+import { loadUtrEntries } from "@/lib/db/plan";
+import { loadTournamentEntries } from "@/lib/db/events";
+import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { classifySchoolFit } from "@/lib/school-fit";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { buildSeasonBudgetSummary, pendingSkipDecisions } from "@/lib/family-budget";
@@ -64,7 +60,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const gender = playerMember?.gender ?? player.gender;
   // A parent's OWN profile has no target schools of its own — always prefer
   // the real PLAYER row's list (see FamilyMember's targetSchoolSlugs
-  // comment in lib/supabase/features.ts).
+  // comment in lib/db/family.ts (formerly lib/supabase/features.ts)).
   const targetSlugs = playerMember?.targetSchoolSlugs ?? player.targetSchoolSlugs;
   const targetSchools = useMemo(
     () => schools.filter((s) => targetSlugs.includes(s.slug)),

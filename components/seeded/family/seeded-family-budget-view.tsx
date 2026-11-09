@@ -4,9 +4,9 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { loadFamilyMembers, type FamilyMember } from "@/lib/supabase/features";
-import { loadTournamentEntries } from "@/lib/supabase/tournaments";
-import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/supabase/budget";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { loadTournamentEntries } from "@/lib/db/events";
+import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { currentSeason } from "@/lib/time";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
@@ -20,7 +20,7 @@ function seasonTitle(now: Date): string {
 // No mockup defines a dedicated Budget page (18 Parent view + budget.png
 // only shows Overview's condensed card) — this is the full version of that
 // same real card (every line item, not just the top 3) plus the existing
-// lifetime cost-projection tool (lib/supabase/features.ts's
+// lifetime cost-projection tool (lib/db/family.ts (formerly lib/supabase/features.ts)'s
 // CostInputs/CostResults), preserved here rather than dropped: it was
 // already real, already working, and already lived in /family's Budget tab
 // before this rebuild moved Budget to its own route.

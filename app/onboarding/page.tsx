@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { OnboardingPageSwitch } from "@/components/onboarding/onboarding-page-switch";
 
 export const metadata: Metadata = {

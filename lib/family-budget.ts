@@ -13,8 +13,8 @@
 // tournament_entries rows that are still "saved" (never entered) AND score
 // as a "bad" fit — money the family is on track to NOT spend because the
 // fit-finder flagged the event, not a guess.
-import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/supabase/budget";
-import type { TournamentEntry } from "@/lib/supabase/tournaments";
+import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/db/family";
+import type { TournamentEntry } from "@/lib/db/events";
 import { evaluateTournamentFit, type Verdict } from "@/lib/tournament-fit";
 
 export type BudgetLineChip = Verdict | BudgetExpenseCategory;

@@ -1,38 +1,25 @@
-// Single data-access surface for the app.
+// School catalog data access + derived school-facing logic. Real
+// consolidation of what used to be spread across the former
+// lib/data/index.ts (schools section), lib/data/school-detail.ts
+// (combinedScore), and lib/data/index.ts's coach-email generator — same
+// functions, same bodies, just one home. The raw literal catalogs backing
+// this (mensD1Schools/womensD1Schools/extraSchools) moved alongside it as
+// schools-data-{mens,womens,extra}.ts.
 //
-// Components NEVER import the raw arrays directly — they call these functions.
-// Today the functions resolve in-memory TypeScript. To move to Supabase later,
-// replace the bodies here with queries (e.g. `supabase.from('schools').select()`)
-// and the rest of the app keeps working unchanged.
+// Resolve-as-promise matches a real client's shape (components already
+// `await` these) so swapping the body for a real `supabase.from("schools")`
+// query later needs no call-site changes.
 
-import type {
-  Division,
-  Gender,
-  Player,
-  RoadmapYear,
-  School,
-  SchoolLite,
-  Tournament,
-  TrainingPlan,
-} from "@/lib/types";
+import type { Division, Gender, Player, School, SchoolLite } from "@/lib/types";
+import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 
-import { mensD1Schools } from "./schools";
-import { womensD1Schools } from "./schools-womens";
-import { extraSchools } from "./schools-extra";
-import { combinedScore } from "./school-detail";
-import { trainingPlans as trainingPlansData } from "./training-plans";
-import { buildTournaments } from "./tournaments";
-import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import { getCurrentGrade, getSummerBeforeGradeYear, ordinalGrade } from "@/lib/time";
+import { mensD1Schools } from "./schools-data-mens";
+import { womensD1Schools } from "./schools-data-womens";
+import { extraSchools } from "./schools-data-extra";
 
 // The full catalog. Swapping to Supabase means replacing this with a query.
-const schoolsData: School[] = [
-  ...mensD1Schools,
-  ...womensD1Schools,
-  ...extraSchools,
-];
+const schoolsData: School[] = [...mensD1Schools, ...womensD1Schools, ...extraSchools];
 
-// Resolve as a promise so call sites already `await`, matching a real client.
 function resolve<T>(value: T): Promise<T> {
   return Promise.resolve(value);
 }
@@ -46,9 +33,7 @@ export async function getSchools(): Promise<School[]> {
 // Lighter catalog for pages that list/compare/filter schools but never
 // render recruit history or the coach-email program blurb — see SchoolLite.
 export async function getSchoolsLite(): Promise<SchoolLite[]> {
-  return resolve(
-    schoolsData.map(({ recentRecruits, programNote, ...rest }) => rest)
-  );
+  return resolve(schoolsData.map(({ recentRecruits, programNote, ...rest }) => rest));
 }
 
 export async function getSchool(slug: string): Promise<School | undefined> {
@@ -64,8 +49,6 @@ export async function getSchoolsByGender(gender: Gender): Promise<School[]> {
   return resolve(schoolsData.filter((s) => s.gender === gender));
 }
 
-export { combinedScore };
-
 export async function getConferences(): Promise<string[]> {
   return resolve(Array.from(new Set(schoolsData.map((s) => s.conference))).sort());
 }
@@ -80,91 +63,16 @@ export async function getDivisions(): Promise<Division[]> {
   return resolve(order.filter((d) => present.has(d)));
 }
 
-/* --------------------------------------------------------------- training */
-
-export async function getTrainingPlans(): Promise<TrainingPlan[]> {
-  return resolve(trainingPlansData);
+// Blend of academics (US News) and tennis level (avg roster UTR), 0-100.
+// Exported for the leaderboard's "combined score" sort. 14.5 ≈ the strongest
+// college roster average on the real UTR scale, so it anchors the tennis axis.
+export function combinedScore(school: School): number {
+  const academic = Math.max(0, 100 - school.usNewsRanking * 0.62);
+  const tennis = Math.min(100, (school.avgRosterUTR / 14.5) * 100);
+  return Math.round(academic * 0.5 + tennis * 0.5);
 }
 
-export async function getTrainingPlanForUTR(utr: number): Promise<TrainingPlan> {
-  const nearest = trainingPlansData.reduce((best, plan) =>
-    Math.abs(plan.utrLevel - utr) < Math.abs(best.utrLevel - utr) ? plan : best
-  );
-  return resolve(nearest);
-}
-
-/* ------------------------------------------------------------- tournaments */
-
-export async function getTournaments(): Promise<Tournament[]> {
-  return resolve(
-    buildTournaments(new Date()).sort((a, b) => a.date.localeCompare(b.date))
-  );
-}
-
-/* ---------------------------------------------------------------- roadmap */
-
-// Pure derivation. Given a player and their resolved target schools, produce a
-// checkpoint-by-checkpoint UTR roadmap. Each checkpoint is the SUMMER BEFORE a
-// grade (the recruiting-relevant window), and the goal UTR is the highest
-// minimum-competitive bar among the targets — already gender-correct because the
-// targets come from the matching men's/women's program data.
-export function buildRoadmap(
-  player: Player,
-  targets: Pick<School, "minCompetitiveUTR">[]
-): RoadmapYear[] {
-  // Fallback goal when no targets are chosen: aim ~2.5 above today, capped at
-  // a realistic top-of-college-tennis level for each gender (real UTR scale).
-  const genderCap = REALISTIC_UTR_CEILING[player.gender];
-  const goalUTR =
-    targets.length > 0
-      ? Math.max(...targets.map((s) => s.minCompetitiveUTR))
-      : Math.min(player.currentUTR + 2.5, genderCap);
-
-  const startGrade = Math.min(getCurrentGrade(player.graduationYear), 12);
-
-  // Upcoming summers: before each remaining grade. The final target is always
-  // due by the summer before senior year, not during senior year or college.
-  const grades: number[] = [];
-  for (let g = startGrade + 1; g <= 12; g++) grades.push(g);
-  if (grades.length === 0) grades.push(12);
-
-  // The goal UTR must be reached by the SUMMER BEFORE SENIOR YEAR (the summer
-  // before 12th grade) — the key recruiting window — then held through to
-  // college. So we ramp to the goal at the grade-12 checkpoint, not at college.
-  const goalIndex = grades.indexOf(12);
-  return grades.map((g, i) => {
-    const progress = goalIndex < 0 ? 1 : Math.min(1, (i + 1) / (goalIndex + 1));
-    const utrTarget =
-      Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 10) /
-      10;
-    const calendarYear = getSummerBeforeGradeYear(player.graduationYear, g);
-    const tournamentsNeeded = 10 + i * 2;
-
-    return {
-      calendarYear,
-      gradeLabel: `By summer before ${ordinalGrade(g)} grade`,
-      shortLabel: `${ordinalGrade(g)}`,
-      utrTarget,
-      tournamentsNeeded,
-      milestones: MILESTONES_BEFORE_GRADE[g] ?? [
-        "Keep building your UTR steadily",
-        "Stay active on the tournament circuit",
-        "Refine your school shortlist",
-      ],
-    };
-  });
-}
-
-export async function getRoadmap(
-  player: Player,
-  overrideSlugs?: string[]
-): Promise<RoadmapYear[]> {
-  const slugs = overrideSlugs ?? player.targetSchoolSlugs;
-  const targets = await getSchoolsBySlugs(slugs);
-  return resolve(buildRoadmap(player, targets));
-}
-
-/* ------------------------------------------------------- coach email gen */
+/* ------------------------------------------------------------- coach email */
 
 export interface CoachEmail {
   subject: string;

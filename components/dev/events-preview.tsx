@@ -3,9 +3,9 @@
 import { useCallback, useState } from "react";
 import type { KeyedMutator } from "swr";
 import type { Player } from "@/lib/types";
-import type { MatchRecord } from "@/lib/supabase/features";
-import type { TournamentEntry } from "@/lib/supabase/tournaments";
-import type { TrainingPlannerState } from "@/lib/supabase/training";
+import type { MatchRecord } from "@/lib/db/events";
+import type { TournamentEntry } from "@/lib/db/events";
+import type { TrainingPlannerState } from "@/lib/db/events";
 import { DEFAULT_TYPES } from "@/components/training/training-view";
 import { dateForWeekday } from "@/lib/training/grid-math";
 import { useEventsCalendar } from "@/lib/hooks/use-events-calendar";

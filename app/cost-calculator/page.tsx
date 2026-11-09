@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
 import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 

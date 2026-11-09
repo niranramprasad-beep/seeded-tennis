@@ -1,8 +1,8 @@
-import type { FamilyMember } from "@/lib/supabase/features";
+import type { FamilyMember } from "@/lib/db/family";
 import { cn } from "@/lib/utils";
 
 // Pixel-exact to "18 Parent view + budget.png"'s "Family members" card:
-// each real member (lib/supabase/features.ts's loadFamilyMembers(), the
+// each real member (lib/db/family.ts (formerly lib/supabase/features.ts)'s loadFamilyMembers(), the
 // same family roster /settings' family card already reads) with a role
 // badge, then a dashed invite-code box. "Account holder" isn't a column
 // anywhere in `profiles` — it's inferred as the earliest-created parent

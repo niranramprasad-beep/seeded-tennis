@@ -14,11 +14,10 @@ import {
   deleteMatch,
   generatePrepPlan,
   loadMatches,
-  localDateKey,
   saveMatch,
   type MatchRecord,
-} from "@/lib/supabase/features";
-import { formatDate } from "@/lib/time";
+} from "@/lib/db/events";
+import { formatDate, localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const filters = ["all", "last 30", "wins", "losses"] as const;

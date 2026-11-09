@@ -6,7 +6,7 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { ModalShell } from "./budget-modals";
 
 // "Send {Player} a note" has real backing — this reuses the EXISTING
-// encouragement-notes feature (lib/supabase/features.ts's
+// encouragement-notes feature (lib/db/family.ts (formerly lib/supabase/features.ts)'s
 // saveEncouragementNote/loadEncouragementNotes), which already does
 // exactly this: a parent writes a note that shows up on the player's own
 // dashboard. Parent-authored content, not a mutation of any player-owned

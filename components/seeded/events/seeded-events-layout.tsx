@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import type { Player, WeekdayShort } from "@/lib/types";
-import type { MatchRecord } from "@/lib/supabase/features";
-import type { TournamentEntry } from "@/lib/supabase/tournaments";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/supabase/training";
+import type { MatchRecord } from "@/lib/db/events";
+import type { TournamentEntry } from "@/lib/db/events";
+import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
 import type { AddSessionInput, SessionFormValues } from "@/lib/hooks/use-events-calendar";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { UpcomingTournamentsCard } from "./upcoming-tournaments-card";
@@ -30,7 +30,7 @@ export interface SeededEventsLayoutProps {
 // Pixel-exact to "15 Events (schedule + results).png" — the real merge of
 // Legacy's two separate screens (Training's calendar, Match mode's log)
 // into one schedule. "Upcoming tournaments" is real fit-checked storage
-// (lib/supabase/tournaments.ts + lib/tournament-fit.ts's
+// (lib/db/events.ts + lib/tournament-fit.ts's
 // evaluateTournamentFit), not mockup copy; "Recent results" is the same
 // real loadMatches() data /plan already shows; the calendar card is the
 // real month planner's session data, restyled into this narrower column.

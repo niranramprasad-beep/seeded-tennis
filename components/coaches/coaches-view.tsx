@@ -17,19 +17,18 @@ import {
 } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
-import { loadUtrEntries } from "@/lib/supabase/utr";
+import { buildCoachEmail, type CoachEmailResult } from "@/lib/db/schools";
+import { loadUtrEntries } from "@/lib/db/plan";
 import {
   loadCoachOutreachDated,
-  loadMatches,
   REMIND_ME_AFTER_DAYS,
   saveCoachOutreachReminder,
   saveCoachOutreachReplyNote,
   saveCoachOutreachStatus,
-  type MatchRecord,
   type OutreachStatus,
   type OutreachStatusMapDated,
-} from "@/lib/supabase/features";
+} from "@/lib/db/outreach";
+import { loadMatches, type MatchRecord } from "@/lib/db/events";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";

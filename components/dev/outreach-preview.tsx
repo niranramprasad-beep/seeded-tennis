@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { School } from "@/lib/types";
-import { REMIND_ME_AFTER_DAYS, type OutreachStatusMapDated } from "@/lib/supabase/features";
+import { REMIND_ME_AFTER_DAYS, type OutreachStatusMapDated } from "@/lib/db/outreach";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 
 // Internal tool only — pixel-checks /outreach's real 6-column board without

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { Player, SubscriptionTier } from "@/lib/types";
-import type { FamilyMember } from "@/lib/supabase/features";
-import type { MembershipSnapshot } from "@/lib/supabase/billing";
+import type { FamilyMember } from "@/lib/db/family";
+import type { MembershipSnapshot } from "@/lib/db/settings";
 import { emptyPlayer } from "@/lib/data/user";
 import { PlayerContext } from "@/lib/context/player-context";
 import { TierContext } from "@/lib/context/tier-context";
@@ -64,6 +64,7 @@ export function BillingPreview() {
         beginSession: () => {},
         completeOnboarding: () => {},
         updatePlayer: async () => true,
+        setPlayerLocal: () => {},
         signOut: () => {},
       }}
     >

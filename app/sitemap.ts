@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 
 const BASE_URL = "https://seededtennis.com";
 

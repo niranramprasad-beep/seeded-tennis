@@ -65,7 +65,7 @@ import {
   type TrainingPlannerSession,
   type TrainingPlannerState,
   type TrainingSessionType,
-} from "@/lib/supabase/training";
+} from "@/lib/db/events";
 
 // recharts (the donut chart) and the AI copilot panel are both secondary to
 // the actual calendar — load them on the client only once they render,

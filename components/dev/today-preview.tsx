@@ -8,8 +8,8 @@ import {
   SundayCheckinDrawer,
   type SundayCheckinSaveInput,
 } from "@/components/dashboard/sunday-checkin-drawer";
-import { createUtrEntry } from "@/lib/supabase/utr";
-import { generatePrepPlan, saveMatch } from "@/lib/supabase/features";
+import { createUtrEntry } from "@/lib/db/plan";
+import { generatePrepPlan, saveMatch } from "@/lib/db/events";
 
 // Internal tool only — pixel-checks /today's real action-list/chart/targets
 // rendering without signing in through real auth (local dev shares

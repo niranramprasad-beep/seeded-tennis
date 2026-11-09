@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getTrainingPlans } from "@/lib/data";
+import { getTrainingPlans } from "@/lib/db/plan";
 import { SeededEventsView } from "@/components/seeded/events/seeded-events-view";
 
 export default async function EventsPage() {

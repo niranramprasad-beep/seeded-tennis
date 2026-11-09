@@ -17,7 +17,7 @@ import {
   saveCurrentPlayer,
   signOut as signOutOfSupabase,
 } from "@/lib/auth";
-import { createUtrEntry } from "@/lib/supabase/utr";
+import { createUtrEntry } from "@/lib/db/plan";
 import { localDateKey } from "@/lib/time";
 
 interface PlayerContextValue {
@@ -36,6 +36,10 @@ interface PlayerContextValue {
    * this promise is only for callers that need to react to a failure,
    * e.g. rolling back a star/unstar. */
   updatePlayer: (patch: Partial<Player>) => Promise<boolean>;
+  /** Updates the in-memory player only — for fields a dedicated
+   * zod-validated route handler already wrote server-side (see account
+   * deletion in components/seeded/settings/seeded-settings-view.tsx). */
+  setPlayerLocal: (patch: Partial<Player>) => void;
   signOut: () => void;
 }
 
@@ -131,6 +135,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return saveCurrentPlayer(next);
   }, []);
 
+  // For the few fields (so far: account deletion) that now write through
+  // their OWN zod-validated route handler instead of the generic
+  // saveCurrentPlayer()/updatePlayer() profile-patch — the write already
+  // happened server-side by the time this is called, so this only ever
+  // syncs the in-memory player object, never re-triggers a save.
+  const setPlayerLocal = useCallback((patch: Partial<Player>) => {
+    const next = { ...playerRef.current, ...patch };
+    playerRef.current = next;
+    setPlayer(next);
+  }, []);
+
   const signOut = useCallback(() => {
     setIsAuthed(false);
     setPlayer(emptyPlayer);
@@ -147,6 +162,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       beginSession,
       completeOnboarding,
       updatePlayer,
+      setPlayerLocal,
       signOut,
     }),
     [
@@ -158,6 +174,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       beginSession,
       completeOnboarding,
       updatePlayer,
+      setPlayerLocal,
       signOut,
     ]
   );

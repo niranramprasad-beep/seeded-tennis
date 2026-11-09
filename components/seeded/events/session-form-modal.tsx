@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { WeekdayShort } from "@/lib/types";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/supabase/training";
+import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
 import { WEEK_ORDER } from "@/lib/training/grid-math";
 import { MAX_SERIES_WEEKS } from "@/lib/training/calendar-interactions";
 import type { SessionFormValues } from "@/lib/hooks/use-events-calendar";

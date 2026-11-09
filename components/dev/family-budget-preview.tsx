@@ -29,6 +29,7 @@ export function FamilyBudgetPreview({ schools }: { schools: SchoolLite[] }) {
         beginSession: () => {},
         completeOnboarding: () => {},
         updatePlayer: async () => true,
+        setPlayerLocal: () => {},
         signOut: () => {},
       }}
     >

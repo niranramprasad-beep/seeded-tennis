@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { FamilyBudgetPreview } from "@/components/dev/family-budget-preview";
 
 export default async function DevFamilyBudgetPreviewPage() {

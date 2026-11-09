@@ -17,7 +17,7 @@ import {
 import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
-import { buildRoadmap } from "@/lib/data";
+import { buildRoadmap } from "@/lib/db/plan";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,17 +38,15 @@ import {
   createUtrEntry,
   loadUtrEntries,
   type UtrEntry,
-} from "@/lib/supabase/utr";
+} from "@/lib/db/plan";
 import {
   generatePrepPlan,
   loadMatches,
   saveMatch,
   type MatchRecord,
-} from "@/lib/supabase/features";
-import {
   loadTrainingPlannerState,
   type TrainingPlannerState,
-} from "@/lib/supabase/training";
+} from "@/lib/db/events";
 
 const WEEKDAYS: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

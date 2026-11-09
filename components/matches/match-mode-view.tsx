@@ -14,12 +14,11 @@ import {
   deleteMatch,
   generatePrepPlan,
   loadMatches,
-  localDateKey,
   saveMatch,
   type MatchRecord,
   type PrepPlan,
-} from "@/lib/supabase/features";
-import { formatDate } from "@/lib/time";
+} from "@/lib/db/events";
+import { formatDate, localDateKey } from "@/lib/time";
 import { cn, formatUTR } from "@/lib/utils";
 
 const surfaces: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];

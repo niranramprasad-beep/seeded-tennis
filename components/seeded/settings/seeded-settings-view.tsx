@@ -6,8 +6,9 @@ import useSWR from "swr";
 import type { Player, SchoolLite, SubscriptionTier } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
-import { loadMatches, loadCoachOutreachDated } from "@/lib/supabase/features";
-import { loadUtrEntries } from "@/lib/supabase/utr";
+import { loadMatches } from "@/lib/db/events";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { loadUtrEntries } from "@/lib/db/plan";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   loadNotificationPrefs,
@@ -15,8 +16,9 @@ import {
   saveNotificationPrefs,
   savePublicRecruitingPage,
   type NotificationPrefs,
-} from "@/lib/supabase/settings-prefs";
+} from "@/lib/db/settings";
 import { buildAccountDataCsv, downloadTextFile } from "@/lib/data/export-csv";
+import { postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { slugify } from "@/lib/utils";
 import { SeededSettingsShell, type SettingsTabId } from "./seeded-settings-shell";
@@ -43,7 +45,7 @@ const TIER_LABEL: Record<SubscriptionTier, string> = {
 // route among the tabs — SeededSettingsShell links it to /settings/billing
 // instead of a client tab.
 export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
-  const { player, updatePlayer, signOut } = usePlayer();
+  const { player, updatePlayer, setPlayerLocal, signOut } = usePlayer();
   const { tier } = useTier();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
@@ -51,7 +53,7 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug));
 
   // --- Notifications + public recruiting page (shared user_settings.
-  // notification_preferences JSONB bag — see lib/supabase/settings-prefs.ts)
+  // notification_preferences JSONB bag — see lib/db/settings.ts)
   const { data: loadedPrefs } = useSWR("notification-prefs", loadNotificationPrefs);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   useEffect(() => {
@@ -94,17 +96,38 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
   };
 
   // --- Delete account (soft delete, 30-day grace period — see
-  // delete-account-dialog.tsx's doc comment for the full policy).
+  // delete-account-dialog.tsx's doc comment for the full policy). Real
+  // write path: app/api/account/deletion (zod-validated, request-scoped
+  // RLS client) — NOT the generic saveCurrentPlayer()/updatePlayer()
+  // profile-patch every other field on this page still uses. On success,
+  // setPlayerLocal only syncs the already-written value into local state;
+  // on failure, deleteError surfaces the server's specific message instead
+  // of silently doing nothing (the previous fire-and-forget behavior).
   const [deletingBusy, setDeletingBusy] = useState(false);
-  const requestDeletion = () => {
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const requestDeletion = async () => {
     setDeletingBusy(true);
-    updatePlayer({ deletionRequestedAt: new Date().toISOString() });
-    setDeletingBusy(false);
+    setDeleteError(null);
+    try {
+      await postJson("/api/account/deletion", { action: "request" });
+      setPlayerLocal({ deletionRequestedAt: new Date().toISOString() });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not start account deletion. Try again.");
+    } finally {
+      setDeletingBusy(false);
+    }
   };
-  const cancelDeletion = () => {
+  const cancelDeletion = async () => {
     setDeletingBusy(true);
-    updatePlayer({ deletionRequestedAt: null });
-    setDeletingBusy(false);
+    setDeleteError(null);
+    try {
+      await postJson("/api/account/deletion", { action: "cancel" });
+      setPlayerLocal({ deletionRequestedAt: null });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not cancel account deletion. Try again.");
+    } finally {
+      setDeletingBusy(false);
+    }
   };
 
   const savePlayer = (patch: Partial<Player>) => updatePlayer(patch);
@@ -125,6 +148,7 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
             onRequestDeletion={requestDeletion}
             onCancelDeletion={cancelDeletion}
             deletingBusy={deletingBusy}
+            deletionError={deleteError}
           />
         </>
       )}
@@ -154,6 +178,7 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
           onRequestDeletion={requestDeletion}
           onCancelDeletion={cancelDeletion}
           deletingBusy={deletingBusy}
+          deletionError={deleteError}
         />
       )}
     </SeededSettingsShell>

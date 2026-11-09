@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { localDateKey } from "@/lib/time";
-import type { MatchRecord } from "@/lib/supabase/features";
+import type { MatchRecord } from "@/lib/db/events";
 
 const SURFACES: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];
 
@@ -26,8 +26,8 @@ export interface SundayCheckinSaveInput {
 // A single fast drawer for the "Sunday check-in" nudge on /today
 // (lib/today-actions.ts's isSundayCheckinDue decides when it's actually
 // shown). Deliberately writes through the SAME real functions the rest of
-// the app already uses for this data — createUtrEntry and saveMatch (both
-// in lib/supabase/features.ts / lib/supabase/utr.ts) — rather than a third
+// the app already uses for this data — createUtrEntry (lib/db/plan.ts) and
+// saveMatch (lib/db/events.ts) — rather than a third
 // parallel data-entry path, so a submission here shows up in /plan's real
 // UTR-vs-plan chart and match history for free. The UTR field alone is the
 // common case (~10 seconds); the match section is optional and collapsed

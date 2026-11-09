@@ -17,6 +17,7 @@ export function PrivacyCard({
   onRequestDeletion,
   onCancelDeletion,
   deletingBusy,
+  deletionError,
 }: {
   publicRecruitingPage: boolean;
   onTogglePublicRecruitingPage: (next: boolean) => void;
@@ -26,6 +27,11 @@ export function PrivacyCard({
   onRequestDeletion: () => void;
   onCancelDeletion: () => void;
   deletingBusy: boolean;
+  /** Specific server-side error from app/api/account/deletion (e.g. a real
+   * write failure) — null/undefined means no error, never a generic
+   * fallback string here, so the request/cancel buttons stay honest about
+   * whether the last attempt actually worked. */
+  deletionError?: string | null;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -101,6 +107,7 @@ export function PrivacyCard({
             </button>
           )}
         </div>
+        {deletionError && <p className="py-2 text-sm text-error">{deletionError}</p>}
       </div>
 
       <p className="mt-4 text-sm text-stone">

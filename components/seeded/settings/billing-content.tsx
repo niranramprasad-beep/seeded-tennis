@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Player, SubscriptionTier } from "@/lib/types";
-import type { FamilyMember } from "@/lib/supabase/features";
-import type { MembershipSnapshot } from "@/lib/supabase/billing";
+import type { FamilyMember } from "@/lib/db/family";
+import type { MembershipSnapshot } from "@/lib/db/settings";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 // (change plan, switch billing period, update card, cancel) deep-links
 // here instead of being built as in-app payment UI — this app never
 // changes or cancels a subscription itself. When a live membership lookup
-// succeeds (see lib/supabase/billing.ts), its manage_url is preferred — a
+// succeeds (see lib/db/settings.ts), its manage_url is preferred — a
 // link scoped to that exact membership — and this is the fallback.
 const FALLBACK_PORTAL_URL = "https://whop.com/@me/settings/memberships/";
 
@@ -86,7 +86,7 @@ export function BillingContent({
   const portalUrl = membership?.manageUrl || FALLBACK_PORTAL_URL;
   const tierLabel = TIER_LABEL[tier];
 
-  // "Billed to" — real family data (lib/supabase/features.ts's
+  // "Billed to" — real family data (lib/db/family.ts (formerly lib/supabase/features.ts)'s
   // loadFamilyMembers(), already used by the parent dashboard), not the
   // mockup's invented "Players under 18 can't be the account holder" rule:
   // nothing in this app's actual signup/checkout flow (lib/auth.ts,

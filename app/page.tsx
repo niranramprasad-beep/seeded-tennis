@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { HomeDesignSwitch } from "@/components/home/home-design-switch";
 import { AuthedHomeRedirect } from "@/components/home/authed-home-redirect";
 

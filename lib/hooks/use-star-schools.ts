@@ -10,6 +10,7 @@
 // rollback if the write actually fails.
 import { useCallback, useRef, useState } from "react";
 import { usePlayer } from "@/lib/context/player-context";
+import { toggleTargetSchoolSlug } from "@/lib/db/targets";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
 
 export interface StarToast {
@@ -52,9 +53,7 @@ export function useStarSchools(): UseStarSchoolsResult {
   const toggleStar = useCallback(
     (slug: string, label: string) => {
       const wasStarred = slugsRef.current.includes(slug);
-      const next = wasStarred
-        ? slugsRef.current.filter((s) => s !== slug)
-        : [...slugsRef.current, slug];
+      const next = toggleTargetSchoolSlug(slugsRef.current, slug);
 
       const token = ++activeTokenRef.current;
       let settled = false;

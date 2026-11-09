@@ -1,4 +1,4 @@
-import { getSchools } from "@/lib/data";
+import { getSchools } from "@/lib/db/schools";
 import { CoachesView } from "@/components/coaches/coaches-view";
 import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 

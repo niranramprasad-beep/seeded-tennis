@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 

@@ -1,6 +1,6 @@
 // Shared domain types for Seeded.
 // These intentionally mirror what a future Supabase schema would return,
-// so swapping the data layer means changing /lib/data/index.ts only.
+// so swapping the data layer means changing lib/db/schools.ts (or lib/db/plan.ts) only.
 
 export type Division = "D1" | "D2" | "D3";
 

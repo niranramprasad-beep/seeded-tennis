@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { ParentBudgetView } from "@/components/parents/parent-budget-view";
 
 export default async function FamilyBudgetPage() {

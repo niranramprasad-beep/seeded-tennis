@@ -1,6 +1,7 @@
 import type { Player, SchoolLite } from "@/lib/types";
-import type { MatchRecord, OutreachStatusMapDated } from "@/lib/supabase/features";
-import type { UtrEntry } from "@/lib/supabase/utr";
+import type { MatchRecord } from "@/lib/db/events";
+import type { OutreachStatusMapDated } from "@/lib/db/outreach";
+import type { UtrEntry } from "@/lib/db/plan";
 import { formatDate } from "@/lib/time";
 
 // Real export of whatever the app already has for this player — no new

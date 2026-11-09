@@ -6,7 +6,7 @@
 // scores a tournament a family types in by hand, not a live calendar.
 import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
-import type { OutreachStatusMapDated } from "@/lib/supabase/features";
+import type { OutreachStatusMapDated } from "@/lib/db/outreach";
 import { localDateKey } from "@/lib/time";
 
 export type TodayActionKind = "email" | "followup" | "reminder";
@@ -150,7 +150,7 @@ export function buildThisWeekItems(
 
 // Real "haven't checked in this week" rule behind the Sunday check-in
 // prompt (components/dashboard/sunday-checkin-drawer.tsx) — computed from
-// the player's own most-recently-DATED real UTR entry (lib/supabase/utr.ts),
+// the player's own most-recently-DATED real UTR entry (lib/db/plan.ts),
 // never a fabricated streak. Due when either:
 //   - it's actually Sunday and nothing has been logged yet today, or
 //   - more than 7 days have passed since the last logged entry (genuinely

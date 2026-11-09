@@ -15,7 +15,7 @@
 // those render as a read-only checked state, the same honest pattern
 // lib/plan-stats.ts's buildPlanChecklist already uses for its two items,
 // never a fabricated guess. Every other item is genuinely user-toggled and
-// needs the real persisted state from lib/supabase/recruiting-checklist.ts
+// needs the real persisted state from lib/db/plan.ts
 // merged in by `mergeRecruitingChecklist` below.
 import {
   getD1ContactOpenDate,
@@ -192,7 +192,7 @@ export interface CustomRecruitingChecklistItem {
   label: string;
 }
 
-/** Real persisted state (lib/supabase/recruiting-checklist.ts) merged over
+/** Real persisted state (lib/db/plan.ts) merged over
  * the computed defaults above. */
 export interface RecruitingChecklistState {
   completedIds: string[];
@@ -218,7 +218,7 @@ export interface MergedRecruitingChecklistItem {
 /**
  * Combines the computed defaults with a player's real persisted
  * completed/hidden/custom state into one render-ready list. Pure — the
- * actual Supabase read/write lives in lib/supabase/recruiting-checklist.ts;
+ * actual Supabase read/write lives in lib/db/plan.ts;
  * this function only ever merges, never fetches.
  */
 export function mergeRecruitingChecklist(

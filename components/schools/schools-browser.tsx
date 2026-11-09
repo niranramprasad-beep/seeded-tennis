@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
 import type { Division, School } from "@/lib/types";
 import { useGender } from "@/lib/context/gender-context";
-import { combinedScore } from "@/lib/data";
+import { combinedScore } from "@/lib/db/schools";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";

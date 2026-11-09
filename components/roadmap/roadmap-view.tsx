@@ -7,7 +7,7 @@ import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-
 import type { SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildRoadmap } from "@/lib/data";
+import { buildRoadmap } from "@/lib/db/plan";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";

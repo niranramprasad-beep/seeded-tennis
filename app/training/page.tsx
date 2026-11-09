@@ -1,4 +1,4 @@
-import { getTrainingPlans } from "@/lib/data";
+import { getTrainingPlans } from "@/lib/db/plan";
 import { TrainingView } from "@/components/training/training-view";
 import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { MatchRecord } from "@/lib/supabase/features";
+import type { MatchRecord } from "@/lib/db/events";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { formatUTR } from "@/lib/utils";
 
@@ -12,7 +12,7 @@ const RESULTS_SHOWN = 3;
 // fabrication" discipline. The mockup also shows a per-match UTR delta and
 // a Verified/Pending chip; there's no real source for either (UTR doesn't
 // update per-match, and no table attributes a specific rating movement to a
-// specific match — the only real UTR history, lib/supabase/utr.ts, is a
+// specific match — the only real UTR history, lib/db/plan.ts, is a
 // separately-logged timeline, not 1:1 with matches). Rather than invent a
 // number, this only renders the fields a MatchRecord actually has, same
 // discipline as dropping the Recruiting camp-invite row entirely.

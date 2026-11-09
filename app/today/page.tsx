@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 // Seeded's new home for what /dashboard used to serve. Same view component

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { evaluateTournamentFit } from "@/lib/tournament-fit";
-import type { TournamentEntry } from "@/lib/supabase/tournaments";
+import type { TournamentEntry } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn } from "@/lib/utils";

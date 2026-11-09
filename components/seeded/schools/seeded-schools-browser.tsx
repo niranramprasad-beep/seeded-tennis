@@ -14,7 +14,7 @@ import {
   summerBeforeSeniorYear,
   utrToPct,
 } from "@/lib/school-fit";
-import { loadUtrEntries } from "@/lib/supabase/utr";
+import { loadUtrEntries } from "@/lib/db/plan";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";

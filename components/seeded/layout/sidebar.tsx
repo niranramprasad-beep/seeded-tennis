@@ -26,8 +26,8 @@ import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
-import { getSchoolsLite } from "@/lib/data";
-import { loadCoachOutreachDated } from "@/lib/supabase/features";
+import { getSchoolsLite } from "@/lib/db/schools";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
 

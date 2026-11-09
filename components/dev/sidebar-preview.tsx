@@ -42,6 +42,7 @@ export function SidebarPreview() {
         beginSession: () => {},
         completeOnboarding: () => {},
         updatePlayer: async () => true,
+        setPlayerLocal: () => {},
         signOut: () => {},
       }}
     >

@@ -19,8 +19,9 @@ import {
   summerBeforeSeniorYear,
   type SchoolFitProjectionInput,
 } from "@/lib/school-fit";
-import { loadUtrEntries } from "@/lib/supabase/utr";
-import { loadMatches, loadCoachOutreachDated } from "@/lib/supabase/features";
+import { loadUtrEntries } from "@/lib/db/plan";
+import { loadMatches } from "@/lib/db/events";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";

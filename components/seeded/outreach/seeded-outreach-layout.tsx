@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Check, Copy, CheckCircle2 } from "lucide-react";
 import type { School } from "@/lib/types";
-import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/supabase/features";
-import { REMIND_ME_AFTER_DAYS } from "@/lib/supabase/features";
+import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
+import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";

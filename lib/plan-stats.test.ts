@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { utrDeltaOverMonths, utrDeltaWithBaseline, winLossRecord, buildPlanChecklist } from "./plan-stats";
-import type { UtrEntry } from "@/lib/supabase/utr";
-import type { MatchRecord } from "@/lib/supabase/features";
+import type { UtrEntry } from "@/lib/db/plan";
+import type { MatchRecord } from "@/lib/db/events";
 
 const entry = (utr: number, daysAgo: number, now: Date): UtrEntry => ({
   id: `e-${daysAgo}`,

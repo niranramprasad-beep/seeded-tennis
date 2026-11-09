@@ -6,8 +6,8 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
-import { loadUtrEntries } from "@/lib/supabase/utr";
-import { saveTournamentEntry, type TournamentEntry } from "@/lib/supabase/tournaments";
+import { loadUtrEntries } from "@/lib/db/plan";
+import { saveTournamentEntry, type TournamentEntry } from "@/lib/db/events";
 import {
   evaluateTournamentFit,
   LEVELS,
@@ -393,7 +393,7 @@ function Meter({ label, value, pct }: { label: string; value: string; pct: numbe
 }
 
 // There's no event-date/city/state input anywhere in the mockup's
-// calculator — but lib/supabase/tournaments.ts's saveTournamentEntry
+// calculator — but lib/db/events.ts's saveTournamentEntry
 // genuinely requires all three (validateTournamentEntryInput rejects a save
 // without them). Rather than fabricate placeholder values for fields this
 // screen never collected, "Add to my events" opens this small real drawer

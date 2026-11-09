@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSchoolsBySlugs } from "@/lib/data";
+import { getSchoolsBySlugs } from "@/lib/db/schools";
 import { OutreachPreview } from "@/components/dev/outreach-preview";
 
 export default async function DevOutreachPreviewPage() {

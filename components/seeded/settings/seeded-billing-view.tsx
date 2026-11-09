@@ -5,8 +5,8 @@ import useSWR from "swr";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
-import { loadFamilyMembers } from "@/lib/supabase/features";
-import { loadMembershipSnapshot } from "@/lib/supabase/billing";
+import { loadFamilyMembers } from "@/lib/db/family";
+import { loadMembershipSnapshot } from "@/lib/db/settings";
 import { SeededSettingsShell } from "./seeded-settings-shell";
 import { BillingContent } from "./billing-content";
 

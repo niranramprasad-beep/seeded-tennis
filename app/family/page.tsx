@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { ParentDashboardView } from "@/components/parents/parent-dashboard-view";
 
 export default async function FamilyPage() {

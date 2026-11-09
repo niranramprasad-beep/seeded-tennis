@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { WeekdayShort } from "@/lib/types";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/supabase/training";
-import type { TournamentEntry } from "@/lib/supabase/tournaments";
+import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
+import type { TournamentEntry } from "@/lib/db/events";
 import { getType } from "@/components/training/training-view";
 import {
   WEEK_ORDER,
@@ -454,7 +454,7 @@ function MonthGrid({
   const viewDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
 
   // Sessions are a recurring weekly template here (not a dated log — see
-  // lib/supabase/training.ts's header comment), so, unchanged from before
+  // lib/db/events.ts's header comment), so, unchanged from before
   // this task, this repeats the same weekly pattern across every month
   // shown. Tournament entries ARE dated, so those still overlay on their
   // real calendar day.

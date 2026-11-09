@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { ParentWeeklyReportView } from "@/components/parents/parent-weekly-report-view";
 
 export default async function FamilyWeeklyReportsPage() {

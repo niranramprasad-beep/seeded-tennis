@@ -4,7 +4,7 @@
 // events/events-calendar-card.tsx) — add/edit/delete/move/resize/repeat.
 // Deliberately NOT a parallel storage path: every mutation here reads and
 // writes the exact same `TrainingPlannerState` (workout_sessions +
-// training_plans, via lib/supabase/training.ts's loadTrainingPlannerState/
+// training_plans, via lib/db/events.ts's loadTrainingPlannerState/
 // saveTrainingPlannerState) that /training's own TrainingView already owns,
 // the same SWR cache key ["training-planner-state", storageKey] events-
 // inner.tsx already fetches under. This hook just adds: optimistic local
@@ -21,7 +21,7 @@ import {
   type TrainingFolder,
   type TrainingPlannerSession,
   type TrainingPlannerState,
-} from "@/lib/supabase/training";
+} from "@/lib/db/events";
 import { dateForWeekday } from "@/lib/training/grid-math";
 import { generateWeeklySeriesDates } from "@/lib/training/calendar-interactions";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";

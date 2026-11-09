@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Send, Sparkles, X } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/supabase/training";
+import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
 
 export interface CopilotAction {
   action: "create" | "update" | "delete";

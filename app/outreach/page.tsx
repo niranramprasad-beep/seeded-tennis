@@ -1,4 +1,4 @@
-import { getSchools } from "@/lib/data";
+import { getSchools } from "@/lib/db/schools";
 import { CoachesView } from "@/components/coaches/coaches-view";
 
 // Seeded's new home for what /coaches used to serve. Phase 4 rebuilds its

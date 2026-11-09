@@ -2,8 +2,8 @@
 // Supabase. Every number here traces back to a real logged entry; nothing
 // is fabricated when history is thin, callers get `null` instead of a
 // guessed value.
-import type { UtrEntry } from "@/lib/supabase/utr";
-import type { MatchRecord } from "@/lib/supabase/features";
+import type { UtrEntry } from "@/lib/db/plan";
+import type { MatchRecord } from "@/lib/db/events";
 
 const MS_PER_DAY = 86_400_000;
 

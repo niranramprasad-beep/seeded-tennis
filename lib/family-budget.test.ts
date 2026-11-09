@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSeasonBudgetSummary, pendingSkipDecisions, shortBadFitReason } from "./family-budget";
-import type { TournamentEntry } from "./supabase/tournaments";
-import type { BudgetExpense } from "./supabase/budget";
+import type { TournamentEntry } from "./db/events";
+import type { BudgetExpense } from "./db/family";
 import { evaluateTournamentFit } from "./tournament-fit";
 
 const entry = (overrides: Partial<TournamentEntry> & { id: string }): TournamentEntry => ({

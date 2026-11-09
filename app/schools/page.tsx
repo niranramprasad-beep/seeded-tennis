@@ -3,7 +3,7 @@ import {
   getDivisions,
   getSchools,
   getStates,
-} from "@/lib/data";
+} from "@/lib/db/schools";
 import { SchoolsBrowser } from "@/components/schools/schools-browser";
 import { SchoolsHeader } from "@/components/seeded/schools/seeded-schools-header";
 import { Footer } from "@/components/layout/footer";

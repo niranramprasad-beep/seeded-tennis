@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { PlanPreview } from "@/components/dev/plan-preview";
 
 export default async function DevPlanPreviewPage() {

@@ -38,6 +38,7 @@ export function FamilyPreview({ schools }: { schools: SchoolLite[] }) {
         beginSession: () => {},
         completeOnboarding: () => {},
         updatePlayer: async () => true,
+        setPlayerLocal: () => {},
         signOut: () => {},
       }}
     >

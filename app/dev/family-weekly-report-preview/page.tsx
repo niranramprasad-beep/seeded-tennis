@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { FamilyWeeklyReportPreview } from "@/components/dev/family-weekly-report-preview";
 
 export default async function DevFamilyWeeklyReportPreviewPage() {

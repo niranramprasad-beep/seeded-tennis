@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDesign } from "@/lib/context/design-context";
-import { loadDesignPreference, saveDesignPreference } from "@/lib/supabase/design-preference";
+import { loadDesignPreference, saveDesignPreference } from "@/lib/db/settings";
 
 // Renders nothing — just reconciles the design/seededMode toggle with the
 // signed-in user's profile. Signed-out visitors stay on localStorage only

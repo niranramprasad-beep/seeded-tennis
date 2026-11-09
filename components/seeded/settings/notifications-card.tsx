@@ -1,7 +1,7 @@
 "use client";
 
 import { SeededToggle } from "@/components/seeded/ui/toggle";
-import type { NotificationPrefs } from "@/lib/supabase/settings-prefs";
+import type { NotificationPrefs } from "@/lib/db/settings";
 
 const ROWS: { key: keyof NotificationPrefs; label: string }[] = [
   { key: "weeklyDigest", label: "Weekly digest (Sunday)" },
@@ -12,7 +12,7 @@ const ROWS: { key: keyof NotificationPrefs; label: string }[] = [
 ];
 
 // Pixel-exact to the mockup's "Notifications" card. Real persisted toggles —
-// see lib/supabase/settings-prefs.ts (the existing user_settings.
+// see lib/db/settings.ts (the existing user_settings.
 // notification_preferences JSONB bag, not a new column).
 export function NotificationsCard({
   prefs,

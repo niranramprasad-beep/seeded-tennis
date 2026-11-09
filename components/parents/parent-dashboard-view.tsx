@@ -19,17 +19,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePlayer } from "@/lib/context/player-context";
+import { loadDailyCheckins, type DailyCheckin } from "@/lib/db/plan";
 import {
-  loadDailyCheckins,
   loadEncouragementNotes,
   loadFamilyMembers,
-  loadMatches,
   saveEncouragementNote,
-  type DailyCheckin,
   type EncouragementNote,
   type FamilyMember,
-  type MatchRecord,
-} from "@/lib/supabase/features";
+} from "@/lib/db/family";
+import { loadMatches, type MatchRecord } from "@/lib/db/events";
 import { useDesign } from "@/lib/context/design-context";
 import { getCurrentGrade } from "@/lib/time";
 import { formatUTR } from "@/lib/utils";

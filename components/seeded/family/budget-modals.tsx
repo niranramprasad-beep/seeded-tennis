@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { SeededButton } from "@/components/seeded/ui/button";
-import type { BudgetExpenseCategory } from "@/lib/supabase/budget";
+import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 

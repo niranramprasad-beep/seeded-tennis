@@ -1,7 +1,7 @@
 "use client";
 
 // React state wrapper around lib/recruiting-checklist.ts's pure merge
-// logic + lib/supabase/recruiting-checklist.ts's real persistence. Same
+// logic + lib/db/plan.ts's real persistence. Same
 // optimistic-update shape as lib/hooks/use-star-schools.ts: the UI updates
 // immediately, the real write happens in the background, and a real
 // failure quietly rolls the optimistic change back rather than leaving the
@@ -19,7 +19,7 @@ import {
   loadRecruitingChecklistState,
   removeCustomRecruitingChecklistItem,
   setRecruitingChecklistItemState,
-} from "@/lib/supabase/recruiting-checklist";
+} from "@/lib/db/plan";
 
 const EMPTY_STATE: RecruitingChecklistState = { completedIds: [], hiddenIds: [], customItems: [] };
 

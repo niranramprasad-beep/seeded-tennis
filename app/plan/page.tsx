@@ -1,4 +1,4 @@
-import { getSchoolsLite } from "@/lib/data";
+import { getSchoolsLite } from "@/lib/db/schools";
 import { RoadmapView } from "@/components/roadmap/roadmap-view";
 
 // Seeded's new home for what /roadmap used to serve. Phase 4 rebuilds its

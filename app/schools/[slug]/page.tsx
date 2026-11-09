@@ -12,7 +12,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { combinedScore, getSchool, getSchools } from "@/lib/data";
+import { combinedScore, getSchool, getSchools } from "@/lib/db/schools";
 import { Card } from "@/components/ui/card";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Skeleton } from "@/components/ui/skeleton";
