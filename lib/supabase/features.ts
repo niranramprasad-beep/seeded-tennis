@@ -345,25 +345,48 @@ export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachS
 }
 
 // Same rows as loadCoachOutreach, plus `updated_at` — the real "when did
-// this status last change" signal /today's follow-up-due logic needs.
+// this status last change" signal /today's follow-up-due logic needs — and
+// `remindAt`, the player-set "remind me in 14 days" check-in date (migration
+// 011_outreach_stages.sql; nullable, null until a reminder is ever set).
 // Additive: loadCoachOutreach/OutreachStatusMap are untouched so the
 // existing Outreach page keeps working unchanged.
-export type OutreachStatusMapDated = Record<string, { status: OutreachStatus; updatedAt: string }>;
+export type OutreachStatusMapDated = Record<
+  string,
+  { status: OutreachStatus; updatedAt: string; remindAt?: string | null }
+>;
 
 export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<OutreachStatusMapDated> {
   const supabase = getSupabase();
   const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return {};
-  let query = supabase.from("coach_outreach").select("school_slug, status, updated_at");
-  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  const scoped = (q: any) =>
+    p?.role === "parent" && p?.family_code ? q.eq("family_code", p.family_code) : q.eq("user_id", id);
+
+  let query = scoped(supabase.from("coach_outreach").select("school_slug, status, updated_at, remind_at"));
   if (signal) query = query.abortSignal(signal);
-  const { data, error } = await query;
+  let { data, error } = await query;
+
+  // remind_at (migration 011_outreach_stages.sql) isn't applied to the live
+  // database yet — selecting a column that doesn't exist there fails the
+  // whole query, which would otherwise wipe out every status this page
+  // already shows. Fall back to the columns that do exist so outreach
+  // tracking keeps working; remindAt just stays absent until the migration
+  // lands.
+  if (error) {
+    let fallback = scoped(supabase.from("coach_outreach").select("school_slug, status, updated_at"));
+    if (signal) fallback = fallback.abortSignal(signal);
+    const retry = await fallback;
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) return {};
+
   const map: OutreachStatusMapDated = {};
   for (const row of data ?? []) {
     map[row.school_slug as string] = {
       status: row.status as OutreachStatus,
       updatedAt: row.updated_at as string,
+      remindAt: ((row as { remind_at?: string | null }).remind_at ?? null),
     };
   }
   return map;
@@ -389,6 +412,28 @@ export async function saveCoachOutreachStatus(
       { onConflict: "user_id,school_slug" }
     );
   if (error) throw new Error(error.message);
+}
+
+// How far out "Remind me in 14 days" sets remind_at. A player can re-click
+// this on any row they're already tracking to push the date out again —
+// it always overwrites with a fresh 14-day window from the moment clicked.
+export const REMIND_ME_AFTER_DAYS = 14;
+
+// Only ever an UPDATE, never an upsert: a reminder is meaningless without an
+// outreach row (status) already existing for that school, and the Outreach
+// board only ever renders this action on rows that already have one.
+export async function saveCoachOutreachReminder(schoolSlug: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { id } = await userIdAndProfile();
+  if (!supabase || !id) return null;
+  const remindAt = new Date(Date.now() + REMIND_ME_AFTER_DAYS * 86_400_000).toISOString();
+  const { error } = await supabase
+    .from("coach_outreach")
+    .update({ remind_at: remindAt })
+    .eq("user_id", id)
+    .eq("school_slug", schoolSlug);
+  if (error) throw new Error(error.message);
+  return remindAt;
 }
 
 export function calculateCost(input: CostInputs): CostResults {

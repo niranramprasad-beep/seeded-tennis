@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { School } from "@/lib/types";
-import type { OutreachStatusMapDated } from "@/lib/supabase/features";
+import { REMIND_ME_AFTER_DAYS, type OutreachStatusMapDated } from "@/lib/supabase/features";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 
 // Internal tool only — pixel-checks /outreach's real 6-column board without
@@ -16,7 +16,9 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
   const [statuses, setStatuses] = useState<OutreachStatusMapDated>(() => {
     const bySlug = Object.fromEntries(targetSchools.map((s) => [s.slug, s]));
     const map: OutreachStatusMapDated = {};
-    if (bySlug["north-carolina-w"]) map["north-carolina-w"] = { status: "researching", updatedAt: daysAgo(1) };
+    // remind_at already arrived — exercises the "Reminder due" chip on load.
+    if (bySlug["north-carolina-w"])
+      map["north-carolina-w"] = { status: "researching", updatedAt: daysAgo(1), remindAt: daysAgo(1) };
     if (bySlug["nc-state-w"]) map["nc-state-w"] = { status: "emailed", updatedAt: daysAgo(14) }; // overdue follow-up
     if (bySlug["texas-w"]) map["texas-w"] = { status: "emailed", updatedAt: daysAgo(2) }; // not yet due
     if (bySlug["florida-w"]) map["florida-w"] = { status: "replied", updatedAt: daysAgo(5) };
@@ -40,6 +42,14 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
     });
   };
 
+  const setReminder: React.ComponentProps<typeof SeededOutreachLayout>["setReminder"] = (slug) => {
+    setStatuses((prev) => {
+      if (!prev[slug]) return prev;
+      const remindAt = new Date(Date.now() + REMIND_ME_AFTER_DAYS * 86_400_000).toISOString();
+      return { ...prev, [slug]: { ...prev[slug], remindAt } };
+    });
+  };
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <SeededOutreachLayout
@@ -57,6 +67,7 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
           setTimeout(() => setCopied(false), 1500);
         }}
         setStatus={setStatus}
+        setReminder={setReminder}
         outreachError=""
       />
     </div>

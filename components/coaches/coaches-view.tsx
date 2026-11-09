@@ -21,6 +21,8 @@ import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
 import {
   loadCoachOutreachDated,
   loadMatches,
+  REMIND_ME_AFTER_DAYS,
+  saveCoachOutreachReminder,
   saveCoachOutreachStatus,
   type MatchRecord,
   type OutreachStatus,
@@ -184,6 +186,23 @@ function CoachesInner({ schools }: { schools: School[] }) {
     }
   };
 
+  const setReminder = async (slug: string) => {
+    const previous = statuses;
+    if (!statuses[slug]) return; // reminders only apply to a row already being tracked
+    const remindAt = new Date(Date.now() + REMIND_ME_AFTER_DAYS * 86_400_000).toISOString();
+    const next = { ...statuses, [slug]: { ...statuses[slug], remindAt } };
+    mutateStatuses(next, { revalidate: false });
+    setOutreachError("");
+    try {
+      await saveCoachOutreachReminder(slug);
+    } catch (err) {
+      mutateStatuses(previous, { revalidate: false });
+      setOutreachError(
+        err instanceof Error ? err.message : "Could not set a reminder — try again."
+      );
+    }
+  };
+
   const regenerate = () => {
     if (!selectedSchool) return;
     const email = buildCoachEmail(player, selectedSchool, results);
@@ -243,6 +262,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           copied={copied}
           copyAll={copyAll}
           setStatus={setStatus}
+          setReminder={setReminder}
           outreachError={outreachError}
         />
       </div>

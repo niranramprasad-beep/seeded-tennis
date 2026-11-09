@@ -71,6 +71,54 @@ describe("buildTodayActions", () => {
     expect(actions).toEqual([]);
   });
 
+  it("surfaces a reminder once its remind_at date has arrived", () => {
+    const target = school({ slug: "amherst", shortName: "Amherst" });
+    const remindAt = new Date(NOW.getTime() - 86_400_000).toISOString(); // yesterday
+    const actions = buildTodayActions(
+      9.4,
+      [target],
+      { amherst: { status: "researching", updatedAt: NOW.toISOString(), remindAt } },
+      NOW
+    );
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ kind: "reminder", id: "reminder-amherst" });
+    expect(actions[0].description).toContain("Amherst");
+  });
+
+  it("surfaces a reminder due exactly today", () => {
+    const target = school({ slug: "tufts", shortName: "Tufts" });
+    const actions = buildTodayActions(
+      9.4,
+      [target],
+      { tufts: { status: "researching", updatedAt: NOW.toISOString(), remindAt: NOW.toISOString() } },
+      NOW
+    );
+    expect(actions.some((a) => a.id === "reminder-tufts")).toBe(true);
+  });
+
+  it("does not surface a reminder whose date has not arrived yet", () => {
+    const target = school({ slug: "colby", shortName: "Colby" });
+    const remindAt = new Date(NOW.getTime() + 86_400_000).toISOString(); // tomorrow
+    const actions = buildTodayActions(
+      9.4,
+      [target],
+      { colby: { status: "researching", updatedAt: NOW.toISOString(), remindAt } },
+      NOW
+    );
+    expect(actions.some((a) => a.id === "reminder-colby")).toBe(false);
+  });
+
+  it("does not surface a reminder when none was ever set", () => {
+    const target = school({ slug: "hamilton", shortName: "Hamilton" });
+    const actions = buildTodayActions(
+      9.4,
+      [target],
+      { hamilton: { status: "researching", updatedAt: NOW.toISOString() } },
+      NOW
+    );
+    expect(actions.some((a) => a.id === "reminder-hamilton")).toBe(false);
+  });
+
   it("sorts email actions before follow-ups", () => {
     const emailTarget = school({ slug: "aaa-school", shortName: "AAA" });
     const followupTarget = school({ slug: "zzz-school", shortName: "ZZZ" });
@@ -82,6 +130,23 @@ describe("buildTodayActions", () => {
       NOW
     );
     expect(actions.map((a) => a.kind)).toEqual(["email", "followup"]);
+  });
+
+  it("sorts reminders after both emails and follow-ups", () => {
+    const emailTarget = school({ slug: "aaa-school", shortName: "AAA" });
+    const followupTarget = school({ slug: "mmm-school", shortName: "MMM" });
+    const reminderTarget = school({ slug: "zzz-school", shortName: "ZZZ" });
+    const contactedAt = new Date(NOW.getTime() - 20 * 86_400_000).toISOString();
+    const actions = buildTodayActions(
+      9.4,
+      [reminderTarget, followupTarget, emailTarget],
+      {
+        "mmm-school": { status: "emailed", updatedAt: contactedAt },
+        "zzz-school": { status: "researching", updatedAt: NOW.toISOString(), remindAt: NOW.toISOString() },
+      },
+      NOW
+    );
+    expect(actions.map((a) => a.kind)).toEqual(["email", "followup", "reminder"]);
   });
 });
 

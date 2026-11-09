@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Copy, CheckCircle2 } from "lucide-react";
 import type { School } from "@/lib/types";
 import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/supabase/features";
+import { REMIND_ME_AFTER_DAYS } from "@/lib/supabase/features";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -47,6 +48,7 @@ export interface SeededOutreachLayoutProps {
   copied: boolean;
   copyAll: () => void;
   setStatus: (slug: string, status: OutreachStatus | null) => void;
+  setReminder: (slug: string) => void;
   outreachError: string;
 }
 
@@ -62,6 +64,7 @@ export function SeededOutreachLayout({
   copied,
   copyAll,
   setStatus,
+  setReminder,
   outreachError,
 }: SeededOutreachLayoutProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -134,6 +137,8 @@ export function SeededOutreachLayout({
                     stage.key === "emailed" &&
                     entry &&
                     daysSince(entry.updatedAt) >= FOLLOW_UP_AFTER_DAYS;
+                  const remindAt = entry?.remindAt ? new Date(entry.remindAt) : null;
+                  const reminderDue = Boolean(remindAt && remindAt.getTime() <= Date.now());
                   return (
                     <div
                       key={s.slug}
@@ -151,6 +156,13 @@ export function SeededOutreachLayout({
                       {due && chip("border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]", "Follow up due")}
                       {stage.key === "replied" &&
                         chip("border-grass-100 bg-grass-50 text-grass", "Replied")}
+                      {reminderDue && chip("border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]", "Reminder due")}
+                      {!reminderDue && remindAt && (
+                        <span className="text-xs text-ink/50">
+                          Reminder set for{" "}
+                          {remindAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      )}
                       <select
                         value={stage.key}
                         onClick={(e) => e.stopPropagation()}
@@ -164,6 +176,16 @@ export function SeededOutreachLayout({
                           </option>
                         ))}
                       </select>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReminder(s.slug);
+                        }}
+                        className="self-start text-xs font-semibold text-grass hover:text-grass-600"
+                      >
+                        Remind me in {REMIND_ME_AFTER_DAYS} days
+                      </button>
                     </div>
                   );
                 })

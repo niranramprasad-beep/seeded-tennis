@@ -8,7 +8,7 @@ import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit } from "@/lib/school-fit";
 import type { OutreachStatusMapDated } from "@/lib/supabase/features";
 
-export type TodayActionKind = "email" | "followup";
+export type TodayActionKind = "email" | "followup" | "reminder";
 
 export interface TodayAction {
   id: string;
@@ -40,6 +40,7 @@ export function buildTodayActions(
 ): TodayAction[] {
   const emails: TodayAction[] = [];
   const followups: TodayAction[] = [];
+  const reminders: TodayAction[] = [];
 
   for (const school of targetSchools) {
     const entry = outreach[school.slug];
@@ -72,12 +73,26 @@ export function buildTodayActions(
         });
       }
     }
+
+    // A player-set "remind me" check-in date (set from the Outreach board)
+    // — only ever surfaces once it has actually arrived, never before, and
+    // is independent of the automatic follow-up-due rule above.
+    if (entry.remindAt && new Date(entry.remindAt).getTime() <= now.getTime()) {
+      reminders.push({
+        id: `reminder-${school.slug}`,
+        kind: "reminder",
+        school,
+        title: `Check in on ${school.shortName}`,
+        description: `You set a reminder to follow up with ${school.shortName}.`,
+        minutes: 5,
+      });
+    }
   }
 
   const bySchoolName = (a: TodayAction, b: TodayAction) =>
     a.school.shortName.localeCompare(b.school.shortName);
 
-  return [...emails.sort(bySchoolName), ...followups.sort(bySchoolName)];
+  return [...emails.sort(bySchoolName), ...followups.sort(bySchoolName), ...reminders.sort(bySchoolName)];
 }
 
 export interface ThisWeekItem {
