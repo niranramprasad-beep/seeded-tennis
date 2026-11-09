@@ -34,7 +34,11 @@ interface PlayerContextValue {
   signOut: () => void;
 }
 
-const PlayerContext = createContext<PlayerContextValue | null>(null);
+// Exported (not just consumed via usePlayer()) so dev-only harness pages
+// can mount a fake PlayerContext.Provider directly — needed to preview
+// authenticated-only UI like the sidebar without ever signing in through
+// the real auth flow against the shared Supabase project.
+export const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [player, setPlayer] = useState<Player>(emptyPlayer);

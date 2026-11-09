@@ -1,7 +1,12 @@
 import { getTrainingPlans } from "@/lib/data";
 import { TrainingView } from "@/components/training/training-view";
+import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 
 export default async function TrainingPage() {
   const plans = await getTrainingPlans();
-  return <TrainingView plans={plans} />;
+  return (
+    <SeededRouteRedirect to="/events">
+      <TrainingView plans={plans} />
+    </SeededRouteRedirect>
+  );
 }

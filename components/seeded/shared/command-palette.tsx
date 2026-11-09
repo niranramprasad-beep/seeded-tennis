@@ -4,16 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BarChart3,
   CalendarDays,
+  Clock,
   Compass,
-  LayoutDashboard,
   Mail,
-  Route,
   School,
   Search,
   Settings,
-  Trophy,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,21 +25,21 @@ interface Command {
   keywords?: string;
 }
 
+// Mirrors the Phase 3 sidebar's PLAYER_NAV_LINKS/PARENT_NAV_LINKS exactly —
+// keep both in sync.
 const PLAYER_COMMANDS: Command[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Roadmap", href: "/roadmap", icon: Route },
-  { label: "Training", href: "/training", icon: CalendarDays, keywords: "calendar sessions" },
-  { label: "Match mode", href: "/match-mode", icon: Trophy, keywords: "matches history" },
-  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
+  { label: "Today", href: "/today", icon: Clock },
+  { label: "Plan", href: "/plan", icon: TrendingUp, keywords: "roadmap checkpoints" },
   { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
-  { label: "Coaches", href: "/coaches", icon: Mail, keywords: "outreach" },
+  { label: "Outreach", href: "/outreach", icon: Mail, keywords: "coaches email" },
+  { label: "Events", href: "/events", icon: CalendarDays, keywords: "calendar training matches" },
+  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
 ];
 
 const PARENT_COMMANDS: Command[] = [
-  { label: "Family", href: "/family", icon: Users },
-  { label: "Costs", href: "/cost-calculator", icon: BarChart3, keywords: "cost calculator" },
-  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
+  { label: "Family", href: "/family", icon: Users, keywords: "budget costs" },
   { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
+  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
 ];
 
 const SHARED_COMMANDS: Command[] = [{ label: "Settings", href: "/settings", icon: Settings }];

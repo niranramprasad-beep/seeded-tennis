@@ -1,7 +1,12 @@
 import { getSchoolsLite } from "@/lib/data";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
+import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
 
 export default async function CostCalculatorPage() {
   const schools = await getSchoolsLite();
-  return <CostCalculatorView schools={schools} />;
+  return (
+    <SeededRouteRedirect to="/family">
+      <CostCalculatorView schools={schools} />
+    </SeededRouteRedirect>
+  );
 }

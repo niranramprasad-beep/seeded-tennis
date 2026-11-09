@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDesign } from "@/lib/context/design-context";
 import { Button } from "@/components/ui/button";
 
 // Pages a parent account can use. Everything else redirects to /family so
@@ -34,8 +35,14 @@ function isPlayerBlockedPath(pathname: string): boolean {
 // unreachable backend must never look like "you're signed out".
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated, player, connectionError, retryConnection } = usePlayer();
+  const { design } = useDesign();
   const router = useRouter();
   const pathname = usePathname();
+  // Where a blocked player lands depends on design: Seeded's home for that
+  // role moved to /today in Phase 3, Legacy's stayed at /dashboard. Reading
+  // this directly (rather than letting the old /dashboard route's own
+  // SeededRouteRedirect handle it) avoids a double-redirect flash.
+  const playerHome = design === "seeded" ? "/today" : "/dashboard";
 
   useEffect(() => {
     if (!hydrated || connectionError) return;
@@ -44,11 +51,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     } else if (player.role === "parent" && !isParentAllowedPath(pathname)) {
       router.replace("/family");
     } else if (player.role !== "parent" && isPlayerBlockedPath(pathname)) {
-      router.replace("/dashboard");
+      router.replace(playerHome);
     } else if (player.role !== "parent" && !player.onboarded && pathname !== "/onboarding") {
       router.replace("/onboarding");
     }
-  }, [hydrated, connectionError, isAuthed, player.onboarded, player.role, pathname, router]);
+  }, [hydrated, connectionError, isAuthed, player.onboarded, player.role, pathname, router, playerHome]);
 
   if (hydrated && connectionError) {
     return (
