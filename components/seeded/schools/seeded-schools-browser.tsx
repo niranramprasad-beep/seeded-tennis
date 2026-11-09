@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import type { Division, Gender, School } from "@/lib/types";
@@ -56,6 +56,27 @@ export function SeededSchoolsBrowser({
   const [chip, setChip] = useState<ChipFilter>("all");
   const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+
+  // A school's profile page links here with ?compare={slug}&gender={gender}
+  // to pre-select it (same plain window.location.search read
+  // coaches-view.tsx already uses for its own ?school= deep link — no
+  // useSearchParams()/Suspense needed). `ranked` is already gender-filtered
+  // by the parent, so a cross-gender deep link (e.g. from a women's program
+  // page while this defaults to men's) would silently fail a `ranked`
+  // membership check — the slug's own data-file suffix convention isn't
+  // reliable enough to infer gender from (schools.ts has no suffix for
+  // men, schools-extra.ts uses "-m"), so the profile page passes the
+  // school's real `gender` explicitly and this switches the toggle to
+  // match before trusting the slug.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("compare");
+    const g = params.get("gender");
+    if (!slug) return;
+    if ((g === "men" || g === "women") && g !== gender) setGender(g);
+    setCompareSlugs((prev) => (prev.includes(slug) ? prev : [...prev, slug]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const academicValue: "all" | AcademicTier =
     maxRank <= 25 ? "top25" : maxRank <= 50 ? "top50" : maxRank <= 100 ? "top100" : "all";
