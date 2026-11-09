@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { TrainingPlan } from "@/lib/types";
 import { TrainingView } from "@/components/training/training-view";
 import { MatchModeView } from "@/components/matches/match-mode-view";
@@ -16,7 +17,9 @@ type EventsTab = "calendar" | "matches";
 // either's internals (Training's planner alone is ~2000 lines of stateful
 // drag/drop logic not worth re-deriving for a visual-only redesign pass).
 export function SeededEventsView({ plans }: { plans: TrainingPlan[] }) {
-  const [tab, setTab] = useState<EventsTab>("calendar");
+  const params = useSearchParams();
+  const initialTab: EventsTab = params.get("tab") === "matches" ? "matches" : "calendar";
+  const [tab, setTab] = useState<EventsTab>(initialTab);
 
   return (
     <div>
