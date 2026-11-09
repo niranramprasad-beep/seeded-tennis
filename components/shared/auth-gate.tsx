@@ -15,7 +15,10 @@ import { Button } from "@/components/ui/button";
 function isParentAllowedPath(pathname: string): boolean {
   return (
     pathname.startsWith("/family") ||
-    pathname === "/settings" ||
+    // startsWith, not ===, so /settings/billing (parents are typically the
+    // ones actually billed — see billing-content.tsx's "Billed to" line)
+    // stays reachable alongside /settings itself.
+    pathname.startsWith("/settings") ||
     pathname === "/cost-calculator" ||
     pathname === "/tournament-fit"
   );

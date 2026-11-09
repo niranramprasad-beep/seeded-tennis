@@ -19,4 +19,6 @@
   reporting (`lib/ga4-server.ts`) needs a dollar value per tier, but Whop's
   membership payload carries no price field, so it's a hardcoded map kept in
   sync by hand with `pricing-view.tsx`. If the plan prices ever change,
-  update both in the same commit.
+  update both in the same commit — and also `TIER_PRICE_DISPLAY` in
+  `components/seeded/settings/billing-content.tsx` (`/settings/billing`'s
+  "$19/$39 a month" display), a third hand-kept copy for the same reason.

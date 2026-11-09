@@ -30,7 +30,11 @@ interface TierContextValue {
   isFamily: boolean;
 }
 
-const TierContext = createContext<TierContextValue | null>(null);
+// Exported (not just consumed via useTier()) for the same reason
+// PlayerContext is — dev-only harness pages (e.g. billing-preview) need to
+// mount a fake Provider with a fixed tier, without routing through the
+// real Supabase-backed load() effect below.
+export const TierContext = createContext<TierContextValue | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated: playerHydrated } = usePlayer();
