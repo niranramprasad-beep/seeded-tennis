@@ -47,7 +47,7 @@ describe("buildTodayActions", () => {
   it("surfaces an overdue follow-up for a contacted school with no reply after 10+ days", () => {
     const target = school({ slug: "williams", shortName: "Williams" });
     const contactedAt = new Date(NOW.getTime() - 14 * 86_400_000).toISOString();
-    const actions = buildTodayActions(9.4, [target], { williams: { status: "contacted", updatedAt: contactedAt } }, NOW);
+    const actions = buildTodayActions(9.4, [target], { williams: { status: "emailed", updatedAt: contactedAt } }, NOW);
     expect(actions).toHaveLength(1);
     expect(actions[0]).toMatchObject({ kind: "followup", id: "followup-williams" });
     expect(actions[0].description).toContain("14 days");
@@ -56,7 +56,7 @@ describe("buildTodayActions", () => {
   it("does not flag a recently-contacted school as overdue yet", () => {
     const target = school({ slug: "richmond" });
     const contactedAt = new Date(NOW.getTime() - 2 * 86_400_000).toISOString();
-    const actions = buildTodayActions(9.4, [target], { richmond: { status: "contacted", updatedAt: contactedAt } }, NOW);
+    const actions = buildTodayActions(9.4, [target], { richmond: { status: "emailed", updatedAt: contactedAt } }, NOW);
     expect(actions).toHaveLength(0);
   });
 
@@ -78,7 +78,7 @@ describe("buildTodayActions", () => {
     const actions = buildTodayActions(
       9.4,
       [followupTarget, emailTarget],
-      { "zzz-school": { status: "contacted", updatedAt: contactedAt } },
+      { "zzz-school": { status: "emailed", updatedAt: contactedAt } },
       NOW
     );
     expect(actions.map((a) => a.kind)).toEqual(["email", "followup"]);
@@ -98,9 +98,9 @@ describe("buildThisWeekItems", () => {
       [dueSoon, alreadyOverdue],
       {
         // contacted 8 days ago -> due in 2 days (inside the 7-day window)
-        "due-soon": { status: "contacted", updatedAt: new Date(NOW.getTime() - 8 * 86_400_000).toISOString() },
+        "due-soon": { status: "emailed", updatedAt: new Date(NOW.getTime() - 8 * 86_400_000).toISOString() },
         // contacted 25 days ago -> was due 15 days ago, already overdue/surfaced elsewhere
-        overdue: { status: "contacted", updatedAt: new Date(NOW.getTime() - 25 * 86_400_000).toISOString() },
+        overdue: { status: "emailed", updatedAt: new Date(NOW.getTime() - 25 * 86_400_000).toISOString() },
       },
       NOW
     );

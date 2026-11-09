@@ -21,8 +21,10 @@ export interface TodayAction {
 
 // A contacted school with no reply reads as "due for a follow-up" after this
 // many days — long enough that a normal reply window has passed, short
-// enough that it's still useful for the player to see this week.
-const FOLLOW_UP_AFTER_DAYS = 10;
+// enough that it's still useful for the player to see this week. Exported so
+// /outreach's board (same follow-up-due concept, different rendering) uses
+// the identical threshold instead of a second magic number.
+export const FOLLOW_UP_AFTER_DAYS = 10;
 
 export function daysSince(isoDate: string, now: Date = new Date()): number {
   const then = new Date(isoDate).getTime();
@@ -57,7 +59,7 @@ export function buildTodayActions(
       continue;
     }
 
-    if (entry.status === "contacted") {
+    if (entry.status === "emailed") {
       const days = daysSince(entry.updatedAt, now);
       if (days >= FOLLOW_UP_AFTER_DAYS) {
         followups.push({
@@ -99,7 +101,7 @@ export function buildThisWeekItems(
 
   for (const school of targetSchools) {
     const entry = outreach[school.slug];
-    if (entry?.status !== "contacted") continue;
+    if (entry?.status !== "emailed") continue;
     const dueDate = new Date(entry.updatedAt);
     dueDate.setDate(dueDate.getDate() + FOLLOW_UP_AFTER_DAYS);
     const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86_400_000);

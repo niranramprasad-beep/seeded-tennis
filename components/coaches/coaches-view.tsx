@@ -19,12 +19,12 @@ import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { buildCoachEmail, type CoachEmailResult } from "@/lib/data";
 import {
-  loadCoachOutreach,
+  loadCoachOutreachDated,
   loadMatches,
   saveCoachOutreachStatus,
   type MatchRecord,
   type OutreachStatus,
-  type OutreachStatusMap,
+  type OutreachStatusMapDated,
 } from "@/lib/supabase/features";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
@@ -33,14 +33,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { useDesign } from "@/lib/context/design-context";
+import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 import { cn } from "@/lib/utils";
 
 // Legacy key from before outreach status was synced to Supabase — still read
 // once on load so no one's existing tracking silently disappears when this
-// switches from a local-only store to a real per-account one.
+// switches from a local-only store to a real per-account one. Its values
+// predate the 6-stage pipeline (migration 011_outreach_stages.sql), so the
+// old "contacted" literal is mapped to its real successor "emailed" below.
 const LEGACY_OUTREACH_KEY = "seeded.outreach";
 
-type StatusMap = OutreachStatusMap;
+type StatusMap = OutreachStatusMapDated;
+
+// Legacy's UI only ever showed 3 states (To do / Sent / Replied) and still
+// does — but the underlying table now spans 6 stages (shared with the new
+// Seeded board), so a row this view never wrote itself (e.g. "researching"
+// or "call_visit", created via Seeded) must still map onto that same
+// 3-state vocabulary correctly rather than silently reading as "To do".
+function legacyIsSentOrLater(status?: OutreachStatus): boolean {
+  return status !== undefined && status !== "researching";
+}
 
 export function CoachesView({ schools }: { schools: School[] }) {
   return (
@@ -105,17 +117,25 @@ function CoachesInner({ schools }: { schools: School[] }) {
   const { data: statuses = {}, mutate: mutateStatuses } = useSWR<StatusMap>(
     "coach-outreach",
     async () => {
-      const remote = await loadCoachOutreach();
+      const remote = await loadCoachOutreachDated();
       if (Object.keys(remote).length > 0) return remote;
       try {
         const stored = window.localStorage.getItem(LEGACY_OUTREACH_KEY);
-        const legacy = stored ? (JSON.parse(stored) as StatusMap) : null;
+        // Pre-migration localStorage shape was flat {slug: "contacted"|"replied"}
+        // — not the dated map this component now uses everywhere else.
+        const legacy = stored ? (JSON.parse(stored) as Record<string, "contacted" | "replied">) : null;
         if (legacy && Object.keys(legacy).length > 0) {
+          const nowIso = new Date().toISOString();
+          const migrated: StatusMap = {};
           await Promise.all(
-            Object.entries(legacy).map(([slug, status]) => saveCoachOutreachStatus(slug, status))
+            Object.entries(legacy).map(([slug, status]) => {
+              const mapped: OutreachStatus = status === "contacted" ? "emailed" : "replied";
+              migrated[slug] = { status: mapped, updatedAt: nowIso };
+              return saveCoachOutreachStatus(slug, mapped);
+            })
           );
           window.localStorage.removeItem(LEGACY_OUTREACH_KEY);
-          return legacy;
+          return migrated;
         }
       } catch {
         // Legacy data is best-effort only — never block the page on it.
@@ -151,7 +171,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
     const previous = statuses;
     const next = { ...statuses };
     if (status === null) delete next[slug];
-    else next[slug] = status;
+    else next[slug] = { status, updatedAt: new Date().toISOString() };
     mutateStatuses(next, { revalidate: false });
     setOutreachError("");
     try {
@@ -182,8 +202,8 @@ function CoachesInner({ schools }: { schools: School[] }) {
   };
 
   const targetSlugs = targetSchools.map((s) => s.slug);
-  const contactedCount = targetSlugs.filter((s) => statuses[s]).length;
-  const repliedCount = targetSlugs.filter((s) => statuses[s] === "replied").length;
+  const contactedCount = targetSlugs.filter((s) => legacyIsSentOrLater(statuses[s]?.status)).length;
+  const repliedCount = targetSlugs.filter((s) => statuses[s]?.status === "replied").length;
 
   if (targetSchools.length === 0) {
     return (
@@ -208,12 +228,33 @@ function CoachesInner({ schools }: { schools: School[] }) {
     );
   }
 
+  if (isSeeded) {
+    return (
+      <div className="mx-auto max-w-content container-px py-10">
+        <SeededOutreachLayout
+          targetSchools={targetSchools}
+          statuses={statuses}
+          selectedSlug={selectedSchool?.slug ?? null}
+          setSelectedSlug={setSelectedSlug}
+          subject={subject}
+          setSubject={setSubject}
+          body={body}
+          setBody={setBody}
+          copied={copied}
+          copyAll={copyAll}
+          setStatus={setStatus}
+          outreachError={outreachError}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="max-w-2xl">
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Coach outreach</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <span className="eyebrow text-gold">Coach outreach</span>
+          <h1 className="mt-3 text-4xl sm:text-5xl display-serif text-ink">
             Emails that sound like{" "}
             <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>you</span>.
           </h1>
@@ -235,7 +276,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           <span className="text-sm font-medium text-ink">Your target schools</span>
           {targetSchools.map((s) => {
             const active = selectedSchool?.slug === s.slug;
-            const status = statuses[s.slug];
+            const status = statuses[s.slug]?.status;
             return (
               <button
                 key={s.id}
@@ -273,7 +314,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
                         <MailCheck className="h-3 w-3" />
                         Replied
                       </Badge>
-                    ) : status === "contacted" ? (
+                    ) : legacyIsSentOrLater(status) ? (
                       <Badge
                         size="sm"
                         variant={isSeeded ? undefined : "default"}
@@ -362,7 +403,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
                     </>
                   )}
                 </Button>
-                {statuses[selectedSchool.slug] ? (
+                {legacyIsSentOrLater(statuses[selectedSchool.slug]?.status) ? (
                   <Button
                     variant="subtle"
                     size="md"
@@ -375,7 +416,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
                   <Button
                     variant="outline"
                     size="md"
-                    onClick={() => setStatus(selectedSchool.slug, "contacted")}
+                    onClick={() => setStatus(selectedSchool.slug, "emailed")}
                   >
                     <Send className="h-4 w-4" />
                     Mark as contacted
@@ -383,20 +424,20 @@ function CoachesInner({ schools }: { schools: School[] }) {
                 )}
                 <Button
                   variant={
-                    statuses[selectedSchool.slug] === "replied" ? "leaf" : "ghost"
+                    statuses[selectedSchool.slug]?.status === "replied" ? "leaf" : "ghost"
                   }
                   size="md"
                   onClick={() =>
                     setStatus(
                       selectedSchool.slug,
-                      statuses[selectedSchool.slug] === "replied"
-                        ? "contacted"
+                      statuses[selectedSchool.slug]?.status === "replied"
+                        ? "emailed"
                         : "replied"
                     )
                   }
                 >
                   <Reply className="h-4 w-4" />
-                  {statuses[selectedSchool.slug] === "replied"
+                  {statuses[selectedSchool.slug]?.status === "replied"
                     ? "Coach replied"
                     : "Mark replied"}
                 </Button>

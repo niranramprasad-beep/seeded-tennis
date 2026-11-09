@@ -315,7 +315,17 @@ export async function uploadMatchVideo(file: File): Promise<string | null> {
   return data?.signedUrl ?? path;
 }
 
-export type OutreachStatus = "contacted" | "replied";
+// 6-stage pipeline (migration 011_outreach_stages.sql — not yet applied to
+// the live database, see that file's header). "contacted" was the old
+// 2-stage model's name for "an email was sent" — the same meaning "emailed"
+// has now, kept here only as a reference for code still migrating off it.
+export type OutreachStatus =
+  | "researching"
+  | "emailed"
+  | "replied"
+  | "call_visit"
+  | "offer"
+  | "committed";
 export type OutreachStatusMap = Record<string, OutreachStatus>;
 
 export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachStatusMap> {
