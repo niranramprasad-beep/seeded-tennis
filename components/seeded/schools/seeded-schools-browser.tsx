@@ -23,7 +23,7 @@ import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
-import { DataChip } from "@/components/seeded/ui/data-chip";
+import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
@@ -35,6 +35,41 @@ const selectClass =
   "h-10 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
 
 type ChipFilter = "all" | FitBand | "saved";
+
+// Neither School (lib/types.ts) nor any loader has a real "openings" or
+// "data verification" field yet — every row genuinely has nothing to show
+// here today, which is why both the Openings and Data table columns always
+// render "Not tracked". These two tiny lookups are the single real source
+// each column's value comes from, so the moment either field is added to
+// the catalog, branching on it here is the only change needed — the
+// column-hiding logic below (which reads these, not a hardcoded flag) picks
+// it up automatically.
+interface ColumnChip {
+  status: DataChipStatus;
+  label: string;
+}
+const NOT_TRACKED: ColumnChip = { status: "missing", label: "Not tracked" };
+function openingsChip(_s: School): ColumnChip {
+  return NOT_TRACKED;
+}
+function dataVerificationChip(_s: School): ColumnChip {
+  return NOT_TRACKED;
+}
+
+// localStorage persistence for this page's filters — same read-on-mount /
+// write-on-change pattern as design-context.tsx and gender-context.tsx.
+// Gender itself already persists globally via gender-context.tsx, so it's
+// deliberately not duplicated here.
+const SCHOOLS_FILTERS_STORAGE_KEY = "seeded.schools.filters";
+const CHIP_VALUES: ChipFilter[] = ["all", "reach", "target", "likely", "out-of-range", "saved"];
+interface StoredSchoolsFilters {
+  division?: string;
+  maxRank?: number;
+  query?: string;
+  region?: string;
+  chip?: string;
+  sort?: string;
+}
 
 interface Props {
   gender: Gender;
@@ -147,6 +182,56 @@ export function SeededSchoolsBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Restores division/region/academics/search/sort/chip from a previous
+  // visit — same localStorage read-on-mount pattern as design-context.tsx.
+  // `filtersHydrated` gates the write effect below so it can't fire first
+  // with the pre-restore defaults and stomp on what's actually saved (the
+  // same guard training-view.tsx uses for its own local draft state).
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SCHOOLS_FILTERS_STORAGE_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw) as StoredSchoolsFilters;
+        if (stored.division === "all" || divisions.includes(stored.division as Division)) {
+          setDivision(stored.division as "all" | Division);
+        }
+        if (typeof stored.maxRank === "number" && Number.isFinite(stored.maxRank)) {
+          setMaxRank(stored.maxRank);
+        }
+        if (typeof stored.query === "string") setQuery(stored.query);
+        if (stored.region === "all" || ALL_REGIONS.includes(stored.region as SchoolRegion)) {
+          setRegion(stored.region as "all" | SchoolRegion);
+        }
+        if (stored.chip && CHIP_VALUES.includes(stored.chip as ChipFilter)) {
+          setChip(stored.chip as ChipFilter);
+        }
+        if (stored.sort && stored.sort in SEEDED_SORT_LABEL) {
+          setSort(stored.sort as SeededSchoolSort);
+        }
+      }
+    } catch {
+      // Ignore malformed localStorage and keep the default filters.
+    }
+    setFiltersHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persists on every change, once restore above has actually run. Keeping
+  // this to one effect over the plain primitives below (rather than N
+  // separate localStorage.setItem callsites inline in each setter) means
+  // this page's full filter state is always what's on disk, from whichever
+  // control changed it.
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    try {
+      const payload: StoredSchoolsFilters = { division, maxRank, query, region, chip, sort };
+      window.localStorage.setItem(SCHOOLS_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }, [filtersHydrated, division, maxRank, query, region, chip, sort]);
+
   const academicValue: "all" | AcademicTier =
     maxRank <= 25 ? "top25" : maxRank <= 50 ? "top50" : maxRank <= 100 ? "top100" : "all";
 
@@ -224,12 +309,40 @@ export function SeededSchoolsBrowser({
 
   const compareSchools = ranked.filter((s) => compareSlugs.includes(s.slug));
 
+  // Live against the actual rendered rows (`visible`, after every active
+  // filter), re-evaluated on every render — not a one-time decision. Hides
+  // a column only when EVERY visible row's real value for it is still
+  // "Not tracked"; the instant openingsChip()/dataVerificationChip() above
+  // have a real field to branch on for even one row, these flip back to
+  // true and the column reappears with no further changes needed here.
+  const showOpenings = visible.some((s) => openingsChip(s).label !== "Not tracked");
+  const showDataCol = visible.some((s) => dataVerificationChip(s).label !== "Not tracked");
+  // Inline style, not a Tailwind arbitrary-value class — the set of
+  // columns (and therefore the template) is only known at runtime, so a
+  // dynamically-built `grid-cols-[...]` string wouldn't be visible to
+  // Tailwind's build-time class scanner.
+  const tableGridTemplate = [
+    "28px",
+    "28px",
+    "minmax(0,2.2fr)",
+    "100px",
+    "minmax(0,2fr)",
+    ...(showOpenings ? ["80px"] : []),
+    "90px",
+    ...(showDataCol ? ["110px"] : []),
+  ].join(" ");
+  const genderLabel = gender === "men" ? "men's" : "women's";
+  const hiddenColumnNote =
+    !showOpenings && !showDataCol
+      ? `Openings and verification status aren't tracked yet for any ${genderLabel} program shown — those columns reappear automatically once we have real data.`
+      : !showOpenings
+        ? `Openings aren't tracked yet for any ${genderLabel} program shown — that column reappears automatically once we have real data.`
+        : !showDataCol
+          ? `Verification status isn't tracked yet for any ${genderLabel} program shown — that column reappears automatically once we have real data.`
+          : null;
+
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <GenderToggle value={gender} onChange={setGender} />
-      </div>
-
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-tight text-ink">Schools</h1>
@@ -298,66 +411,81 @@ export function SeededSchoolsBrowser({
         </label>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-start gap-6">
-        <aside className="w-full max-w-[260px] flex-1 rounded-xl border border-line bg-card p-[18px]" aria-label="Filters">
-          <strong className="text-[15px] font-semibold text-ink">Filters</strong>
-          <div className="mt-3.5 flex flex-col gap-3.5">
-            <label className="flex flex-col gap-1.5 text-xs font-medium text-stone">
-              Division
-              <select value={division} onChange={(e) => setDivision(e.target.value as "all" | Division)} className={selectClass}>
-                <option value="all">All divisions</option>
-                {divisions.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-medium text-stone">
-              Region
-              <select value={region} onChange={(e) => setRegion(e.target.value as "all" | SchoolRegion)} className={selectClass}>
-                <option value="all">All regions</option>
-                {ALL_REGIONS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-medium text-stone">
-              Academics
-              <select
-                value={academicValue}
-                onChange={(e) => {
-                  const v = e.target.value as "all" | AcademicTier;
-                  setMaxRank(v === "all" ? 150 : v === "top25" ? 25 : v === "top50" ? 50 : 100);
-                }}
-                className={selectClass}
-              >
-                <option value="all">Any ranking</option>
-                <option value="top25">{ACADEMIC_TIER_LABEL.top25} national</option>
-                <option value="top50">{ACADEMIC_TIER_LABEL.top50} national</option>
-                <option value="top100">{ACADEMIC_TIER_LABEL.top100} national</option>
-              </select>
-            </label>
-            <p className="text-xs text-stone-light">
-              Openings and cost after aid aren&apos;t tracked yet — real per-school data when we have it.
-            </p>
-            {(region !== "all" || division !== "all" || maxRank < 150 || query) && (
-              <button onClick={() => { reset(); setRegion("all"); }} className="self-start text-xs font-semibold text-grass">
-                Reset filters
-              </button>
-            )}
-          </div>
-        </aside>
+      {/* Full-width bar, above the table (not a sidebar beside it) — a
+          narrow sidebar here used to cut off select text (e.g. "All" as
+          "Al"); every control below gets real room for its full label. */}
+      <div
+        className="mt-5 flex flex-wrap items-end gap-4 rounded-xl border border-line bg-card p-[18px]"
+        aria-label="Filters"
+      >
+        <div className="flex flex-col gap-1.5 text-xs font-medium text-stone">
+          Gender
+          <GenderToggle value={gender} onChange={setGender} />
+        </div>
+        <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
+          Division
+          <select value={division} onChange={(e) => setDivision(e.target.value as "all" | Division)} className={selectClass}>
+            <option value="all">All divisions</option>
+            {divisions.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
+          Region
+          <select value={region} onChange={(e) => setRegion(e.target.value as "all" | SchoolRegion)} className={selectClass}>
+            <option value="all">All regions</option>
+            {ALL_REGIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
+          Academics
+          <select
+            value={academicValue}
+            onChange={(e) => {
+              const v = e.target.value as "all" | AcademicTier;
+              setMaxRank(v === "all" ? 150 : v === "top25" ? 25 : v === "top50" ? 50 : 100);
+            }}
+            className={selectClass}
+          >
+            <option value="all">Any ranking</option>
+            <option value="top25">{ACADEMIC_TIER_LABEL.top25} national</option>
+            <option value="top50">{ACADEMIC_TIER_LABEL.top50} national</option>
+            <option value="top100">{ACADEMIC_TIER_LABEL.top100} national</option>
+          </select>
+        </label>
+        {(region !== "all" || division !== "all" || maxRank < 150 || query) && (
+          <button
+            onClick={() => {
+              reset();
+              setRegion("all");
+            }}
+            className="h-10 shrink-0 self-end text-xs font-semibold text-grass"
+          >
+            Reset filters
+          </button>
+        )}
+      </div>
 
-        <div className="min-w-0 flex-[999_1_560px] overflow-x-auto rounded-xl border border-line bg-card">
+      <div className="mt-5">
+        {hiddenColumnNote && <p className="mb-3 text-xs text-stone-light">{hiddenColumnNote}</p>}
+
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <div className="min-w-[760px]">
-            <div className="grid grid-cols-[28px_28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3 text-xs font-semibold uppercase tracking-wide text-stone">
+            <div
+              className="grid items-center gap-3.5 border-b border-line px-[18px] py-3 text-xs font-semibold uppercase tracking-wide text-stone"
+              style={{ gridTemplateColumns: tableGridTemplate }}
+            >
               <span aria-hidden />
               <span aria-hidden />
               <span>Program</span>
               <span>Your fit</span>
               <span>You vs team UTR</span>
-              <span>Openings</span>
+              {showOpenings && <span>Openings</span>}
               <span>Acad.</span>
-              <span>Data</span>
+              {showDataCol && <span>Data</span>}
             </div>
             {visible.map((s, index) => {
               const fit = classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection);
@@ -383,8 +511,9 @@ export function SeededSchoolsBrowser({
                         setExpandedSlug(expanded ? null : s.slug);
                       }
                     }}
+                    style={{ gridTemplateColumns: tableGridTemplate }}
                     className={cn(
-                      "grid cursor-pointer grid-cols-[28px_28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0 hover:bg-cream/40",
+                      "grid cursor-pointer items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0 hover:bg-cream/40",
                       safeHighlightIndex === index && "bg-cream/70 ring-2 ring-inset ring-grass/40"
                     )}
                   >
@@ -430,9 +559,13 @@ export function SeededSchoolsBrowser({
                       high={range.max}
                       you={effectiveUtr}
                     />
-                    <DataChip status="missing">Not tracked</DataChip>
+                    {showOpenings && (
+                      <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
+                    )}
                     <DataChip status="updated">{ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}</DataChip>
-                    <DataChip status="missing">Not tracked</DataChip>
+                    {showDataCol && (
+                      <DataChip status={dataVerificationChip(s).status}>{dataVerificationChip(s).label}</DataChip>
+                    )}
                   </div>
                   {expanded && explanation && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-ink last:border-b-0">
