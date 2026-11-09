@@ -17,7 +17,7 @@ type NavLink = { href: string; label: string };
 const MARKETING_LINKS: NavLink[] = [
   { href: "/schools", label: "Schools" },
   { href: "/how-it-works", label: "How it works" },
-  { href: "/parents", label: "For parents" },
+  { href: "/sample-report", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
 ];
 

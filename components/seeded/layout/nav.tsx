@@ -18,7 +18,7 @@ const MARKETING_LINKS: NavLink[] = [
   { href: "/onboarding", label: "Fit report" },
   { href: "/tournament-fit", label: "Tournament checker" },
   { href: "/schools", label: "Schools" },
-  { href: "/parents", label: "For parents" },
+  { href: "/sample-report", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
 ];
 

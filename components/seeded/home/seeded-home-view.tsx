@@ -296,7 +296,7 @@ function TrustStrip() {
           <strong className="text-ink">Built by a junior player</strong>{" "}
           going through recruiting now.
         </span>
-        <Link href="#how-fit-works" className="text-grass hover:text-grass-700">
+        <Link href="/methodology" className="text-grass hover:text-grass-700">
           How we calculate fit
         </Link>
       </div>
@@ -479,7 +479,7 @@ function ParentsSection() {
             and what the season has cost so far.
           </p>
           <Link
-            href="#"
+            href="/sample-report"
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-lime-accent px-[18px] text-[15px] font-semibold text-ink"
           >
             See a sample parent report
@@ -529,7 +529,7 @@ function MethodAndFounder() {
             chance.
           </li>
         </ol>
-        <Link href="#how-fit-works" className="mt-4 inline-block font-semibold text-grass hover:text-grass-700">
+        <Link href="/methodology" className="mt-4 inline-block font-semibold text-grass hover:text-grass-700">
           Read the full methodology
         </Link>
       </Reveal>
@@ -613,7 +613,7 @@ function HomeFooter() {
     <footer className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-10 text-sm text-stone">
       <span>© {new Date().getFullYear()} Seeded</span>
       <span className="flex flex-wrap gap-5">
-        <Link href="#how-fit-works" className="hover:text-grass">
+        <Link href="/methodology" className="hover:text-grass">
           Methodology
         </Link>
         <Link href="/how-it-works" className="hover:text-grass">
