@@ -116,6 +116,10 @@ export function DesignSystemPreview() {
                 medianPct={48}
                 youPct={42}
                 caption="Team 8.8–10.6 · median tick · you 9.4"
+                low={8.8}
+                median={9.7}
+                high={10.6}
+                you={9.4}
               />
             </Card>
 

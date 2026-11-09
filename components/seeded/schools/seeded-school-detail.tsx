@@ -14,7 +14,10 @@ import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { StarButton } from "@/components/seeded/ui/star-button";
+import { Toast } from "@/components/seeded/ui/toast";
 import { Footer } from "@/components/layout/footer";
+import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -41,7 +44,7 @@ function signed(value: number): string {
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
 export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
-  const { player, updatePlayer } = usePlayer();
+  const { player } = usePlayer();
   const { data: outreach } = useSWR("coach-outreach", () => loadCoachOutreach());
   // Same "utr-entries" SWR key /today, /plan and the Schools browser already
   // fetch under — shares their cache instead of a fresh round-trip.
@@ -58,8 +61,15 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
 
   const explanation = explainSchoolFit(player.currentUTR, school, explanationInput);
   const range = schoolUtrRange(school);
-  const saved = player.targetSchoolSlugs.includes(school.slug);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
+
+  // Same shared star-to-target mechanism as the Schools browser and Plan —
+  // optimistic update, Undo toast, silent rollback on a real write
+  // failure. "Save to targets" below is this page's existing text-button
+  // affordance for the exact same action; the star icon next to the title
+  // is the new one, both wired to the same toggleStar call.
+  const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
+  const saved = isStarred(school.slug);
 
   const paceDescription =
     explanation.pace.status === "ready"
@@ -67,13 +77,6 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
         : "Log a UTR to see your pace.";
-
-  const toggleSave = () => {
-    const next = saved
-      ? player.targetSchoolSlugs.filter((s) => s !== school.slug)
-      : [...player.targetSchoolSlugs, school.slug];
-    updatePlayer({ targetSchoolSlugs: next });
-  };
 
   return (
     <>
@@ -85,9 +88,16 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
 
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
-              {school.name} · {programType} tennis
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <StarButton
+                starred={saved}
+                onToggle={() => toggleStar(school.slug, school.shortName)}
+                label={school.shortName}
+              />
+              <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
+                {school.name} · {programType} tennis
+              </h1>
+            </div>
             <p className="mt-1.5 text-stone">
               {school.division} · {school.conference} · {school.city}, {school.state}
             </p>
@@ -109,7 +119,10 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             >
               Compare
             </Link>
-            <SeededButton variant={saved ? "secondary" : "primary"} onClick={toggleSave}>
+            <SeededButton
+              variant={saved ? "secondary" : "primary"}
+              onClick={() => toggleStar(school.slug, school.shortName)}
+            >
               {saved ? "Saved to targets" : "Save to targets"}
             </SeededButton>
           </div>
@@ -170,6 +183,10 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 medianPct={utrToPct(school.avgRosterUTR)}
                 youPct={utrToPct(player.currentUTR)}
                 caption={`You ${player.currentUTR.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                low={range.min}
+                median={school.avgRosterUTR}
+                high={range.max}
+                you={player.currentUTR}
               />
             </div>
             <p className="mt-3 text-sm text-stone">
@@ -227,6 +244,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         </div>
       </div>
       <Footer />
+      <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
+        {toast?.message ?? " "}
+      </Toast>
     </>
   );
 }

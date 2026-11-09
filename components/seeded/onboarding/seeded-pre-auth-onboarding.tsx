@@ -140,6 +140,10 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                       medianPct={utrToPct((range.min + range.max) / 2)}
                       youPct={utrToPct(utrNum)}
                       caption={`You ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                      low={range.min}
+                      median={(range.min + range.max) / 2}
+                      high={range.max}
+                      you={utrNum}
                     />
                     <DataChip status="missing">Not tracked</DataChip>
                     <DataChip status="missing">Not tracked</DataChip>

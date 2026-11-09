@@ -84,8 +84,10 @@ export interface SchoolFitProjectionInput {
 /** "Summer" = June 1, the same convention plan-trajectory-chart.tsx already
  * uses for roadmap checkpoints (`new Date(calendarYear, 5, 1)`) — kept
  * identical so a player's roadmap and their fit band never disagree about
- * what "the summer before senior year" means. */
-function summerBeforeSeniorYear(graduationYear: number): Date {
+ * what "the summer before senior year" means. Exported so the what-if
+ * slider (lib/what-if-utr.ts) anchors to the exact same date instead of
+ * forking a second "senior summer" calculation. */
+export function summerBeforeSeniorYear(graduationYear: number): Date {
   const year = getSummerBeforeGradeYear(graduationYear, 12);
   return new Date(year, 5, 1);
 }

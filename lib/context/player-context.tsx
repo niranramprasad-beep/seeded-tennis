@@ -30,7 +30,12 @@ interface PlayerContextValue {
   retryConnection: () => void;
   beginSession: (player: Player) => void;
   completeOnboarding: (player: Player) => void;
-  updatePlayer: (patch: Partial<Player>) => void;
+  /** Resolves true once the write really succeeded (or there was nothing
+   * real to fail against — no backend configured, or signed out), false on
+   * a real write failure. The UI update itself is synchronous/optimistic;
+   * this promise is only for callers that need to react to a failure,
+   * e.g. rolling back a star/unstar. */
+  updatePlayer: (patch: Partial<Player>) => Promise<boolean>;
   signOut: () => void;
 }
 
@@ -107,12 +112,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updatePlayer = useCallback((patch: Partial<Player>) => {
-    setPlayer((prev) => {
-      const next = { ...prev, ...patch };
-      void saveCurrentPlayer(next);
-      return next;
-    });
+  // Tracks the latest player outside React's state-update batching so
+  // updatePlayer can both merge against the freshest value AND return a
+  // promise of the save's real outcome — needed by the star-to-target
+  // optimistic update (lib/hooks/use-star-schools.ts) to decide whether to
+  // roll back. A functional setState updater can't serve that second need:
+  // its callback timing isn't guaranteed synchronous, so a promise created
+  // inside it can't be reliably returned by this function.
+  const playerRef = useRef(player);
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
+  const updatePlayer = useCallback((patch: Partial<Player>): Promise<boolean> => {
+    const next = { ...playerRef.current, ...patch };
+    playerRef.current = next; // keep rapid successive calls in the same tick consistent
+    setPlayer(next);
+    return saveCurrentPlayer(next);
   }, []);
 
   const signOut = useCallback(() => {

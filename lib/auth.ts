@@ -452,12 +452,27 @@ export async function getSessionState(): Promise<SessionState> {
   }
 }
 
-export async function saveCurrentPlayer(player: Player): Promise<void> {
+// Returns whether the write actually succeeded — real signal the
+// star-to-target optimistic update (lib/hooks/use-star-schools.ts) awaits
+// to decide whether to silently roll back. "Nothing to fail against" (no
+// backend configured, or signed out) counts as success: that's the same
+// no-op this function has always been in those cases, not a new failure
+// mode. A thrown exception (e.g. a genuine network error) is the one real
+// failure case.
+export async function saveCurrentPlayer(player: Player): Promise<boolean> {
+  try {
+    return await saveCurrentPlayerOrThrow(player);
+  } catch {
+    return false;
+  }
+}
+
+async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   const supa = getSupabase();
-  if (!supa) return;
+  if (!supa) return true;
 
   const { data } = await getAuthedUser(supa);
-  if (!data.user) return;
+  if (!data.user) return true;
 
   const base = {
     id: data.user.id,
@@ -496,8 +511,11 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
   });
 
   if (error?.code === "42703") {
-    await supa.from("profiles").upsert(base);
+    const { error: fallbackError } = await supa.from("profiles").upsert(base);
+    return !fallbackError;
   }
+
+  return !error;
 }
 
 async function ensureSupabaseProfile(input: {

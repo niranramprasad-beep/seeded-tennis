@@ -28,7 +28,7 @@ export function FamilyBudgetPreview({ schools }: { schools: SchoolLite[] }) {
         retryConnection: () => {},
         beginSession: () => {},
         completeOnboarding: () => {},
-        updatePlayer: () => {},
+        updatePlayer: async () => true,
         signOut: () => {},
       }}
     >

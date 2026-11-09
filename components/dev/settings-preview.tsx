@@ -45,7 +45,10 @@ export function SettingsPreview({ targetSchools }: { targetSchools: SchoolLite[]
         retryConnection: () => {},
         beginSession: () => {},
         completeOnboarding: () => {},
-        updatePlayer: (patch) => setPlayer((prev) => ({ ...prev, ...patch })),
+        updatePlayer: (patch) => {
+          setPlayer((prev) => ({ ...prev, ...patch }));
+          return Promise.resolve(true);
+        },
         signOut: () => {},
       }}
     >

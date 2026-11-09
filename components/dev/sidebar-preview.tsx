@@ -41,7 +41,7 @@ export function SidebarPreview() {
         retryConnection: () => {},
         beginSession: () => {},
         completeOnboarding: () => {},
-        updatePlayer: () => {},
+        updatePlayer: async () => true,
         signOut: () => {},
       }}
     >

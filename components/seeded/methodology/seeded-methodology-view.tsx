@@ -154,6 +154,10 @@ export function SeededMethodologyView() {
                   rangeEndPct={utrToPct(RANGE_EXAMPLE.high)}
                   medianPct={utrToPct(RANGE_EXAMPLE.median)}
                   youPct={utrToPct(RANGE_EXAMPLE.you)}
+                  low={RANGE_EXAMPLE.low}
+                  median={RANGE_EXAMPLE.median}
+                  high={RANGE_EXAMPLE.high}
+                  you={RANGE_EXAMPLE.you}
                 />
                 <div className="mt-2 flex items-center justify-between font-mono text-[13px] tabular-nums text-stone">
                   <span>low {RANGE_EXAMPLE.low.toFixed(1)}</span>

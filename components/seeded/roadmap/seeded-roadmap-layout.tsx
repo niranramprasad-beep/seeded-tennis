@@ -6,11 +6,17 @@ import { useMemo } from "react";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { RangeBar } from "@/components/seeded/ui/range-bar";
+import { StarButton } from "@/components/seeded/ui/star-button";
+import { Toast } from "@/components/seeded/ui/toast";
+import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { PlanTrajectoryChart } from "./plan-trajectory-chart";
-import { explainSchoolFit } from "@/lib/school-fit";
+import { explainSchoolFit, schoolUtrRange, summerBeforeSeniorYear, utrToPct } from "@/lib/school-fit";
 import { utrDeltaOverMonths, winLossRecord, buildPlanChecklist } from "@/lib/plan-stats";
 import { loadUtrEntries } from "@/lib/supabase/utr";
 import { loadMatches, loadCoachOutreachDated } from "@/lib/supabase/features";
+import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
+import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { formatUTR } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
@@ -41,20 +47,38 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
     const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
     return real.length > 0 ? real : [{ date: new Date(), utr: player.currentUTR }];
   }, [utrEntries, player.currentUTR]);
-  // Real history (or the single current-UTR fallback point, which honestly
-  // fails computeUtrProjection's 3-point minimum) feeds the same 4-band
-  // classification /today uses, so Plan and Today never disagree about a
-  // target school's band. `pickerSchools` (the full same-gender catalog
-  // roadmap-view.tsx already builds) is the real candidate pool for the
-  // explanation's point-7 alternative-school suggestion.
+  // The "what if my UTR is ___ by June {year}?" slider — same shared hook
+  // and math as the Schools browser (lib/hooks/use-what-if-utr.ts),
+  // defaulting to the player's real current UTR (identical to today's
+  // page until actually touched). `actualPoints` already fails
+  // computeUtrProjection's 3-point minimum whenever there's no real
+  // history (it's a single fallback anchor, same as the trajectory
+  // chart's), so handing it to "My pace" here is safe either way.
+  const whatIf = useWhatIfUtr({
+    currentUTR: player.currentUTR,
+    graduationYear: player.graduationYear,
+    gender: player.gender,
+    utrHistory: actualPoints,
+  });
+  const effectiveUtr = whatIf.hypotheticalUTR;
+
+  const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
+
+  // Same real grad-year context as the what-if hook, plus the full catalog
+  // — explainSchoolFit only needs the catalog for its point-7 alternative-
+  // school suggestion. Uses the SAME history choice as the what-if pass
+  // (real history only for "My pace"), so a target school's "why this
+  // band" never disagrees with the band badge right above it.
+  // `pickerSchools` (the full same-gender catalog roadmap-view.tsx already
+  // builds) is the real candidate pool for that suggestion.
   const explanationInput = useMemo(
     () => ({
-      utrHistory: actualPoints,
+      utrHistory: whatIf.whatIfProjection?.utrHistory ?? [],
       graduationYear: player.graduationYear,
       gender: player.gender,
       catalog: pickerSchools,
     }),
-    [actualPoints, player.graduationYear, player.gender, pickerSchools]
+    [whatIf.whatIfProjection, player.graduationYear, player.gender, pickerSchools]
   );
   const sixMonthDelta = useMemo(
     () => (utrEntries ? utrDeltaOverMonths(utrEntries, 6) : null),
@@ -166,9 +190,16 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
       {targetSchools.length > 0 && (
         <div className="mt-5 rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Your target schools</h2>
+          <div className="mt-3.5">
+            <WhatIfPanel
+              {...whatIf}
+              seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
+            />
+          </div>
           <ul className="mt-3.5 flex flex-col gap-3 text-sm">
             {targetSchools.map((s) => {
-              const explanation = explainSchoolFit(player.currentUTR, s, explanationInput);
+              const explanation = explainSchoolFit(effectiveUtr, s, explanationInput);
+              const range = schoolUtrRange(s);
               const gapLabel =
                 explanation.band === "unverified"
                   ? "Log a UTR to see your gap."
@@ -178,13 +209,31 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
                       ? `+${explanation.gapToMedian!.toFixed(1)} to their roster average`
                       : `+${explanation.gapToFloor!.toFixed(1)} to their competitive floor`;
               return (
-                <li key={s.id} className="flex flex-col gap-1 border-b border-line pb-3 last:border-b-0 last:pb-0">
+                <li key={s.id} className="flex flex-col gap-1.5 border-b border-line pb-3 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between gap-2">
-                    <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
-                      {s.shortName}
-                    </Link>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <StarButton
+                        starred={isStarred(s.slug)}
+                        onToggle={() => toggleStar(s.slug, s.shortName)}
+                        label={s.shortName}
+                        className="h-7 w-7"
+                      />
+                      <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
+                        {s.shortName}
+                      </Link>
+                    </div>
                     <FitBadge band={explanation.band} />
                   </div>
+                  <RangeBar
+                    rangeStartPct={utrToPct(range.min)}
+                    rangeEndPct={utrToPct(range.max)}
+                    medianPct={utrToPct(s.avgRosterUTR)}
+                    youPct={utrToPct(effectiveUtr)}
+                    low={range.min}
+                    median={s.avgRosterUTR}
+                    high={range.max}
+                    you={effectiveUtr}
+                  />
                   <p className="text-xs text-stone">
                     {gapLabel}
                     {explanation.nextBand &&
@@ -198,6 +247,9 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
       )}
 
       <p className="mt-4 text-xs text-stone">Live data, your own account.</p>
+      <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
+        {toast?.message ?? " "}
+      </Toast>
     </div>
   );
 }

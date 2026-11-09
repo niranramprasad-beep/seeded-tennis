@@ -28,7 +28,7 @@ export function FamilyWeeklyReportPreview({ schools }: { schools: SchoolLite[] }
         retryConnection: () => {},
         beginSession: () => {},
         completeOnboarding: () => {},
-        updatePlayer: () => {},
+        updatePlayer: async () => true,
         signOut: () => {},
       }}
     >

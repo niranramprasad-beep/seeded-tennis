@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
 
 export type ToastVariant = "default" | "success" | "error";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastProps {
   open: boolean;
   onDismiss: () => void;
@@ -14,6 +19,9 @@ interface ToastProps {
   variant?: ToastVariant;
   /** ms before auto-dismiss; pass 0 to disable. */
   duration?: number;
+  /** Optional inline action button (e.g. "Undo") rendered before the
+   * dismiss ×. Clicking it fires both the action and onDismiss. */
+  action?: ToastAction;
 }
 
 const ICON: Record<ToastVariant, typeof CheckCircle2 | null> = {
@@ -31,7 +39,7 @@ const VARIANT_CLASS: Record<ToastVariant, string> = {
 // Generic toast — no exact mockup spec exists (static pages don't show
 // ephemeral UI). Card surface, shadow-card, auto-dismiss, respects
 // prefers-reduced-motion.
-export function Toast({ open, onDismiss, children, variant = "default", duration = 4000 }: ToastProps) {
+export function Toast({ open, onDismiss, children, variant = "default", duration = 4000, action }: ToastProps) {
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -55,6 +63,17 @@ export function Toast({ open, onDismiss, children, variant = "default", duration
         >
           {Icon && <Icon className={cn("h-4 w-4 shrink-0", VARIANT_CLASS[variant])} aria-hidden />}
           <span className="text-ink">{children}</span>
+          {action && (
+            <button
+              onClick={() => {
+                action.onClick();
+                onDismiss();
+              }}
+              className="shrink-0 whitespace-nowrap text-sm font-semibold text-grass hover:underline"
+            >
+              {action.label}
+            </button>
+          )}
           <button
             onClick={onDismiss}
             aria-label="Dismiss"

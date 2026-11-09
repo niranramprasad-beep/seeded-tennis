@@ -63,7 +63,7 @@ export function BillingPreview() {
         retryConnection: () => {},
         beginSession: () => {},
         completeOnboarding: () => {},
-        updatePlayer: () => {},
+        updatePlayer: async () => true,
         signOut: () => {},
       }}
     >
