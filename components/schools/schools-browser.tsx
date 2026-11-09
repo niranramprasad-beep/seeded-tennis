@@ -105,22 +105,11 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
         setGender={setGender}
         query={query}
         setQuery={setQuery}
-        conference={conference}
-        setConference={setConference}
-        stateFilter={stateFilter}
-        setStateFilter={setStateFilter}
         division={division}
         setDivision={setDivision}
-        maxMinUTR={maxMinUTR}
-        setMaxMinUTR={setMaxMinUTR}
         maxRank={maxRank}
         setMaxRank={setMaxRank}
-        sort={sort}
-        setSort={setSort}
-        filtersActive={filtersActive}
         ranked={ranked}
-        conferences={conferences}
-        states={states}
         divisions={divisions}
         reset={reset}
       />
