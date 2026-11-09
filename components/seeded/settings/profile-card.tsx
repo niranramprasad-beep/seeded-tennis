@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import type { Player, PlayerGender } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
+import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { SeededButton } from "@/components/seeded/ui/button";
 
 const inputClass =
@@ -38,6 +39,7 @@ export function ProfileCard({
   const [gender, setGender] = useState<PlayerGender>(player.gender);
   const [homeArea, setHomeArea] = useState(player.homeArea ?? "");
   const [utrProfileLink, setUtrProfileLink] = useState(player.utrProfileLink ?? "");
+  const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
   const [gpa, setGpa] = useState(player.gpa != null ? String(player.gpa) : "");
   const [saved, setSaved] = useState(false);
 
@@ -48,13 +50,19 @@ export function ProfileCard({
   if (!years.includes(graduationYear)) years.unshift(graduationYear);
 
   const save = () => {
+    const linkCheck = validateUtrProfileLink(utrProfileLink);
+    if (!linkCheck.valid) {
+      setUtrLinkError(linkCheck.error);
+      return;
+    }
+    setUtrLinkError(null);
     const parsedGpa = gpa.trim() === "" ? null : Number(gpa);
     onSave({
       name: name.trim(),
       graduationYear,
       gender,
       homeArea: homeArea.trim(),
-      utrProfileLink: utrProfileLink.trim(),
+      utrProfileLink: linkCheck.normalized ?? "",
       gpa: parsedGpa != null && !Number.isNaN(parsedGpa) ? parsedGpa : null,
     });
     setSaved(true);
@@ -115,9 +123,15 @@ export function ProfileCard({
           <input
             className={inputClass}
             value={utrProfileLink}
-            onChange={(e) => setUtrProfileLink(e.target.value)}
+            onChange={(e) => {
+              setUtrProfileLink(e.target.value);
+              if (utrLinkError) setUtrLinkError(null);
+            }}
+            onBlur={() => setUtrLinkError(validateUtrProfileLink(utrProfileLink).error)}
             placeholder="app.utrsports.net/profiles/..."
+            aria-invalid={utrLinkError ? true : undefined}
           />
+          {utrLinkError && <p className="mt-1.5 text-sm text-error">{utrLinkError}</p>}
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-stone">Unweighted GPA</span>

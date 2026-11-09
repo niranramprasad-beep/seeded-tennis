@@ -9,6 +9,7 @@ import { getCurrentGrade, getCurrentSchoolYear, getDefaultCommitDate } from "@/l
 import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct, type FitCounts } from "@/lib/school-fit";
 import { usePlayer } from "@/lib/context/player-context";
 import { signUp, signInWithGoogle } from "@/lib/auth";
+import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip } from "@/components/seeded/ui/data-chip";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -306,6 +307,8 @@ function SaveReportAside({
   const [name, setName] = useState("");
   const [role, setRole] = useState<FamilyRole>("player");
   const [birthYear, setBirthYear] = useState(() => new Date().getFullYear() - 16);
+  const [utrProfileLink, setUtrProfileLink] = useState("");
+  const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -319,6 +322,12 @@ function SaveReportAside({
       setError("Enter your name, a valid email, and a password of 6+ characters.");
       return;
     }
+    const linkCheck = validateUtrProfileLink(utrProfileLink);
+    if (!linkCheck.valid) {
+      setUtrLinkError(linkCheck.error);
+      return;
+    }
+    setUtrLinkError(null);
     setSubmitting(true);
     const grade = Math.min(12, Math.max(8, getCurrentGrade(gradYear)));
     const result = await signUp(
@@ -356,6 +365,7 @@ function SaveReportAside({
       tournamentsPlayed: 0,
       tournamentsGoal: 12,
       onboarded: false,
+      utrProfileLink: linkCheck.normalized ?? "",
     });
   };
 
@@ -465,6 +475,22 @@ function SaveReportAside({
             </select>
           </label>
           <p className="mt-2 text-xs text-stone">Under 13? A parent creates the account and invites you.</p>
+
+          <label className="mt-3.5 flex flex-col gap-1.5 text-[13px] font-medium text-stone">
+            UTR profile link (optional)
+            <input
+              value={utrProfileLink}
+              onChange={(e) => {
+                setUtrProfileLink(e.target.value);
+                if (utrLinkError) setUtrLinkError(null);
+              }}
+              onBlur={() => setUtrLinkError(validateUtrProfileLink(utrProfileLink).error)}
+              placeholder="app.utrsports.net/profiles/..."
+              className="h-11 rounded-md border border-input px-3 text-base text-ink"
+              aria-invalid={utrLinkError ? true : undefined}
+            />
+          </label>
+          {utrLinkError && <p className="mt-1.5 text-sm text-error">{utrLinkError}</p>}
 
           {error && <p className="mt-3 rounded-lg bg-error-bg px-3 py-2 text-sm text-error">{error}</p>}
 

@@ -30,13 +30,21 @@ import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
 import { DailyCheckinCard } from "./daily-checkin-card";
+import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { localDateKey } from "@/lib/time";
+import { isSundayCheckinDue } from "@/lib/today-actions";
 import { cn, formatUTR } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/supabase/utr";
+import {
+  generatePrepPlan,
+  loadMatches,
+  saveMatch,
+  type MatchRecord,
+} from "@/lib/supabase/features";
 import {
   loadTrainingPlannerState,
   type TrainingPlannerState,
@@ -122,10 +130,26 @@ function DashboardInner({ schools }: DashboardViewProps) {
     isLoading: utrFetchLoading,
     mutate: mutateUtrEntries,
   } = useSWR<UtrEntry[]>("utr-entries", () => loadUtrEntries());
+  // Same "matches" key /match-mode and /matches already use — one shared
+  // fetch/cache across every page, so a match logged here (or there) shows
+  // up everywhere else instantly, no refetch needed.
+  const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
+    "matches",
+    () => loadMatches()
+  );
   const [utrDrawerOpen, setUtrDrawerOpen] = useState(false);
   const [checkinDrawerOpen, setCheckinDrawerOpen] = useState(false);
+  const [sundayCheckinOpen, setSundayCheckinOpen] = useState(false);
+  const [sundayStatus, setSundayStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [sundayError, setSundayError] = useState("");
   const [utrStatus, setUtrStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
   const [utrError, setUtrError] = useState("");
+
+  // "Now" captured once per mount (same convention as the Seeded dashboard
+  // layout's own `now`) — real, not fabricated: it's only ever read against
+  // the player's actual logged UTR history below.
+  const now = useMemo(() => new Date(), []);
+  const sundayCheckinDue = useMemo(() => isSundayCheckinDue(utrEntries, now), [utrEntries, now]);
 
   // Mirror SWR's fetch state into the existing status/error pair so the
   // render logic below (and the "saving"/"error" states the save flow
@@ -210,6 +234,69 @@ function DashboardInner({ schools }: DashboardViewProps) {
     }
   };
 
+  // The Sunday check-in writes through the exact same two real functions as
+  // the standalone UTR drawer (createUtrEntry) and Match mode (saveMatch) —
+  // no third parallel data-entry mechanism — so a submission here is
+  // immediately the same real data /plan's chart and match history already
+  // read, not a separate record that needs reconciling later.
+  const handleSaveSundayCheckin = async (input: SundayCheckinSaveInput) => {
+    setSundayStatus("saving");
+    setSundayError("");
+    try {
+      const savedUtr = await createUtrEntry({
+        utr: input.utr,
+        recordedAt: input.recordedAt,
+        note: "Sunday check-in",
+      });
+      const utrEntry =
+        savedUtr ??
+        ({
+          id: `local-${Date.now()}`,
+          utr: input.utr,
+          recordedAt: input.recordedAt,
+          note: "Sunday check-in",
+        } satisfies UtrEntry);
+      const nextEntries = [...utrEntries.filter((e) => e.id !== utrEntry.id), utrEntry].sort(
+        (a, b) => a.recordedAt.localeCompare(b.recordedAt)
+      );
+      mutateUtrEntries(nextEntries, { revalidate: false });
+      // Same "most recently DATED, not most recently logged" rule as the
+      // standalone UTR drawer above.
+      const mostRecent = nextEntries[nextEntries.length - 1];
+      updatePlayer({ currentUTR: mostRecent.utr });
+
+      if (input.match) {
+        const prepPlan = generatePrepPlan({
+          weaknesses: player.weaknesses,
+          surface: input.match.surface,
+          currentUtr: input.utr,
+          opponentUtr: null,
+        });
+        const savedMatch = await saveMatch({
+          matchDate: input.match.matchDate,
+          opponent: input.match.opponent,
+          surface: input.match.surface,
+          prepPlan,
+          result: input.match.result,
+          score: input.match.score,
+          notificationRequested: false,
+        });
+        if (savedMatch) {
+          mutateMatches(
+            (prev = []) => [savedMatch, ...prev.filter((m) => m.id !== savedMatch.id)],
+            { revalidate: false }
+          );
+        }
+      }
+
+      setSundayCheckinOpen(false);
+      setSundayStatus("idle");
+    } catch (error) {
+      setSundayStatus("error");
+      setSundayError(error instanceof Error ? error.message : "Could not save your check-in.");
+    }
+  };
+
   const { design } = useDesign();
   const layoutProps = {
     firstName,
@@ -227,6 +314,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
     targetSchools,
     setUtrDrawerOpen,
     setCheckinDrawerOpen,
+    sundayCheckinDue,
+    setSundayCheckinOpen,
   };
 
   return (
@@ -247,6 +336,18 @@ function DashboardInner({ schools }: DashboardViewProps) {
           setUtrError("");
         }}
         onSave={handleSaveUtr}
+      />
+
+      <SundayCheckinDrawer
+        open={sundayCheckinOpen}
+        currentUtr={player.currentUTR}
+        loading={sundayStatus === "saving"}
+        error={sundayError}
+        onClose={() => {
+          setSundayCheckinOpen(false);
+          setSundayError("");
+        }}
+        onSave={handleSaveSundayCheckin}
       />
 
       <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
@@ -272,6 +373,11 @@ export interface DashboardLayoutProps {
   targetSchools: SchoolLite[];
   setUtrDrawerOpen: (v: boolean) => void;
   setCheckinDrawerOpen: (v: boolean) => void;
+  /** Real, computed from the player's own UTR history — lib/today-actions.ts's
+   * isSundayCheckinDue. True only on an actual Sunday (with nothing logged
+   * yet today) or when genuinely overdue (7+ days since the last entry). */
+  sundayCheckinDue: boolean;
+  setSundayCheckinOpen: (v: boolean) => void;
 }
 
 function LegacyDashboardLayout({
@@ -290,6 +396,8 @@ function LegacyDashboardLayout({
   targetSchools,
   setUtrDrawerOpen,
   setCheckinDrawerOpen,
+  sundayCheckinDue,
+  setSundayCheckinOpen,
 }: DashboardLayoutProps) {
   return (
     <>
@@ -315,6 +423,23 @@ function LegacyDashboardLayout({
           </Button>
         </div>
       </Reveal>
+
+      {sundayCheckinDue && (
+        <Reveal className="mt-6">
+          <Card className="flex flex-wrap items-center justify-between gap-4 border-grass/25 bg-grass-50 p-5">
+            <div>
+              <p className="font-medium text-ink">Sunday check-in</p>
+              <p className="text-sm text-stone">
+                Quick weekly update — your UTR, plus a match result if you played one.
+              </p>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => setSundayCheckinOpen(true)}>
+              <Sparkles className="h-4 w-4" />
+              Start check-in
+            </Button>
+          </Card>
+        </Reveal>
+      )}
 
       <div className="mt-8 space-y-8">
         {/* job 1: show progress */}

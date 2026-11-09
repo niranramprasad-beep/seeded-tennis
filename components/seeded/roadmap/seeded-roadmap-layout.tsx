@@ -26,6 +26,7 @@ import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-sch
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
 import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
+import { utrProfileLinkHref } from "@/lib/utr-profile-link";
 import { formatUTR } from "@/lib/utils";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
@@ -188,6 +189,19 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
           <h1 className="font-seeded text-[28px] font-bold text-ink">{player.name || "Your profile"}</h1>
           <p className="mt-1 text-stone">
             Class of {player.graduationYear} · {player.gender === "female" ? "Women's" : "Men's"}
+            {player.utrProfileLink && (
+              <>
+                {" · "}
+                <a
+                  href={utrProfileLinkHref(player.utrProfileLink)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-grass hover:text-grass-700"
+                >
+                  UTR profile ↗
+                </a>
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-7">

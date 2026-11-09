@@ -2,6 +2,7 @@ import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
 import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
+import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 
 export { isSupabaseConfigured };
 
@@ -502,10 +503,18 @@ async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   // call across the app (onboarding, weaknesses, target schools,
   // tournament counts, ...) keeps working exactly as before instead of
   // silently failing because of these unrelated new fields.
+  // Defensive second check right before the real write: every real UI path
+  // (Settings' ProfileCard, pre-auth onboarding's save step) already
+  // validates and normalizes this with the same lib/utr-profile-link.ts
+  // rule, but updatePlayer() is a generic merge-patch any caller can hit —
+  // this makes sure a malformed value never actually lands in Postgres
+  // even if some future caller skips the form-level check, rather than
+  // silently failing the whole profile write over one bad field.
+  const linkCheck = validateUtrProfileLink(player.utrProfileLink ?? "");
   const { error } = await supa.from("profiles").upsert({
     ...base,
     home_area: player.homeArea ?? null,
-    utr_profile_link: player.utrProfileLink ?? null,
+    utr_profile_link: linkCheck.valid ? linkCheck.normalized || null : null,
     gpa: player.gpa ?? null,
     deletion_requested_at: player.deletionRequestedAt ?? null,
   });

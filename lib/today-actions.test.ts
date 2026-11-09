@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTodayActions, buildThisWeekItems, daysSince } from "./today-actions";
+import { buildTodayActions, buildThisWeekItems, daysSince, isSundayCheckinDue } from "./today-actions";
 import type { SchoolLite } from "./types";
 
 function school(overrides: Partial<SchoolLite>): SchoolLite {
@@ -171,6 +171,49 @@ describe("buildThisWeekItems", () => {
     );
     expect(items.some((i) => i.id === "due-due-soon")).toBe(true);
     expect(items.some((i) => i.id === "due-overdue")).toBe(false);
+  });
+});
+
+describe("isSundayCheckinDue", () => {
+  // 2026-11-08 is a real Sunday; 2026-11-11 is a real Wednesday.
+  const SUNDAY = new Date("2026-11-08T12:00:00Z");
+  const WEDNESDAY = new Date("2026-11-11T12:00:00Z");
+
+  it("is due on Sunday with no entries logged at all", () => {
+    expect(isSundayCheckinDue([], SUNDAY)).toBe(true);
+  });
+
+  it("is due on Sunday even right after a recent (non-today) entry", () => {
+    expect(isSundayCheckinDue([{ recordedAt: "2026-11-05" }], SUNDAY)).toBe(true);
+  });
+
+  it("is NOT due on Sunday once today's entry already exists", () => {
+    expect(isSundayCheckinDue([{ recordedAt: "2026-11-08" }], SUNDAY)).toBe(false);
+  });
+
+  it("is NOT due on a weekday with a recent entry inside the 7-day window", () => {
+    expect(isSundayCheckinDue([{ recordedAt: "2026-11-09" }], WEDNESDAY)).toBe(false);
+  });
+
+  it("is due on a weekday once the last entry is more than 7 days old (genuinely overdue)", () => {
+    expect(isSundayCheckinDue([{ recordedAt: "2026-11-01" }], WEDNESDAY)).toBe(true);
+  });
+
+  it("is due on a weekday with no entries ever logged", () => {
+    expect(isSundayCheckinDue([], WEDNESDAY)).toBe(true);
+  });
+
+  it("is NOT due on a weekday once today's entry already exists, even if other entries are old", () => {
+    expect(
+      isSundayCheckinDue([{ recordedAt: "2026-10-01" }, { recordedAt: "2026-11-11" }], WEDNESDAY)
+    ).toBe(false);
+  });
+
+  it("uses the most recently dated entry, not just the last one in the array", () => {
+    // Oldest listed last, most recent listed first — still correctly NOT overdue.
+    expect(
+      isSundayCheckinDue([{ recordedAt: "2026-11-09" }, { recordedAt: "2026-01-01" }], WEDNESDAY)
+    ).toBe(false);
   });
 });
 

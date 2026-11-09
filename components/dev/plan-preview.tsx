@@ -20,6 +20,7 @@ const MOCK_PLAYER: Player = {
   tournamentsPlayed: 6,
   tournamentsGoal: 12,
   onboarded: true,
+  utrProfileLink: "app.utrsports.net/profiles/MC2024",
 };
 
 const MOCK_ROADMAP: RoadmapYear[] = [

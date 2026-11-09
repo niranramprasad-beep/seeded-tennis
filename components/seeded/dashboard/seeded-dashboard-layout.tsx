@@ -41,6 +41,8 @@ export function SeededDashboardLayout({
   targetSchools,
   setUtrDrawerOpen,
   setCheckinDrawerOpen,
+  sundayCheckinDue,
+  setSundayCheckinOpen,
 }: DashboardLayoutProps) {
   const now = useMemo(() => new Date(), []);
 
@@ -122,6 +124,21 @@ export function SeededDashboardLayout({
             Update UTR
           </button>
         </div>
+
+        {sundayCheckinDue && (
+          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-grass-100 bg-grass-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">Sunday check-in</p>
+              <p className="text-[13px] text-stone">
+                Quick weekly update — your UTR, plus a match result if you played one.
+              </p>
+            </div>
+            <SeededButton className="min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
+              <Sparkles className="h-3.5 w-3.5" />
+              Start check-in
+            </SeededButton>
+          </div>
+        )}
       </div>
 
       <section aria-labelledby="actions-heading" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">

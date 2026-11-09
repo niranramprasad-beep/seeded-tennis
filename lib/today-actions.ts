@@ -7,6 +7,7 @@
 import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import type { OutreachStatusMapDated } from "@/lib/supabase/features";
+import { localDateKey } from "@/lib/time";
 
 export type TodayActionKind = "email" | "followup" | "reminder";
 
@@ -145,4 +146,38 @@ export function buildThisWeekItems(
   });
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+// Real "haven't checked in this week" rule behind the Sunday check-in
+// prompt (components/dashboard/sunday-checkin-drawer.tsx) — computed from
+// the player's own most-recently-DATED real UTR entry (lib/supabase/utr.ts),
+// never a fabricated streak. Due when either:
+//   - it's actually Sunday and nothing has been logged yet today, or
+//   - more than 7 days have passed since the last logged entry (genuinely
+//     overdue regardless of weekday — covers a player who skipped a
+//     Sunday or two, or who has never logged anything at all).
+// Once an entry exists for today, it's satisfied no matter which rule
+// would otherwise have triggered it — this is a once-a-day-at-most prompt,
+// not a permanent nag.
+export function isSundayCheckinDue(
+  utrEntries: { recordedAt: string }[],
+  now: Date = new Date()
+): boolean {
+  const todayKey = localDateKey(now);
+  if (utrEntries.some((e) => e.recordedAt === todayKey)) return false;
+  if (now.getDay() === 0) return true;
+  if (utrEntries.length === 0) return true;
+
+  const mostRecentKey = utrEntries.reduce(
+    (latest, e) => (e.recordedAt > latest ? e.recordedAt : latest),
+    utrEntries[0].recordedAt
+  );
+  // Date-only keys ("YYYY-MM-DD") must be parsed as LOCAL midnight, not UTC
+  // midnight (same convention dashboard-view.tsx's actualPoints mapping
+  // already uses for this exact field) — otherwise this can disagree with
+  // `now.getDay()` above by up to a day depending on the player's timezone.
+  const daysSinceLastEntry = Math.floor(
+    (now.getTime() - new Date(`${mostRecentKey}T00:00:00`).getTime()) / 86_400_000
+  );
+  return daysSinceLastEntry > 7;
 }
