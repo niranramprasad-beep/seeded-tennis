@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useDesign } from "@/lib/context/design-context";
 
 // Shared body for every route's error.tsx — same visual language as the
 // root app/error.tsx (error-bg/error tokens, AlertTriangle, "Try again"),
@@ -11,13 +12,19 @@ import { Button, buttonVariants } from "@/components/ui/button";
 // page. Keeping the error boundary PER ROUTE (instead of relying only on
 // the root one) means a failure in one tab never has to tear down and
 // reset every other route's state — only this one segment resets.
+//
+// backHref/backLabel default to undefined (not a literal "/dashboard") so
+// the fallback below can be design-aware: Legacy's dashboard is still
+// genuinely at /dashboard, but Seeded's primary route is /today — a Seeded
+// user hitting an unhandled error on any page should land somewhere that
+// won't itself immediately redirect them again.
 export function RouteError({
   error,
   reset,
   title = "Something went wrong.",
   description = "That's on us — try again, or head back to your dashboard.",
-  backHref = "/dashboard",
-  backLabel = "Back to dashboard",
+  backHref,
+  backLabel,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
@@ -26,6 +33,10 @@ export function RouteError({
   backHref?: string;
   backLabel?: string;
 }) {
+  const { design } = useDesign();
+  const resolvedHref = backHref ?? (design === "seeded" ? "/today" : "/dashboard");
+  const resolvedLabel = backLabel ?? (design === "seeded" ? "Back to Today" : "Back to dashboard");
+
   useEffect(() => {
     // eslint-disable-next-line no-console
     console.error(error);
@@ -43,8 +54,8 @@ export function RouteError({
           <RotateCw className="h-4 w-4" />
           Try again
         </Button>
-        <Link href={backHref} className={buttonVariants({ variant: "outline", size: "md" })}>
-          {backLabel}
+        <Link href={resolvedHref} className={buttonVariants({ variant: "outline", size: "md" })}>
+          {resolvedLabel}
         </Link>
       </div>
     </div>

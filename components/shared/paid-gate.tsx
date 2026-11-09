@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import type { SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
+import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -39,6 +40,9 @@ export function PaidGate({
   children,
 }: PaidGateProps) {
   const { canAccess, hydrated } = useTier();
+  const { design } = useDesign();
+  const dashboardHref = design === "seeded" ? "/today" : "/dashboard";
+  const dashboardLabel = design === "seeded" ? "Back to Today" : "Back to dashboard";
 
   if (!hydrated) {
     return (
@@ -94,10 +98,10 @@ export function PaidGate({
             See plans
           </Link>
           <Link
-            href="/dashboard"
+            href={dashboardHref}
             className={buttonVariants({ variant: "outline", size: "lg" })}
           >
-            Back to dashboard
+            {dashboardLabel}
           </Link>
         </div>
 
