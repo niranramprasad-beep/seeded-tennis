@@ -48,12 +48,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
-  // Seeded's pre-auth onboarding (Onboarding.dc.html) and the Methodology
-  // page (Methodology.dc.html) both have their own dedicated, simpler
-  // header — pixel-exact to their mockups, neither of which shows the
-  // standard marketing nav above it. Scoped to these two routes; every
-  // other signed-out marketing page keeps the shared SeededNav.
-  const hideSeededNav = isSeeded && (pathname === "/onboarding" || pathname === "/methodology");
+  // Seeded's pre-auth onboarding (Onboarding.dc.html), the Methodology page
+  // (Methodology.dc.html), and the sample parent report (pixel-exact to
+  // "12 Sample parent report.png") each have their own dedicated, simpler
+  // header — neither of which shows the standard marketing nav above it.
+  // Scoped to these routes; every other signed-out marketing page keeps the
+  // shared SeededNav. Also keeps /sample-report's own minimal header from
+  // ever stacking under the full nav, which matters here specifically: this
+  // route must never look like it's part of the authenticated app chrome.
+  const hideSeededNav =
+    isSeeded && (pathname === "/onboarding" || pathname === "/methodology" || pathname === "/sample-report");
   useScrollToTopOnRouteChange(pathname);
 
   return (
