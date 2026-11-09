@@ -1,0 +1,120 @@
+import { describe, expect, it } from "vitest";
+import { buildTodayActions, buildThisWeekItems, daysSince } from "./today-actions";
+import type { SchoolLite } from "./types";
+
+function school(overrides: Partial<SchoolLite>): SchoolLite {
+  return {
+    id: overrides.slug ?? "s",
+    slug: "s",
+    name: "Test School",
+    shortName: "Test",
+    city: "Testville",
+    state: "VA",
+    conference: "Test Conf",
+    division: "D3",
+    gender: "women",
+    primaryColor: "#000",
+    secondaryColor: "#000",
+    textColor: "#fff",
+    avgRosterUTR: 9.5,
+    minCompetitiveUTR: 8.5,
+    usNewsRanking: 50,
+    conferenceRank: 1,
+    coachName: "Coach",
+    coachEmail: "coach@example.com",
+    recruitingPageUrl: "",
+    ...overrides,
+  };
+}
+
+const NOW = new Date("2026-11-08T12:00:00Z");
+
+describe("buildTodayActions", () => {
+  it("surfaces a newly-qualifying school with no outreach row as an email action", () => {
+    const target = school({ slug: "middlebury", shortName: "Middlebury", minCompetitiveUTR: 8.8, avgRosterUTR: 10.6 });
+    const actions = buildTodayActions(9.4, [target], {}, NOW);
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ kind: "email", id: "email-middlebury" });
+    expect(actions[0].title).toContain("Middlebury");
+  });
+
+  it("does not suggest emailing a school still out of reach", () => {
+    const target = school({ slug: "emory", minCompetitiveUTR: 9.8, avgRosterUTR: 11.6 });
+    const actions = buildTodayActions(9.4, [target], {}, NOW);
+    expect(actions).toHaveLength(0);
+  });
+
+  it("surfaces an overdue follow-up for a contacted school with no reply after 10+ days", () => {
+    const target = school({ slug: "williams", shortName: "Williams" });
+    const contactedAt = new Date(NOW.getTime() - 14 * 86_400_000).toISOString();
+    const actions = buildTodayActions(9.4, [target], { williams: { status: "contacted", updatedAt: contactedAt } }, NOW);
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ kind: "followup", id: "followup-williams" });
+    expect(actions[0].description).toContain("14 days");
+  });
+
+  it("does not flag a recently-contacted school as overdue yet", () => {
+    const target = school({ slug: "richmond" });
+    const contactedAt = new Date(NOW.getTime() - 2 * 86_400_000).toISOString();
+    const actions = buildTodayActions(9.4, [target], { richmond: { status: "contacted", updatedAt: contactedAt } }, NOW);
+    expect(actions).toHaveLength(0);
+  });
+
+  it("treats a replied school as settled, not actionable", () => {
+    const target = school({ slug: "bucknell" });
+    const actions = buildTodayActions(9.4, [target], { bucknell: { status: "replied", updatedAt: NOW.toISOString() } }, NOW);
+    expect(actions).toHaveLength(0);
+  });
+
+  it("returns an empty list when the player has zero actions due", () => {
+    const actions = buildTodayActions(9.4, [], {}, NOW);
+    expect(actions).toEqual([]);
+  });
+
+  it("sorts email actions before follow-ups", () => {
+    const emailTarget = school({ slug: "aaa-school", shortName: "AAA" });
+    const followupTarget = school({ slug: "zzz-school", shortName: "ZZZ" });
+    const contactedAt = new Date(NOW.getTime() - 20 * 86_400_000).toISOString();
+    const actions = buildTodayActions(
+      9.4,
+      [followupTarget, emailTarget],
+      { "zzz-school": { status: "contacted", updatedAt: contactedAt } },
+      NOW
+    );
+    expect(actions.map((a) => a.kind)).toEqual(["email", "followup"]);
+  });
+});
+
+describe("buildThisWeekItems", () => {
+  it("always includes the standing weekly check-in", () => {
+    const items = buildThisWeekItems([], {}, NOW);
+    expect(items.some((i) => i.id === "weekly-checkin")).toBe(true);
+  });
+
+  it("includes a follow-up due within the next 7 days, not an overdue one", () => {
+    const dueSoon = school({ slug: "due-soon" });
+    const alreadyOverdue = school({ slug: "overdue" });
+    const items = buildThisWeekItems(
+      [dueSoon, alreadyOverdue],
+      {
+        // contacted 8 days ago -> due in 2 days (inside the 7-day window)
+        "due-soon": { status: "contacted", updatedAt: new Date(NOW.getTime() - 8 * 86_400_000).toISOString() },
+        // contacted 25 days ago -> was due 15 days ago, already overdue/surfaced elsewhere
+        overdue: { status: "contacted", updatedAt: new Date(NOW.getTime() - 25 * 86_400_000).toISOString() },
+      },
+      NOW
+    );
+    expect(items.some((i) => i.id === "due-due-soon")).toBe(true);
+    expect(items.some((i) => i.id === "due-overdue")).toBe(false);
+  });
+});
+
+describe("daysSince", () => {
+  it("computes whole days between two dates", () => {
+    expect(daysSince(new Date(NOW.getTime() - 3 * 86_400_000).toISOString(), NOW)).toBe(3);
+  });
+
+  it("never returns a negative number for a future date", () => {
+    expect(daysSince(new Date(NOW.getTime() + 86_400_000).toISOString(), NOW)).toBe(0);
+  });
+});

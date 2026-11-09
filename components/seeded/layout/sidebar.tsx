@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -23,9 +24,28 @@ import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
+import { getSchoolsLite } from "@/lib/data";
+import { loadCoachOutreachDated } from "@/lib/supabase/features";
+import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
 
-type NavLink = { href: string; label: string; icon: LucideIcon };
+type NavLink = { href: string; label: string; icon: LucideIcon; badge?: number };
+
+// Real count of /today's action list, computed the same way
+// seeded-dashboard-layout.tsx does — so the sidebar badge never disagrees
+// with what /today actually shows. Cheap: getSchoolsLite() is in-memory, and
+// SWR dedupes the "coach-outreach-dated"/"schools-lite" keys against any
+// other component requesting the same data (e.g. /today itself, when both
+// are mounted together).
+function useTodayActionCount(targetSchoolSlugs: string[], playerUtr: number): number {
+  const { data: schools } = useSWR("schools-lite", () => getSchoolsLite());
+  const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
+  return useMemo(() => {
+    if (!schools) return 0;
+    const targetSchools = schools.filter((s) => targetSchoolSlugs.includes(s.slug));
+    return buildTodayActions(playerUtr, targetSchools, outreach ?? {}).length;
+  }, [schools, outreach, targetSchoolSlugs, playerUtr]);
+}
 
 // The redesign's 5-item IA (Today.dc.html / MobileToday.dc.html) is
 // player-only — every one of the 11 mockups shows the player's view.
@@ -72,7 +92,12 @@ export function SeededSidebar() {
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   const isParent = player.role === "parent";
-  const navLinks = isParent ? PARENT_NAV_LINKS : PLAYER_NAV_LINKS;
+  const todayCount = useTodayActionCount(player.targetSchoolSlugs, player.currentUTR);
+  const navLinks = useMemo(() => {
+    const base = isParent ? PARENT_NAV_LINKS : PLAYER_NAV_LINKS;
+    if (isParent || todayCount === 0) return base;
+    return base.map((l) => (l.href === "/today" ? { ...l, badge: todayCount } : l));
+  }, [isParent, todayCount]);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const handleSignOut = () => {
@@ -166,6 +191,11 @@ export function SeededSidebar() {
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" />
                 {!collapsed && <span className="truncate">{l.label}</span>}
+                {!collapsed && !!l.badge && (
+                  <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-ink">
+                    {l.badge}
+                  </span>
+                )}
                 {collapsed && (
                   <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg border border-[rgb(var(--c-line))] bg-card px-2.5 py-1.5 font-sans text-xs font-medium text-ink opacity-0 shadow-card transition-opacity duration-150 hover:opacity-100">
                     {l.label}
@@ -232,7 +262,14 @@ export function SeededSidebar() {
               {/* Pixel-exact hand-drawn icons for the player's mockup-defined
                   5 items; parent mode has no mockup, so it falls back to the
                   same lucide icon used in the desktop nav. */}
-              {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
+              <span className="relative">
+                {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
+                {!!l.badge && (
+                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-ink">
+                    {l.badge}
+                  </span>
+                )}
+              </span>
               {l.label}
             </Link>
           );

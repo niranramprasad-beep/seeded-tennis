@@ -334,6 +334,31 @@ export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachS
   return map;
 }
 
+// Same rows as loadCoachOutreach, plus `updated_at` — the real "when did
+// this status last change" signal /today's follow-up-due logic needs.
+// Additive: loadCoachOutreach/OutreachStatusMap are untouched so the
+// existing Outreach page keeps working unchanged.
+export type OutreachStatusMapDated = Record<string, { status: OutreachStatus; updatedAt: string }>;
+
+export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<OutreachStatusMapDated> {
+  const supabase = getSupabase();
+  const { id, profile: p } = await userIdAndProfile();
+  if (!supabase || !id) return {};
+  let query = supabase.from("coach_outreach").select("school_slug, status, updated_at");
+  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
+  if (error) return {};
+  const map: OutreachStatusMapDated = {};
+  for (const row of data ?? []) {
+    map[row.school_slug as string] = {
+      status: row.status as OutreachStatus,
+      updatedAt: row.updated_at as string,
+    };
+  }
+  return map;
+}
+
 export async function saveCoachOutreachStatus(
   schoolSlug: string,
   status: OutreachStatus | null
