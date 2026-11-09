@@ -12,6 +12,8 @@ import { loadTrainingPlannerState, type TrainingPlannerState } from "@/lib/supab
 import { DEFAULT_TYPES, TrainingView } from "@/components/training/training-view";
 import { MatchModeView } from "@/components/matches/match-mode-view";
 import { Drawer } from "@/components/ui/drawer";
+import { Toast } from "@/components/seeded/ui/toast";
+import { useEventsCalendar } from "@/lib/hooks/use-events-calendar";
 import { SeededEventsLayout } from "./seeded-events-layout";
 
 // A real-but-empty planner fallback for /events' calendar card. Unlike
@@ -76,6 +78,13 @@ function EventsContent({ plans }: { plans: TrainingPlan[] }) {
   const [addSessionOpen, setAddSessionOpen] = useState(false);
   const [logResultOpen, setLogResultOpen] = useState(false);
 
+  // Real add/edit/delete/move/resize/repeat CRUD for the calendar card's
+  // own week view — reads and writes this exact plannerState/mutatePlanner
+  // pair, the same training_plans/workout_sessions rows TrainingView (in
+  // the drawer below) already owns. See lib/hooks/use-events-calendar.ts.
+  const { addSession, updateSession, moveSession, resizeSession, deleteSession, toast, dismissToast } =
+    useEventsCalendar(plannerState ?? EMPTY_PLANNER_STATE, mutatePlanner);
+
   const markEntered = async (id: string) => {
     mutateTournaments((prev = []) => prev.map((t) => (t.id === id ? { ...t, status: "entered" } : t)), {
       revalidate: false,
@@ -100,6 +109,11 @@ function EventsContent({ plans }: { plans: TrainingPlan[] }) {
         onMarkEntered={markEntered}
         onAddSession={() => setAddSessionOpen(true)}
         onLogResult={() => setLogResultOpen(true)}
+        onAddCalendarSession={addSession}
+        onUpdateCalendarSession={updateSession}
+        onMoveCalendarSession={moveSession}
+        onResizeCalendarSession={resizeSession}
+        onDeleteCalendarSession={deleteSession}
       />
 
       <Drawer
@@ -122,6 +136,10 @@ function EventsContent({ plans }: { plans: TrainingPlan[] }) {
       >
         <MatchModeView />
       </Drawer>
+
+      <Toast open={!!toast} onDismiss={dismissToast} variant={toast?.variant ?? "default"} action={toast?.action}>
+        {toast?.message ?? " "}
+      </Toast>
     </>
   );
 }

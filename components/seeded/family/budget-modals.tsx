@@ -35,18 +35,29 @@ export function ModalShell({
             onClick={onClose}
             className="fixed inset-0 z-[100] bg-ink/50"
           />
-          <motion.div
-            initial={{ opacity: 0, y: -12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed left-1/2 top-[14vh] z-[101] w-full max-w-md -translate-x-1/2 overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-          >
-            {children}
-          </motion.div>
+          {/* Centers via flexbox, not a `left-1/2 -translate-x-1/2` transform
+              trick — Framer Motion writes its own `transform` inline style
+              for the panel below (animating y/scale), and once that
+              animation settles it sets `transform: none`, which would
+              silently wipe out a Tailwind transform-based centering class
+              and push the panel off-screen at narrow viewports. This outer
+              layer is pointer-events-none (and the panel pointer-events-auto)
+              so a click in the empty side margins still falls through to
+              the backdrop behind, same as before. */}
+          <div className="pointer-events-none fixed inset-x-0 top-[14vh] z-[101] flex justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+            >
+              {children}
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

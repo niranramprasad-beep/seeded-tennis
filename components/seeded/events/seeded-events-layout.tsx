@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { Player } from "@/lib/types";
+import type { Player, WeekdayShort } from "@/lib/types";
 import type { MatchRecord } from "@/lib/supabase/features";
 import type { TournamentEntry } from "@/lib/supabase/tournaments";
 import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/supabase/training";
+import type { AddSessionInput, SessionFormValues } from "@/lib/hooks/use-events-calendar";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { UpcomingTournamentsCard } from "./upcoming-tournaments-card";
 import { RecentResultsCard } from "./recent-results-card";
@@ -19,6 +20,11 @@ export interface SeededEventsLayoutProps {
   onMarkEntered: (id: string) => void;
   onAddSession: () => void;
   onLogResult: () => void;
+  onAddCalendarSession: (input: AddSessionInput) => void;
+  onUpdateCalendarSession: (id: string, values: SessionFormValues, weekOffset: number) => void;
+  onMoveCalendarSession: (id: string, day: WeekdayShort, startTime: string, weekOffset: number) => void;
+  onResizeCalendarSession: (id: string, duration: number) => void;
+  onDeleteCalendarSession: (session: TrainingPlannerSession, scope: "one" | "series") => void;
 }
 
 // Pixel-exact to "15 Events (schedule + results).png" — the real merge of
@@ -41,6 +47,11 @@ export function SeededEventsLayout({
   onMarkEntered,
   onAddSession,
   onLogResult,
+  onAddCalendarSession,
+  onUpdateCalendarSession,
+  onMoveCalendarSession,
+  onResizeCalendarSession,
+  onDeleteCalendarSession,
 }: SeededEventsLayoutProps) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
@@ -72,7 +83,16 @@ export function SeededEventsLayout({
           <RecentResultsCard matches={matches} />
         </div>
         <div className="min-w-0">
-          <EventsCalendarCard sessions={sessions} sessionTypes={sessionTypes} tournamentEntries={tournamentEntries} />
+          <EventsCalendarCard
+            sessions={sessions}
+            sessionTypes={sessionTypes}
+            tournamentEntries={tournamentEntries}
+            onAddSession={onAddCalendarSession}
+            onUpdateSession={onUpdateCalendarSession}
+            onMoveSession={onMoveCalendarSession}
+            onResizeSession={onResizeCalendarSession}
+            onDeleteSession={onDeleteCalendarSession}
+          />
         </div>
       </div>
     </div>

@@ -1,10 +1,15 @@
 "use client";
 
+import { useCallback, useState } from "react";
+import type { KeyedMutator } from "swr";
 import type { Player } from "@/lib/types";
 import type { MatchRecord } from "@/lib/supabase/features";
 import type { TournamentEntry } from "@/lib/supabase/tournaments";
-import type { TrainingPlannerSession } from "@/lib/supabase/training";
+import type { TrainingPlannerState } from "@/lib/supabase/training";
 import { DEFAULT_TYPES } from "@/components/training/training-view";
+import { dateForWeekday } from "@/lib/training/grid-math";
+import { useEventsCalendar } from "@/lib/hooks/use-events-calendar";
+import { Toast } from "@/components/seeded/ui/toast";
 import { SeededEventsLayout } from "@/components/seeded/events/seeded-events-layout";
 
 // Internal tool only — pixel-checks /events' real layout (header, fit
@@ -143,26 +148,65 @@ const MOCK_MATCHES: MatchRecord[] = [
   },
 ];
 
-const MOCK_SESSIONS: TrainingPlannerSession[] = [
-  { id: "s-1", title: "Drills", typeId: "tennis", day: "Mon", date: "", startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-  { id: "s-2", title: "Fitness", typeId: "strength", day: "Tue", date: "", startTime: "16:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-  { id: "s-3", title: "Match play", typeId: "match-prep", day: "Wed", date: "", startTime: "16:00", duration: 90, intensity: "high", notes: "", goals: "", drills: [], completed: false },
-  { id: "s-4", title: "Drills", typeId: "tennis", day: "Fri", date: "", startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-  { id: "s-5", title: "Fitness", typeId: "strength", day: "Sat", date: "", startTime: "10:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-  { id: "s-6", title: "Coach call", typeId: "mental", day: "Thu", date: "", startTime: "17:00", duration: 20, intensity: "low", notes: "", goals: "", drills: [], completed: false },
-];
+// Real dates (this real current week), not "" — the Events calendar
+// card's week view filters sessions by their actual stored date (see
+// events-calendar-card.tsx's header comment), so an empty date string
+// would make every mock session invisible in week view.
+const MOCK_PLANNER_STATE: TrainingPlannerState = {
+  sessions: [
+    { id: "s-1", title: "Drills", typeId: "tennis", day: "Mon", date: dateForWeekday("Mon"), startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
+    { id: "s-2", title: "Fitness", typeId: "strength", day: "Tue", date: dateForWeekday("Tue"), startTime: "16:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
+    { id: "s-3", title: "Match play against someone whose name takes up the whole row", typeId: "match-prep", day: "Wed", date: dateForWeekday("Wed"), startTime: "16:00", duration: 90, intensity: "high", notes: "", goals: "", drills: [], completed: false },
+    { id: "s-4", title: "Drills", typeId: "tennis", day: "Fri", date: dateForWeekday("Fri"), startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
+    { id: "s-5", title: "Fitness", typeId: "strength", day: "Sat", date: dateForWeekday("Sat"), startTime: "10:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
+    { id: "s-6", title: "Coach call", typeId: "mental", day: "Thu", date: dateForWeekday("Thu"), startTime: "17:00", duration: 20, intensity: "low", notes: "", goals: "", drills: [], completed: false },
+  ],
+  sessionTypes: DEFAULT_TYPES,
+  plans: [{ id: "plan-1", name: "Preview plan", goal: "", sessionIds: ["s-1", "s-2", "s-3", "s-4", "s-5", "s-6"] }],
+  activePlanId: "plan-1",
+  templates: [],
+  preferences: { fullTime: false, weeklyHours: 10, primaryGoal: "", constraints: "" },
+};
 
+// Internal tool only, unauthenticated — saveTrainingPlannerState() inside
+// the real useEventsCalendar hook already no-ops without a signed-in user,
+// so this safely drives the exact same add/edit/delete/move/resize/repeat
+// logic /events itself uses, just against local state instead of SWR.
 export function EventsPreview() {
+  const [state, setState] = useState<TrainingPlannerState>(MOCK_PLANNER_STATE);
+  const mutate = useCallback(
+    (data?: unknown) => {
+      let next = state;
+      setState((prev) => {
+        next = typeof data === "function" ? (data as (p: TrainingPlannerState) => TrainingPlannerState)(prev) : ((data as TrainingPlannerState) ?? prev);
+        return next;
+      });
+      return Promise.resolve(next);
+    },
+    [state]
+  );
+  const calendar = useEventsCalendar(state, mutate as unknown as KeyedMutator<TrainingPlannerState | null>);
+
   return (
-    <SeededEventsLayout
-      player={MOCK_PLAYER}
-      tournamentEntries={MOCK_TOURNAMENTS}
-      matches={MOCK_MATCHES}
-      sessions={MOCK_SESSIONS}
-      sessionTypes={DEFAULT_TYPES}
-      onMarkEntered={() => {}}
-      onAddSession={() => {}}
-      onLogResult={() => {}}
-    />
+    <>
+      <SeededEventsLayout
+        player={MOCK_PLAYER}
+        tournamentEntries={MOCK_TOURNAMENTS}
+        matches={MOCK_MATCHES}
+        sessions={state.sessions}
+        sessionTypes={state.sessionTypes}
+        onMarkEntered={() => {}}
+        onAddSession={() => {}}
+        onLogResult={() => {}}
+        onAddCalendarSession={calendar.addSession}
+        onUpdateCalendarSession={calendar.updateSession}
+        onMoveCalendarSession={calendar.moveSession}
+        onResizeCalendarSession={calendar.resizeSession}
+        onDeleteCalendarSession={calendar.deleteSession}
+      />
+      <Toast open={!!calendar.toast} onDismiss={calendar.dismissToast} action={calendar.toast?.action}>
+        {calendar.toast?.message ?? " "}
+      </Toast>
+    </>
   );
 }
