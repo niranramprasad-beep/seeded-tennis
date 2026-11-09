@@ -6,9 +6,10 @@ import useSWR from "swr";
 import { ArrowLeft, Building2, GraduationCap, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { classifySchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { explainSchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { loadCoachOutreach } from "@/lib/supabase/features";
 import { loadUtrEntries } from "@/lib/supabase/utr";
+import { formatDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
@@ -22,6 +23,14 @@ interface Props {
   stats: { label: string; value: string }[];
   programType: string;
   inState: boolean;
+  /** Full catalog (both genders) — the real candidate pool for "Why this
+   * band"'s alternative-school suggestion (lib/school-fit.ts's
+   * explainSchoolFit), only used when the gap here turns out unreachable. */
+  allSchools: School[];
+}
+
+function signed(value: number): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
 }
 
 // Client Component (promoted from Server Component — needs usePlayer() for
@@ -31,40 +40,33 @@ interface Props {
 // file's own earlier invention, before the real mockup existed. Removed to
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
-export function SeededSchoolDetail({ school, nationalRank, programType }: Props) {
+export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
   const { player, updatePlayer } = usePlayer();
   const { data: outreach } = useSWR("coach-outreach", () => loadCoachOutreach());
   // Same "utr-entries" SWR key /today, /plan and the Schools browser already
   // fetch under — shares their cache instead of a fresh round-trip.
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
-  const fitProjection = useMemo(
+  const explanationInput = useMemo(
     () => ({
       utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
       graduationYear: player.graduationYear,
       gender: player.gender,
+      catalog: allSchools,
     }),
-    [utrEntries, player.graduationYear, player.gender]
+    [utrEntries, player.graduationYear, player.gender, allSchools]
   );
 
-  const fit = classifySchoolFit(player.currentUTR, school, fitProjection);
+  const explanation = explainSchoolFit(player.currentUTR, school, explanationInput);
   const range = schoolUtrRange(school);
   const saved = player.targetSchoolSlugs.includes(school.slug);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
 
-  const whatWouldMoveIt = (() => {
-    const bits: string[] = [];
-    if (fit === "reach" || fit === "out-of-range") {
-      const gap = school.minCompetitiveUTR - player.currentUTR;
-      if (gap > 0) bits.push(`+${gap.toFixed(2)} UTR would put you at their competitive floor.`);
-    } else if (fit === "target") {
-      const gap = school.avgRosterUTR - player.currentUTR;
-      if (gap > 0) bits.push(`+${gap.toFixed(2)} UTR would put you above their roster average.`);
-    }
-    if (outreach && !alreadyContacted) {
-      bits.push("Their coach hasn't heard from you yet.");
-    }
-    return bits.join(" ");
-  })();
+  const paceDescription =
+    explanation.pace.status === "ready"
+      ? `Projected ${explanation.pace.projectedUTR.toFixed(1)} by ${formatDate(explanation.pace.byDate)}`
+      : explanation.pace.status === "insufficient-history"
+        ? explanation.pace.message
+        : "Log a UTR to see your pace.";
 
   const toggleSave = () => {
     const next = saved
@@ -116,41 +118,47 @@ export function SeededSchoolDetail({ school, nationalRank, programType }: Props)
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-ink">Your fit</h2>
-              <FitBadge band={fit} className="text-sm" />
+              <h2 className="text-lg font-semibold text-ink">Why this band</h2>
+              <FitBadge band={explanation.band} className="text-sm" />
             </div>
-            <p className="mt-2 text-sm text-stone">
-              Fit band is based on real roster UTR data only — academics, openings, and timing aren&apos;t
-              factored in yet.
-            </p>
+            <p className="mt-2 text-sm text-stone">{explanation.summary}</p>
 
-            <FitDriverRow
-              label="UTR"
-              description={`You ${player.currentUTR.toFixed(1)} vs their ${range.min.toFixed(1)}–${range.max.toFixed(1)} range`}
-              chip={
-                fit === "likely"
-                  ? "Above range"
-                  : fit === "target"
-                    ? "In range"
-                    : "Below range" // reach and out-of-range are both below the team floor
-              }
-            />
-            <FitDriverRow
-              label="Timing"
-              description={
-                school.division === "D1"
-                  ? "D1 coaches often build boards early — junior year is a good time for a first email."
-                  : "D3 coaches can respond any time — junior fall to junior spring is a typical first-contact window."
-              }
-              chip="General"
-            />
+            {explanation.gapToFloor != null && explanation.gapToMedian != null && (
+              <FitDriverRow
+                label="UTR"
+                description={`Gap to floor ${signed(explanation.gapToFloor)} · gap to median ${signed(explanation.gapToMedian)}`}
+                chip={
+                  explanation.band === "likely"
+                    ? "Above range"
+                    : explanation.band === "target"
+                      ? "In range"
+                      : explanation.band === "unverified"
+                        ? "No UTR logged"
+                        : "Below range" // reach and out-of-range are both below the team floor
+                }
+              />
+            )}
+            <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status === "ready" ? "Projected" : "Needs data"} />
+            <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
 
-            {whatWouldMoveIt && (
+            {explanation.nextBand && (
               <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
                 <strong>What would move it: </strong>
-                {whatWouldMoveIt}
+                {explanation.nextBand.message}
               </div>
             )}
+
+            {explanation.unreachable && explanation.alternatives.length > 0 && (
+              <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
+                <strong>Consider instead: </strong>
+                {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or region, and
+                realistically in reach today.
+              </div>
+            )}
+
+            <p className="mt-3 text-xs text-stone-light">
+              {explanation.playersLeaving} {explanation.academics}
+            </p>
           </div>
 
           <div className="rounded-[10px] border border-line bg-card p-[22px]">
@@ -194,6 +202,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType }: Props)
               {school.coachName}
               <span className="block text-xs text-stone-light">{school.coachEmail}</span>
             </p>
+            {outreach && !alreadyContacted && (
+              <p className="mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
+            )}
             <Link
               href={`/outreach?school=${school.slug}`}
               className={cn(seededButtonVariants({ variant: "primary" }), "mt-3.5 w-full")}

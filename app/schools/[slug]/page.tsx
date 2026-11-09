@@ -73,6 +73,7 @@ export default async function SchoolDetailPage({
           stats={stats}
           programType={programType}
           inState={inState}
+          allSchools={allSchools}
         />
       }
       legacy={

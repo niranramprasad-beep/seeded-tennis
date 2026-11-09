@@ -112,6 +112,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
         ranked={ranked}
         divisions={divisions}
         reset={reset}
+        allSchools={schools}
       />
     );
   }

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import type { Division, Gender, School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { classifySchoolFit, countSchoolFits, explainSchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/supabase/utr";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
@@ -34,6 +34,12 @@ interface Props {
   ranked: School[];
   divisions: Division[];
   reset: () => void;
+  /** Full, unfiltered catalog (both genders) — used only as the real
+   * candidate pool for "Why this band"'s alternative-school suggestion
+   * (lib/school-fit.ts's explainSchoolFit), so a narrowed `ranked` list
+   * (division/search/rank filters applied) never limits which real schools
+   * can be suggested as realistic alternatives. */
+  allSchools: School[];
 }
 
 // Pixel-exact to Schools.dc.html. Owns no base filter/sort state (that's
@@ -52,12 +58,14 @@ export function SeededSchoolsBrowser({
   ranked,
   divisions,
   reset,
+  allSchools,
 }: Props) {
   const { player, updatePlayer } = usePlayer();
   const [region, setRegion] = useState<"all" | SchoolRegion>("all");
   const [chip, setChip] = useState<ChipFilter>("all");
   const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
 
   // Same "utr-entries" SWR key /today and /plan already fetch under — a
   // real cache hit here, not a second network round-trip, whenever one of
@@ -72,6 +80,13 @@ export function SeededSchoolsBrowser({
       gender: player.gender,
     }),
     [utrEntries, player.graduationYear, player.gender]
+  );
+  // Same real history/grad-year context as fitProjection, plus the full
+  // catalog — explainSchoolFit only needs the catalog for its point-7
+  // alternative-school suggestion.
+  const explanationInput = useMemo(
+    () => ({ ...fitProjection, catalog: allSchools }),
+    [fitProjection, allSchools]
   );
 
   // A school's profile page links here with ?compare={slug}&gender={gender}
@@ -223,7 +238,8 @@ export function SeededSchoolsBrowser({
 
         <div className="min-w-0 flex-[999_1_560px] overflow-x-auto rounded-xl border border-line bg-card">
           <div className="min-w-[760px]">
-            <div className="grid grid-cols-[28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3 text-xs font-semibold uppercase tracking-wide text-stone">
+            <div className="grid grid-cols-[28px_28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3 text-xs font-semibold uppercase tracking-wide text-stone">
+              <span aria-hidden />
               <span aria-hidden />
               <span>Program</span>
               <span>Your fit</span>
@@ -235,35 +251,91 @@ export function SeededSchoolsBrowser({
             {visible.map((s) => {
               const fit = classifySchoolFit(player.currentUTR, s, fitProjection);
               const range = schoolUtrRange(s);
+              const expanded = expandedSlug === s.slug;
+              // Only the currently-expanded row actually builds the full
+              // explanation (real regression + alternatives lookup) — no
+              // reason to pay that cost for every row in the list.
+              const explanation = expanded
+                ? explainSchoolFit(player.currentUTR, s, explanationInput)
+                : null;
               return (
-                <div
-                  key={s.id}
-                  className="grid grid-cols-[28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0"
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={`Compare ${s.shortName}`}
-                    checked={compareSlugs.includes(s.slug)}
-                    onChange={() => toggleCompare(s.slug)}
-                    disabled={!compareSlugs.includes(s.slug) && compareSlugs.length >= 3}
-                  />
-                  <Link href={`/schools/${s.slug}`} className="min-w-0 text-ink">
-                    <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
-                    <p className="truncate text-xs text-stone-light">
-                      {s.conference} · {s.division} · {s.state}
-                    </p>
-                  </Link>
-                  <FitBadge band={fit} />
-                  <RangeBar
-                    rangeStartPct={utrToPct(range.min)}
-                    rangeEndPct={utrToPct(range.max)}
-                    medianPct={utrToPct(s.avgRosterUTR)}
-                    youPct={utrToPct(player.currentUTR)}
-                    caption={`You ${player.currentUTR.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
-                  />
-                  <DataChip status="missing">Not tracked</DataChip>
-                  <DataChip status="updated">{ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}</DataChip>
-                  <DataChip status="missing">Not tracked</DataChip>
+                <div key={s.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedSlug(expanded ? null : s.slug)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpandedSlug(expanded ? null : s.slug);
+                      }
+                    }}
+                    className="grid cursor-pointer grid-cols-[28px_28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0 hover:bg-cream/40"
+                  >
+                    <ChevronDown
+                      className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", expanded && "rotate-180")}
+                      aria-hidden
+                    />
+                    <input
+                      type="checkbox"
+                      aria-label={`Compare ${s.shortName}`}
+                      checked={compareSlugs.includes(s.slug)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleCompare(s.slug)}
+                      disabled={!compareSlugs.includes(s.slug) && compareSlugs.length >= 3}
+                    />
+                    <Link
+                      href={`/schools/${s.slug}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="min-w-0 text-ink"
+                    >
+                      <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
+                      <p className="truncate text-xs text-stone-light">
+                        {s.conference} · {s.division} · {s.state}
+                      </p>
+                    </Link>
+                    <FitBadge band={fit} />
+                    <RangeBar
+                      rangeStartPct={utrToPct(range.min)}
+                      rangeEndPct={utrToPct(range.max)}
+                      medianPct={utrToPct(s.avgRosterUTR)}
+                      youPct={utrToPct(player.currentUTR)}
+                      caption={`You ${player.currentUTR.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                    />
+                    <DataChip status="missing">Not tracked</DataChip>
+                    <DataChip status="updated">{ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}</DataChip>
+                    <DataChip status="missing">Not tracked</DataChip>
+                  </div>
+                  {expanded && explanation && (
+                    <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-ink last:border-b-0">
+                      <p>{explanation.summary}</p>
+                      {explanation.gapToFloor != null && explanation.gapToMedian != null && (
+                        <p className="mt-1.5 text-stone">
+                          Gap to team floor: {explanation.gapToFloor > 0 ? "+" : ""}
+                          {explanation.gapToFloor.toFixed(1)} · Gap to team median:{" "}
+                          {explanation.gapToMedian > 0 ? "+" : ""}
+                          {explanation.gapToMedian.toFixed(1)}
+                        </p>
+                      )}
+                      {explanation.nextBand && (
+                        <p className="mt-1.5">
+                          <strong>What would move it: </strong>
+                          {explanation.nextBand.message}
+                        </p>
+                      )}
+                      {explanation.unreachable && explanation.alternatives.length > 0 && (
+                        <p className="mt-1.5 text-stone">
+                          <strong className="text-ink">Consider instead: </strong>
+                          {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or
+                          region, and realistically in reach today.
+                        </p>
+                      )}
+                      <p className="mt-1.5 text-xs text-stone-light">
+                        {explanation.playersLeaving} {explanation.academics}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

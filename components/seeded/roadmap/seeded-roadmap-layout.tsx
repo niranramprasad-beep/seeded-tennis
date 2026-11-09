@@ -7,11 +7,12 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { PlanTrajectoryChart } from "./plan-trajectory-chart";
-import { classifySchoolFit } from "@/lib/school-fit";
+import { explainSchoolFit } from "@/lib/school-fit";
 import { utrDeltaOverMonths, winLossRecord, buildPlanChecklist } from "@/lib/plan-stats";
 import { loadUtrEntries } from "@/lib/supabase/utr";
 import { loadMatches, loadCoachOutreachDated } from "@/lib/supabase/features";
 import { formatUTR } from "@/lib/utils";
+import { formatDate } from "@/lib/time";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
 function initialOf(name: string): string {
@@ -27,7 +28,7 @@ function initialOf(name: string): string {
 // picker and year-by-year tournament-volume timeline aren't part of this
 // mockup at all — dropped here rather than bolted on beside content the
 // mockup doesn't show; see the Phase 4b report for that call.
-export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR }: RoadmapLayoutProps) {
+export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, pickerSchools }: RoadmapLayoutProps) {
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const { data: matches } = useSWR("matches", () => loadMatches());
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
@@ -43,10 +44,17 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR }:
   // Real history (or the single current-UTR fallback point, which honestly
   // fails computeUtrProjection's 3-point minimum) feeds the same 4-band
   // classification /today uses, so Plan and Today never disagree about a
-  // target school's band.
-  const fitProjection = useMemo(
-    () => ({ utrHistory: actualPoints, graduationYear: player.graduationYear, gender: player.gender }),
-    [actualPoints, player.graduationYear, player.gender]
+  // target school's band. `pickerSchools` (the full same-gender catalog
+  // roadmap-view.tsx already builds) is the real candidate pool for the
+  // explanation's point-7 alternative-school suggestion.
+  const explanationInput = useMemo(
+    () => ({
+      utrHistory: actualPoints,
+      graduationYear: player.graduationYear,
+      gender: player.gender,
+      catalog: pickerSchools,
+    }),
+    [actualPoints, player.graduationYear, player.gender, pickerSchools]
   );
   const sixMonthDelta = useMemo(
     () => (utrEntries ? utrDeltaOverMonths(utrEntries, 6) : null),
@@ -158,15 +166,33 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR }:
       {targetSchools.length > 0 && (
         <div className="mt-5 rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Your target schools</h2>
-          <ul className="mt-3.5 flex flex-col gap-2.5 text-sm">
-            {targetSchools.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2">
-                <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
-                  {s.shortName}
-                </Link>
-                <FitBadge band={classifySchoolFit(player.currentUTR, s, fitProjection)} />
-              </li>
-            ))}
+          <ul className="mt-3.5 flex flex-col gap-3 text-sm">
+            {targetSchools.map((s) => {
+              const explanation = explainSchoolFit(player.currentUTR, s, explanationInput);
+              const gapLabel =
+                explanation.band === "unverified"
+                  ? "Log a UTR to see your gap."
+                  : explanation.band === "likely"
+                    ? "Already above their roster average."
+                    : explanation.band === "target"
+                      ? `+${explanation.gapToMedian!.toFixed(1)} to their roster average`
+                      : `+${explanation.gapToFloor!.toFixed(1)} to their competitive floor`;
+              return (
+                <li key={s.id} className="flex flex-col gap-1 border-b border-line pb-3 last:border-b-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
+                      {s.shortName}
+                    </Link>
+                    <FitBadge band={explanation.band} />
+                  </div>
+                  <p className="text-xs text-stone">
+                    {gapLabel}
+                    {explanation.nextBand &&
+                      ` · ${explanation.unreachable ? "won't realistically close" : "could realistically close"} by ${formatDate(explanation.nextBand.byDate)}`}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

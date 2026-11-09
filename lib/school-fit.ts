@@ -49,8 +49,10 @@
 import type { SchoolLite, PlayerGender } from "@/lib/types";
 import type { FitBand } from "@/components/seeded/ui/fit-badge";
 import { computeUtrProjection, type UtrDataPoint } from "@/lib/utr-projection";
-import { getSummerBeforeGradeYear } from "@/lib/time";
+import { getSummerBeforeGradeYear, formatDate, localDateKey } from "@/lib/time";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
+import { academicTier } from "@/lib/school-academics";
+import { regionForState } from "@/lib/school-regions";
 
 export type SchoolFitBand = Exclude<FitBand, "unverified">;
 
@@ -158,4 +160,302 @@ export const SCHOOL_UTR_SCALE = { min: 6, max: 15 };
 export function utrToPct(utr: number): number {
   const { min, max } = SCHOOL_UTR_SCALE;
   return Math.min(100, Math.max(0, ((utr - min) / (max - min)) * 100));
+}
+
+// ---------------------------------------------------------------------
+// FULL EXPLANATION OBJECT — "why this band" for a given player + school
+// ---------------------------------------------------------------------
+// Everything below builds on classifySchoolFit above (same band, same real
+// school fields, same real projection) to answer "why" in plain language,
+// with real numbers wherever one exists and an honest "not tracked" where
+// one doesn't. Shown on the Schools table's expanded row, School Profile's
+// "Why this band" card, and Plan's target-schools list — all three read
+// from this one function so they can never disagree.
+
+/** Most players' realistic year-over-year UTR improvement — used only as a
+ * plain-language yardstick for the "UTR/year needed" read (point 5 of the
+ * redesign spec). Not a hard cap like REALISTIC_UTR_CEILING; a player can
+ * genuinely beat it, the same way classifySchoolFit's own Reach/Out-of-range
+ * split is decided by the player's REAL slope, not this generic band. */
+export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
+
+const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+const BAND_LABEL: Record<SchoolFitBand, string> = {
+  reach: "Reach",
+  target: "Target",
+  likely: "Likely",
+  "out-of-range": "Out of range",
+};
+
+// Honest statements for the two factors this app has never tracked real
+// data for — see the file banner above and the redesign spec. Shown
+// verbatim rather than built from a template per-school, since there is
+// nothing school-specific to plug in.
+const PLAYERS_LEAVING_NOTE =
+  "Roster openings and seniors leaving aren't tracked yet — this isn't factored into your band.";
+const ACADEMICS_NOTE =
+  "There's no real per-player academic admit range tracked yet — this isn't factored into your band.";
+
+/** The same evergreen, non-personalized timing guidance /schools/[slug]'s
+ * existing Timing driver row already shows — general recruiting-calendar
+ * advice, not school-specific data, so it's safe to repeat here verbatim. */
+function timingNote(division: SchoolLite["division"]): string {
+  return division === "D1"
+    ? "D1 coaches often build boards early — junior year is a good time for a first email."
+    : "D3 coaches can respond any time — junior fall to junior spring is a typical first-contact window.";
+}
+
+export type SchoolFitPace =
+  | { status: "no-player-utr" }
+  | { status: "insufficient-history"; message: string }
+  | { status: "ready"; projectedUTR: number; byDate: string };
+
+export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
+
+/** What it would take to move up exactly one band — null once the player is
+ * already in the top band (Likely has no higher band to move into). */
+export interface NextBandChange {
+  targetBand: SchoolFitBand;
+  /** The exact real UTR value (the school's own floor or median) that
+   * crossing would move the player into `targetBand`. */
+  utrNeeded: number;
+  /** utrNeeded - playerUtr. Always > 0 — band logic guarantees the player
+   * is below this boundary whenever a NextBandChange exists. */
+  gap: number;
+  /** ISO "summer before senior year" date — the realistic deadline every
+   * other real-pace calculation in this app (classifySchoolFit, the
+   * roadmap) is built around. */
+  byDate: string;
+  /** gap ÷ years remaining until byDate. Null when byDate has already
+   * passed — there's no runway left to divide by. */
+  requiredPaceUtrPerYear: number | null;
+  paceRead: PaceRead;
+  /** One sentence combining utrNeeded + byDate + the realistic-pace read. */
+  message: string;
+}
+
+export interface SchoolFitExplanation {
+  /** Same classifySchoolFit output, plus "unverified" for the one case
+   * classifySchoolFit itself never returns: no real player UTR to compare
+   * against anything. */
+  band: FitBand;
+  /** Point 2: one plain sentence with real numbers — or an honest
+   * "haven't logged a UTR yet" sentence instead of guessing one. */
+  summary: string;
+  /** Point 3: real arithmetic, both signed (negative = already above that
+   * line). Null only when there's no real player UTR to subtract from. */
+  gapToFloor: number | null;
+  gapToMedian: number | null;
+  /** Point 4. */
+  pace: SchoolFitPace;
+  /** Points 5 + 6. Null when the player is already Likely (nothing higher
+   * to move into) or there's no real player UTR yet. */
+  nextBand: NextBandChange | null;
+  /** Point 7: true when nextBand exists but even a realistic pace (or any
+   * pace, if the deadline has already passed) can't close the gap in
+   * time. */
+  unreachable: boolean;
+  /** Up to 3 real catalog schools with similar academics or region that
+   * the player IS realistically positioned for today — populated only
+   * when `unreachable` is true, per point 7. */
+  alternatives: SchoolLite[];
+  /** Point 6's honest "not tracked" statements for the two factors this
+   * app has no real data for. */
+  playersLeaving: string;
+  academics: string;
+  /** General, non-personalized timing guidance (not school-fit math). */
+  timing: string;
+}
+
+function computeNextBandChange(
+  band: SchoolFitBand,
+  playerUtr: number,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  now: Date,
+  milestone: Date
+): NextBandChange | null {
+  if (band === "likely") return null; // already the top band — nothing higher to move into
+
+  // Both Reach and Out-of-range sit below the team floor; crossing it is
+  // what moves either one into Target. Target crosses the median into Likely.
+  const targetBand: SchoolFitBand = band === "target" ? "likely" : "target";
+  const utrNeeded = targetBand === "likely" ? school.avgRosterUTR : school.minCompetitiveUTR;
+  const gap = Math.round((utrNeeded - playerUtr) * 100) / 100;
+  const byDate = localDateKey(milestone);
+
+  const yearsRemaining = (milestone.getTime() - now.getTime()) / MS_PER_YEAR;
+  if (yearsRemaining <= 0) {
+    return {
+      targetBand,
+      utrNeeded,
+      gap,
+      byDate,
+      requiredPaceUtrPerYear: null,
+      paceRead: "no-time-left",
+      message: `The summer before senior year has already passed, so there's no runway left to close the remaining +${gap.toFixed(1)} UTR gap to ${BAND_LABEL[targetBand]}.`,
+    };
+  }
+
+  const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
+  const paceRead: PaceRead =
+    requiredPaceUtrPerYear > REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max
+      ? "faster-than-realistic"
+      : requiredPaceUtrPerYear < REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min
+        ? "slower-than-realistic"
+        : "within-realistic-range";
+  const readPhrase =
+    paceRead === "faster-than-realistic"
+      ? "that's faster than most players improve"
+      : paceRead === "slower-than-realistic"
+        ? "that's a slower pace than most players need — you have room"
+        : "that's a realistic pace";
+
+  return {
+    targetBand,
+    utrNeeded,
+    gap,
+    byDate,
+    requiredPaceUtrPerYear,
+    paceRead,
+    message: `Reaching ${utrNeeded.toFixed(1)} by ${formatDate(milestone)} would move you into ${BAND_LABEL[targetBand]} — about ${requiredPaceUtrPerYear.toFixed(1)}/year, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}/yr).`,
+  };
+}
+
+/**
+ * Up to `limit` real catalog schools — never invented — with similar
+ * academics (same lib/school-academics.ts tier) or region (same
+ * lib/school-regions.ts region) as `school`, that the player is
+ * realistically positioned for RIGHT NOW (Target or Likely — no future
+ * pace required). Ranked: matches both academics and region first, then
+ * either alone, closest US News ranking as the tiebreaker.
+ */
+export function findAlternativeSchools(
+  school: Pick<SchoolLite, "slug" | "gender" | "state" | "usNewsRanking">,
+  catalog: SchoolLite[],
+  playerUtr: number,
+  projection?: SchoolFitProjectionInput,
+  limit = 3
+): SchoolLite[] {
+  const targetTier = academicTier(school.usNewsRanking);
+  const targetRegion = regionForState(school.state);
+
+  return catalog
+    .filter((s) => s.slug !== school.slug && s.gender === school.gender)
+    .filter((s) => {
+      const band = classifySchoolFit(playerUtr, s, projection);
+      return band === "likely" || band === "target";
+    })
+    .map((s) => {
+      const sameTier = academicTier(s.usNewsRanking) === targetTier;
+      const sameRegion = targetRegion != null && regionForState(s.state) === targetRegion;
+      const score = (sameTier ? 2 : 0) + (sameRegion ? 1 : 0);
+      return { school: s, score, rankDiff: Math.abs(s.usNewsRanking - school.usNewsRanking) };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.rankDiff - b.rankDiff || a.school.name.localeCompare(b.school.name))
+    .slice(0, limit)
+    .map((row) => row.school);
+}
+
+/** Real UTR history + grad-year context for the full explanation — a
+ * superset of SchoolFitProjectionInput (adds the full school catalog,
+ * needed only for the point-7 alternatives lookup). */
+export interface SchoolFitExplanationInput {
+  graduationYear: number;
+  utrHistory?: UtrDataPoint[];
+  gender?: PlayerGender;
+  now?: Date;
+  /** Full school catalog (any gender — filtered internally to match
+   * `school`'s own gender). Omit to skip alternatives entirely (empty
+   * array) rather than searching a partial/wrong catalog. */
+  catalog?: SchoolLite[];
+}
+
+/**
+ * The full "why this band" explanation for one player + school — band,
+ * summary sentence, real gaps, real pace projection, what would move the
+ * player up a band, and (only when nothing realistic can) real alternative
+ * schools. Every number traces back to the school's real
+ * minCompetitiveUTR/avgRosterUTR, the player's real currentUTR, and (where
+ * supplied) their real UTR history — nothing here is invented.
+ *
+ * `playerUtr` is `number | null` (not just `number`, unlike
+ * classifySchoolFit) so a caller can honestly represent "no real UTR
+ * logged yet" — the same `currentUTR <= 0` convention already used by the
+ * pre-auth tournament-fit calculator — without ever having to invent a
+ * placeholder value to pass in.
+ */
+export function explainSchoolFit(
+  playerUtr: number | null,
+  school: SchoolLite,
+  input: SchoolFitExplanationInput
+): SchoolFitExplanation {
+  const timing = timingNote(school.division);
+
+  if (playerUtr == null || playerUtr <= 0) {
+    return {
+      band: "unverified",
+      summary: `You haven't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`,
+      gapToFloor: null,
+      gapToMedian: null,
+      pace: { status: "no-player-utr" },
+      nextBand: null,
+      unreachable: false,
+      alternatives: [],
+      playersLeaving: PLAYERS_LEAVING_NOTE,
+      academics: ACADEMICS_NOTE,
+      timing,
+    };
+  }
+
+  const now = input.now ?? new Date();
+  const history = input.utrHistory ?? [];
+  const projection: SchoolFitProjectionInput = {
+    utrHistory: history,
+    graduationYear: input.graduationYear,
+    gender: input.gender,
+    now,
+  };
+  const band = classifySchoolFit(playerUtr, school, projection);
+
+  const gapToFloor = Math.round((school.minCompetitiveUTR - playerUtr) * 100) / 100;
+  const gapToMedian = Math.round((school.avgRosterUTR - playerUtr) * 100) / 100;
+
+  const summary =
+    gapToFloor <= 0
+      ? `You're ${playerUtr.toFixed(1)}, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
+      : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. You're ${playerUtr.toFixed(1)}.`;
+
+  const milestone = summerBeforeSeniorYear(input.graduationYear);
+  const computed = computeUtrProjection(
+    history,
+    input.gender ? { ceiling: REALISTIC_UTR_CEILING[input.gender] } : undefined
+  );
+  const pace: SchoolFitPace =
+    computed == null
+      ? { status: "insufficient-history", message: "Log more results to see your pace." }
+      : {
+          status: "ready",
+          projectedUTR: Math.round(computed.predict(milestone) * 10) / 10,
+          byDate: localDateKey(milestone),
+        };
+
+  const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone);
+  const unreachable = nextBand != null && (nextBand.paceRead === "faster-than-realistic" || nextBand.paceRead === "no-time-left");
+  const alternatives = unreachable ? findAlternativeSchools(school, input.catalog ?? [], playerUtr, projection) : [];
+
+  return {
+    band,
+    summary,
+    gapToFloor,
+    gapToMedian,
+    pace,
+    nextBand,
+    unreachable,
+    alternatives,
+    playersLeaving: PLAYERS_LEAVING_NOTE,
+    academics: ACADEMICS_NOTE,
+    timing,
+  };
 }
