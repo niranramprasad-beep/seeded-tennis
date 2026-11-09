@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { utrDeltaOverMonths, winLossRecord, buildPlanChecklist } from "./plan-stats";
+import { utrDeltaOverMonths, utrDeltaWithBaseline, winLossRecord, buildPlanChecklist } from "./plan-stats";
 import type { UtrEntry } from "@/lib/supabase/utr";
 import type { MatchRecord } from "@/lib/supabase/features";
 
@@ -33,6 +33,22 @@ describe("utrDeltaOverMonths", () => {
   it("picks the entry closest to (but not after) the cutoff when several qualify", () => {
     const entries = [entry(8.5, 400, now), entry(9.0, 200, now), entry(9.8, 1, now)];
     expect(utrDeltaOverMonths(entries, 6, now)).toBeCloseTo(0.8, 5);
+  });
+});
+
+describe("utrDeltaWithBaseline", () => {
+  const now = new Date("2026-11-08T00:00:00Z");
+
+  it("returns the same delta as utrDeltaOverMonths plus the real baseline entry's date", () => {
+    const entries = [entry(9.0, 200, now), entry(9.3, 190, now), entry(9.8, 5, now)];
+    const result = utrDeltaWithBaseline(entries, 6, now);
+    expect(result?.delta).toBeCloseTo(0.5, 5);
+    expect(result?.baselineDate).toBe(entries[1].recordedAt);
+  });
+
+  it("returns null under the same conditions utrDeltaOverMonths does", () => {
+    expect(utrDeltaWithBaseline([], 6, now)).toBeNull();
+    expect(utrDeltaWithBaseline([entry(9.0, 10, now)], 6, now)).toBeNull();
   });
 });
 

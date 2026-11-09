@@ -94,6 +94,18 @@ export function ordinalGrade(grade: number): string {
   return map[grade] ?? `${grade}th`;
 }
 
+export type Season = "fall" | "winter" | "spring" | "summer";
+
+/** Which of the 4 US school-calendar seasons `date` falls in — hoisted here
+ * (the one place date math lives) from a copy that used to live only inside
+ * seeded-dashboard-layout.tsx's local `seasonLabel()`, so /family's own
+ * "Junior fall"-style label and /today's "Junior fall" badge can never
+ * drift apart. */
+export function currentSeason(date: Date = new Date()): Season {
+  const month = date.getMonth();
+  return month >= 7 && month <= 10 ? "fall" : month >= 11 || month <= 1 ? "winter" : month <= 4 ? "spring" : "summer";
+}
+
 /** Parses a plain "YYYY-MM-DD" string as local midnight. `new Date(isoDate)`
  * parses date-only strings as UTC midnight, which displays as the previous
  * day in any timezone behind UTC — this avoids that off-by-one. */

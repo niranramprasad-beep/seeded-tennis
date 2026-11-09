@@ -12,13 +12,15 @@ import {
   ChevronsRight,
   Clock,
   Compass,
+  DollarSign,
+  FileText,
+  LayoutDashboard,
   LogOut,
   Mail,
   School,
   Search,
   Settings,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
@@ -60,16 +62,19 @@ const PLAYER_NAV_LINKS: NavLink[] = [
   { href: "/events", label: "Events", icon: CalendarDays },
 ];
 
-// No mockup covers the parent role. AuthGate's isParentAllowedPath only
-// permits /family, /settings, /cost-calculator (Legacy) and /tournament-fit
-// — showing the player's Today/Plan/Outreach/Events links to a parent would
-// just bounce them straight back out. Family now carries its own Budget tab
-// (see parent-dashboard-view.tsx), so the parent's real top-level nav is
-// just these two; Settings/Tournament fit stay in the avatar menu for both
-// roles.
+// Pixel-exact to "18 Parent view + budget.png" — the real parent nav,
+// replacing the 2-item guess above that was built before any parent
+// mockup existed. Overview is /family itself; Budget and Weekly reports
+// are real sub-routes (AuthGate's isParentAllowedPath already permits
+// anything starting with "/family"). Schools/Events are the same shared,
+// already-real routes the player nav uses. Settings/Tournament fit stay in
+// the avatar menu for both roles, same as before.
 const PARENT_NAV_LINKS: NavLink[] = [
-  { href: "/family", label: "Family", icon: Users },
+  { href: "/family", label: "Overview", icon: LayoutDashboard },
+  { href: "/family/budget", label: "Budget", icon: DollarSign },
   { href: "/schools", label: "Schools", icon: School },
+  { href: "/events", label: "Events", icon: CalendarDays },
+  { href: "/family/weekly-reports", label: "Weekly reports", icon: FileText },
 ];
 
 function initialOf(name: string) {
@@ -98,7 +103,14 @@ export function SeededSidebar() {
     if (isParent || todayCount === 0) return base;
     return base.map((l) => (l.href === "/today" ? { ...l, badge: todayCount } : l));
   }, [isParent, todayCount]);
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  // "/family" (Overview) needs an exact match, not startsWith — otherwise
+  // it would also light up on its own sub-routes /family/budget and
+  // /family/weekly-reports, double-highlighting two nav items at once.
+  // Every other link (including those two sub-routes themselves) keeps the
+  // normal startsWith behavior for their own nested pages (e.g. /schools/
+  // [slug]).
+  const isActive = (href: string) =>
+    href === "/family" ? pathname === "/family" : pathname === href || pathname.startsWith(href + "/");
 
   const handleSignOut = () => {
     signOut();
@@ -141,6 +153,16 @@ export function SeededSidebar() {
             </button>
           )}
         </div>
+
+        {/* Pixel-exact to "18 Parent view + budget.png": a small
+            "Parent view · read-only" subtitle directly under the
+            wordmark, parent-only — this is the one real visual cue (the
+            actual access boundary is enforced in Supabase RLS + every
+            parent-facing write path, not by this label) that the account
+            can't edit the player's own data from here. */}
+        {!collapsed && isParent && (
+          <p className="shrink-0 px-4 pt-2.5 font-sans text-xs text-stone-light">Parent view · read-only</p>
+        )}
 
         {collapsed && (
           <div className="flex shrink-0 justify-center pt-3">
@@ -410,14 +432,31 @@ function SeededAvatarMenu({
               <span className="block truncate font-sans text-sm font-medium text-ink">
                 {player.name || "Your account"}
               </span>
-              <span className="block truncate font-sans text-xs text-stone-light">
-                {isParent ? "Parent" : "Player"}
-              </span>
+              {/* Pixel-exact to "18 Parent view + budget.png"'s footer: a
+                  parent sees "Parent · Billing" (a real link straight to
+                  /settings/billing — parents are typically the ones
+                  actually billed, same "Billed to" framing billing-
+                  content.tsx already uses) instead of a static role
+                  label. Rendered just below, outside this <button> — an
+                  <a> can't nest inside a <button> (invalid HTML) — so the
+                  plain "Player" label is all this row shows for a player. */}
+              {!isParent && (
+                <span className="block truncate font-sans text-xs text-stone-light">Player</span>
+              )}
             </span>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", open && "rotate-180")} />
           </>
         )}
       </button>
+      {!collapsed && isParent && (
+        <Link
+          href="/settings/billing"
+          className="-mt-1 block px-1.5 pb-1 font-sans text-xs text-stone-light"
+        >
+          Parent ·{" "}
+          <span className="font-semibold text-grass underline underline-offset-2">Billing</span>
+        </Link>
+      )}
       <AnimatePresence>
         {open && <SeededAvatarPanel align="left" onClose={() => onOpenChange(false)} onSignOut={onSignOut} />}
       </AnimatePresence>

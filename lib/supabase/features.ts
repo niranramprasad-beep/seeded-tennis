@@ -107,6 +107,17 @@ export interface FamilyMember {
   currentUtr: number;
   graduationYear: number | null;
   onboarded: boolean;
+  // Additive (/family's Seeded rebuild needs these). A parent's OWN
+  // `profiles` row has no meaningful target_school_slugs/gender of its
+  // own — those live on the PLAYER's row, which a parent can only reach
+  // through this family roster (mapProfileToPlayer() in lib/auth.ts always
+  // maps the SIGNED-IN user's own row, so usePlayer()'s player object is
+  // never the right source for these fields on a parent session).
+  // `profiles` is already family-readable (family_members_read policy,
+  // migration 004) so no RLS change was needed for either column.
+  targetSchoolSlugs?: string[];
+  gender?: "male" | "female";
+  createdAt?: string;
 }
 
 async function userId(): Promise<string | null> {
@@ -483,7 +494,9 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
   if (!supabase || !p?.family_code) return [];
   let query = supabase
     .from("profiles")
-    .select("id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded")
+    .select(
+      "id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded,target_school_slugs,gender"
+    )
     .eq("family_code", p.family_code)
     .order("role", { ascending: false });
   if (signal) query = query.abortSignal(signal);
@@ -496,6 +509,9 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
     currentUtr: Number(row.current_utr ?? 0),
     graduationYear: resolveGraduationYear(row),
     onboarded: Boolean(row.onboarded),
+    targetSchoolSlugs: (row.target_school_slugs as string[] | null) ?? [],
+    gender: (row.gender as "male" | "female" | null) ?? undefined,
+    createdAt: row.created_at ?? undefined,
   }));
 }
 

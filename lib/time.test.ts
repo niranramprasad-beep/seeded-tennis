@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  currentSeason,
   formatDate,
   getCurrentGrade,
   getCurrentSchoolYear,
@@ -14,6 +15,29 @@ import {
   parseLocalDate,
   resolveGraduationYear,
 } from "./time";
+
+describe("currentSeason", () => {
+  it("returns fall for Aug through Nov", () => {
+    expect(currentSeason(new Date(2026, 7, 1))).toBe("fall"); // Aug 1
+    expect(currentSeason(new Date(2026, 10, 8))).toBe("fall"); // Nov 8
+  });
+
+  it("returns winter for Dec through Feb", () => {
+    expect(currentSeason(new Date(2026, 11, 15))).toBe("winter"); // Dec 15
+    expect(currentSeason(new Date(2027, 0, 15))).toBe("winter"); // Jan 15
+    expect(currentSeason(new Date(2027, 1, 1))).toBe("winter"); // Feb 1
+  });
+
+  it("returns spring for Mar through May", () => {
+    expect(currentSeason(new Date(2027, 2, 1))).toBe("spring"); // Mar 1
+    expect(currentSeason(new Date(2027, 4, 31))).toBe("spring"); // May 31
+  });
+
+  it("returns summer for Jun and Jul", () => {
+    expect(currentSeason(new Date(2027, 5, 1))).toBe("summer"); // Jun 1
+    expect(currentSeason(new Date(2027, 6, 31))).toBe("summer"); // Jul 31
+  });
+});
 
 describe("getCurrentSchoolYear", () => {
   it("stays in the current calendar year before the August 1 rollover", () => {

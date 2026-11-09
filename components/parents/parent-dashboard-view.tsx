@@ -4,10 +4,8 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   CalendarDays,
-  DollarSign,
   GraduationCap,
   Heart,
-  LayoutDashboard,
   MessageCircle,
   Target,
   TrendingUp,
@@ -20,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   loadDailyCheckins,
@@ -34,8 +31,9 @@ import {
   type MatchRecord,
 } from "@/lib/supabase/features";
 import { useDesign } from "@/lib/context/design-context";
-import { cn, formatUTR } from "@/lib/utils";
 import { getCurrentGrade } from "@/lib/time";
+import { formatUTR } from "@/lib/utils";
+import { SeededFamilyOverview } from "@/components/seeded/family/seeded-family-overview";
 
 export function ParentDashboardView({ schools }: { schools: SchoolLite[] }) {
   return (
@@ -45,15 +43,21 @@ export function ParentDashboardView({ schools }: { schools: SchoolLite[] }) {
   );
 }
 
-type ParentTab = "overview" | "budget";
-
+// Seeded's real parent nav (sidebar's PARENT_NAV_LINKS) now routes Budget
+// and Weekly reports to their own /family/budget and /family/weekly-reports
+// pages, so /family itself is just the Overview — no more in-page tab
+// state here. Legacy has no equivalent mockup for any of this; its branch
+// below is untouched from before this rebuild.
 function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
   const { design } = useDesign();
-  const isSeeded = design === "seeded";
+  if (design === "seeded") {
+    return <SeededFamilyOverview schools={schools} />;
+  }
+  return <LegacyParentDashboard />;
+}
+
+function LegacyParentDashboard() {
   const { player } = usePlayer();
-  // Budget is Seeded-only (Legacy keeps its own standalone /cost-calculator
-  // page and sidebar link, untouched) so this tab never applies to Legacy.
-  const [tab, setTab] = useState<ParentTab>("overview");
   // Same keys as /dashboard's check-in card, the matches views, and the
   // family hub card — each resource loads once and is shared across every
   // page that shows it, instead of every page fetching its own copy.
@@ -92,8 +96,8 @@ function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
       {/* header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Family dashboard</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <span className="eyebrow text-gold">Family dashboard</span>
+          <h1 className="mt-3 text-4xl sm:text-5xl display-serif text-ink">
             Follow {firstName}&rsquo;s climb.
           </h1>
           <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
@@ -106,31 +110,6 @@ function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
         </Badge>
       </div>
 
-      {isSeeded && (
-        <div className="mt-6 inline-flex gap-1 rounded-pill border border-[rgb(var(--c-line))] bg-card p-1">
-          <ParentTabButton
-            active={tab === "overview"}
-            onClick={() => setTab("overview")}
-            icon={LayoutDashboard}
-          >
-            Overview
-          </ParentTabButton>
-          <ParentTabButton
-            active={tab === "budget"}
-            onClick={() => setTab("budget")}
-            icon={DollarSign}
-          >
-            Budget
-          </ParentTabButton>
-        </div>
-      )}
-
-      {isSeeded && tab === "budget" ? (
-        <div className="-mx-6 mt-4">
-          <CostCalculatorView schools={schools} />
-        </div>
-      ) : (
-        <>
       <div className="rule-gold mt-8 max-w-[140px]" />
 
       {/* stat tiles */}
@@ -289,36 +268,7 @@ function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
           </Card>
         </div>
       </div>
-      </>
-      )}
     </div>
-  );
-}
-
-function ParentTabButton({
-  active,
-  onClick,
-  icon: Icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof Users;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "flex min-h-[36px] items-center gap-1.5 rounded-pill px-4 font-sans text-sm font-semibold transition-colors",
-        active ? "bg-ink text-white" : "text-stone hover:text-ink"
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {children}
-    </button>
   );
 }
 
@@ -331,15 +281,13 @@ function StatTile({
   label: string;
   value: string;
 }) {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   return (
-    <Card interactive className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+    <Card interactive className="p-5">
       <div className="flex items-center justify-between">
-        <span className={cn("eyebrow", isSeeded && "font-seeded")}>{label}</span>
+        <span className="eyebrow">{label}</span>
         <Icon className="h-4 w-4 text-gold" />
       </div>
-      <p className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-mono" : "font-serif")}>{value}</p>
+      <p className="mt-3 text-4xl text-ink font-serif">{value}</p>
     </Card>
   );
 }

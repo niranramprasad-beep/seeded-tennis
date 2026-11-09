@@ -12,17 +12,14 @@ import { classifySchoolFit } from "@/lib/school-fit";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
 import { loadCoachOutreachDated } from "@/lib/supabase/features";
 import { loadMatches } from "@/lib/supabase/features";
-import { getCurrentGrade } from "@/lib/time";
+import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { formatUTR } from "@/lib/utils";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
   const standing = gradeStandingName(getCurrentGrade(graduationYear, now));
-  const month = now.getMonth();
-  const season =
-    month >= 7 && month <= 10 ? "fall" : month >= 11 || month <= 1 ? "winter" : month <= 4 ? "spring" : "summer";
-  return `${standing.charAt(0).toUpperCase()}${standing.slice(1)} ${season}`;
+  return `${standing.charAt(0).toUpperCase()}${standing.slice(1)} ${currentSeason(now)}`;
 }
 
 function greeting(now: Date): string {

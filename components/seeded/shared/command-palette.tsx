@@ -7,12 +7,14 @@ import {
   CalendarDays,
   Clock,
   Compass,
+  DollarSign,
+  FileText,
+  LayoutDashboard,
   Mail,
   School,
   Search,
   Settings,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
@@ -36,9 +38,14 @@ const PLAYER_COMMANDS: Command[] = [
   { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
 ];
 
+// Mirrors the Phase 3 sidebar's PARENT_NAV_LINKS exactly — keep both in
+// sync.
 const PARENT_COMMANDS: Command[] = [
-  { label: "Family", href: "/family", icon: Users, keywords: "budget costs" },
+  { label: "Overview", href: "/family", icon: LayoutDashboard, keywords: "family dashboard" },
+  { label: "Budget", href: "/family/budget", icon: DollarSign, keywords: "season spend expenses" },
   { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
+  { label: "Events", href: "/events", icon: CalendarDays, keywords: "calendar tournaments" },
+  { label: "Weekly reports", href: "/family/weekly-reports", icon: FileText, keywords: "summary report" },
   { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
 ];
 

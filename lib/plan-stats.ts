@@ -7,6 +7,39 @@ import type { MatchRecord } from "@/lib/supabase/features";
 
 const MS_PER_DAY = 86_400_000;
 
+export interface UtrDeltaWithBaseline {
+  delta: number;
+  /** The real logged entry used as the comparison point — e.g. /family's
+   * "+0.51 since May" reads its month straight from this, rather than
+   * repeating utrDeltaOverMonths' own cutoff/sort logic a second time. */
+  baselineDate: string;
+}
+
+/**
+ * Same real "latest entry minus the most recent entry at/before the
+ * cutoff" comparison as utrDeltaOverMonths, but also returns which real
+ * entry was used as the baseline. Returns null under the same condition
+ * (no entry old enough to compare against).
+ */
+export function utrDeltaWithBaseline(
+  entries: UtrEntry[],
+  months: number,
+  now: Date = new Date()
+): UtrDeltaWithBaseline | null {
+  if (entries.length === 0) return null;
+  const sorted = [...entries].sort(
+    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  );
+  const latest = sorted[sorted.length - 1];
+  const cutoff = now.getTime() - months * 30 * MS_PER_DAY;
+  const baseline = [...sorted].reverse().find((e) => new Date(e.recordedAt).getTime() <= cutoff);
+  if (!baseline) return null;
+  return {
+    delta: Math.round((latest.utr - baseline.utr) * 100) / 100,
+    baselineDate: baseline.recordedAt,
+  };
+}
+
 /**
  * UTR change over the last `months`: latest entry minus the most recent
  * entry recorded at or before the cutoff. Returns null when there's no
@@ -18,15 +51,7 @@ export function utrDeltaOverMonths(
   months: number,
   now: Date = new Date()
 ): number | null {
-  if (entries.length === 0) return null;
-  const sorted = [...entries].sort(
-    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-  );
-  const latest = sorted[sorted.length - 1];
-  const cutoff = now.getTime() - months * 30 * MS_PER_DAY;
-  const baseline = [...sorted].reverse().find((e) => new Date(e.recordedAt).getTime() <= cutoff);
-  if (!baseline) return null;
-  return Math.round((latest.utr - baseline.utr) * 100) / 100;
+  return utrDeltaWithBaseline(entries, months, now)?.delta ?? null;
 }
 
 export interface WinLossRecord {
