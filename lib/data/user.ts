@@ -18,4 +18,8 @@ export const emptyPlayer: Player = {
   tournamentsPlayed: 0,
   tournamentsGoal: 12,
   onboarded: false,
+  homeArea: "",
+  utrProfileLink: "",
+  gpa: null,
+  deletionRequestedAt: null,
 };

@@ -136,6 +136,19 @@ export interface Player {
   tournamentsPlayed: number;
   tournamentsGoal: number;
   onboarded: boolean;
+  // Profile tab fields on /settings (migration 014_profile_fields_and_
+  // deletion.sql: profiles.home_area/utr_profile_link/gpa). Optional so
+  // older in-memory Player values built before this migration (and rows
+  // read from a database that hasn't had it applied yet) stay valid.
+  homeArea?: string;
+  utrProfileLink?: string;
+  gpa?: number | null;
+  // Set by /settings' "Delete account" flow (migration 014's
+  // profiles.deletion_requested_at). Null/undefined means no deletion is
+  // pending. This is ONLY ever a timestamp marker — nothing in the app
+  // reads this to actually delete data; the real 30-day purge is a
+  // separate operational job outside the app's scope.
+  deletionRequestedAt?: string | null;
 }
 
 // Maps a player's gender to the school program gender they recruit into.

@@ -362,6 +362,15 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
     ),
     tournamentsGoal: Number(profile.tournaments_goal ?? emptyPlayer.tournamentsGoal),
     onboarded: Boolean(profile.onboarded),
+    // home_area/utr_profile_link/gpa/deletion_requested_at (migration
+    // 014_profile_fields_and_deletion.sql) are read safely even before that
+    // migration is applied: `select("*")` only ever returns columns that
+    // actually exist, so these just come back undefined (not an error) on
+    // an unmigrated database.
+    homeArea: profile.home_area ?? emptyPlayer.homeArea,
+    utrProfileLink: profile.utr_profile_link ?? emptyPlayer.utrProfileLink,
+    gpa: profile.gpa != null ? Number(profile.gpa) : null,
+    deletionRequestedAt: profile.deletion_requested_at ?? null,
   };
 }
 
@@ -450,7 +459,7 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
   const { data } = await getAuthedUser(supa);
   if (!data.user) return;
 
-  await supa.from("profiles").upsert({
+  const base = {
     id: data.user.id,
     email: data.user.email,
     name: player.name,
@@ -466,7 +475,29 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
     tournaments_played: player.tournamentsPlayed,
     tournaments_goal: player.tournamentsGoal,
     onboarded: player.onboarded,
+  };
+
+  // home_area/utr_profile_link/gpa/deletion_requested_at (migration
+  // 014_profile_fields_and_deletion.sql) may not be applied to the live
+  // database yet — same "011/013 discipline" as remind_at/
+  // tournament_entries: the migration file is tracked in git but not run
+  // against the shared dev/prod Supabase project automatically. Try the
+  // full row first; if Postgres rejects it for an undefined column
+  // (42703), fall back to the base columns so every OTHER updatePlayer()
+  // call across the app (onboarding, weaknesses, target schools,
+  // tournament counts, ...) keeps working exactly as before instead of
+  // silently failing because of these unrelated new fields.
+  const { error } = await supa.from("profiles").upsert({
+    ...base,
+    home_area: player.homeArea ?? null,
+    utr_profile_link: player.utrProfileLink ?? null,
+    gpa: player.gpa ?? null,
+    deletion_requested_at: player.deletionRequestedAt ?? null,
   });
+
+  if (error?.code === "42703") {
+    await supa.from("profiles").upsert(base);
+  }
 }
 
 async function ensureSupabaseProfile(input: {
