@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   classifySchoolFit,
+  closestSchoolsByUtrGap,
+  computeGoalPace,
   countSchoolFits,
   explainSchoolFit,
   findAlternativeSchools,
@@ -508,5 +510,90 @@ describe("findAlternativeSchools", () => {
 
   it("returns an empty list against an empty catalog", () => {
     expect(findAlternativeSchools(target, [], 8)).toEqual([]);
+  });
+});
+
+describe("computeGoalPace — whole-roadmap pace warning math (point 2)", () => {
+  it("reads 'within-realistic-range' for the same gap/runway as the per-school version", () => {
+    // Class of 2028 -> summer before senior year June 1, 2027, ~1.56 years
+    // out from "now" below. gap (10 - 9) = 1 -> ~0.64/yr.
+    const pace = computeGoalPace(9, 10, 2028, d("2025-11-08"));
+    expect(pace.byDate).toBe("2027-06-01");
+    expect(pace.gap).toBe(1);
+    expect(pace.paceRead).toBe("within-realistic-range");
+    expect(pace.requiredPaceUtrPerYear).toBeGreaterThanOrEqual(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min);
+    expect(pace.requiredPaceUtrPerYear).toBeLessThanOrEqual(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max);
+  });
+
+  it("reads 'slower-than-realistic' when there's plenty of runway for the gap", () => {
+    // Class of 2029 -> ~2.56 years out; gap 1 -> ~0.39/yr, below the 0.5 floor.
+    const pace = computeGoalPace(9, 10, 2029, d("2025-11-08"));
+    expect(pace.paceRead).toBe("slower-than-realistic");
+    expect(pace.requiredPaceUtrPerYear).toBeLessThan(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min);
+  });
+
+  it("reads 'faster-than-realistic' when the gap is too big for the runway — the warning-banner case", () => {
+    // Class of 2027 -> ~0.56 years out; gap 2 -> ~3.6/yr, well past 1.5.
+    const pace = computeGoalPace(8, 10, 2027, d("2025-11-08"));
+    expect(pace.paceRead).toBe("faster-than-realistic");
+    expect(pace.requiredPaceUtrPerYear).toBeGreaterThan(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max);
+  });
+
+  it("reads 'no-time-left' with a null pace once the milestone has already passed and the goal isn't met", () => {
+    // Class of 2026 -> summer before senior year (June 1, 2025) already behind "now".
+    const pace = computeGoalPace(8, 10, 2026, d("2025-11-08"));
+    expect(pace.byDate).toBe("2025-06-01");
+    expect(pace.requiredPaceUtrPerYear).toBeNull();
+    expect(pace.paceRead).toBe("no-time-left");
+  });
+
+  it("never reports a warning pace once the goal is already met, even with no runway left", () => {
+    const pace = computeGoalPace(11, 10, 2026, d("2025-11-08"));
+    expect(pace.gap).toBe(0);
+    expect(pace.requiredPaceUtrPerYear).toBeNull();
+    expect(pace.paceRead).toBe("within-realistic-range");
+  });
+
+  it("floors the gap at 0 when currentUTR is already above the goal, with real runway left", () => {
+    const pace = computeGoalPace(11, 10, 2029, d("2025-11-08"));
+    expect(pace.gap).toBe(0);
+    expect(pace.requiredPaceUtrPerYear).toBe(0);
+    // 0/yr is below the realistic floor, not "within range" — "you have room," never a warning.
+    expect(pace.paceRead).toBe("slower-than-realistic");
+  });
+});
+
+describe("closestSchoolsByUtrGap — 'closest schools to you' (point 4)", () => {
+  const near = schoolLite({ slug: "near", shortName: "Near", minCompetitiveUTR: 8.5, avgRosterUTR: 9 }); // |9-9|=0
+  const slightlyOff = schoolLite({ slug: "slightly-off", shortName: "SlightlyOff", minCompetitiveUTR: 9, avgRosterUTR: 9.5 }); // |9.5-9|=.5
+  const reach = schoolLite({ slug: "reach", shortName: "Reach", minCompetitiveUTR: 10, avgRosterUTR: 11 }); // |11-9|=2
+  const belowFloor = schoolLite({ slug: "below-floor", shortName: "BelowFloor", minCompetitiveUTR: 6, avgRosterUTR: 7 }); // |7-9|=2
+
+  it("ranks real schools by smallest absolute gap to the player's current UTR first", () => {
+    const results = closestSchoolsByUtrGap(9, [reach, belowFloor, slightlyOff, near]);
+    expect(results.map((r) => r.school.slug)).toEqual(["near", "slightly-off", "reach", "below-floor"]);
+  });
+
+  it("breaks a tied avgRosterUTR gap using distance to the competitive floor", () => {
+    // Both 2 away from the player's UTR on avgRosterUTR, but "below-floor"'s
+    // own floor (6) is farther from 9 than "reach"'s floor (10) is — reach
+    // should sort first.
+    const results = closestSchoolsByUtrGap(9, [belowFloor, reach]);
+    expect(results.map((r) => r.school.slug)).toEqual(["reach", "below-floor"]);
+  });
+
+  it("includes the real signed gap and the same band classifySchoolFit would return", () => {
+    const [result] = closestSchoolsByUtrGap(9, [slightlyOff]);
+    expect(result.gap).toBe(0.5);
+    expect(result.band).toBe(classifySchoolFit(9, slightlyOff));
+  });
+
+  it("respects the limit", () => {
+    const results = closestSchoolsByUtrGap(9, [near, slightlyOff, reach, belowFloor], 2);
+    expect(results).toHaveLength(2);
+  });
+
+  it("returns an empty list against an empty catalog", () => {
+    expect(closestSchoolsByUtrGap(9, [])).toEqual([]);
   });
 });

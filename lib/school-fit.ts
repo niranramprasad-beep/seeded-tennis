@@ -183,6 +183,18 @@ export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
+export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
+
+/** The one place a raw UTR/year rate gets classified against
+ * REALISTIC_UTR_IMPROVEMENT_PER_YEAR — shared by computeNextBandChange
+ * (per-school) and computeGoalPace (whole-roadmap) below, so the two never
+ * disagree about what counts as "realistic". */
+function paceReadFor(requiredPaceUtrPerYear: number): Exclude<PaceRead, "no-time-left"> {
+  if (requiredPaceUtrPerYear > REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max) return "faster-than-realistic";
+  if (requiredPaceUtrPerYear < REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min) return "slower-than-realistic";
+  return "within-realistic-range";
+}
+
 const BAND_LABEL: Record<SchoolFitBand, string> = {
   reach: "Reach",
   target: "Target",
@@ -212,8 +224,6 @@ export type SchoolFitPace =
   | { status: "no-player-utr" }
   | { status: "insufficient-history"; message: string }
   | { status: "ready"; projectedUTR: number; byDate: string };
-
-export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
 
 /** What it would take to move up exactly one band — null once the player is
  * already in the top band (Likely has no higher band to move into). */
@@ -300,12 +310,7 @@ function computeNextBandChange(
   }
 
   const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
-  const paceRead: PaceRead =
-    requiredPaceUtrPerYear > REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max
-      ? "faster-than-realistic"
-      : requiredPaceUtrPerYear < REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min
-        ? "slower-than-realistic"
-        : "within-realistic-range";
+  const paceRead = paceReadFor(requiredPaceUtrPerYear);
   const readPhrase =
     paceRead === "faster-than-realistic"
       ? "that's faster than most players improve"
@@ -460,4 +465,101 @@ export function explainSchoolFit(
     academics: ACADEMICS_NOTE,
     timing,
   };
+}
+
+// ---------------------------------------------------------------------
+// GOAL PACE — whole-roadmap version of computeNextBandChange's per-school
+// pace check, used by /plan's goal-pace warning (buildRoadmap's goalUTR is
+// the highest minCompetitiveUTR among the player's real target schools, or
+// a default fallback with no targets — either way, this just asks "is the
+// REQUIRED pace to close player -> goal by senior summer realistic?" using
+// the exact same REALISTIC_UTR_IMPROVEMENT_PER_YEAR yardstick and
+// summerBeforeSeniorYear milestone every other pace read in this file uses.
+// ---------------------------------------------------------------------
+
+export interface GoalPace {
+  /** goalUTR - currentUTR, never negative (a goal already met needs 0/yr). */
+  gap: number;
+  /** ISO "summer before senior year" date. */
+  byDate: string;
+  /** Null once byDate has already passed — no runway left to divide by. */
+  requiredPaceUtrPerYear: number | null;
+  paceRead: PaceRead;
+}
+
+/**
+ * Real pace required to close the gap between a player's actual current
+ * UTR and their real roadmap goal (buildRoadmap's goalUTR) by the summer
+ * before senior year. Never fabricates a pace from a hypothetical UTR —
+ * callers that want the what-if slider's number should pass it in as
+ * `currentUTR` explicitly rather than this function inventing a second
+ * convention.
+ */
+export function computeGoalPace(
+  currentUTR: number,
+  goalUTR: number,
+  graduationYear: number,
+  now: Date = new Date()
+): GoalPace {
+  const milestone = summerBeforeSeniorYear(graduationYear);
+  const byDate = localDateKey(milestone);
+  const gap = Math.max(0, Math.round((goalUTR - currentUTR) * 100) / 100);
+
+  const yearsRemaining = (milestone.getTime() - now.getTime()) / MS_PER_YEAR;
+  if (yearsRemaining <= 0) {
+    return { gap, byDate, requiredPaceUtrPerYear: null, paceRead: gap > 0 ? "no-time-left" : "within-realistic-range" };
+  }
+
+  const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
+  return { gap, byDate, requiredPaceUtrPerYear, paceRead: paceReadFor(requiredPaceUtrPerYear) };
+}
+
+// ---------------------------------------------------------------------
+// "CLOSEST SCHOOLS TO YOU" — real catalog schools ranked by real UTR
+// distance to the player's actual level, for /plan's "Closest schools to
+// you" section (point 4 of the redesign spec). Distance is measured
+// against each school's real avgRosterUTR (its actual roster level, the
+// most honest single number for "how close is this program to where I
+// really am" — minCompetitiveUTR alone would surface schools whose FLOOR
+// is close even if their roster plays well above the player, which reads
+// as a worse recommendation, not a better one).
+// ---------------------------------------------------------------------
+
+export interface ClosestSchoolResult {
+  school: SchoolLite;
+  /** avgRosterUTR - playerUtr. Signed: negative means the player is
+   * already above that roster's average. */
+  gap: number;
+  /** Same classifySchoolFit band every other fit chip on the page uses —
+   * reused here, never recomputed with different logic. */
+  band: SchoolFitBand;
+}
+
+/**
+ * The `limit` real schools (default 5) in `catalog` with the smallest
+ * ABSOLUTE real UTR gap to `playerUtr` — ties broken by distance to the
+ * competitive floor as a secondary signal. `catalog` is expected to
+ * already be filtered to the player's own recruiting gender (callers
+ * already have that filtered list — e.g. roadmap-view.tsx's
+ * `pickerSchools` — rather than this function re-deriving it and needing
+ * a Gender/programGenderFor import of its own).
+ */
+export function closestSchoolsByUtrGap(
+  playerUtr: number,
+  catalog: SchoolLite[],
+  limit = 5,
+  projection?: SchoolFitProjectionInput
+): ClosestSchoolResult[] {
+  return catalog
+    .map((school) => ({
+      school,
+      gap: Math.round((school.avgRosterUTR - playerUtr) * 100) / 100,
+      band: classifySchoolFit(playerUtr, school, projection),
+    }))
+    .sort(
+      (a, b) =>
+        Math.abs(a.gap) - Math.abs(b.gap) ||
+        Math.abs(a.school.minCompetitiveUTR - playerUtr) - Math.abs(b.school.minCompetitiveUTR - playerUtr)
+    )
+    .slice(0, limit);
 }

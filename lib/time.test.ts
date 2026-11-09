@@ -4,6 +4,11 @@ import {
   formatDate,
   getCurrentGrade,
   getCurrentSchoolYear,
+  getD1ContactOpenDate,
+  getD1OffCampusContactDate,
+  getD1WrittenOfferDate,
+  getD3OffCampusContactDate,
+  getD3OfficialVisitDate,
   getDefaultCommitDate,
   getGradYearFromGrade,
   getMonthsUntilGraduation,
@@ -250,5 +255,40 @@ describe("localDateKey", () => {
     const lateNight = new Date(2026, 9, 3, 23, 59);
     const earlyMorning = new Date(2026, 9, 3, 0, 1);
     expect(localDateKey(lateNight)).toBe(localDateKey(earlyMorning));
+  });
+});
+
+// Real D1/D3 NCAA contact-window dates behind /plan's recruiting-timeline
+// checklist (lib/recruiting-checklist.ts). Class of 2029 reused throughout
+// so these line up directly against getRecruitingPhase's own June 15,
+// 2027 contact-open date above (same player, same "summer before 11th
+// grade" = 2027).
+describe("getD1ContactOpenDate", () => {
+  it("is June 15 of the summer before 11th grade", () => {
+    expect(localDateKey(getD1ContactOpenDate(2029))).toBe("2027-06-15");
+  });
+});
+
+describe("getD1OffCampusContactDate", () => {
+  it("is August 1 of junior year (same calendar year as the June 15 contact-open date)", () => {
+    expect(localDateKey(getD1OffCampusContactDate(2029))).toBe("2027-08-01");
+  });
+});
+
+describe("getD1WrittenOfferDate", () => {
+  it("is August 1 of senior year — one grade (one calendar year) after off-campus contact opens", () => {
+    expect(localDateKey(getD1WrittenOfferDate(2029))).toBe("2028-08-01");
+  });
+});
+
+describe("getD3OffCampusContactDate", () => {
+  it("is June 1 of the same 'summer before 11th grade' window as D1's contact-open date", () => {
+    expect(localDateKey(getD3OffCampusContactDate(2029))).toBe("2027-06-01");
+  });
+});
+
+describe("getD3OfficialVisitDate", () => {
+  it("is January 1 of junior year — one calendar year after the summer-before-11th-grade window", () => {
+    expect(localDateKey(getD3OfficialVisitDate(2029))).toBe("2028-01-01");
   });
 });
