@@ -73,7 +73,7 @@ export function SendNoteModal({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
         >
           Cancel
         </button>

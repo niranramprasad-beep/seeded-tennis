@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 // chip style, matching "Camp" in "18 Parent view + budget.png".
 const CHIP_CLASS: Record<BudgetLineChip, string> = {
   good: "border-grass-100 bg-grass-50 text-grass",
-  decent: "border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]",
-  bad: "border-[#F0CDBC] bg-[#FBEDE6] text-[#7A3519]",
+  decent: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",
+  bad: "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text-strong))]",
   entries: "border-line bg-card text-stone",
   travel: "border-line bg-card text-stone",
   camps: "border-line bg-card text-stone",

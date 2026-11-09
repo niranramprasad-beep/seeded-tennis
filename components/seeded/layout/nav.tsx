@@ -108,7 +108,7 @@ export function SeededNav() {
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg border border-[#D6D3C8] py-3 text-center text-[15px] font-semibold text-ink"
+                  className="rounded-lg border border-input py-3 text-center text-[15px] font-semibold text-ink"
                 >
                   Sign in
                 </Link>

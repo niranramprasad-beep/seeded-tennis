@@ -72,7 +72,7 @@ export function DeleteAccountDialog({
                 type="checkbox"
                 checked={acknowledged}
                 onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#D6D3C8]"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input"
               />
               I understand this is permanent after 30 days.
             </label>
@@ -84,7 +84,7 @@ export function DeleteAccountDialog({
               <input
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                className="h-11 w-full rounded-md border border-[#D6D3C8] bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-error/30"
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-error/30"
                 placeholder="DELETE"
                 autoComplete="off"
               />
@@ -94,7 +94,7 @@ export function DeleteAccountDialog({
               <button
                 type="button"
                 onClick={close}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
               >
                 Cancel
               </button>
@@ -103,7 +103,7 @@ export function DeleteAccountDialog({
                 onClick={onConfirm}
                 disabled={!canConfirm || submitting}
                 className={cn(
-                  "inline-flex min-h-11 items-center justify-center rounded-lg border border-error bg-error px-[18px] text-[15px] font-semibold text-white transition-colors hover:bg-error-strong",
+                  "inline-flex min-h-11 items-center justify-center rounded-lg border border-error-solid bg-error-solid px-[18px] text-[15px] font-semibold text-white transition-colors hover:bg-error-solid-hover",
                   "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-line disabled:text-stone-light"
                 )}
               >

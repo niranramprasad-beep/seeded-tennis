@@ -18,7 +18,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
 const selectClass =
-  "h-10 w-full rounded-lg border border-[#D6D3C8] bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
+  "h-10 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
 
 type ChipFilter = "all" | FitBand | "saved";
 
@@ -148,7 +148,7 @@ export function SeededSchoolsBrowser({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="School, city or conference"
-              className="h-11 w-full rounded-lg border border-[#D6D3C8] bg-card pl-10 pr-3 text-[15px] text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
+              className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-[15px] text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
             />
           </div>
         </label>
@@ -238,7 +238,7 @@ export function SeededSchoolsBrowser({
               return (
                 <div
                   key={s.id}
-                  className="grid grid-cols-[28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-[#EFEDE6] px-[18px] py-3.5 last:border-b-0"
+                  className="grid grid-cols-[28px_minmax(0,2.2fr)_100px_minmax(0,2fr)_80px_90px_110px] items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0"
                 >
                   <input
                     type="checkbox"
@@ -287,7 +287,7 @@ export function SeededSchoolsBrowser({
           <span className="flex-1" />
           <button
             onClick={saveSelectedToTargets}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-4 text-sm font-semibold text-ink"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-ink"
           >
             Save to targets
           </button>
@@ -332,11 +332,11 @@ export function SeededSchoolsBrowser({
 }
 
 const CHIP_VARIANT: Record<string, { on: string; off: string }> = {
-  dark: { on: "bg-ink text-white border-ink", off: "bg-card text-stone border-line" },
-  reach: { on: "bg-[#FBEDE6] text-[#9C4824] border-[#F0CDBC]", off: "bg-card text-stone border-line" },
+  dark: { on: "bg-ink text-cream border-ink", off: "bg-card text-stone border-line" },
+  reach: { on: "bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))] border-[rgb(var(--c-clay-tint-border))]", off: "bg-card text-stone border-line" },
   target: { on: "bg-grass-50 text-grass border-grass-100", off: "bg-card text-stone border-line" },
-  likely: { on: "bg-[#EEF3D6] text-[#4A5A10] border-[#D8E3A8]", off: "bg-card text-stone border-line" },
-  plain: { on: "bg-ink text-white border-ink", off: "bg-card text-stone border-line" },
+  likely: { on: "bg-[rgb(var(--c-sage-tint-bg))] text-[rgb(var(--c-sage-tint-text))] border-[rgb(var(--c-sage-tint-border))]", off: "bg-card text-stone border-line" },
+  plain: { on: "bg-ink text-cream border-ink", off: "bg-card text-stone border-line" },
 };
 
 function ChipButton({

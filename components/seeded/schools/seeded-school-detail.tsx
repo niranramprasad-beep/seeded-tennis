@@ -230,7 +230,7 @@ function FitDriverRow({
   chip: string;
 }) {
   return (
-    <div className="grid grid-cols-[100px_minmax(0,1fr)_auto] items-center gap-3 border-t border-[#EFEDE6] py-3 text-sm">
+    <div className="grid grid-cols-[100px_minmax(0,1fr)_auto] items-center gap-3 border-t border-line py-3 text-sm">
       <span className="font-semibold text-ink">{label}</span>
       <span className="text-stone">{description}</span>
       <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">

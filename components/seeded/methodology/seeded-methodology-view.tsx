@@ -46,7 +46,7 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
 
 const RATING_CHIPS: { label: string; className: string }[] = [
   { label: "Counted: reliable rating", className: "bg-grass-50 text-grass border-grass-100" },
-  { label: "Shown, not counted: stale or low reliability", className: "bg-[#FFF4DC] text-[#7A5212] border-[#F0DCAD]" },
+  { label: "Shown, not counted: stale or low reliability", className: "bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))] border-[rgb(var(--c-gold-tint-border))]" },
   { label: "Left out: on UTR but not on the official roster", className: "bg-card text-stone border-line border-dashed" },
 ];
 
@@ -112,7 +112,7 @@ export function SeededMethodologyView() {
                     key={row.label}
                     className={cn(
                       "grid grid-cols-[120px_minmax(0,1fr)] gap-6 px-5 py-4",
-                      i > 0 && "border-t border-[#EFEDE6]"
+                      i > 0 && "border-t border-line"
                     )}
                   >
                     <strong className="text-[15px] text-ink">{row.label}</strong>
@@ -179,7 +179,7 @@ export function SeededMethodologyView() {
                     key={row.band}
                     className={cn(
                       "grid grid-cols-[120px_minmax(0,1fr)] items-center gap-6 px-5 py-4",
-                      i > 0 && "border-t border-[#EFEDE6]"
+                      i > 0 && "border-t border-line"
                     )}
                   >
                     <FitBadge band={row.band} />

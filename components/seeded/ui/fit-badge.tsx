@@ -13,9 +13,9 @@ const LABEL: Record<FitBand, string> = {
 // Pixel-exact to DesignSystem.dc.html's ".chip" base + fit-band colors: pill,
 // 4px/10px padding, 12px/600 text, 1px border.
 const BAND_CLASS: Record<FitBand, string> = {
-  reach: "bg-[#FBEDE6] text-[#9C4824] border-[#F0CDBC]",
+  reach: "bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))] border-[rgb(var(--c-clay-tint-border))]",
   target: "bg-grass-50 text-grass border-grass-100",
-  likely: "bg-[#EEF3D6] text-[#4A5A10] border-[#D8E3A8]",
+  likely: "bg-[rgb(var(--c-sage-tint-bg))] text-[rgb(var(--c-sage-tint-text))] border-[rgb(var(--c-sage-tint-border))]",
   "out-of-range": "bg-card text-stone border-line",
   unverified: "bg-card text-stone border-line border-dashed",
 };

@@ -45,7 +45,7 @@ export function SidebarPreview() {
         signOut: () => {},
       }}
     >
-      <div className="fixed left-1/2 top-2 z-[999] flex -translate-x-1/2 gap-2 rounded-full bg-ink px-3 py-1.5 text-xs text-white shadow-lift">
+      <div className="fixed left-1/2 top-2 z-[999] flex -translate-x-1/2 gap-2 rounded-full bg-ink px-3 py-1.5 text-xs text-cream shadow-lift">
         <button onClick={() => setRole("player")} className={role === "player" ? "font-bold underline" : ""}>
           player
         </button>

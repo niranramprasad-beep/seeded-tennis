@@ -13,7 +13,7 @@ export const seededButtonVariants = cva(
       variant: {
         primary: "bg-grass text-on-primary hover:bg-grass-600",
         secondary:
-          "border-[#D6D3C8] bg-card text-ink hover:bg-[#F1EFE8]",
+          "border-input bg-card text-ink hover:bg-subtle-hover",
         ghost: "text-grass hover:bg-grass-50",
       },
     },

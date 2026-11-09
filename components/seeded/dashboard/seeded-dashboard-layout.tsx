@@ -138,7 +138,7 @@ export function SeededDashboardLayout({
           actions.map((a) => <TodayActionRow key={a.id} action={a} />)
         )}
 
-        <div className="flex items-center gap-4 rounded-[10px] border border-line bg-[#FBFAF7] px-4 py-3 text-sm text-stone">
+        <div className="flex items-center gap-4 rounded-[10px] border border-line bg-panel px-4 py-3 text-sm text-stone">
           <span className="flex-1">
             Done this week: logged {matchesThisWeek} match{matchesThisWeek === 1 ? "" : "es"}
           </span>

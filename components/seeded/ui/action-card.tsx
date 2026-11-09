@@ -50,7 +50,7 @@ export function ActionCard({
 
   if (done) {
     return (
-      <div className="flex items-center gap-3 rounded-[10px] border border-line bg-[#FBFAF7] px-3.5 py-3 text-sm text-stone">
+      <div className="flex items-center gap-3 rounded-[10px] border border-line bg-panel px-3.5 py-3 text-sm text-stone">
         <span className="flex-1">✓ Done · {doneLabel}</span>
         {undoable && (
           <SeededButton

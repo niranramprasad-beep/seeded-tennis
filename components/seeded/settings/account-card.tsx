@@ -42,14 +42,14 @@ export function AccountCard({
           <button
             type="button"
             onClick={() => router.push("/settings/billing")}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
           >
             Manage billing
           </button>
           <button
             type="button"
             onClick={onSignOut}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
           >
             <LogOut className="h-4 w-4" />
             Sign out

@@ -100,7 +100,7 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                 onClick={() => setTab(band)}
                 className={
                   tab === band
-                    ? "min-h-11 rounded-lg border border-ink bg-ink px-4 font-sans text-[15px] font-semibold text-white"
+                    ? "min-h-11 rounded-lg border border-ink bg-ink px-4 font-sans text-[15px] font-semibold text-cream"
                     : "min-h-11 rounded-lg border border-line bg-card px-4 font-sans text-[15px] font-semibold text-ink"
                 }
               >
@@ -126,7 +126,7 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                 return (
                   <div
                     key={s.id}
-                    className="grid grid-cols-[2.2fr_2fr_90px_90px] items-center gap-4 border-b border-[#EFEDE6] px-5 py-3.5 last:border-0"
+                    className="grid grid-cols-[2.2fr_2fr_90px_90px] items-center gap-4 border-b border-line px-5 py-3.5 last:border-0"
                   >
                     <div>
                       <strong className="text-[15px] text-ink">{s.shortName}</strong>
@@ -188,7 +188,7 @@ function ProgressChip({ children, done, active }: { children: React.ReactNode; d
         done
           ? "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass"
           : active
-            ? "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-ink bg-ink px-2.5 py-1 text-xs font-semibold text-white"
+            ? "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-ink bg-ink px-2.5 py-1 text-xs font-semibold text-cream"
             : "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone"
       }
     >
@@ -236,7 +236,7 @@ function LevelForm({
           <input
             value={utr}
             onChange={(e) => setUtr(e.target.value)}
-            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </label>
@@ -245,7 +245,7 @@ function LevelForm({
           <select
             value={gradYear}
             onChange={(e) => setGradYear(Number(e.target.value))}
-            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+            className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             {gradYearOptions().map((y) => (
               <option key={y} value={y}>
@@ -259,7 +259,7 @@ function LevelForm({
           <select
             value={gender}
             onChange={(e) => setGender(e.target.value as Gender)}
-            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+            className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             <option value="women">Women&apos;s</option>
             <option value="men">Men&apos;s</option>
@@ -270,7 +270,7 @@ function LevelForm({
           <input
             value={gpa}
             onChange={(e) => setGpa(e.target.value)}
-            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </label>
@@ -364,7 +364,7 @@ function SaveReportAside({
       </p>
 
       {underAge ? (
-        <div className="mt-4.5 rounded-lg border border-[#F0DCAD] bg-[#FFF4DC] p-4 text-sm text-[#7A5212]">
+        <div className="mt-4.5 rounded-lg border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] p-4 text-sm text-[rgb(var(--c-gold-tint-text))]">
           <p className="m-0 font-semibold">A parent creates the account and invites you.</p>
           <p className="mt-1.5">
             Players under 13 can&apos;t self-serve sign up here.
@@ -383,7 +383,7 @@ function SaveReportAside({
               if (!result.ok) setError(result.error ?? "Couldn't start Google sign-in.");
             }}
             disabled={googleLoading}
-            className="mt-4.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-[#D6D3C8] bg-card font-sans text-[15px] font-semibold text-ink hover:bg-[#F1EFE8] disabled:opacity-60"
+            className="mt-4.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover disabled:opacity-60"
           >
             {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue with Google"}
           </button>
@@ -397,7 +397,7 @@ function SaveReportAside({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-11 rounded-md border border-[#D6D3C8] px-3 text-base text-ink"
+              className="h-11 rounded-md border border-input px-3 text-base text-ink"
             />
           </label>
           <label className="mt-3 flex flex-col gap-1.5 text-[13px] font-medium text-stone">
@@ -407,7 +407,7 @@ function SaveReportAside({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
-              className="h-11 rounded-md border border-[#D6D3C8] px-3 text-base text-ink"
+              className="h-11 rounded-md border border-input px-3 text-base text-ink"
             />
           </label>
           <label className="mt-3 flex flex-col gap-1.5 text-[13px] font-medium text-stone">
@@ -417,7 +417,7 @@ function SaveReportAside({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="6+ characters"
-              className="h-11 rounded-md border border-[#D6D3C8] px-3 text-base text-ink"
+              className="h-11 rounded-md border border-input px-3 text-base text-ink"
             />
           </label>
 
@@ -429,7 +429,7 @@ function SaveReportAside({
                   key={r}
                   className={
                     role === r
-                      ? "inline-flex min-h-9 cursor-pointer items-center rounded-pill border border-ink bg-ink px-3.5 text-sm text-white"
+                      ? "inline-flex min-h-9 cursor-pointer items-center rounded-pill border border-ink bg-ink px-3.5 text-sm text-cream"
                       : "inline-flex min-h-9 cursor-pointer items-center rounded-pill border border-line bg-card px-3.5 text-sm text-ink"
                   }
                 >
@@ -451,7 +451,7 @@ function SaveReportAside({
             <select
               value={birthYear}
               onChange={(e) => setBirthYear(Number(e.target.value))}
-              className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+              className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
             >
               {Array.from({ length: 18 }, (_, i) => new Date().getFullYear() - 8 - i).map((y) => (
                 <option key={y} value={y}>

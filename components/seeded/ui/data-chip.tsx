@@ -8,7 +8,7 @@ export type DataChipStatus = "verified" | "updated" | "estimated" | "missing";
 const STATUS_CLASS: Record<DataChipStatus, string> = {
   verified: "bg-grass-50 text-grass border-grass-100",
   updated: "bg-card text-stone border-line",
-  estimated: "bg-[#FFF4DC] text-[#7A5212] border-[#F0DCAD]",
+  estimated: "bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))] border-[rgb(var(--c-gold-tint-border))]",
   missing: "bg-card text-stone border-line border-dashed",
 };
 

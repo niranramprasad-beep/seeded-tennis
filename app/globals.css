@@ -348,8 +348,6 @@
      lib/context/design-context.tsx. Each mode defines the complete --c-* set
      Legacy already uses, so every existing var-driven primitive (Button,
      Card, Badge) works unmodified under Seeded.
-     The 11 mockups define only ONE (light/cream) palette — no dark variant
-     exists yet — so dark and light currently resolve to the same values.
      --s-* vars (glass/mesh/elevation) are TRANSITIONAL: still referenced by
      not-yet-rewritten Seeded components (sidebar, nav, command palette,
      dashboard/roadmap/schools layouts) until later redesign phases migrate
@@ -360,13 +358,21 @@
     --font-mono-active: var(--font-jetbrains-mono);
   }
 
-  [data-design="seeded"][data-seeded-mode="dark"],
+  /* Light — the 11 mockups' one shipped palette. Values unchanged from the
+     original single light/dark-duplicate block. */
   [data-design="seeded"][data-seeded-mode="light"] {
     --c-bg: 247 246 242;
     --c-card: 255 255 255;
     --c-primary: 31 107 74;
     --c-primary-50: 230 241 235;
     --c-primary-100: 191 220 203;
+    /* Range-bar "team range" fill + budget chart's "travel" segment — the
+       one shade in this ramp with no 50/100/600/700/800/900 neighbor
+       because nothing else in the mockups needed a mid-tone tint of the
+       primary. Both consumers used to hardcode this literal hex (see
+       range-bar.tsx/season-budget-card.tsx history); centralizing it here
+       is what lets it actually change in dark mode below. */
+    --c-primary-300: 156 200 176;
     --c-primary-600: 24 90 62;
     --c-primary-700: 20 73 47;
     --c-primary-800: 16 58 37;
@@ -383,8 +389,67 @@
     --c-error-bg: 252 238 237;
     --c-error: 194 54 47;
     --c-error-strong: 142 38 32;
+    /* Deliberately identical in both light and dark (see the dark block) —
+       this is the one place (delete-account-dialog's solid destructive
+       button) that paints a solid fill with fixed white text on top, not
+       error-as-text-on-a-card like every other --c-error consumer. --c-error
+       itself gets brightened for dark mode so it reads as TEXT on a dark
+       bg (correct for every other use), which would fail contrast as a
+       white-on-fill button background — so this stays its own always-dark
+       pair instead of sharing that ramp. */
+    --c-error-solid: 194 54 47;
+    --c-error-solid-hover: 142 38 32;
     --c-scroll-thumb: 214 211 200;
     --c-thumb-ring: 255 255 255;
+    /* The recurring "secondary" pair every input, dashed empty-state border,
+       and outline/secondary button across components/seeded/* was hardcoding
+       directly as border-[#D6D3C8]/hover:bg-[#F1EFE8] (40+ call sites) —
+       centralized here (values unchanged from that hex) so dark mode below
+       can actually give them real values instead of silently keeping these
+       light-only hardcoded ones. */
+    --c-input-border: 214 211 200;
+    --c-subtle-hover: 241 239 232;
+
+    /* The three recurring "semantic tint" triplets (tinted bg + border +
+       dark-on-light text) used for Reach/Likely/bad-fit badges, the
+       Estimated data chip, decision chips, etc. — FitBadge's reach band,
+       DataChip's estimated state, budget-chip's decent/bad, the tournament
+       fit verdict cards, needs-decision-card's bad-fit panel, and several
+       more all hardcoded these as one-off bg-[#FBEDE6]/border-[#F0CDBC]/
+       text-[#9C4824] (etc.) call sites rather than a shared token, same
+       "measured off the mockup" discipline as --c-primary-300. Centralizing
+       them here (light values unchanged) is what lets them repaint for dark
+       mode instead of staying bright pastel panels glued to the light
+       palette on every status chip across the app. Each family's hue
+       matches an existing named token: clay = --c-leaf ("clay · reach"),
+       gold = --c-gold ("warning"); sage (likely) has no existing token, so
+       it gets a muted olive-green in the same spirit as --c-lime. */
+    --c-clay-tint-bg: 251 237 230;
+    --c-clay-tint-border: 240 205 188;
+    --c-clay-tint-text: 156 72 36;
+    --c-clay-tint-text-strong: 122 53 25;
+    --c-sage-tint-bg: 238 243 214;
+    --c-sage-tint-border: 216 227 168;
+    --c-sage-tint-text: 74 90 16;
+    --c-gold-tint-bg: 255 244 220;
+    --c-gold-tint-border: 240 220 173;
+    --c-gold-tint-text: 122 82 18;
+    /* The sidebar's real fill, the mobile header bar, and a recurring
+       "quiet inset row" (action-card's secondary row, the dashboard
+       check-in bar) all hardcoded this directly as bg-[#FBFAF7] — a subtle
+       off-cream panel tone sitting between --c-bg and --c-card. Centralized
+       here so the sidebar (explicitly flagged as easy to miss) actually
+       gets a real dark value instead of staying near-white. */
+    --c-panel-bg: 251 250 247;
+    /* Fixed in both modes (see the dark block): --c-lime stays a bright
+       accent in both light and dark Seeded, so text/borders sitting on a
+       solid bg-lime-accent fill (sidebar count badges, the "you" dot ring,
+       the "sample report" CTA button) need an always-dark color, not
+       --c-ink, which flips light in dark mode and nearly vanishes on top
+       of lime (checked: ~1:1 contrast). This reuses light mode's own
+       --c-ink value, since that's the exact dark shade the mockups already
+       designed these against. */
+    --c-on-lime: 20 24 26;
 
     --s-bg-mesh-1: 31 107 74;
     --s-bg-mesh-2: 194 100 58;
@@ -396,6 +461,116 @@
     --s-elevation-2: 0 8px 24px rgba(20, 24, 26, 0.08), 0 2px 10px rgba(20, 24, 26, 0.05);
     --s-elevation-3: 0 24px 64px rgba(20, 24, 26, 0.12), 0 0 48px rgba(31, 107, 74, 0.12);
     --s-accent-gradient: linear-gradient(135deg, rgb(31 107 74) 0%, rgb(194 100 58) 100%);
+  }
+
+  /* Dark — a genuine dark palette, since the 11 mockups never shipped one
+     (the only real dark-mode artifact in the source design is the single
+     "dark bg #0E1411" swatch on the Design System mockup's color section —
+     that exact value is reused below as --c-bg, not re-approximated, so the
+     one real decision the designs made is honored). Everything else here is
+     newly constructed, keeping the same color *roles* as light (court green
+     primary, ball-yellow accent, clay/reach, warning gold, error red) with
+     values re-tuned for a dark surface: desaturated-but-warm near-black
+     background (not pure black/blue-black), brightened accents so they keep
+     punch against it, and light warm-gray ink/text. Every text/bg pairing
+     below was checked against WCAG contrast math (see the type-scale "never
+     below 4.5:1" rule referenced in design-system-preview.tsx) — ink, stone,
+     primary, lime, leaf, gold and the error trio all clear 6:1+ against both
+     --c-bg and --c-card; --c-stone-light stays intentionally sub-4.5 the
+     same way light mode's own stone-light (3.0:1) does, since both are
+     decorative/tertiary labels, never body text.
+     The primary ramp's direction flips vs. light mode on purpose — exactly
+     like Legacy's own "night" theme does for the same reason: on a dark
+     surface, moving "further" from the background means getting lighter,
+     not darker, so --c-primary-900 here is the brightest step (a pale mint)
+     instead of light mode's near-black one. --c-on-primary also flips to a
+     near-black ink rather than white, because this mode's primary is bright
+     enough that white text on it fails contrast — same move the
+     "concept-matchpoint"/"concept-nightrally" themes make for their own
+     bright primaries. */
+  [data-design="seeded"][data-seeded-mode="dark"] {
+    --c-bg: 14 20 17;
+    --c-card: 23 30 26;
+    --c-primary: 86 199 142;
+    --c-primary-50: 25 40 32;
+    --c-primary-100: 38 60 47;
+    --c-primary-300: 70 120 98;
+    --c-primary-600: 112 214 162;
+    --c-primary-700: 146 227 184;
+    --c-primary-800: 184 238 207;
+    --c-primary-900: 224 248 233;
+    --c-lime: 222 242 120;
+    --c-leaf: 227 143 100;
+    --c-tennis: 222 242 120;
+    --c-ink: 236 237 231;
+    --c-stone: 163 170 162;
+    --c-stone-light: 110 117 110;
+    --c-line: 52 61 54;
+    --c-gold: 226 171 83;
+    --c-on-primary: 8 16 12;
+    --c-error-bg: 45 24 22;
+    --c-error: 237 112 101;
+    --c-error-strong: 250 179 171;
+    /* Same fixed values as light — see that block's comment. */
+    --c-error-solid: 194 54 47;
+    --c-error-solid-hover: 142 38 32;
+    --c-scroll-thumb: 66 78 69;
+    --c-thumb-ring: 23 30 26;
+    /* A step lighter than --c-line so inputs/secondary-button outlines read
+       as a deliberately stronger border, not just another hairline —
+       mirrors light mode's own input-border being a step darker than its
+       --c-line. --c-subtle-hover is a gentle lift off --c-card, never the
+       near-white light-mode hover tint, which would otherwise flash a
+       bright rectangle over every secondary button on hover in dark mode. */
+    --c-input-border: 74 86 77;
+    --c-subtle-hover: 34 44 38;
+
+    /* Same three semantic tints as light, re-tuned: a near-bg dark panel in
+       each hue (matching --c-primary-50's recipe) with a bright, saturated
+       version of the hue as text — clay derived from --c-leaf, gold from
+       --c-gold, sage from the --c-lime family. text-strong stays brighter
+       than text (same relative order as light mode, where text-strong is
+       the more intense of the two), used for the more severe "bad"/"skip
+       it" semantic vs. the plain "reach" one. */
+    --c-clay-tint-bg: 42 30 24;
+    --c-clay-tint-border: 64 46 36;
+    --c-clay-tint-text: 214 124 88;
+    --c-clay-tint-text-strong: 232 154 112;
+    --c-sage-tint-bg: 34 40 22;
+    --c-sage-tint-border: 54 62 34;
+    --c-sage-tint-text: 200 222 110;
+    --c-gold-tint-bg: 42 34 20;
+    --c-gold-tint-border: 66 54 30;
+    --c-gold-tint-text: 232 182 100;
+    /* Same relative position between --c-bg and --c-card as light mode's
+       panel tone sits between its own bg/card — a hair lighter than the
+       page, a hair darker than a card, so the sidebar/mobile header/inset
+       rows read as a distinct quiet surface instead of a solid near-white
+       rectangle floating on a dark page. */
+    --c-panel-bg: 18 24 21;
+    /* Same fixed value as light — see that block's comment. --c-lime stays
+       bright here too, so the dark-on-lime text/ring needs the same always
+       -dark color regardless of mode. */
+    --c-on-lime: 20 24 26;
+
+    --s-bg-mesh-1: 86 199 142;
+    --s-bg-mesh-2: 227 143 100;
+    --s-bg-mesh-3: 222 242 120;
+    --s-glass-bg: rgba(30, 38, 33, 0.72);
+    --s-glass-border: rgba(255, 255, 255, 0.08);
+    --s-glass-blur: 20px;
+    /* Same "black shadow is invisible on a near-black bg" fix the Legacy
+       "night" theme applies to .shadow-soft/.shadow-lift below, applied
+       here to Seeded's own elevation recipe: a faint light ring stands in
+       for a border, and the top elevation step gets a soft primary-tinted
+       glow instead of relying on shadow darkness alone. */
+    --s-elevation-1: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.35);
+    --s-elevation-2: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.45);
+    --s-elevation-3:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 24px 64px rgba(0, 0, 0, 0.55),
+      0 0 48px rgba(86, 199, 142, 0.18);
+    --s-accent-gradient: linear-gradient(135deg, rgb(86 199 142) 0%, rgb(227 143 100) 100%);
   }
 
   html {
@@ -410,7 +585,8 @@
 
   [data-theme="night"],
   [data-theme="concept-matchpoint"],
-  [data-theme="concept-nightrally"] {
+  [data-theme="concept-nightrally"],
+  [data-design="seeded"][data-seeded-mode="dark"] {
     color-scheme: dark;
   }
 

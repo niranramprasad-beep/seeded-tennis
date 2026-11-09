@@ -54,7 +54,7 @@ export function ModalShell({
 }
 
 function fieldClass() {
-  return "h-11 w-full rounded-md border border-[#D6D3C8] bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
+  return "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
 }
 
 export function EditBudgetModal({
@@ -136,7 +136,7 @@ export function EditBudgetModal({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
         >
           Cancel
         </button>
@@ -222,7 +222,7 @@ export function AddExpenseModal({
             aria-pressed={category === opt.value}
             className={cn(
               "flex-1 rounded-pill py-1.5 font-sans text-sm font-semibold transition-colors",
-              category === opt.value ? "bg-ink text-white" : "text-stone hover:text-ink"
+              category === opt.value ? "bg-ink text-cream" : "text-stone hover:text-ink"
             )}
           >
             {opt.label}
@@ -270,7 +270,7 @@ export function AddExpenseModal({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8]"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
         >
           Cancel
         </button>

@@ -124,7 +124,7 @@ export function DesignSystemPreview() {
                 Current UTR
                 <input
                   defaultValue="9.4"
-                  className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base text-ink"
+                  className="h-11 rounded-md border border-input px-3 font-mono text-base text-ink"
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">

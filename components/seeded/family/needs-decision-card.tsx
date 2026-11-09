@@ -51,7 +51,7 @@ function SkipDecisionRow({ decision }: { decision: PendingSkipDecision }) {
   const [whyOpen, setWhyOpen] = useState(false);
   const { entry, fit, wouldSave } = decision;
   return (
-    <div className="rounded-[14px] border border-[#F0CDBC] bg-[#FBEDE6] p-4">
+    <div className="rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4">
       <p className="font-semibold text-ink">
         Skip {entry.name} ({shortDate(entry.eventDate)})?
       </p>
@@ -67,7 +67,7 @@ function SkipDecisionRow({ decision }: { decision: PendingSkipDecision }) {
         See why
       </button>
       {whyOpen && (
-        <ul className={cn("mt-2.5 flex flex-col gap-1.5 border-l-2 border-[#E4B49B] pl-3.5")}>
+        <ul className={cn("mt-2.5 flex flex-col gap-1.5 border-l-2 border-leaf-accent/50 pl-3.5")}>
           {fit.reasons.map((reason, i) => (
             <li key={i} className="text-sm leading-relaxed text-stone">
               {reason.text}

@@ -18,15 +18,16 @@ function money(value: number): string {
   }).format(value);
 }
 
-// Progress-bar segment colors sampled directly off "18 Parent view +
-// budget.png" (no existing token matched closely enough) — same discipline
-// as FitBadge's reach band / VERDICT_META's decent-fit colors, both
-// one-off hex values measured from a mockup rather than forced onto an
-// unrelated token.
+// Progress-bar segment colors sampled off "18 Parent view + budget.png":
+// entries/camps turn out to exactly match --c-primary/--c-leaf, and travel
+// matches --c-primary-300 (the same mid-tone the range bar uses for its
+// "team range" fill) — so these reference those CSS vars directly rather
+// than hardcoding the light-mode hex, letting the chart actually repaint in
+// dark mode instead of keeping light-mode-only colors on a dark bg.
 const SEGMENT_COLOR = {
-  entries: "#1F6B4A",
-  travel: "#9CC8B0",
-  camps: "#C2643A",
+  entries: "rgb(var(--c-primary))",
+  travel: "rgb(var(--c-primary-300))",
+  camps: "rgb(var(--c-leaf))",
 };
 
 export function SeasonBudgetCard({

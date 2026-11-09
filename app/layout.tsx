@@ -88,10 +88,16 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Apply the saved theme/design before paint to avoid a flash of the default. */}
+        {/* Apply the saved theme/design before paint to avoid a flash of the
+            default. Mirrors design-context.tsx's mount effect exactly,
+            including its "brand-new visitor with nothing saved yet defaults
+            to the OS preference, not a hardcoded mode" rule — syncRaw===null
+            (the 'seeded.mode.system' key has literally never been written)
+            is treated the same as sync=true so a first-time visit on a
+            light-OS machine never flashes dark before React hydrates. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var sync=localStorage.getItem('seeded.mode.system')==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var syncRaw=localStorage.getItem('seeded.mode.system');var sync=syncRaw===null?true:syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}}catch(e){}})();`,
           }}
         />
       </head>

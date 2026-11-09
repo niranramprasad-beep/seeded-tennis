@@ -123,7 +123,7 @@ export function SeededOutreachLayout({
                 <span>{schools.length}</span>
               </div>
               {schools.length === 0 ? (
-                <div className="rounded-[10px] border border-dashed border-[#D6D3C8] p-3 text-sm text-ink/60">
+                <div className="rounded-[10px] border border-dashed border-input p-3 text-sm text-ink/60">
                   {stage.key === "offer"
                     ? "Offers land here."
                     : stage.key === "committed"
@@ -145,7 +145,7 @@ export function SeededOutreachLayout({
                       className={cn(
                         "flex cursor-pointer flex-col gap-1.5 rounded-[10px] border bg-card p-3 text-sm transition-colors hover:border-grass/40",
                         selectedSlug === s.slug ? "border-grass" : "border-line",
-                        due && "border-[#E3A63B]"
+                        due && "border-gold"
                       )}
                       onClick={() => setSelectedSlug(s.slug)}
                     >
@@ -153,10 +153,10 @@ export function SeededOutreachLayout({
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}
                       </span>
-                      {due && chip("border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]", "Follow up due")}
+                      {due && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Follow up due")}
                       {stage.key === "replied" &&
                         chip("border-grass-100 bg-grass-50 text-grass", "Replied")}
-                      {reminderDue && chip("border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]", "Reminder due")}
+                      {reminderDue && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Reminder due")}
                       {!reminderDue && remindAt && (
                         <span className="text-xs text-ink/50">
                           Reminder set for{" "}
@@ -215,7 +215,7 @@ export function SeededOutreachLayout({
               <input
                 readOnly
                 value={`${selectedSchool.coachName} (${selectedSchool.coachEmail})`}
-                className="h-[42px] rounded-md border border-[#D6D3C8] bg-cream px-3 text-sm text-ink"
+                className="h-[42px] rounded-md border border-input bg-cream px-3 text-sm text-ink"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
@@ -223,7 +223,7 @@ export function SeededOutreachLayout({
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="h-[42px] rounded-md border border-[#D6D3C8] bg-cream px-3 text-sm text-ink"
+                className="h-[42px] rounded-md border border-input bg-cream px-3 text-sm text-ink"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
@@ -232,7 +232,7 @@ export function SeededOutreachLayout({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={9}
-                className="resize-y rounded-md border border-[#D6D3C8] bg-cream p-3 text-sm leading-[1.55] text-ink"
+                className="resize-y rounded-md border border-input bg-cream p-3 text-sm leading-[1.55] text-ink"
               />
             </label>
             <p className="text-xs text-ink/60">

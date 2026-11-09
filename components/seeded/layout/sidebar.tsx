@@ -124,7 +124,7 @@ export function SeededSidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[rgb(var(--c-line))] bg-[#FBFAF7] transition-[width] duration-300 ease-out lg:flex",
+          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[rgb(var(--c-line))] bg-panel transition-[width] duration-300 ease-out lg:flex",
           collapsed ? "w-[76px]" : "w-[232px]",
           !hydrated && "duration-0"
         )}
@@ -136,7 +136,7 @@ export function SeededSidebar() {
           )}
         >
           <Link href="/today" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-ink" />
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-on-lime" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
                 Seeded
@@ -214,7 +214,7 @@ export function SeededSidebar() {
                 <Icon className="h-[18px] w-[18px] shrink-0" />
                 {!collapsed && <span className="truncate">{l.label}</span>}
                 {!collapsed && !!l.badge && (
-                  <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-ink">
+                  <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-on-lime">
                     {l.badge}
                   </span>
                 )}
@@ -242,9 +242,9 @@ export function SeededSidebar() {
       </aside>
 
       {/* Mobile top bar — avatar menu only, nav itself is the bottom tab bar */}
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-[#FBFAF7] px-4 lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
         <Link href="/today" className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-ink" />
+          <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
         <SeededAvatarTrigger
@@ -287,7 +287,7 @@ export function SeededSidebar() {
               <span className="relative">
                 {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
                 {!!l.badge && (
-                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-ink">
+                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-on-lime">
                     {l.badge}
                   </span>
                 )}

@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 // reports) — intentionally a simpler real-data-only summary, not this
 // richer mockup. Every reusable primitive this page can borrow from the
 // real product, it does: UtrVsPlanChart (same component /today and /plan
-// chart their real UTR history with), SeededButton, DataChip, and the exact
-// one-off hex values already measured off this same mockup family for
-// season-budget-card.tsx (#1F6B4A / #9CC8B0 / #C2643A) and
-// needs-decision-card.tsx (#FBEDE6 / #F0CDBC bad-fit panel).
+// chart their real UTR history with), SeededButton, DataChip, and the same
+// --c-primary/--c-primary-300/--c-leaf segment colors season-budget-card.tsx
+// uses for its chart (see that file's comment — these track light/dark mode
+// instead of hardcoding the light-mode hex).
 //
 // Must stay reachable ONLY from the public marketing homepage's "See a
 // sample parent report" link and the nav's "For parents" link — never
@@ -42,9 +42,9 @@ const EXAMPLE_ACTUAL_POINTS: UtrDataPoint[] = [
 const EXAMPLE_NEXT_CHECKPOINT = { date: new Date(2027, 5, 1), utr: 9.7 };
 
 const SEGMENT_COLOR = {
-  entries: "#1F6B4A",
-  travel: "#9CC8B0",
-  camps: "#C2643A",
+  entries: "rgb(var(--c-primary))",
+  travel: "rgb(var(--c-primary-300))",
+  camps: "rgb(var(--c-leaf))",
 };
 
 const OUTREACH_ROWS: {
@@ -69,7 +69,7 @@ const OUTREACH_ROWS: {
     school: "Middlebury",
     status: "no reply in 14 days",
     chipLabel: "Follow-up drafted",
-    chipClass: "border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]",
+    chipClass: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",
   },
   {
     school: "Emory",
@@ -167,7 +167,7 @@ export function SampleReportView() {
 
         <div className="mt-5 rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Decision for you this week</h2>
-          <div className="mt-3 rounded-[14px] border border-[#F0CDBC] bg-[#FBEDE6] p-4">
+          <div className="mt-3 rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4">
             <p className="font-semibold text-ink">Skip the L5 Bethesda Open (Nov 22)?</p>
             <p className="mt-1.5 text-sm text-stone">
               Expected field is 6.8, well below Maya. Wins there barely move her rating. Entry + travel ≈ $180. Two

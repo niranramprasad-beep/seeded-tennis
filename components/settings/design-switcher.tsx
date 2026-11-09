@@ -28,7 +28,8 @@ const SEEDED_MODES: { id: SeededMode; name: string }[] = [
 ];
 
 export function DesignSwitcher() {
-  const { design, setDesign, seededMode, setSeededMode, hydrated } = useDesign();
+  const { design, setDesign, seededMode, setSeededMode, systemSync, setSystemSync, hydrated } =
+    useDesign();
 
   return (
     <div className="space-y-4">
@@ -71,10 +72,13 @@ export function DesignSwitcher() {
             {SEEDED_MODES.map((m) => (
               <button
                 key={m.id}
-                onClick={() => setSeededMode(m.id)}
+                onClick={() => {
+                  setSystemSync(false);
+                  setSeededMode(m.id);
+                }}
                 className={cn(
                   "rounded-pill px-4 py-1.5 text-sm transition-colors",
-                  seededMode === m.id
+                  !systemSync && seededMode === m.id
                     ? "bg-grass text-on-primary"
                     : "text-stone hover:text-ink"
                 )}
@@ -82,6 +86,19 @@ export function DesignSwitcher() {
                 {m.name}
               </button>
             ))}
+            {/* Same systemSync flag the pixel-exact Appearance card
+             * (components/seeded/settings/appearance-card.tsx) drives —
+             * see design-context.tsx for why this stays a boolean flag
+             * instead of a 3rd SeededMode value. */}
+            <button
+              onClick={() => setSystemSync(true)}
+              className={cn(
+                "rounded-pill px-4 py-1.5 text-sm transition-colors",
+                systemSync ? "bg-grass text-on-primary" : "text-stone hover:text-ink"
+              )}
+            >
+              Match system
+            </button>
           </div>
         </div>
       )}

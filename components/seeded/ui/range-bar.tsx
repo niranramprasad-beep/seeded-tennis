@@ -27,7 +27,7 @@ export function RangeBar({
     <div className={className}>
       <div className="relative mt-2 h-2.5 rounded-pill bg-line">
         <div
-          className="absolute inset-y-0 rounded-pill bg-[#9CC8B0]"
+          className="absolute inset-y-0 rounded-pill bg-grass-300"
           style={{ left: `${rangeStartPct}%`, right: `${100 - rangeEndPct}%` }}
         />
         <div
@@ -35,7 +35,7 @@ export function RangeBar({
           style={{ left: `${medianPct}%` }}
         />
         <div
-          className="absolute h-[18px] w-[18px] rounded-full border-2 border-ink bg-lime-accent"
+          className="absolute h-[18px] w-[18px] rounded-full border-2 border-on-lime bg-lime-accent"
           style={{ left: `calc(${youPct}% - 9px)`, top: "-4px" }}
         />
       </div>

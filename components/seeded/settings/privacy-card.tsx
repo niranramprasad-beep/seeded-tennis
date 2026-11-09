@@ -67,7 +67,7 @@ export function PrivacyCard({
             type="button"
             onClick={onDownload}
             disabled={downloading}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {downloading ? "Preparing…" : "Download"}
           </button>
@@ -87,7 +87,7 @@ export function PrivacyCard({
               type="button"
               onClick={onCancelDeletion}
               disabled={deletingBusy}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-[#F1EFE8] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>

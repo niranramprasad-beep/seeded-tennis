@@ -26,12 +26,15 @@ interface DesignContextValue {
   setDesign: (d: DesignSystemId) => void;
   seededMode: SeededMode;
   setSeededMode: (m: SeededMode) => void;
-  /** True when the user picked "Match system" in Settings' Appearance card
-   * instead of an explicit Light/Dark. `seededMode` above still always
-   * holds a real resolved "dark"/"light" (whatever the OS currently
-   * reports) — this flag only controls whether it keeps following the OS
-   * preference live via a `prefers-color-scheme` listener. Explicitly
-   * picking Light or Dark turns it back off. */
+  /** True when the user picked "Match system" in Settings' Appearance card,
+   * OR when nobody has ever saved any mode preference on this browser at
+   * all (a brand-new visitor's real first default is the OS preference,
+   * not a hardcoded mode — see the mount effect below). `seededMode` above
+   * still always holds a real resolved "dark"/"light" (whatever the OS
+   * currently reports) — this flag only controls whether it keeps
+   * following the OS preference live via a `prefers-color-scheme`
+   * listener. Explicitly picking Light or Dark turns it back off, for
+   * good — see setSystemSync. */
   systemSync: boolean;
   setSystemSync: (v: boolean) => void;
   /** Same hydration-gap pattern as ThemeProvider (see theme-context.tsx) —
@@ -77,7 +80,14 @@ export function DesignProvider({ children }: { children: ReactNode }) {
       if (storedDesign === "legacy" || storedDesign === "seeded") resolvedDesign = storedDesign;
       const storedMode = window.localStorage.getItem(SEEDED_MODE_STORAGE_KEY);
       if (storedMode === "dark" || storedMode === "light") resolvedMode = storedMode;
-      resolvedSystemSync = window.localStorage.getItem(SYSTEM_SYNC_STORAGE_KEY) === "1";
+      const storedSystemSync = window.localStorage.getItem(SYSTEM_SYNC_STORAGE_KEY);
+      // A brand-new visitor — nobody has ever saved a preference on this
+      // browser, explicit or "system" — gets the OS preference as their
+      // real first default instead of a hardcoded "dark", same as "System"
+      // means for anyone who picks it later. Once any explicit Light/Dark
+      // pill is clicked, setSystemSync(false) below writes "0" here, so
+      // this branch only ever fires once per browser.
+      resolvedSystemSync = storedSystemSync === null ? true : storedSystemSync === "1";
       // "Match system" wins over whatever concrete mode was last stored —
       // the stored mode is kept around only as the fallback for the next
       // time systemSync is off (see setSystemSync below).

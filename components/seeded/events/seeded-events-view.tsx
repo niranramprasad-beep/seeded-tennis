@@ -66,7 +66,7 @@ function EventsTabButton({
       aria-pressed={active}
       className={cn(
         "min-h-[32px] rounded-pill px-4 font-sans text-sm font-semibold transition-colors",
-        active ? "bg-ink text-white" : "text-stone hover:text-ink"
+        active ? "bg-ink text-cream" : "text-stone hover:text-ink"
       )}
     >
       {children}

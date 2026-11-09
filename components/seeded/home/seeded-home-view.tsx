@@ -91,7 +91,7 @@ function HeroCopy() {
         </Link>
         <Link
           href="/tournament-fit"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-6 font-sans text-base font-semibold text-ink hover:bg-[#F1EFE8]"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-input bg-card px-6 font-sans text-base font-semibold text-ink hover:bg-subtle-hover"
         >
           Check a tournament
         </Link>
@@ -148,7 +148,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
             <input
               value={utr}
               onChange={(e) => setUtr(e.target.value)}
-              className="h-12 rounded-lg border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+              className="h-12 rounded-lg border border-input px-3 font-mono text-base tabular-nums text-ink"
               inputMode="decimal"
             />
           </MiniField>
@@ -156,7 +156,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
             <select
               value={gradYear}
               onChange={(e) => setGradYear(Number(e.target.value))}
-              className="h-12 rounded-lg border border-[#D6D3C8] bg-card px-3 text-base text-ink"
+              className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
             >
               {gradYearOptions().map((y) => (
                 <option key={y} value={y}>
@@ -170,7 +170,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <select
             value={gender}
             onChange={(e) => setGender(e.target.value as Gender)}
-            className="h-12 rounded-lg border border-[#D6D3C8] bg-card px-3 text-base text-ink"
+            className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
           >
             {GENDER_OPTIONS.map((g) => (
               <option key={g.value} value={g.value}>
@@ -203,7 +203,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <input
             value={utr}
             onChange={(e) => setUtr(e.target.value)}
-            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </MiniField>
@@ -211,7 +211,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <select
             value={gradYear}
             onChange={(e) => setGradYear(Number(e.target.value))}
-            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+            className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             {gradYearOptions().map((y) => (
               <option key={y} value={y}>
@@ -224,7 +224,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <select
             value={gender}
             onChange={(e) => setGender(e.target.value as Gender)}
-            className="h-11 rounded-md border border-[#D6D3C8] bg-card px-2.5 text-base text-ink"
+            className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             {GENDER_OPTIONS.map((g) => (
               <option key={g.value} value={g.value}>
@@ -237,15 +237,15 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <input
             value={gpa}
             onChange={(e) => setGpa(e.target.value)}
-            className="h-11 rounded-md border border-[#D6D3C8] px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </MiniField>
       </div>
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <CountTile value={counts.reach} label="Reach" bg="#FBEDE6" fg="#9C4824" />
-        <CountTile value={counts.target} label="Target" bg="#E6F1EB" fg="#1F6B4A" />
-        <CountTile value={counts.likely} label="Likely" bg="#EEF3D6" fg="#4A5A10" />
+        <CountTile value={counts.reach} label="Reach" bg="rgb(var(--c-clay-tint-bg))" fg="rgb(var(--c-clay-tint-text))" />
+        <CountTile value={counts.target} label="Target" bg="rgb(var(--c-primary-50))" fg="rgb(var(--c-primary))" />
+        <CountTile value={counts.likely} label="Likely" bg="rgb(var(--c-sage-tint-bg))" fg="rgb(var(--c-sage-tint-text))" />
       </div>
       <Link
         href={`/onboarding?${query}`}
@@ -340,8 +340,8 @@ function WhatItDoes() {
               {c.title === "Plan" && (
                 <>
                   <div className="relative mt-5 h-2 rounded-pill bg-line">
-                    <div className="absolute inset-y-0 rounded-pill bg-[#9CC8B0]" style={{ left: "28%", right: "22%" }} />
-                    <div className="absolute -top-1 h-4 w-4 rounded-full border-2 border-ink bg-lime-accent" style={{ left: "44%" }} />
+                    <div className="absolute inset-y-0 rounded-pill bg-grass-300" style={{ left: "28%", right: "22%" }} />
+                    <div className="absolute -top-1 h-4 w-4 rounded-full border-2 border-on-lime bg-lime-accent" style={{ left: "44%" }} />
                   </div>
                   <p className="mt-2.5 font-mono text-[13px] tabular-nums text-stone">{c.caption}</p>
                 </>
@@ -351,7 +351,7 @@ function WhatItDoes() {
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
                     Good fit · L3 Richmond
                   </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[#F0CDBC] bg-[#FBEDE6] px-2.5 py-1 text-xs font-semibold text-[#9C4824]">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-clay-tint-text))]">
                     Skip · L5 Bethesda
                   </span>
                 </div>
@@ -364,7 +364,7 @@ function WhatItDoes() {
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
                     Replied 3
                   </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[#F0DCAD] bg-[#FFF4DC] px-2.5 py-1 text-xs font-semibold text-[#7A5212]">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
                     2 follow-ups due
                   </span>
                 </div>
@@ -384,7 +384,7 @@ function ProductShot() {
     <section className="mx-auto max-w-[1200px] px-6 py-18">
       <Reveal>
         <div className="overflow-hidden rounded-xl border border-line bg-card shadow-card-lg">
-          <div className="flex items-center gap-2 border-b border-line bg-[#FBFAF7] px-4 py-3">
+          <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-3">
             <span className="text-[13px] text-stone">seededtennis.com/today</span>
           </div>
           <div className="flex flex-wrap">
@@ -452,7 +452,7 @@ function ProductShotAction({
         className={
           primary
             ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-grass px-4 text-sm font-semibold text-on-primary"
-            : "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card px-4 text-sm font-semibold text-ink"
+            : "inline-flex min-h-9 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-ink"
         }
       >
         {cta}
@@ -465,7 +465,12 @@ function ProductShotAction({
 
 function ParentsSection() {
   return (
-    <section className="bg-ink text-[#EEF1EC]">
+    // Deliberately always-dark panel (like a fixed Legacy concept-theme
+    // block), independent of site-wide light/dark mode — bg-[#14181A] is a
+    // fixed value (matching light mode's own --c-ink) rather than bg-ink,
+    // which would otherwise flip bright once the site is in dark mode and
+    // break every hardcoded light-on-dark color below it.
+    <section className="bg-[#14181A] text-[#EEF1EC]">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6 py-20">
         <Reveal className="min-w-0 flex-[1_1_420px]">
           <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
@@ -480,7 +485,7 @@ function ParentsSection() {
           </p>
           <Link
             href="/sample-report"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-lime-accent px-[18px] text-[15px] font-semibold text-ink"
+            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-lime-accent px-[18px] text-[15px] font-semibold text-on-lime"
           >
             See a sample parent report
           </Link>
@@ -594,7 +599,7 @@ function FinalCta() {
         </h2>
         <Link
           href="/onboarding"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-ink"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-on-lime"
         >
           Get my free fit report
         </Link>

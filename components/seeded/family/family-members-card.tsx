@@ -38,7 +38,7 @@ export function FamilyMembersCard({
       </div>
 
       {familyCode && (
-        <div className="mt-4 rounded-[12px] border border-dashed border-[#D6D3C8] p-3.5 text-sm">
+        <div className="mt-4 rounded-[12px] border border-dashed border-input p-3.5 text-sm">
           <span className="text-stone">Invite another parent with code</span>
           <p className="mt-1 font-mono font-semibold text-ink">{familyCode}</p>
         </div>

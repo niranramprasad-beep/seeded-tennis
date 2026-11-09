@@ -9,13 +9,13 @@ interface EmptyStateProps {
 }
 
 // Pixel-exact to DesignSystem.dc.html's inline "Empty" pattern: dashed
-// #D6D3C8 border, 10px radius, 14px padding/font, bold lead-in + muted
+// border-input border, 10px radius, 14px padding/font, bold lead-in + muted
 // description + a court-green bold action link.
 export function EmptyState({ title, description, action, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "rounded-[10px] border border-dashed border-[#D6D3C8] p-3.5 text-sm",
+        "rounded-[10px] border border-dashed border-input p-3.5 text-sm",
         className
       )}
     >

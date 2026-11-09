@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 // invented fresh, since "Good fit"/"Skip it" here is the same semantic
 // green/orange pairing as that component's "target"/"reach".
 const GOOD_FIT_CLASS = "border-grass-100 bg-grass-50 text-grass";
-const SKIP_IT_CLASS = "border-[#F0CDBC] bg-[#FBEDE6] text-[#9C4824]";
+const SKIP_IT_CLASS = "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))]";
 const NEUTRAL_CLASS = "border-line bg-card text-stone";
 
 function Chip({ className, children }: { className: string; children: ReactNode }) {

@@ -31,7 +31,7 @@ import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "h-11 w-full rounded-md border border-[#D6D3C8] bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
 
 const VERDICT_META: Record<
   Verdict,
@@ -44,8 +44,8 @@ const VERDICT_META: Record<
   // good-fit/skip-it chips) — "decent" borrows DataChip's "estimated" amber,
   // the one existing three-way precedent in the design system.
   good: { headline: "Worth it", card: "border-grass-100 bg-grass-50 text-grass", eyebrow: "text-grass" },
-  decent: { headline: "Worth a look", card: "border-[#F0DCAD] bg-[#FFF4DC] text-[#7A5212]", eyebrow: "text-[#7A5212]" },
-  bad: { headline: "Skip it", card: "border-[#F0CDBC] bg-[#FBEDE6] text-[#7A3519]", eyebrow: "text-[#7A3519]" },
+  decent: { headline: "Worth a look", card: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", eyebrow: "text-[rgb(var(--c-gold-tint-text))]" },
+  bad: { headline: "Skip it", card: "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text-strong))]", eyebrow: "text-[rgb(var(--c-clay-tint-text-strong))]" },
 };
 
 function shortDate(d: Date): string {
@@ -196,8 +196,8 @@ export function SeededTournamentFitView() {
                     className={cn(
                       "min-h-10 rounded-lg border px-1 font-sans text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
                       active
-                        ? "border-ink bg-ink text-white"
-                        : "border-line bg-card text-ink hover:bg-[#F1EFE8]"
+                        ? "border-ink bg-ink text-cream"
+                        : "border-line bg-card text-ink hover:bg-subtle-hover"
                     )}
                   >
                     {l.value === "utr" ? "UTR" : l.value}
@@ -225,7 +225,7 @@ export function SeededTournamentFitView() {
                 type="button"
                 onClick={() => nudgeUtr(-0.1)}
                 aria-label="Decrease UTR"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card text-ink hover:bg-[#F1EFE8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -236,7 +236,7 @@ export function SeededTournamentFitView() {
                 type="button"
                 onClick={() => nudgeUtr(0.1)}
                 aria-label="Increase UTR"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#D6D3C8] bg-card text-ink hover:bg-[#F1EFE8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -263,8 +263,8 @@ export function SeededTournamentFitView() {
                     className={cn(
                       "min-h-11 rounded-lg border px-2 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
                       active
-                        ? "border-ink bg-ink text-white"
-                        : "border-line bg-card text-ink hover:bg-[#F1EFE8]"
+                        ? "border-ink bg-ink text-cream"
+                        : "border-line bg-card text-ink hover:bg-subtle-hover"
                     )}
                   >
                     {p.label}
@@ -386,7 +386,7 @@ function Meter({ label, value, pct }: { label: string; value: string; pct: numbe
         <span className="font-mono tabular-nums text-ink">{value}</span>
       </div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-pill bg-line">
-        <div className="h-full rounded-pill bg-[#9CC8B0]" style={{ width: `${clamped}%` }} />
+        <div className="h-full rounded-pill bg-grass-300" style={{ width: `${clamped}%` }} />
       </div>
     </div>
   );

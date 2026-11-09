@@ -17,6 +17,10 @@ const config: Config = {
           DEFAULT: "rgb(var(--c-primary) / <alpha-value>)",
           50: "rgb(var(--c-primary-50) / <alpha-value>)",
           100: "rgb(var(--c-primary-100) / <alpha-value>)",
+          // Seeded-only (Legacy themes never define --c-primary-300): range-bar
+          // "team range" fill + the budget chart's "travel" segment — see
+          // app/globals.css's dark-mode block comment for why this exists.
+          300: "rgb(var(--c-primary-300) / <alpha-value>)",
           600: "rgb(var(--c-primary-600) / <alpha-value>)",
           700: "rgb(var(--c-primary-700) / <alpha-value>)",
           800: "rgb(var(--c-primary-800) / <alpha-value>)",
@@ -25,6 +29,9 @@ const config: Config = {
         lime: {
           accent: "rgb(var(--c-lime) / <alpha-value>)",
         },
+        // Fixed in both modes — see app/globals.css: text/borders sitting
+        // directly on a solid bg-lime-accent fill (bright in both modes).
+        "on-lime": "rgb(var(--c-on-lime) / <alpha-value>)",
         leaf: {
           accent: "rgb(var(--c-leaf) / <alpha-value>)",
         },
@@ -40,6 +47,18 @@ const config: Config = {
         "error-bg": "rgb(var(--c-error-bg) / <alpha-value>)",
         error: "rgb(var(--c-error) / <alpha-value>)",
         "error-strong": "rgb(var(--c-error-strong) / <alpha-value>)",
+        // Fixed in both modes — see app/globals.css: the one solid
+        // destructive-button fill that always pairs with white text.
+        "error-solid": "rgb(var(--c-error-solid) / <alpha-value>)",
+        "error-solid-hover": "rgb(var(--c-error-solid-hover) / <alpha-value>)",
+        // Seeded-only: the recurring input/secondary-button border + hover
+        // tint, formerly hardcoded as border-[#D6D3C8]/hover:bg-[#F1EFE8]
+        // across components/seeded/* — see app/globals.css for why.
+        input: "rgb(var(--c-input-border) / <alpha-value>)",
+        "subtle-hover": "rgb(var(--c-subtle-hover) / <alpha-value>)",
+        // Seeded-only: the sidebar/mobile-header/inset-row quiet surface,
+        // formerly hardcoded as bg-[#FBFAF7] — see app/globals.css.
+        panel: "rgb(var(--c-panel-bg) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],

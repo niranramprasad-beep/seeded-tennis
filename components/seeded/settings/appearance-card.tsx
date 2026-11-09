@@ -67,8 +67,8 @@ export function AppearanceCard() {
             className={cn(
               "inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-[15px] font-semibold transition-colors",
               p.active
-                ? "border-ink bg-ink text-white"
-                : "border-[#D6D3C8] bg-card text-ink hover:bg-[#F1EFE8]"
+                ? "border-ink bg-ink text-cream"
+                : "border-input bg-card text-ink hover:bg-subtle-hover"
             )}
           >
             {p.label}
