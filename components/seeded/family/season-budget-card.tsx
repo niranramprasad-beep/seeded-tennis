@@ -34,6 +34,7 @@ export function SeasonBudgetCard({
   seasonLabel,
   summary,
   compact = false,
+  canEdit,
   onSaveBudget,
   onAddExpense,
 }: {
@@ -43,6 +44,12 @@ export function SeasonBudgetCard({
    * links out to the full /family/budget table; the Budget page itself
    * passes compact=false for the complete list. */
   compact?: boolean;
+  /** Mirrors canEditBudget(player.role) from lib/family-budget.ts, which
+   * migration 019_rls_policy_hardening.sql's tightened RLS also enforces
+   * server-side — a player account can view the real spend data below but
+   * never mutate it. Required (no default) so every call site has to
+   * decide explicitly rather than silently inheriting "editable". */
+  canEdit: boolean;
   onSaveBudget: (input: { seasonLabel: string; totalBudget: number }) => Promise<void>;
   onAddExpense: (input: {
     category: BudgetExpenseCategory;
@@ -67,14 +74,18 @@ export function SeasonBudgetCard({
     <div className="rounded-xl border border-line bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-ink">Season budget · {seasonLabel}</h2>
-        <div className="flex items-center gap-2.5">
-          <SeededButton variant="secondary" className="min-h-[38px] px-4" onClick={() => setEditOpen(true)}>
-            Edit budget
-          </SeededButton>
-          <SeededButton className="min-h-[38px] px-4" onClick={() => setAddOpen(true)}>
-            Add expense
-          </SeededButton>
-        </div>
+        {canEdit ? (
+          <div className="flex items-center gap-2.5">
+            <SeededButton variant="secondary" className="min-h-[38px] px-4" onClick={() => setEditOpen(true)}>
+              Edit budget
+            </SeededButton>
+            <SeededButton className="min-h-[38px] px-4" onClick={() => setAddOpen(true)}>
+              Add expense
+            </SeededButton>
+          </div>
+        ) : (
+          <p className="text-sm text-stone">Only a parent can edit the season budget.</p>
+        )}
       </div>
 
       {!hasBudget ? (
@@ -166,14 +177,18 @@ export function SeasonBudgetCard({
         </div>
       )}
 
-      <EditBudgetModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        initialLabel={seasonLabel}
-        initialTotal={totalBudget}
-        onSave={onSaveBudget}
-      />
-      <AddExpenseModal open={addOpen} onClose={() => setAddOpen(false)} onSave={onAddExpense} />
+      {canEdit && (
+        <>
+          <EditBudgetModal
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            initialLabel={seasonLabel}
+            initialTotal={totalBudget}
+            onSave={onSaveBudget}
+          />
+          <AddExpenseModal open={addOpen} onClose={() => setAddOpen(false)} onSave={onAddExpense} />
+        </>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
-import { buildSeasonBudgetSummary } from "@/lib/family-budget";
+import { buildSeasonBudgetSummary, canEditBudget } from "@/lib/family-budget";
 import { currentSeason } from "@/lib/time";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
 import { SeasonBudgetCard } from "./season-budget-card";
@@ -71,6 +71,7 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
         <SeasonBudgetCard
           seasonLabel={seasonLabel}
           summary={budgetSummary}
+          canEdit={canEditBudget(player.role)}
           onSaveBudget={saveBudget}
           onAddExpense={addExpense}
         />

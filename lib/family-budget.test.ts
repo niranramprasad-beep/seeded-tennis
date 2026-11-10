@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSeasonBudgetSummary, pendingSkipDecisions, shortBadFitReason } from "./family-budget";
+import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions, shortBadFitReason } from "./family-budget";
 import type { TournamentEntry } from "./db/events";
 import type { BudgetExpense } from "./db/family";
 import { evaluateTournamentFit } from "./tournament-fit";
@@ -106,6 +106,16 @@ describe("buildSeasonBudgetSummary", () => {
       skippedBadFitSaved: 0,
     });
     expect(summary.lineItems).toEqual([]);
+  });
+});
+
+describe("canEditBudget", () => {
+  it("allows a parent to edit the season budget", () => {
+    expect(canEditBudget("parent")).toBe(true);
+  });
+
+  it("blocks a player from editing the season budget", () => {
+    expect(canEditBudget("player")).toBe(false);
   });
 });
 

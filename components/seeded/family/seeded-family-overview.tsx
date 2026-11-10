@@ -13,7 +13,7 @@ import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { classifySchoolFit } from "@/lib/school-fit";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
-import { buildSeasonBudgetSummary, pendingSkipDecisions } from "@/lib/family-budget";
+import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { formatUTR } from "@/lib/utils";
@@ -189,6 +189,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
             seasonLabel={seasonLabel}
             summary={budgetSummary}
             compact
+            canEdit={canEditBudget(player.role)}
             onSaveBudget={saveBudget}
             onAddExpense={addExpense}
           />

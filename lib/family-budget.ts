@@ -15,7 +15,17 @@
 // fit-finder flagged the event, not a guess.
 import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/db/family";
 import type { TournamentEntry } from "@/lib/db/events";
+import type { FamilyRole } from "@/lib/types";
 import { evaluateTournamentFit, type Verdict } from "@/lib/tournament-fit";
+
+/** Only a parent can write season_budgets/budget_expenses — migration
+ * 019_rls_policy_hardening.sql tightens the RLS to match. Centralized here
+ * (rather than inlined as `role === "parent"` at each call site) so
+ * season-budget-card.tsx's edit affordances and the RLS policy they mirror
+ * can never quietly drift apart. */
+export function canEditBudget(role: FamilyRole): boolean {
+  return role === "parent";
+}
 
 export type BudgetLineChip = Verdict | BudgetExpenseCategory;
 

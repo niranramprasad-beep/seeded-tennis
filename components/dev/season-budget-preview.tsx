@@ -30,6 +30,7 @@ export function SeasonBudgetPreview() {
       <SeasonBudgetCard
         seasonLabel="Fall 2026"
         summary={SAMPLE_SUMMARY}
+        canEdit
         onSaveBudget={async () => {}}
         onAddExpense={async () => {}}
       />
