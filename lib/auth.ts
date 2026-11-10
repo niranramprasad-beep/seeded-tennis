@@ -1,5 +1,6 @@
 import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
 import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
@@ -458,8 +459,10 @@ export async function getSessionState(): Promise<SessionState> {
 // to decide whether to silently roll back. "Nothing to fail against" (no
 // backend configured, or signed out) counts as success: that's the same
 // no-op this function has always been in those cases, not a new failure
-// mode. A thrown exception (e.g. a genuine network error) is the one real
-// failure case.
+// mode. A thrown exception (e.g. a genuine network error, OR the real
+// write failing server-side with a specific message) is the one real
+// failure case — this never propagates it, same as before; only the
+// boolean changes.
 export async function saveCurrentPlayer(player: Player): Promise<boolean> {
   try {
     return await saveCurrentPlayerOrThrow(player);
@@ -468,6 +471,17 @@ export async function saveCurrentPlayer(player: Player): Promise<boolean> {
   }
 }
 
+// The browser-side half of the generic profile-patch every settings/
+// onboarding/profile-edit flow funnels through (updatePlayer() in
+// lib/context/player-context.tsx). The actual Supabase upsert no longer
+// happens here: this posts the full merged player to app/api/profile, the
+// zod-validated route handler that supplies a request-scoped client and
+// calls writeCurrentPlayerProfile (below) to perform the real write
+// server-side — same "no browser-direct write" shape as every other
+// migrated write path in lib/db/*. Preserves the exact pre-existing
+// early-exit behavior (no backend configured, or signed out, both count
+// as a no-op success) so this is a pure plumbing change, not a behavior
+// change, for any of this function's many existing callers.
 async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   const supa = getSupabase();
   if (!supa) return true;
@@ -475,9 +489,37 @@ async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   const { data } = await getAuthedUser(supa);
   if (!data.user) return true;
 
+  const { postJson } = await import("@/lib/api-client");
+  await postJson("/api/profile", player);
+  return true;
+}
+
+/** Used ONLY by app/api/profile's route handler, which passes its own
+ * request-scoped, RLS-respecting client + already-authenticated user id/
+ * email. writeCurrentPlayerProfile below uses this to do the real
+ * Supabase write server-side — there's no browser-direct write path left
+ * (see saveCurrentPlayerOrThrow's doc comment above). */
+export interface PlayerWriteContext {
+  supabase: TypedSupabaseClient;
+  userId: string;
+  userEmail: string | null;
+}
+
+/**
+ * Performs the real profile upsert — moved verbatim out of
+ * saveCurrentPlayerOrThrow, just re-targeted from the browser's own
+ * Supabase client to the request-scoped one the route handler supplies.
+ * Throws a specific Error on a real write failure (the route surfaces
+ * `err.message` in its JSON response, same convention as every other
+ * lib/db/* write function); resolves on success.
+ */
+export async function writeCurrentPlayerProfile(
+  player: Player,
+  ctx: PlayerWriteContext
+): Promise<void> {
   const base = {
-    id: data.user.id,
-    email: data.user.email,
+    id: ctx.userId,
+    email: ctx.userEmail,
     name: player.name,
     country: player.country,
     gender: player.gender,
@@ -511,7 +553,7 @@ async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   // even if some future caller skips the form-level check, rather than
   // silently failing the whole profile write over one bad field.
   const linkCheck = validateUtrProfileLink(player.utrProfileLink ?? "");
-  const { error } = await supa.from("profiles").upsert({
+  const { error } = await ctx.supabase.from("profiles").upsert({
     ...base,
     home_area: player.homeArea ?? null,
     utr_profile_link: linkCheck.valid ? linkCheck.normalized || null : null,
@@ -520,11 +562,12 @@ async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   });
 
   if (error?.code === "42703") {
-    const { error: fallbackError } = await supa.from("profiles").upsert(base);
-    return !fallbackError;
+    const { error: fallbackError } = await ctx.supabase.from("profiles").upsert(base);
+    if (fallbackError) throw new Error(fallbackError.message);
+    return;
   }
 
-  return !error;
+  if (error) throw new Error(error.message);
 }
 
 async function ensureSupabaseProfile(input: {

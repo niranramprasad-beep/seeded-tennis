@@ -6,7 +6,13 @@
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { resolveGraduationYear } from "@/lib/time";
+import { narrowLiteral, narrowOptionalLiteral } from "./narrow";
 import type { Json, Tables } from "./database.types";
+
+// text columns backed only by a Postgres CHECK constraint — see
+// lib/db/narrow.ts's header for why these need narrowing back down from
+// the generated `string` type rather than widening the app-level type.
+const GENDERS: NonNullable<FamilyMember["gender"]>[] = ["male", "female"];
 
 async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<"profiles"> | null }> {
   const supabase = getSupabase();
@@ -68,7 +74,7 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
     graduationYear: resolveGraduationYear(row),
     onboarded: Boolean(row.onboarded),
     targetSchoolSlugs: row.target_school_slugs ?? [],
-    gender: row.gender ?? undefined,
+    gender: narrowOptionalLiteral(row.gender, GENDERS),
     createdAt: row.created_at ?? undefined,
   }));
 }
@@ -375,7 +381,10 @@ export async function saveSeasonBudget(
 function mapBudgetExpense(row: Tables<"budget_expenses">): BudgetExpense {
   return {
     id: row.id,
-    category: row.category,
+    // "camps" is already this app's own default for a new/malformed entry
+    // (components/seeded/family/budget-modals.tsx's useState<BudgetExpenseCategory>("camps")),
+    // so it's the consistent fallback here too, not an arbitrary pick.
+    category: narrowLiteral(row.category, BUDGET_EXPENSE_CATEGORIES, "camps"),
     label: row.label,
     amount: Number(row.amount ?? 0),
     expenseDate: row.expense_date,

@@ -10,6 +10,8 @@ import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/rec
 import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import type { TypedSupabaseClient } from "@/lib/supabase/client";
+import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import { getSchoolsBySlugs } from "./schools";
 import { trainingPlans as trainingPlansData } from "./plan-data-training-plans";
 import type { Tables } from "./database.types";
@@ -142,15 +144,67 @@ export async function loadUtrEntries(signal?: AbortSignal): Promise<UtrEntry[]> 
   }));
 }
 
-export async function createUtrEntry(input: {
+export interface NewUtrEntryInput {
   utr: number;
   recordedAt: string;
   note?: string;
-}): Promise<UtrEntry | null> {
-  const supabase = getSupabase();
-  const userId = await getUserId();
-  if (!supabase || !userId) return null;
+}
 
+/** Pure validation, same "check before it ever reaches Supabase" shape as
+ * lib/db/events.ts's validateTournamentEntryInput / lib/db/family.ts's
+ * validateBudgetExpenseInput — unit-testable without a live database, and
+ * called unconditionally from createUtrEntry below so the same rule is
+ * enforced whether the call is about to postJson to the real route or
+ * (inside that route) do the actual Supabase write. */
+export function validateUtrEntryInput(input: NewUtrEntryInput): string | null {
+  if (!Number.isFinite(input.utr) || input.utr < UTR_MIN || input.utr > UTR_MAX) {
+    return `UTR must be between ${UTR_MIN} and ${UTR_MAX}.`;
+  }
+  if (!input.recordedAt || Number.isNaN(Date.parse(input.recordedAt))) {
+    return "Enter a valid date.";
+  }
+  return null;
+}
+
+/** Used ONLY by app/api/utr-entries' route handler, which passes its own
+ * request-scoped, RLS-respecting client + already-authenticated user id —
+ * createUtrEntry below uses this to do the real Supabase write
+ * server-side. There's no browser-direct write path left (see
+ * createUtrEntry's own doc comment). */
+export interface UtrWriteContext {
+  supabase: TypedSupabaseClient;
+  userId: string;
+}
+
+/**
+ * Logs a new UTR reading and updates the profile's current_utr to track
+ * whichever entry is most recently DATED (never just the one that was
+ * logged last) — the real action behind /plan's "Log a new UTR" and
+ * /today's Sunday check-in drawer. The browser never calls the Supabase
+ * insert directly: without `ctx` (every real UI call site), this instead
+ * posts to app/api/utr-entries, the zod-validated route handler that
+ * supplies `ctx` and performs the actual write — same contract (resolves
+ * with the saved entry, null when there's no signed-in session to save
+ * against, throws with a specific message on a real write failure) every
+ * existing caller (components/dashboard/dashboard-view.tsx,
+ * lib/context/player-context.tsx's completeOnboarding) already expects.
+ */
+export async function createUtrEntry(
+  input: NewUtrEntryInput,
+  ctx?: UtrWriteContext
+): Promise<UtrEntry | null> {
+  const validationError = validateUtrEntryInput(input);
+  if (validationError) throw new Error(validationError);
+
+  if (!ctx) {
+    const userId = await getUserId();
+    if (!userId) return null;
+    const { postJson } = await import("@/lib/api-client");
+    const { entry } = await postJson<{ entry: UtrEntry | null }>("/api/utr-entries", input);
+    return entry;
+  }
+
+  const { supabase, userId } = ctx;
   const { data, error } = await supabase
     .from("utr_entries")
     .insert({

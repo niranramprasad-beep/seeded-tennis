@@ -8,7 +8,40 @@
 import type { Weakness, Intensity, WeekdayShort } from "@/lib/types";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import type { TypedSupabaseClient } from "@/lib/supabase/client";
+import { narrowLiteral, narrowNullableLiteral } from "./narrow";
 import type { Json, Tables } from "./database.types";
+
+/** Used ONLY by app/api/matches' route handler, which passes its own
+ * request-scoped, RLS-respecting client + already-authenticated user id +
+ * family code (matches can belong to a family, not just the signed-in
+ * user). saveMatch/deleteMatch below use this to do the real Supabase
+ * write server-side; there's no browser-direct write path left for either
+ * (see each function's own doc comment). */
+export interface EventsWriteContext {
+  supabase: TypedSupabaseClient;
+  userId: string;
+  familyCode: string | null;
+}
+
+/** Same idea as EventsWriteContext, for app/api/training/planner and
+ * app/api/training/templates — the training-planner tables
+ * (training_plans/workout_sessions/saved_templates/exercises/
+ * session_exercises) are strictly user-owned with no family-sharing
+ * column, so this context never needs a family code. */
+export interface TrainingWriteContext {
+  supabase: TypedSupabaseClient;
+  userId: string;
+}
+
+// text columns backed only by a Postgres CHECK constraint — see
+// lib/db/narrow.ts's header for why these need narrowing back down from
+// the generated `string` type rather than widening the app-level type.
+const SURFACES: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];
+const MATCH_RESULTS: NonNullable<MatchRecord["result"]>[] = ["win", "loss"];
+const FIT_LEVELS: FitLevel[] = LEVELS.map((l) => l.value);
+const INTENSITIES: Intensity[] = ["low", "moderate", "high"];
+const TEMPLATE_TYPES: SavedTrainingTemplate["templateType"][] = ["session", "plan"];
 
 async function userId(): Promise<string | null> {
   const supabase = getSupabase();
@@ -126,7 +159,7 @@ function mapMatch(row: Tables<"matches">): MatchRecord {
     opponent: row.opponent ?? "",
     opponentUtr: row.opponent_utr == null ? null : Number(row.opponent_utr),
     tournamentName: row.tournament_name ?? "",
-    surface: row.surface,
+    surface: narrowLiteral(row.surface, SURFACES, "hard"),
     prepPlan:
       (row.prep_plan as unknown as PrepPlan) ?? {
         warmup: [],
@@ -136,7 +169,7 @@ function mapMatch(row: Tables<"matches">): MatchRecord {
         generatedAt: row.created_at,
       },
     notificationRequested: row.notification_requested,
-    result: row.result,
+    result: narrowNullableLiteral(row.result, MATCH_RESULTS),
     score: row.score ?? "",
     worked: row.worked ?? "",
     needsWork: row.needs_work ?? "",
@@ -162,18 +195,17 @@ export async function loadMatches(signal?: AbortSignal): Promise<MatchRecord[]> 
   return (data ?? []).map(mapMatch);
 }
 
-export async function saveMatch(match: Partial<MatchRecord> & {
+export type SaveMatchInput = Partial<MatchRecord> & {
   matchDate: string;
   surface: MatchRecord["surface"];
   prepPlan: PrepPlan;
-}): Promise<MatchRecord | null> {
-  const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
-  if (!supabase || !id) return null;
-  const row = {
+};
+
+function matchRowFromInput(match: SaveMatchInput, ctx: EventsWriteContext) {
+  return {
     id: match.id,
-    user_id: id,
-    family_code: p?.family_code ?? null,
+    user_id: ctx.userId,
+    family_code: ctx.familyCode,
     match_date: match.matchDate,
     opponent: match.opponent || null,
     opponent_utr: match.opponentUtr ?? null,
@@ -189,16 +221,59 @@ export async function saveMatch(match: Partial<MatchRecord> & {
     video_url: match.videoUrl || null,
     ai_analysis: (match.aiAnalysis as unknown as Json) ?? null,
   };
-  const { data, error } = await supabase.from("matches").upsert(row).select("*").single();
+}
+
+/**
+ * Saves (adds, or updates when `.id` is passed) a logged match or planned
+ * match — the real action behind /matches' log form and /events' Match
+ * mode (prep plan, result, notification flag). The browser never calls the
+ * Supabase upsert directly: without `ctx` (every real UI call site), this
+ * instead posts to app/api/matches, the zod-validated route handler that
+ * supplies `ctx` and performs the actual write — same contract (resolves
+ * with the saved match, null when there's no signed-in session to save
+ * against, throws with a specific message on a real write failure) every
+ * existing caller (components/matches/match-history-view.tsx,
+ * components/matches/match-mode-view.tsx) already expects.
+ */
+export async function saveMatch(
+  match: SaveMatchInput,
+  ctx?: EventsWriteContext
+): Promise<MatchRecord | null> {
+  if (!ctx) {
+    const ownerId = await userId();
+    if (!ownerId) return null;
+    const { postJson } = await import("@/lib/api-client");
+    const { match: saved } = await postJson<{ match: MatchRecord | null }>("/api/matches", {
+      kind: "save",
+      ...match,
+    });
+    return saved;
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("matches")
+    .upsert(matchRowFromInput(match, ctx))
+    .select("*")
+    .single();
   if (error) throw new Error(error.message);
   return mapMatch(data);
 }
 
-export async function deleteMatch(id: string): Promise<void> {
-  const supabase = getSupabase();
-  const { id: ownerId } = await userIdAndProfile();
-  if (!supabase || !ownerId) return;
-  const { error } = await supabase.from("matches").delete().eq("id", id).eq("user_id", ownerId);
+/** Deletes a logged/planned match — real action behind /matches' delete
+ * button and /events' Match mode "Cancel match". Same "no browser-direct
+ * write" shape as saveMatch above: without `ctx`, this posts to the
+ * zod-validated app/api/matches route instead of writing to Supabase
+ * itself. */
+export async function deleteMatch(id: string, ctx?: EventsWriteContext): Promise<void> {
+  if (!ctx) {
+    const ownerId = await userId();
+    if (!ownerId) return;
+    const { postJson } = await import("@/lib/api-client");
+    await postJson("/api/matches", { kind: "delete", id });
+    return;
+  }
+
+  const { error } = await ctx.supabase.from("matches").delete().eq("id", id).eq("user_id", ctx.userId);
   if (error) throw new Error(error.message);
 }
 
@@ -303,7 +378,10 @@ function mapTournamentEntry(row: Tables<"tournament_entries">): TournamentEntry 
   return {
     id: row.id,
     name: row.name,
-    level: row.level,
+    // "utr" is the one FitLevel value that doesn't assert a specific USTA
+    // tier, making it the honest fallback for a row whose stored level
+    // somehow isn't one of LEVELS' real values.
+    level: narrowLiteral(row.level, FIT_LEVELS, "utr"),
     eventDate: row.event_date,
     city: row.city ?? "",
     state: row.state ?? "",
@@ -532,7 +610,7 @@ export async function loadTrainingPlannerState(
     date: row.scheduled_date ?? "",
     startTime: String(row.start_time ?? "16:00").slice(0, 5),
     duration: row.duration_minutes,
-    intensity: row.intensity,
+    intensity: narrowLiteral(row.intensity, INTENSITIES, "moderate"),
     notes: row.notes ?? "",
     goals: row.goals ?? "",
     drills: ((row.metadata as { drills?: string[] } | null)?.drills ?? []) as string[],
@@ -554,7 +632,7 @@ export async function loadTrainingPlannerState(
   const mappedTemplates: SavedTrainingTemplate[] = (templates ?? []).map((t) => ({
     id: t.id,
     name: t.name,
-    templateType: t.template_type,
+    templateType: narrowLiteral(t.template_type, TEMPLATE_TYPES, "session"),
     description: t.description ?? "",
     payload: (t.payload as Record<string, unknown> | null) ?? {},
   }));
@@ -575,10 +653,35 @@ export async function loadTrainingPlannerState(
   };
 }
 
-export async function saveTrainingPlannerState(state: TrainingPlannerState): Promise<void> {
-  const supabase = getSupabase();
-  const ownerId = await userId();
-  if (!supabase || !ownerId) return;
+/**
+ * Persists the player's whole weekly training planner (plans, sessions,
+ * their drills/exercises, the session-type palette, and preferences) in
+ * one go — the real action behind /training's autosave and the Events
+ * calendar card's add/edit/delete/move/resize/repeat (lib/hooks/
+ * use-events-calendar.ts's `persist`, which always writes the full next
+ * state rather than a per-field patch). The browser never calls the
+ * Supabase upsert/delete sequence directly: without `ctx` (every real UI
+ * call site), this instead posts to app/api/training/planner, the
+ * zod-validated route handler that supplies `ctx` and performs the actual
+ * write — same contract (resolves on success, returns early with no
+ * network write when there's no signed-in session, throws with a specific
+ * message on a real write failure) every existing caller
+ * (components/training/training-view.tsx, use-events-calendar.ts's
+ * best-effort `.catch(() => undefined)`) already expects.
+ */
+export async function saveTrainingPlannerState(
+  state: TrainingPlannerState,
+  ctx?: TrainingWriteContext
+): Promise<void> {
+  if (!ctx) {
+    const ownerId = await userId();
+    if (!ownerId) return;
+    const { postJson } = await import("@/lib/api-client");
+    await postJson("/api/training/planner", state);
+    return;
+  }
+
+  const { supabase, userId: ownerId } = ctx;
 
   const planRows = state.plans.map((plan) => ({
     id: plan.id,
@@ -659,20 +762,34 @@ export async function saveTrainingPlannerState(state: TrainingPlannerState): Pro
     } as unknown as Json,
   });
 
-  await syncExercises(state);
+  await syncExercises(state, ctx);
 }
 
+/** Saves (adds, or updates when `.id` is passed) one reusable
+ * session/plan template — real action behind /training's "Save as
+ * template". Same "no browser-direct write" shape as
+ * saveTrainingPlannerState above: without `ctx`, this posts to the
+ * zod-validated app/api/training/templates route instead of writing to
+ * Supabase itself. */
 export async function saveTrainingTemplate(
-  template: Omit<SavedTrainingTemplate, "id"> & { id?: string }
+  template: Omit<SavedTrainingTemplate, "id"> & { id?: string },
+  ctx?: TrainingWriteContext
 ): Promise<SavedTrainingTemplate | null> {
-  const supabase = getSupabase();
-  const ownerId = await userId();
-  if (!supabase || !ownerId) return null;
+  if (!ctx) {
+    const ownerId = await userId();
+    if (!ownerId) return null;
+    const { postJson } = await import("@/lib/api-client");
+    const { template: saved } = await postJson<{ template: SavedTrainingTemplate | null }>(
+      "/api/training/templates",
+      template
+    );
+    return saved;
+  }
 
   const id = template.id ?? createUuid();
-  const { error } = await supabase.from("saved_templates").upsert({
+  const { error } = await ctx.supabase.from("saved_templates").upsert({
     id,
-    user_id: ownerId,
+    user_id: ctx.userId,
     name: template.name,
     template_type: template.templateType,
     description: template.description,
@@ -682,10 +799,8 @@ export async function saveTrainingTemplate(
   return { ...template, id };
 }
 
-async function syncExercises(state: TrainingPlannerState) {
-  const supabase = getSupabase();
-  const ownerId = await userId();
-  if (!supabase || !ownerId) return;
+async function syncExercises(state: TrainingPlannerState, ctx: TrainingWriteContext) {
+  const { supabase, userId: ownerId } = ctx;
 
   for (const session of state.sessions) {
     for (const [index, drill] of session.drills.entries()) {

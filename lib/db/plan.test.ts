@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildRoadmap, calculateStreak, type DailyCheckin } from "./plan";
+import { buildRoadmap, calculateStreak, validateUtrEntryInput, type DailyCheckin } from "./plan";
 import { getCurrentGrade, localDateKey } from "@/lib/time";
+import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import type { Player, School } from "@/lib/types";
 
 // Far enough out that "current grade" stays comfortably below 12 no matter
@@ -102,5 +103,42 @@ describe("calculateStreak", () => {
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     expect(calculateStreak([checkin(todayKey(yesterday))])).toBe(0);
+  });
+});
+
+describe("validateUtrEntryInput", () => {
+  const base = { utr: 9, recordedAt: "2026-01-15", note: "Starting UTR" };
+
+  it("accepts a valid entry", () => {
+    expect(validateUtrEntryInput(base)).toBeNull();
+  });
+
+  it("accepts an entry with no note", () => {
+    expect(validateUtrEntryInput({ utr: 9, recordedAt: "2026-01-15" })).toBeNull();
+  });
+
+  it("rejects a UTR below UTR_MIN", () => {
+    expect(validateUtrEntryInput({ ...base, utr: UTR_MIN - 0.1 })).toMatch(/UTR must be between/);
+  });
+
+  it("rejects a UTR above UTR_MAX", () => {
+    expect(validateUtrEntryInput({ ...base, utr: UTR_MAX + 0.1 })).toMatch(/UTR must be between/);
+  });
+
+  it("accepts the boundary values", () => {
+    expect(validateUtrEntryInput({ ...base, utr: UTR_MIN })).toBeNull();
+    expect(validateUtrEntryInput({ ...base, utr: UTR_MAX })).toBeNull();
+  });
+
+  it("rejects a non-finite UTR", () => {
+    expect(validateUtrEntryInput({ ...base, utr: NaN })).toMatch(/UTR must be between/);
+  });
+
+  it("rejects a missing date", () => {
+    expect(validateUtrEntryInput({ ...base, recordedAt: "" })).toBe("Enter a valid date.");
+  });
+
+  it("rejects an unparseable date", () => {
+    expect(validateUtrEntryInput({ ...base, recordedAt: "not-a-date" })).toBe("Enter a valid date.");
   });
 });

@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
+import { narrowNullableLiteral } from "@/lib/db/narrow";
+
+const PROFILE_ROLES = ["player", "parent"] as const;
 
 // Shared by API routes that need to know which Supabase user is making the
 // request — the client sends their session's access token as a Bearer
@@ -65,5 +68,8 @@ export async function getProfileRoleAndFamily(
     .select("role, family_code")
     .eq("id", userId)
     .maybeSingle();
-  return { role: data?.role ?? null, familyCode: data?.family_code ?? null };
+  return {
+    role: narrowNullableLiteral(data?.role ?? null, PROFILE_ROLES),
+    familyCode: data?.family_code ?? null,
+  };
 }
