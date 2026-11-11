@@ -33,6 +33,10 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
   );
   const [copied, setCopied] = useState(false);
   const [replyNote, setReplyNote] = useState("Asked for a fall highlight video.");
+  // Starts empty, exactly as the real composer does — this harness is how the
+  // empty + invalid + valid states of the "To" field get eyeballed. Any value
+  // typed here is clearly-fake test input, never a real coach address.
+  const [recipient, setRecipient] = useState("");
 
   const setStatus: React.ComponentProps<typeof SeededOutreachLayout>["setStatus"] = (slug, status) => {
     setStatuses((prev) => {
@@ -74,6 +78,8 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
         replyNote={replyNote}
         setReplyNote={setReplyNote}
         saveReplyNote={() => {}}
+        recipient={recipient}
+        setRecipient={setRecipient}
       />
     </div>
   );

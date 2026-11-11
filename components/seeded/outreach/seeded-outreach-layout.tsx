@@ -7,10 +7,11 @@ import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
+import { staffDirectorySearchUrl } from "@/lib/db/schools";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
-import { cn } from "@/lib/utils";
+import { cn, isValidEmailAddress } from "@/lib/utils";
 
 // Same plain "Oct 25" (no year) format the board already used inline for
 // "Reminder set for {date}" — reused here for last-contact/follow-up-by too
@@ -74,6 +75,11 @@ export interface SeededOutreachLayoutProps {
   replyNote: string;
   setReplyNote: (v: string) => void;
   saveReplyNote: (slug: string, note: string) => void;
+  /** The coach address, typed by the user. Seeded holds no coach contacts
+   * (P0-3 removed the invented ones), so this starts empty on every draft
+   * and must be a valid address before "Open in Gmail" will do anything. */
+  recipient: string;
+  setRecipient: (v: string) => void;
 }
 
 export function SeededOutreachLayout({
@@ -95,11 +101,17 @@ export function SeededOutreachLayout({
   replyNote,
   setReplyNote,
   saveReplyNote,
+  recipient,
+  setRecipient,
 }: SeededOutreachLayoutProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const bySlug = (slug: string) => targetSchools.find((s) => s.slug === slug);
   const selectedSchool = selectedSlug ? bySlug(selectedSlug) : undefined;
   const currentStatus = selectedSchool ? statuses[selectedSchool.slug]?.status : undefined;
+  const recipientValid = isValidEmailAddress(recipient);
+  // Only complain once they've actually typed something — an empty field on a
+  // fresh draft is the expected starting state, not an error.
+  const recipientInvalid = recipient.trim().length > 0 && !recipientValid;
 
   const notStarted = targetSchools.filter((s) => !statuses[s.slug]);
   const emailedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "emailed").length;
@@ -260,14 +272,46 @@ export function SeededOutreachLayout({
               </h2>
               {chip("border-line bg-card text-ink/70", "Draft")}
             </div>
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
-              To
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="outreach-to" className="text-[13px] font-medium text-ink/60">
+                To
+              </label>
               <input
-                readOnly
-                value={`${selectedSchool.coachName} (${selectedSchool.coachEmail})`}
-                className="h-[42px] rounded-md border border-input bg-cream px-3 text-sm text-ink"
+                id="outreach-to"
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                spellCheck={false}
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                aria-invalid={recipientInvalid}
+                aria-describedby="outreach-to-help"
+                placeholder="Paste the coach's email address"
+                className={cn(
+                  "h-[42px] rounded-md border bg-cream px-3 text-sm text-ink",
+                  recipientInvalid ? "border-error" : "border-input"
+                )}
               />
-            </label>
+              <p id="outreach-to-help" className="text-xs text-ink/60">
+                {recipientInvalid ? (
+                  <span className="text-error">
+                    That doesn&rsquo;t look like an email address yet.
+                  </span>
+                ) : (
+                  <>
+                    Seeded doesn&rsquo;t store coach contacts — look it up and paste it here.{" "}
+                    <a
+                      href={staffDirectorySearchUrl(selectedSchool)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-grass hover:text-grass-600"
+                    >
+                      Find {selectedSchool.shortName}&rsquo;s staff directory
+                    </a>
+                  </>
+                )}
+              </p>
+            </div>
             <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
               Subject
               <input
@@ -286,19 +330,24 @@ export function SeededOutreachLayout({
               />
             </label>
             <p className="text-xs text-ink/60">
-              Filled from your real results and the school&rsquo;s page. Edit before sending. Seeded
-              never sends for you.
+              Filled from what you&rsquo;ve logged — your results, your UTR, your focus areas.
+              Nothing about the program beyond its name, division and conference. Edit before
+              sending. Seeded never sends for you.
             </p>
             <div className="flex flex-wrap gap-2">
               <SeededButton
                 variant="secondary"
+                disabled={!recipientValid}
+                title={recipientValid ? undefined : "Add the coach's email address first"}
                 onClick={() => {
                   // Real Gmail web compose deep link — never the Gmail API,
                   // never sent on the player's behalf. Opens a normal
                   // pre-filled compose window in a new tab for the player to
-                  // review and send themselves.
+                  // review and send themselves. The recipient is whatever the
+                  // player typed above; we never supply one.
+                  if (!recipientValid) return;
                   const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-                    selectedSchool.coachEmail
+                    recipient.trim()
                   )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                   window.open(url, "_blank", "noopener,noreferrer");
                 }}

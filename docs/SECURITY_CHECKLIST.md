@@ -23,6 +23,7 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 | S-11 | P2 | `/api/whop/checkout` builds `redirect_url` from the request `Origin` header. Whop restricts redirects to configured domains, but pin it to `NEXT_PUBLIC_SITE_URL` anyway. | Open |
 | S-12 | P2 | Under-13 gate is client-only; birth year isn't stored. | Open (P0-8) |
 | S-13 | P3 | `are_friends()`, `friendships`, `badges` are dead but present. | Open |
+| S-14 | P1 | **Third-party harm, not self-harm:** the catalog shipped invented coach addresses at real university domains (`dwhitfield@stanford.edu`), prefilled as the outreach recipient. A minor clicking "Open in Gmail" would send a real message to a real domain's mail server, addressed to someone who doesn't exist, asserting invented facts about that program. Also exposed invented names, hometowns and UTRs of fictional "recent recruits" presented as real juniors. | **Fixed (P0-3)** — fields deleted from the type and all 68 entries; recipient is user-typed and validated; `schools-catalog-honesty.test.ts` fails the build on re-add |
 
 ## What's done well (keep it)
 - Writes go through zod-validated routes with a request-scoped, RLS-respecting client (`lib/api-auth.ts`), not the service role.
@@ -50,3 +51,4 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 - After any REVOKE, verify with `has_function_privilege` / `information_schema.column_privileges` — Postgres grants to PUBLIC by default.
 - Never use the service-role client for a user-initiated write.
 - Treat every string from the client, the database, or an AI model as untrusted in prompts and in HTML.
+- Treat invented data as a security finding when it leaves the app: an address we made up is a message sent to a real third party, and a fabricated "fact" about a real institution is a statement a minor makes in their own name. Outbound recipients are always user-supplied and validated.

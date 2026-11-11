@@ -1,12 +1,18 @@
 import type { School } from "@/lib/types";
 
 // 30 real NCAA Division I tennis programs.
-// Conferences reflect the 2024-25 realignment. UTR figures are realistic
-// estimates on the true UTR scale (top men's D1 rosters average ~13.5-14.5,
-// strong programs ~12.5-13.5, Ivy/mid programs ~11-13) and should be verified
-// against current rosters before recruiting decisions.
-// NOTE: Coach names and recruit names are illustrative (not the real staff),
-// and recruiting URLs are placeholders. Do not surface them as verified facts.
+// Conferences reflect the 2024-25 realignment.
+//
+// `avgRosterUTR` and `minCompetitiveUTR` are UNVERIFIED ESTIMATES on the true
+// UTR scale (top men's D1 rosters average ~13.5-14.5, strong programs
+// ~12.5-13.5, Ivy/mid programs ~11-13). They carry no per-school source or
+// date, so every surface that renders them must label them as unverified
+// (see UTR_RANGE_SOURCE_LABEL in lib/db/schools.ts). Real sourced rosters
+// land with P1-DATA-1 / migration 012.
+//
+// Coach names/emails, recent recruits, conference ranks and recruiting URLs
+// used to live here as invented placeholder values; they were removed in
+// P0-3. Never add one back without a real, cited source per school.
 
 // Raw men's Division I programs (gender + gender-suffixed slug applied below).
 const mensD1Raw: Omit<School, "gender">[] = [
@@ -25,15 +31,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.6,
     minCompetitiveUTR: 12.3,
     usNewsRanking: 3,
-    conferenceRank: 6,
-    coachName: "Daniel Whitfield",
-    coachEmail: "dwhitfield@stanford.edu",
-    recruitingPageUrl: "https://example.com/recruiting/stanford",
-    recentRecruits: [
-      { name: "Ethan Park", hometown: "Irvine, CA", classYear: 2025, utr: 11.2 },
-      { name: "Marco Bianchi", hometown: "Milan, Italy", classYear: 2024, utr: 11.6 },
-      { name: "Will Tanaka", hometown: "Honolulu, HI", classYear: 2025, utr: 10.9 },
-    ],
   },
   {
     id: "cornell",
@@ -50,15 +47,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.8,
     minCompetitiveUTR: 10.6,
     usNewsRanking: 12,
-    conferenceRank: 4,
-    coachName: "Greg Halloran",
-    coachEmail: "ghalloran@cornell.edu",
-    recruitingPageUrl: "https://example.com/recruiting/cornell",
-    recentRecruits: [
-      { name: "Aidan Brooks", hometown: "Bethesda, MD", classYear: 2025, utr: 9.4 },
-      { name: "Sebastian Vogel", hometown: "Vienna, Austria", classYear: 2024, utr: 9.8 },
-      { name: "Noah Feldman", hometown: "Scarsdale, NY", classYear: 2025, utr: 9.1 },
-    ],
   },
   {
     id: "duke",
@@ -75,15 +63,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.3,
     minCompetitiveUTR: 12,
     usNewsRanking: 7,
-    conferenceRank: 5,
-    coachName: "Ramsey Carter",
-    coachEmail: "rcarter@duke.edu",
-    recruitingPageUrl: "https://example.com/recruiting/duke",
-    recentRecruits: [
-      { name: "James Whitley", hometown: "Atlanta, GA", classYear: 2025, utr: 10.8 },
-      { name: "Luca Moretti", hometown: "Rome, Italy", classYear: 2024, utr: 11.3 },
-      { name: "Theo Adler", hometown: "Charlotte, NC", classYear: 2025, utr: 10.4 },
-    ],
   },
   {
     id: "virginia",
@@ -100,15 +79,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.3,
     minCompetitiveUTR: 13.1,
     usNewsRanking: 24,
-    conferenceRank: 1,
-    coachName: "Patrick Osborne",
-    coachEmail: "posborne@virginia.edu",
-    recruitingPageUrl: "https://example.com/recruiting/virginia",
-    recentRecruits: [
-      { name: "Connor Reyes", hometown: "Vienna, VA", classYear: 2025, utr: 11.7 },
-      { name: "Felix Brandt", hometown: "Hamburg, Germany", classYear: 2024, utr: 12.1 },
-      { name: "Aarav Mehta", hometown: "Potomac, MD", classYear: 2025, utr: 11.5 },
-    ],
   },
   {
     id: "northwestern",
@@ -125,15 +95,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.3,
     minCompetitiveUTR: 11.1,
     usNewsRanking: 9,
-    conferenceRank: 4,
-    coachName: "Martin Boyle",
-    coachEmail: "mboyle@northwestern.edu",
-    recruitingPageUrl: "https://example.com/recruiting/northwestern",
-    recentRecruits: [
-      { name: "Henry Walsh", hometown: "Naperville, IL", classYear: 2025, utr: 9.9 },
-      { name: "Daniel Kovac", hometown: "Bratislava, Slovakia", classYear: 2024, utr: 10.3 },
-      { name: "Owen Mitchell", hometown: "Bethesda, MD", classYear: 2025, utr: 9.6 },
-    ],
   },
   {
     id: "ucla",
@@ -150,15 +111,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.6,
     minCompetitiveUTR: 12.4,
     usNewsRanking: 15,
-    conferenceRank: 2,
-    coachName: "Gabe Sandoval",
-    coachEmail: "gsandoval@athletics.ucla.edu",
-    recruitingPageUrl: "https://example.com/recruiting/ucla",
-    recentRecruits: [
-      { name: "Tyler Nguyen", hometown: "San Diego, CA", classYear: 2025, utr: 11.1 },
-      { name: "Andres Soto", hometown: "Buenos Aires, Argentina", classYear: 2024, utr: 11.5 },
-      { name: "Caleb Ross", hometown: "Pasadena, CA", classYear: 2025, utr: 10.8 },
-    ],
   },
   {
     id: "usc",
@@ -175,15 +127,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.8,
     minCompetitiveUTR: 12.6,
     usNewsRanking: 28,
-    conferenceRank: 3,
-    coachName: "Victor Ramos",
-    coachEmail: "vramos@usc.edu",
-    recruitingPageUrl: "https://example.com/recruiting/usc",
-    recentRecruits: [
-      { name: "Mason Carter", hometown: "Newport Beach, CA", classYear: 2025, utr: 11.4 },
-      { name: "Kenji Watanabe", hometown: "Tokyo, Japan", classYear: 2024, utr: 11.8 },
-      { name: "Diego Flores", hometown: "Miami, FL", classYear: 2025, utr: 11.0 },
-    ],
   },
   {
     id: "texas",
@@ -200,15 +143,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.2,
     minCompetitiveUTR: 13,
     usNewsRanking: 32,
-    conferenceRank: 1,
-    coachName: "Hudson Beale",
-    coachEmail: "hbeale@athletics.utexas.edu",
-    recruitingPageUrl: "https://example.com/recruiting/texas",
-    recentRecruits: [
-      { name: "Brody Lane", hometown: "Dallas, TX", classYear: 2025, utr: 11.9 },
-      { name: "Pablo Herrera", hometown: "Madrid, Spain", classYear: 2024, utr: 12.2 },
-      { name: "Cole Mathers", hometown: "Houston, TX", classYear: 2025, utr: 11.5 },
-    ],
   },
   {
     id: "florida",
@@ -225,15 +159,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.1,
     minCompetitiveUTR: 12.9,
     usNewsRanking: 28,
-    conferenceRank: 2,
-    coachName: "Trent Mcallister",
-    coachEmail: "tmcallister@gators.ufl.edu",
-    recruitingPageUrl: "https://example.com/recruiting/florida",
-    recentRecruits: [
-      { name: "Logan Pierce", hometown: "Boca Raton, FL", classYear: 2025, utr: 11.6 },
-      { name: "Matias Costa", hometown: "São Paulo, Brazil", classYear: 2024, utr: 12.0 },
-      { name: "Ryan Delgado", hometown: "Orlando, FL", classYear: 2025, utr: 11.3 },
-    ],
   },
   {
     id: "georgia",
@@ -250,15 +175,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14,
     minCompetitiveUTR: 12.8,
     usNewsRanking: 47,
-    conferenceRank: 3,
-    coachName: "Walker Pruitt",
-    coachEmail: "wpruitt@sports.uga.edu",
-    recruitingPageUrl: "https://example.com/recruiting/georgia",
-    recentRecruits: [
-      { name: "Grant Holloway", hometown: "Atlanta, GA", classYear: 2025, utr: 11.5 },
-      { name: "Nikola Petrov", hometown: "Belgrade, Serbia", classYear: 2024, utr: 11.9 },
-      { name: "Sam Whitaker", hometown: "Savannah, GA", classYear: 2025, utr: 11.2 },
-    ],
   },
   {
     id: "michigan",
@@ -275,15 +191,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.3,
     minCompetitiveUTR: 12.1,
     usNewsRanking: 21,
-    conferenceRank: 1,
-    coachName: "Derek Vasquez",
-    coachEmail: "dvasquez@umich.edu",
-    recruitingPageUrl: "https://example.com/recruiting/michigan",
-    recentRecruits: [
-      { name: "Evan Carmichael", hometown: "Birmingham, MI", classYear: 2025, utr: 10.9 },
-      { name: "Lars Eriksson", hometown: "Stockholm, Sweden", classYear: 2024, utr: 11.4 },
-      { name: "Jack Bennett", hometown: "Columbus, OH", classYear: 2025, utr: 10.6 },
-    ],
   },
   {
     id: "vanderbilt",
@@ -300,15 +207,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.6,
     minCompetitiveUTR: 11.4,
     usNewsRanking: 18,
-    conferenceRank: 7,
-    coachName: "Russell Pace",
-    coachEmail: "rpace@vanderbilt.edu",
-    recruitingPageUrl: "https://example.com/recruiting/vanderbilt",
-    recentRecruits: [
-      { name: "Carter Dunn", hometown: "Franklin, TN", classYear: 2025, utr: 10.2 },
-      { name: "Mateo Rossi", hometown: "Turin, Italy", classYear: 2024, utr: 10.6 },
-      { name: "Drew Carlton", hometown: "Bethesda, MD", classYear: 2025, utr: 9.9 },
-    ],
   },
   {
     id: "wake-forest",
@@ -325,15 +223,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.1,
     minCompetitiveUTR: 12.9,
     usNewsRanking: 47,
-    conferenceRank: 2,
-    coachName: "Ian Forsythe",
-    coachEmail: "iforsythe@wfu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/wake-forest",
-    recentRecruits: [
-      { name: "Reid Calloway", hometown: "Raleigh, NC", classYear: 2025, utr: 11.6 },
-      { name: "Tomas Novak", hometown: "Prague, Czechia", classYear: 2024, utr: 12.0 },
-      { name: "Blake Sutton", hometown: "Greensboro, NC", classYear: 2025, utr: 11.3 },
-    ],
   },
   {
     id: "ohio-state",
@@ -350,15 +239,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14,
     minCompetitiveUTR: 12.8,
     usNewsRanking: 43,
-    conferenceRank: 1,
-    coachName: "Marcus Reed",
-    coachEmail: "mreed@osu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/ohio-state",
-    recentRecruits: [
-      { name: "Nolan Frost", hometown: "Cincinnati, OH", classYear: 2025, utr: 11.5 },
-      { name: "Dmitri Volkov", hometown: "Riga, Latvia", classYear: 2024, utr: 11.9 },
-      { name: "Tucker Lane", hometown: "Cleveland, OH", classYear: 2025, utr: 11.2 },
-    ],
   },
   {
     id: "illinois",
@@ -375,15 +255,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.7,
     minCompetitiveUTR: 12.5,
     usNewsRanking: 35,
-    conferenceRank: 2,
-    coachName: "Bryce Donovan",
-    coachEmail: "bdonovan@illinois.edu",
-    recruitingPageUrl: "https://example.com/recruiting/illinois",
-    recentRecruits: [
-      { name: "Cooper Hayes", hometown: "Chicago, IL", classYear: 2025, utr: 11.3 },
-      { name: "Filip Andersson", hometown: "Gothenburg, Sweden", classYear: 2024, utr: 11.7 },
-      { name: "Miles Carrington", hometown: "Naperville, IL", classYear: 2025, utr: 11.0 },
-    ],
   },
   {
     id: "pepperdine",
@@ -400,15 +271,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.4,
     minCompetitiveUTR: 12.2,
     usNewsRanking: 76,
-    conferenceRank: 1,
-    coachName: "Cole Barrett",
-    coachEmail: "cbarrett@pepperdine.edu",
-    recruitingPageUrl: "https://example.com/recruiting/pepperdine",
-    recentRecruits: [
-      { name: "Chase Whitman", hometown: "Santa Barbara, CA", classYear: 2025, utr: 11.0 },
-      { name: "Lucas Meyer", hometown: "Cape Town, South Africa", classYear: 2024, utr: 11.4 },
-      { name: "Ryder Cole", hometown: "Scottsdale, AZ", classYear: 2025, utr: 10.7 },
-    ],
   },
   {
     id: "baylor",
@@ -425,15 +287,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.1,
     minCompetitiveUTR: 12.9,
     usNewsRanking: 93,
-    conferenceRank: 1,
-    coachName: "Garrett Cole",
-    coachEmail: "gcole@baylor.edu",
-    recruitingPageUrl: "https://example.com/recruiting/baylor",
-    recentRecruits: [
-      { name: "Hudson Wright", hometown: "Plano, TX", classYear: 2025, utr: 11.7 },
-      { name: "Joan Ferrer", hometown: "Barcelona, Spain", classYear: 2024, utr: 12.1 },
-      { name: "Beau Hartman", hometown: "Austin, TX", classYear: 2025, utr: 11.4 },
-    ],
   },
   {
     id: "tcu",
@@ -450,15 +303,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 14.3,
     minCompetitiveUTR: 13.1,
     usNewsRanking: 105,
-    conferenceRank: 2,
-    coachName: "Sterling Vance",
-    coachEmail: "svance@tcu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/tcu",
-    recentRecruits: [
-      { name: "Maddox Ryan", hometown: "Fort Worth, TX", classYear: 2025, utr: 11.9 },
-      { name: "Stefan Horvat", hometown: "Zagreb, Croatia", classYear: 2024, utr: 12.3 },
-      { name: "Easton Brooks", hometown: "San Antonio, TX", classYear: 2025, utr: 11.6 },
-    ],
   },
   {
     id: "nc-state",
@@ -475,15 +319,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.4,
     minCompetitiveUTR: 12.2,
     usNewsRanking: 60,
-    conferenceRank: 3,
-    coachName: "Jordan Ellis",
-    coachEmail: "jellis@ncsu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/nc-state",
-    recentRecruits: [
-      { name: "Wyatt Morrow", hometown: "Cary, NC", classYear: 2025, utr: 11.0 },
-      { name: "Adrian Klein", hometown: "Munich, Germany", classYear: 2024, utr: 11.4 },
-      { name: "Carson Reed", hometown: "Durham, NC", classYear: 2025, utr: 10.7 },
-    ],
   },
   {
     id: "north-carolina",
@@ -500,15 +335,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 13.5,
     minCompetitiveUTR: 12.3,
     usNewsRanking: 22,
-    conferenceRank: 4,
-    coachName: "Spencer Hale",
-    coachEmail: "shale@unc.edu",
-    recruitingPageUrl: "https://example.com/recruiting/north-carolina",
-    recentRecruits: [
-      { name: "Bennett Cross", hometown: "Charlotte, NC", classYear: 2025, utr: 11.1 },
-      { name: "Rafael Lima", hometown: "Lisbon, Portugal", classYear: 2024, utr: 11.5 },
-      { name: "Tate Sullivan", hometown: "Asheville, NC", classYear: 2025, utr: 10.8 },
-    ],
   },
   {
     id: "virginia-tech",
@@ -525,15 +351,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.4,
     minCompetitiveUTR: 11.2,
     usNewsRanking: 47,
-    conferenceRank: 9,
-    coachName: "Aaron Doyle",
-    coachEmail: "adoyle@vt.edu",
-    recruitingPageUrl: "https://example.com/recruiting/virginia-tech",
-    recentRecruits: [
-      { name: "Garrison Webb", hometown: "Richmond, VA", classYear: 2025, utr: 10.0 },
-      { name: "Pieter De Vries", hometown: "Amsterdam, Netherlands", classYear: 2024, utr: 10.4 },
-      { name: "Hayes Bartlett", hometown: "Arlington, VA", classYear: 2025, utr: 9.7 },
-    ],
   },
   {
     id: "notre-dame",
@@ -550,15 +367,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.6,
     minCompetitiveUTR: 11.4,
     usNewsRanking: 20,
-    conferenceRank: 7,
-    coachName: "Liam Sutton",
-    coachEmail: "lsutton@nd.edu",
-    recruitingPageUrl: "https://example.com/recruiting/notre-dame",
-    recentRecruits: [
-      { name: "Patrick Lynch", hometown: "Chicago, IL", classYear: 2025, utr: 10.2 },
-      { name: "Gabriel Santos", hometown: "Porto, Portugal", classYear: 2024, utr: 10.6 },
-      { name: "Connor Quinn", hometown: "Boston, MA", classYear: 2025, utr: 9.9 },
-    ],
   },
   {
     id: "penn",
@@ -575,15 +383,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.7,
     minCompetitiveUTR: 10.5,
     usNewsRanking: 6,
-    conferenceRank: 5,
-    coachName: "Theodore Marsh",
-    coachEmail: "tmarsh@upenn.edu",
-    recruitingPageUrl: "https://example.com/recruiting/penn",
-    recentRecruits: [
-      { name: "Julian Roth", hometown: "Bethesda, MD", classYear: 2025, utr: 9.3 },
-      { name: "Oliver Frank", hometown: "Greenwich, CT", classYear: 2024, utr: 9.7 },
-      { name: "Max Sterling", hometown: "Philadelphia, PA", classYear: 2025, utr: 9.0 },
-    ],
   },
   {
     id: "princeton",
@@ -600,15 +399,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12,
     minCompetitiveUTR: 10.8,
     usNewsRanking: 1,
-    conferenceRank: 2,
-    coachName: "Charles Whitman",
-    coachEmail: "cwhitman@princeton.edu",
-    recruitingPageUrl: "https://example.com/recruiting/princeton",
-    recentRecruits: [
-      { name: "Davis Lockwood", hometown: "Summit, NJ", classYear: 2025, utr: 9.6 },
-      { name: "Anton Schmidt", hometown: "Zurich, Switzerland", classYear: 2024, utr: 10.0 },
-      { name: "Reed Fairchild", hometown: "Bethesda, MD", classYear: 2025, utr: 9.3 },
-    ],
   },
   {
     id: "harvard",
@@ -625,15 +415,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.2,
     minCompetitiveUTR: 11,
     usNewsRanking: 3,
-    conferenceRank: 1,
-    coachName: "Nathaniel Briggs",
-    coachEmail: "nbriggs@harvard.edu",
-    recruitingPageUrl: "https://example.com/recruiting/harvard",
-    recentRecruits: [
-      { name: "Spencer Wells", hometown: "Bethesda, MD", classYear: 2025, utr: 9.8 },
-      { name: "Lukas Berg", hometown: "Oslo, Norway", classYear: 2024, utr: 10.2 },
-      { name: "Charlie Donovan", hometown: "New York, NY", classYear: 2025, utr: 9.5 },
-    ],
   },
   {
     id: "yale",
@@ -650,15 +431,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.6,
     minCompetitiveUTR: 10.4,
     usNewsRanking: 5,
-    conferenceRank: 6,
-    coachName: "Frederick Holt",
-    coachEmail: "fholt@yale.edu",
-    recruitingPageUrl: "https://example.com/recruiting/yale",
-    recentRecruits: [
-      { name: "Graham Whitfield", hometown: "Westport, CT", classYear: 2025, utr: 9.2 },
-      { name: "Emil Lindqvist", hometown: "Helsinki, Finland", classYear: 2024, utr: 9.6 },
-      { name: "Peter Holloway", hometown: "Bethesda, MD", classYear: 2025, utr: 8.9 },
-    ],
   },
   {
     id: "columbia",
@@ -675,15 +447,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.4,
     minCompetitiveUTR: 11.2,
     usNewsRanking: 12,
-    conferenceRank: 3,
-    coachName: "Elliot Brennan",
-    coachEmail: "ebrennan@columbia.edu",
-    recruitingPageUrl: "https://example.com/recruiting/columbia",
-    recentRecruits: [
-      { name: "Asher Klein", hometown: "New York, NY", classYear: 2025, utr: 10.0 },
-      { name: "Tomas Reyes", hometown: "Santiago, Chile", classYear: 2024, utr: 10.4 },
-      { name: "Jonah Pierce", hometown: "Bethesda, MD", classYear: 2025, utr: 9.7 },
-    ],
   },
   {
     id: "brown",
@@ -700,15 +463,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.3,
     minCompetitiveUTR: 10.1,
     usNewsRanking: 9,
-    conferenceRank: 7,
-    coachName: "Simon Ward",
-    coachEmail: "sward@brown.edu",
-    recruitingPageUrl: "https://example.com/recruiting/brown",
-    recentRecruits: [
-      { name: "Eli Thompson", hometown: "Providence, RI", classYear: 2025, utr: 8.9 },
-      { name: "Lorenzo Conti", hometown: "Bologna, Italy", classYear: 2024, utr: 9.3 },
-      { name: "Cameron Beck", hometown: "Wellesley, MA", classYear: 2025, utr: 8.6 },
-    ],
   },
   {
     id: "dartmouth",
@@ -725,15 +479,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.2,
     minCompetitiveUTR: 10,
     usNewsRanking: 18,
-    conferenceRank: 8,
-    coachName: "Grant Mercer",
-    coachEmail: "gmercer@dartmouth.edu",
-    recruitingPageUrl: "https://example.com/recruiting/dartmouth",
-    recentRecruits: [
-      { name: "Hayden Frost", hometown: "Burlington, VT", classYear: 2025, utr: 8.8 },
-      { name: "Niklas Hoffmann", hometown: "Berlin, Germany", classYear: 2024, utr: 9.2 },
-      { name: "Tobias Reed", hometown: "Hanover, NH", classYear: 2025, utr: 8.5 },
-    ],
   },
   {
     id: "tulane",
@@ -750,15 +495,6 @@ const mensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12,
     minCompetitiveUTR: 10.8,
     usNewsRanking: 73,
-    conferenceRank: 2,
-    coachName: "Brett Calhoun",
-    coachEmail: "bcalhoun@tulane.edu",
-    recruitingPageUrl: "https://example.com/recruiting/tulane",
-    recentRecruits: [
-      { name: "Dawson Pratt", hometown: "New Orleans, LA", classYear: 2025, utr: 9.6 },
-      { name: "Marco Silva", hometown: "Rio de Janeiro, Brazil", classYear: 2024, utr: 10.0 },
-      { name: "Knox Hamilton", hometown: "Baton Rouge, LA", classYear: 2025, utr: 9.3 },
-    ],
   },
 ];
 

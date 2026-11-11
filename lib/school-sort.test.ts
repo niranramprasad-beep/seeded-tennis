@@ -18,10 +18,6 @@ function school(overrides: Partial<SchoolLite> & { slug: string }): SchoolLite {
     avgRosterUTR: 11,
     minCompetitiveUTR: 10,
     usNewsRanking: 50,
-    conferenceRank: 1,
-    coachName: "Coach",
-    coachEmail: "coach@example.com",
-    recruitingPageUrl: "",
     ...overrides,
   };
 }

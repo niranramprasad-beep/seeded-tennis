@@ -8,13 +8,13 @@ number behind it.
 | Data | Where it lives | Reliability today |
 |---|---|---|
 | School name, city, state, division, conference | `lib/db/schools-data-*.ts` | PARTIALLY RELIABLE — mostly right from public knowledge, never source-checked, no date |
-| `avgRosterUTR`, `minCompetitiveUTR` | same | **UNVERIFIED** — no source, no date, no per-player basis |
+| `avgRosterUTR`, `minCompetitiveUTR` | same | **UNVERIFIED** — no source, no date, no per-player basis. Now labeled "Unverified estimate" everywhere it renders (P0-3) |
 | `usNewsRanking` | same | PARTIALLY RELIABLE — no year recorded |
-| `conferenceRank` | same | **FABRICATED** — used in coach emails as a fact |
-| `coachName`, `coachEmail` | same | **FABRICATED** (e.g. Stanford men "Daniel Whitfield / dwhitfield@stanford.edu") |
-| `recentRecruits` | same | **FABRICATED** (invented names, hometowns, UTRs) |
-| `programNote` | same | **FABRICATED** prose |
-| `recruitingPageUrl` | same | **PLACEHOLDER** (`https://example.com/...`, 68 occurrences) |
+| `conferenceRank` | — | **REMOVED** from the catalog and the `School` type (P0-3). Was fabricated and stated as fact in coach emails |
+| `coachName`, `coachEmail` | — | **REMOVED** (P0-3). Were fabricated (e.g. Stanford men "Daniel Whitfield / dwhitfield@stanford.edu"). The outreach "To" field is now typed by the user per draft; Seeded stores no coach contacts |
+| `recentRecruits` | — | **REMOVED** (P0-3). Were invented names, hometowns and UTRs — of minors |
+| `programNote` | — | **REMOVED** (P0-3). Was fabricated prose |
+| `recruitingPageUrl` | — | **REMOVED** (P0-3). Was `https://example.com/...` ×68. Replaced by a staff-directory *web search* (`staffDirectorySearchUrl`), never a guessed athletics URL |
 | Player UTR history | `utr_entries` (self-reported) | PROVISIONAL — user typed it, no validation beyond range |
 | Match results | `matches` | PROVISIONAL — self-reported |
 | NCAA contact dates (Plan checklist) | code constants | RELIABLE as general guidance, correctly labeled "confirm at ncaa.org" |
@@ -26,6 +26,15 @@ junior players are below UTR 10 — coverage, not polish, is the gap.
 Separate real sources exist but aren't wired in: the "College Tennis UTR
 Database" Google Sheet and `claude/official_rosters_2026-27.tsv` in the
 Claude project (10 more conferences, no UTRs yet).
+
+### Regression guard
+
+`lib/db/schools-catalog-honesty.test.ts` fails the build if any catalog entry
+grows a coach name/email, recruit list, conference rank, program blurb,
+placeholder URL, any email-shaped string, any `http(s)://` URL, or **any field
+outside the explicit allowlist**. Adding a real, sourced field means editing
+that allowlist deliberately — the test is there so nothing invented slips back
+in quietly. Keep it that way.
 
 ## Reliability classes (use these exact values in the DB)
 

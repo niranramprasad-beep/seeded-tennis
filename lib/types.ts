@@ -53,13 +53,19 @@ export type TournamentLevel =
   | "L6"
   | "L7";
 
-export interface Recruit {
-  name: string;
-  hometown: string;
-  classYear: number;
-  utr: number;
-}
-
+// A school program in the catalog.
+//
+// Every field here must be a real, checkable fact about the program. P0-3
+// removed `coachName`, `coachEmail`, `recruitingPageUrl`, `recentRecruits`,
+// `programNote` and `conferenceRank`, which were invented placeholder values
+// rendered to users as facts (and, via the coach-email draft, asserted to
+// real college coaches). Coach contact is now typed by the user per message;
+// see buildCoachEmail in lib/db/schools.ts.
+//
+// `avgRosterUTR` and `minCompetitiveUTR` are the two exceptions still in
+// flight: they are unverified estimates, so anything that renders them must
+// also render UTR_RANGE_SOURCE_LABEL. P1-DATA-1 replaces them with sourced,
+// dated roster data.
 export interface School {
   id: string;
   slug: string;
@@ -76,22 +82,15 @@ export interface School {
   avgRosterUTR: number;
   minCompetitiveUTR: number;
   usNewsRanking: number;
-  conferenceRank: number;
-  coachName: string;
-  coachEmail: string;
-  recruitingPageUrl: string;
-  recentRecruits: Recruit[];
-  // Optional richer program detail used by the (rewritten) coach email generator.
-  programNote?: string;
 }
 
-// `recentRecruits` (an array per school) and `programNote` are the heaviest
-// fields in the catalog and are only ever read by the coach-email generator
-// (/coaches). Pages that just list/compare/filter schools — dashboard,
-// roadmap, cost calculator — never touch either, so they use this lighter
-// shape instead of shipping the full catalog (with every school's recruit
-// history) down to the browser on every load.
-export type SchoolLite = Omit<School, "recentRecruits" | "programNote">;
+// Kept as a distinct name because ~30 components and lib/school-fit.ts type
+// their props against it. It used to drop the per-school recruit history and
+// program blurb from the payload shipped to the browser; both fields are gone
+// from `School` entirely now (P0-3), so the two shapes are identical. The
+// alias stays as the seam for P1-DATA-1, when the full `School` grows sourced
+// roster rows and list pages will again want a narrower row.
+export type SchoolLite = School;
 
 export interface Activity {
   id: string;

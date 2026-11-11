@@ -14,20 +14,22 @@
 ## Executive status
 
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
-write routes, 382 passing unit tests, and a much more careful RLS setup
+write routes, 394 passing unit tests, and a much more careful RLS setup
 than most student projects. That's the good news.
 
 The bad news: **it is not launchable, for three reasons that have nothing
 to do with polish.**
 
-1. **The core data is invented.** Every school in `lib/db/schools-data-*.ts`
-   has a made-up head coach (Stanford's "Daniel Whitfield"), a made-up
-   email (`dwhitfield@stanford.edu`), made-up recent recruits ("Ethan Park,
-   Irvine CA"), made-up conference ranks, `example.com` recruiting URLs,
-   and roster UTR ranges with no source. The homepage says "Rosters
-   verified Oct 2026" and "Every team rating shows its source and date."
-   Neither is true. The fit bands, the Plan page, and the coach email are
-   all computed from these numbers.
+1. **The core data is invented.** ~~Every school has a made-up head coach,
+   email, recent recruits, conference rank and `example.com` URL.~~ Those
+   six fields were deleted from the type and all 68 entries in P0-3, and a
+   test now fails the build if any come back. **What remains:** the roster
+   UTR ranges still have no source or date — they are labeled "Unverified
+   estimate" everywhere they render, but the fit bands, the Plan page and
+   the coach email are still computed from them. P1-DATA-1 (real sourced
+   rosters) is the actual fix and is now the single highest-value task in
+   the project. The homepage still claims "Rosters verified Oct 2026" and
+   "Every team rating shows its source and date" — P0-7.
 2. **Any signed-in user can give themselves a paid plan or join any
    family.** Confirmed live: `authenticated` has UPDATE on
    `profiles.subscription_tier`, `role`, `family_code`,
@@ -46,16 +48,16 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
 
 ## Current production-readiness score
 
-**31 / 100**
+**34 / 100** (was 31 before P0-3)
 
 | Area | Score | Why |
 |---|---|---|
 | Security | 3/10 | Two confirmed P0 authorization holes; no rate limits; no headers |
-| Data correctness | 1/10 | Catalog and coach data fabricated; fit bands disagree between screens |
+| Data correctness | 3/10 | Fabricated coach/recruit/rank fields deleted and guarded by a test (P0-3); roster UTR numbers are still unsourced estimates (now labeled), and fit bands still disagree between screens |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
 | Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
 | Legal/privacy | 2/10 | Minors, COPPA, one-paragraph privacy policy, deletion not implemented |
-| Testing | 5/10 | 382 unit tests pass; zero integration/E2E/RLS tests |
+| Testing | 5/10 | 394 unit tests pass; zero integration/E2E/RLS tests |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
 
 ---
@@ -102,20 +104,26 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
   Deployment impact: Changes parent signup UX. Needs prod code that uses the RPC before the old policies are dropped.
   Notes: REQUIRES ADULT REVIEW — this is minors' data.
 
-- [ ] **P0-3 Remove fabricated school/coach data from every user-facing surface**
+- [x] **P0-3 Remove fabricated school/coach data from every user-facing surface**
 
-  Status: READY
-  Priority: P0
-  Category: Data quality / Honesty
-  Why this matters: `lib/db/schools-data-{mens,womens,extra}.ts` (≈69 programs) contain invented coach names and emails, invented `recentRecruits`, invented `conferenceRank`, `programNote`, `example.com` recruiting URLs (68 occurrences), and UTR ranges with no source or date. These render on `/schools/[slug]` ("Coaching staff: Daniel Whitfield, dwhitfield@stanford.edu"), in `/outreach` ("To:"), in the pricing claims and in the fit model. The project's own #1 rule is "no generated or made-up data."
-  Dependencies: none (short-term fix); P1-DATA-1 for the real fix
-  Affected files: `lib/db/schools-data-*.ts`, `lib/types.ts` (`School`), `components/seeded/schools/seeded-school-detail.tsx`, `components/seeded/outreach/seeded-outreach-layout.tsx`, `components/coaches/coaches-view.tsx`, `lib/db/schools.ts`
-  Affected database objects: none
-  Security considerations: Sending real emails to invented addresses at real universities is a reputational risk for a real minor.
-  Testing required: grep test in CI that fails if `coachEmail`, `coachName`, `recentRecruits`, `programNote`, `example.com` appear in the shipped catalog; snapshot of school detail.
-  Acceptance criteria: No coach name/email, recruit, conference rank or example URL is shown anywhere. Coaching staff card links to a real athletics staff-directory search instead. Every UTR range shows "Unverified estimate" until P1-DATA-1 lands.
-  Deployment impact: Visible copy change.
-  Notes: Do not "fix" this by inventing better-looking numbers.
+  Status: COMPLETE (commit "P0-3: remove fabricated school and coach data from
+  the product"; verified on localhost at 1440 and 390 + `/dev/outreach-preview`)
+  What landed: `coachName`, `coachEmail`, `recruitingPageUrl`, `recentRecruits`,
+  `programNote` and `conferenceRank` are gone from the `School` type and from all
+  68 catalog entries (and the `Recruit` type is deleted) — not just hidden, so
+  nothing can render them again. School detail's "Coaching staff" card now says
+  "Not tracked" and links to a staff-directory **web search**
+  (`staffDirectorySearchUrl`), never a guessed athletics URL. The outreach "To"
+  field is a user-typed, validated input that starts empty, with the same
+  directory link beside it; "Open in Gmail" is disabled until the address parses.
+  Roster UTR numbers carry `UTR_RANGE_SOURCE_LABEL` ("Unverified estimate") on
+  school detail, the Schools browser header and compare drawer, the Plan target
+  list, and the Legacy stat tiles. `lib/db/schools-catalog-honesty.test.ts`
+  fails the build on any re-add (allowlist-based, so unanticipated field names
+  are caught too).
+  Still open here: the *numbers* themselves are still unsourced estimates —
+  P1-DATA-1 is the real fix. This task only stopped presenting them, and the
+  invented coach/recruit data, as fact.
 
 - [ ] **P0-4 Rewrite the coach email draft so it only states things the player told us**
 
@@ -130,7 +138,15 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
   Testing required: unit tests that the body contains no school fact other than name/division/conference, and no sentence about future plans unless the player supplied it.
   Acceptance criteria: Draft uses only player-entered facts + school name; "To" field empty with a link to the school's staff directory; user must confirm before "Open in Gmail".
   Deployment impact: none beyond UI.
-  Notes: —
+  Notes: Partly landed with P0-3, because removing the catalog fields forced it:
+  the salutation is now "Coach," (no invented surname), the conference-standing
+  and recruit-footprint sentences are gone, and the "To" field is already empty,
+  user-typed, validated, and gating "Open in Gmail" with the staff-directory link
+  beside it. **Still open:** the unsupported first-person claims the player never
+  made — "my roadmap has me closing that gap", "I'll be at several events this
+  spring and would be glad to play in front of your staff" — plus labeling the
+  UTR as self-reported and framing the gap without asserting the program's
+  "competitive line" as a known fact (it's derived from an unverified estimate).
 
 - [ ] **P0-5 Fix production (`main`) breaking against the shared live database**
 
@@ -358,13 +374,13 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-1. P0-5 — decide hotfix-vs-maintenance for production and stop the `contacted` write failures.
-2. P0-6 — create a staging Supabase project and point Preview/Development at it.
-3. P0-1 — migration 022: lock privileged `profiles` columns (write SQL, get sign-off, apply on staging, then prod).
-4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes.
-5. P0-3 — strip coach names/emails/recruits/ranks/example URLs from the UI and catalog.
-6. P0-4 — rewrite `buildCoachEmail()` to player-supplied facts only.
-7. P0-7 — remove false claims (verified rosters, Sunday email, notifications, public page, 30-day delete, "all D1").
-8. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
-9. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
-10. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage.
+1. P0-5 — decide hotfix-vs-maintenance for production and stop the `contacted` write failures. **Needs Niran.**
+2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
+3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
+4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
+5. P0-4 — finish the coach email: drop "my roadmap has me closing that gap" and "I'll be at several events this spring", label UTR self-reported, stop asserting the program's competitive line as fact.
+6. P0-7 — remove false claims (verified rosters, Sunday email, notifications, public page, 30-day delete, "all D1", "within 48 hours").
+7. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
+8. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
+9. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
+10. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**

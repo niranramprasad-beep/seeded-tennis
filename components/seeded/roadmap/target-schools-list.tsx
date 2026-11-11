@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GripVertical, Search } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
 import { explainSchoolFit, schoolUtrRange, utrToPct, type SchoolFitExplanationInput } from "@/lib/school-fit";
+import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
@@ -111,6 +112,15 @@ export function TargetSchoolsList({
           </ul>
         )}
       </div>
+
+      {targetSchools.length > 0 && (
+        // The team UTR band in every row below is an unverified estimate with
+        // no source or date (P0-3). Stated once here rather than on each row.
+        <p className="mt-3.5 text-xs text-stone-light">
+          Team UTR ranges are an {UTR_RANGE_SOURCE_LABEL.toLowerCase()} — no published source or
+          date yet.
+        </p>
+      )}
 
       <ul className="mt-3.5 flex flex-col gap-3 text-sm">
         {targetSchools.map((s) => {

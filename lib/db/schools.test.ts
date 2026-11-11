@@ -18,11 +18,6 @@ const school: School = {
   avgRosterUTR: 12,
   minCompetitiveUTR: 10,
   usNewsRanking: 10,
-  conferenceRank: 1,
-  coachName: "Jane Smith",
-  coachEmail: "coach@duke.edu",
-  recruitingPageUrl: "https://duke.edu",
-  recentRecruits: [],
 };
 
 const player: Player = {
@@ -67,9 +62,25 @@ describe("buildCoachEmail", () => {
     expect(email.body).toContain("Duke");
   });
 
-  it("addresses the coach by last name", () => {
+  // P0-3: the catalog carried an invented head-coach name per school, and the
+  // draft opened and closed with it. Seeded now knows no coach names at all,
+  // so the salutation has to stay generic rather than guess one.
+  it("addresses the coach generically — it has no coach name to use", () => {
     const email = buildCoachEmail(player, school);
-    expect(email.body).toContain("Coach Smith,");
+    expect(email.body).toMatch(/^Coach,\n/);
+    expect(email.body).not.toMatch(/Coach \w/);
+  });
+
+  // P0-3: these sentences cited an invented conference standing, an invented
+  // recruit footprint and an invented program blurb, to a real coach who
+  // would know they were wrong.
+  it("states no school fact beyond name, division and conference", () => {
+    const email = buildCoachEmail(player, school, [
+      { name: "Mid-Atlantic Open", level: "L4", result: "Champion" },
+    ]);
+    expect(email.body).not.toMatch(/place standing/);
+    expect(email.body).not.toMatch(/recent classes|recent signees/);
+    expect(email.body).not.toMatch(/\bst-place|\bnd-place|\brd-place|\bth-place/);
   });
 
   it("never fabricates results — falls back to schedule volume with none logged", () => {

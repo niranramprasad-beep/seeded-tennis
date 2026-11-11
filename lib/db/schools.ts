@@ -30,10 +30,11 @@ export async function getSchools(): Promise<School[]> {
   return resolve(schoolsData);
 }
 
-// Lighter catalog for pages that list/compare/filter schools but never
-// render recruit history or the coach-email program blurb — see SchoolLite.
+// Lighter catalog for pages that list/compare/filter schools. Identical to
+// getSchools() since P0-3 removed the heavy per-school fields — see the
+// SchoolLite comment in lib/types.ts for why the seam is kept.
 export async function getSchoolsLite(): Promise<SchoolLite[]> {
-  return resolve(schoolsData.map(({ recentRecruits, programNote, ...rest }) => rest));
+  return resolve(schoolsData);
 }
 
 export async function getSchool(slug: string): Promise<School | undefined> {
@@ -72,6 +73,35 @@ export function combinedScore(school: School): number {
   return Math.round(academic * 0.5 + tennis * 0.5);
 }
 
+/* ------------------------------------------------------- data provenance */
+
+// Every surface that renders a school's roster UTR numbers must render this
+// next to them. `avgRosterUTR`/`minCompetitiveUTR` are estimates carried in
+// the static catalog with no per-school source or date (see the headers in
+// schools-data-*.ts). One constant so the label can't drift between the
+// school detail page, the Schools browser and the Plan chart — and so it is
+// a single edit to swap in real source+date strings when P1-DATA-1 lands.
+export const UTR_RANGE_SOURCE_LABEL = "Unverified estimate";
+
+// A web search, not a guessed athletics URL. We do not store per-school
+// recruiting or staff-directory links: inventing one that 404s (or worse,
+// points at the wrong program) is the same failure mode as inventing the
+// coach's name. The user lands on a search result they can verify themselves.
+export function staffDirectorySearchQuery(
+  school: Pick<School, "name" | "gender">
+): string {
+  const programType = school.gender === "women" ? "women's" : "men's";
+  return `${school.name} ${programType} tennis staff directory`;
+}
+
+export function staffDirectorySearchUrl(
+  school: Pick<School, "name" | "gender">
+): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(
+    staffDirectorySearchQuery(school)
+  )}`;
+}
+
 /* ------------------------------------------------------------- coach email */
 
 export interface CoachEmail {
@@ -95,13 +125,16 @@ const WEAKNESS_PHRASES: Record<string, string> = {
   mental: "staying locked into my patterns when the score tightens",
 };
 
-function lastName(full: string): string {
-  return full.trim().split(/\s+/).slice(-1)[0];
-}
-
-// Builds a personalized recruiting email. Pulls specifics from the player's
-// real recent results and from the program (conference standing, recruiting
-// footprint, competitive line) so it reads as researched, not templated.
+// Builds a recruiting email draft.
+//
+// P0-3/P0-4: this text is sent by a real minor to a real college coach, so it
+// may assert ONLY things the player themselves supplied (name, grad year,
+// gender, country, self-reported UTR, their own logged results, their own
+// stated focus areas) plus the school's name, division and conference. It
+// used to open with "Coach {invented surname}", cite an invented conference
+// standing and an invented recruit footprint, and make scheduling promises
+// the player never made. Those are gone; do not reintroduce a sentence here
+// that states a fact the player did not enter.
 export function buildCoachEmail(
   player: Player,
   school: School,
@@ -121,15 +154,10 @@ export function buildCoachEmail(
         ? `I'm playing a full sectional and national schedule this season (${player.tournamentsPlayed} events so far, building toward ${player.tournamentsGoal}).`
         : `I'm building out a full sectional and national schedule this season, with ${player.tournamentsGoal} events planned.`;
 
-  // 2) A specific, researched line about the program.
-  const recruitFootprint = programFootprint(school);
-  const programSentence = `I've been following ${school.shortName} closely — your ${ordinalRank(
-    school.conferenceRank
-  )}-place standing in the ${school.conference}${
-    school.programNote ? `, and ${lowerFirst(school.programNote)}` : ""
-  } is exactly the level I want to be pushing toward.${
-    recruitFootprint ? ` ${recruitFootprint}` : ""
-  }`;
+  // 2) Interest in the program, stated as the player's own interest. The only
+  // school facts allowed are the ones we can actually stand behind: name,
+  // division and conference. No standing, no recruit footprint, no blurb.
+  const programSentence = `I've been following ${school.shortName} closely, and ${school.division} tennis in the ${school.conference} is the level I want to be competing at.`;
 
   // 3) Fit framed against the program's actual competitive line.
   const gap = Math.round((school.minCompetitiveUTR - player.currentUTR) * 10) / 10;
@@ -155,7 +183,7 @@ export function buildCoachEmail(
     1
   )} · ${player.name} — interested in ${school.shortName}`;
 
-  const body = `Coach ${lastName(school.coachName)},
+  const body = `Coach,
 
 I'm ${player.name}, a ${ordinalGrade(getCurrentGrade(player.graduationYear))}-grade ${programType} player (class of ${
     player.graduationYear
@@ -169,7 +197,7 @@ ${focusSentence ? focusSentence + " " : ""}I'd welcome the chance to send my ful
     player.graduationYear
   }. I'll be at several events this spring and would be glad to play in front of your staff.
 
-Thank you for your time, Coach ${lastName(school.coachName)}.
+Thank you for your time.
 
 ${player.name}
 UTR ${player.currentUTR.toFixed(1)} · Class of ${player.graduationYear}`;
@@ -187,28 +215,6 @@ function describeResult(result: string): string {
   if (r.includes("round of 16") || r.includes("r16")) return "reached the round of 16";
   if (r === "win" || r === "wins") return "picked up wins";
   return result.toLowerCase();
-}
-
-function programFootprint(school: School): string {
-  const recruits = school.recentRecruits ?? [];
-  const intl = recruits.filter((r) => !/,\s*[A-Z]{2}$/.test(r.hometown));
-  if (intl.length > 0) {
-    return `Your recent classes pull talent from everywhere — ${intl[0].hometown.split(",").slice(-1)[0].trim()} to the States — which tells me you build genuinely competitive lineups.`;
-  }
-  if (recruits.length > 0) {
-    return `Bringing in players like your recent signees shows the kind of standard you recruit to.`;
-  }
-  return "";
-}
-
-function ordinalRank(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function lowerFirst(s: string): string {
-  return s.charAt(0).toLowerCase() + s.slice(1).replace(/\.$/, "");
 }
 
 function joinList(items: string[]): string {

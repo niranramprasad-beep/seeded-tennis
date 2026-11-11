@@ -12,7 +12,12 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { combinedScore, getSchool, getSchools } from "@/lib/db/schools";
+import {
+  combinedScore,
+  getSchool,
+  getSchools,
+  UTR_RANGE_SOURCE_LABEL,
+} from "@/lib/db/schools";
 import { Card } from "@/components/ui/card";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,10 +61,18 @@ export default async function SchoolDetailPage({
     .sort((a, b) => combinedScore(b) - combinedScore(a));
   const nationalRank = peers.findIndex((s) => s.slug === school.slug) + 1;
 
+  // No "Conference rank" tile: that field was an invented number and was
+  // removed from the catalog (P0-3). The two UTR tiles are unverified
+  // estimates, so they say so on the tile itself.
   const stats = [
-    { label: "Avg roster UTR", value: school.avgRosterUTR.toFixed(1) },
-    { label: "Min competitive", value: school.minCompetitiveUTR.toFixed(1) },
-    { label: "Conference rank", value: `#${school.conferenceRank}` },
+    {
+      label: `Avg roster UTR (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      value: school.avgRosterUTR.toFixed(1),
+    },
+    {
+      label: `Min competitive (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      value: school.minCompetitiveUTR.toFixed(1),
+    },
     { label: "US News", value: `#${school.usNewsRanking}` },
     { label: "Seeded score", value: String(combinedScore(school)) },
   ];
@@ -138,7 +151,7 @@ export default async function SchoolDetailPage({
 
       <div className="mx-auto max-w-content container-px py-10">
         {/* stat tiles */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (
             <Card key={s.label} className="p-4">
               <p className="text-xs text-stone-light">{s.label}</p>

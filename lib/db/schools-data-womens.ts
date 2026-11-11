@@ -1,11 +1,17 @@
 import type { School } from "@/lib/types";
 
-// Curated women's Division I programs. UTR figures are realistic estimates on
-// the true UTR scale — women's benchmarks run lower than men's on the same
-// scale (top women's D1 rosters average ~11.5-12.5) — and should be verified
-// against current rosters before recruiting decisions. Colors mirror each
-// university. NOTE: recruit names are illustrative; several coach names are
-// real head coaches but emails are generic team addresses, not verified.
+// Curated women's Division I programs. Colors mirror each university.
+//
+// `avgRosterUTR` and `minCompetitiveUTR` are UNVERIFIED ESTIMATES on the true
+// UTR scale — women's benchmarks run lower than men's on the same scale (top
+// women's D1 rosters average ~11.5-12.5). They carry no per-school source or
+// date, so every surface that renders them must label them as unverified
+// (see UTR_RANGE_SOURCE_LABEL in lib/db/schools.ts). Real sourced rosters
+// land with P1-DATA-1 / migration 012.
+//
+// Coach names/emails, recent recruits, conference ranks and recruiting URLs
+// used to live here as unverified placeholder values; they were removed in
+// P0-3. Never add one back without a real, cited source per school.
 
 const womensD1Raw: Omit<School, "gender">[] = [
   {
@@ -23,16 +29,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12.1,
     minCompetitiveUTR: 10.9,
     usNewsRanking: 22,
-    conferenceRank: 1,
-    coachName: "Brian Kalbas",
-    coachEmail: "wtennis@unc.edu",
-    recruitingPageUrl: "https://example.com/recruiting/north-carolina-w",
-    programNote:
-      "Perennial national-title contender; deep, internationally balanced lineup.",
-    recentRecruits: [
-      { name: "Ava Sinclair", hometown: "Charlotte, NC", classYear: 2025, utr: 10.7 },
-      { name: "Carlota Vidal", hometown: "Valencia, Spain", classYear: 2024, utr: 11.0 },
-    ],
   },
   {
     id: "nc-state-w",
@@ -49,14 +45,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.9,
     minCompetitiveUTR: 10.7,
     usNewsRanking: 60,
-    conferenceRank: 2,
-    coachName: "Simon Earnshaw",
-    coachEmail: "wtennis@ncsu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/nc-state-w",
-    recentRecruits: [
-      { name: "Maddie Boone", hometown: "Cary, NC", classYear: 2025, utr: 10.5 },
-      { name: "Lucia Peris", hometown: "Alicante, Spain", classYear: 2024, utr: 10.9 },
-    ],
   },
   {
     id: "texas-w",
@@ -73,14 +61,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12,
     minCompetitiveUTR: 10.8,
     usNewsRanking: 32,
-    conferenceRank: 1,
-    coachName: "Howard Joffe",
-    coachEmail: "wtennis@athletics.utexas.edu",
-    recruitingPageUrl: "https://example.com/recruiting/texas-w",
-    recentRecruits: [
-      { name: "Reese Bennett", hometown: "Dallas, TX", classYear: 2025, utr: 10.6 },
-      { name: "Sofia Marín", hometown: "Bogotá, Colombia", classYear: 2024, utr: 11.0 },
-    ],
   },
   {
     id: "florida-w",
@@ -97,15 +77,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 12,
     minCompetitiveUTR: 10.8,
     usNewsRanking: 28,
-    conferenceRank: 2,
-    coachName: "Roland Thornqvist",
-    coachEmail: "wtennis@gators.ufl.edu",
-    recruitingPageUrl: "https://example.com/recruiting/florida-w",
-    programNote: "Multiple-time national champion with a strong SEC pedigree.",
-    recentRecruits: [
-      { name: "Harper Quinn", hometown: "Boca Raton, FL", classYear: 2025, utr: 10.7 },
-      { name: "Ana Beatriz Lima", hometown: "São Paulo, Brazil", classYear: 2024, utr: 11.1 },
-    ],
   },
   {
     id: "stanford-w",
@@ -122,15 +93,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.9,
     minCompetitiveUTR: 10.7,
     usNewsRanking: 3,
-    conferenceRank: 3,
-    coachName: "Lele Forood",
-    coachEmail: "wtennis@stanford.edu",
-    recruitingPageUrl: "https://example.com/recruiting/stanford-w",
-    programNote: "Storied program with the most NCAA team titles in the women's game.",
-    recentRecruits: [
-      { name: "Grace Yamada", hometown: "Honolulu, HI", classYear: 2025, utr: 10.6 },
-      { name: "Elena Rossi", hometown: "Milan, Italy", classYear: 2024, utr: 11.0 },
-    ],
   },
   {
     id: "ucla-w",
@@ -147,14 +109,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.7,
     minCompetitiveUTR: 10.5,
     usNewsRanking: 15,
-    conferenceRank: 2,
-    coachName: "Stella Sampras Webster",
-    coachEmail: "wtennis@athletics.ucla.edu",
-    recruitingPageUrl: "https://example.com/recruiting/ucla-w",
-    recentRecruits: [
-      { name: "Mia Carter", hometown: "San Diego, CA", classYear: 2025, utr: 10.4 },
-      { name: "Valentina Cruz", hometown: "Santiago, Chile", classYear: 2024, utr: 10.8 },
-    ],
   },
   {
     id: "georgia-w",
@@ -171,14 +125,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.7,
     minCompetitiveUTR: 10.5,
     usNewsRanking: 47,
-    conferenceRank: 3,
-    coachName: "Drake Bernstein",
-    coachEmail: "wtennis@sports.uga.edu",
-    recruitingPageUrl: "https://example.com/recruiting/georgia-w",
-    recentRecruits: [
-      { name: "Savannah Cole", hometown: "Atlanta, GA", classYear: 2025, utr: 10.4 },
-      { name: "Marta Kovač", hometown: "Zagreb, Croatia", classYear: 2024, utr: 10.8 },
-    ],
   },
   {
     id: "pepperdine-w",
@@ -195,14 +141,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.7,
     minCompetitiveUTR: 10.5,
     usNewsRanking: 76,
-    conferenceRank: 1,
-    coachName: "Per Nilsson",
-    coachEmail: "wtennis@pepperdine.edu",
-    recruitingPageUrl: "https://example.com/recruiting/pepperdine-w",
-    recentRecruits: [
-      { name: "Brooke Hansen", hometown: "Santa Barbara, CA", classYear: 2025, utr: 10.4 },
-      { name: "Lina Müller", hometown: "Cape Town, South Africa", classYear: 2024, utr: 10.8 },
-    ],
   },
   {
     id: "virginia-w",
@@ -219,14 +157,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.6,
     minCompetitiveUTR: 10.4,
     usNewsRanking: 24,
-    conferenceRank: 4,
-    coachName: "Sara O'Leary",
-    coachEmail: "wtennis@virginia.edu",
-    recruitingPageUrl: "https://example.com/recruiting/virginia-w",
-    recentRecruits: [
-      { name: "Caroline Reed", hometown: "Vienna, VA", classYear: 2025, utr: 10.3 },
-      { name: "Greta Bauer", hometown: "Hamburg, Germany", classYear: 2024, utr: 10.7 },
-    ],
   },
   {
     id: "tcu-w",
@@ -243,14 +173,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.6,
     minCompetitiveUTR: 10.4,
     usNewsRanking: 105,
-    conferenceRank: 1,
-    coachName: "Lee Taylor Walker",
-    coachEmail: "wtennis@tcu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/tcu-w",
-    recentRecruits: [
-      { name: "Peyton Walsh", hometown: "Fort Worth, TX", classYear: 2025, utr: 10.3 },
-      { name: "Ana Horvat", hometown: "Ljubljana, Slovenia", classYear: 2024, utr: 10.7 },
-    ],
   },
   {
     id: "ohio-state-w",
@@ -267,14 +189,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.5,
     minCompetitiveUTR: 10.3,
     usNewsRanking: 43,
-    conferenceRank: 1,
-    coachName: "Melissa Schaub",
-    coachEmail: "wtennis@osu.edu",
-    recruitingPageUrl: "https://example.com/recruiting/ohio-state-w",
-    recentRecruits: [
-      { name: "Quinn Frost", hometown: "Cincinnati, OH", classYear: 2025, utr: 10.2 },
-      { name: "Daria Volkova", hometown: "Riga, Latvia", classYear: 2024, utr: 10.6 },
-    ],
   },
   {
     id: "duke-w",
@@ -291,14 +205,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.5,
     minCompetitiveUTR: 10.3,
     usNewsRanking: 7,
-    conferenceRank: 5,
-    coachName: "Jamie Ashworth",
-    coachEmail: "wtennis@duke.edu",
-    recruitingPageUrl: "https://example.com/recruiting/duke-w",
-    recentRecruits: [
-      { name: "Eliza Whitley", hometown: "Atlanta, GA", classYear: 2025, utr: 10.2 },
-      { name: "Chiara Moretti", hometown: "Rome, Italy", classYear: 2024, utr: 10.6 },
-    ],
   },
   {
     id: "usc-w",
@@ -315,14 +221,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.5,
     minCompetitiveUTR: 10.3,
     usNewsRanking: 28,
-    conferenceRank: 3,
-    coachName: "Kris Kwinta",
-    coachEmail: "wtennis@usc.edu",
-    recruitingPageUrl: "https://example.com/recruiting/usc-w",
-    recentRecruits: [
-      { name: "Madison Carter", hometown: "Newport Beach, CA", classYear: 2025, utr: 10.2 },
-      { name: "Kana Watanabe", hometown: "Tokyo, Japan", classYear: 2024, utr: 10.6 },
-    ],
   },
   {
     id: "vanderbilt-w",
@@ -339,15 +237,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.4,
     minCompetitiveUTR: 10.2,
     usNewsRanking: 18,
-    conferenceRank: 4,
-    coachName: "Geoff Macdonald",
-    coachEmail: "wtennis@vanderbilt.edu",
-    recruitingPageUrl: "https://example.com/recruiting/vanderbilt-w",
-    programNote: "Former national champion known for developing complete players.",
-    recentRecruits: [
-      { name: "Carter Lane", hometown: "Franklin, TN", classYear: 2025, utr: 10.1 },
-      { name: "Bianca Russo", hometown: "Turin, Italy", classYear: 2024, utr: 10.5 },
-    ],
   },
   {
     id: "northwestern-w",
@@ -364,14 +253,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.3,
     minCompetitiveUTR: 10.1,
     usNewsRanking: 9,
-    conferenceRank: 3,
-    coachName: "Claire Pollard",
-    coachEmail: "wtennis@northwestern.edu",
-    recruitingPageUrl: "https://example.com/recruiting/northwestern-w",
-    recentRecruits: [
-      { name: "Harper Walsh", hometown: "Naperville, IL", classYear: 2025, utr: 10.0 },
-      { name: "Nina Kovac", hometown: "Bratislava, Slovakia", classYear: 2024, utr: 10.4 },
-    ],
   },
   {
     id: "michigan-w",
@@ -388,14 +269,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.1,
     minCompetitiveUTR: 9.9,
     usNewsRanking: 21,
-    conferenceRank: 4,
-    coachName: "Ronni Bernstein",
-    coachEmail: "wtennis@umich.edu",
-    recruitingPageUrl: "https://example.com/recruiting/michigan-w",
-    recentRecruits: [
-      { name: "Ella Carmichael", hometown: "Birmingham, MI", classYear: 2025, utr: 9.8 },
-      { name: "Saga Eriksson", hometown: "Stockholm, Sweden", classYear: 2024, utr: 10.2 },
-    ],
   },
   {
     id: "baylor-w",
@@ -412,14 +285,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 11.1,
     minCompetitiveUTR: 9.9,
     usNewsRanking: 93,
-    conferenceRank: 2,
-    coachName: "Joey Scrivano",
-    coachEmail: "wtennis@baylor.edu",
-    recruitingPageUrl: "https://example.com/recruiting/baylor-w",
-    recentRecruits: [
-      { name: "Hadley Wright", hometown: "Plano, TX", classYear: 2025, utr: 9.8 },
-      { name: "Júlia Ferrer", hometown: "Barcelona, Spain", classYear: 2024, utr: 10.2 },
-    ],
   },
   {
     id: "notre-dame-w",
@@ -436,14 +301,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 10.7,
     minCompetitiveUTR: 9.5,
     usNewsRanking: 20,
-    conferenceRank: 8,
-    coachName: "Alison Silverio",
-    coachEmail: "wtennis@nd.edu",
-    recruitingPageUrl: "https://example.com/recruiting/notre-dame-w",
-    recentRecruits: [
-      { name: "Brigid Lynch", hometown: "Chicago, IL", classYear: 2025, utr: 9.4 },
-      { name: "Inês Santos", hometown: "Porto, Portugal", classYear: 2024, utr: 9.8 },
-    ],
   },
   {
     id: "harvard-w",
@@ -460,14 +317,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 10.2,
     minCompetitiveUTR: 9,
     usNewsRanking: 3,
-    conferenceRank: 1,
-    coachName: "Traci Green",
-    coachEmail: "wtennis@harvard.edu",
-    recruitingPageUrl: "https://example.com/recruiting/harvard-w",
-    recentRecruits: [
-      { name: "Sophie Wells", hometown: "Bethesda, MD", classYear: 2025, utr: 8.9 },
-      { name: "Astrid Berg", hometown: "Oslo, Norway", classYear: 2024, utr: 9.3 },
-    ],
   },
   {
     id: "princeton-w",
@@ -484,14 +333,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 10.1,
     minCompetitiveUTR: 8.9,
     usNewsRanking: 1,
-    conferenceRank: 2,
-    coachName: "Erin Cohen",
-    coachEmail: "wtennis@princeton.edu",
-    recruitingPageUrl: "https://example.com/recruiting/princeton-w",
-    recentRecruits: [
-      { name: "Delia Lockwood", hometown: "Summit, NJ", classYear: 2025, utr: 8.8 },
-      { name: "Anneke Visser", hometown: "Zurich, Switzerland", classYear: 2024, utr: 9.2 },
-    ],
   },
   {
     id: "columbia-w",
@@ -508,14 +349,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 10,
     minCompetitiveUTR: 8.8,
     usNewsRanking: 12,
-    conferenceRank: 3,
-    coachName: "Ilene Weintraub",
-    coachEmail: "wtennis@columbia.edu",
-    recruitingPageUrl: "https://example.com/recruiting/columbia-w",
-    recentRecruits: [
-      { name: "Aria Klein", hometown: "New York, NY", classYear: 2025, utr: 8.7 },
-      { name: "Camila Reyes", hometown: "Santiago, Chile", classYear: 2024, utr: 9.1 },
-    ],
   },
   {
     id: "yale-w",
@@ -532,14 +365,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 9.7,
     minCompetitiveUTR: 8.5,
     usNewsRanking: 5,
-    conferenceRank: 5,
-    coachName: "Danielle McNamara",
-    coachEmail: "wtennis@yale.edu",
-    recruitingPageUrl: "https://example.com/recruiting/yale-w",
-    recentRecruits: [
-      { name: "Greer Whitfield", hometown: "Westport, CT", classYear: 2025, utr: 8.4 },
-      { name: "Emilia Lindqvist", hometown: "Helsinki, Finland", classYear: 2024, utr: 8.8 },
-    ],
   },
   {
     id: "cornell-w",
@@ -556,14 +381,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 9.6,
     minCompetitiveUTR: 8.4,
     usNewsRanking: 12,
-    conferenceRank: 6,
-    coachName: "Allie Cecil",
-    coachEmail: "wtennis@cornell.edu",
-    recruitingPageUrl: "https://example.com/recruiting/cornell-w",
-    recentRecruits: [
-      { name: "Avery Brooks", hometown: "Bethesda, MD", classYear: 2025, utr: 8.3 },
-      { name: "Sofia Vogel", hometown: "Vienna, Austria", classYear: 2024, utr: 8.7 },
-    ],
   },
   {
     id: "tulane-w",
@@ -580,14 +397,6 @@ const womensD1Raw: Omit<School, "gender">[] = [
     avgRosterUTR: 10.3,
     minCompetitiveUTR: 9.1,
     usNewsRanking: 73,
-    conferenceRank: 2,
-    coachName: "Erica Lee",
-    coachEmail: "wtennis@tulane.edu",
-    recruitingPageUrl: "https://example.com/recruiting/tulane-w",
-    recentRecruits: [
-      { name: "Dakota Pratt", hometown: "New Orleans, LA", classYear: 2025, utr: 9.0 },
-      { name: "Marina Silva", hometown: "Rio de Janeiro, Brazil", classYear: 2024, utr: 9.4 },
-    ],
   },
 ];
 

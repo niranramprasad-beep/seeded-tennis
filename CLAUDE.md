@@ -10,7 +10,8 @@
 
 ## Current blockers (keep in sync with MASTER_ROADMAP)
 - P0-1/P0-2: users can self-assign `subscription_tier`, `role`, `family_code` and join any family. Fix drafted in `supabase/migrations/022_…sql` (not applied).
-- P0-3/P0-4: the school catalog's coach names, emails, recruits, conference ranks and URLs are invented, and the coach email repeats them as facts.
+- P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
+- P0-4: partly done with P0-3 (no coach name, no invented program facts). Still open: the draft claims things the player never said and asserts the program's "competitive line" as fact.
 - P0-5/P0-6: prod (`main`) is broken against the shared DB; there is no staging project.
 
 ## Always

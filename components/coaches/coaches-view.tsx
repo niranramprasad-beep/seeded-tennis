@@ -17,7 +17,11 @@ import {
 } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildCoachEmail, type CoachEmailResult } from "@/lib/db/schools";
+import {
+  buildCoachEmail,
+  staffDirectorySearchUrl,
+  type CoachEmailResult,
+} from "@/lib/db/schools";
 import { loadUtrEntries } from "@/lib/db/plan";
 import {
   loadCoachOutreachDated,
@@ -166,6 +170,11 @@ function CoachesInner({ schools }: { schools: School[] }) {
   const [replyNote, setReplyNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [outreachError, setOutreachError] = useState("");
+  // The coach's address, typed by the player per draft. P0-3 removed the
+  // invented coachEmail from the catalog and there is no column to persist a
+  // real one in, so this is deliberately draft-local and resets with the
+  // selected school — better an empty field than a remembered wrong address.
+  const [recipient, setRecipient] = useState("");
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search).get("school");
@@ -184,6 +193,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
     setSubject(email.subject);
     setBody(email.body);
     setReplyNote(statuses[selectedSchool.slug]?.replyNote ?? "");
+    setRecipient("");
     setCopied(false);
     // statuses is intentionally excluded: it updates far more often (every
     // status/reminder click) than the player actually switches schools, and
@@ -312,6 +322,8 @@ function CoachesInner({ schools }: { schools: School[] }) {
           replyNote={replyNote}
           setReplyNote={setReplyNote}
           saveReplyNote={saveReplyNote}
+          recipient={recipient}
+          setRecipient={setRecipient}
         />
       </div>
     );
@@ -327,7 +339,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
             <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>you</span>.
           </h1>
           <p className="mt-3 text-pretty leading-relaxed text-stone">
-            Built from your real results and each program's specifics. Edit
+            Built from your real results — nothing we couldn't stand behind. Edit
             anything, copy it, and track every coach from sent to replied.
           </p>
         </div>
@@ -366,7 +378,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
                     {s.shortName}
                   </p>
                   <p className="truncate text-xs text-stone-light">
-                    {s.coachName}
+                    {s.division} · {s.conference}
                   </p>
                 </div>
                 <AnimatePresence mode="wait" initial={false}>
@@ -421,7 +433,15 @@ function CoachesInner({ schools }: { schools: School[] }) {
                       {selectedSchool.shortName}
                     </p>
                     <p className="text-xs text-stone">
-                      To: {selectedSchool.coachName} · {selectedSchool.coachEmail}
+                      <a
+                        href={staffDirectorySearchUrl(selectedSchool)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-grass hover:underline"
+                      >
+                        Find the coaching staff
+                      </a>{" "}
+                      — Seeded doesn&apos;t store coach contacts.
                     </p>
                   </div>
                 </div>

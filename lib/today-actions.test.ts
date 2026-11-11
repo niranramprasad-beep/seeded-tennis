@@ -19,10 +19,6 @@ function school(overrides: Partial<SchoolLite>): SchoolLite {
     avgRosterUTR: 9.5,
     minCompetitiveUTR: 8.5,
     usNewsRanking: 50,
-    conferenceRank: 1,
-    coachName: "Coach",
-    coachEmail: "coach@example.com",
-    recruitingPageUrl: "",
     ...overrides,
   };
 }

@@ -15,6 +15,7 @@ import {
   utrToPct,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
+import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
@@ -482,7 +483,15 @@ export function SeededSchoolsBrowser({
               <span aria-hidden />
               <span>Program</span>
               <span>Your fit</span>
-              <span>You vs team UTR</span>
+              {/* The team side of this comparison is an unverified estimate
+                  with no source or date (P0-3) — say so in the header rather
+                  than repeat it on all ~37 rows. */}
+              <span className="normal-case">
+                <span className="uppercase">You vs team UTR</span>
+                <span className="block font-normal tracking-normal text-stone-light">
+                  {UTR_RANGE_SOURCE_LABEL}
+                </span>
+              </span>
               {showOpenings && <span>Openings</span>}
               <span>Acad.</span>
               {showDataCol && <span>Data</span>}
@@ -646,9 +655,15 @@ export function SeededSchoolsBrowser({
                   {s.conference} · {s.division} · {s.city}, {s.state}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-stone-light">Avg roster UTR</dt>
+                  <dt className="text-stone-light">
+                    Avg roster UTR
+                    <span className="block text-xs">{UTR_RANGE_SOURCE_LABEL}</span>
+                  </dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{s.avgRosterUTR.toFixed(1)}</dd>
-                  <dt className="text-stone-light">Min competitive UTR</dt>
+                  <dt className="text-stone-light">
+                    Min competitive UTR
+                    <span className="block text-xs">{UTR_RANGE_SOURCE_LABEL}</span>
+                  </dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{s.minCompetitiveUTR.toFixed(1)}</dd>
                   <dt className="text-stone-light">US News ranking</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>

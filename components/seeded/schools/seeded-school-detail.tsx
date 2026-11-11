@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import useSWR from "swr";
-import { ArrowLeft, Building2, GraduationCap, User } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, GraduationCap, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { explainSchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { staffDirectorySearchUrl, UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { loadCoachOutreach } from "@/lib/db/outreach";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { formatDate } from "@/lib/time";
@@ -175,7 +176,12 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           </div>
 
           <div className="rounded-[10px] border border-line bg-card p-[22px]">
-            <h2 className="text-lg font-semibold text-ink">Where you sit on this roster</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-ink">Where you sit on this roster</h2>
+              <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
+                {UTR_RANGE_SOURCE_LABEL}
+              </span>
+            </div>
             <div className="mt-4">
               <RangeBar
                 rangeStartPct={utrToPct(range.min)}
@@ -190,8 +196,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               />
             </div>
             <p className="mt-3 text-sm text-stone">
-              Individual roster data isn&apos;t tracked yet — this shows the team&apos;s overall real UTR
-              range, not per-player positions.
+              Individual roster data isn&apos;t tracked yet. This band is an unverified estimate of
+              the team&apos;s overall UTR range with no published source or date behind it — not
+              per-player positions, and not a number to make a decision on yet.
             </p>
           </div>
         </div>
@@ -203,9 +210,8 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
             </div>
             <p className="mt-2.5 text-sm text-stone">
-              #{school.usNewsRanking} national academic ranking · #{school.conferenceRank} in{" "}
-              {school.conference} for tennis · #{nationalRank} among {school.division} {programType.toLowerCase()}{" "}
-              programs by fit.
+              #{school.usNewsRanking} national academic ranking · #{nationalRank} among{" "}
+              {school.division} {programType.toLowerCase()} programs by fit.
             </p>
             <EmptyState className="mt-3" title="Cost, aid, and enrollment data coming soon." />
           </div>
@@ -215,10 +221,19 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <User className="h-4 w-4 text-grass" />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
-            <p className="mt-2.5 text-sm text-ink">
-              {school.coachName}
-              <span className="block text-xs text-stone-light">{school.coachEmail}</span>
+            <p className="mt-2.5 text-sm text-stone">
+              Not tracked. Seeded doesn&apos;t store coaching-staff contacts — look the staff up
+              on the athletics site and you&apos;ll have the current, correct address.
             </p>
+            <a
+              href={staffDirectorySearchUrl(school)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-grass hover:text-grass-600"
+            >
+              Find the coaching staff
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
             {outreach && !alreadyContacted && (
               <p className="mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
             )}
