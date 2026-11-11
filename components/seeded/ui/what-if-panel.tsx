@@ -20,7 +20,7 @@ interface WhatIfPanelProps extends UseWhatIfUtrResult {
 // components/seeded/ui/toast.tsx already uses that hook.
 export function WhatIfPanel({
   hypotheticalUTR,
-  paceMode,
+  activePaceMode,
   myPaceValue,
   plusPaceValue,
   minUTR,
@@ -76,10 +76,16 @@ export function WhatIfPanel({
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <PaceButton active={paceMode === "mine"} disabled={myPaceValue == null} onClick={selectMyPace}>
+        {/* activePaceMode, not paceMode: nothing is lit until the player
+            actually picks a pace (P1-FIT-2). */}
+        <PaceButton
+          active={activePaceMode === "mine"}
+          disabled={myPaceValue == null}
+          onClick={selectMyPace}
+        >
           My pace
         </PaceButton>
-        <PaceButton active={paceMode === "plus1.5"} onClick={selectPlusPace}>
+        <PaceButton active={activePaceMode === "plus1.5"} onClick={selectPlusPace}>
           +1.5/yr
         </PaceButton>
         <label className="ml-1 flex items-center gap-1.5 text-xs font-medium text-stone">
@@ -96,7 +102,7 @@ export function WhatIfPanel({
             }}
             className={cn(
               "h-8 w-[64px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30",
-              paceMode === "custom" && "border-grass"
+              activePaceMode === "custom" && "border-grass"
             )}
           />
         </label>

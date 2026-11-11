@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-10 — P1-FIT-1 + P1-FIT-2: one fit band, and stop capturing a placeholder UTR
+- `whatIfProjectionFor()` now always returns a projection. "My pace" passes real history; "+1.5/yr" and "Custom" get a synthetic straight line (`syntheticUtrHistoryFor`) that arrives at the hypothetical UTR on the senior-summer milestone, so `classifySchoolFit` can answer "out-of-range" instead of falling back to "reach" for every below-floor school. Returning `undefined` looked like abstaining but was actually the most flattering possible claim about all 37 programs.
+- The untouched what-if panel now passes the **real** projection — the same object `/plan`, school detail, Today, Outreach and Family pass — so cross-screen agreement is structural, not coincidental.
+- `useWhatIfUtr` no longer seeds state from props. It stores only the player's explicit choice; with none, the displayed UTR and mode derive from current props and track the real player as soon as it loads. Fixes "You 7.0" on every row for a 5.81 player, and removes the stale-capture class of bug rather than one instance of it.
+- No pace button is highlighted until the player picks one. "+1.5/yr" used to render as selected next to a value that was simply their current UTR.
+- Extracted the derivation to a pure `resolveWhatIfDisplay()` so it's testable without a DOM (no React testing setup in this repo, and adding one wasn't justified here).
+- Added `lib/fit-band-consistency.test.ts` (9 tests). Confirmed it fails (9 failures) when `whatIfProjectionFor` is reverted to the old `undefined` behaviour.
+- Tests: 408 → 426.
+
 ## 2026-11-10 — P1-SEC-1 + P1-SEC-5: delete the copilot and Stripe routes
 - Deleted `/api/training/copilot` (Gemini), `components/training/training-copilot.tsx`, and the `applyCopilotActions`/`resolveCopilotTypeId` handlers that turned model JSON into real create/update/delete on a player's training sessions. The route had no tier check, no rate limit and no input cap on a paid provider call, returned raw provider errors to the client, and its prompt told the model to "make a reasonable default choice" and write sessions — which also broke the "no auto-generated training plans" rule.
 - Deleted `/api/stripe/{checkout,portal,webhook}` and `lib/stripe.ts`. Billing is Whop only; these were live endpoints for an unused path. `profiles.stripe_*` columns kept until a cleanup migration (no code reads them).

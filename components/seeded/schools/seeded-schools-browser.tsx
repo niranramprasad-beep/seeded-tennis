@@ -154,7 +154,9 @@ export function SeededSchoolsBrowser({
   // band" never disagrees with the band chip right above it.
   const explanationInput = useMemo(
     () => ({
-      utrHistory: whatIf.whatIfProjection?.utrHistory ?? [],
+      // Always defined since P1-FIT-1 — see the same note in
+      // seeded-roadmap-layout.tsx.
+      utrHistory: whatIf.whatIfProjection.utrHistory,
       graduationYear: player.graduationYear,
       gender: player.gender,
       catalog: allSchools,

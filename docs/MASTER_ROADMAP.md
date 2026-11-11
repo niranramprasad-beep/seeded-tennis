@@ -14,25 +14,27 @@
 ## Executive status
 
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
-write routes, 408 passing unit tests, and a much more careful RLS setup
+write routes, 426 passing unit tests, and a much more careful RLS setup
 than most student projects. That's the good news.
 
-The bad news: **it is not launchable, for three reasons that have nothing
-to do with polish.**
+The bad news: **it is not launchable.** Of the three original reasons, the
+first has changed shape and the other two are untouched because they need
+decisions, not code.
 
-1. **The core data is invented.** ~~Every school has a made-up head coach,
-   email, recent recruits, conference rank and `example.com` URL.~~ Those
-   six fields were deleted from the type and all 68 entries in P0-3, and a
-   test now fails the build if any come back. **What remains:** the roster
-   UTR ranges still have no source or date — they are labeled "Unverified
-   estimate" everywhere they render, but the fit bands, the Plan page and
-   the coach email are still computed from them. P1-DATA-1 (real sourced
-   rosters) is the actual fix and is now the single highest-value task in
-   the project. The marketing claims that dressed these estimates up as
-   verified data are gone (P0-7), and two build-failing guards
-   (`schools-catalog-honesty.test.ts`, `copy-honesty.test.ts`) keep them
-   gone. **The product is now honest about its data; the data is still
-   thin.** A 5.81 player has zero schools in range.
+1. **The core data was invented — now it's merely thin.** ~~Every school has
+   a made-up head coach, email, recent recruits, conference rank and
+   `example.com` URL.~~ Those six fields were deleted from the type and all
+   68 entries (P0-3); the coach email no longer asserts anything the player
+   didn't enter (P0-4); the marketing that dressed estimates up as verified
+   data is gone (P0-7); and the fit bands now agree across every screen
+   (P1-FIT-1/2). Four build-failing guards keep each of those from
+   regressing, and each was confirmed to fail when its bug is reintroduced.
+   **What remains is the real problem:** the roster UTR ranges still have no
+   source or date. They're labelled "Unverified estimate" everywhere, but
+   the bands, the Plan page and the email are still computed from them, and
+   the catalog is 68 programs — a 5.81 player has **zero** schools in range.
+   The product is now honest about its data; it just doesn't have enough of
+   it. P1-DATA-1 is the single highest-value remaining task.
 2. **Any signed-in user can give themselves a paid plan or join any
    family.** Confirmed live: `authenticated` has UPDATE on
    `profiles.subscription_tier`, `role`, `family_code`,
@@ -47,11 +49,14 @@ to do with polish.**
    project, replaced that value with `'emailed'` and the CHECK constraint
    now rejects `'contacted'`. "Mark contacted" on production fails today.
 
-Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
+Everything else (UX bugs, SEO, CI, monitoring) is real but secondary — with
+one exception worth promoting: there is still **no CI**, so the four honesty
+guards added this session only protect the product if someone runs them.
 
 ## Current production-readiness score
 
-**38 / 100** (31 at the 2026-11-10 audit; P0-3, P0-4 and P0-7 closed since)
+**43 / 100** (31 at the 2026-11-10 audit; P0-3, P0-4, P0-7, P1-SEC-1,
+P1-SEC-5, P1-FIT-1 and P1-FIT-2 closed since)
 
 The three remaining P0s are the expensive ones: two authorization holes
 (P0-1, P0-2), no staging database (P0-5/P0-6), and minors' privacy (P0-8).
@@ -61,11 +66,11 @@ writing code alone.
 | Area | Score | Why |
 |---|---|---|
 | Security | 4/10 | Two confirmed P0 authorization holes remain (P0-1, P0-2); no rate limits; no headers. Dead/unsafe surface removed: the ungated Gemini route and the Stripe endpoints (P1-SEC-1/5) |
-| Data correctness | 3/10 | Fabricated coach/recruit/rank fields deleted and guarded by a test (P0-3); roster UTR numbers are still unsourced estimates (now labeled), and fit bands still disagree between screens |
+| Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
 | Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
 | Legal/privacy | 3/10 | Minors, COPPA, one-paragraph privacy policy, deletion still not implemented — but the UI no longer tells a minor their data will be "removed within 30 days" when nothing removes it (P0-7) |
-| Testing | 5/10 | 408 unit tests pass (incl. catalog- and copy-honesty guards); zero integration/E2E/RLS tests |
+| Testing | 6/10 | 426 unit tests pass, incl. four build-failing honesty guards (catalog, copy, coach email, fit-band agreement) each confirmed to fail when its bug is reintroduced; still zero integration/E2E/RLS tests, and no CI runs any of it |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
 
 ---
@@ -288,10 +293,55 @@ writing code alone.
   **Still needs Niran:** delete the `STRIPE_*` vars from Vercel and revoke
   `STRIPE_SECRET_KEY` in the Stripe dashboard.
 - [ ] **P1-SEC-6 Revoke EXECUTE on helper functions from `authenticated` where RLS doesn't need direct RPC access** — advisor flags `are_friends`, `current_family_code`, `has_tier`, `is_family_member`, `is_parent_member` as callable via `/rest/v1/rpc/*`. Low impact (they only answer about the caller) but `is_family_member(code)` is an oracle for valid family codes until P0-2 lands. Drop `are_friends` entirely.
-- [ ] **P1-FIT-1 Fit bands disagree between screens** — `whatIfProjectionFor()` returns `undefined` for any mode except "My pace", and `classifySchoolFit` with no projection returns "reach" for *every* below-floor school. Live result: Stanford is "Out of range" on its own page and on Plan, but "Reach" on `/schools` ("Reach 37 · Out of range 0"). Fix: build a synthetic projection for +1.5/yr and Custom modes; never fall back to unbounded "reach". Tests: same player + school → same band on Plan, Schools, School detail, Today, Outreach, Family.
-- [ ] **P1-FIT-2 Schools page shows the wrong UTR** — `useWhatIfUtr` seeds `useState(currentUTR)` once, before the player loads, so it captures the default `currentUTR: 7` (`lib/auth.ts:275`, `lib/data/user.ts:10`). Live: a 5.81 player sees "You 7.0" on every row. Also "+1.5/yr" is highlighted while the value equals current UTR (Plan page). Fix: reset state when `currentUTR`/`myPaceValue` change, or don't render until the player is loaded.
+- [x] **P1-FIT-1 Fit bands disagree between screens** — COMPLETE (commit
+  "P1-FIT-1 + P1-FIT-2: one fit band, and stop capturing a placeholder UTR").
+  `whatIfProjectionFor()` now always returns a projection: real history for
+  "My pace", and for "+1.5/yr"/"Custom" a synthetic straight line
+  (`syntheticUtrHistoryFor`) that arrives at the hypothetical UTR on the
+  senior-summer milestone, so `classifySchoolFit` can reach "out-of-range".
+  The untouched panel passes the **real** projection — the same object every
+  other screen passes — which makes cross-screen agreement structural rather
+  than coincidental.
+  Why `undefined` was wrong: it reads like abstaining, but `classifySchoolFit`
+  answers "reach" for *every* below-floor school when it has no projection.
+  So the "safe" option was silently making the most flattering claim about
+  all 37 programs.
+  Tests: `lib/fit-band-consistency.test.ts` (9) asserts classify/explain/count
+  agree per school, that a hypothetical mode can still say out-of-range, that
+  row bands equal the chip counters, and that a higher hypothetical never
+  yields a worse band. Confirmed the suite fails (9 tests) when
+  `whatIfProjectionFor` is reverted to returning `undefined`.
+  Verified live at 1440 on `/schools`: untouched → Reach 37 and every row
+  "Reach", matching `/schools/stanford-m`; "+1.5/yr" → 7.8 and Out of range
+  37 with every row "Out of range"; custom 13.5 → Target 12 / Likely 25,
+  counters summing to 37 and matching the rows; Reset → back to untouched.
+- [x] **P1-FIT-2 Schools page shows the wrong UTR** — COMPLETE (same commit).
+  `useWhatIfUtr` no longer seeds state from props. It stores only the
+  player's explicit choice (`WhatIfOverride | null`); with no choice, the
+  displayed UTR and mode are **derived** from current props, so they track
+  the real player the moment it loads. That removes the whole class of bug
+  rather than patching one instance — re-seeding from an effect would have
+  lost the same race one tick later.
+  Also fixed the second half: no pace button is highlighted until the player
+  picks one (`activePaceMode`). Previously "+1.5/yr" rendered as selected
+  next to a value that was just the current UTR — a pace nobody chose,
+  attached to a number it didn't produce.
+  The derivation was extracted to a pure `resolveWhatIfDisplay()` so it's
+  testable without a DOM (the repo has no React testing setup and adding one
+  wasn't justified for this). 5 tests cover it, including the exact
+  regression: placeholder 7 → real 5.81 with no override.
+  Verified live: `/dev/plan-preview` (a 9.42 player) shows "What if my UTR is
+  9.4" and "You 9.4", not 7.0.
 - [ ] **P1-FIT-3 Projection outputs are nonsense on noisy data** — Stanford page: "Pace: Projected 4.3 by Jun 1, 2028" for a 5.81 player; Plan chart band runs from ~6.2 down to ~2.0. One logged entry of ~7.0 between ~4.3 and ~5.6 dominates the regression. Fix: outlier rejection, floor projection at current UTR minus a small decay, show "not enough consistent data" instead of a falling forecast.
 - [ ] **P1-FIT-4 Pre-auth "Reach" is unbounded** — the homepage calculator and onboarding call `classifySchoolFit` without a projection, so a 3.0 UTR player sees Stanford as "Reach". Use a fixed realistic-pace cap (0.5–1.5/yr from `REALISTIC_UTR_IMPROVEMENT_PER_YEAR`) to mark Out of range.
+  **Now the last place this pattern survives.** P1-FIT-1 removed the
+  `undefined` projection everywhere else; `seeded-pre-auth-onboarding.tsx:44`
+  is the remaining `classifySchoolFit(utr, s)` with no third argument.
+  Visible today on a signed-out `/schools`: the placeholder 7.0 user gets
+  "Reach 37 · Out of range 0" — internally consistent now (every screen
+  agrees), but still too generous. `syntheticUtrHistoryFor()` from
+  `lib/what-if-utr.ts` is the ready-made tool: feed it a realistic-pace
+  target instead of a hypothetical one.
 - [ ] **P1-DATA-1 Real roster import (migration 012)** — see DATA_QUALITY.md. This is the real fix for P0-3 and the single most valuable product task. Includes coverage below D1-elite: a 5.81 UTR player currently has **zero** schools in range (closest: Middlebury, 4.7 below avg). Without D2/D3/NAIA/JUCO coverage the product has no answer for most juniors.
 - [ ] **P1-UX-1 Theme flips between pages** — Today and Plan render light, Schools/Outreach/Events/Settings render dark in the same session; Settings shows "Match system" selected while localStorage has `seeded.mode=light`; the sidebar toggle label switches between "Light mode" and "Dark mode". Fix the hydration order in `lib/context/design-context.tsx`.
 - [ ] **P1-UX-2 Remove Legacy from the product** — users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
@@ -440,9 +490,13 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
 3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
 4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
-5. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
-6. P1-UX-2 — remove Legacy from the product. It is now the only place left with its own copy, its own coach view and its own training wizard, and every honesty guard has to cover it twice.
-7. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
-8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
-9. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**
-10. P1-OPS-1 — CI. Every honesty guard added in P0-3/P0-4 is a test, and nothing runs them automatically yet.
+5. P1-FIT-4 — the last unbounded "Reach". Pre-auth/onboarding is now the only `classifySchoolFit` call with no projection; `syntheticUtrHistoryFor()` is the ready-made fix.
+6. P1-FIT-3 — projection outputs are still nonsense on noisy data ("Projected 4.3" for a 5.81 player). Needs outlier rejection and a floor.
+7. P1-UX-2 — remove Legacy from the product. It is the only place left with its own copy and its own coach view, and every honesty guard has to cover it twice.
+8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. The highest-value remaining *product* task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range, and every roster number still reads "Unverified estimate".
+9. P1-OPS-1 — CI. Four build-failing honesty guards now exist (catalog, copy, coach email, fit bands) and nothing runs them automatically. They only protect the product if a PR can't merge past them.
+10. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
+
+**Needs Niran before anything else ships:** P0-5, P0-6, P0-1, P0-2 (above),
+plus P0-8 (minors' privacy — legal/adult review) and revoking the Gemini and
+Stripe keys removed in P1-SEC-1/5.

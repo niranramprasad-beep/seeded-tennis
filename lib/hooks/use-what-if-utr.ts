@@ -16,7 +16,9 @@ import {
   clampToRealisticUtr,
   computeMyPaceUTR,
   computePlusPaceUTR,
+  resolveWhatIfDisplay,
   whatIfProjectionFor,
+  type WhatIfOverride,
   type WhatIfPaceMode,
 } from "@/lib/what-if-utr";
 
@@ -31,7 +33,11 @@ export interface UseWhatIfUtrInput {
 
 export interface UseWhatIfUtrResult {
   hypotheticalUTR: number;
+  /** The effective mode driving the math. */
   paceMode: WhatIfPaceMode;
+  /** What the UI should render as selected — null until the player picks a
+   * pace, so no button is lit next to a number it didn't produce. */
+  activePaceMode: WhatIfPaceMode | null;
   /** null when there are <3 real UTR entries — "My pace" has nothing real to compute from. */
   myPaceValue: number | null;
   plusPaceValue: number;
@@ -45,8 +51,10 @@ export interface UseWhatIfUtrResult {
   setCustom: (value: number) => void;
   reset: () => void;
   /** Feed this straight into classifySchoolFit/explainSchoolFit/countSchoolFits
-   * in place of the real projection whenever the what-if value is in play. */
-  whatIfProjection: SchoolFitProjectionInput | undefined;
+   * in place of the real projection whenever the what-if value is in play.
+   * Always defined (P1-FIT-1) — passing `undefined` makes classifySchoolFit
+   * answer "reach" for every school below the team floor. */
+  whatIfProjection: SchoolFitProjectionInput;
 }
 
 export function useWhatIfUtr({
@@ -59,47 +67,62 @@ export function useWhatIfUtr({
   const plusPaceValue = computePlusPaceUTR({ currentUTR, graduationYear, gender });
   const defaultMode: WhatIfPaceMode = myPaceValue != null ? "mine" : "plus1.5";
 
-  // Mount default mirrors Reset's target state exactly — opening this
-  // panel never silently changes what the rest of the page already shows;
-  // it only starts reacting once the player actually touches it.
-  const [paceMode, setPaceMode] = useState<WhatIfPaceMode>(defaultMode);
-  const [hypotheticalUTR, setHypotheticalUTR] = useState<number>(currentUTR);
+  // P1-FIT-2: this used to be `useState(currentUTR)` plus
+  // `useState(defaultMode)`. Both were seeded on the FIRST render, which
+  // happens before the player and their UTR history have loaded — so the
+  // panel captured the placeholder `currentUTR: 7` (lib/auth.ts,
+  // lib/data/user.ts) and the historyless default mode, then kept them.
+  // Live symptom: a 5.81 player saw "You 7.0" on every row of /schools, and
+  // "+1.5/yr" rendered as the selected pace while its value equalled their
+  // current UTR.
+  //
+  // Rather than re-seeding from an effect (which re-introduces the same race
+  // one tick later), nothing is stored until the player actually touches the
+  // panel. Until then both values are DERIVED from the current props, so
+  // they track the real player the moment it arrives. `override` is the
+  // user's intent; absent it, the panel simply shows where they are.
+  const [override, setOverride] = useState<WhatIfOverride | null>(null);
+
+  const { hypotheticalUTR, paceMode, activePaceMode, isAtRealCurrent } =
+    resolveWhatIfDisplay(override, { currentUTR, defaultMode });
 
   const selectMyPace = () => {
     if (myPaceValue == null) return;
-    setPaceMode("mine");
-    setHypotheticalUTR(myPaceValue);
+    setOverride({ mode: "mine", utr: myPaceValue });
   };
 
   const selectPlusPace = () => {
-    setPaceMode("plus1.5");
-    setHypotheticalUTR(plusPaceValue);
+    setOverride({ mode: "plus1.5", utr: plusPaceValue });
   };
 
   const setCustom = (value: number) => {
-    setPaceMode("custom");
-    setHypotheticalUTR(clampToRealisticUtr(value, gender));
+    setOverride({ mode: "custom", utr: clampToRealisticUtr(value, gender) });
   };
 
-  const reset = () => {
-    setPaceMode(defaultMode);
-    setHypotheticalUTR(currentUTR);
-  };
+  // Back to deriving from props — which is also what the panel does before
+  // it's ever touched, so Reset and mount are the same state by definition.
+  const reset = () => setOverride(null);
 
-  const whatIfProjection = whatIfProjectionFor(paceMode, {
-    utrHistory,
-    graduationYear,
-    gender,
-  });
+  const realProjection: SchoolFitProjectionInput = { utrHistory, graduationYear, gender };
+
+  // Untouched, this page is showing the player's actual situation — so it
+  // must use the player's actual projection, which is exactly what /plan,
+  // school detail, Today, Outreach and Family pass. That makes "the Schools
+  // browser agrees with every other screen" true by construction rather than
+  // by coincidence, which is the whole of P1-FIT-1's acceptance criterion.
+  const whatIfProjection = override
+    ? whatIfProjectionFor(override.mode, realProjection, { currentUTR, hypotheticalUTR })
+    : realProjection;
 
   return {
     hypotheticalUTR,
     paceMode,
     myPaceValue,
     plusPaceValue,
+    activePaceMode,
     minUTR: REALISTIC_UTR_FLOOR,
     maxUTR: REALISTIC_UTR_CEILING[gender],
-    isAtRealCurrent: paceMode === defaultMode && hypotheticalUTR === currentUTR,
+    isAtRealCurrent,
     selectMyPace,
     selectPlusPace,
     setCustom,

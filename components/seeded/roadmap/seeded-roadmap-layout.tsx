@@ -100,7 +100,10 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
   // builds) is the real candidate pool for that suggestion.
   const explanationInput = useMemo(
     () => ({
-      utrHistory: whatIf.whatIfProjection?.utrHistory ?? [],
+      // Always defined since P1-FIT-1 — "+1.5/yr" and "Custom" now carry a
+      // synthetic line instead of nothing, so the expanded "why this band"
+      // and the badge above it see the identical history.
+      utrHistory: whatIf.whatIfProjection.utrHistory,
       graduationYear: player.graduationYear,
       gender: player.gender,
       catalog: pickerSchools,
