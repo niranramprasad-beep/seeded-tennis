@@ -14,7 +14,7 @@
 ## Executive status
 
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
-write routes, 394 passing unit tests, and a much more careful RLS setup
+write routes, 398 passing unit tests, and a much more careful RLS setup
 than most student projects. That's the good news.
 
 The bad news: **it is not launchable, for three reasons that have nothing
@@ -57,7 +57,7 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
 | Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
 | Legal/privacy | 2/10 | Minors, COPPA, one-paragraph privacy policy, deletion not implemented |
-| Testing | 5/10 | 394 unit tests pass; zero integration/E2E/RLS tests |
+| Testing | 5/10 | 398 unit tests pass; zero integration/E2E/RLS tests |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
 
 ---
@@ -125,28 +125,33 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
   P1-DATA-1 is the real fix. This task only stopped presenting them, and the
   invented coach/recruit data, as fact.
 
-- [ ] **P0-4 Rewrite the coach email draft so it only states things the player told us**
+- [x] **P0-4 Rewrite the coach email draft so it only states things the player told us**
 
-  Status: READY
-  Priority: P0
-  Category: Product / AI-adjacent content
-  Why this matters: `buildCoachEmail()` (`lib/db/schools.ts`) writes "Coach Whitfield", "your 6th-place standing in the ACC", "Your recent classes pull talent from everywhere — Italy to the States", "my roadmap has me closing that gap", and "I'll be at several events this spring and would be glad to play in front of your staff". The first three are fabricated; the last two are claims the player never made. A real 15-year-old would send this to a real coach.
-  Dependencies: P0-3
-  Affected files: `lib/db/schools.ts`, `lib/db/schools.test.ts`, outreach composer components
-  Affected database objects: none
-  Security considerations: Recipient must be typed or confirmed by the user; never prefilled from seed data.
-  Testing required: unit tests that the body contains no school fact other than name/division/conference, and no sentence about future plans unless the player supplied it.
-  Acceptance criteria: Draft uses only player-entered facts + school name; "To" field empty with a link to the school's staff directory; user must confirm before "Open in Gmail".
-  Deployment impact: none beyond UI.
-  Notes: Partly landed with P0-3, because removing the catalog fields forced it:
-  the salutation is now "Coach," (no invented surname), the conference-standing
-  and recruit-footprint sentences are gone, and the "To" field is already empty,
-  user-typed, validated, and gating "Open in Gmail" with the staff-directory link
-  beside it. **Still open:** the unsupported first-person claims the player never
-  made — "my roadmap has me closing that gap", "I'll be at several events this
-  spring and would be glad to play in front of your staff" — plus labeling the
-  UTR as self-reported and framing the gap without asserting the program's
-  "competitive line" as a known fact (it's derived from an unverified estimate).
+  Status: COMPLETE (commit "P0-4: the coach email only says what the player
+  actually told us"; verified by unit tests + rendering both extremes — a
+  brand-new account with nothing logged, and a fully-populated one)
+  What landed: no coach name, no conference standing, no recruit footprint, no
+  program blurb (those went with P0-3). Removed on top of that: the program's
+  "competitive line" (an unverified estimate of ours, recited back to the coach
+  whose roster it describes), "my roadmap has me closing that gap well before
+  I'd arrive on campus", "I'll be at several events this spring and would be
+  glad to play in front of your staff", and the "full sectional and national
+  schedule" characterization used when the player had logged nothing. The UTR
+  now travels labeled "(self-reported)" in the subject, body and signature.
+  `WEAKNESS_PHRASES` were flattened from invented specifics ("turning my
+  forehand into a genuine point-ending shot from the ad corner") to a plain
+  rendering of the area the player actually ticked — that florid detail was
+  invented data about the player, just harder to spot than an invented coach.
+  Forward-looking statements now derive from `tournamentsGoal` and are omitted
+  entirely when it's 0. The "To" field work (empty, user-typed, validated,
+  staff-directory link, Gmail gated) landed with P0-3.
+  Tests: 8 cases in `lib/db/schools.test.ts` asserting the absence of each
+  removed claim, plus the degenerate-input case (no orphaned punctuation or
+  blank-line runs when every optional sentence drops out).
+  Standing rule this leaves behind: every sentence `buildCoachEmail` emits must
+  trace to a value the player entered, or to the school's name / division /
+  conference. Nothing else. If a future change wants to say more about a
+  program, it needs sourced data (P1-DATA-1) first, not better phrasing.
 
 - [ ] **P0-5 Fix production (`main`) breaking against the shared live database**
 
@@ -378,9 +383,9 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
 3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
 4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
-5. P0-4 — finish the coach email: drop "my roadmap has me closing that gap" and "I'll be at several events this spring", label UTR self-reported, stop asserting the program's competitive line as fact.
-6. P0-7 — remove false claims (verified rosters, Sunday email, notifications, public page, 30-day delete, "all D1", "within 48 hours").
-7. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
-8. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
-9. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
-10. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**
+5. P0-7 — remove false claims (verified rosters, Sunday email, notifications, public page, 30-day delete, "all D1", "within 48 hours").
+6. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
+7. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
+8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
+9. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**
+10. P1-OPS-1 — CI. Every honesty guard added in P0-3/P0-4 is a test, and nothing runs them automatically yet.

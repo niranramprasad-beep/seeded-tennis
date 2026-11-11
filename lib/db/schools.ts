@@ -115,14 +115,20 @@ export interface CoachEmailResult {
   result: string;
 }
 
-// Concrete, project-style phrasing for each development area — deliberately
-// specific (a measurable thing in progress), never "I work hard."
+// Plain restatements of the focus areas the player actually picked during
+// onboarding. These used to be far more colorful ("turning my forehand into a
+// genuine point-ending shot from the ad corner", "flattening my backhand to
+// take time away on the deuce side") — but the player never said any of that.
+// They ticked "forehand". Inventing the shot shape, the court side and the
+// tactical intent is the same failure as inventing the coach's name, just
+// harder to spot. Keep these a direct rendering of the selection and nothing
+// more; the player can add their own detail before sending.
 const WEAKNESS_PHRASES: Record<string, string> = {
-  forehand: "turning my forehand into a genuine point-ending shot from the ad corner",
-  backhand: "flattening my backhand to take time away on the deuce side",
-  serve: "adding pace and a dependable kick to my second serve",
-  fitness: "building the engine to hold my level deep in third sets",
-  mental: "staying locked into my patterns when the score tightens",
+  forehand: "my forehand",
+  backhand: "my backhand",
+  serve: "my serve",
+  fitness: "my fitness",
+  mental: "the mental side of my game",
 };
 
 // Builds a recruiting email draft.
@@ -142,8 +148,13 @@ export function buildCoachEmail(
 ): CoachEmail {
   const programType = school.gender === "women" ? "women's" : "men's";
 
-  // 1) A concrete results sentence from the player's REAL logged results.
-  // Never fabricate results — with nothing logged, speak to schedule volume.
+  const utr = `${player.currentUTR.toFixed(1)} (self-reported)`;
+
+  // 1) Results, strictly from what the player logged themselves. With nothing
+  // logged we fall back to their own tournament counts — never a
+  // characterization of the schedule they didn't give us. The old fallback
+  // called it "a full sectional and national schedule", which the player
+  // never said and which may simply be untrue.
   const top = results.slice(0, 2);
   const resultsSentence =
     top.length > 0
@@ -151,37 +162,44 @@ export function buildCoachEmail(
           .map((r) => `${describeResult(r.result)} at the ${[r.level, r.name].filter(Boolean).join(" ")}`)
           .join(" and ")}.`
       : player.tournamentsPlayed > 0
-        ? `I'm playing a full sectional and national schedule this season (${player.tournamentsPlayed} events so far, building toward ${player.tournamentsGoal}).`
-        : `I'm building out a full sectional and national schedule this season, with ${player.tournamentsGoal} events planned.`;
+        ? `I've played ${player.tournamentsPlayed} tournament${
+            player.tournamentsPlayed === 1 ? "" : "s"
+          } so far this season.`
+        : "";
 
   // 2) Interest in the program, stated as the player's own interest. The only
   // school facts allowed are the ones we can actually stand behind: name,
   // division and conference. No standing, no recruit footprint, no blurb.
   const programSentence = `I've been following ${school.shortName} closely, and ${school.division} tennis in the ${school.conference} is the level I want to be competing at.`;
 
-  // 3) Fit framed against the program's actual competitive line.
-  const gap = Math.round((school.minCompetitiveUTR - player.currentUTR) * 10) / 10;
-  const fitSentence =
-    gap <= 0
-      ? `At UTR ${player.currentUTR.toFixed(1)} I'm already at your ${school.minCompetitiveUTR.toFixed(
-          1
-        )} competitive line, and I'm still trending up.`
-      : `I'm at UTR ${player.currentUTR.toFixed(1)} now, about ${gap.toFixed(
-          1
-        )} below your ${school.minCompetitiveUTR.toFixed(
-          1
-        )} competitive line, and my roadmap has me closing that gap well before I'd arrive on campus.`;
+  // 3) The player's own UTR, labeled. Deliberately NOT compared to the
+  // program's "competitive line": that number is an unverified estimate of
+  // ours (see UTR_RANGE_SOURCE_LABEL), and stating it back to the coach whose
+  // roster it describes asserts as fact something we cannot source. The old
+  // version also promised "my roadmap has me closing that gap well before I'd
+  // arrive on campus" — a commitment the player never made, and one the
+  // projection often doesn't support.
+  const utrSentence = `My UTR is ${utr}.`;
 
-  // 4) A concrete development focus (not a cliché).
+  // 4) Development focus — only when the player actually selected areas.
   const focus = player.weaknesses.map((w) => WEAKNESS_PHRASES[w]).filter(Boolean);
   const focusSentence =
-    focus.length > 0
-      ? `Right now I'm specifically working on ${joinList(focus.slice(0, 2))}.`
+    focus.length > 0 ? `Right now I'm working on ${joinList(focus.slice(0, 2))}.` : "";
+
+  // 5) Any forward-looking statement must come from a number the player
+  // entered. The old draft asserted "I'll be at several events this spring and
+  // would be glad to play in front of your staff" for every player, including
+  // one with nothing scheduled.
+  const scheduleSentence =
+    player.tournamentsGoal > 0
+      ? ` My goal is ${player.tournamentsGoal} tournament${
+          player.tournamentsGoal === 1 ? "" : "s"
+        } this season, and I'm happy to send the schedule once it's set.`
       : "";
 
-  const subject = `${player.graduationYear} ${programType} recruit · UTR ${player.currentUTR.toFixed(
-    1
-  )} · ${player.name} — interested in ${school.shortName}`;
+  const subject = `${player.graduationYear} ${programType} recruit · UTR ${utr} · ${player.name} — interested in ${school.shortName}`;
+
+  const opening = [resultsSentence, utrSentence].filter(Boolean).join(" ");
 
   const body = `Coach,
 
@@ -189,18 +207,18 @@ I'm ${player.name}, a ${ordinalGrade(getCurrentGrade(player.graduationYear))}-gr
     player.graduationYear
   })${player.country && player.country !== "United States" ? ` from ${player.country}` : ""}, and I'm reaching out because ${school.shortName} is high on my list.
 
-${resultsSentence} ${fitSentence}
+${opening}
 
 ${programSentence}
 
-${focusSentence ? focusSentence + " " : ""}I'd welcome the chance to send my full schedule and recent match footage, and to hear what you're prioritizing in the class of ${
+${focusSentence ? focusSentence + " " : ""}I'd welcome the chance to tell you more about my game, and to hear what you're prioritizing in the class of ${
     player.graduationYear
-  }. I'll be at several events this spring and would be glad to play in front of your staff.
+  }.${scheduleSentence}
 
 Thank you for your time.
 
 ${player.name}
-UTR ${player.currentUTR.toFixed(1)} · Class of ${player.graduationYear}`;
+UTR ${utr} · Class of ${player.graduationYear}`;
 
   return { subject, body };
 }
