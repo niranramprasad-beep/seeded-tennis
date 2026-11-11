@@ -1,8 +1,32 @@
 # Seeded — notes for Claude
 
-**Read `docs/HANDOFF.md` before starting any task.** It's the current,
-verified source of truth for architecture, routes, database, and
-open TODOs — this file is just the short non-negotiable rules + commands.
+## Read before coding (in this order)
+1. `docs/MASTER_ROADMAP.md` — status, blockers, and the NEXT 10 TASKS. Work from it.
+2. `docs/SECURITY_CHECKLIST.md` — before touching auth, RLS, profiles, family, billing, or any API route.
+3. `docs/DATA_QUALITY.md` — before touching schools, rosters, UTR, or fit math.
+4. `docs/TECHNICAL_ARCHITECTURE.md`, `docs/DATABASE_SPEC.md` — how it's built.
+5. `docs/QA_CHECKLIST.md`, `docs/DEPLOYMENT_CHECKLIST.md` — before shipping.
+6. `docs/HANDOFF.md` — long-form history and route table (see its correction banner).
+
+## Current blockers (keep in sync with MASTER_ROADMAP)
+- P0-1/P0-2: users can self-assign `subscription_tier`, `role`, `family_code` and join any family. Fix drafted in `supabase/migrations/022_…sql` (not applied).
+- P0-3/P0-4: the school catalog's coach names, emails, recruits, conference ranks and URLs are invented, and the coach email repeats them as facts.
+- P0-5/P0-6: prod (`main`) is broken against the shared DB; there is no staging project.
+
+## Always
+- Update `docs/MASTER_ROADMAP.md` in the same commit as the work: status, new findings, NEXT 10.
+- Before modifying auth/authorization, read the live policies (`pg_policies`) and the 022 trigger. Never replace RLS with a client-side check — `AuthGate`/`PaidGate` are cosmetic.
+- Run `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run` before saying something works.
+- Use one fit-band path: `classifySchoolFit` must always get a projection that can return "out-of-range".
+- Show "Not tracked" for missing data. Show the source and date next to any roster number.
+- Keep secrets out of code, docs, logs, screenshots, and commits. Names only.
+
+## Never
+- Never invent coach names, emails, recruits, rankings, or UTRs — not even as "placeholder" data in shipped code.
+- Never write privileged `profiles` columns from the client (`subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*`).
+- Never add a feature that promises email/notifications/public pages unless the sending/serving code exists.
+- Never build POST-V1 features while any P0/P1 is open.
+- Never apply a migration to the shared project before staging exists — and never without explicit sign-off.
 
 ## Non-negotiable rules
 

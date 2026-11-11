@@ -1,5 +1,14 @@
 # Seeded — Handoff
 
+> **Correction banner (2026-11-10 audit).** `docs/MASTER_ROADMAP.md` is now
+> the source of truth for status. Specific claims below are no longer
+> accurate: §G "Known bugs: none" (see P0/P1 list); §E's RLS table omits
+> that users can write their own `subscription_tier`/`role`/`family_code`
+> and that `families` is readable by everyone (SECURITY_CHECKLIST S-1/S-2);
+> §G "built and verified" doesn't cover the fit-band inconsistency between
+> `/schools` and `/plan` (P1-FIT-1) or the stale "You 7.0" what-if state
+> (P1-FIT-2). Production `main` is broken against the live DB (P0-5).
+
 Written at the end of a long redesign effort on branch
 `codex/identity-overhaul-orange-green-pink` (HEAD `3fc90b6` as of writing).
 Every fact below was verified directly against the code, git log, live
