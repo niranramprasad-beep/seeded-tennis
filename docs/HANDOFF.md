@@ -96,15 +96,12 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_GA_MEASUREMENT_ID
 GA4_MEASUREMENT_PROTOCOL_API_SECRET
-GEMINI_API_KEY
 WHOP_API_KEY
 WHOP_WEBHOOK_SECRET
 ```
-`.env.example` is a template and also lists `OPENAI_API_KEY`/
-`CHATGPT_API_KEY`/`OPENAI_MODEL`/`WHOP_PLAN_PLAYER`/`WHOP_PLAN_FAMILY`/
-`STRIPE_*` — those are **not** currently set in `.env.local`; treat
-`.env.example` as slightly ahead of what's actually configured, not as a
-guarantee everything in it is live.
+The AI and Stripe variables that used to appear in this list were deleted
+with their routes (P1-SEC-1 / P1-SEC-5, 2026-11-10). `.env.example` is now
+the authoritative list: if a name isn't in it, no code path reads it.
 
 **Commands:**
 ```

@@ -17,7 +17,7 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 | S-5 | P1 | `profiles_discovery_read` exposes the full row (email, GPA, grade, family_code, stripe ids) of `privacy_level='public'` profiles to every signed-in user (1 live row). | Open |
 | S-6 | P1 | No rate limiting on any route; Supabase leaked-password protection disabled (advisor). | Open |
 | S-7 | P1 | No security headers (CSP, frame-ancestors, referrer, permissions). | Open |
-| S-8 | P1 | Dead Stripe endpoints `/api/stripe/*` are live. | **Fixed (P1-SEC-5)** — routes and `lib/stripe.ts` deleted; `stripe` uninstalled. **`STRIPE_SECRET_KEY` still needs revoking in Stripe.** |
+| S-8 | P1 | Dead Stripe endpoints `/api/stripe/*` are live. | **Fixed (P1-SEC-5)** — routes and `lib/stripe.ts` deleted; `stripe` uninstalled. **The Stripe secret key still needs revoking in Stripe** (Niran, 2026-11-11). |
 | S-9 | P1 | SECURITY DEFINER helpers callable via `/rest/v1/rpc/*` by `authenticated` (advisor). `is_family_member(code)` acts as a code-validity oracle until S-2 is fixed. | Open |
 | S-10 | P2 | API routes return `err.message` from Supabase/Gemini to the client (schema/provider detail leakage). Return generic messages, log details server-side. | Open |
 | S-11 | P2 | `/api/whop/checkout` builds `redirect_url` from the request `Origin` header. Whop restricts redirects to configured domains, but pin it to `NEXT_PUBLIC_SITE_URL` anyway. | Open |
@@ -42,7 +42,7 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 - [ ] Leaked password protection on; minimum password length ≥ 8
 - [ ] Security headers deployed (CSP report-only first)
 - [x] Copilot + Stripe routes removed (P1-SEC-1, P1-SEC-5)
-- [ ] **Revoke the removed credentials at the provider**, not just in Vercel: `GEMINI_API_KEY` at Google, `STRIPE_SECRET_KEY` in Stripe. Deleting an env var does not invalidate a key. (Same standing issue as the Whop key — see the repo's open rotation item.)
+- [ ] **Revoke the removed credentials at the provider**, not just in Vercel: the AI key at Google, the Stripe secret key in Stripe, and rotate the Whop key. Deleting an env var does not invalidate a credential — it stays live at the provider until revoked. Niran took all three on 2026-11-11; the var names are deliberately not listed here or in `.env.example` any more, because nothing in the codebase reads them.
 - [ ] `get_advisors(security)` returns no ERROR and only accepted WARNs
 - [ ] Dependency audit: `npm audit --omit=dev` reviewed
 

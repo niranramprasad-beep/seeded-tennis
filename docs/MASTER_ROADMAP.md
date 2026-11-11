@@ -277,21 +277,23 @@ writing code alone.
   route, `components/training/training-copilot.tsx`, and the
   `applyCopilotActions`/`resolveCopilotTypeId` handlers in `training-view.tsx`
   that turned model JSON into real create/update/delete on the player's
-  sessions. `@google/genai` uninstalled; `GEMINI_API_KEY` removed from
+  sessions. `@google/genai` uninstalled; the AI key removed from
   `.env.example`. Verified: `POST /api/training/copilot` → 404, `/training`
   → 200, build 134 → 130 pages.
-  **Still needs Niran:** delete `GEMINI_API_KEY` from Vercel **and revoke the
-  key at Google**. An unused key in an env var is still a live credential.
+  **Still needs Niran:** delete the AI key from Vercel **and revoke it at
+  Google**. An unused key in an env var is still a live credential.
+  (Niran took this on 2026-11-11 and is doing it by hand.)
 - [ ] **P1-SEC-2 Restrict public-profile reads** — `profiles_discovery_read` lets any authenticated user read the *whole row* (email, GPA, grade, family_code, stripe ids) of any profile with `privacy_level='public'` (1 such row live). Friends feature is gone, so drop the public/friends branches or expose a narrow view. Acceptance: SQL test as stranger returns no columns beyond name/grad year (or nothing).
 - [ ] **P1-SEC-3 Rate limiting + abuse controls** — none exist on any API route, signup, family join, or check-in. Add Vercel Firewall rate-limit rules (cheapest) for `/api/*` and auth. Enable Supabase leaked-password protection (advisor WARN, confirmed).
 - [ ] **P1-SEC-4 Security headers** — `next.config.mjs` sets none. Add CSP (start report-only), `X-Frame-Options: DENY`/`frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
 - [x] **P1-SEC-5 Remove dead billing surface** — COMPLETE (same commit).
   Deleted `/api/stripe/{checkout,portal,webhook}` and `lib/stripe.ts`;
-  uninstalled the `stripe` package; removed `STRIPE_*` from `.env.example`.
-  The `profiles.stripe_*` columns stay until a cleanup migration — no code
-  reads them. Verified: `POST /api/stripe/checkout` → 404.
-  **Still needs Niran:** delete the `STRIPE_*` vars from Vercel and revoke
-  `STRIPE_SECRET_KEY` in the Stripe dashboard.
+  uninstalled the `stripe` package; removed the Stripe vars from
+  `.env.example`. The `profiles.stripe_*` columns stay until a cleanup
+  migration — no code reads them. Verified: `POST /api/stripe/checkout` → 404.
+  **Still needs Niran:** delete the Stripe vars from Vercel and revoke the
+  secret key in the Stripe dashboard.
+  (Niran took this on 2026-11-11 and is doing it by hand.)
 - [ ] **P1-SEC-6 Revoke EXECUTE on helper functions from `authenticated` where RLS doesn't need direct RPC access** — advisor flags `are_friends`, `current_family_code`, `has_tier`, `is_family_member`, `is_parent_member` as callable via `/rest/v1/rpc/*`. Low impact (they only answer about the caller) but `is_family_member(code)` is an oracle for valid family codes until P0-2 lands. Drop `are_friends` entirely.
 - [x] **P1-FIT-1 Fit bands disagree between screens** — COMPLETE (commit
   "P1-FIT-1 + P1-FIT-2: one fit band, and stop capturing a placeholder UTR").
@@ -374,7 +376,7 @@ writing code alone.
 - [ ] `/schools/cornell` 404s (real slugs are `cornell-m`/`cornell-w`); redirect bare slugs to the user's gender.
 - [ ] School detail: layout shifts ~15px horizontally after load; footer starts 10px right of the sidebar edge.
 - [ ] SEO: every school page has the same `<title>`; add `generateMetadata`. Sitemap lists legacy/redirecting `/cost-calculator`, `/how-it-works`, `/parents` and omits `/methodology`. See SEO_CHECKLIST.md.
-- [ ] `.env.example` mentions OpenAI and `/api/match-analysis` (doesn't exist) and omits `GEMINI_API_KEY`, `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` — fixed in this audit.
+- [x] `.env.example` drifted from the code (listed vars nothing read, omitted vars that were read). Fixed in the audit, and again on 2026-11-11 when the AI/Stripe names were removed with their routes. It is now the authoritative list: if a name isn't in it, no code path reads it. Keep it that way.
 - [ ] `tsc --noEmit` fails on stale `.next/types/app/friends/page.ts`; exclude `.next/types` of deleted routes or `rm -rf .next` in CI.
 - [ ] Whop checkout `redirect_url` points to legacy `/dashboard?checkout=success`.
 - [ ] Recruiting checklist repeats the same NCAA disclaimer 6 times; auto-tracked items look like disabled checkboxes.

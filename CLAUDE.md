@@ -1,5 +1,17 @@
 # Seeded — notes for Claude
 
+## Branches
+**Work on `v1`.** `main` = production; only merge to `main` after CI passes
+and Niran says go.
+
+`v1` is the single line of development (renamed from `docs/production-audit`
+on 2026-11-11). It already contains every commit on `main`, so there is never
+anything to merge *up* — only down, when Niran says so. `main` auto-deploys
+to seededtennis.com with no staging gate, which is why that gate is a person.
+
+`origin/macbook-backup` is an archive of six pre-redesign commits that never
+landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
+
 ## Read before coding (in this order)
 1. `docs/MASTER_ROADMAP.md` — status, blockers, and the NEXT 10 TASKS. Work from it.
 2. `docs/SECURITY_CHECKLIST.md` — before touching auth, RLS, profiles, family, billing, or any API route.
