@@ -82,7 +82,9 @@ export function SeededTournamentFitView() {
   const [addOpen, setAddOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
 
-  const lastVerified = useMemo(() => {
+  // The last UTR the player typed in — not a verified rating. See the same
+  // rename in seeded-roadmap-layout.tsx (P0-7).
+  const lastLoggedUtr = useMemo(() => {
     if (!utrEntries || utrEntries.length === 0) return null;
     return [...utrEntries].sort(
       (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
@@ -243,7 +245,9 @@ export function SeededTournamentFitView() {
               {!utrTouched && hydrated && isAuthed && player.currentUTR > 0 && (
                 <span className="text-[13px] leading-snug text-stone">
                   From your profile
-                  {lastVerified ? ` · verified ${shortDate(new Date(lastVerified.recordedAt))}` : ""}
+                  {lastLoggedUtr
+                    ? ` · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
+                    : ""}
                 </span>
               )}
             </div>

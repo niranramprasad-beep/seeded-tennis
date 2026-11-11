@@ -717,7 +717,7 @@ function UtrLogDrawer({
       open={open}
       onClose={onClose}
       eyebrow="Update UTR"
-      title="Log a verified rating"
+      title="Log your current rating"
       footer={
         <Button className="w-full" onClick={submit} disabled={loading}>
           {loading ? "Saving..." : "Save UTR entry"}
@@ -757,7 +757,7 @@ function UtrLogDrawer({
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Example: new verified singles result after L4 Bethesda draw"
+            placeholder="Example: new singles result after L4 Bethesda draw"
             className="min-h-[104px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
           />
         </label>

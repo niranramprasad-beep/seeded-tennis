@@ -30,10 +30,14 @@ const PLANS: Plan[] = [
     name: "Free",
     price: "$0",
     cadence: "forever",
-    tagline: "Explore every program and find your honest fit.",
+    tagline: "Explore the catalog and find your honest fit.",
+    // P0-7: this said "Browse all D1 tennis programs" / "Explore every
+    // program". The catalog is 68 programs (54 D1, 6 D2, 8 D3) against ~1,100
+    // real D1 programs alone. Quote the real number — and change this copy
+    // when the data changes (P1-DATA-1), not before.
     highlights: [
-      "Browse all D1 tennis programs",
-      "Roster UTRs & academic rankings",
+      "Browse 68 D1, D2 and D3 programs",
+      "Team UTR estimates & academic rankings",
       "Minimum competitive UTRs",
       "Full school detail pages",
     ],
@@ -78,8 +82,8 @@ const MATRIX: { group: string; rows: Row[] }[] = [
   {
     group: "Discover",
     rows: [
-      { label: "Browse all D1 schools", free: true, player: true, family: true },
-      { label: "Roster UTRs & rankings", free: true, player: true, family: true },
+      { label: "Browse 68 D1/D2/D3 programs", free: true, player: true, family: true },
+      { label: "Team UTR estimates & rankings", free: true, player: true, family: true },
       { label: "School detail pages", free: true, player: true, family: true },
     ],
   },

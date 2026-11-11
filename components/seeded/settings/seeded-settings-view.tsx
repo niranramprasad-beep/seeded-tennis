@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import type { Player, SchoolLite, SubscriptionTier } from "@/lib/types";
@@ -9,21 +9,13 @@ import { useTier } from "@/lib/context/tier-context";
 import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadUtrEntries } from "@/lib/db/plan";
-import {
-  DEFAULT_NOTIFICATION_PREFS,
-  loadNotificationPrefs,
-  loadPublicRecruitingPage,
-  saveNotificationPrefs,
-  savePublicRecruitingPage,
-  type NotificationPrefs,
-} from "@/lib/db/settings";
 import { buildAccountDataCsv, downloadTextFile } from "@/lib/data/export-csv";
 import { postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { slugify } from "@/lib/utils";
 import { SeededSettingsShell, type SettingsTabId } from "./seeded-settings-shell";
 import { ProfileCard } from "./profile-card";
-import { NotificationsCard } from "./notifications-card";
+// NotificationsCard is deliberately not imported — see P0-7 note below.
 import { AppearanceCard } from "./appearance-card";
 import { PrivacyCard } from "./privacy-card";
 import { AccountCard } from "./account-card";
@@ -52,27 +44,12 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
 
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug));
 
-  // --- Notifications + public recruiting page (shared user_settings.
-  // notification_preferences JSONB bag — see lib/db/settings.ts)
-  const { data: loadedPrefs } = useSWR("notification-prefs", loadNotificationPrefs);
-  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
-  useEffect(() => {
-    if (loadedPrefs) setPrefs(loadedPrefs);
-  }, [loadedPrefs]);
-  const onChangePrefs = (next: NotificationPrefs) => {
-    setPrefs(next);
-    void saveNotificationPrefs(next);
-  };
-
-  const { data: loadedPublicPage } = useSWR("public-recruiting-page", loadPublicRecruitingPage);
-  const [publicPage, setPublicPage] = useState(false);
-  useEffect(() => {
-    if (loadedPublicPage != null) setPublicPage(loadedPublicPage);
-  }, [loadedPublicPage]);
-  const onTogglePublicPage = (next: boolean) => {
-    setPublicPage(next);
-    void savePublicRecruitingPage(next);
-  };
+  // P0-7: the notification-prefs and public-recruiting-page state lived here.
+  // Both fed UI that promised things Seeded can't do (it sends no email and
+  // has no public page), so that UI is hidden — which left these fetching
+  // `user_settings` on every settings load for data nobody renders. The
+  // loaders/savers in lib/db/settings.ts are intentionally left in place for
+  // when either feature becomes real (POST-V1); only the dead wiring is gone.
 
   // --- Download my data
   const { data: matches } = useSWR("matches", () => loadMatches());
@@ -137,11 +114,14 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
       {activeTab === "profile" && (
         <>
           <ProfileCard player={player} onSave={savePlayer} />
-          <NotificationsCard prefs={prefs} onChange={onChangePrefs} />
+          {/* P0-7: <NotificationsCard> was here. Its five toggles write real
+              rows to `user_settings` and nothing ever reads them — Seeded
+              sends no email and no push, so every one of them is a switch
+              wired to nothing. Hidden, not deleted: the component and
+              lib/db/settings.ts stay for when notifications are real
+              (POST-V1). Same for the "notifications" tab below. */}
           <AppearanceCard />
           <PrivacyCard
-            publicRecruitingPage={publicPage}
-            onTogglePublicRecruitingPage={onTogglePublicPage}
             onDownload={handleDownload}
             downloading={downloading}
             deletionRequestedAt={player.deletionRequestedAt}
@@ -166,12 +146,8 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
 
       {activeTab === "family" && <FamilyCard player={player} />}
 
-      {activeTab === "notifications" && <NotificationsCard prefs={prefs} onChange={onChangePrefs} />}
-
       {activeTab === "privacy" && (
         <PrivacyCard
-          publicRecruitingPage={publicPage}
-          onTogglePublicRecruitingPage={onTogglePublicPage}
           onDownload={handleDownload}
           downloading={downloading}
           deletionRequestedAt={player.deletionRequestedAt}

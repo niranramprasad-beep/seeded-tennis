@@ -5,20 +5,24 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Pixel-exact to "17 Settings + account.png": a left tab nav (Profile /
-// Account / Family / Notifications / Billing / Privacy + data) next to a
-// content column. Billing is the one real route among the tabs (built in a
-// separate task) — everything else is client-side tab state owned by the
-// caller, so this shell stays a dumb, reusable shape: /settings renders it
-// with its 5 client tabs, and /settings/billing (once that route exists)
-// can render the SAME shell with active="billing" so the two pages share
-// one visual frame instead of each re-implementing this nav.
+// Account / Family / Billing / Privacy + data) next to a content column.
+// Billing is the one real route among the tabs — everything else is
+// client-side tab state owned by the caller, so this shell stays a dumb,
+// reusable shape: /settings renders it with its client tabs, and
+// /settings/billing renders the SAME shell with active="billing" so the two
+// pages share one visual frame instead of each re-implementing this nav.
+//
+// P0-7: the mockup also has a "Notifications" tab. It's deliberately absent
+// until Seeded can actually notify anyone — its toggles wrote to
+// `user_settings` and nothing read them. The id stays in the union so
+// existing persisted/linked state doesn't crash the shell; it simply renders
+// no tab and no panel. POST-V1.
 export type SettingsTabId = "profile" | "account" | "family" | "notifications" | "billing" | "privacy";
 
 export const SETTINGS_TABS: { id: SettingsTabId; label: string; href?: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "account", label: "Account" },
   { id: "family", label: "Family" },
-  { id: "notifications", label: "Notifications" },
   { id: "billing", label: "Billing", href: "/settings/billing" },
   { id: "privacy", label: "Privacy + data" },
 ];

@@ -6,14 +6,17 @@ import { cn } from "@/lib/utils";
 
 const CONFIRM_WORD = "DELETE";
 
-// The sensitive piece: this only ever calls `onConfirm`, which the caller
-// wires to setting a `deletion_requested_at` timestamp — nothing here (or
-// anywhere downstream of it) hard-deletes an auth user or any data row
-// synchronously. The real 30-day purge is a separate operational job
-// outside this app's scope. Getting to that point requires BOTH an
-// explicit acknowledgment checkbox AND typing DELETE — never a single
-// click — matching the mockup's own "Removes everything within 30 days.
-// This can't be undone." copy.
+// This only ever calls `onConfirm`, which the caller wires to setting a
+// `deletion_requested_at` timestamp. Nothing here or downstream deletes an
+// auth user or a data row — not after 30 days, not ever. No purge job exists
+// (P0-8 tracks building one).
+//
+// P0-7: the copy used to describe the job as if it ran — "After 30 days, your
+// profile, results, UTR history, notes and outreach records are permanently
+// removed". A minor asking to be deleted is exactly the person who must not
+// be told a comforting untruth, so this now describes the real mechanism: a
+// request that a human actions. Keep the two-step confirmation (checkbox AND
+// typing DELETE) regardless — the request still matters.
 export function DeleteAccountDialog({
   open,
   onClose,
@@ -62,9 +65,9 @@ export function DeleteAccountDialog({
               Delete your account?
             </h2>
             <p className="mt-2 text-sm text-stone">
-              This starts a 30-day grace period. During that time you can come back here and cancel
-              at any point. After 30 days, your profile, results, UTR history, notes and outreach
-              records are permanently removed — this can&apos;t be undone.
+              This sends a deletion request — it doesn&apos;t delete anything on its own. Your
+              profile, results, UTR history, notes and outreach records stay until someone
+              removes them by hand. You can cancel the request here until then.
             </p>
 
             <label className="mt-4 flex items-start gap-2.5 text-sm text-ink">
@@ -74,7 +77,7 @@ export function DeleteAccountDialog({
                 onChange={(e) => setAcknowledged(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-input"
               />
-              I understand this is permanent after 30 days.
+              I understand my data isn&apos;t removed until this is actioned.
             </label>
 
             <label className="mt-4 block">
@@ -107,7 +110,7 @@ export function DeleteAccountDialog({
                   "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-line disabled:text-stone-light"
                 )}
               >
-                {submitting ? "Starting…" : "Start 30-day deletion"}
+                {submitting ? "Sending…" : "Request deletion"}
               </button>
             </div>
           </motion.div>

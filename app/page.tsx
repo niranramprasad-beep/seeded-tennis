@@ -6,7 +6,7 @@ import { AuthedHomeRedirect } from "@/components/home/authed-home-redirect";
 export const metadata: Metadata = {
   title: "Seeded — your path to college tennis, mapped",
   description:
-    "Enter your UTR and grad year. Seeded compares you to real rosters, sorts schools into Reach, Target and Likely, and turns the gap into a week-by-week plan your parents can see.",
+    "Enter your UTR and grad year. Seeded compares you to real programs, sorts schools into Reach, Target and Likely, and turns the gap into a week-by-week plan your parents can see.",
   alternates: { canonical: "/" },
 };
 

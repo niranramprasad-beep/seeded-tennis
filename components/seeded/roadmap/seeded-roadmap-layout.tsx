@@ -121,7 +121,11 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
     [utrEntries]
   );
   const record = useMemo(() => (matches ? winLossRecord(matches) : null), [matches]);
-  const lastVerified = useMemo(() => {
+  // The most recent UTR the player typed in. P0-7: this was named
+  // `lastVerified` and rendered as "UTR · verified {date}". Nothing verifies
+  // it — Seeded never fetches or checks UTR, by design. It is simply the date
+  // they last told us a number.
+  const lastLoggedUtr = useMemo(() => {
     if (!utrEntries || utrEntries.length === 0) return null;
     return [...utrEntries].sort(
       (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
@@ -208,7 +212,11 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
         <div className="flex flex-wrap gap-7">
           <StatTile
             value={formatUTR(player.currentUTR)}
-            label={lastVerified ? `UTR · verified ${shortDate(new Date(lastVerified.recordedAt))}` : "UTR"}
+            label={
+              lastLoggedUtr
+                ? `UTR · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
+                : "UTR"
+            }
           />
           <StatTile
             value={sixMonthDelta === null ? "—" : `${sixMonthDelta >= 0 ? "+" : ""}${sixMonthDelta.toFixed(2)}`}

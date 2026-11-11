@@ -2,15 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SeededToggle } from "@/components/seeded/ui/toggle";
 import { formatDate } from "@/lib/time";
 import { DeleteAccountDialog } from "./delete-account-dialog";
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
 export function PrivacyCard({
-  publicRecruitingPage,
-  onTogglePublicRecruitingPage,
   onDownload,
   downloading,
   deletionRequestedAt,
@@ -19,8 +14,6 @@ export function PrivacyCard({
   deletingBusy,
   deletionError,
 }: {
-  publicRecruitingPage: boolean;
-  onTogglePublicRecruitingPage: (next: boolean) => void;
   onDownload: () => void;
   downloading: boolean;
   deletionRequestedAt: string | null | undefined;
@@ -35,10 +28,6 @@ export function PrivacyCard({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const purgeDate = deletionRequestedAt
-    ? formatDate(new Date(new Date(deletionRequestedAt).getTime() + THIRTY_DAYS_MS))
-    : null;
-
   const confirmDelete = () => {
     onRequestDeletion();
     setDialogOpen(false);
@@ -49,21 +38,14 @@ export function PrivacyCard({
       <h2 className="border-b border-line pb-4 text-lg font-semibold text-ink">Privacy + data</h2>
 
       <div className="divide-y divide-line">
-        <div className="flex items-start justify-between gap-4 py-4">
-          <div className="min-w-0">
-            <p className="font-semibold text-ink">Public recruiting page</p>
-            <p className="mt-0.5 text-sm text-stone">
-              {publicRecruitingPage ? "On" : "Off"}. When on, coaches you email can see your results
-              and video. A parent must approve.
-            </p>
-          </div>
-          <SeededToggle
-            checked={publicRecruitingPage}
-            onChange={onTogglePublicRecruitingPage}
-            label="Public recruiting page"
-          />
-        </div>
-
+        {/* P0-7: the "Public recruiting page" toggle lived here. It claimed
+            "coaches you email can see your results and video. A parent must
+            approve." None of that exists — there is no public page, no video
+            storage and no parental approval flow. The toggle wrote a real
+            `privacy_level` column, so a player could believe they had turned
+            on sharing that was never happening (or, worse, believe they had
+            turned it off). Hidden until the feature is real; the column and
+            lib/db/settings.ts plumbing are left intact. POST-V1. */}
         <div className="flex items-start justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">Download my data</p>
@@ -80,12 +62,23 @@ export function PrivacyCard({
         </div>
 
         <div className="flex items-start justify-between gap-4 py-4">
+          {/* P0-7: this promised "Removes everything within 30 days". Nothing
+              deletes anything — requesting sets `profiles.deletion_requested_at`
+              and that is the entire mechanism. A person has to action it by
+              hand. Describe what actually happens until a real deletion job
+              exists (P0-8). */}
           <div className="min-w-0">
             <p className="font-semibold text-ink">Delete account</p>
             {deletionRequestedAt ? (
-              <p className="mt-0.5 text-sm text-stone">Deletion scheduled for {purgeDate}.</p>
+              <p className="mt-0.5 text-sm text-stone">
+                Deletion requested {formatDate(new Date(deletionRequestedAt))}. Your data is
+                still here until it&apos;s actioned — you can cancel until then.
+              </p>
             ) : (
-              <p className="mt-0.5 text-sm text-stone">Removes everything within 30 days. This can&apos;t be undone.</p>
+              <p className="mt-0.5 text-sm text-stone">
+                Sends a deletion request. Nothing is removed automatically — a person completes
+                it by hand. You can cancel the request until then.
+              </p>
             )}
           </div>
           {deletionRequestedAt ? (

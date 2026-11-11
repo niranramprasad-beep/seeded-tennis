@@ -14,7 +14,7 @@
 ## Executive status
 
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
-write routes, 398 passing unit tests, and a much more careful RLS setup
+write routes, 408 passing unit tests, and a much more careful RLS setup
 than most student projects. That's the good news.
 
 The bad news: **it is not launchable, for three reasons that have nothing
@@ -28,8 +28,11 @@ to do with polish.**
    estimate" everywhere they render, but the fit bands, the Plan page and
    the coach email are still computed from them. P1-DATA-1 (real sourced
    rosters) is the actual fix and is now the single highest-value task in
-   the project. The homepage still claims "Rosters verified Oct 2026" and
-   "Every team rating shows its source and date" — P0-7.
+   the project. The marketing claims that dressed these estimates up as
+   verified data are gone (P0-7), and two build-failing guards
+   (`schools-catalog-honesty.test.ts`, `copy-honesty.test.ts`) keep them
+   gone. **The product is now honest about its data; the data is still
+   thin.** A 5.81 player has zero schools in range.
 2. **Any signed-in user can give themselves a paid plan or join any
    family.** Confirmed live: `authenticated` has UPDATE on
    `profiles.subscription_tier`, `role`, `family_code`,
@@ -48,7 +51,12 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
 
 ## Current production-readiness score
 
-**34 / 100** (was 31 before P0-3)
+**38 / 100** (31 at the 2026-11-10 audit; P0-3, P0-4 and P0-7 closed since)
+
+The three remaining P0s are the expensive ones: two authorization holes
+(P0-1, P0-2), no staging database (P0-5/P0-6), and minors' privacy (P0-8).
+All four need a decision or a migration sign-off — none can be closed by
+writing code alone.
 
 | Area | Score | Why |
 |---|---|---|
@@ -56,8 +64,8 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
 | Data correctness | 3/10 | Fabricated coach/recruit/rank fields deleted and guarded by a test (P0-3); roster UTR numbers are still unsourced estimates (now labeled), and fit bands still disagree between screens |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
 | Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
-| Legal/privacy | 2/10 | Minors, COPPA, one-paragraph privacy policy, deletion not implemented |
-| Testing | 5/10 | 398 unit tests pass; zero integration/E2E/RLS tests |
+| Legal/privacy | 3/10 | Minors, COPPA, one-paragraph privacy policy, deletion still not implemented — but the UI no longer tells a minor their data will be "removed within 30 days" when nothing removes it (P0-7) |
+| Testing | 5/10 | 408 unit tests pass (incl. catalog- and copy-honesty guards); zero integration/E2E/RLS tests |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
 
 ---
@@ -183,29 +191,62 @@ Everything else (UX bugs, SEO, CI, monitoring) is real but secondary.
   Deployment impact: High — env var reshuffle. Do it before any further migration.
   Notes: Use Supabase branching if the plan allows it; otherwise a free second project.
 
-- [ ] **P0-7 Remove every false claim from marketing and settings**
+- [x] **P0-7 Remove every false claim from marketing and settings**
 
-  Status: READY
-  Priority: P0
-  Category: Product honesty / Legal
-  Why this matters: The site promises things that don't exist:
-  - "Rosters verified Oct 2026" (homepage hero widget) — no verification exists.
-  - "Real rosters. Every team rating shows its source and date." — no source/date field exists.
-  - "A Sunday email with UTR movement…" (homepage, For parents) — there is no email-sending code anywhere.
-  - Settings → Notifications (5 toggles) — saved to `user_settings`, never read by anything.
-  - Settings → "Public recruiting page … coaches you email can see your results and video. A parent must approve." — no such page or approval flow exists.
-  - "Delete account — Removes everything within 30 days." — only `deletion_requested_at` is set; no job deletes anything.
-  - Pricing: "Browse all D1 tennis programs" — catalog is 37 men's + ~32 women's, several D3.
-  - "Found a wrong number? Report it and we fix it within 48 hours." — a personal Gmail.
-  - Plan header "UTR · verified Nov 7" — self-reported, not verified.
-  Dependencies: none
-  Affected files: `components/seeded/home/seeded-home-view.tsx`, `components/seeded/settings/{notifications-card,privacy-card,delete-account-dialog}.tsx`, `components/pricing/pricing-view.tsx`, `components/seeded/roadmap/*` header
-  Affected database objects: none
-  Security considerations: —
-  Testing required: copy review checklist in QA_CHECKLIST.md
-  Acceptance criteria: Every claim on the site maps to working code or real data.
-  Deployment impact: copy only.
-  Notes: Hide the notification and public-page toggles until they're real (they're POST-V1).
+  Status: COMPLETE (commit "P0-7: remove claims the product can't back up";
+  verified on localhost at 1440 and 390 by fetching `/`, `/pricing`,
+  `/methodology`, `/sample-report`, `/schools`, `/settings` and asserting each
+  removed phrase is absent from the served HTML)
+  What landed, claim by claim:
+  - "Rosters verified Oct 2026" → the `UTR_RANGE_SOURCE_LABEL` chip.
+  - "Every team rating shows its source and date" → "Team ratings that are
+    estimates are labelled as estimates."
+  - "Rosters show source and date" (mobile hero) → "Estimates are labelled as
+    estimates."
+  - "A Sunday email with…" → "A weekly report you can open any time." The
+    report is real (`/family/weekly-reports`); only the sending was fiction.
+  - `/sample-report`: "Sent every Sunday to parents on the Family plan" → says
+    plainly that Seeded doesn't email it. Its "Email settings" link (to the
+    now-hidden notifications tab) is gone. "Verified Nov 3" → "Self-reported".
+  - Settings → Notifications card **and** its left-nav tab hidden. Five
+    toggles wrote real `user_settings` rows nothing ever read.
+  - Settings → "Public recruiting page" toggle hidden. It claimed coaches
+    could see results and video with parental approval; none of that exists,
+    and the toggle wrote a real column, so a player could believe sharing was
+    on (or off) when neither was true.
+  - Delete account: "Removes everything within 30 days" → an accurate
+    description of the only thing that happens (`deletion_requested_at` is
+    set; a person actions it). Dialog and button copy likewise; the two-step
+    confirmation stays.
+  - Pricing: "Browse all D1 tennis programs" → "Browse 68 D1, D2 and D3
+    programs" (real counts: 54/6/8, against ~1,100 real D1 programs).
+  - Plan header "UTR · verified {date}" → "· self-reported {date}"; same on
+    `/tournament-fit`. The `lastVerified` variable is renamed `lastLoggedUtr`
+    so the next reader isn't misled by the code either.
+  - Methodology: the three-level confidence model (keyed on a roster
+    verification date that doesn't exist) now states where the data actually
+    is. "We check reports within 48 hours and note the fix date" → no
+    turnaround promise. Same for the homepage's "we fix it within 48 hours".
+  - "compares you to real rosters" (hero, onboarding, and both pages'
+    `metadata.description`) → "real programs". The schools are real; the
+    roster numbers aren't sourced.
+  - Homepage parent stat card labelled "Example", matching the Today mock.
+  - Legacy: "Log a verified rating" → "Log your current rating".
+  Dead code removed with it: the notification-prefs and public-page state in
+  `seeded-settings-view.tsx` were fetching `user_settings` on every load for
+  UI nobody renders. `lib/db/settings.ts` and `notifications-card.tsx` are
+  deliberately left intact for when either feature is real (POST-V1).
+  Guard: `lib/copy-honesty.test.ts` scans every shipped `.ts`/`.tsx` under
+  `components/` and `app/` for all nine phrasings and fails the build.
+  Comments may still quote the old copy (that's the documentation); only live
+  code is checked. Confirmed the guard actually fires by reintroducing
+  "Rosters verified Oct 2026" and watching it fail.
+  Standing rule this leaves behind: a claim ships only once the code behind it
+  does. Two of these ("Sunday email", "public recruiting page") were features
+  someone intended to build, described in the present tense in the meantime —
+  that's the failure mode to watch for, not deliberate overstatement. When one
+  of them becomes real, delete its entry from `lib/copy-honesty.test.ts` in the
+  same commit that makes it true, rather than rewording around the check.
 
 - [ ] **P0-8 Minors' privacy, consent and deletion**
 
@@ -383,9 +424,9 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
 3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
 4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
-5. P0-7 — remove false claims (verified rosters, Sunday email, notifications, public page, 30-day delete, "all D1", "within 48 hours").
-6. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
-7. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
+5. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
+6. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
+7. P1-UX-2 — remove Legacy from the product. It is now the only place left with its own copy, its own coach view and its own training wizard, and every honesty guard has to cover it twice.
 8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
 9. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**
 10. P1-OPS-1 — CI. Every honesty guard added in P0-3/P0-4 is a test, and nothing runs them automatically yet.

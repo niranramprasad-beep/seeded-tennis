@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-10 — P0-7: remove claims the product can't back up
+- Homepage: "Rosters verified Oct 2026" → an "Unverified estimate" chip. "Every team rating shows its source and date" → "Team ratings that are estimates are labelled as estimates." "we fix it within 48 hours" → no turnaround promise. Parent stat card labelled "Example".
+- "A Sunday email with…" → "A weekly report you can open any time." The report is real (`/family/weekly-reports`); only the sending was fiction. Seeded has no email provider — the only mail that leaves the system is Supabase Auth's own confirmation/reset.
+- `/sample-report`: no longer claims it's sent every Sunday; dropped its "Email settings" link; "Verified Nov 3" → "Self-reported Nov 3".
+- Settings: Notifications card **and** its nav tab hidden (five toggles wrote `user_settings` rows nothing read). "Public recruiting page" toggle hidden (no page, no video, no approval flow — and it wrote a real column, so a player could believe sharing was on when it wasn't).
+- Delete account now describes what actually happens: a request a person actions by hand. Nothing deletes anything today. Two-step confirmation kept.
+- Pricing: "Browse all D1 tennis programs" → "Browse 68 D1, D2 and D3 programs" (54/6/8, against ~1,100 real D1 programs).
+- "UTR · verified {date}" → "· self-reported {date}" on Plan and `/tournament-fit`; `lastVerified` renamed `lastLoggedUtr` so the code doesn't mislead either.
+- Methodology: replaced a confidence model keyed on a verification date that doesn't exist with a statement of where the data actually is.
+- "compares you to real rosters" → "real programs" (hero, onboarding, and both pages' `metadata.description`).
+- Removed the dead notification-prefs / public-page state that was fetching `user_settings` on every settings load for UI nobody renders. `lib/db/settings.ts` and `notifications-card.tsx` kept intact for POST-V1.
+- Added `lib/copy-honesty.test.ts`: scans every shipped `.ts`/`.tsx` under `components/` and `app/` for all nine phrasings and fails the build. Verified it fires by reintroducing one and watching it fail.
+- Tests: 398 → 408.
+
 ## 2026-11-10 — P0-4: the coach email only says what the player actually told us
 - Removed the program's "competitive line" from the draft. It's an unverified estimate of ours (`minCompetitiveUTR`), and reciting it to the coach whose roster it describes asserts as fact a number we cannot source.
 - Removed "my roadmap has me closing that gap well before I'd arrive on campus" and "I'll be at several events this spring and would be glad to play in front of your staff" — commitments the player never made, sent for every player including ones with nothing scheduled.

@@ -198,11 +198,21 @@ export function SeededMethodologyView() {
             </Section>
 
             <Section id="confidence" number={6} title="Confidence">
+              {/* P0-7: this described a three-level confidence model keyed on
+                  roster verification dates. No roster has been verified and no
+                  date is stored, so every school would be "Low" — describing
+                  the model as if it were running overstated the data. State
+                  where we actually are. */}
               <p className="text-stone">
-                <strong className="text-ink">High:</strong> roster verified in the last 60 days and most players
-                have reliable ratings. <strong className="text-ink">Medium:</strong> one of those is missing.{" "}
-                <strong className="text-ink">Low:</strong> roster is old or most ratings are shaky. Low-confidence
-                schools are labeled, never hidden.
+                Right now, every team UTR range in Seeded is an{" "}
+                <strong className="text-ink">unverified estimate</strong> — there is no published
+                source or check date behind any of them, and they are labelled that way wherever
+                they appear. Treat them as a starting point for a conversation with a coach, not
+                as a roster you can plan around.
+              </p>
+              <p className="mt-3 text-stone">
+                When sourced rosters land, each range will carry its own source and date, and
+                schools with thin or stale data will be labelled rather than hidden.
               </p>
             </Section>
 
@@ -215,9 +225,13 @@ export function SeededMethodologyView() {
             </Section>
 
             <Section id="fixing-mistakes" number={8} title="Fixing mistakes" last>
+              {/* P0-7: "within 48 hours" and "note the fix date on the page"
+                  were both promises with nothing behind them — no ticketing,
+                  no on-call, and no fix-date field on a school. */}
               <p className="text-stone">
-                Every school page has a &quot;Report an error&quot; link. We check reports within 48 hours and note
-                the fix date on the page.
+                Every school page has a &quot;Report an error&quot; link. Reports go to a real
+                person who reads them — there&apos;s no guaranteed turnaround, and I&apos;d
+                rather say that than promise one I can&apos;t keep.
               </p>
               <a href={REPORT_ERROR_HREF} className={cn(seededButtonVariants({ variant: "secondary" }), "mt-4")}>
                 Report an error

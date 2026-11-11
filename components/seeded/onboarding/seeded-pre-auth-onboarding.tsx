@@ -152,9 +152,12 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                 );
               })
             )}
+            {/* P0-7: "Every range shows its source and verification date"
+                read as a description of what the product does. It doesn't —
+                no range has a source or a date. */}
             <p className="m-0 px-5 py-3 text-[13px] text-stone">
-              Every range shows its source and verification date once a
-              school&apos;s roster is connected.
+              These team ranges are unverified estimates. Sourced, dated rosters are
+              what we&apos;re building next.
             </p>
           </div>
         </section>
@@ -234,7 +237,7 @@ function LevelForm({
     <div className="mx-auto flex min-h-[calc(100vh-57px)] max-w-md flex-col justify-center px-6 py-10">
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-grass">Your level</p>
       <h1 className="mt-2 font-seeded text-3xl font-bold text-ink">What&apos;s your level today?</h1>
-      <p className="mt-2 text-stone">We&apos;ll compare you to real rosters right away — no account needed yet.</p>
+      <p className="mt-2 text-stone">We&apos;ll compare you to real programs right away — no account needed yet.</p>
       <div className="mt-6 grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">
           Current UTR

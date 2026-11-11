@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Gender, SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { countSchoolFits } from "@/lib/school-fit";
+import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { Reveal } from "@/components/shared/reveal";
 import { SeededButton } from "@/components/seeded/ui/button";
 
@@ -54,11 +55,13 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
           Know which teams you can make, and what to do this month.
         </h1>
         <p className="text-base leading-[1.5] text-stone">
-          Your UTR against real rosters, sorted into Reach, Target and Likely.
+          Your UTR against real programs, sorted into Reach, Target and Likely.
         </p>
         <FitCalculatorCard schools={schools} mobile />
         <ul className="flex flex-col gap-2 text-sm text-stone">
-          <li>✓ Rosters show source and date</li>
+          {/* P0-7: was "Rosters show source and date". No source or date field
+              exists on a school — the team ranges are unverified estimates. */}
+          <li>✓ Estimates are labelled as estimates</li>
           <li>✓ Bands and confidence, never a % chance</li>
           <li>✓ Built by a junior player</li>
         </ul>
@@ -77,8 +80,11 @@ function HeroCopy() {
         Know which college teams you can make, and what to do this month to
         get there.
       </h1>
+      {/* P0-7: "compares you to real rosters" — the comparison is against
+          team UTR estimates, not real rosters. Say "real programs": the
+          schools are real, the roster numbers aren't sourced yet. */}
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
-        Enter your UTR and grad year. Seeded compares you to real rosters,
+        Enter your UTR and grad year. Seeded compares you to real programs,
         sorts schools into Reach, Target and Likely, and turns the gap into a
         week-by-week plan your parents can see.
       </p>
@@ -194,8 +200,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
     <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
       <div className="flex items-center justify-between">
         <strong className="text-[15px]">Your fit, in 60 seconds</strong>
+        {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
+            verified and no verification date is stored anywhere. */}
         <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-medium text-stone">
-          Rosters verified Oct 2026
+          {UTR_RANGE_SOURCE_LABEL}
         </span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -284,9 +292,12 @@ function TrustStrip() {
   return (
     <section className="border-y border-line bg-card">
       <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-5 text-sm text-stone">
+        {/* P0-7: was "Real rosters. Every team rating shows its source and
+            date." There is no source or date field; the team ranges are
+            unverified estimates and now say so wherever they render. */}
         <span>
-          <strong className="text-ink">Real rosters.</strong> Every team
-          rating shows its source and date.
+          <strong className="text-ink">Honest about the data.</strong> Team
+          ratings that are estimates are labelled as estimates.
         </span>
         <span>
           <strong className="text-ink">Bands, not promises.</strong> Reach,
@@ -479,9 +490,14 @@ function ParentsSection() {
           <h2 className="mt-3 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-[#EEF1EC]">
             See if the plan is working, without nagging.
           </h2>
+          {/* P0-7: this promised "A Sunday email with...". Seeded sends no
+              email at all — the only mail that leaves the system is Supabase
+              Auth's own confirmation/reset. The report itself is real and
+              lives at /family/weekly-reports; you open it, we don't send it.
+              The weekly parent email is POST-V1. */}
           <p className="mt-4 text-[17px] leading-[1.55] text-[#B9C2BC]">
-            A Sunday email with UTR movement, coach replies, upcoming events
-            and what the season has cost so far.
+            A weekly report you can open any time: UTR movement, coach replies,
+            upcoming events and what the season has cost so far.
           </p>
           <Link
             href="/sample-report"
@@ -491,7 +507,15 @@ function ParentsSection() {
           </Link>
         </Reveal>
         <Reveal index={1} step={0.1} className="min-w-0 flex-[1_1_420px] rounded-xl border border-[#26302A] bg-[#1B241F] p-6">
-          <div className="text-sm text-[#9AA59E]">Week of Nov 2</div>
+          {/* P0-7: these numbers are illustrative, not a real player's. The
+              Today mock elsewhere on this page already says "Example player";
+              this card didn't, so it read as a real week. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm text-[#9AA59E]">Week of Nov 2</div>
+            <span className="rounded-pill border border-[#26302A] px-2 py-0.5 text-xs font-semibold text-[#9AA59E]">
+              Example
+            </span>
+          </div>
           <div className="mt-3.5 grid grid-cols-3 gap-3">
             <div>
               <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">+0.12</div>
@@ -546,12 +570,15 @@ function MethodAndFounder() {
           and coach emails in five different places.
         </p>
         <p className="mt-3 font-semibold text-ink">Seeded&apos;s founder</p>
+        {/* P0-7: was "and we fix it within 48 hours" — a one-person project
+            with no on-call rotation and no ticketing. Don't promise a
+            turnaround we have no way to hold ourselves to. */}
         <p className="mt-1 text-sm text-stone">
           Found a wrong number?{" "}
           <Link href="/contact" className="text-grass hover:text-grass-700">
             Report it
           </Link>{" "}
-          and we fix it within 48 hours.
+          and I&apos;ll look into it.
         </p>
       </Reveal>
     </section>

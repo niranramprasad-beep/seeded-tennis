@@ -317,7 +317,9 @@ export function PlanTrajectoryChart({
         )}
       </svg>
       <p className="mt-2 text-[13px] text-stone">
-        Solid line: verified results.{" "}
+        {/* P0-7: was "Solid line: verified results." These are UTR entries the
+            player typed in themselves — nothing verifies them. */}
+        Solid line: the UTRs you&apos;ve logged.{" "}
         {checkpoints.length > 0 && "Dashed: the pace your plan needs. "}
         {projection
           ? "Green: the range your recent results support."

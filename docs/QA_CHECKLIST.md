@@ -50,7 +50,22 @@ rollback;
 ```
 
 ## Copy/claims review (P0-7) — every launch
-- [ ] No "verified" unless a verification date exists
-- [ ] No promised email/notification unless a sender exists
-- [ ] Deletion copy matches what the deletion job does
+
+Mostly automated now. `npx vitest run lib/copy-honesty.test.ts` scans every
+shipped `.ts`/`.tsx` under `components/` and `app/` for the nine phrasings
+removed in P0-7 and fails the build if one returns. Comments may still quote
+the old copy — that's the record of why it went — so only live code is
+checked.
+
+**When a claim becomes true, delete its entry from that test in the same
+commit that makes it true.** Never reword the copy to slip past the pattern;
+that's how a claim comes back wearing a different hat.
+
+The check can't judge copy nobody has written yet, so on every launch still
+read the rendered pages and ask:
+- [ ] Does every number on screen have a real source, or say it's an estimate / "Not tracked"?
+- [ ] Is anything written in the present tense that is actually planned? ("Sunday email" and "public recruiting page" both arrived that way — intentions described as features.)
+- [ ] Does any control write a value that nothing reads? A toggle wired to nothing is a claim too.
+- [ ] Deletion copy matches what deletion actually does (today: sets a flag; a person actions it)
 - [ ] Pricing features list matches what each tier unlocks in RLS
+- [ ] Catalog counts quoted in prose match the real catalog (the honesty test guards the *fields*; counts in copy are still manual)

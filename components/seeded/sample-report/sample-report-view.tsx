@@ -128,7 +128,7 @@ export function SampleReportView() {
       </header>
 
       <div className="mx-auto max-w-[760px] px-6 py-10">
-        <p className="text-sm text-stone">Weekly parent report · Sunday, Nov 8</p>
+        <p className="text-sm text-stone">Weekly parent report · week of Nov 8</p>
         <h1 className="mt-1.5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">
           Maya had a good week. Her UTR is up, and Richmond replied.
         </h1>
@@ -154,7 +154,9 @@ export function SampleReportView() {
         <div className="mt-5 rounded-xl border border-line bg-card p-5">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-base font-semibold text-ink">UTR vs plan</h2>
-            <span className="text-sm text-stone">Verified Nov 3</span>
+            {/* P0-7: was "Verified Nov 3". UTR entries are self-reported — the
+                player types their own number and Seeded never checks it. */}
+            <span className="text-sm text-stone">Self-reported Nov 3</span>
           </div>
           <div className="mt-2.5">
             <UtrVsPlanChart
@@ -255,14 +257,18 @@ export function SampleReportView() {
         </div>
 
         <div className="mt-8 text-center text-sm text-stone">
-          <p>Sent every Sunday to parents on the Family plan. Maya sees the same report.</p>
+          {/* P0-7: was "Sent every Sunday to parents on the Family plan" with
+              an "Email settings" link. Seeded sends no email — this report is
+              a page parents open at /family/weekly-reports. The emailed
+              version is POST-V1, and the notifications settings tab it linked
+              to is hidden until then. */}
+          <p>
+            Parents on the Family plan can open this report any time. The player sees the same
+            one. Seeded doesn&rsquo;t email it — not yet.
+          </p>
           <p className="mt-1.5">
             <Link href="/pricing" className="font-semibold text-grass underline underline-offset-2">
-              Change to monthly plan
-            </Link>{" "}
-            ·{" "}
-            <Link href="/settings" className="font-semibold text-grass underline underline-offset-2">
-              Email settings
+              See plans
             </Link>{" "}
             · Example data, not a real family.
           </p>
