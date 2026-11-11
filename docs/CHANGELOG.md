@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-10 — P1-SEC-1 + P1-SEC-5: delete the copilot and Stripe routes
+- Deleted `/api/training/copilot` (Gemini), `components/training/training-copilot.tsx`, and the `applyCopilotActions`/`resolveCopilotTypeId` handlers that turned model JSON into real create/update/delete on a player's training sessions. The route had no tier check, no rate limit and no input cap on a paid provider call, returned raw provider errors to the client, and its prompt told the model to "make a reasonable default choice" and write sessions — which also broke the "no auto-generated training plans" rule.
+- Deleted `/api/stripe/{checkout,portal,webhook}` and `lib/stripe.ts`. Billing is Whop only; these were live endpoints for an unused path. `profiles.stripe_*` columns kept until a cleanup migration (no code reads them).
+- Uninstalled `stripe` and `@google/genai`. Removed both key families from `.env.example`, replaced with a note telling whoever prunes Vercel what's safe to delete.
+- **Both keys still need revoking at the provider** — removing an env var doesn't invalidate a credential.
+- Verified: `POST /api/training/copilot` → 404, `POST /api/stripe/checkout` → 404, `/training` → 200, build 134 → 130 pages.
+
 ## 2026-11-10 — P0-7: remove claims the product can't back up
 - Homepage: "Rosters verified Oct 2026" → an "Unverified estimate" chip. "Every team rating shows its source and date" → "Team ratings that are estimates are labelled as estimates." "we fix it within 48 hours" → no turnaround promise. Parent stat card labelled "Example".
 - "A Sunday email with…" → "A weekly report you can open any time." The report is real (`/family/weekly-reports`); only the sending was fiction. Seeded has no email provider — the only mail that leaves the system is Supabase Auth's own confirmation/reset.

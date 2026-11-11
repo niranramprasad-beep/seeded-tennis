@@ -60,7 +60,7 @@ writing code alone.
 
 | Area | Score | Why |
 |---|---|---|
-| Security | 3/10 | Two confirmed P0 authorization holes; no rate limits; no headers |
+| Security | 4/10 | Two confirmed P0 authorization holes remain (P0-1, P0-2); no rate limits; no headers. Dead/unsafe surface removed: the ungated Gemini route and the Stripe endpoints (P1-SEC-1/5) |
 | Data correctness | 3/10 | Fabricated coach/recruit/rank fields deleted and guarded by a test (P0-3); roster UTR numbers are still unsourced estimates (now labeled), and fit bands still disagree between screens |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
 | Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
@@ -267,11 +267,26 @@ writing code alone.
 
 ## Current P1 blockers (important before launch)
 
-- [ ] **P1-SEC-1 Lock down `/api/training/copilot` (Gemini)** — any signed-in free user can call it unlimited times with unbounded `message`/`history`/`sessions` bodies (cost abuse); raw provider errors are returned to the client; its prompt tells the model to "make a reasonable default choice" and create sessions, which violates the "no auto-generated training" rule. Action: delete the route for V1 (it's only used by the Legacy training view). Category: Security/AI. Acceptance: route returns 404 or is removed; `GEMINI_API_KEY` removed from prod.
+- [x] **P1-SEC-1 Remove `/api/training/copilot` (Gemini)** — COMPLETE (commit
+  "P1-SEC-1 + P1-SEC-5: delete the copilot and Stripe routes"). Deleted the
+  route, `components/training/training-copilot.tsx`, and the
+  `applyCopilotActions`/`resolveCopilotTypeId` handlers in `training-view.tsx`
+  that turned model JSON into real create/update/delete on the player's
+  sessions. `@google/genai` uninstalled; `GEMINI_API_KEY` removed from
+  `.env.example`. Verified: `POST /api/training/copilot` → 404, `/training`
+  → 200, build 134 → 130 pages.
+  **Still needs Niran:** delete `GEMINI_API_KEY` from Vercel **and revoke the
+  key at Google**. An unused key in an env var is still a live credential.
 - [ ] **P1-SEC-2 Restrict public-profile reads** — `profiles_discovery_read` lets any authenticated user read the *whole row* (email, GPA, grade, family_code, stripe ids) of any profile with `privacy_level='public'` (1 such row live). Friends feature is gone, so drop the public/friends branches or expose a narrow view. Acceptance: SQL test as stranger returns no columns beyond name/grad year (or nothing).
 - [ ] **P1-SEC-3 Rate limiting + abuse controls** — none exist on any API route, signup, family join, or check-in. Add Vercel Firewall rate-limit rules (cheapest) for `/api/*` and auth. Enable Supabase leaked-password protection (advisor WARN, confirmed).
 - [ ] **P1-SEC-4 Security headers** — `next.config.mjs` sets none. Add CSP (start report-only), `X-Frame-Options: DENY`/`frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
-- [ ] **P1-SEC-5 Remove dead billing surface** — `/api/stripe/{checkout,portal,webhook}` are live endpoints for a path that isn't used. Delete them and `lib/stripe.ts`; keep the columns until a cleanup migration.
+- [x] **P1-SEC-5 Remove dead billing surface** — COMPLETE (same commit).
+  Deleted `/api/stripe/{checkout,portal,webhook}` and `lib/stripe.ts`;
+  uninstalled the `stripe` package; removed `STRIPE_*` from `.env.example`.
+  The `profiles.stripe_*` columns stay until a cleanup migration — no code
+  reads them. Verified: `POST /api/stripe/checkout` → 404.
+  **Still needs Niran:** delete the `STRIPE_*` vars from Vercel and revoke
+  `STRIPE_SECRET_KEY` in the Stripe dashboard.
 - [ ] **P1-SEC-6 Revoke EXECUTE on helper functions from `authenticated` where RLS doesn't need direct RPC access** — advisor flags `are_friends`, `current_family_code`, `has_tier`, `is_family_member`, `is_parent_member` as callable via `/rest/v1/rpc/*`. Low impact (they only answer about the caller) but `is_family_member(code)` is an oracle for valid family codes until P0-2 lands. Drop `are_friends` entirely.
 - [ ] **P1-FIT-1 Fit bands disagree between screens** — `whatIfProjectionFor()` returns `undefined` for any mode except "My pace", and `classifySchoolFit` with no projection returns "reach" for *every* below-floor school. Live result: Stanford is "Out of range" on its own page and on Plan, but "Reach" on `/schools` ("Reach 37 · Out of range 0"). Fix: build a synthetic projection for +1.5/yr and Custom modes; never fall back to unbounded "reach". Tests: same player + school → same band on Plan, Schools, School detail, Today, Outreach, Family.
 - [ ] **P1-FIT-2 Schools page shows the wrong UTR** — `useWhatIfUtr` seeds `useState(currentUTR)` once, before the player loads, so it captures the default `currentUTR: 7` (`lib/auth.ts:275`, `lib/data/user.ts:10`). Live: a 5.81 player sees "You 7.0" on every row. Also "+1.5/yr" is highlighted while the value equals current UTR (Plan page). Fix: reset state when `currentUTR`/`myPaceValue` change, or don't render until the player is loaded.
@@ -388,7 +403,8 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 - See SEO_CHECKLIST.md.
 
 ## AI tasks
-- [ ] P1-SEC-1 (remove copilot for V1). [ ] Any future AI feature must separate DATABASE FACTS from AI INTERPRETATION and pass the rules in CLAUDE.md.
+- [x] P1-SEC-1 — copilot removed. **V1 now ships no AI feature at all.**
+- [ ] Any future AI feature must separate DATABASE FACTS from AI INTERPRETATION and pass every rule in CLAUDE.md (validated structured output, timeout, per-user rate limit, input cap, never another user's data, never an invented recruiting fact, labelled as AI interpretation, degrades when the provider is down). None of that existed in the copilot — that's why it's gone rather than patched.
 
 ## Email tasks
 - [ ] P0-4. [ ] Hide weekly-digest promises (P0-7). Post-V1: pick a provider (Resend), double opt-in for parents, unsubscribe, bounce handling.
@@ -424,9 +440,9 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
 3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
 4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
-5. P1-SEC-1 + P1-SEC-5 — delete `/api/training/copilot` and the Stripe routes.
-6. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
-7. P1-UX-2 — remove Legacy from the product. It is now the only place left with its own copy, its own coach view and its own training wizard, and every honesty guard has to cover it twice.
+5. P1-FIT-1 + P1-FIT-2 — one consistent fit band everywhere; fix the stale "You 7.0" what-if state.
+6. P1-UX-2 — remove Legacy from the product. It is now the only place left with its own copy, its own coach view and its own training wizard, and every honesty guard has to cover it twice.
+7. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
 8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. Now the highest-value remaining product task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range.
 9. P0-8 — minors' privacy, consent and real deletion. **Needs legal/adult review.**
 10. P1-OPS-1 — CI. Every honesty guard added in P0-3/P0-4 is a test, and nothing runs them automatically yet.

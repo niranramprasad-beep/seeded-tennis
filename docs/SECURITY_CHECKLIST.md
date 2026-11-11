@@ -13,11 +13,11 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 | S-1 | **P0** | Users can UPDATE their own `subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*` (column grants + no trigger, confirmed live). Paywall bypass incl. server-side `has_tier()`. `/api/profile` also accepts `role`/`family_code` in its body. | Fix written: `supabase/migrations/022_…sql` (not applied) |
 | S-2 | **P0** | `families` SELECT policy is `true` for all authenticated users (confirmed live) + self-settable `family_code` + `parent_accounts` insert only checks `user_id` → any user can join any family and read a minor's profile/UTR/matches/outreach and write the budget. Codes are `NAME-XXXX` from `Math.random()`. | Open (P0-2) |
 | S-3 | **P0** | Prod and dev share one Supabase project; prod code is already incompatible with live schema. | Open (P0-5/P0-6) |
-| S-4 | P1 | `/api/training/copilot`: authed-only, no tier check, no rate limit, unbounded input, returns raw provider errors, model told to make changes on its own. | Open |
+| S-4 | P1 | `/api/training/copilot`: authed-only, no tier check, no rate limit, unbounded input, returns raw provider errors, model told to make changes on its own. | **Fixed (P1-SEC-1)** — route, component and action handlers deleted; `@google/genai` uninstalled. **Key still needs revoking at Google.** |
 | S-5 | P1 | `profiles_discovery_read` exposes the full row (email, GPA, grade, family_code, stripe ids) of `privacy_level='public'` profiles to every signed-in user (1 live row). | Open |
 | S-6 | P1 | No rate limiting on any route; Supabase leaked-password protection disabled (advisor). | Open |
 | S-7 | P1 | No security headers (CSP, frame-ancestors, referrer, permissions). | Open |
-| S-8 | P1 | Dead Stripe endpoints `/api/stripe/*` are live. | Open |
+| S-8 | P1 | Dead Stripe endpoints `/api/stripe/*` are live. | **Fixed (P1-SEC-5)** — routes and `lib/stripe.ts` deleted; `stripe` uninstalled. **`STRIPE_SECRET_KEY` still needs revoking in Stripe.** |
 | S-9 | P1 | SECURITY DEFINER helpers callable via `/rest/v1/rpc/*` by `authenticated` (advisor). `is_family_member(code)` acts as a code-validity oracle until S-2 is fixed. | Open |
 | S-10 | P2 | API routes return `err.message` from Supabase/Gemini to the client (schema/provider detail leakage). Return generic messages, log details server-side. | Open |
 | S-11 | P2 | `/api/whop/checkout` builds `redirect_url` from the request `Origin` header. Whop restricts redirects to configured domains, but pin it to `NEXT_PUBLIC_SITE_URL` anyway. | Open |
@@ -41,7 +41,8 @@ P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
 - [ ] Rate limits on `/api/*`, signup, login, password reset, family join
 - [ ] Leaked password protection on; minimum password length ≥ 8
 - [ ] Security headers deployed (CSP report-only first)
-- [ ] Copilot + Stripe routes removed
+- [x] Copilot + Stripe routes removed (P1-SEC-1, P1-SEC-5)
+- [ ] **Revoke the removed credentials at the provider**, not just in Vercel: `GEMINI_API_KEY` at Google, `STRIPE_SECRET_KEY` in Stripe. Deleting an env var does not invalidate a key. (Same standing issue as the Whop key — see the repo's open rotation item.)
 - [ ] `get_advisors(security)` returns no ERROR and only accepted WARNs
 - [ ] Dependency audit: `npm audit --omit=dev` reviewed
 

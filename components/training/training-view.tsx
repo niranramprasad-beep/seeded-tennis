@@ -39,7 +39,6 @@ import { SeededActionRail } from "@/components/seeded/training/action-rail";
 import { SeededWeekPlanner } from "@/components/seeded/training/week-planner";
 import { SeededDayPlanner } from "@/components/seeded/training/day-planner";
 import { SeededMonthPlanner } from "@/components/seeded/training/month-planner";
-import type { CopilotAction } from "@/components/training/training-copilot";
 import { cn } from "@/lib/utils";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 import {
@@ -67,16 +66,20 @@ import {
   type TrainingSessionType,
 } from "@/lib/db/events";
 
-// recharts (the donut chart) and the AI copilot panel are both secondary to
-// the actual calendar — load them on the client only once they render,
-// instead of bundling either into /training's initial JS.
+// recharts (the donut chart) is secondary to the actual calendar — load it on
+// the client only once it renders, instead of bundling it into /training's
+// initial JS.
+//
+// The AI copilot panel used to load the same way. It was removed with its
+// route in P1-SEC-1: /api/training/copilot had no tier check, no rate limit
+// and no input cap on a paid Gemini call, returned raw provider errors to the
+// client, and its prompt told the model to "make a reasonable default choice"
+// and write training sessions — which is also the "no auto-generated training
+// plans" rule in CLAUDE.md. Training is POST-V1; this is not a feature to
+// restore without rebuilding all of that.
 const HoursDonutChart = dynamic(
   () => import("@/components/charts/hours-donut-chart").then((mod) => mod.HoursDonutChart),
   { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
-);
-const TrainingCopilot = dynamic(
-  () => import("@/components/training/training-copilot").then((mod) => mod.TrainingCopilot),
-  { ssr: false }
 );
 
 export type PlannerView = "day" | "week" | "month";
@@ -452,72 +455,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     });
   };
 
-  const resolveCopilotTypeId = (action: CopilotAction): string => {
-    const existingById = state.sessionTypes.find((t) => t.id === action.typeId);
-    if (existingById) return existingById.id;
-    const cleanLabel = action.typeLabel.trim();
-    const existingByLabel = state.sessionTypes.find(
-      (t) => t.label.toLowerCase() === cleanLabel.toLowerCase()
-    );
-    if (existingByLabel) return existingByLabel.id;
-    const slug = cleanLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "custom";
-    const newId = `custom-${slug}`;
-    setState((prev) => {
-      if (prev.sessionTypes.some((t) => t.id === newId)) return prev;
-      return {
-        ...prev,
-        sessionTypes: [
-          ...prev.sessionTypes,
-          { id: newId, label: cleanLabel || "Custom", color: "#4F6F52", bg: "bg-grass-50", text: "text-grass" },
-        ],
-      };
-    });
-    return newId;
-  };
-
-  const applyCopilotActions = (actions: CopilotAction[]) => {
-    actions.forEach((action) => {
-      if (action.action === "delete") {
-        if (action.sessionId) deleteSession(action.sessionId);
-        return;
-      }
-
-      const typeId = resolveCopilotTypeId(action);
-
-      if (action.action === "update" && action.sessionId) {
-        const existing = state.sessions.find((s) => s.id === action.sessionId);
-        if (!existing) return;
-        saveSession({
-          ...existing,
-          title: action.title || existing.title,
-          typeId,
-          day: action.day,
-          date: dateForWeekday(action.day),
-          startTime: action.startTime,
-          duration: action.duration || existing.duration,
-          intensity: action.intensity,
-          notes: action.notes,
-          goals: action.goals,
-        });
-        return;
-      }
-
-      saveSession({
-        id: createUuid(),
-        title: action.title || "Training session",
-        typeId,
-        day: action.day,
-        date: dateForWeekday(action.day),
-        startTime: action.startTime || "16:00",
-        duration: action.duration || 60,
-        intensity: action.intensity || "moderate",
-        notes: action.notes,
-        goals: action.goals,
-        drills: [],
-        completed: false,
-      });
-    });
-  };
+  // P1-SEC-1: resolveCopilotTypeId / applyCopilotActions were here. They
+  // turned a model's JSON straight into create/update/delete on the player's
+  // real sessions — the write half of the removed copilot.
 
   const applyPreferences = (preferences: TrainingPreferences) => {
     const generated = generatePersonalizedPlan({
@@ -857,11 +797,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         body={`Saved types: ${state.sessionTypes.map((t) => t.label).join(", ")}. Add new types inside any session form and Seeded will remember them for your next plan.`}
       />
 
-      <TrainingCopilot
-        sessions={activeSessions}
-        sessionTypes={state.sessionTypes}
-        onActions={applyCopilotActions}
-      />
+      {/* The floating <TrainingCopilot> panel was here — removed with its
+          route in P1-SEC-1. The calendar below it is unaffected; it was
+          always a manual planner, and the copilot only wrote into it. */}
     </div>
   );
 }
