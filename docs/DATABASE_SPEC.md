@@ -33,26 +33,67 @@ profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
 `set_updated_at`, `current_family_code`, `is_family_member`, `is_parent_member`, `are_friends` (dead), `has_tier`. `anon` EXECUTE revoked; `authenticated` can call all via RPC (advisor WARN).
 
 ## Migrations
-Repo files `0001`…`021` (no `012` — reserved for roster import), plus two
-written but **not applied**:
-- `022_lock_privileged_profile_columns.sql` (P0-1)
-- `024_tier_gating_outreach_player_free_targets.sql` (P1-PRICE-1) — moves
-  `coach_outreach` writes from `has_tier('family')` to `has_tier('player')`
-  and adds a trigger capping Free accounts at 3 `target_school_slugs`.
 
-`023` is reserved for P0-2's `join_family()` RPC (not yet written), which is
-why the pricing migration is `024`.
+### Two environments now
+| | project | migrations applied |
+|---|---|---|
+| **Production** | `tfpjssmhiptbwigarxpx` | 23 (through `performance_rls_and_indexes`) |
+| **Staging** | `gnlcpnsweqbtwpaqhqqg` | the same 23, **plus** 025, 022, 023, 024 |
 
-⚠️ **`024` is coupled to the code already on `v1`.** The UI gates outreach at
-`player` and caps Free targets at 3. If `v1` merges to `main` without `024`
-applied, a Player-tier user gets an outreach board that fails every write.
-Apply it before or during that merge.
+Staging was built from this repo on 2026-11-14 and verified against
+production with a nine-category schema fingerprint (columns, constraints,
+policies, indexes, triggers, functions, function grants, table grants, RLS
+flags). All nine matched exactly before the new migrations were applied.
 
-Live history uses different names: `0001`–`006` match; later ones are
-timestamped (e.g. `20261110205721 outreach_stages`). Two live migrations
-have no repo file: `rls_auto_enable_revoke_direct_grants`,
-`set_updated_at_revoke_authenticated_direct_grant` (content only in `020`'s
-comments). Fix in P1-OPS-3.
+### ⚠️ The repo does not reproduce production on its own
+Building a clean database from `0001`…`021` produces a **different**
+`profiles` table from the one in production. Cause: `0001_init.sql` creates
+`profiles` loosely, and `001_initial_saas_schema.sql`'s
+`create table if not exists` is then a no-op — so every NOT NULL, default
+and inline CHECK in that block is silently skipped.
+
+Drift found (all now fixed by `025`):
+`current_utr` `numeric` vs `numeric(4,2)` · `name` missing its `''` default ·
+`role`, `target_school_slugs`, `weaknesses` nullable instead of NOT NULL ·
+`profiles_tournaments_played_check` and `profiles_tournaments_goal_check`
+missing · **`profiles_grade_check` as `grade >= 8` instead of `grade >= 1`,
+which rejects any player below 8th grade and breaks the under-13 flow.**
+
+`025_reconcile_profiles_schema_drift.sql` fixes all of it, is fully guarded,
+and is a verified no-op against production.
+
+### Live-only migrations — resolved
+P1-OPS-3 recorded two migrations present on production with no repo file.
+Recovered 2026-11-14 by diffing function grants:
+- `set_updated_at_revoke_authenticated_direct_grant` — exactly
+  `revoke execute on function public.set_updated_at() from authenticated;`
+  Now reproduced on staging; function-grant fingerprints match.
+- `rls_auto_enable_revoke_direct_grants` — **no separate content needed.**
+  `020` already performs those revokes, and `rls_auto_enable` is a Supabase
+  *platform* default (it is present on a brand-new empty project and on
+  production identically), not a Seeded object.
+
+### Ordering note
+Production applied `019_rls_policy_hardening` BEFORE
+`018_revoke_anon_execute_security_definer` (timestamps `…205945` vs
+`…205957`), the reverse of the repo's numbering. Staging was built in
+production's order. Applying them in repo-number order instead is believed
+harmless — 018's revokes are independent of 019's policies — but it has not
+been tested, so follow production's order if rebuilding.
+
+### Repo files
+`0001`…`021` (no `012` — reserved for the roster import), plus:
+- `022_lock_privileged_profile_columns.sql` — P0-1. **Staging only.**
+- `023_family_join_rpc.sql` — P0-2. **Staging only.** Breaks `lib/auth.ts`; see TODO item 1.
+- `024_tier_gating_outreach_player_free_targets.sql` — P1-PRICE-1. **Staging only.**
+- `025_reconcile_profiles_schema_drift.sql` — the drift above. **Staging only**, no-op on prod.
+
+Rollout order and per-step rollback: `docs/HANDOFF.md` §J.
+
+### Migration history naming
+Production uses `0001`–`006` then timestamps. Staging is all timestamps
+(the MCP assigns them). Names match the repo files, so the two map cleanly
+by name, not by version string.
 
 ## Conventions
 - Every new table: RLS on, policies `to authenticated`, `(select auth.uid())` form, FK indexes.

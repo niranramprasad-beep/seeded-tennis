@@ -590,3 +590,187 @@ is just the honest current-state description):
   tests with Supabase clients mocked at the call site. If you ever add a
   test that genuinely needs Supabase connectivity, that's a new pattern
   for this repo, think carefully before introducing it.
+
+---
+
+## J. Production rollout plan — P0-1, P0-2, P1-PRICE-1 (written 2026-11-14)
+
+Everything below is **already applied and tested on staging**
+(`gnlcpnsweqbtwpaqhqqg`), never on production. Production
+(`tfpjssmhiptbwigarxpx`) is untouched by this work.
+
+**Current production state:** serving the maintenance page since
+2026-11-14 (`main` @ `d059006`, verified live: 503 + `Retry-After: 3600` +
+`X-Robots-Tag: noindex` on `/`, `/schools` and `/api/profile`). Users are
+not hitting the app, which is what makes this rollout low-risk — but it
+also means **the clock is running**, so don't sit in this state longer
+than needed.
+
+### The one-paragraph version
+Apply four migrations to production in order (025 → 022 → 023 → 024),
+verifying after each; then revert the maintenance commit and merge `v1`
+to `main` as a single PR with CI green. The database changes go FIRST and
+are all backwards-compatible with the code currently on `main`, so there
+is no window where deployed code is talking to a schema it doesn't
+understand. Code goes last.
+
+### Pre-flight (do all of these before touching production)
+- [ ] `verify` CI job green on `v1` (P1-OPS-1; branch protection on `main` set up)
+- [ ] Take a fresh production backup / PITR checkpoint. Supabase → Database → Backups. **Note the timestamp here: ______**
+- [ ] Confirm production still has exactly 23 applied migrations (`list_migrations`); if it has more, someone changed it and this plan is stale
+- [ ] Re-run the schema fingerprint on prod and staging. Expect them to differ ONLY by 022/023/024/025 — if anything else differs, stop
+- [ ] Confirm the Whop webhook's service-role path is understood: 022 and 024 both exempt `service_role`, so billing writes keep working
+- [ ] Have the rollback SQL for each step pasted into a scratch buffer BEFORE you start
+
+### Step 1 — migration 025 (reconcile profiles schema drift)
+**What:** tightens `profiles` to the definition production already has.
+**Expected effect on production: NONE.** Every statement is guarded and
+production already satisfies all of them. It is in this list so prod and a
+repo-built database converge, not because prod needs it.
+**Apply:** `supabase/migrations/025_reconcile_profiles_schema_drift.sql`
+**Verify:** the verification block at the bottom of the file returns zero rows; schema fingerprint unchanged from before the step.
+**Rollback:** nothing to roll back — it is a no-op on prod. If it somehow
+alters something, restore from the pre-flight backup.
+**Risk: very low.**
+
+### Step 2 — migration 022 (P0-1: lock privileged profile columns)
+**What:** a `BEFORE INSERT OR UPDATE` trigger on `profiles` that rejects
+client changes to `subscription_tier`, `role`, `family_code`,
+`whop_membership_id`, `stripe_*`. Exempts `service_role`/`postgres`/`supabase_admin`.
+**Apply:** `supabase/migrations/022_lock_privileged_profile_columns.sql`
+**Verify (as a real authenticated user, not postgres):** all four
+escalations rejected with `42501`; a normal `name` edit still succeeds.
+Then confirm the Whop webhook can still upgrade a test account.
+**Rollback:**
+```sql
+drop trigger if exists profiles_protect_privileged on public.profiles;
+```
+The function can stay; the trigger is what enforces.
+**Risk: low, and instantly reversible.**
+**Known behaviour change:** `family_code` becomes unchangeable on UPDATE
+from the client. A player who signs up without a family and later creates
+one must go through a server-side path. Check this against the live signup
+flow before shipping the code in step 5 — it is fine for existing users.
+
+### Step 3 — migration 023 (P0-2: join_family RPC)
+**What:** pending/approved state on `parent_accounts`; `families` readable
+by members only; no direct `parent_accounts` INSERT; `join_family()` and
+`approve_family_join()` RPCs; rate limiting; `generate_family_code()`;
+family-read policies switched to `is_family_member()`.
+**This is the only step that changes behaviour for existing users.**
+It backfills every existing `parent_accounts` row to `'approved'`, so
+nobody currently linked is locked out. **Verify the backfill count matches
+the row count before you proceed.**
+**Apply:** `supabase/migrations/023_family_join_rpc.sql`
+**Verify:**
+```sql
+select status, count(*) from public.parent_accounts group by status;
+-- expect: every pre-existing row 'approved', zero 'pending'
+```
+then the attack suite: stranger sees 0 families; direct `parent_accounts`
+insert rejected; `join_family` on a valid code returns `pending`; a pending
+link reads nothing; rate limit fires on attempt 6; an approved parent CAN
+read the child's UTR history.
+**Rollback:**
+```sql
+drop policy if exists families_readable_by_members on public.families;
+create policy "families readable" on public.families
+  for select to authenticated using (true);
+create policy "parent_accounts_insert_self" on public.parent_accounts
+  for insert to authenticated with check (user_id = (select auth.uid()));
+-- restore the pre-023 helper definitions (drop the `status = 'approved'` clause)
+-- and the pre-023 family-read policies from migration 021's text.
+```
+**The `status`/`approved_at`/`approved_by` columns and the RPCs can stay —
+they are additive and harmless once the policies are back.** Do not drop
+them in a hurry; dropping columns is the only irreversible move here.
+**Risk: medium — it is the one with a real behaviour change.** Roll back
+by restoring policies, not by dropping columns.
+
+### Step 4 — migration 024 (P1-PRICE-1: pricing gates)
+**What:** `coach_outreach` writes move from `has_tier('family')` to
+`has_tier('player')`; a trigger caps Free accounts at 3 target schools.
+**Order matters:** this must land BEFORE the step-5 code, because the `v1`
+code already gates outreach at Player. Shipping the code first would give
+Player-tier users an outreach board that fails every write.
+**Apply:** `supabase/migrations/024_tier_gating_outreach_player_free_targets.sql`
+**Verify:** Free user blocked from `coach_outreach` insert; Player-tier
+user allowed; Free user allowed 3 targets and blocked at 4; Player allowed
+8; a downgraded user with 8 can still prune to 5.
+**Check first:** any existing Free account already holding >3 targets keeps
+them (the trigger only blocks *growth*), but cannot add more until they
+prune. Count them before shipping so the support answer is ready:
+```sql
+select count(*) from public.profiles
+where subscription_tier='free' and coalesce(array_length(target_school_slugs,1),0) > 3;
+```
+**Rollback:**
+```sql
+drop trigger if exists enforce_free_tier_target_limit on public.profiles;
+drop policy if exists coach_outreach_write_own on public.coach_outreach;
+create policy coach_outreach_write_own on public.coach_outreach
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()) and public.has_tier('family'));
+```
+**Risk: low, instantly reversible** — but if you roll this back you must
+also roll back the step-5 code, or the UI offers outreach the DB refuses.
+
+### Step 5 — the code (`v1` → `main`)
+Only after steps 1–4 are applied and verified.
+1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
+2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
+3. Merge. Vercel auto-deploys `main` to seededtennis.com.
+4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
+**Rollback:** Vercel → Deployments → the previous production deployment →
+"Promote to Production". Instant, code-only. The database changes do NOT
+roll back with it — but every one of steps 1–4 is backwards-compatible
+with the old code **except 024's outreach tier change**, so if you roll the
+code back, also run 024's rollback SQL.
+
+### After
+- [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
+- [ ] Update `docs/DATABASE_SPEC.md`: mark 022/023/024/025 applied to production, with the date
+- [ ] Regenerate `lib/db/database.types.ts` against production (`generate_typescript_types`) — `parent_accounts` gained three columns
+- [ ] Point Vercel **Preview** and local **Development** at staging (P0-6's remaining half) so this never has to be rehearsed on prod again
+- [ ] Revoke the Gemini and Stripe keys; rotate Whop
+
+### ⛔ HARD BLOCKER before step 5 — `lib/auth.ts` is incompatible with 023
+
+Verified by reading `completeFamilySignup()` in `lib/auth.ts` (2026-11-14).
+023 breaks parent signup in **three** places, all in that one function:
+
+1. **Line ~589, joining a family.** It validates the code with
+   `supa.from("families").select("code").eq("code", …)`. 023 makes
+   `families` readable by members only, so a prospective parent — who is
+   by definition not yet a member — gets zero rows and the UI says
+   *"That family code wasn't found."* for a perfectly valid code.
+   → Replace with `supa.rpc("join_family", { p_code: … })` and branch on
+   the returned status (`pending` / `invalid` / `own_family` / `already`).
+   Note it RETURNS a status rather than throwing; see the comment in 023.
+
+2. **Line ~626, the parent link.** It upserts `parent_accounts` directly.
+   023 drops `parent_accounts_insert_self`, so this is rejected outright.
+   → Delete it; `join_family()` creates the row.
+
+3. **Line ~608, the profile upsert.** It writes `role` and `family_code`.
+   On a genuinely new row 022 permits both, but this is an **upsert** — if
+   the profile row already exists it becomes an UPDATE, which 022 rejects
+   with `42501`. → Split create from update, or route it through a
+   server-side path that runs as the service role.
+
+Also: `generateFamilyCode()` (line 31) still builds `FIRSTNAME-XXXX` from
+`Math.random()`. 023 ships `generate_family_code()` as a replacement; the
+app should call it. Not a blocker — existing codes keep working — but the
+weak generator is half of why P0-2 was exploitable.
+
+**None of this is written yet.** Until it is, applying 023 to production
+and shipping `v1` would close the security hole and break parent signup in
+the same release. See `docs/TODO.md` item 1.
+
+### What this plan deliberately does NOT do
+- It does not rewrite `lib/auth.ts` (see the blocker above) — that is a
+  change to how family linking works, which needs sign-off, not a
+  drive-by edit at the end of a migration session.
+- It does not drop `badges`/`friendships`/`are_friends()` (P3).
+- It does not touch `profiles.stripe_*` columns (kept until a cleanup migration).

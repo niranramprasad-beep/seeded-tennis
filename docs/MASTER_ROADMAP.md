@@ -55,8 +55,13 @@ guards added this session only protect the product if someone runs them.
 
 ## Current production-readiness score
 
-**43 / 100** (31 at the 2026-11-10 audit; P0-3, P0-4, P0-7, P1-SEC-1,
-P1-SEC-5, P1-FIT-1 and P1-FIT-2 closed since)
+**52 / 100** (31 at the 2026-11-10 audit)
+
+Closed since: P0-3, P0-4, P0-7, P1-SEC-1, P1-SEC-5, P1-FIT-1, P1-FIT-2,
+P1-OPS-1 (CI), P1-OPS-3 (migration drift), and P0-6 in substance (staging
+exists and matches prod). P0-1, P0-2 and P1-PRICE-1 are written, applied
+and attack-tested on staging but **not on production** — they count as
+fixed only once they ship.
 
 The three remaining P0s are the expensive ones: two authorization holes
 (P0-1, P0-2), no staging database (P0-5/P0-6), and minors' privacy (P0-8).
@@ -65,10 +70,10 @@ writing code alone.
 
 | Area | Score | Why |
 |---|---|---|
-| Security | 4/10 | Two confirmed P0 authorization holes remain (P0-1, P0-2); no rate limits; no headers. Dead/unsafe surface removed: the ungated Gemini route and the Stripe endpoints (P1-SEC-1/5) |
+| Security | 6/10 | Both P0 authorization holes are fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Two further bugs found and fixed during testing (S-15, S-16). Still missing: rate limits outside family-join, security headers, P1-SEC-2 |
 | Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
-| Reliability/Deploy | 3/10 | Prod and dev share one DB; prod code already incompatible with it; no CI |
+| Reliability/Deploy | 6/10 | Staging exists and is a verified schema clone; CI runs typecheck/lint/tests/build on every PR; production is in a deliberate maintenance state with a written rollout + rollback plan. Still missing: branch protection, and Preview/Development still point at production |
 | Legal/privacy | 3/10 | Minors, COPPA, one-paragraph privacy policy, deletion still not implemented — but the UI no longer tells a minor their data will be "removed within 30 days" when nothing removes it (P0-7) |
 | Testing | 6/10 | 426 unit tests pass, incl. four build-failing honesty guards (catalog, copy, coach email, fit-band agreement) each confirmed to fail when its bug is reintroduced; still zero integration/E2E/RLS tests, and no CI runs any of it |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
@@ -79,9 +84,13 @@ writing code alone.
 
 - [ ] **P0-1 Lock privileged `profiles` columns**
 
-  Status: READY (needs sign-off to apply migration)
+  Status: **APPLIED + ATTACK-TESTED ON STAGING (2026-11-14). Not on production.**
   Priority: P0
   Category: Security / Billing
+  Staging result: 5/5. Self-upgrading `subscription_tier`, promoting to
+  `role=parent`, setting own `family_code`, and repointing
+  `whop_membership_id` are all rejected with `42501`; a normal `name` edit
+  still succeeds. Production rollout + rollback: HANDOFF §J step 2.
   Why this matters: Any signed-in user can run
   `PATCH /rest/v1/profiles?id=eq.<own id>` with
   `{"subscription_tier":"family"}` using the public publishable key and
@@ -104,9 +113,22 @@ writing code alone.
 
 - [ ] **P0-2 Stop users from joining families they don't belong to**
 
-  Status: READY (needs design sign-off)
+  Status: **APPLIED + ATTACK-TESTED ON STAGING (2026-11-14). Not on production.**
   Priority: P0
   Category: Security / Privacy (minors)
+  Written as `023_family_join_rpc.sql`. Staging result: 12/12 across the
+  attack suite and the happy path — a stranger sees 0 families, a direct
+  `parent_accounts` insert is rejected, `join_family()` on a valid code
+  yields only `pending`, a pending link reads nothing, self-approval is
+  rejected, brute force is blocked at attempt 6, and an APPROVED parent can
+  read the child's UTR history while an unlinked stranger still cannot.
+  Two real bugs were found and fixed in the process — see SECURITY_CHECKLIST
+  S-15 (the rate limiter recorded nothing, because raising rolled back its
+  own log) and S-16 (closing the hole also closed the legitimate
+  parent-read path, since they were the same mechanism).
+  ⛔ **Blocked on code:** 023 breaks `completeFamilySignup()` in
+  `lib/auth.ts` in three places, and there is no approval UI anywhere.
+  TODO item 1. Production rollout + rollback: HANDOFF §J step 3.
   Why this matters: `families` has policy `families readable` = `true` for all authenticated users (confirmed live). Any user can list every family code, set their own `profiles.family_code` + `role='parent'` (P0-1), or insert a `parent_accounts` row for any code (policy only checks `user_id = auth.uid()`). They then pass `is_family_member()` / `is_parent_member()` and can read that child's profile (incl. email, GPA, grade), UTR history, matches, outreach, check-ins, and write the family budget. Family codes are `FIRSTNAME-XXXX` with `Math.random()` — guessable even without the list.
   Dependencies: P0-1
   Affected files: `lib/auth.ts` (`generateFamilyCode`, parent signup, join flow), `components/auth/*parent*`, new migration `023_family_join_rpc.sql`
@@ -183,22 +205,22 @@ writing code alone.
 
 - [ ] **P0-6 Separate development/staging data from production**
 
-  Status: **BLOCKED — cannot authenticate to the candidate project (2026-11-11)**
+  Status: **MOSTLY DONE (2026-11-14) — staging exists; env wiring remains**
   Priority: P0
   Category: Deployment / Data safety
   Why this matters: Local dev, preview deploys, and production all use Supabase `tfpjssmhiptbwigarxpx`. A migration for an unmerged branch already broke prod (P0-5). Every local sign-in touches real users' data (this audit had to sign into a real account locally because no test project exists).
-  Blocker: Niran nominated the second project `gnlcpnsweqbtwpaqhqqg`
-  ("niranramprasad-beep's Project", created 2026-05-23 — two days *before*
-  the real one — ACTIVE_HEALTHY, region us-east-2 vs production's us-west-1).
-  Project metadata reads fine, but **every database call fails with
-  `FATAL 28P01: password authentication failed`** for both `postgres` and
-  `supabase_read_only_user`. So it is impossible to confirm whether the
-  project is empty, and nothing was applied to it — adopting a database you
-  cannot inspect is how you discover it wasn't empty.
-  Unblock: reset the database password in that project's Settings → Database,
-  then re-inspect. If it holds anything real, pick a fresh project instead.
-  Note once it is reachable: the region differs from production. Fine for
-  staging, but latency-sensitive behaviour won't be identical.
+  What landed: the DB password reset fixed the tooling's own connection (no
+  credential had to be copied anywhere). Verified the project was genuinely
+  empty — 0 tables, 0 auth users, 0 storage, no migrations table — then
+  applied all 23 of production's migrations **in production's real order**
+  and confirmed a nine-category schema fingerprint matches prod exactly.
+  Staging also holds three clearly-fake test users (`*@test.example`) and
+  one family `TESTFAMILYA`, left as seed data.
+  **Still to do:** point Vercel **Preview** and local **Development** at
+  staging (Production stays put). Until that happens, local dev still reads
+  real users' data — the original reason this was a P0. See TODO item 2.
+  Note: staging is us-east-2, production us-west-1. Fine for correctness,
+  not latency-identical.
   Dependencies: none — but it blocks P0-1 and P0-2, which must be applied to
   staging before production.
   Affected files: `.env.example`, Vercel env vars (Preview vs Production), `docs/DEPLOYMENT_CHECKLIST.md`
@@ -378,8 +400,8 @@ writing code alone.
   status checks to pass* → select **`verify`**. Without that, the workflow
   reports but blocks nothing.
 - [ ] **P1-OPS-2 Error tracking + uptime** — add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
-- [ ] **P1-OPS-3 Migration history drift** — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
-- [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE, MIGRATION DRAFTED.
+- [x] **P1-OPS-3 Migration history drift** — RESOLVED 2026-11-14. Both live-only migrations accounted for: one recovered as a single real statement, the other shown to need no content (`rls_auto_enable` is a Supabase platform default, and `020` already does its revokes). Also uncovered a bigger problem — the repo did not reproduce production at all; see migration 025 and DATABASE_SPEC. Original note follows. ~~ — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
+- [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE; MIGRATION APPLIED + TESTED ON STAGING (6/6: Free blocked from outreach, Player allowed, Free capped at 3 targets, Player unlimited, downgraded account can still prune). Not on production.
   Niran's decision (2026-11-11): **outreach belongs in Player ($19), not
   Family ($39); Free tracks 3 schools.** Outreach is the core recruiting
   loop — gating it at the top tier put the product's whole point behind the
@@ -537,30 +559,27 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-1. **P0-6 — staging project. BLOCKED, and it blocks 3 and 4.** Niran nominated
-   the second Supabase project (`gnlcpnsweqbtwpaqhqqg`, "niranramprasad-beep's
-   Project", created 2026-05-23, ACTIVE_HEALTHY, us-east-2). **Could not
-   verify whether it is empty:** every database call fails with
-   `28P01 password authentication failed` for both `postgres` and
-   `supabase_read_only_user`, while project metadata reads fine. Almost
-   certainly a database password the tooling doesn't hold. Niran: reset the
-   DB password in that project's Settings → Database, then it can be
-   inspected and — if genuinely empty — adopted as staging.
-   **Not adopted, no migrations applied, nothing written to it.**
-2. P0-5 — production is in maintenance mode as of 2026-11-11 (`middleware.ts`
-   on `main`, one revertable commit), which stops the broken `contacted`
-   writes from reaching users. The real close-out is the `v1` merge.
-3. P0-1 — migration 022: lock privileged `profiles` columns. SQL drafted;
-   needs staging (blocked on 1), then sign-off, then prod. **Needs Niran.**
-4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`,
-   crypto-random codes. Not yet written; needs staging first. **Needs Niran.**
-5. P1-FIT-4 — the last unbounded "Reach". Pre-auth/onboarding is now the only `classifySchoolFit` call with no projection; `syntheticUtrHistoryFor()` is the ready-made fix.
-6. P1-FIT-3 — projection outputs are still nonsense on noisy data ("Projected 4.3" for a 5.81 player). Needs outlier rejection and a floor.
-7. P1-UX-2 — remove Legacy from the product. It is the only place left with its own copy and its own coach view, and every honesty guard has to cover it twice.
-8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. The highest-value remaining *product* task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range, and every roster number still reads "Unverified estimate".
-9. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
-10. P1-OPS-2 — error tracking + uptime. With production in maintenance this is quiet, but nothing would tell us if the real site broke after the merge.
+1. ⛔ **Rewrite `completeFamilySignup()` in `lib/auth.ts` for 023.** The
+   migration is applied and tested on staging; the app is not compatible
+   with it. Three specific breakages + a missing approval UI — TODO item 1,
+   HANDOFF §J "HARD BLOCKER". **Needs sign-off** (changes family linking).
+2. **Point Vercel Preview + local Development at staging.** The other half
+   of P0-6. Staging is a verified clone now, so there is no longer a reason
+   for local dev to read real users' data.
+3. **Branch protection on `main`** so CI actually gates. Needs Niran.
+4. **Run the production rollout** (HANDOFF §J): 025 → 022 → 023 → 024, then
+   revert the maintenance commit and merge `v1`. Blocked on 1–3.
+5. **Revoke the removed credentials** — Gemini at Google, Stripe secret in
+   Stripe, rotate Whop. Needs Niran.
+6. P1-FIT-4 — the last `classifySchoolFit` call with no projection
+   (`seeded-pre-auth-onboarding.tsx:44`); `syntheticUtrHistoryFor()` is the
+   ready-made fix.
+7. P1-FIT-3 — projections are still nonsense on noisy data.
+8. P1-DATA-1 — real roster import. Still the highest-value product task: a
+   5.81 player has zero schools in range.
+9. P1-UX-2 — delete Legacy.
+10. P0-8 — minors' privacy, consent, real deletion. Needs legal/adult review.
 
-**Needs Niran before anything else ships:** P0-5, P0-6, P0-1, P0-2 (above),
-plus P0-8 (minors' privacy — legal/adult review) and revoking the Gemini and
-Stripe keys removed in P1-SEC-1/5.
+**Production is in maintenance mode** (`main` @ `d059006`, verified live
+503 on 2026-11-14). That makes this rollout low-risk, but the clock is
+running — don't sit here longer than needed.

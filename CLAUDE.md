@@ -21,10 +21,12 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
 6. `docs/HANDOFF.md` — long-form history and route table (see its correction banner).
 
 ## Current blockers (keep in sync with MASTER_ROADMAP)
-- P0-1/P0-2: users can self-assign `subscription_tier`, `role`, `family_code` and join any family. Fix drafted in `supabase/migrations/022_…sql` (not applied).
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
-- P0-5/P0-6: prod (`main`) is broken against the shared DB; there is no staging project.
+- P0-5: production is in **maintenance mode** since 2026-11-14 (`main` @ `d059006`, one revertable commit adding `middleware.ts`, verified live 503). The broken `contacted` write no longer reaches users. Real close-out is the `v1` merge.
+- P0-6: **staging exists** — `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone of production. Still to do: point Vercel Preview + local Development at it. Until then local dev still reads real users' data.
+- P0-1/P0-2/P1-PRICE-1 migrations (022, 023, 024) are **applied and attack-tested on staging, NOT on production.** 18/18 attack tests pass. Rollout + rollback: `docs/HANDOFF.md` §J.
+- ⛔ **023 breaks `completeFamilySignup()` in `lib/auth.ts`** (three call sites) and there is no parent-approval UI. Do not ship `v1` until that is fixed — `docs/TODO.md` item 1.
 - P0-7: DONE — removed "Rosters verified Oct 2026", "every team rating shows its source and date", the Sunday-email promise, the Notifications card + tab, the Public-recruiting-page toggle, "Removes everything within 30 days", "all D1 programs", and both "within 48 hours" promises. `lib/copy-honesty.test.ts` fails the build if any phrasing returns. **When a claim becomes true, delete its entry from that test in the same commit — don't reword around it.**
 - P0-8: open, needs legal/adult review. Deletion still doesn't delete; the UI now says so.
 - P1-FIT-1/P1-FIT-2: DONE — `whatIfProjectionFor()` always returns a projection (synthetic straight line for the hypothetical modes), and the untouched what-if panel passes the *real* projection, so every screen agrees by construction. `useWhatIfUtr` stores only the player's explicit choice; everything else derives from props, so it can't capture the placeholder `currentUTR: 7` again. Guarded by `lib/fit-band-consistency.test.ts`.
@@ -93,7 +95,17 @@ npx next lint                # lint
 ```
 
 Migrations and Supabase type generation are done via the Supabase MCP's
-`apply_migration` / `generate_typescript_types` tools against the live
-project — there's no local Supabase CLI step in this project's workflow.
-Never apply a migration without explicit sign-off; write the `.sql` file
-and wait to be told to run it.
+`apply_migration` / `generate_typescript_types` tools. **There are two
+projects now:**
+- `gnlcpnsweqbtwpaqhqqg` — **staging.** Safe to apply to. Holds clearly-fake
+  test users (`*@test.example`) and family `TESTFAMILYA`.
+- `tfpjssmhiptbwigarxpx` — **production.** Read-only unless Niran has given
+  current-turn sign-off for a specific migration.
+
+Always apply to staging first and verify with the nine-category schema
+fingerprint before proposing anything for production.
+
+**The repo does not reproduce production from `0001` alone** — see
+`025_reconcile_profiles_schema_drift.sql` and DATABASE_SPEC. If you build a
+fresh database, apply 025 too, and apply 019 before 018 (production's real
+order, which is not the repo's numbering).

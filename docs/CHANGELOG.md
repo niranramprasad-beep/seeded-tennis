@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-14 — Staging exists; P0-1, P0-2 and the pricing gates applied and attack-tested there
+- **Staging is real.** Adopted the second Supabase project (`gnlcpnsweqbtwpaqhqqg`) after verifying it was genuinely empty — 0 tables, 0 auth users, 0 storage, no migrations table. (The earlier `28P01` auth failures were a stale DB password; resetting it fixed the tooling's own connection, so no credential had to be copied anywhere.)
+- Applied all 23 of production's migrations to it **in production's real order** — which is not the repo's numbering: prod ran `019_rls_policy_hardening` *before* `018_revoke_anon_execute_security_definer`.
+- Verified with a nine-category schema fingerprint (columns, constraints, policies, indexes, triggers, functions, function grants, table grants, RLS flags). **All nine now match production exactly.**
+- **Recovered a lost migration.** P1-OPS-3 listed two migrations live on prod with no repo file. Diffing function grants showed exactly one real statement was missing — `revoke execute on function public.set_updated_at() from authenticated` — and that the other (`rls_auto_enable_revoke_direct_grants`) needs no content, because `020` already does those revokes and `rls_auto_enable` is a Supabase platform default present on a brand-new empty project.
+- **The repo did not reproduce production.** `0001_init.sql` creates `profiles` loosely and `001_initial_saas_schema.sql`'s `create table if not exists` is then a no-op, so its NOT NULLs, defaults and inline CHECKs never applied. Worst of it: `profiles_grade_check` stayed `grade >= 8`, which **rejects any player below 8th grade and breaks the under-13 flow.** Fixed by the new `025_reconcile_profiles_schema_drift.sql`, which is guarded and a verified no-op on production.
+- Wrote `023_family_join_rpc.sql` (P0-2): members-only `families` read, no direct `parent_accounts` insert, `join_family()` / `approve_family_join()` RPCs, joins land *pending* until a member approves, rate limiting, and `generate_family_code()` from `gen_random_bytes` instead of `Math.random()`.
+- Applied 025 → 022 → 023 → 024 to **staging only** and attack-tested each as a real `authenticated` user. **18/18 pass.** Two of those passes are fixes for bugs the tests found:
+  - **S-15:** `join_family()` logged each attempt then raised for an invalid code — and raising rolls the function's own work back, so the rate limiter counted zero failures and brute force was unlimited. Expected outcomes now return a status; only auth and rate-limit raise.
+  - **S-16:** with 022+023 applied, an approved parent could read *nothing*. The family-read policies keyed off the reader's own `profiles.family_code`, and the only way a parent ever got that set was the very self-assignment 022 now blocks — the legitimate path and the attack were the same mechanism. Switched to `is_family_member()`, which requires an approved link.
+- **Production untouched.** Confirmed still on its original 23 migrations, read-only access only. Rollout plan with per-step rollback: `docs/HANDOFF.md` §J.
+- ⛔ **Known blocker:** 023 breaks `completeFamilySignup()` in `lib/auth.ts` in three places (the `families` lookup, the direct `parent_accounts` upsert, and the `role`/`family_code` upsert). Not fixed here — it changes how family linking works and needs sign-off. `docs/TODO.md` item 1.
+- Added `docs/TODO.md`.
+
 ## 2026-11-11 — P1-OPS-1: CI
 - Added `.github/workflows/ci.yml`: `npm ci` → typecheck → lint → tests → build, on every PR into `main` or `v1` and every push to either. One job (`verify`) so there's a single required status check to configure.
 - Node pinned to **24** to match the Vercel project's runtime — CI passing on a different major than production builds on is a gap worth not having.
