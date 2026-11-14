@@ -30,6 +30,20 @@
 - [ ] Env vars diffed (names only) between Preview and Production
 - [ ] Rollback target noted (previous production deployment ID)
 
+## Branch protection (one-time GitHub setting — P1-OPS-1)
+`.github/workflows/ci.yml` runs typecheck, lint, tests and build, but a
+workflow only *reports*; it blocks nothing by itself. To make it a gate:
+
+Settings → Branches → Add branch ruleset / rule for `main`:
+- [ ] Require a pull request before merging
+- [ ] Require status checks to pass → select **`verify`**
+- [ ] Require branches to be up to date before merging
+- [ ] (optional) Do not allow bypassing the above settings
+
+Note: the maintenance-mode commit was pushed directly to `main` before this
+rule exists. Once the rule is on, direct pushes to `main` stop working — which
+is the point, but it means the `v1` merge must go through a PR.
+
 ## Rollback
 1. Vercel → Deployments → previous production deployment → "Promote to Production" (instant; code only).
 2. Database changes do **not** roll back with the code. Every migration needs a written down-path or must be additive.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-11 — P1-OPS-1: CI
+- Added `.github/workflows/ci.yml`: `npm ci` → typecheck → lint → tests → build, on every PR into `main` or `v1` and every push to either. One job (`verify`) so there's a single required status check to configure.
+- Node pinned to **24** to match the Vercel project's runtime — CI passing on a different major than production builds on is a gap worth not having.
+- Needs no secrets: verified `next build` completes with `.env.local` removed entirely (static generation included).
+- The build step retries up to 3×. `next/font` fetches Google Fonts at build time and intermittently fails with `Cannot read properties of null (reading '1')` — reproduced locally several times on otherwise identical runs, with and without env. A required check that fails at random is one people learn to force-merge past, which would defeat the purpose. Typecheck/lint/tests get one attempt each. Logged a P2 to self-host the fonts and delete the retry.
+- **Branch protection is a GitHub setting, not a file** — the workflow reports but blocks nothing until `verify` is marked a required check on `main`. Steps in DEPLOYMENT_CHECKLIST.
+
 ## 2026-11-11 — P1-PRICE-1: outreach moves to Player; Free tracks 3 schools
 - **Coach outreach is now a Player ($19) feature, not Family ($39).** It's the core recruiting loop — gating it at the top tier put the product's whole point behind the most expensive plan, while the tournament fit checker (already free and public) was advertised as a Family feature. Family is now genuinely the parent side: read-only dashboard, season budget, weekly report. **Prices unchanged.**
 - **Free accounts track 3 target schools** (previously unlimited, which left Free with no honest ceiling).

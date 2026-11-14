@@ -183,11 +183,24 @@ writing code alone.
 
 - [ ] **P0-6 Separate development/staging data from production**
 
-  Status: NOT STARTED
+  Status: **BLOCKED — cannot authenticate to the candidate project (2026-11-11)**
   Priority: P0
   Category: Deployment / Data safety
   Why this matters: Local dev, preview deploys, and production all use Supabase `tfpjssmhiptbwigarxpx`. A migration for an unmerged branch already broke prod (P0-5). Every local sign-in touches real users' data (this audit had to sign into a real account locally because no test project exists).
-  Dependencies: none
+  Blocker: Niran nominated the second project `gnlcpnsweqbtwpaqhqqg`
+  ("niranramprasad-beep's Project", created 2026-05-23 — two days *before*
+  the real one — ACTIVE_HEALTHY, region us-east-2 vs production's us-west-1).
+  Project metadata reads fine, but **every database call fails with
+  `FATAL 28P01: password authentication failed`** for both `postgres` and
+  `supabase_read_only_user`. So it is impossible to confirm whether the
+  project is empty, and nothing was applied to it — adopting a database you
+  cannot inspect is how you discover it wasn't empty.
+  Unblock: reset the database password in that project's Settings → Database,
+  then re-inspect. If it holds anything real, pick a fresh project instead.
+  Note once it is reachable: the region differs from production. Fine for
+  staging, but latency-sensitive behaviour won't be identical.
+  Dependencies: none — but it blocks P0-1 and P0-2, which must be applied to
+  staging before production.
   Affected files: `.env.example`, Vercel env vars (Preview vs Production), `docs/DEPLOYMENT_CHECKLIST.md`
   Affected database objects: new Supabase project (or Supabase branching)
   Security considerations: Preview deployments must never get the prod service-role key.
@@ -349,7 +362,21 @@ writing code alone.
 - [ ] **P1-UX-2 Remove Legacy from the product** — users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
 - [ ] **P1-UX-3 Mobile `/schools` table is clipped** — at 390px the "Your fit" column and badge are cut off with no scroll affordance. Make rows stack on mobile.
 - [ ] **P1-UX-4 Mobile `/plan` pace warning collapses** — the warning text wraps to one word per line beside "Show realistic targets". Stack the button under the text below `sm`.
-- [ ] **P1-OPS-1 CI** — no `.github/workflows`. Add one workflow: `npm ci`, `tsc --noEmit`, `next lint`, `vitest run`, `next build` on every PR; require it on `main`.
+- [~] **P1-OPS-1 CI** — WORKFLOW COMMITTED, BRANCH PROTECTION STILL NEEDED.
+  `.github/workflows/ci.yml` runs `npm ci` → typecheck → lint → tests →
+  build on every PR into `main` or `v1`, and on every push to either.
+  Single job named `verify`, so there is exactly one required status check to
+  configure. Node pinned to 24 to match the Vercel project's runtime —
+  CI passing on a different major than production builds on is a gap worth
+  not having. Needs no secrets: verified `next build` completes with
+  `.env.local` removed entirely.
+  The build step retries up to 3× for the `next/font` flake (see the P2 item
+  on self-hosting fonts); typecheck, lint and tests get one attempt each
+  because they're deterministic.
+  **Still needs Niran (GitHub settings, not a file):** Settings → Branches →
+  add a rule for `main` → *Require a pull request before merging* + *Require
+  status checks to pass* → select **`verify`**. Without that, the workflow
+  reports but blocks nothing.
 - [ ] **P1-OPS-2 Error tracking + uptime** — add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
 - [ ] **P1-OPS-3 Migration history drift** — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
 - [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE, MIGRATION DRAFTED.
@@ -399,6 +426,7 @@ writing code alone.
 - [ ] SEO: every school page has the same `<title>`; add `generateMetadata`. Sitemap lists legacy/redirecting `/cost-calculator`, `/how-it-works`, `/parents` and omits `/methodology`. See SEO_CHECKLIST.md.
 - [x] `.env.example` drifted from the code (listed vars nothing read, omitted vars that were read). Fixed in the audit, and again on 2026-11-11 when the AI/Stripe names were removed with their routes. It is now the authoritative list: if a name isn't in it, no code path reads it. Keep it that way.
 - [ ] `tsc --noEmit` fails on stale `.next/types/app/friends/page.ts`; exclude `.next/types` of deleted routes or `rm -rf .next` in CI.
+- [ ] **Self-host the `next/font` Google fonts.** `next build` fetches them at build time and intermittently dies with `Cannot read properties of null (reading '1')`. Measured 2026-11-11: several failures and several successes across otherwise identical local runs, with and without env vars — a network flake, not a code fault. CI retries the build up to 3× to stop it producing random red builds (a required check that fails at random is one people learn to force-merge past). Self-hosting removes the build-time network dependency entirely; delete the retry in `.github/workflows/ci.yml` when it lands.
 - [ ] Whop checkout `redirect_url` points to legacy `/dashboard?checkout=success`.
 - [ ] Recruiting checklist repeats the same NCAA disclaimer 6 times; auto-tracked items look like disabled checkboxes.
 - [ ] UTR entry validation: no outlier warning when a new entry differs from the last by > 1.0.
@@ -509,16 +537,29 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-1. P0-5 — decide hotfix-vs-maintenance for production and stop the `contacted` write failures. **Needs Niran.**
-2. P0-6 — create a staging Supabase project and point Preview/Development at it. **Needs Niran.**
-3. P0-1 — migration 022: lock privileged `profiles` columns (SQL drafted; needs sign-off, then staging, then prod). **Needs Niran.**
-4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`, crypto-random codes. **Needs Niran.**
+1. **P0-6 — staging project. BLOCKED, and it blocks 3 and 4.** Niran nominated
+   the second Supabase project (`gnlcpnsweqbtwpaqhqqg`, "niranramprasad-beep's
+   Project", created 2026-05-23, ACTIVE_HEALTHY, us-east-2). **Could not
+   verify whether it is empty:** every database call fails with
+   `28P01 password authentication failed` for both `postgres` and
+   `supabase_read_only_user`, while project metadata reads fine. Almost
+   certainly a database password the tooling doesn't hold. Niran: reset the
+   DB password in that project's Settings → Database, then it can be
+   inspected and — if genuinely empty — adopted as staging.
+   **Not adopted, no migrations applied, nothing written to it.**
+2. P0-5 — production is in maintenance mode as of 2026-11-11 (`middleware.ts`
+   on `main`, one revertable commit), which stops the broken `contacted`
+   writes from reaching users. The real close-out is the `v1` merge.
+3. P0-1 — migration 022: lock privileged `profiles` columns. SQL drafted;
+   needs staging (blocked on 1), then sign-off, then prod. **Needs Niran.**
+4. P0-2 — migration 023: `join_family()` RPC, drop `families readable`,
+   crypto-random codes. Not yet written; needs staging first. **Needs Niran.**
 5. P1-FIT-4 — the last unbounded "Reach". Pre-auth/onboarding is now the only `classifySchoolFit` call with no projection; `syntheticUtrHistoryFor()` is the ready-made fix.
 6. P1-FIT-3 — projection outputs are still nonsense on noisy data ("Projected 4.3" for a 5.81 player). Needs outlier rejection and a floor.
 7. P1-UX-2 — remove Legacy from the product. It is the only place left with its own copy and its own coach view, and every honesty guard has to cover it twice.
 8. P1-DATA-1 — migration 012 + re-runnable roster import with source/date/reliability, starting with D3/D2 coverage. The highest-value remaining *product* task: P0-3 removed the invented data, but a 5.81 player still has zero schools in range, and every roster number still reads "Unverified estimate".
-9. P1-OPS-1 — CI. Four build-failing honesty guards now exist (catalog, copy, coach email, fit bands) and nothing runs them automatically. They only protect the product if a PR can't merge past them.
-10. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
+9. P1-SEC-3/4 — rate limits and security headers. Nothing throttles any route.
+10. P1-OPS-2 — error tracking + uptime. With production in maintenance this is quiet, but nothing would tell us if the real site broke after the merge.
 
 **Needs Niran before anything else ships:** P0-5, P0-6, P0-1, P0-2 (above),
 plus P0-8 (minors' privacy — legal/adult review) and revoking the Gemini and

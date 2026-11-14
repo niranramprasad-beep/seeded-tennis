@@ -1,0 +1,91 @@
+name: CI
+
+# P1-OPS-1. Four build-failing honesty guards now live in the test suite
+# (schools-catalog-honesty, copy-honesty, the coach-email assertions, and
+# fit-band-consistency). They only protect the product if something runs them
+# on every change — until this workflow existed, nothing did.
+#
+# Required check for merging into main: the `verify` job below.
+# Branch protection is a repo setting, not a file; see docs/DEPLOYMENT_CHECKLIST.md
+# for the exact settings to enable.
+
+on:
+  pull_request:
+    branches: [main, v1]
+  push:
+    branches: [main, v1]
+
+# A new push to the same branch/PR makes the in-flight run obsolete.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Vercel project's runtime (nodeVersion "24.x", checked
+          # 2026-11-11). CI passing on a different major than production
+          # builds on is a gap worth not having.
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Includes the honesty guards. Each was confirmed to actually fail when
+      # its bug is reintroduced — see the notes in MASTER_ROADMAP.
+      - name: Tests
+        run: npm test
+
+      # `next/font` fetches Google Fonts at build time and intermittently
+      # fails with "Cannot read properties of null (reading '1')". Reproduced
+      # locally on 2026-11-11: three failures and several successes across
+      # otherwise identical runs, with and without env vars present. It is a
+      # network flake, not a code fault.
+      #
+      # Retried rather than ignored, because a CI that fails at random is a CI
+      # people learn to force-merge past — which would defeat the point of
+      # making this a required check. Only the build is retried; typecheck,
+      # lint and tests are deterministic and get exactly one attempt.
+      #
+      # The real fix is to self-host the fonts and remove the build-time
+      # network dependency (roadmap P2). Delete this retry when that lands.
+      - name: Build
+        run: |
+          for attempt in 1 2 3; do
+            echo "::group::next build (attempt $attempt/3)"
+            if npm run build; then
+              echo "::endgroup::"
+              echo "Build succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::Build attempt $attempt failed. If the log above shows a next/font error this is the known Google Fonts flake; anything else is a real failure."
+            sleep 10
+          done
+          echo "::error::Build failed three times. Treat this as a real failure, not the font flake."
+          exit 1
+
+      # No deploy step on purpose. main auto-deploys to seededtennis.com via
+      # Vercel's own Git integration, and that gate is deliberately a person
+      # (CLAUDE.md: "only merge to main after CI passes and Niran says go").
