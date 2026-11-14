@@ -352,7 +352,27 @@ writing code alone.
 - [ ] **P1-OPS-1 CI** — no `.github/workflows`. Add one workflow: `npm ci`, `tsc --noEmit`, `next lint`, `vitest run`, `next build` on every PR; require it on `main`.
 - [ ] **P1-OPS-2 Error tracking + uptime** — add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
 - [ ] **P1-OPS-3 Migration history drift** — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
-- [ ] **P1-PRICE-1 Paywall placement** — writing `coach_outreach` requires `has_tier('family')` ($39). The core recruiting action is gated behind the family plan, while "Unlimited tournament fit checks" (already public) is listed as a Family feature. Decide V1 tiers before launch; update `pricing-view.tsx`, `paid-gate.tsx`, Whop webhook `TIER_PRICE_USD`, and the RLS policies together.
+- [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE, MIGRATION DRAFTED.
+  Niran's decision (2026-11-11): **outreach belongs in Player ($19), not
+  Family ($39); Free tracks 3 schools.** Outreach is the core recruiting
+  loop — gating it at the top tier put the product's whole point behind the
+  most expensive plan, while the tournament fit checker (already free and
+  public) was advertised as a Family feature. Family is now genuinely about
+  the parent side: read-only dashboard, season budget, weekly report.
+  Prices unchanged ($0/$19/$39), so the Whop webhook's `TIER_PRICE_USD`
+  needed no edit.
+  Landed in code: `FEATURE_TIER` + `FREE_TIER_TARGET_SCHOOL_LIMIT` in
+  `lib/types.ts` (one source the UI, the API route and the pricing table all
+  read), `PaidGate required={FEATURE_TIER.outreach}`, a 403 with a real
+  sentence in `/api/profile`, a star-button guard that explains the cap
+  rather than letting the write fail, and rewritten pricing cards + matrix.
+  9 tests in `lib/tier-gating.test.ts`.
+  **Still open — needs the migration applied:**
+  `024_tier_gating_outreach_player_free_targets.sql` moves the RLS policy to
+  `has_tier('player')` and adds the Free-target trigger. Until it runs the
+  gating is cosmetic: `profiles` is directly PATCHable via PostgREST, so the
+  route check can be routed around (the P0-1 lesson), and `coach_outreach`
+  still demands family tier. **Do not merge `v1` to `main` without it.**
 - [ ] **P1-AUTH-1 Google sign-in callback** (from HANDOFF H.3) — or remove the Google button for V1.
 - [ ] **P1-TRAIN-1 Remove the auto-generating training wizard** (HANDOFF H.2). Training is POST-V1 anyway.
 
@@ -370,7 +390,8 @@ writing code alone.
 - [ ] "Live data, your own account." footer text on Today/Plan reads like debug output.
 - [ ] Events: week calendar squeezed into a ~225px column shows Mon–Thu only with a horizontal scrollbar; first hour label is clipped. Give it full width or default to an agenda list.
 - [ ] Settings vs Billing: the "Settings" title and left nav sit 3px further right on `/settings/billing` than on `/settings` (503px vs 506px; nav 514 vs 517).
-- [ ] Pricing: the Family card is offset ~7px lower than Free/Player (badge pushes content); gradient headline text is off-palette.
+- [ ] Pricing: the "Most popular" badge pushes its card ~7px lower than the others (now the Player card, after P1-PRICE-1); gradient headline text is off-palette.
+- [ ] Pricing comparison table on mobile: the table is 640px inside a 350px `overflow-x-auto` wrapper at 390px, so only the Free column is visible and there is no scroll affordance — the other two columns look missing rather than scrollable. Confirmed 2026-11-11. `origin/macbook-backup` has a pre-redesign attempt at this (commit `7972882`) if it's useful.
 - [ ] Schools row: chevron + checkbox + star = three tiny unlabeled controls; the compare checkbox is a near-invisible dark square.
 - [ ] Settings placeholders "Bethesda, MD" and "3.7" look like real values.
 - [ ] `/schools/cornell` 404s (real slugs are `cornell-m`/`cornell-w`); redirect bare slugs to the user's gender.

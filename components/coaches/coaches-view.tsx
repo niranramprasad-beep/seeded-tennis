@@ -15,7 +15,7 @@ import {
   Reply,
   Send,
 } from "lucide-react";
-import type { School } from "@/lib/types";
+import { FEATURE_TIER, type School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   buildCoachEmail,
@@ -64,14 +64,18 @@ function legacyIsSentOrLater(status?: OutreachStatus): boolean {
 export function CoachesView({ schools }: { schools: School[] }) {
   return (
     <AuthGate>
+      {/* P1-PRICE-1: was `required="family"`. Outreach is the core recruiting
+          loop, so it belongs in Player. The matching RLS change is migration
+          024 — this gate is cosmetic on its own, and until that migration is
+          applied a Player user would get a board that fails every write. */}
       <PaidGate
-        required="family"
+        required={FEATURE_TIER.outreach}
         feature="Coach outreach"
-        blurb="Generate personalized recruiting emails from your real results, edit them to sound like you, and track every coach from first contact to reply."
+        blurb="Draft emails to coaches from your own logged results, edit them to sound like you, and track every coach from first contact to reply."
         perks={[
-          "Researched, non-generic emails per program",
-          "Editable, copy-ready drafts",
-          "Track contacted vs. replied for every coach",
+          "Drafts built from results you logged — nothing invented",
+          "Editable and copy-ready; you send it from your own Gmail",
+          "Track every coach from researching through to committed",
           "Organized by your target schools",
         ]}
       >

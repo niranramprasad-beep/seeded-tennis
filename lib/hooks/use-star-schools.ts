@@ -9,7 +9,10 @@
 // synchronous setPlayer), an Undo-offering toast, and a real silent
 // rollback if the write actually fails.
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePlayer } from "@/lib/context/player-context";
+import { useTier } from "@/lib/context/tier-context";
+import { FREE_TIER_TARGET_SCHOOL_LIMIT } from "@/lib/types";
 import { toggleTargetSchoolSlug } from "@/lib/db/targets";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
 
@@ -31,6 +34,8 @@ export const STAR_TOAST_DURATION_MS = 5000;
 
 export function useStarSchools(): UseStarSchoolsResult {
   const { player, updatePlayer } = usePlayer();
+  const { canAccess } = useTier();
+  const router = useRouter();
   const [toast, setToast] = useState<StarToast | null>(null);
 
   // Always-fresh membership list, readable from closures created on a
@@ -54,6 +59,22 @@ export function useStarSchools(): UseStarSchoolsResult {
     (slug: string, label: string) => {
       const wasStarred = slugsRef.current.includes(slug);
       const next = toggleTargetSchoolSlug(slugsRef.current, slug);
+
+      // Free accounts cap out at FREE_TIER_TARGET_SCHOOL_LIMIT targets.
+      // Catching it here means the player gets a sentence explaining the
+      // limit instead of an optimistic star that silently un-stars itself a
+      // moment later when the write is refused. Removing is always allowed,
+      // including for an account that downgraded while over the limit —
+      // mirrors the same carve-out in migration 024's trigger.
+      const isAdding = !wasStarred;
+      if (isAdding && !canAccess("player") && next.length > FREE_TIER_TARGET_SCHOOL_LIMIT) {
+        setToast({
+          message: `Free tracks ${FREE_TIER_TARGET_SCHOOL_LIMIT} schools. Upgrade to Player to track more.`,
+          variant: "default",
+          action: { label: "See plans", onClick: () => router.push("/pricing") },
+        });
+        return;
+      }
 
       const token = ++activeTokenRef.current;
       let settled = false;
@@ -90,7 +111,7 @@ export function useStarSchools(): UseStarSchoolsResult {
         action: { label: "Undo", onClick: undo },
       });
     },
-    [updatePlayer]
+    [updatePlayer, canAccess, router]
   );
 
   return { isStarred, toggleStar, toast, dismissToast };

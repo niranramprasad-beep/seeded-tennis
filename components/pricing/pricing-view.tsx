@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
-import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
+import {
+  FREE_TIER_TARGET_SCHOOL_LIMIT,
+  TIER_RANK,
+  type SubscriptionTier,
+} from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
@@ -38,36 +42,41 @@ const PLANS: Plan[] = [
     highlights: [
       "Browse 68 D1, D2 and D3 programs",
       "Team UTR estimates & academic rankings",
-      "Minimum competitive UTRs",
+      `Track ${FREE_TIER_TARGET_SCHOOL_LIMIT} target schools`,
       "Full school detail pages",
     ],
   },
   {
+    // P1-PRICE-1 (2026-11-11): coach outreach moved down from Family. It is
+    // the core recruiting loop — gating it at the top tier put the product's
+    // whole point behind the most expensive plan. Family is now genuinely
+    // about the family (parent visibility + budget) rather than about
+    // withholding the main feature. Prices unchanged.
     tier: "player",
     name: "Player",
     price: "$19",
     cadence: "per month",
-    tagline: "Your personal plan to close the gap.",
+    tagline: "Your plan, and the coach outreach to go with it.",
     highlights: [
       "Everything in Free",
+      "Unlimited target schools",
+      "Coach outreach: drafts + pipeline tracking",
       "Personal year-by-year roadmap",
-      "Weekly training plan & calendar",
-      "What-if school planner",
     ],
+    popular: true,
   },
   {
     tier: "family",
     name: "Family",
     price: "$39",
     cadence: "per month",
-    tagline: "Everything the whole family needs to recruit.",
+    tagline: "Adds the parent side: visibility and the season budget.",
     highlights: [
       "Everything in Player",
-      "Coach email generator",
-      "Contacted-coach tracking",
-      "Family dashboard for parents",
+      "Parent dashboard — read-only view of the plan",
+      "Season budget parents control",
+      "Weekly family report",
     ],
-    popular: true,
   },
 ];
 
@@ -85,6 +94,14 @@ const MATRIX: { group: string; rows: Row[] }[] = [
       { label: "Browse 68 D1/D2/D3 programs", free: true, player: true, family: true },
       { label: "Team UTR estimates & rankings", free: true, player: true, family: true },
       { label: "School detail pages", free: true, player: true, family: true },
+      { label: "Tournament fit checker", free: true, player: true, family: true },
+      {
+        // Free isn't "no targets" — it's a real, usable 3. Say the number.
+        label: `Track target schools (${FREE_TIER_TARGET_SCHOOL_LIMIT} on Free, then unlimited)`,
+        free: true,
+        player: true,
+        family: true,
+      },
     ],
   },
   {
@@ -97,12 +114,22 @@ const MATRIX: { group: string; rows: Row[] }[] = [
     ],
   },
   {
+    // P1-PRICE-1: this whole group was family-only. Outreach is the core
+    // recruiting loop and now sits in Player; only the parent-facing rows
+    // stay in Family.
     group: "Recruit",
     rows: [
-      { label: "Coach email generator", free: false, player: false, family: true },
-      { label: "Contacted-coach tracking", free: false, player: false, family: true },
-      { label: "Progress tracking", free: false, player: false, family: true },
-      { label: "Family / parent dashboard", free: false, player: false, family: true },
+      { label: "Coach email drafts from your results", free: false, player: true, family: true },
+      { label: "Outreach pipeline (researching → committed)", free: false, player: true, family: true },
+      { label: "Follow-up reminders", free: false, player: true, family: true },
+    ],
+  },
+  {
+    group: "For parents",
+    rows: [
+      { label: "Parent dashboard (read-only)", free: false, player: false, family: true },
+      { label: "Season budget", free: false, player: false, family: true },
+      { label: "Weekly family report", free: false, player: false, family: true },
     ],
   },
 ];

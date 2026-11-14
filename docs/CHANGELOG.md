@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-11 — P1-PRICE-1: outreach moves to Player; Free tracks 3 schools
+- **Coach outreach is now a Player ($19) feature, not Family ($39).** It's the core recruiting loop — gating it at the top tier put the product's whole point behind the most expensive plan, while the tournament fit checker (already free and public) was advertised as a Family feature. Family is now genuinely the parent side: read-only dashboard, season budget, weekly report. **Prices unchanged.**
+- **Free accounts track 3 target schools** (previously unlimited, which left Free with no honest ceiling).
+- Added `FEATURE_TIER` and `FREE_TIER_TARGET_SCHOOL_LIMIT` to `lib/types.ts` so the UI gate, the API route's error message and the pricing table all quote the number the database enforces.
+- `/api/profile` returns a 403 with a real sentence; the star button explains the cap instead of optimistically starring and then silently un-starring when the write is refused.
+- Drafted `supabase/migrations/024_tier_gating_outreach_player_free_targets.sql` — **not applied.** It moves the `coach_outreach` write policy to `has_tier('player')` and adds a trigger capping Free `target_school_slugs`. The trigger is the real gate: `profiles` is directly PATCHable through PostgREST, so a limit enforced only in the route is one a user can route around (the P0-1 lesson). A carve-out lets a downgraded account prune below the limit rather than being frozen.
+- ⚠️ **Coupling:** the UI half is on `v1` now. Merging `v1` to `main` without applying `024` gives Player users an outreach board that fails every write. Noted in DEPLOYMENT_CHECKLIST and DATABASE_SPEC.
+- Tests: 426 → 435.
+
 ## 2026-11-10 — P1-FIT-1 + P1-FIT-2: one fit band, and stop capturing a placeholder UTR
 - `whatIfProjectionFor()` now always returns a projection. "My pace" passes real history; "+1.5/yr" and "Custom" get a synthetic straight line (`syntheticUtrHistoryFor`) that arrives at the hypothetical UTR on the senior-summer milestone, so `classifySchoolFit` can answer "out-of-range" instead of falling back to "reach" for every below-floor school. Returning `undefined` looked like abstaining but was actually the most flattering possible claim about all 37 programs.
 - The untouched what-if panel now passes the **real** projection — the same object `/plan`, school detail, Today, Outreach and Family pass — so cross-screen agreement is structural, not coincidental.

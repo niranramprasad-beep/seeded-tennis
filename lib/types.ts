@@ -19,6 +19,34 @@ export const TIER_RANK: Record<SubscriptionTier, number> = {
   family: 2,
 };
 
+// How many schools a Free account may track. Paid tiers are uncapped.
+//
+// The REAL enforcement is the trigger in migration 024 — `target_school_slugs`
+// lives on `profiles`, which `authenticated` can PATCH directly through
+// PostgREST, so a limit that exists only in /api/profile or in the UI is one
+// a user can route straight around (the same mistake as P0-1). This constant
+// exists so the route's error message, the star button's disabled state and
+// the pricing table all quote the number the database actually enforces.
+// Change it here and in migration 024 together, or they will disagree.
+export const FREE_TIER_TARGET_SCHOOL_LIMIT = 3;
+
+// The tier each gated feature requires. These mirror the `has_tier(...)`
+// calls in the RLS policies — the two must agree, or the UI offers something
+// the database then refuses.
+//
+// P1-PRICE-1 (2026-11-11): outreach moved from "family" to "player".
+// Outreach is the core recruiting loop; gating it at the top tier put the
+// product's whole point behind the most expensive plan, while the tournament
+// fit checker (already free and public) was advertised as a Family feature.
+export const FEATURE_TIER = {
+  /** /outreach, /coaches — draft and track coach emails. Migration 024. */
+  outreach: "player",
+  /** /plan, /training, /events — the personal plan. Migration 019. */
+  plan: "player",
+  /** /family — parent dashboard and season budget. Migration 019. */
+  family: "family",
+} as const satisfies Record<string, SubscriptionTier>;
+
 export type Weakness =
   | "forehand"
   | "backhand"

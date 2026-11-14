@@ -33,8 +33,20 @@ profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
 `set_updated_at`, `current_family_code`, `is_family_member`, `is_parent_member`, `are_friends` (dead), `has_tier`. `anon` EXECUTE revoked; `authenticated` can call all via RPC (advisor WARN).
 
 ## Migrations
-Repo files `0001`…`021` (no `012` — reserved for roster import), plus
-`022_lock_privileged_profile_columns.sql` written in this audit, **not applied**.
+Repo files `0001`…`021` (no `012` — reserved for roster import), plus two
+written but **not applied**:
+- `022_lock_privileged_profile_columns.sql` (P0-1)
+- `024_tier_gating_outreach_player_free_targets.sql` (P1-PRICE-1) — moves
+  `coach_outreach` writes from `has_tier('family')` to `has_tier('player')`
+  and adds a trigger capping Free accounts at 3 `target_school_slugs`.
+
+`023` is reserved for P0-2's `join_family()` RPC (not yet written), which is
+why the pricing migration is `024`.
+
+⚠️ **`024` is coupled to the code already on `v1`.** The UI gates outreach at
+`player` and caps Free targets at 3. If `v1` merges to `main` without `024`
+applied, a Player-tier user gets an outreach board that fails every write.
+Apply it before or during that merge.
 
 Live history uses different names: `0001`–`006` match; later ones are
 timestamped (e.g. `20261110205721 outreach_stages`). Two live migrations
