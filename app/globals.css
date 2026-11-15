@@ -382,7 +382,13 @@
     --c-tennis: 215 242 90;
     --c-ink: 20 24 26;
     --c-stone: 92 98 95;
-    --c-stone-light: 138 143 140;
+    /* Was 138 143 140 = 3.29:1, below the 4.5 AA floor. This one token
+       produced 127 of the 202 contrast failures axe found across 10 pages.
+       Solved against CREAM rgb(247,246,242), the darkest light surface it
+       lands on, not against white: an earlier value passed on white at
+       4.67:1 and still failed at 4.32:1 on cream and 4.48:1 on the sidebar
+       panel. Now 4.65:1 on cream, 4.81:1 on panel, 5.02:1 on white. */
+    --c-stone-light: 108 112 110;
     --c-line: 228 226 218;
     --c-gold: 183 121 31;
     --c-on-primary: 255 255 255;
@@ -504,7 +510,9 @@
     --c-tennis: 222 242 120;
     --c-ink: 236 237 231;
     --c-stone: 163 170 162;
-    --c-stone-light: 110 117 110;
+    /* 4.63:1 on the card background rgb(30,38,33) — the harder of the two
+       dark surfaces (was 110 117 110 = 3.27:1). */
+    --c-stone-light: 136 142 136;
     --c-line: 52 61 54;
     --c-gold: 226 171 83;
     --c-on-primary: 8 16 12;

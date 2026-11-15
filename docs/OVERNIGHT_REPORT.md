@@ -1028,3 +1028,147 @@ rehearsal fixtures still in place as seed data. The timing table was dropped.
 Nothing was applied to production; the only production access in this task
 was read-only introspection (`list_migrations`, `pg_policies`,
 `pg_get_functiondef`, `information_schema`).
+
+## TASK D — quality pass on 10 pages: **DONE**
+
+Ten pages (`/`, `/onboarding`, `/signup`, `/login`, `/pricing`, `/schools`,
+a school page, the sample fit report, `/today`, `/family`), each at 375px and
+1440px, signed in where the page needs it. Automated with headless Chrome +
+axe-core + Lighthouse; the harness lives in the session scratchpad.
+
+### Accessibility: 202 axe violations → 0
+
+| Rule | Impact | Before | After | Fix |
+|---|---|---|---|---|
+| `color-contrast` | serious | 127 | **0** | One token. `--c-stone-light` was 3.29:1 in light mode and 3.27:1 in dark, both under the 4.5 AA floor. |
+| `nested-interactive` | serious | 74 | **0** | Each `/schools` row was a `role="button"` wrapping a checkbox, a star button and a link. |
+| `scrollable-region-focusable` | serious | 1 | **0** | The `/pricing` comparison table scrolls horizontally at 375px and nothing could focus it. |
+| **Total** | | **202** | **0** | |
+
+**The contrast fix took two attempts, and the first one was wrong in an
+instructive way.** I solved the token against white and got 4.67:1 — but the
+text does not sit on white, it sits on cream (247,246,242) and the sidebar
+panel (251,250,247). Re-measuring found it still failing at 4.32:1 and
+4.48:1. Solving against the *darkest* surface it actually lands on gives
+4.65:1 on cream, 4.81:1 on panel, 5.02:1 on white. Measure against the real
+background, not the one you assume.
+
+The `/schools` row fix replaces the row-as-button with a real chevron button
+carrying `aria-expanded` and a name ("Show fit detail for Stanford"). The row
+keeps its click as a mouse convenience. The `j`/`k` row highlight is
+unaffected — it is a window-level handler and never depended on the row
+being focusable.
+
+**Keyboard:** 332 focusable elements across the 20 page/viewport
+combinations were focused in turn; **every one has a visible focus ring**
+(outline or box-shadow). No keyboard traps found.
+
+### Lighthouse, mobile (4× CPU throttle, simulated slow 4G)
+
+| Page | Perf | A11y | Best practices | SEO |
+|---|---|---|---|---|
+| `/` | 77 | **100** | 96 | **100** |
+| `/onboarding` | 75 | **100** | 96 | **100** |
+| `/pricing` | 73 | **100** | 96 | **100** |
+| `/schools` | 73 | **100** | 96 | **100** |
+| `/schools/stanford-m` | 76 | **100** | 96 | **100** |
+| `/login` | 81 | **100** | 96 | **100** |
+| `/signup` | 79 | **100** | 96 | **100** |
+| `/sample-report` | — | — | — | — | 
+
+Accessibility was 98 on three pages before this pass and is 100 on all of
+them now. The remaining 2 points came from `heading-order`, which my axe run
+missed because it is a "moderate" rule outside the wcag2a/wcag2aa tag filter
+I used — Lighthouse caught it. **One shared cause:** the footer's column
+headings were `h4`, so every page ending in the footer jumped h1→h4 or
+h2→h4. They are `h2` now; the visual size never came from the tag.
+
+**Performance is 73–81 and the limiter is LCP (5.1–6.0 s simulated).** TBT is
+0–10 ms and CLS is 0.09 or better everywhere, so the pages are not
+janky — they are simply slow to paint the largest element under a 4× CPU
+throttle. I did not chase this: it is a real number but an unthrottled local
+`next start` is the wrong place to optimise against, and the honest next step
+is to measure the production deployment. Noted rather than guessed at.
+
+**`/sample-report` scores 0 in every category** because Chrome never reports
+a First Contentful Paint for it. **This is a measurement anomaly, not a
+broken page** — a screenshot under 4× CPU throttle shows it rendering
+correctly, `first-paint` fires at ~100 ms, and the page has 1467 characters
+of server-rendered text. Reproduced outside Lighthouse under three
+conditions, with the fade-in animation and JS errors ruled out. Written up
+in `docs/TODO.md` with the evidence and a bisect plan. It matters because
+PageSpeed Insights will show 0 for a marketing page.
+
+### SEO
+
+**Before: 6 of 10 pages had no canonical URL, and `/pricing`, `/schools` and
+every school page shared the site-wide default title** — 37 school pages
+competing as one page in search.
+
+- `/pricing`, `/schools` and `/sample-report` gained titles, descriptions and
+  canonicals.
+- `/schools/[slug]` gained `generateMetadata`: "Stanford University men's
+  tennis — Seeded", described from the school's own real fields. **UTR
+  numbers are deliberately kept out of the search description** — they are
+  unsourced estimates (P0-3), and a search snippet is the last place to
+  present one as fact.
+- `/today` and `/family` gained titles and `robots: { index: false }`, as
+  belt-and-braces beside robots.txt.
+- All 8 public pages now have a unique title, a description and a canonical.
+  Lighthouse SEO is 100 across the board.
+
+**robots.txt was protecting the wrong routes.** Its disallow list named
+`/dashboard`, `/roadmap` and `/coaches` — the routes the Seeded rebuild
+superseded — while `/today`, `/plan`, `/outreach` and `/events`, the live
+auth-gated routes the 5-item nav actually points at, were all crawlable.
+Nothing leaked (each redirects a signed-out visitor to `/login`), but Google
+was being invited to the real private pages and warned off the dead ones.
+
+The list is no longer hand-written: `lib/seo/private-routes.ts` is the single
+source of truth, and `lib/seo/robots-coverage.test.ts` **walks every
+`app/**/page.tsx`, follows its component imports, and fails the build when a
+route whose tree renders an `AuthGate` is not disallowed.** It also asserts
+no `/dev` route is crawlable and that the sitemap lists nothing robots
+disallows.
+
+Writing that test took three tries and each failure was worth keeping:
+1. Matching the bare word `AuthGate` reported `/pricing`, `/login` and
+   `/cost-calculator` as gated — they merely *reach* a file that mentions it.
+   It now matches `<AuthGate` and follows only `@/components/...` imports.
+2. That left `/onboarding` and `/cost-calculator`. `/onboarding` is
+   genuinely public (a signed-out visitor gets the pre-auth flow; the gate
+   only wraps the signed-in continuation), so it is an explicit exemption
+   **with a written reason**, and a test asserts every exemption names a real
+   route that really does render a gate.
+3. `/cost-calculator` turned out to redirect to `/family` in the Seeded
+   design, so a crawler is bounced to `/login`. It was in the sitemap as a
+   public page; it is now disallowed and removed from the sitemap.
+
+Mutation-tested both ways: removing `/today` from the private list fails the
+build, and adding a bogus exemption for a page with no gate fails it too.
+
+**The sitemap was missing the privacy policy** — the page Google's OAuth
+consent screen will link to, and the one a parent goes looking for. Added,
+along with `/methodology` and `/sample-report`.
+
+### Error states
+
+No blank screens and no raw error text on any of the 20 page/viewport
+combinations: every page rendered between 185 and 5,953 characters of real
+content, and none matched `TypeError|ReferenceError|undefined is not|Cannot
+read propert|[object Object]|NaN`. The only console errors anywhere are the
+Vercel Analytics and Speed Insights scripts 404ing, which happens only under
+a local `next start` because those endpoints live on Vercel's edge.
+
+### One thing noted and deliberately not changed
+
+The home page has two `<h1>` elements — a mobile hero and a desktop hero with
+different copy, each `display:none` at the other's breakpoint. Only one is
+ever exposed, axe and Lighthouse both pass, and merging them would mean
+rewriting the hero copy to serve both widths. Recorded rather than touched.
+
+### Verification
+
+tsc clean, lint clean, **589 tests** (580 + 9 new SEO coverage tests),
+production build passes, Lighthouse accessibility 100 and SEO 100 on every
+scoreable page.

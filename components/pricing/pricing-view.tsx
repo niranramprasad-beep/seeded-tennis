@@ -407,7 +407,19 @@ export function PricingView() {
         <h2 className="text-center text-2xl font-light tracking-tight text-ink">
           Compare every feature
         </h2>
-        <div className="mt-6 overflow-x-auto">
+        {/* A 640px table in a 350px viewport scrolls horizontally, and a
+            scrollable region that nothing can focus is unreachable by
+            keyboard (axe: scrollable-region-focusable, /pricing at 375px).
+            tabIndex + a group role and name make it a real stop that
+            announces itself; `focus-visible` keeps it invisible to mouse
+            users. docs/TODO.md flagged the 390px overflow separately — this
+            is the keyboard half of it. */}
+        <div
+          className="mt-6 overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/50"
+          tabIndex={0}
+          role="group"
+          aria-label="Plan comparison table, scrolls horizontally"
+        >
           <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr>

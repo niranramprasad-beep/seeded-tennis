@@ -16,10 +16,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/pricing`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE_URL}/schools`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/tournament-fit`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE_URL}/cost-calculator`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/how-it-works`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/parents`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/methodology`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/sample-report`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/contact`, changeFrequency: "yearly", priority: 0.3 },
+    // The privacy policy was missing entirely. It is the page Google's OAuth
+    // consent screen links to, and the one a parent goes looking for.
+    { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.2 },
   ];
 

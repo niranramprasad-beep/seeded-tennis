@@ -257,3 +257,40 @@ takeover reason (032 blocks claiming a taken code on INSERT, which suggests
 there is); (2) if it must stay NULL, widen `family_members()` and add a
 `parent_accounts`-based read path for `utr_entries`; (3) attack-test both
 directions — a non-member, and a PENDING member — before believing either.
+
+## /sample-report reports no First Contentful Paint, so Lighthouse scores it 0
+
+**Not a user-facing bug — the page renders correctly and fast. It is a
+measurement anomaly, and it will make PageSpeed Insights show 0 for a
+marketing page.**
+
+Found in the Night 2 quality pass. Lighthouse mobile returns
+`NO_FCP: "The page did not paint any content"` for `/sample-report` and
+scores every category 0. Reproduced outside Lighthouse with Playwright:
+
+| condition | FCP |
+|---|---|
+| 4× CPU throttle, normal motion | **none** |
+| 4× CPU throttle, reduced motion | **none** |
+| no throttle | **none** |
+
+`first-paint` fires at ~100 ms, `innerText` is 1467 characters, and a
+screenshot under 4× CPU throttle shows the page rendered correctly
+(`docs/screenshots/` was not updated for this; the capture is in the session
+scratchpad). Every other page records FCP in ~350 ms. So Chrome paints the
+content but never classifies a paint as *contentful* on this page only.
+
+Ruled out: the `animate-fade-in` wrapper (no delay, `both` fill, and
+reduced-motion collapses it to 0.01 ms — FCP is still absent with motion
+reduced), and JavaScript errors (none on the page).
+
+Not ruled out: this page is fully server-rendered with no
+`BAILOUT_TO_CLIENT_SIDE_RENDERING`, unlike the others, so its content paints
+in the first frame. It also renders the only recharts SVG among the public
+pages.
+
+**Suggested next step:** measure it on a real deployment rather than a local
+`next start` — run PageSpeed Insights against the production URL once
+`/sample-report` is live. If it reports 0 there too, bisect by temporarily
+removing `UtrVsPlanChart` from the page and re-measuring. Do not "fix" it by
+adding an artificial paint; find the cause first.

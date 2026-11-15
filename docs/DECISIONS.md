@@ -332,3 +332,41 @@ rather than waved through.
 **How to undo.** Nothing to undo — staging is back in its full post-rollout
 state. To redo it properly later, upgrade the Supabase org to a paid plan and
 use a database branch, which is what this is for.
+
+## 2026-11-15 — lighthouse added as a devDependency
+
+**Decision.** Added `lighthouse@12.2.1` as a devDependency, driven headlessly
+against the already-installed Chrome.
+
+**Why.** TASK D asked for mobile Lighthouse before/after. My own
+instrumentation (axe + the browser's performance entries) measures real
+things but is not a Lighthouse score, and reporting it as one would be
+inaccurate. Lighthouse also caught a rule my axe configuration missed
+(`heading-order`, a "moderate" rule outside the wcag2a/wcag2aa tags), which
+is the argument for using both rather than either.
+
+**Cost checked.** `npm audit --omit=dev` still reports zero production
+vulnerabilities.
+
+**How to undo.** `npm uninstall -D lighthouse`. Nothing in the app imports it;
+the runner lives in the session scratchpad.
+
+## 2026-11-15 — robots.txt derives from one list, with justified exemptions
+
+**Decision.** Replaced the hand-written disallow list in `app/robots.ts` with
+`lib/seo/private-routes.ts`, and added a test that walks the app directory
+and fails the build when an auth-gated route is crawlable.
+
+**Why.** The hand-written list had silently drifted through a route rename:
+it protected `/dashboard`, `/roadmap` and `/coaches` while `/today`, `/plan`,
+`/outreach` and `/events` — the live routes — were crawlable. A list that
+only a human updates will drift again at the next rename.
+
+**The exemption mechanism is deliberate.** `/onboarding` renders an AuthGate
+but is genuinely public, so it is exempted **with a written reason**, and the
+test asserts every exemption names a real route that really does render a
+gate. An exemption list that cannot quietly collect entries is safe; one that
+can is just the old hand-written list with extra steps.
+
+**How to undo.** Revert the commit; `app/robots.ts` goes back to its literal
+array.

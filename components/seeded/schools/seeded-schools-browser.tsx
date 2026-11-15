@@ -510,28 +510,41 @@ export function SeededSchoolsBrowser({
                 : null;
               return (
                 <div key={s.id}>
+                  {/* The row was `role="button" tabIndex={0}` wrapping a
+                      checkbox, a star button and a link — axe's
+                      `nested-interactive`, 74 nodes on this page alone, and a
+                      genuine mess to hear: a button that contains a checkbox
+                      and two links. The expand control is now the chevron,
+                      which is a real button with a real name. The row keeps
+                      its click as a mouse convenience only.
+
+                      This does not affect the j/k row highlight: that is a
+                      window-level handler (see above) and never depended on
+                      the row being focusable. */}
                   <div
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={expanded}
                     data-keyboard-highlighted={safeHighlightIndex === index || undefined}
                     onClick={() => setExpandedSlug(expanded ? null : s.slug)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setExpandedSlug(expanded ? null : s.slug);
-                      }
-                    }}
                     style={{ gridTemplateColumns: tableGridTemplate }}
                     className={cn(
                       "grid cursor-pointer items-center gap-3.5 border-b border-line px-[18px] py-3.5 last:border-b-0 hover:bg-cream/40",
                       safeHighlightIndex === index && "bg-cream/70 ring-2 ring-inset ring-grass/40"
                     )}
                   >
-                    <ChevronDown
-                      className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", expanded && "rotate-180")}
-                      aria-hidden
-                    />
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? "Hide" : "Show"} fit detail for ${s.shortName}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedSlug(expanded ? null : s.slug);
+                      }}
+                      className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md p-1 hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/50"
+                    >
+                      <ChevronDown
+                        className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", expanded && "rotate-180")}
+                        aria-hidden
+                      />
+                    </button>
                     <input
                       type="checkbox"
                       aria-label={`Compare ${s.shortName}`}

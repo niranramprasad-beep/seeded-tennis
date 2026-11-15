@@ -75,14 +75,19 @@ export function Footer() {
           </div>
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <h4
+              {/* h2, not h4. These are the footer's own top-level sections,
+                  and every page that ends with the footer jumped h1 -> h4
+                  (or h2 -> h4), which Lighthouse flags as heading-order on
+                  /pricing, /schools and every school page. The visual size
+                  comes from the classes, not the tag. */}
+              <h2
                 className={cn(
                   "text-xs font-medium uppercase tracking-[0.12em] text-stone-light",
                   isSeeded && "font-seeded"
                 )}
               >
                 {col.title}
-              </h4>
+              </h2>
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.label}>

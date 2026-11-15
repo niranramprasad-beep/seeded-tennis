@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
@@ -33,6 +34,27 @@ const RosterDistributionChart = dynamic(
   () => import("@/components/charts/roster-distribution-chart").then((mod) => mod.RosterDistributionChart),
   { loading: () => <Skeleton className="h-56 w-full" /> }
 );
+
+// Every school page shared the site-wide default title and had no
+// canonical, so 37 programs competed as one page in search. Named from the
+// school's own real fields — nothing invented. UTR numbers stay out of the
+// description deliberately: they are unsourced estimates (P0-3), and a
+// search snippet is the last place to present one as fact.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const school = await getSchool(slug);
+  if (!school) return { title: "School not found — Seeded" };
+  const programType = school.gender === "women" ? "Women's" : "Men's";
+  return {
+    title: `${school.name} ${programType.toLowerCase()} tennis — Seeded`,
+    description: `${school.name} ${programType.toLowerCase()} tennis: ${school.division}, ${school.conference}, ${school.city}, ${school.state}. See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.`,
+    alternates: { canonical: `/schools/${school.slug}` },
+  };
+}
 
 export async function generateStaticParams() {
   const schools = await getSchools();

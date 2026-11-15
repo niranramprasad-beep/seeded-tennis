@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Sample Parent Report — Seeded",
   description:
     "See what Seeded's weekly parent report looks like: UTR trend vs. plan, this week's decision, coach outreach status, season spending, and what's coming up. Example data — sign up to get your own family's real report.",
+  alternates: { canonical: "/sample-report" },
 };
 
 // Public marketing page, no auth needed — pixel-exact to "12 Sample parent
