@@ -4,6 +4,7 @@ import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
+import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
 
 export { isSupabaseConfigured };
 
@@ -26,20 +27,37 @@ export interface AuthResult {
   error?: string;
   familyCode?: string;
   confirmationRequired?: boolean;
+  /** Set when signing up with `familyMode: "join"`. A bad code is not a
+   * failed signup — the account is real and usable, the person just isn't
+   * in a family yet, so the UI sends them to the pending screen with a
+   * "Wrong code? Re-enter" option rather than stranding them. */
+  joinStatus?: JoinFamilyStatus;
 }
 
-export function generateFamilyCode(name: string): string {
-  const prefix =
-    (name.split(/\s+/)[0] || "TEAM").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) ||
-    "TEAM";
-  const rand = Math.random()
-    .toString(36)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 4)
-    .padEnd(4, "X");
-  return `${prefix}-${rand}`;
+// Unguessable family codes.
+//
+// This used to be `FIRSTNAME-XXXX` from Math.random(): the prefix leaked the
+// player's first name to anyone holding a code, and four base-36 characters
+// of a non-cryptographic PRNG is not a secret. Both halves of that were part
+// of why P0-2 was exploitable.
+//
+// Matches generate_family_code() in migration 023 (same alphabet, same
+// length) so a code minted here and one minted in the database are
+// indistinguishable. The alphabet omits I/O/0/1 — these get read aloud and
+// typed by parents.
+const FAMILY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FAMILY_CODE_LENGTH = 12;
+
+export function generateFamilyCode(_name?: string): string {
+  const bytes = new Uint8Array(FAMILY_CODE_LENGTH);
+  globalThis.crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < FAMILY_CODE_LENGTH; i++) {
+    out += FAMILY_CODE_ALPHABET[bytes[i] % FAMILY_CODE_ALPHABET.length];
+  }
+  return out;
 }
+
 
 // Thrown when Supabase isn't configured. Auth has exactly one backend — there
 // is no local/offline fallback that fabricates accounts. In development this
@@ -584,55 +602,89 @@ async function ensureSupabaseProfile(input: {
   const supa = getSupabase();
   if (!supa) return { ok: true, familyCode: input.familyCode };
 
-  if (input.familyMode === "join") {
-    const { data: fam, error: familyLookupError } = await supa
-      .from("families")
-      .select("code")
-      .eq("code", input.familyCode)
-      .maybeSingle();
-    if (familyLookupError) return { ok: false, error: familyLookupError.message };
-    if (!fam) return { ok: false, error: "That family code wasn't found." };
-  } else {
+  const graduationYear = getGradYearFromGrade(input.grade);
+
+  // --------------------------------------------------------------------
+  // CREATE: this person is the first in the family, so they own the code.
+  // Their membership is `profiles.family_code` — the one path migration 022
+  // still allows, because it happens on INSERT.
+  // --------------------------------------------------------------------
+  if (input.familyMode === "create") {
     const { error: familyInsertError } = await supa
       .from("families")
       .insert({ code: input.familyCode, name: `${input.name}'s family` });
-    if (familyInsertError && familyInsertError.code !== "23505") {
-      return { ok: false, error: familyInsertError.message };
+    // 23505 = someone already holds this code; the generator retries, so
+    // treat it as fatal rather than silently joining a stranger's family.
+    if (familyInsertError) {
+      return familyInsertError.code === "23505"
+        ? { ok: false, error: "Could not create your family. Try again." }
+        : { ok: false, error: "Could not create your family. Try again." };
     }
+
     await supa
       .from("family_codes")
       .upsert({ code: input.familyCode, player_id: input.userId }, { onConflict: "code" });
+
+    const { error: profileError } = await supa.from("profiles").insert({
+      id: input.userId,
+      name: input.name,
+      email: input.email,
+      country: input.country,
+      gender: input.gender,
+      role: input.role,
+      family_code: input.familyCode,
+      graduation_year: graduationYear,
+      commitment_date: getDefaultCommitDate(graduationYear),
+      tournaments_goal: 12,
+      onboarded: input.role === "parent",
+    });
+    if (profileError) return { ok: false, error: "Could not save your profile. Try again." };
+
+    return { ok: true, familyCode: input.familyCode };
   }
 
-  const graduationYear = getGradYearFromGrade(input.grade);
-  const { error: profileError } = await supa.from("profiles").upsert({
+  // --------------------------------------------------------------------
+  // JOIN: everything about the family goes through join_family().
+  //
+  // Three things this deliberately does NOT do any more (P0-2, migration
+  // 023 — each one used to be a hole, and each is now actively rejected by
+  // the database):
+  //   1. No `families` lookup to validate the code. `families` is readable
+  //      by members only now, so a prospective member reads nothing and a
+  //      perfectly good code would look invalid.
+  //   2. No direct `parent_accounts` insert. There is no client INSERT
+  //      policy; join_family() creates the row, as PENDING.
+  //   3. No `family_code` on the profile. The joiner is linked through
+  //      parent_accounts and stays pending until a member approves. Writing
+  //      it here would both be rejected by 022 on the update path and
+  //      silently grant the access the approval step exists to withhold.
+  // --------------------------------------------------------------------
+  const { error: profileError } = await supa.from("profiles").insert({
     id: input.userId,
     name: input.name,
     email: input.email,
     country: input.country,
     gender: input.gender,
     role: input.role,
-    family_code: input.familyCode,
     graduation_year: graduationYear,
     commitment_date: getDefaultCommitDate(graduationYear),
-    current_utr: 7,
     tournaments_goal: 12,
     onboarded: input.role === "parent",
   });
+  if (profileError) return { ok: false, error: "Could not save your profile. Try again." };
 
-  if (profileError) return { ok: false, error: profileError.message };
+  const join = await joinFamily(input.familyCode);
 
-  if (input.role === "parent") {
-    const { error: parentError } = await supa.from("parent_accounts").upsert(
-      {
-        user_id: input.userId,
-        family_code: input.familyCode,
-        relationship: "parent",
-      },
-      { onConflict: "user_id,family_code" }
-    );
-    if (parentError) return { ok: false, error: parentError.message };
+  // A wrong code is NOT a failed signup. The account exists and is usable;
+  // the UI drops them on the pending screen, which offers "Wrong code?
+  // Re-enter". Failing here would strand someone with an account they
+  // cannot get back into.
+  if (join.status === "invalid" || join.status === "own_family" || join.status === "rate_limited") {
+    return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
+  }
+  if (join.status === "error") {
+    return { ok: true, familyCode: input.familyCode, joinStatus: "error" };
   }
 
-  return { ok: true, familyCode: input.familyCode };
+  return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
 }

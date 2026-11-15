@@ -126,9 +126,13 @@ writing code alone.
   S-15 (the rate limiter recorded nothing, because raising rolled back its
   own log) and S-16 (closing the hole also closed the legitimate
   parent-read path, since they were the same mechanism).
-  ⛔ **Blocked on code:** 023 breaks `completeFamilySignup()` in
-  `lib/auth.ts` in three places, and there is no approval UI anywhere.
-  TODO item 1. Production rollout + rollback: HANDOFF §J step 3.
+  **Code landed 2026-11-14** (migration 026 + `lib/auth.ts` rewrite + UI).
+  All three `lib/auth.ts` breakages closed; `generateFamilyCode()` now uses
+  `crypto.getRandomValues`. Approve/deny card on /today and /family, joiner
+  waiting screen with Remind + Re-enter, declined and no-family states, and
+  a roster with role/status/remove. End-to-end on staging: **30/30** across
+  nine scenarios. **023 + 026 + the code ship as one unit.**
+  Production rollout + rollback: HANDOFF §J steps 3 and 4b.
   Why this matters: `families` has policy `families readable` = `true` for all authenticated users (confirmed live). Any user can list every family code, set their own `profiles.family_code` + `role='parent'` (P0-1), or insert a `parent_accounts` row for any code (policy only checks `user_id = auth.uid()`). They then pass `is_family_member()` / `is_parent_member()` and can read that child's profile (incl. email, GPA, grade), UTR history, matches, outreach, check-ins, and write the family budget. Family codes are `FIRSTNAME-XXXX` with `Math.random()` — guessable even without the list.
   Dependencies: P0-1
   Affected files: `lib/auth.ts` (`generateFamilyCode`, parent signup, join flow), `components/auth/*parent*`, new migration `023_family_join_rpc.sql`
@@ -559,27 +563,23 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-1. ⛔ **Rewrite `completeFamilySignup()` in `lib/auth.ts` for 023.** The
-   migration is applied and tested on staging; the app is not compatible
-   with it. Three specific breakages + a missing approval UI — TODO item 1,
-   HANDOFF §J "HARD BLOCKER". **Needs sign-off** (changes family linking).
-2. **Point Vercel Preview + local Development at staging.** The other half
-   of P0-6. Staging is a verified clone now, so there is no longer a reason
-   for local dev to read real users' data.
-3. **Branch protection on `main`** so CI actually gates. Needs Niran.
-4. **Run the production rollout** (HANDOFF §J): 025 → 022 → 023 → 024, then
-   revert the maintenance commit and merge `v1`. Blocked on 1–3.
-5. **Revoke the removed credentials** — Gemini at Google, Stripe secret in
+1. **Point Vercel Preview + local Development at staging.** The other half
+   of P0-6. Staging is a verified clone with fake seed data; there is no
+   longer a reason for local dev to read real users' data.
+2. **Branch protection on `main`** so CI actually gates. Needs Niran.
+3. **Run the production rollout** (HANDOFF §J): 025 → 022 → 023 + 026 → 024,
+   then revert the maintenance commit and merge `v1`. Blocked on 1–2.
+4. **Revoke the removed credentials** — Gemini at Google, Stripe secret in
    Stripe, rotate Whop. Needs Niran.
-6. P1-FIT-4 — the last `classifySchoolFit` call with no projection
-   (`seeded-pre-auth-onboarding.tsx:44`); `syntheticUtrHistoryFor()` is the
-   ready-made fix.
-7. P1-FIT-3 — projections are still nonsense on noisy data.
-8. P1-DATA-1 — real roster import. Still the highest-value product task: a
-   5.81 player has zero schools in range.
-9. P1-UX-2 — delete Legacy.
+5. P1-FIT-4 — the last `classifySchoolFit` call with no projection
+   (`seeded-pre-auth-onboarding.tsx:44`).
+6. P1-FIT-3 — projections are still nonsense on noisy data.
+7. P1-DATA-1 — real roster import. Highest-value product task: a 5.81
+   player still has zero schools in range.
+8. P1-UX-2 — delete Legacy.
+9. P1-SEC-2/3/4 — public-profile reads, rate limits on the rest of `/api/*`,
+   security headers.
 10. P0-8 — minors' privacy, consent, real deletion. Needs legal/adult review.
 
 **Production is in maintenance mode** (`main` @ `d059006`, verified live
-503 on 2026-11-14). That makes this rollout low-risk, but the clock is
-running — don't sit here longer than needed.
+503). Low-risk window for the rollout, but the clock is running.

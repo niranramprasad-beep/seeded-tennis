@@ -439,27 +439,39 @@ export type Database = {
       }
       parent_accounts: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           family_code: string
           id: string
           player_id: string | null
           relationship: string | null
+          reminded_at: string | null
+          status: string
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           family_code: string
           id?: string
           player_id?: string | null
           relationship?: string | null
+          reminded_at?: string | null
+          status?: string
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           family_code?: string
           id?: string
           player_id?: string | null
           relationship?: string | null
+          reminded_at?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -1036,6 +1048,28 @@ export type Database = {
       is_parent_member: {
         Args: { target_family_code: string }
         Returns: boolean
+      }
+      my_family_code: { Args: never; Returns: string | null }
+      join_family: { Args: { p_code: string }; Returns: Json }
+      approve_family_join: { Args: { p_parent_user_id: string }; Returns: Json }
+      deny_family_join: { Args: { p_parent_user_id: string }; Returns: Json }
+      remove_family_member: { Args: { p_user_id: string }; Returns: Json }
+      my_pending_family_request: { Args: never; Returns: Json | null }
+      remind_family_approval: { Args: never; Returns: Json }
+      cancel_my_family_request: { Args: never; Returns: Json }
+      generate_family_code: { Args: never; Returns: string }
+      family_members: {
+        Args: never
+        Returns: {
+          user_id: string
+          name: string
+          email: string | null
+          role: string
+          status: string
+          is_creator: boolean
+          joined_at: string
+          reminded_at: string | null
+        }[]
       }
     }
     Enums: {

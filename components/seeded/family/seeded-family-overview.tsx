@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRef } from "react";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
 import { SeededButton } from "@/components/seeded/ui/button";
@@ -20,6 +21,14 @@ import { formatUTR } from "@/lib/utils";
 import { SeasonBudgetCard } from "./season-budget-card";
 import { NeedsDecisionCard } from "./needs-decision-card";
 import { FamilyMembersCard } from "./family-members-card";
+import { JoinRequestsCard } from "./join-requests-card";
+import {
+  FamilyPendingScreen,
+  FamilyRequestDeclined,
+  FamilyJoinPrompt,
+} from "./family-pending-screen";
+import { loadMyFamilyCode, loadFamilyRoster } from "@/lib/db/family-join";
+import { loadMyPendingFamilyRequest, type PendingFamilyRequest } from "@/lib/db/family-join";
 import { SendNoteModal } from "./send-note-modal";
 import { Toast } from "@/components/seeded/ui/toast";
 
@@ -51,6 +60,29 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
   const { data: seasonBudget, mutate: mutateSeasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
   const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
+  // A pending joiner can read nothing, so /family would otherwise render as
+  // a page of empty cards. Show them where they actually are instead.
+  const { data: pendingRequest, mutate: mutatePending } = useSWR<PendingFamilyRequest | null>(
+    "my-pending-family-request",
+    () => loadMyPendingFamilyRequest()
+  );
+  // A joiner's own profile has no family_code (they are linked through
+  // parent_accounts), so the invite code has to come from the database.
+  const { data: resolvedFamilyCode, mutate: mutateFamilyCode } = useSWR<string | null>(
+    "my-family-code",
+    () => loadMyFamilyCode()
+  );
+  const { mutate: mutateRoster } = useSWR("family-roster", () => loadFamilyRoster());
+  const familyCode = resolvedFamilyCode ?? player.familyCode;
+
+  // Remembers that this tab saw a pending request, so a denial can be told
+  // apart from "never asked". Deliberately not persisted.
+  const sawPendingRef = useRef(false);
+  if (pendingRequest) sawPendingRef.current = true;
+
+  const refreshJoinState = async () => {
+    await Promise.all([mutatePending(), mutateFamilyCode(), mutateRoster()]);
+  };
 
   const playerMember = members.find((m) => m.role === "player");
   const playerName = playerMember?.name || player.name || "your player";
@@ -136,6 +168,29 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
     if (saved) mutateExpenses([saved, ...expenses], { revalidate: false });
   };
 
+  if (pendingRequest) {
+    return <FamilyPendingScreen request={pendingRequest} onChanged={() => void refreshJoinState()} />;
+  }
+
+  // A request that was here a moment ago and is now gone, from someone still
+  // without a family, means it was denied (026 deletes on deny rather than
+  // recording a refusal). Session-scoped on purpose — see the comment on
+  // FamilyRequestDeclined.
+  if (sawPendingRef.current && !familyCode) {
+    return (
+      <FamilyRequestDeclined
+        onRetry={() => {
+          sawPendingRef.current = false;
+          void refreshJoinState();
+        }}
+      />
+    );
+  }
+
+  if (!familyCode) {
+    return <FamilyJoinPrompt onJoined={() => void refreshJoinState()} />;
+  }
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -195,8 +250,9 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
           />
         </div>
         <div className="space-y-4">
+          <JoinRequestsCard />
           <NeedsDecisionCard decisions={decisions} />
-          <FamilyMembersCard members={members} familyCode={player.familyCode} />
+          <FamilyMembersCard familyCode={familyCode} />
         </div>
       </div>
 

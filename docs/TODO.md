@@ -9,26 +9,15 @@ Last updated 2026-11-14.
 
 ## Blocking the production rollout
 
-### 1. ⛔ Rewrite `completeFamilySignup()` in `lib/auth.ts` for migration 023
-**Needs sign-off — this changes how family linking works.**
+### 1. ✅ Family linking — DONE (2026-11-14), staging only
+`completeFamilySignup()` now uses `join_family()` only; migrations 023 + 026
+applied and end-to-end tested on staging (30/30 across nine scenarios).
+Approve/deny card, pending screen, declined state and the roster with
+role + status + remove are all built. **Ships as one unit with 023 + 026.**
 
-023 is applied and tested on staging. It closes P0-2, and in doing so it
-breaks parent signup in three specific places in that one function. Full
-detail in `docs/HANDOFF.md` §J under "HARD BLOCKER"; in short:
-
-- the `families` lookup used to validate a join code now returns nothing
-  to a non-member → call `join_family()` RPC instead and branch on its
-  returned status (it returns, it does not throw)
-- the direct `parent_accounts` upsert is now rejected → delete it, the RPC
-  creates the row
-- the `profiles` upsert writes `role`/`family_code`, which 022 rejects on
-  the UPDATE half of an upsert → split create from update
-
-Plus a UI question that is genuinely a product decision, not a code one:
-**a parent is now `pending` until the player approves.** There is no
-approval screen anywhere in the app. Someone has to design what the parent
-sees while waiting and where the player accepts. Until that exists, a
-parent can sign up and then sit in limbo.
+Remaining question for Niran, not a blocker: "Remind them" sends nothing
+(no email/push exists), it re-sorts the request on the approver's card and
+says so. A real notification is a provider decision — POST-V1.
 
 ### 2. Point Vercel Preview + local Development at staging
 The other half of P0-6. Staging now exists and is a verified schema clone

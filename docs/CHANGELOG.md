@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-14 — Family join/approval flow (P0-2 part 2) — staging only
+- **Unblocked the P0-2 rollout.** `completeFamilySignup()` in `lib/auth.ts` is rewritten to go through `join_family()` only: no `families` lookup (members-only now, so a joiner read nothing and a valid code looked invalid), no direct `parent_accounts` insert (no client policy), and no `family_code` on a joiner's profile. It also uses `insert` instead of `upsert` so it can never take the UPDATE path that 022 rejects.
+- `generateFamilyCode()` now uses `crypto.getRandomValues` with the same alphabet and length as the database's `generate_family_code()`. The old `FIRSTNAME-XXXX` from `Math.random()` leaked the player's first name and wasn't a secret — both halves of why P0-2 was exploitable.
+- New migration `026_family_approval_flow.sql`: `my_family_code()`, `family_members()`, `deny_family_join()`, `remove_family_member()`, `my_pending_family_request()`, `remind_family_approval()`, `cancel_my_family_request()`, and `approve_family_join()` widened so **any approved member** can approve (023 only let the player, because it keyed off the approver's own `profiles.family_code` — which a parent never has).
+- New UI, reusing existing Seeded components: approve/deny card on `/today` and `/family` (renders nothing when empty); the joiner's waiting screen with "Remind them" and "Wrong code? Re-enter"; declined and not-in-a-family states; and a roster showing role + status with remove.
+- **`FamilyMembersCard` was silently broken by the new model** — it selected `profiles` by `family_code`, and joiners no longer carry one, so every approved parent was missing from the roster. Now reads `family_members()`.
+- **"Remind them" sends nothing** and says so. Seeded has no email or push; it bumps a timestamp so the request re-sorts on the approver's card. Rate-limited to once an hour.
+- **Deny deletes the row** rather than recording a refusal — kinder for a product used by minors, at the cost of the "Request declined" screen being session-scoped. Documented in both the migration and the component.
+- Tested end-to-end on staging with clearly-fake fixtures: **30/30** across player-first, parent-first, any-member-approves, wrong code, denied, removal (access gone in the same session), remind rate limit, join brute force, and pending members having no powers.
+- Production untouched. 023 + 026 + the code must ship together — see HANDOFF §J steps 3 and 4b.
+
 ## 2026-11-14 — Staging exists; P0-1, P0-2 and the pricing gates applied and attack-tested there
 - **Staging is real.** Adopted the second Supabase project (`gnlcpnsweqbtwpaqhqqg`) after verifying it was genuinely empty — 0 tables, 0 auth users, 0 storage, no migrations table. (The earlier `28P01` auth failures were a stale DB password; resetting it fixed the tooling's own connection, so no credential had to be copied anywhere.)
 - Applied all 23 of production's migrations to it **in production's real order** — which is not the repo's numbering: prod ran `019_rls_policy_hardening` *before* `018_revoke_anon_execute_security_definer`.

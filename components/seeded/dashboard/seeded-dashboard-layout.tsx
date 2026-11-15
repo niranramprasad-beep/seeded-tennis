@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { UtrVsPlanChart } from "./utr-vs-plan-chart";
 import { classifySchoolFit } from "@/lib/school-fit";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
+import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
@@ -93,6 +94,12 @@ export function SeededDashboardLayout({
 
   return (
     <div className="flex flex-wrap gap-6">
+      {/* Renders nothing unless someone is actually waiting on approval, so
+          it costs no space on a normal day. Approved members only — the
+          roster RPC returns nothing to anyone else (migration 026). */}
+      <div className="w-full">
+        <JoinRequestsCard compact />
+      </div>
       <div className="w-full">
         <p className="text-sm text-stone">{dateLine}</p>
         <h1 className="mt-1.5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">

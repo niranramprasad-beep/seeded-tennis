@@ -652,7 +652,7 @@ from the client. A player who signs up without a family and later creates
 one must go through a server-side path. Check this against the live signup
 flow before shipping the code in step 5 — it is fine for existing users.
 
-### Step 3 — migration 023 (P0-2: join_family RPC)
+### Step 3 — migrations 023 + 026 (P0-2: join_family RPC and the approval flow)
 **What:** pending/approved state on `parent_accounts`; `families` readable
 by members only; no direct `parent_accounts` INSERT; `join_family()` and
 `approve_family_join()` RPCs; rate limiting; `generate_family_code()`;
@@ -661,7 +661,11 @@ family-read policies switched to `is_family_member()`.
 It backfills every existing `parent_accounts` row to `'approved'`, so
 nobody currently linked is locked out. **Verify the backfill count matches
 the row count before you proceed.**
-**Apply:** `supabase/migrations/023_family_join_rpc.sql`
+**Apply BOTH, in order:** `023_family_join_rpc.sql`, then
+`026_family_approval_flow.sql`. They are one logical unit — 023 makes
+joining safe, 026 makes the resulting family usable (approve / deny /
+roster / remove / remind). Applying 023 alone leaves nobody able to approve
+anyone.
 **Verify:**
 ```sql
 select status, count(*) from public.parent_accounts group by status;
@@ -735,38 +739,37 @@ code back, also run 024's rollback SQL.
 - [ ] Point Vercel **Preview** and local **Development** at staging (P0-6's remaining half) so this never has to be rehearsed on prod again
 - [ ] Revoke the Gemini and Stripe keys; rotate Whop
 
-### ⛔ HARD BLOCKER before step 5 — `lib/auth.ts` is incompatible with 023
+### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
-Verified by reading `completeFamilySignup()` in `lib/auth.ts` (2026-11-14).
-023 breaks parent signup in **three** places, all in that one function:
+The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with
+023") is **fixed on `v1`.** All three breakages are closed:
 
-1. **Line ~589, joining a family.** It validates the code with
-   `supa.from("families").select("code").eq("code", …)`. 023 makes
-   `families` readable by members only, so a prospective parent — who is
-   by definition not yet a member — gets zero rows and the UI says
-   *"That family code wasn't found."* for a perfectly valid code.
-   → Replace with `supa.rpc("join_family", { p_code: … })` and branch on
-   the returned status (`pending` / `invalid` / `own_family` / `already`).
-   Note it RETURNS a status rather than throwing; see the comment in 023.
+1. the `families` lookup is gone — joining goes through `join_family()`
+2. the direct `parent_accounts` upsert is gone — the RPC creates the row
+3. the profile write no longer sets `family_code` on a joiner, and uses
+   `insert` rather than `upsert` so it can never take 022's UPDATE path
 
-2. **Line ~626, the parent link.** It upserts `parent_accounts` directly.
-   023 drops `parent_accounts_insert_self`, so this is rejected outright.
-   → Delete it; `join_family()` creates the row.
+`generateFamilyCode()` now uses `crypto.getRandomValues` with the same
+alphabet and length as the database's `generate_family_code()`, so the old
+`FIRSTNAME-XXXX` from `Math.random()` is gone from both sides.
 
-3. **Line ~608, the profile upsert.** It writes `role` and `family_code`.
-   On a genuinely new row 022 permits both, but this is an **upsert** — if
-   the profile row already exists it becomes an UPDATE, which 022 rejects
-   with `42501`. → Split create from update, or route it through a
-   server-side path that runs as the service role.
+New UI, all reusing existing Seeded components:
+- `join-requests-card.tsx` — the approve/deny card, on `/today` and
+  `/family`. Renders nothing when there is nothing pending.
+- `family-pending-screen.tsx` — the joiner's waiting screen, plus the
+  declined and not-in-a-family states and the shared code form.
+- `family-members-card.tsx` — rewritten to read `family_members()` instead
+  of selecting `profiles` by `family_code`, which silently omitted every
+  joined parent once they stopped carrying the code.
 
-Also: `generateFamilyCode()` (line 31) still builds `FIRSTNAME-XXXX` from
-`Math.random()`. 023 ships `generate_family_code()` as a replacement; the
-app should call it. Not a blocker — existing codes keep working — but the
-weak generator is half of why P0-2 was exploitable.
+**The code and migrations 023 + 026 must ship together.** The code calls
+RPCs that do not exist before them; the migrations close table access the
+old code depends on. Neither half works alone.
 
-**None of this is written yet.** Until it is, applying 023 to production
-and shipping `v1` would close the security hole and break parent signup in
-the same release. See `docs/TODO.md` item 1.
+**Still a product gap, not a blocker:** "Remind them" sends nothing. Seeded
+has no email or push, so it bumps a timestamp that re-sorts the request on
+the approver's card, and the copy says exactly that. If you want a real
+notification, that is a provider decision (POST-V1).
 
 ### What this plan deliberately does NOT do
 - It does not rewrite `lib/auth.ts` (see the blocker above) — that is a
