@@ -419,4 +419,71 @@ renders at 187 B static).
 
 ---
 
+## TASK 6 — End-to-end pass: **DONE, with one route not tested and why**
+
+### ⚠️ The finding that stopped half of this task
+
+**`.env.local` still points local dev at PRODUCTION** (`tfpjssmhiptbwigarxpx`),
+verified 2026-11-14. Setting Vercel's *Development* environment only affects
+`vercel dev` / `vercel env pull`; `npm run dev` reads `.env.local`, which was
+last changed on 2026-11-08.
+
+So I did **not** sign up a test account through the UI. Doing so would have
+created a real account, with real rows, in the production database — the
+exact thing CLAUDE.md §0 rule 5 forbids. **CLAUDE.md itself claimed the
+opposite** ("Local dev no longer touches real users' data"); I wrote that
+line earlier today on the strength of the Vercel setting, and it was wrong.
+Corrected in this commit.
+
+Fix is the first item under "What Niran does by hand".
+
+### What I did test — 26 checks on staging, all passing
+
+Against the real database with all eleven migrations applied together, which
+had not been done before (they were verified one at a time as they landed).
+
+| # | Check | Result |
+|---|---|---|
+| 1–8 | Structure: 21 restrictive consent policies present, `profiles_discovery_read` gone, `are_friends` dropped, rate limiter and `delete_my_account` present, `family_members()` returns `consent_status`, RLS on every public table | ✅ |
+| 9 | Parent-first: a parent creates the family (the path an under-13 needs) | ✅ |
+| 10 | Under-13 signup lands `pending` **even when the insert asks for `granted`** | ✅ |
+| 11 | Pending account reads nothing but its own row | ✅ |
+| 12 | Pending account can still join a family (the RPC is SECURITY DEFINER) | ✅ |
+| 13 | Outreach gating: free tier blocked by `has_tier('player')` | ✅ |
+| 14 | Parent approves → join **and** consent recorded in one action | ✅ |
+| 15–17 | Consented child can write, can read its family, rate limiter answers | ✅ |
+| 18–21 | Stranger sees 0 families, 0 other profiles, 0 minor UTR rows, and cannot consent for the child | ✅ |
+| 22–24 | Child deletes own account → auth user and UTR history gone | ✅ |
+| 25–26 | Family survives because the parent is still in it; parent untouched | ✅ |
+
+**One result differed from what I predicted, and the difference is fine:**
+check 21 returned `not_a_parent_account` rather than `not_your_family`. The
+stranger has no profile row at all, so the role check fires before the family
+check. The attack is refused either way; I am recording the reason the
+database actually gave rather than the one I expected.
+
+All E2E fixtures were deleted afterwards — by calling `delete_my_account()`
+as those users, which also exercised the "last member out removes the family"
+path. Staging is back to its 6 seed accounts.
+
+### UI checks that need no auth
+
+- `/pricing` toggle, prices, honest footer — verified on a production build
+- `/login`, `/signup`, `/auth/complete` render; Google button appears with the
+  flag on and is absent with it off
+- `/onboarding` fit report with the trajectory panel — 8 → 31 programs
+- Mobile 375px on `/pricing`, `/login`, `/signup`, `/family` (harness) —
+  screenshots in `docs/screenshots/`
+
+### Not tested, and honestly so
+
+Email signup → onboarding, Google OAuth round trip, checkout start, and the
+settings export/delete buttons all need a signed-in session. They are
+**covered at the database and unit level** (26 checks above, plus 568 unit
+tests including the export-completeness and consent guards), but the browser
+path from button to row has not been walked. It needs `.env.local` pointed
+at staging first. Listed for the morning.
+
+---
+
 ## TASK 5 — Independent security review: *running in a separate agent*

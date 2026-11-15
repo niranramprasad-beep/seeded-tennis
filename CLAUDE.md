@@ -24,7 +24,19 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
 - P0-5: production is in **maintenance mode** since 2026-11-14 (`main` @ `d059006`, one revertable commit adding `middleware.ts`, verified live 503). The broken `contacted` write no longer reaches users. Real close-out is the `v1` merge.
-- P0-6: DONE — staging is `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone, and Vercel Preview + local Development now read it. Production has its own three Supabase vars. **Local dev no longer touches real users' data.**
+- P0-6: **PARTLY done, and the dangerous half is still open.** Staging is
+  `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone, and Vercel
+  **Preview** genuinely reads it (proved by grepping the deployed client
+  chunks: staging ref present, production ref absent). Production has its own
+  three Supabase vars.
+  **BUT `.env.local` on this machine still points at PRODUCTION**
+  (`tfpjssmhiptbwigarxpx`), verified 2026-11-14. Setting Vercel's
+  *Development* environment only affects `vercel dev` / `vercel env pull`;
+  `npm run dev` reads `.env.local`, which was last changed on 2026-11-08.
+  **So local dev still reads and writes real users' data, and CLAUDE.md said
+  otherwise for several hours.** The §0 rule stands and matters: never sign
+  in through real auth locally. Fix is in docs/OVERNIGHT_REPORT.md under
+  "What Niran does by hand".
 - **Eleven migrations are applied and attack-tested on STAGING and none are on production:** 025, 022, 023, 026, 024, 027, 028, 029, 030, 031. Order, per-step verify and per-step rollback: `docs/HANDOFF.md` §J. Nothing ships until Niran says go.
   The highest-risk step is 030 + 031 — a RESTRICTIVE policy on 21 tables. Its pre-flight check (every existing `profiles` row `consent_status = 'not_required'`, zero `'pending'`) is not optional.
 - Family linking: `completeFamilySignup()` goes through `join_family()` only — never write `parent_accounts`, `families`, or a joiner's `profiles.family_code` directly; the database rejects all three. Migrations **023 + 026 and the code ship together**; neither half works alone. Approval flow: anyone joining lands PENDING and reads nothing until an approved member approves.
