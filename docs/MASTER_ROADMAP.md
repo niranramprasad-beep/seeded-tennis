@@ -81,12 +81,14 @@ P1-OPS-1 (CI + branch protection), P1-OPS-3 (migration drift), P1-SEC-2
 app code can reach.
 
 **Everything database-side is written, applied and attack-tested on
-staging, and none of it is on production.** **Sixteen** migrations are now
+staging, and none of it is on production.** **Seventeen** migrations are now
 queued behind one word from Niran (025, 022, 023, 026, 024, 027, 028, 029,
-030, 031, 032, 033, 034, 035, 036, 037). **036 does not ship without 037**:
-an independent review found three defects in 036 within an hour of it being
-written, two of which made a sentence 036 itself shipped in `/privacy`
-untrue. **035 is not optional** — without it
+030, 031, 032, 033, 034, 035, 036, 037, 038). **036 does not ship without 037
+and 038**: an independent review found three defects in 036 within an hour of
+it being written, two of which made a sentence 036 itself shipped in
+`/privacy` untrue, and a third rehearsal found a fourth — the family roster
+returned every double-linked member **twice** and called three removable
+members "account holder" (038). **035 is not optional** — without it
 032/033 break every profile write and 034 breaks account deletion for
 everyone. **036 is the only step that widens what one user may read about
 another**, and it is the one to read the rollback for first (§J step 13). P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
@@ -131,7 +133,7 @@ settings, and the product problem — P1-DATA-1.
 | Security | 8/10 | Both P0 authorization holes, the whole-row public profile read (S-5), rate limits on every write route (S-6), the RPC grant surface (S-9) and the under-13 gate are all fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Security headers (S-7) are in the code and verified against a production build. Four bugs found by the tests themselves (S-15, S-16, the dead birth-year field, the parent-first dead end). Not fixed: login/signup/reset rate limits, which app code cannot reach at all; nonce CSP |
 | Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
-| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all sixteen migrations, **rehearsed end to end on 2026-11-15** (218 ms; seven rollback defects found and fixed across two rehearsals). **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
+| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all seventeen migrations, **rehearsed end to end three times on 2026-11-15** (218 ms of SQL; **ten** plan defects found and fixed, every one by running the plan rather than reading it). The third rehearsal is the one that counts: it started from a staging database whose nine-category schema fingerprint matched production **9 of 9** and was seeded in production's real data shape, which is how it found a product bug (038) that no previous seed could expose. **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
 | Legal/privacy | 7/10 | Deletion deletes (029). A complete JSON export exists, guarded by a test that fails the build when a new table is neither exported nor explicitly excluded. Under-13 accounts are inert until an adult in their family consents, enforced by RLS and not by the UI. Nothing about any user is visible to another signed-in user outside their family. `/privacy` now exists, every claim carries the file or migration that makes it true, and `lib/legal/policy.test.ts` fails the build when one stops being true. **Still open and not Claude's to close: a lawyer has to read it** — seven questions in TODO, headed by whether our consent mechanism satisfies COPPA's *verifiable* parental consent at all |
 | Testing | 8/10 | 635 unit tests in 49 files pass, incl. **thirteen** build-failing guards (schools-catalog-honesty, copy-honesty, coach-email, fit-band-consistency, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, export completeness vs the schema, family-UTR honesty, theme contrast, the UTR sentinel vs migration 006's CHECK, robots coverage, family-scope, every /privacy claim vs the code) — counted by listing the files on 2026-11-15, because this number had drifted twice and an independent review caught it both times. counted by listing the files on 2026-11-15, because this number had drifted twice. catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts. Concretely: two real payments failed to upgrade anybody for six weeks and nothing surfaced it — it was found by reading the Whop dashboard by hand |
@@ -755,15 +757,21 @@ usefully first.
    new safety net useless if production shares it. Nothing else on this list
    matters as much as a customer paying and getting nothing.
 
-1. **Run the production rollout** (HANDOFF §J). **Thirteen** migrations in
+1. **Run the production rollout** (HANDOFF §J). **Seventeen** migrations in
    order: 025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032
-   → 033 → 034, then revert the maintenance commit and merge `v1`. Every
-   step has its own verify and rollback. The gates that used to block this
-   — branch protection, Preview/Development on staging, credentials — are
-   all done.
-   **The whole sequence was rehearsed on 2026-11-15** against a database
-   rolled back to production's shape: 218 ms of database time, every
-   pre-flight passing, and four defects fixed in the rollback half.
+   → 033 → 034 → 035 → 036 → 037 → 038, then merge `v1` (the maintenance
+   page is already deleted on `v1` — **do not try to revert `d059006`, it
+   is not an ancestor of `v1` and the plain merge keeps `middleware.ts`**;
+   §J step 15). Every step has its own verify and rollback. The gates that
+   used to block this — branch protection, Preview/Development on staging,
+   credentials — are all done.
+   **The sequence was rehearsed three times on 2026-11-15.** The third one
+   is the one to trust: it started from a staging database matching
+   production's schema fingerprint **9 of 9** and seeded in production's
+   real data shape, ran every rollback in reverse clean, then every forward
+   step with its pre-flight. **Ten** plan defects have been found and fixed
+   across the three, every one by running the plan rather than reading it,
+   plus one product bug (038) that only the realistic seed could expose.
    **Highest-risk step is 8** (030 + 031): a restrictive policy on 21
    tables. Do not skip its pre-flight check that every existing row is
    `consent_status = 'not_required'`. **Step 11 (034) is the only step that
@@ -776,10 +784,16 @@ usefully first.
    HANDOFF §J step 7. 029 does not action them; they are owed a real
    deletion by hand, with their confirmation. Do this deliberately and
    soon — some of them have been waiting since before deletion worked.
-3. **Supabase Auth settings** (Niran): leaked-password protection and a
-   minimum password length. Login, signup and password reset cannot be
-   rate-limited from app code — the browser talks to Supabase directly —
-   so Supabase's own per-IP limits are the only control that exists.
+3. **Supabase Auth settings** (Niran): leaked-password protection, a
+   minimum password length, **and an SMTP provider.** Login, signup and
+   password reset cannot be rate-limited from app code — the browser talks
+   to Supabase directly — so Supabase's own per-IP limits are the only
+   control that exists. **SMTP is a launch blocker, not a nicety:** a real
+   signup against the preview returned `429 over_email_send_rate_limit`
+   because the built-in sender's quota is a few messages an hour. With
+   "Confirm email" on and no custom SMTP, the second or third person to
+   sign up on launch day cannot confirm. Niran is wiring Resend
+   (2026-11-15). Re-test one real signup end to end afterwards.
 4. **P0-8's other half: the privacy policy.** Deletion, export, consent and
    minor-visibility are all built and tested. The document that explains
    them to a parent, names the processors and states retention is not, and

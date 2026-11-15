@@ -607,9 +607,9 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply sixteen migrations to production in order
+Apply seventeen migrations to production in order
 (025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
-034 → 035 → 036 → 037), verifying after each; then merge `v1` to `main` as a
+034 → 035 → 036 → 037 → 038), verifying after each; then merge `v1` to `main` as a
 single PR with CI green, having first merged `main` into `v1` and deleted
 `middleware.ts` there — **`git revert d059006` cannot work and the plain
 merge keeps the maintenance page; see step 15.** (This line said "twelve"
@@ -691,6 +691,115 @@ the window around reading results, not around waiting for SQL.
    a `DROP` does not. The rehearsal did this to `are_friends()` and only
    noticed by diffing function ACLs against production. Every restore in this
    document now carries its `revoke`/`grant` pair.
+
+### The THIRD rehearsal (2026-11-15) — the one that started from production's real shape
+
+The first two rehearsals rolled staging back and replayed forward, and both
+started from a database that was *close* to production. This one started from a
+database that was **byte-identical** to it, and that is the only reason it
+found anything.
+
+**How the starting state was built, and why it matters.** The documented
+rollbacks restore BEHAVIOUR, not SCHEMA — which this file says, and which means
+a rolled-back database still carries 17 extra functions and 8 extra columns the
+forward migrations created. A forward run from there cannot tell you whether a
+migration that CREATEs something would have failed on production, because the
+object is already there. So after running every rollback in reverse (steps
+14 → 2, all clean), the leftovers were removed and production's own objects
+restored, until a **nine-category fingerprint matched production exactly:
+9 of 9** (columns, constraints, policies, indexes, triggers, functions,
+function grants, table grants, RLS flags — functions and grants compared with
+whitespace stripped and ACLs sorted, because `pg_proc.prosrc` keeps the
+original formatting and `proacl` keeps grant order).
+
+Then it was seeded to production's **data** shape rather than a convenient one:
+8 profiles, 3 `parent_accounts` rows **all double-linked** (the user's own
+`profiles.family_code` is the same code), 6 families, 2 `family_codes` rows,
+15 `utr_entries`, 1 `privacy_level='public'` profile, and **one family with 4
+profiles sharing a single code** — production's `NIRAN-0FI8`.
+
+**Three more defects in this plan, and one in the product, all found by running
+it rather than reading it:**
+
+5. **Step 14's rollback left `family_account_holder()` behind.** Harmless
+   (it is granted to nobody) but it is schema drift from production, and the
+   whole point of the fingerprint is that drift is detectable. The `drop` is in
+   the step now.
+6. **`family_members_read` and `utr_entries_select_family` never get back to
+   production's definition.** Step 13's rollback restores the 023/027 form
+   (`is_family_member(family_code)`), which is correct at that point in the
+   reverse chain — but neither step 5's nor step 3's rollback then puts them
+   back to what production actually has, which is
+   `family_code = current_family_code()`. `current_family_code()` is
+   `select family_code from profiles where id = auth.uid()` — the creator's
+   own column only — so `is_family_member()` is **strictly broader**: it also
+   matches through `parent_accounts`. A full rollback would therefore leave
+   production with a WIDER family read than it started with. Not a
+   catastrophe, and still inside one family, but a rollback whose job is to
+   land exactly where you were.
+7. **Step 5's rollback of `profiles_discovery_read` omits
+   `are_friends((select auth.uid()), id)`**, which production's policy has. In
+   the other direction this time: the restored policy is narrower. Harmless
+   because friends are gone product-wide and no code reads it — but it is not
+   production's policy, and "harmless" is a judgement the next person should
+   get to make with the real text in front of them.
+   Both 6 and 7 are written out as runnable SQL in their steps now.
+8. **The product defect: the family roster returned every double-linked member
+   twice, and called three of them "account holder".** See step 14b and
+   migration 038. This is the one that would have shipped: it is invisible in
+   any seed where creators and joiners are disjoint, which is every seed this
+   project used before today.
+
+**And one claim in this plan that the real shape contradicts.** Step 13 says
+036 fixes a read gap where "the creator-parent of `FAKEFAMILY01` saw 1 profile
+(their own) and 0 of the joined player's 3 `utr_entries` rows". True for that
+seed. **Not true for production's members:** the pre-036 policy keyed off the
+ROW OWNER's `profiles.family_code`, and every one of production's family
+members carries it, so they can read each other today. Re-measured on the
+prod-shaped seed: a pure joiner (profile code NULL, approved link) read 5
+profiles, 10 `utr_entries` and 2 matches **before** 036. The gap is real but it
+bites rows owned by a member who joined by code and never had the column set —
+on production, nobody yet. 036's read half is therefore a fix for FUTURE
+joiners, not a repair of something broken for today's users; **037's narrowing
+is the part that changes what production's existing members can see.** Worth
+being exact about, because the launch note said otherwise.
+
+The WRITE half does reproduce exactly as documented: via the app's own path
+(stamping `family_code` from the writer's `profiles.family_code`), a joined
+parent's `encouragement_notes` insert is refused `42501`, and their match is
+stamped NULL and then unreadable by their own family (a parent read 0 of it).
+After 036 both work and the database does the stamping; a client trying to
+publish into a stranger's family gets its own code stamped on instead.
+
+**Every documented rollback ran clean in reverse order (14 → 2),** and the two
+the launch gate names were re-proved behaviourally rather than by inspection:
+- **032:** after its rollback, a client INSERT of a profile carrying someone
+  else's family code **succeeded** — the Critical is genuinely reopened, which
+  is what a correct rollback of 032 means.
+- **035:** after its rollback `consume_rate_limit` is back to 028's inline
+  policy and `delete_my_account()` to 029's body, `profile_row_exists()` is
+  deliberately left in place, and an ordinary profile upsert still works —
+  i.e. the rollback does not re-break what it was rolled back from.
+- **037:** after its rollback, `family_members()` is 9 columns again, the
+  cross-user `profiles` policy is back, and `remove_family_member()` no longer
+  clears the profile column.
+
+**The forward run, from the 9-of-9 starting state, was clean at every step**,
+including the two steps whose verifies are the real gate: step 8's
+`consent_status` census came back **10 of 10 `not_required`, zero `pending`**,
+and step 1 (025) left the fingerprint still **9 of 9** — the first time this
+plan has been able to prove 025 is a true no-op on production's shape rather
+than assert it.
+
+**Two false signals the harness produced, recorded so they are not mistaken
+for findings.** A `42501` "permission denied for table probe_result" and a
+`53400` "Too many changes at once" both came from the test harness, not the
+migrations: the first from a temp table granted to `authenticated` but queried
+as `service_role`, the second from `set_config('request.jwt.claims', ...,
+true)` persisting across `DO` blocks in one transaction so that setup INSERTs
+run as `postgres` were still rate-limited against the previous user's bucket.
+Reset the claims between blocks, and grant temp tables to every role you switch
+into.
 
 **Two things to understand before trusting any "verify" step:**
 
@@ -815,6 +924,27 @@ $fn$;
 
 -- 023 also CREATES this table; nothing else references it.
 drop table if exists public.family_join_attempts;
+
+-- 023 REWROTE these two policies to use is_family_member(). Production's own
+-- versions key off current_family_code() instead, which is
+-- `select family_code from profiles where id = auth.uid()` — the creator's own
+-- column only. is_family_member() also matches through parent_accounts, so
+-- leaving 023's version applied leaves production with a BROADER family read
+-- than it started with. (Rehearsal 3 defect 6: nothing in the reverse chain
+-- put these back. Verbatim from production, 2026-11-15.)
+drop policy if exists "family_members_read" on public.profiles;
+create policy "family_members_read" on public.profiles
+  for select to authenticated
+  using ((family_code is not null) and (family_code = public.current_family_code()));
+
+drop policy if exists "utr_entries_select_family" on public.utr_entries;
+create policy "utr_entries_select_family" on public.utr_entries
+  for select to authenticated
+  using (exists (
+    select 1 from public.profiles owner
+    where owner.id = utr_entries.user_id
+      and owner.family_code is not null
+      and owner.family_code = public.current_family_code()));
 ```
 **The `status`/`approved_at`/`approved_by` columns and the RPCs can stay** —
 see below. `create or replace` on the two helpers preserves their existing
@@ -882,12 +1012,38 @@ Then as an approved parent: the child's profile, the family row and the
 child's UTR history all still read.
 **Rollback:**
 ```sql
+-- 027 DROPS are_friends(), and production's profiles_discovery_read CALLS it,
+-- so the function has to come back before the policy can. (Rehearsal 3 defect
+-- 7: the old text omitted both, leaving a policy narrower than production's.)
+-- Verbatim from production, 2026-11-15.
+create or replace function public.are_friends(a uuid, b uuid)
+returns boolean language sql stable security definer set search_path to 'public'
+as $fn$
+  select exists (
+    select 1 from public.friendships f
+    where f.status = 'accepted'
+      and ((f.requester_id = a and f.addressee_id = b)
+        or (f.requester_id = b and f.addressee_id = a))
+  )
+$fn$;
+revoke all on function public.are_friends(uuid, uuid) from public, anon;
+grant execute on function public.are_friends(uuid, uuid) to authenticated;
+
 create policy profiles_discovery_read on public.profiles
   for select to authenticated
   using (privacy_level = 'public' or id = (select auth.uid())
+         or public.are_friends((select auth.uid()), id)
          or family_code = public.current_family_code());
 grant execute on function public.current_family_code() to authenticated;
 grant execute on function public.generate_family_code() to authenticated;
+
+-- 027 also drops the badges and friendships policies. Production has five of
+-- them and a rolled-back database has none, which the fingerprint flags.
+-- Restore them only if something needs them (nothing does — both features are
+-- removed product-wide); they are listed here so the difference is a decision
+-- rather than a surprise:
+--   badges_read, badges_write_own, friendships_insert_self,
+--   friendships_read_involved, friendships_update_involved.
 -- badges/friendships policies: restore from migration 021's text if anything
 -- actually needs them. `are_friends()` is gone; the badges policy that used
 -- it would need rewriting, which is a sign you should not restore it.
@@ -1686,6 +1842,11 @@ grant execute on function public.family_members() to authenticated;
 -- 3. Restore 026's remove_family_member(), which does not clear the profile
 --    column. This re-breaks the /privacy removal sentence; roll the copy
 --    back with it or leave 037 applied.
+-- 4. Drop 037's own helper. Nothing else uses it, it is granted to nobody,
+--    and leaving it behind is schema drift the fingerprint will flag.
+--    (Rehearsal 3 defect 5 — this line was missing.)
+drop function if exists public.family_account_holder(text);
+
 create or replace function public.remove_family_member(p_user_id uuid)
 returns jsonb language plpgsql security definer set search_path = public
 as $fn$
@@ -1722,6 +1883,54 @@ and hits the trigger's exemption. **That exemption is load-bearing for
 account deletion and nothing in the migration said so.** Verified: the sole
 creator of a family holding stamped rows in all three tables deleted cleanly
 (`{"status":"deleted","family_deleted":true}`).
+
+### Step 14b — migration 038 (one roster row per member)
+**Ships with 036 + 037. Do not apply those without this.** Found by the third
+dress rehearsal — the first one seeded in **production's actual data shape**
+rather than a convenient creator/joiner split. Two earlier rehearsals could
+not have found it, and the seed is the whole reason.
+
+**What it fixes.** `family_members()` was a `UNION ALL` of the two membership
+shapes. The repo describes those as alternatives; on production they are not —
+**all three `parent_accounts` rows belong to users whose own
+`profiles.family_code` is the same code** (the pre-023 era, when the app wrote
+both). 037 already had to special-case that in `remove_family_member()`. At the
+roster it meant:
+- **everyone holding both shapes came back twice.** Measured on the rehearsal
+  database: **9 rows for 6 distinct people.** `FamilyMembersCard` keys the list
+  by `userId`, so that is a React key collision — a console error, and one of
+  each pair dropped.
+- **"account holder" was wrong for three people, and their Remove button was
+  hidden.** The card reads `is_creator`, which was hardcoded `true` for the
+  whole `profiles` branch. Its own comment called that "a real fact now"; in
+  production's shape four people "belong via their own profile".
+
+**Apply:** `supabase/migrations/038_one_roster_row_per_member.sql`
+
+**Pre-flight:** none. It only rewrites one SECURITY DEFINER function; no
+policies, columns or grants change.
+
+**Verify (as a real member, NOT as `postgres`):**
+```sql
+select count(*), count(distinct user_id) from public.family_members();
+-- equal, and equal to the number of people in the family
+select count(*) from public.family_members() where is_creator;   -- exactly 1
+```
+Measured after applying: **5 rows for 5 people, exactly one `is_creator`, and
+it is the id `family_account_holder()` returns.** Pending join requests still
+appear (a pending row now wins over an approved twin, so a request can never be
+hidden by a stale profile column).
+
+`is_creator` now means `user_id = family_account_holder(code)` — the same
+predicate `remove_family_member()` refuses on — so the hidden Remove button and
+the server's refusal cannot disagree. `lib/db/family-roster-shape.test.ts`
+fails the build if the `UNION ALL` or the hardcoded flag comes back; it is
+mutation-tested (a probe migration reintroducing the old shape fails two of its
+four tests).
+
+**Rollback:** re-run 037's `family_members()` body with `create or replace`
+(same signature, so grants are preserved — do NOT `drop function` first). That
+restores the duplicates and the wrong label; nothing else depends on its shape.
 
 ### Step 15 — the code (`v1` → `main`)
 Only after steps 1–14 are applied and verified.

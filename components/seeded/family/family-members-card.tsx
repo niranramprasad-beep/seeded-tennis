@@ -13,9 +13,19 @@ import { cn } from "@/lib/utils";
 // closed. Joiners are now linked through parent_accounts and have a NULL
 // family_code, so a profiles-only query silently omitted every parent.
 //
-// "Account holder" is the member who belongs via their own profile, i.e.
-// whoever created the family. That is a real fact now (is_creator from the
-// RPC), not the earlier inference from whichever profiles row was oldest.
+// "Account holder" is `is_creator` from the RPC, which since migration 038
+// means `user_id = family_account_holder(code)` — the same predicate
+// `remove_family_member()` refuses on. So the hidden Remove button below and
+// the server's refusal cannot disagree.
+//
+// This comment used to say the account holder is "the member who belongs via
+// their own profile, i.e. whoever created the family", and called that "a real
+// fact now". It was not a fact. On production ALL THREE `parent_accounts` rows
+// belong to users who also carry the code on their own profile (the pre-023
+// shape), so four people "belonged via their own profile": three removable
+// members were labelled account holder, had no Remove button, and appeared
+// twice over because `family_members()` was a UNION ALL of the two shapes.
+// Found by the third rehearsal, the first seeded in production's real shape.
 
 export function FamilyMembersCard({ familyCode }: { familyCode: string | undefined }) {
   const { data: members = [], mutate } = useSWR<FamilyRosterMember[]>(
@@ -72,9 +82,11 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
                     ? " · needs consent"
                     : ""}
               </span>
-              {/* The account holder belongs via their own profile, and 022
-                  forbids changing that from the client — so there is
-                  deliberately no way to evict them here. */}
+              {/* No Remove for the account holder. 037 enforces this in
+                  `remove_family_member()` (it refuses, with the same message
+                  as "no such request" so it is not an oracle); hiding the
+                  button here just avoids offering what the server refuses.
+                  038 made `is_creator` the same predicate, so the two agree. */}
               {!m.isCreator && (
                 <button
                   type="button"

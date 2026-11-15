@@ -511,3 +511,52 @@ thirteen, and 032/033 must never ship without 035 — which is now stated in
 bold in both steps.
 
 **How to undo.** §J step 12's rollback.
+
+---
+
+## 2026-11-15 — Rehearse against production's data shape, not a tidy one
+
+**Decision:** before launch, rebuild staging so that its nine-category schema
+fingerprint matches production exactly (9 of 9), and seed it in production's
+*data* shape — including the awkward parts — rather than in the shape that
+makes the feature easy to reason about.
+
+**Why.** Two earlier rehearsals passed. Both seeded a family as a clean
+creator/joiner split: one person holding `profiles.family_code`, one person
+holding an approved `parent_accounts` row, never both. Production is not like
+that. **All three `parent_accounts` rows belong to users whose own
+`profiles.family_code` is the same code**, from the pre-023 era when the app
+wrote both, and one family has **four profiles sharing a single code**.
+
+In the real shape, `family_members()` — a `UNION ALL` of the two membership
+shapes — returned **9 rows for 6 people**, and `is_creator` (hardcoded `true`
+for the whole `profiles` branch) labelled three removable members "account
+holder" and hid their Remove button. The component's own comment asserted this
+was "a real fact now". Neither earlier seed could express the input that makes
+it false. Fixed by migration 038 and guarded by
+`lib/db/family-roster-shape.test.ts`.
+
+The same seed also corrected a claim in the rollout plan: 036's read gap does
+**not** affect anyone production has today, because the old policy keyed off
+the row owner's `profiles.family_code` and every current member carries it.
+036's read half is a fix for future joiners; 037's narrowing is what changes
+today's members. The write half was broken for real.
+
+**Also decided: making the starting state exact is part of the rehearsal, not
+tidiness.** The documented rollbacks restore BEHAVIOUR, not SCHEMA, so a
+rolled-back database still carries 17 extra functions and 8 extra columns. A
+forward run from there cannot prove a `CREATE` would have succeeded on
+production, because the object already exists — and it is how 025 kept being
+asserted to be a no-op instead of measured as one. With the fingerprint at
+9 of 9 first, applying 025 left it at 9 of 9: proof rather than assertion.
+
+**Cost:** the third rehearsal took longer than the first two combined, mostly
+in rebuilding the starting state. It found a user-visible bug that was one
+merge away from production, three more rollback gaps, and one false claim in
+the launch notes. Do it this way again.
+
+**Rejected:** creating a brand-new Supabase project per rehearsal. Cleaner in
+principle, but it would not reproduce production's *drift* — the whole reason
+025 exists and the reason the repo cannot build production from `0001` alone.
+Rolling the existing clone back and then removing the leftovers reproduces both
+the schema and the history.

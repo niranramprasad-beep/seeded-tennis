@@ -109,6 +109,19 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
 - [ ] Replay the missed `membership.activated` events, or reconcile the two
       existing customers by hand.
 - [ ] Run the $0 promo-code end-to-end test (§K) on staging.
+- [ ] **Supabase SMTP (Resend).** Niran is wiring this 2026-11-15. A real
+      signup against the preview returned `429 over_email_send_rate_limit`:
+      the built-in sender allows a few messages an hour, so with "Confirm
+      email" on, launch day's third signup cannot confirm. Re-test one real
+      signup end to end once Resend is live.
+- [ ] **`is_creator` is now the enforced account holder (038), but
+      `is_parent_member()` still is not role-aware.** 038 made the roster's
+      "account holder" flag and `remove_family_member()`'s refusal the same
+      predicate. The budget-write hole is the remaining one of this family:
+      `is_parent_member()` returns true for any approved joiner regardless of
+      `profiles.role`, so a sibling player can write the season budget. Mirror
+      033's pattern (require `profiles.role = 'parent'` AND approved
+      membership). Check `pg_policies`, not the docs.
 
 ---
 

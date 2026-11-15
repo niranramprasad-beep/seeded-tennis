@@ -46,7 +46,10 @@ export interface FamilyRosterMember {
   email: string | null;
   role: "player" | "parent";
   status: "approved" | "pending";
-  /** Belongs via their own profile (made the family) rather than a join. */
+  /** The family's account holder, as the database enforces it:
+   * `user_id = family_account_holder(code)` (migrations 037 + 038).
+   * NOT "belongs via their own profile" — in production's data shape four
+   * people do, because the pre-023 app wrote both storage shapes. */
   isCreator: boolean;
   joinedAt: string;
   remindedAt: string | null;
