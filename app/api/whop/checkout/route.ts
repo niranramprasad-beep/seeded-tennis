@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
-import { getWhop, WHOP_PLAN_IDS } from "@/lib/whop";
-import type { SubscriptionTier } from "@/lib/types";
+import { getWhop, planIdFor } from "@/lib/whop";
+
+const BodySchema = z.object({
+  tier: z.enum(["player", "family"], { message: "Unknown plan." }),
+  // Defaulted rather than required so an older client (or a bookmarked
+  // fetch) keeps working and gets the monthly plan, which is what it always
+  // got before yearly existed.
+  interval: z.enum(["monthly", "yearly"]).default("monthly"),
+});
 
 export async function POST(req: Request) {
   const whop = getWhop();
@@ -10,14 +18,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Billing isn't configured yet." }, { status: 500 });
   }
 
-  const body = (await req.json()) as { tier?: SubscriptionTier };
-  if (body.tier !== "player" && body.tier !== "family") {
-    return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
+  const json = await req.json().catch(() => null);
+  const parsed = BodySchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Unknown plan." },
+      { status: 400 }
+    );
   }
-  const tier = body.tier;
-  const planId = WHOP_PLAN_IDS[tier];
+  const { tier, interval } = parsed.data;
+
+  const planId = planIdFor(tier, interval);
   if (!planId) {
-    return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
+    // Deliberately NOT falling back to the other interval or to a legacy
+    // plan. A missing env var means we do not know what to charge, and
+    // charging the wrong price is worse than not selling.
+    return NextResponse.json(
+      { error: "That plan isn't available right now." },
+      { status: 500 }
+    );
   }
 
   // S-6: needs a request-scoped client (not just the decoded user) so the
@@ -28,7 +47,6 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  const user = ctx.user;
 
   const limited = await rateLimited(ctx.supabase, "whop_checkout");
   if (limited) return limited;
@@ -36,7 +54,11 @@ export async function POST(req: Request) {
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const config = await whop.checkoutConfigurations.create({
     plan_id: planId,
-    metadata: { supabase_user_id: user.id, tier },
+    // Read back by both the webhook and /api/whop/sync. It is the only
+    // reliable link between a Whop membership and a Seeded account — the
+    // email fallback in lib/whop-sync.ts exists for purchases that never
+    // came through here, and is a guess by comparison.
+    metadata: { supabase_user_id: ctx.user.id, tier, interval },
     redirect_url: `${origin}/dashboard?checkout=success`,
   });
 

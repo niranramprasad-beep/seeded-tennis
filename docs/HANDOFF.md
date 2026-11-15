@@ -916,3 +916,155 @@ notification, that is a provider decision (POST-V1).
   drive-by edit at the end of a migration session.
 - It does not drop `badges`/`friendships`/`are_friends()` (P3).
 - It does not touch `profiles.stripe_*` columns (kept until a cleanup migration).
+
+---
+
+## K. Billing — the webhook has never fired (written 2026-11-14)
+
+Read this before touching anything Whop.
+
+### What is true
+
+- Real payments succeeded on **2026-10-03** and **2026-11-02** (Player,
+  $19/mo). Confirmed read-only against production: that buyer's profile is
+  still `subscription_tier = 'free'` with `whop_membership_id = null`. **They
+  paid and got nothing**, and nothing in the product told them so.
+- Webhook `hook_ActwvOQFQX4Pm` → `https://seededtennis.com/api/whop/webhook`,
+  subscribed to `membership.activated` / `.updated` / `.deactivated`, shows
+  **"No deliveries yet"**. Not failed deliveries — zero attempts.
+- The webhook list shows API version **"v1"**; the edit form shows
+  **"legacy"**.
+
+### Why it never delivered
+
+The SDK settles it. `Webhook.api_version` is one of `v1`, `v2`, `v5`, and the
+type's own doc comment calls v2/v5 **"legacy"**. The dot-form event names
+(`membership.activated`) are the **v1** vocabulary. So an endpoint pinned to
+a legacy payload version, subscribed to v1 event names, matches nothing and
+is never sent anything. That is exactly the "no deliveries at all, not failed
+deliveries" signature.
+
+It would also have failed if it HAD delivered. `unwrapWebhook` from
+`@whop/sdk/helpers` implements Standard Webhooks (`webhook-id` /
+`webhook-timestamp` / `webhook-signature`) with a `ws_` secret — Whop's v1
+scheme. A legacy delivery signs differently and would be rejected 400.
+
+So the endpoint has to be **v1**, both to receive anything and to verify.
+
+A second, independent problem that would have bitten later: the maintenance
+middleware on `main` matches every path, `/api/whop/webhook` included, and
+returns 503. Since 2026-11-14 that blocks both new deliveries and any replay.
+It post-dates both payments, so it is not the cause — but it must be fixed
+before any replay is attempted, or the replay will fail too.
+
+### What could not be checked, and why
+
+The local `WHOP_API_KEY` **cannot read this account's own data.**
+`plans.list({product_ids})` works (public pricing); `memberships.list`,
+`webhooks.list` and `webhooks.retrieve` all return **401 Authentication
+failed**, including when scoped to `biz_UskbjibeFag2Pv`. So the webhook's
+`api_version` and `created_at` could not be confirmed from the API — the
+diagnosis above rests on the dashboard facts plus the SDK's own definitions.
+
+This matters beyond diagnosis:
+- `/api/whop/membership` already silently returns `null` on any API failure,
+  so the billing tab has probably never shown a renewal date or a manage
+  link.
+- `/api/whop/sync` (the new safety net) needs `memberships.list`. With a key
+  like this one it returns `whop-unreachable` and changes nothing — honest,
+  but useless.
+
+**If production uses this same key, fix the key before trusting either.**
+
+### Dashboard changes — Niran's, in order
+
+1. **Set the endpoint's API version to v1.** This is the fix. Whop's edit
+   form for `hook_ActwvOQFQX4Pm` shows "legacy"; it must read v1. If the
+   version cannot be changed on an existing endpoint, delete it and create a
+   new one on v1 with the same URL and the same three events.
+2. **Copy the signing secret into Vercel as `WHOP_WEBHOOK_SECRET`** (it
+   starts `ws_`). Creating a new endpoint issues a NEW secret — the old value
+   will verify nothing.
+3. **Check the API key's scopes.** It must be able to read the account's
+   memberships (and, for the email fallback to be useful, member emails). The
+   current one cannot. Replace it if needed and update `WHOP_API_KEY`.
+4. **Amend the maintenance middleware on `main`** so the webhook is
+   reachable. One token:
+   ```ts
+   matcher: ["/((?!_next/static|_next/image|favicon.ico|api/whop/webhook).*)"],
+   ```
+   A PR into `main` — branch protection requires one, and `verify` must pass.
+5. **Then replay.** With the endpoint on v1 and the path reachable, use
+   Whop's replay on the missed `membership.activated` events, or just have
+   the buyer open the site: the new `?checkout=success` sync is not the only
+   path, but reconciling by hand is still fine — see below.
+6. **Reconcile the two existing customers by hand if replay does not.** Set
+   `subscription_tier` and `whop_membership_id` on their profiles with the
+   service role, from the membership ids in the Whop dashboard. Do it
+   deliberately; they have been paying for a product they could not use.
+
+### Add the six plan IDs to Vercel (Production)
+
+Read from the Whop API on 2026-11-14:
+
+| Variable | Plan ID | Price |
+|---|---|---|
+| `WHOP_PLAN_PLAYER_MONTHLY` | `plan_iWNSNKqks0ddp` | $12 / month |
+| `WHOP_PLAN_PLAYER_YEARLY` | `plan_uh50GMFYQVxAc` | $99 / year |
+| `WHOP_PLAN_FAMILY_MONTHLY` | `plan_0z5e439ZymJC9` | $19 / month |
+| `WHOP_PLAN_FAMILY_YEARLY` | `plan_06ceyeQdTKF29` | $159 / year |
+| `WHOP_PLAN_PLAYER` (legacy, keep) | `plan_TdtqfjDqtjGOq` | $19 / month |
+| `WHOP_PLAN_FAMILY` (legacy, keep) | `plan_8ybt0oV8kZ79m` | $39 / month |
+
+**Do not delete the two legacy variables.** People are subscribed on those
+plans; without the ids, a webhook for one of their memberships resolves to
+`free` and the guard refuses to act — so they would silently stop being
+upgraded. They are resolve-only: `planIdFor()` never returns them, so no new
+checkout can start on an old price.
+
+Note the collision: **the new Family monthly is $19, the same number as the
+old Player monthly.** Nothing in the code keys off a price any more, but a
+human reading a dashboard will be caught by it.
+
+### End-to-end test for $0, before launch
+
+1. In Whop, create a **promo code at 100% off**, restricted to
+   `plan_iWNSNKqks0ddp` (Player monthly), limit 1 use, expiring in a day.
+2. Create a throwaway Seeded account — a clearly fake address, per CLAUDE.md
+   — on **staging**, and confirm it reads `free`.
+3. From `/pricing`, leave the toggle on **Monthly** and choose Player. Check
+   the Whop checkout page shows **$12**, then apply the promo code and
+   confirm **$0**.
+4. Complete the checkout. You should land back on `/dashboard?checkout=success`
+   and see "Confirming your payment with Whop…" then "You're all set".
+5. Confirm all three, in this order — each tells you something different:
+   - `profiles.subscription_tier = 'player'` and `whop_membership_id` set
+   - the Whop dashboard shows a delivery for `membership.activated` with a
+     2xx (this is the webhook finally working)
+   - `/outreach` loads instead of the paywall
+6. Repeat on **Yearly** with a second promo code and confirm the checkout
+   shows **$99** and the plan id is `plan_uh50GMFYQVxAc`.
+7. Cancel the membership in Whop and confirm the profile returns to `free`.
+8. Delete the throwaway account (`delete_my_account()`, migration 029) and
+   the promo codes.
+
+If step 5's webhook delivery is still missing but the tier is correct, the
+sync did it — that is the safety net working and the webhook still broken.
+Say so rather than calling it fixed.
+
+### What the code now does
+
+- `lib/whop.ts` — one registry; `tierForPlanId()` resolves all six plans,
+  `planIdFor()` sells only the new four, `priceUsdForPlanId()` reports what a
+  membership actually bills (a renewal on the old $19 plan is reported as
+  $19, not $12).
+- `lib/whop-sync.ts` — the single place a membership becomes a tier, with the
+  anti-downgrade guard, used by both the webhook and the sync.
+- `/api/whop/webhook` — email fallback when checkout metadata is absent
+  (requires exactly one matching profile; ambiguity does nothing), logs and
+  returns 200 on an unmatched membership instead of throwing.
+- `/api/whop/sync` + `components/shared/checkout-sync.tsx` — the
+  `?checkout=success` safety net. Idempotent, server-only, and it says
+  "couldn't confirm" rather than guessing.
+- Prices live only in `TIER_PRICE_USD` (lib/types). The pricing page, the
+  paywall and the billing tab derive from it.

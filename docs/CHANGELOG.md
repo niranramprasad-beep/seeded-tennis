@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026-11-14 — Billing: the webhook has never fired, and monthly/yearly plans
+
+### The finding
+Two real payments (2026-10-03, 2026-11-02) produced **nothing**. Confirmed
+read-only on production: the buyer's profile is still `free` with a null
+`whop_membership_id`. Webhook `hook_ActwvOQFQX4Pm` shows "No deliveries yet"
+— zero attempts, not failed ones.
+
+**Cause:** the endpoint is pinned to a legacy (v2/v5) payload version while
+the three events it subscribes to (`membership.activated` / `.updated` /
+`.deactivated`) are **v1** event names. The SDK's own `Webhook.api_version`
+type settles it: the versions are `v1 | v2 | v5`, and its doc comment calls
+v2/v5 "legacy". A legacy endpoint subscribed to v1 names matches nothing and
+is never sent anything.
+
+It would have failed verification anyway: `unwrapWebhook` implements
+Standard Webhooks with a `ws_` secret, which is Whop's **v1** scheme.
+
+Second, independent problem: the maintenance middleware on `main` matches
+every path including `/api/whop/webhook`, so deliveries AND replays return
+503. It post-dates both payments, so it is not the cause — but it blocks the
+fix. One-token matcher change, in HANDOFF §K.
+
+**What could not be checked:** the local `WHOP_API_KEY` returns 401 on
+`memberships.list`, `webhooks.list` and `webhooks.retrieve`, including scoped
+to `biz_UskbjibeFag2Pv`. It can read public plan data and nothing of the
+account's own. So `api_version` could not be confirmed from the API, and —
+more importantly — `/api/whop/membership` has probably never shown a renewal
+date, and the new sync would be dead on arrival with a key like it.
+
+### Monthly + yearly
+All six plan IDs read from the Whop API and recorded in HANDOFF §K. Player
+$12/mo + $99/yr, Family $19/mo + $159/yr, plus the two legacy plans at $19
+and $39 that people are still subscribed on.
+
+- `lib/whop.ts` is now a plan registry. `tierForPlanId()` resolves all six;
+  `planIdFor()` returns only the new four, so **no new checkout can start on
+  an old price**; `priceUsdForPlanId()` reports what a membership actually
+  bills, so a renewal on the old $19 Player plan is not reported to GA4 as
+  the new $12 one.
+- Monthly/Yearly toggle on `/pricing`, with the saving computed from the
+  prices rather than typed in. Checkout sends the interval.
+- **Every hardcoded price is gone.** There were four copies (webhook, paywall,
+  billing tab, pricing cards) kept in sync by a comment. The 2026-11-14
+  change proved the comment was not enough — and the new Family monthly
+  ($19) is the same number as the old Player monthly, so a grep for "19"
+  finds both and they mean different things.
+
+### Safety nets
+- `/api/whop/sync` + `components/shared/checkout-sync.tsx`: on return with
+  `?checkout=success`, the server asks Whop directly and sets the tier if
+  the webhook has not. Idempotent, server-only (the 022 trigger makes
+  `subscription_tier` unwritable by the client anyway), and it reports
+  "couldn't confirm" rather than guessing. A safety net that guesses is a
+  free subscription or a wrongly-charged customer.
+- Webhook email fallback: a purchase made from Whop's own product page
+  carries no `metadata.supabase_user_id`, and the old handler returned 200
+  and did nothing — the person paid and got nothing, with no trace. It now
+  matches the buyer's email, requires **exactly one** profile, and logs both
+  outcomes. Ambiguity does nothing: granting a paid tier to the wrong account
+  is worse than granting it late.
+- An unmatched membership logs and returns 200 instead of throwing. Throwing
+  turns one bad event into a retry storm and then an endpoint Whop disables
+  for "delivery failures".
+- `lib/whop-sync.ts` is now the single place a membership becomes a tier,
+  carrying the anti-downgrade guard that both callers used to need their own
+  copy of.
+
+### Tests
+472 → 512. The six plan IDs → tier mapping (including that the new Family
+monthly and the old Player monthly, both $19, do not collide), signature
+verification against the real verifier the route uses (tampered body, wrong
+secret, stale timestamp, missing header), the anti-downgrade guard in both
+directions, idempotency, and the email fallback's refusal to guess.
+
+A test helper lied once while writing these and is worth remembering: a
+synchronous `withPlans()` that returned its callback's promise restored
+`process.env` at the first `await`, so every assertion after that point ran
+with no plan IDs configured. It surfaced as one failing case in a loop whose
+first iteration passed.
+
 ## 2026-11-14 — Launch blockers: minors' privacy, public reads, rate limits, headers, RPC grants, pre-auth fit — staging only
 
 ### P0-8 Minors' privacy (mechanisms done; the policy document is not)

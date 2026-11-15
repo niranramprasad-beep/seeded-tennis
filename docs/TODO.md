@@ -53,14 +53,21 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
    (Supabase, Vercel, Whop, Google Analytics) and states retention. That
    needs an adult or a lawyer, not Claude. The one-paragraph policy inside
    `/terms` is what is live today.
-7. **People who asked to be deleted under the old flow.** Query in HANDOFF
-   §J step 7. Migration 029 does not action them — they are owed a real
-   deletion by hand, with their confirmation.
-8. **Supabase Auth settings (Niran).** Leaked-password protection and a
-   minimum password length are off (advisor WARN). Login, signup and
-   password reset cannot be rate-limited from app code at all — the browser
-   talks to Supabase directly — so Supabase's own per-IP limits are the
-   only control that exists for them.
+7. ✅ **People who asked to be deleted under the old flow — none.** Checked
+   read-only on production 2026-11-14: `select count(*) from profiles where
+   deletion_requested_at is not null` returns **0**. Nobody is owed a manual
+   deletion. §J step 7's check stays in the plan because it is cheap and the
+   answer could change before the rollout.
+8. **CAPTCHA on signup and password reset.** Decided 2026-11-14: leaked-
+   password protection is a Pro-plan feature and is deferred until there are
+   paying users; Supabase Auth's own per-IP limits are accepted for launch.
+   The gap that leaves is scripted account creation and reset-email
+   flooding, which per-IP limits alone do not stop. Supabase supports hCaptcha
+   and Turnstile natively (Authentication → Settings → Bot and Abuse
+   Protection) and the client needs a token passed to `signUp`/
+   `resetPasswordForEmail`, so this is a real change to `lib/auth.ts` and
+   the signup form, not a dashboard toggle. Revisit with leaked-password
+   protection at the first paying users.
 9. **P1-FIT-3** — projections are still nonsense on noisy data ("Projected
    4.3" for a 5.81 player). Needs outlier rejection and a floor.
 10. **P1-DATA-1** — real roster import (migration 012, reserved). Still the
@@ -73,6 +80,30 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
 12. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
     middleware, and `main`'s middleware is currently the maintenance page,
     so this waits until that is reverted (P2).
+
+---
+
+## Billing — before launch
+
+See `docs/HANDOFF.md` §K for the full diagnosis. In short: **two real
+payments produced nothing**, because the webhook has never been delivered to.
+The code side is done and on `v1`; the rest is Niran's, in the dashboard.
+
+- [ ] Set `hook_ActwvOQFQX4Pm` to API version **v1** (it is on legacy). This
+      is the actual fix.
+- [ ] Copy the endpoint's `ws_` signing secret into `WHOP_WEBHOOK_SECRET`
+      (a recreated endpoint issues a new one).
+- [ ] **Check the Whop API key's scopes.** The local key 401s on
+      `memberships.list` and `webhooks.list` — it can only read public plan
+      data. If production uses the same key, `/api/whop/membership` and the
+      new post-checkout sync are both dead on arrival.
+- [ ] Add the four new plan IDs to Vercel Production; keep the two legacy
+      ones (table in §K).
+- [ ] Let `/api/whop/webhook` through the maintenance middleware on `main`
+      (one-token matcher change, §K step 4) before attempting any replay.
+- [ ] Replay the missed `membership.activated` events, or reconcile the two
+      existing customers by hand.
+- [ ] Run the $0 promo-code end-to-end test (§K) on staging.
 
 ---
 

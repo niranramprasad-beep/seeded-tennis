@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Player, SubscriptionTier } from "@/lib/types";
+import { formatTierPrice, type Player, type SubscriptionTier } from "@/lib/types";
 import type { FamilyMember } from "@/lib/db/family";
 import type { MembershipSnapshot } from "@/lib/db/settings";
 import { formatDate } from "@/lib/time";
@@ -17,16 +17,18 @@ import { cn } from "@/lib/utils";
 // link scoped to that exact membership — and this is the fallback.
 const FALLBACK_PORTAL_URL = "https://whop.com/@me/settings/memberships/";
 
-// Mirrors TIER_PRICE_USD in app/api/whop/webhook/route.ts and the PLANS
-// price strings in components/pricing/pricing-view.tsx — a third hand-kept
-// copy for the same reason the webhook's comment already documents: Whop's
-// membership payload carries no price field. All three must move together
-// if pricing ever changes (see CLAUDE.md's "TIER_PRICE_USD" gotcha).
-const TIER_PRICE_DISPLAY: Record<SubscriptionTier, string> = {
-  free: "$0",
-  player: "$19",
-  family: "$39",
-};
+// Was a third hand-kept copy of the prices, mirroring two others by comment
+// and discipline alone. They are all one table now (lib/types'
+// TIER_PRICE_USD), because the 2026-11-14 price change proved the comment
+// was not enough: Player moved to $12 and Family to $19, and the old copies
+// would each have gone stale in a different direction.
+//
+// Monthly, because that is what this tab shows for an existing subscriber
+// and we do not store which interval they bought. The renewal date from
+// /api/whop/membership is what actually tells them when they next pay.
+function tierPriceDisplay(tier: SubscriptionTier): string {
+  return tier === "free" ? "$0" : formatTierPrice(tier, "monthly");
+}
 
 const TIER_LABEL: Record<SubscriptionTier, string> = {
   free: "Free",
@@ -115,7 +117,7 @@ export function BillingContent({
             <p className="mt-2 text-sm text-ink">
               {isPaid ? (
                 <>
-                  <span className="font-medium">{TIER_PRICE_DISPLAY[tier]} a month</span>
+                  <span className="font-medium">{tierPriceDisplay(tier)} a month</span>
                   {renewalDate && (
                     <>
                       {" "}

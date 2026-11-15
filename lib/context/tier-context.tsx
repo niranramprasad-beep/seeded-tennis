@@ -28,6 +28,11 @@ interface TierContextValue {
   canAccess: (required: SubscriptionTier) => boolean;
   isPaid: boolean;
   isFamily: boolean;
+  /** Re-reads `profiles.subscription_tier` from the database. Needed after
+   * the post-checkout sync writes a new tier server-side — the provider's
+   * effect only runs on auth changes, so without this a person who has just
+   * paid keeps seeing the paywall until they reload. */
+  refresh: () => Promise<void>;
 }
 
 // Exported (not just consumed via useTier()) for the same reason
@@ -41,50 +46,56 @@ export function TierProvider({ children }: { children: ReactNode }) {
   const [tier, setTierState] = useState<SubscriptionTier>("free");
   const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => {
-    if (!playerHydrated) return;
-    const controller = new AbortController();
-
-    async function load() {
+  // Extracted from the effect so `refresh()` can run exactly the same read
+  // rather than a second, subtly different copy of it.
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      const aborted = () => signal?.aborted ?? false;
       const supabase = getSupabase();
       if (!supabase || !isAuthed) {
         try {
           const stored = window.localStorage.getItem(DEMO_TIER_KEY) as SubscriptionTier | null;
-          if (!controller.signal.aborted) setTierState(stored && stored in TIER_RANK ? stored : "free");
+          if (!aborted()) setTierState(stored && stored in TIER_RANK ? stored : "free");
         } catch {
-          if (!controller.signal.aborted) setTierState("free");
+          if (!aborted()) setTierState("free");
         }
-        if (!controller.signal.aborted) setHydrated(true);
+        if (!aborted()) setHydrated(true);
         return;
       }
 
       const { data: userData } = await getAuthedUser(supabase);
       const userId = userData.user?.id;
       if (!userId) {
-        if (!controller.signal.aborted) {
+        if (!aborted()) {
           setTierState("free");
           setHydrated(true);
         }
         return;
       }
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("subscription_tier")
-        .eq("id", userId)
-        .abortSignal(controller.signal)
-        .maybeSingle();
+      let query = supabase.from("profiles").select("subscription_tier").eq("id", userId);
+      if (signal) query = query.abortSignal(signal);
+      const { data } = await query.maybeSingle();
 
-      if (!controller.signal.aborted) {
+      if (!aborted()) {
         const real = data?.subscription_tier as SubscriptionTier | undefined;
         setTierState(real && real in TIER_RANK ? real : "free");
         setHydrated(true);
       }
-    }
+    },
+    [isAuthed]
+  );
 
-    void load();
+  useEffect(() => {
+    if (!playerHydrated) return;
+    const controller = new AbortController();
+    void load(controller.signal);
     return () => controller.abort();
-  }, [isAuthed, playerHydrated]);
+  }, [load, playerHydrated]);
+
+  const refresh = useCallback(async () => {
+    await load();
+  }, [load]);
 
   // Local-only override — used by the dev tier switcher (development builds
   // only) to preview locked pages, and by the demo fallback when Supabase
@@ -111,8 +122,9 @@ export function TierProvider({ children }: { children: ReactNode }) {
       canAccess,
       isPaid: TIER_RANK[tier] >= TIER_RANK.player,
       isFamily: tier === "family",
+      refresh,
     }),
-    [tier, hydrated, setTier, canAccess]
+    [tier, hydrated, setTier, canAccess, refresh]
   );
 
   return <TierContext.Provider value={value}>{children}</TierContext.Provider>;

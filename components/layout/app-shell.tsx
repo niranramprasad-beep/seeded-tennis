@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, type ReactNode } from "react";
+import { Suspense, useLayoutEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
@@ -10,6 +10,7 @@ import { Sidebar } from "./sidebar";
 import { SeededNav } from "@/components/seeded/layout/nav";
 import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { CommandPalette } from "@/components/seeded/shared/command-palette";
+import { CheckoutSync } from "@/components/shared/checkout-sync";
 import { cn } from "@/lib/utils";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
@@ -98,6 +99,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           per route) gets the same instant feel with no second page ever
           sharing the layout.
         */}
+        {/* Post-checkout safety net. Mounted here, above every page, rather
+            than on the checkout redirect target: `?checkout=success` lands on
+            /dashboard, which immediately redirects, and a shared or
+            bookmarked return URL could be any route. Renders nothing unless
+            that param is present. */}
+        <Suspense fallback={null}>
+          <CheckoutSync />
+        </Suspense>
         <div key={pathname} className="animate-fade-in">{children}</div>
       </main>
     </>

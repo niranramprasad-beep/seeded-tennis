@@ -1,40 +1,72 @@
 import { NextResponse } from "next/server";
 import { unwrapWebhook, WebhookVerificationError } from "@whop/sdk/helpers";
-import { WHOP_PLAN_IDS } from "@/lib/whop";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
+import { TIER_PRICE_USD } from "@/lib/types";
+import { priceUsdForPlanId } from "@/lib/whop";
+import { applyMembershipToProfile, findProfileIdByEmail } from "@/lib/whop-sync";
 import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 
-// Hardcoded since Whop's membership payload carries no price field — these
-// must be kept in sync with the tier cards in pricing-view.tsx by hand.
-const TIER_PRICE_USD: Record<SubscriptionTier, number> = {
-  free: 0,
-  player: 19,
-  family: 39,
-};
+// Whop is the source of truth for who is paying. This is one of the two
+// places `subscription_tier` is ever written for a Whop customer (the other
+// is /api/whop/sync, the safety net for when this never arrives), and both
+// go through applyMembershipToProfile so they cannot disagree.
+//
+// ---------------------------------------------------------------------------
+// THIS ENDPOINT HAS NEVER RECEIVED A DELIVERY
+// ---------------------------------------------------------------------------
+// Real payments succeeded on 2026-10-03 and 2026-11-02 and the Whop
+// dashboard still shows "No deliveries yet" for hook_ActwvOQFQX4Pm. The
+// buyer's profile is still `free` with a null whop_membership_id — they paid
+// and got nothing. Diagnosis and the dashboard changes are in
+// docs/HANDOFF.md §K; the short version is that the endpoint is on a legacy
+// (v2/v5) payload version while the three events it subscribes to are v1
+// names, so nothing ever matched.
+//
+// Two consequences for this file, both deliberate:
+//
+//  1. Nobody has ever seen a real payload. The field reads below accept both
+//     shapes a v1 membership event can serialize — `plan_id` and
+//     `plan.id`, `user.email` and `email` — rather than betting on one. That
+//     is not defensive clutter: picking wrong means another silent failure
+//     of exactly the kind that produced this comment.
+//  2. The maintenance middleware on `main` currently returns 503 for every
+//     path including this one, so deliveries AND replays are blocked until
+//     it is amended. See docs/HANDOFF.md §K step 4.
 
-// The only place subscription_tier is ever written for Whop customers —
-// Whop is the source of truth for who's paying, not anything the client
-// can set directly. Every membership event below carries the same
-// `metadata.supabase_user_id` set at checkout, so no separate customer-id
-// lookup table is needed the way Stripe's webhook requires.
-
-const ACCESS_GRANTING_STATUSES = new Set(["active", "trialing", "completed"]);
-
-function tierForPlanId(planId: string | undefined): SubscriptionTier {
-  if (planId && planId === WHOP_PLAN_IDS.family) return "family";
-  if (planId && planId === WHOP_PLAN_IDS.player) return "player";
-  return "free";
+interface MembershipEventData {
+  id?: string;
+  status?: string;
+  plan_id?: string;
+  plan?: { id?: string } | null;
+  metadata?: Record<string, unknown> | null;
+  email?: string | null;
+  user?: { email?: string | null } | null;
 }
 
 interface MembershipEvent {
-  type: string;
-  data: {
-    id: string;
-    status: string;
-    plan_id: string;
-    metadata: Record<string, unknown>;
-  };
+  type?: string;
+  data?: MembershipEventData;
+}
+
+const HANDLED_EVENTS = new Set([
+  "membership.activated",
+  "membership.updated",
+  "membership.deactivated",
+]);
+
+function planIdOf(data: MembershipEventData): string | null {
+  return data.plan_id ?? data.plan?.id ?? null;
+}
+
+function emailOf(data: MembershipEventData): string | null {
+  return data.user?.email ?? data.email ?? null;
+}
+
+/** Server-side only, and deliberately without the email itself: a webhook log
+ * line is not a place to write a customer's address. */
+function log(message: string, detail: Record<string, unknown> = {}) {
+  // eslint-disable-next-line no-console
+  console.log(`[whop/webhook] ${message}`, JSON.stringify(detail));
 }
 
 export async function POST(req: Request) {
@@ -46,6 +78,9 @@ export async function POST(req: Request) {
 
   // unwrapWebhook needs the exact, unparsed bytes to verify the signature —
   // reading the body as JSON first would change them and fail verification.
+  // It implements the Standard Webhooks scheme (webhook-id /
+  // webhook-timestamp / webhook-signature), which is Whop's **v1** format. A
+  // legacy-version endpoint signs differently and will never verify here.
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
   let event: MembershipEvent;
@@ -53,76 +88,87 @@ export async function POST(req: Request) {
     event = unwrapWebhook<MembershipEvent>(payload, { headers, key: webhookSecret });
   } catch (err) {
     if (err instanceof WebhookVerificationError) {
+      log("signature rejected");
       return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
     }
     throw err;
   }
 
-  if (
-    event.type === "membership.activated" ||
-    event.type === "membership.updated" ||
-    event.type === "membership.deactivated"
-  ) {
-    const membership = event.data;
-    const supabaseUserId = membership.metadata?.supabase_user_id;
-    if (typeof supabaseUserId === "string") {
-      if (ACCESS_GRANTING_STATUSES.has(membership.status)) {
-        const newTier = tierForPlanId(membership.plan_id);
+  const type = event.type ?? "";
+  const data = event.data ?? {};
 
-        // A stale or duplicate event for an old membership must never
-        // clobber a currently active, higher (or equal) tier — confirmed
-        // live: a real account ended up downgraded from Family to Player
-        // with no corresponding downgrade on the Whop side, consistent
-        // with an out-of-order/replayed event for a superseded membership
-        // overwriting the correct tier. Only apply this event if it's an
-        // update to the SAME membership already on record, there's no
-        // membership on record yet, or it's a genuine upgrade.
-        const { data: current } = await admin
-          .from("profiles")
-          .select("subscription_tier, whop_membership_id")
-          .eq("id", supabaseUserId)
-          .maybeSingle();
+  if (!HANDLED_EVENTS.has(type)) {
+    // 200, not 4xx: an unhandled event is not a delivery failure, and
+    // returning an error would make Whop retry it and eventually disable the
+    // endpoint for "delivery failures".
+    return NextResponse.json({ received: true, handled: false });
+  }
 
-        const isSameMembership = current?.whop_membership_id === membership.id;
-        const currentTier = (current?.subscription_tier as SubscriptionTier | undefined) ?? "free";
-        const isUpgradeOrFirstTime =
-          !current?.whop_membership_id || TIER_RANK[newTier] >= TIER_RANK[currentTier];
+  const membershipId = data.id;
+  const status = data.status;
+  if (!membershipId || !status) {
+    log("membership event missing id or status", { type });
+    return NextResponse.json({ received: true, handled: false });
+  }
 
-        if (isSameMembership || isUpgradeOrFirstTime) {
-          await admin
-            .from("profiles")
-            .update({
-              subscription_tier: newTier,
-              whop_membership_id: membership.id,
-            })
-            .eq("id", supabaseUserId);
+  // Who is this? Metadata first — every checkout we start sets it.
+  let supabaseUserId =
+    typeof data.metadata?.supabase_user_id === "string" ? data.metadata.supabase_user_id : null;
+  let matchedBy: "metadata" | "email" | null = supabaseUserId ? "metadata" : null;
 
-          // Report to GA4 only for a genuine new activation, not a renewal
-          // or any other "updated" ping — "membership.activated" is a
-          // one-time lifecycle event per membership, so this can't
-          // double-count the way treating every "updated" as a sale would.
-          if (event.type === "membership.activated" && newTier !== "free") {
-            await reportPurchaseToGA4({
-              transactionId: membership.id,
-              value: TIER_PRICE_USD[newTier],
-              itemName: `${newTier} subscription`,
-            });
-          }
-        }
-      } else {
-        // Only downgrade if THIS is the membership currently on record for
-        // the user. A user can have more than one membership over time
-        // (e.g. they tried Family, canceled it, and are still on an active
-        // Player plan) — an old, already-superseded membership canceling
-        // must never stomp a different, still-active one.
-        await admin
-          .from("profiles")
-          .update({ subscription_tier: "free" })
-          .eq("id", supabaseUserId)
-          .eq("whop_membership_id", membership.id);
-      }
+  if (!supabaseUserId) {
+    // A purchase from Whop's own product page, a shared plan link, a
+    // membership created by hand — none of those carry our metadata. The old
+    // handler returned 200 and did nothing, so the person paid and got
+    // nothing with no trace. Try the buyer's email, require exactly one
+    // match, and log either way.
+    supabaseUserId = await findProfileIdByEmail(admin, emailOf(data));
+    matchedBy = supabaseUserId ? "email" : null;
+    if (supabaseUserId) {
+      log("no metadata.supabase_user_id; matched buyer by email", { type, membershipId });
     }
   }
 
-  return NextResponse.json({ received: true });
+  if (!supabaseUserId) {
+    // Never throw here. An unmatched membership is a real event about a real
+    // payment, and crashing turns it into a retry storm and then a disabled
+    // endpoint. Log it loudly, acknowledge it, and let a person reconcile.
+    log("UNMATCHED membership — no metadata and no unique email match", {
+      type,
+      membershipId,
+      status,
+      hasEmail: Boolean(emailOf(data)),
+    });
+    return NextResponse.json({ received: true, handled: false, matched: false });
+  }
+
+  const planId = planIdOf(data);
+  const outcome = await applyMembershipToProfile(admin, {
+    supabaseUserId,
+    membershipId,
+    planId,
+    status,
+  });
+
+  log("applied", { type, membershipId, matchedBy, outcome: outcome.reason });
+
+  // GA4 only for a genuine new activation — "membership.activated" is a
+  // one-time lifecycle event per membership, so this cannot double-count the
+  // way treating every "updated" as a sale would. The value comes from the
+  // PLAN, not the tier: somebody renewing on the old $19 Player plan is
+  // still paying $19, and reporting it as the new $12 would understate it.
+  if (type === "membership.activated" && outcome.applied && outcome.tier !== "free") {
+    const value = priceUsdForPlanId(planId, TIER_PRICE_USD);
+    if (value !== null) {
+      await reportPurchaseToGA4({
+        transactionId: membershipId,
+        value,
+        itemName: `${outcome.tier} subscription`,
+      });
+    } else {
+      log("skipped GA4 purchase: plan id is not one of ours", { membershipId });
+    }
+  }
+
+  return NextResponse.json({ received: true, handled: true });
 }

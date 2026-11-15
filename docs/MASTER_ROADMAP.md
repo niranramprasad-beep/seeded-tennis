@@ -80,7 +80,7 @@ settings, and the product problem — P1-DATA-1.
 | Reliability/Deploy | 8/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all eleven migrations. Still missing: error tracking |
 | Legal/privacy | 6/10 | Deletion deletes (029). A complete JSON export exists, guarded by a test that fails the build when a new table is neither exported nor explicitly excluded. Under-13 accounts are inert until an adult in their family consents, enforced by RLS and not by the UI. Nothing about any user is visible to another signed-in user outside their family. **Still open and not Claude's to close: the privacy policy itself** — one paragraph inside `/terms`, no processor list, no retention, needs an adult or a lawyer |
 | Testing | 7/10 | 472 unit tests pass, incl. seven build-failing guards — catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
-| Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
+| Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts. Concretely: two real payments failed to upgrade anybody for six weeks and nothing surfaced it — it was found by reading the Whop dashboard by hand |
 
 ---
 
@@ -662,8 +662,20 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-Everything in 1–3 is blocked on one word from Niran. Nothing below it can
-be worked on usefully first — the whole queue is behind the rollout.
+Everything in 1–4 is blocked on Niran — one word for the rollout, and a few
+minutes in the Whop dashboard for billing. Nothing below can be worked on
+usefully first.
+
+0. **BILLING IS BROKEN IN PRODUCTION AND HAS BEEN SINCE THE FIRST SALE.**
+   Two real payments (2026-10-03, 2026-11-02) produced nothing: the webhook
+   endpoint is on a legacy payload version while its three events are v1
+   names, so Whop has never delivered to it at all. The buyer is still on
+   the free tier. The code side is fixed on `v1` (plan registry, post-
+   checkout sync, email fallback); the dashboard side is Niran's and is
+   written out step by step in **HANDOFF §K**. Also in §K: the local Whop
+   API key cannot read this account's own memberships, which would make the
+   new safety net useless if production shares it. Nothing else on this list
+   matters as much as a customer paying and getting nothing.
 
 1. **Run the production rollout** (HANDOFF §J). Eleven migrations in order:
    025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031, then revert
@@ -698,8 +710,9 @@ be worked on usefully first — the whole queue is behind the rollout.
 9. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
    middleware, so it waits until the maintenance middleware is reverted.
 10. Observability: there is still no error tracking and no alerting. 1/10
-    is the lowest score on the board and the rollout is about to make it
-    matter.
+    is the lowest score on the board, and the billing finding is what it
+    looks like in practice — a customer paid twice and nothing, anywhere,
+    said so.
 
 **Production is in maintenance mode** (`main` @ `d059006`, verified live
 503). Low-risk window for the rollout, but the clock is running.

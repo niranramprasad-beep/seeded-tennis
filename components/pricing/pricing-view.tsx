@@ -6,6 +6,9 @@ import { Check, Minus, Sparkles } from "lucide-react";
 import {
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_RANK,
+  formatTierPrice,
+  yearlySavingsPercent,
+  type BillingInterval,
   type SubscriptionTier,
 } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
@@ -21,19 +24,29 @@ import { cn } from "@/lib/utils";
 interface Plan {
   tier: SubscriptionTier;
   name: string;
-  price: string;
-  cadence: string;
   tagline: string;
   highlights: string[];
   popular?: boolean;
+}
+
+// Price and cadence are DERIVED from lib/types' TIER_PRICE_USD, never typed
+// in here. They used to be literal strings on each card, which is how
+// "$19" ended up meaning Player on this page and Family in the webhook's
+// GA4 reporting at the same time. One table, one source.
+function priceLabel(tier: SubscriptionTier, interval: BillingInterval): string {
+  if (tier === "free") return "$0";
+  return formatTierPrice(tier, interval);
+}
+
+function cadenceLabel(tier: SubscriptionTier, interval: BillingInterval): string {
+  if (tier === "free") return "forever";
+  return interval === "yearly" ? "per year" : "per month";
 }
 
 const PLANS: Plan[] = [
   {
     tier: "free",
     name: "Free",
-    price: "$0",
-    cadence: "forever",
     tagline: "Explore the catalog and find your honest fit.",
     // P0-7: this said "Browse all D1 tennis programs" / "Explore every
     // program". The catalog is 68 programs (54 D1, 6 D2, 8 D3) against ~1,100
@@ -51,11 +64,9 @@ const PLANS: Plan[] = [
     // the core recruiting loop — gating it at the top tier put the product's
     // whole point behind the most expensive plan. Family is now genuinely
     // about the family (parent visibility + budget) rather than about
-    // withholding the main feature. Prices unchanged.
+    // withholding the main feature.
     tier: "player",
     name: "Player",
-    price: "$19",
-    cadence: "per month",
     tagline: "Your plan, and the coach outreach to go with it.",
     highlights: [
       "Everything in Free",
@@ -68,8 +79,6 @@ const PLANS: Plan[] = [
   {
     tier: "family",
     name: "Family",
-    price: "$39",
-    cadence: "per month",
     tagline: "Adds the parent side: visibility and the season budget.",
     highlights: [
       "Everything in Player",
@@ -148,6 +157,11 @@ export function PricingView() {
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState("");
+  // Monthly by default: it is the lower commitment and the number people
+  // compare against. Yearly is the better deal and says so, via a saving
+  // computed from the prices rather than a hand-typed percentage that would
+  // go stale the next time one of them moves.
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
 
   // Only ever called for a genuine upgrade — the Free card's button is
   // always disabled (current or includedAlready), so there is no "switch to
@@ -170,7 +184,7 @@ export function PricingView() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ tier: t }),
+        body: JSON.stringify({ tier: t, interval }),
       });
       const payload = await res.json();
       if (!res.ok || !payload.url) throw new Error(payload.error || "Could not start checkout.");
@@ -220,8 +234,46 @@ export function PricingView() {
         )}
       </div>
 
+      {/* Monthly / Yearly. A real control, not decoration: the interval is
+          sent to /api/whop/checkout and decides which of the two Whop plans
+          the person is charged on. */}
+      <div className="mt-10 flex justify-center">
+        <div
+          role="radiogroup"
+          aria-label="Billing interval"
+          className="inline-flex rounded-pill border-[0.5px] border-line bg-card p-1"
+        >
+          {(["monthly", "yearly"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={interval === option}
+              onClick={() => setInterval(option)}
+              className={cn(
+                "min-h-10 rounded-pill px-5 text-sm font-semibold transition-colors",
+                interval === option
+                  ? "bg-grass text-on-primary"
+                  : "text-stone hover:text-ink"
+              )}
+            >
+              {option === "monthly" ? "Monthly" : "Yearly"}
+              {option === "yearly" && (
+                <span className="ml-1.5 text-xs font-medium opacity-80">
+                  {/* The SMALLER of the two savings, so the claim holds for
+                      whichever plan the visitor picks. Player saves 31% and
+                      Family 30%; quoting 31 here would be a number one of
+                      the two cards then contradicts two inches below. */}
+                  save {Math.min(yearlySavingsPercent("player"), yearlySavingsPercent("family"))}%
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* plan cards */}
-      <div className="mt-12 grid items-start gap-5 lg:grid-cols-3">
+      <div className="mt-8 grid items-start gap-5 lg:grid-cols-3">
         {PLANS.map((plan, i) => {
           const current = tier === plan.tier;
           // Any plan ranked at or below what the user already has must
@@ -273,10 +325,18 @@ export function PricingView() {
 
               <div className="mt-5 flex items-baseline gap-1.5">
                 <span className={cn("text-4xl tracking-tight text-ink", isSeeded ? "font-mono" : "font-light")}>
-                  {plan.price}
+                  {priceLabel(plan.tier, interval)}
                 </span>
-                <span className="text-sm text-stone-light">{plan.cadence}</span>
+                <span className="text-sm text-stone-light">
+                  {cadenceLabel(plan.tier, interval)}
+                </span>
               </div>
+              {plan.tier !== "free" && interval === "yearly" && (
+                <p className="mt-1 text-sm text-stone">
+                  {formatTierPrice(plan.tier, "monthly")}/mo billed monthly — yearly saves{" "}
+                  {yearlySavingsPercent(plan.tier)}%.
+                </p>
+              )}
 
               <Button
                 variant={plan.popular ? "primary" : "outline"}
@@ -322,7 +382,9 @@ export function PricingView() {
                   <th key={p.tier} className="px-4 py-4 text-center">
                     <span className="block font-medium text-ink">{p.name}</span>
                     <span className="text-xs text-stone-light">
-                      {p.price === "$0" ? "Free" : `${p.price}/mo`}
+                      {p.tier === "free"
+                        ? "Free"
+                        : `${priceLabel(p.tier, interval)}${interval === "yearly" ? "/yr" : "/mo"}`}
                     </span>
                   </th>
                 ))}

@@ -47,6 +47,47 @@ export const FEATURE_TIER = {
   family: "family",
 } as const satisfies Record<string, SubscriptionTier>;
 
+// How often a paid plan bills. Whop models monthly and yearly as two
+// separate plans (variants) on the same product, so this is the second half
+// of the key into the plan registry in lib/whop.ts.
+export type BillingInterval = "monthly" | "yearly";
+
+export const BILLING_INTERVALS: readonly BillingInterval[] = ["monthly", "yearly"] as const;
+
+// The current list prices, in one place.
+//
+// Display AND reporting: the pricing page, the paywall copy, the billing tab
+// and the GA4 purchase event all read from here, so a price change is one
+// edit rather than a grep. They must match what the Whop plans actually
+// charge — a unit test cannot check that (Whop is the source of truth and is
+// not reachable from one), so when these change, change them with a plan id
+// in hand.
+//
+// 2026-11-14: Player moved $19 -> $12/mo and gained $99/yr; Family moved
+// $39 -> $19/mo and gained $159/yr. **The new Family monthly price is the
+// same number as the OLD Player monthly price** — a grep for "19" finds both
+// and they mean different things. That is exactly why nothing should carry a
+// bare price string any more.
+export const TIER_PRICE_USD: Record<SubscriptionTier, Record<BillingInterval, number>> = {
+  free: { monthly: 0, yearly: 0 },
+  player: { monthly: 12, yearly: 99 },
+  family: { monthly: 19, yearly: 159 },
+};
+
+/** "$12" / "$99" — no cents, because none of the prices have any. */
+export function formatTierPrice(tier: SubscriptionTier, interval: BillingInterval): string {
+  return `$${TIER_PRICE_USD[tier][interval]}`;
+}
+
+/** What a yearly plan saves against twelve months of the monthly one, as a
+ * whole-number percentage. Derived, never written down: a hand-typed
+ * "save 30%" is a claim that goes stale the moment a price moves. */
+export function yearlySavingsPercent(tier: SubscriptionTier): number {
+  const monthlyYear = TIER_PRICE_USD[tier].monthly * 12;
+  if (monthlyYear === 0) return 0;
+  return Math.round(((monthlyYear - TIER_PRICE_USD[tier].yearly) / monthlyYear) * 100);
+}
+
 export type Weakness =
   | "forehand"
   | "backhand"

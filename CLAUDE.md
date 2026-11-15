@@ -37,6 +37,21 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   **A function used in an RLS policy must keep EXECUTE for `authenticated`.** Postgres checks the privilege against whoever runs the query, so revoking it fails the policy closed. Tested on staging 2026-11-14 — do not re-litigate it from the advisor's wording.
 - P1-FIT-1/P1-FIT-2/P1-FIT-4: DONE — `whatIfProjectionFor()` always returns a projection (synthetic straight line for the hypothetical modes), and the untouched what-if panel passes the *real* projection, so every screen agrees by construction. `useWhatIfUtr` stores only the player's explicit choice; everything else derives from props, so it can't capture the placeholder `currentUTR: 7` again. Guarded by `lib/fit-band-consistency.test.ts`.
   **Never pass `undefined` as the projection to `classifySchoolFit`** — it isn't neutral, it returns "reach" for every school below the team floor. `syntheticUtrHistoryFor()` exists for cases with no real history, and `realisticPaceProjectionFor()` is the pre-auth case (a visitor who has typed one number and nothing else).
+- **BILLING: the Whop webhook has never delivered.** Two real payments
+  (2026-10-03, 2026-11-02) left the buyer on `free`. The endpoint is on a
+  legacy payload version while its events are v1 names, so nothing ever
+  matched. Fixed in code on `v1`; the dashboard steps are Niran's — **HANDOFF
+  §K**. Three things to know before touching billing:
+  - **Prices live only in `TIER_PRICE_USD` (lib/types).** Player $12/mo,
+    $99/yr; Family $19/mo, $159/yr. Never retype a price in a component.
+    Note the trap: the new Family monthly is $19, the same number as the OLD
+    Player monthly — a grep for "19" finds both.
+  - **Never delete `WHOP_PLAN_PLAYER` / `WHOP_PLAN_FAMILY`.** They are the
+    legacy $19/$39 plans people are still subscribed on, kept resolve-only:
+    `tierForPlanId()` maps them, `planIdFor()` never sells them.
+  - **The local Whop API key cannot read this account's memberships** (401 on
+    `memberships.list`). `/api/whop/membership` and `/api/whop/sync` both
+    depend on that call. Check the key before believing either works.
 - P1-SEC-1/P1-SEC-5: DONE — the Gemini copilot and Stripe routes are deleted. V1 ships no AI feature. **The Gemini and Stripe keys still need revoking at the provider.**
 
 ## Always

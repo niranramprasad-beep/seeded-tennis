@@ -76,6 +76,9 @@ export function BillingPreview() {
           canAccess: () => true,
           isPaid: tier !== "free",
           isFamily: tier === "family",
+          // The harness drives the tier from local state; there is no
+          // database read to re-run.
+          refresh: async () => {},
         }}
       >
         <div className="flex items-center gap-2 border-b border-line bg-cream px-6 py-3 text-sm">
