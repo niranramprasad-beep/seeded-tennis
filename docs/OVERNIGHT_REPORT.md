@@ -238,7 +238,7 @@ reading between steps is.
 | 9 | `032` | 5 | — | restore 035's trigger body, not 032's literal text |
 | 10 | `033` | 7 | — | §J step 10, now runnable SQL |
 | 11 | `034` | 19 | **the only step that can refuse an ordinary user's write** — watch it after deploying | drop 20 triggers + 3 functions; **also revert `lib/rate-limit.ts` to `consume_rate_limit` or every write 429s** |
-| 12 | `035` | — | **not optional.** Without it, 032/033 break every profile write and 034 breaks account deletion for everyone. | §J step 12 |
+| 12 | `035` | 12 | **not optional, and it is the one that makes 032/033/034 safe.** Without it: every profile write fails for a user with no UTR (23514 on a live CHECK), the upsert path raises 23502/42501, and `delete_my_account()` dies on a foreign key for everyone. Seven acceptance checks run on staging. | §J step 12 |
 
 **Step 13 — The code.** PR `v1` → `main` **including `git revert d059006`**
 (the maintenance middleware), wait for `verify` to pass, merge. Never bypass
@@ -247,9 +247,19 @@ then run 024's rollback SQL.*
 
 **Step 14 — Live checks on seededtennis.com:** 200 not 503, signup, login,
 Google login, onboarding, under-13 consent, family join + approve, fit
-report, outreach gating, pricing toggle. **Plus the two the rehearsal added:
-rename yourself in Settings** (this is what 032/033 broke) **and delete a
-throwaway account** (this is what 034 broke).
+report, outreach gating, pricing toggle.
+
+**Plus four the reviews added, each because something real broke there:**
+- **Rename yourself in Settings** — 032/033 broke this (23502/42501 on the
+  upsert path).
+- **Delete a throwaway account** — 034 broke this (foreign key on the
+  cascade), and it is P0-8's whole mechanism.
+- **Sign up WITHOUT entering a UTR, then edit your profile** — the `0`
+  sentinel broke this (23514 against a live CHECK constraint), and it is
+  also the account shape a parent creates.
+- **Open `/events`, `/plan` and a school page as that same account** — these
+  are where the sentinel was printing "UTR 0.00", "needs about 7.1/year" and
+  "You 0.0 · Gap to median −12.1".
 
 **Step 15 — Whop.** Send a test `membership.activated` from the dashboard,
 expect **200**. Then replay the missed events. ⚠️ **The webhook is reachable
