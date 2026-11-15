@@ -15,8 +15,9 @@
 //
 // docs/DESIGN_MOCKUP_SPEC.md's scale is: Display 56/36 · H1 36/28 · H2
 // 24/20 · Body 16. So a section title is the H1 step (36px) and a card
-// title is the H2 step (24px), both in Inter Tight at 700, both with the
-// -0.02em tracking the spec gives the display face.
+// title is the H2 step (24px), both in Inter Tight at 700. The section step
+// carries the spec's -0.02em display tracking; the card step uses -0.01em,
+// because at 24px the tighter value starts closing up the counters.
 
 // `text-balance` is part of the scale, not a per-heading decision. Display
 // type set at 36px in a 640px column is exactly where a last line of one
@@ -32,6 +33,14 @@ export const seededSectionHeading =
 /** Card / sub-section title — the H2 step of the scale (24px desktop). */
 export const seededCardHeading =
   "font-seeded text-xl font-bold leading-[1.2] tracking-[-0.01em] text-balance text-ink sm:text-2xl";
+
+/** In-card label — the H2 step at its mobile size (20px), for a heading
+ *  that sits INSIDE a card next to larger content, like a plan name above a
+ *  40px price. A named step, because the alternative is what was there
+ *  before: the card util plus a `text-xl` override at one call site, which
+ *  is indistinguishable from a mistake and was reported as one. */
+export const seededCardLabel =
+  "font-seeded text-xl font-bold leading-[1.25] tracking-[-0.01em] text-balance text-ink";
 
 /** Short centred supporting copy under a heading. `text-pretty` stops a
  *  single trailing word; it is for paragraphs, where `balance` would make

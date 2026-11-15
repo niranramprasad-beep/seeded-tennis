@@ -35,3 +35,8 @@ next-env.d.ts
 .vercel
 .env*
 supabase/.temp/
+
+# UI-audit evidence: 21MB of PNGs. Durable copy lives outside the repo at
+# ~/seeded-evidence/polish/ (README there explains how to read it).
+# Regenerate with: node scripts/ui-audit.mjs <label> <light|dark>
+docs/screenshots/

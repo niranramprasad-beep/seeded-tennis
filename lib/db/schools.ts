@@ -36,9 +36,10 @@ function resolve<T>(value: T): Promise<T> {
  * catalogue and 37 is the men's half of it, and neither sentence said which
  * it meant. Two true numbers reading as one broken promise.
  *
- * So: counted here, labelled by gender wherever shown, and guarded by
- * lib/catalog-counts.test.ts, which fails the build if a literal count
- * reappears in the copy.
+ * So: counted here, labelled by gender wherever shown, and guarded by the
+ * program-count pattern in lib/copy-honesty.test.ts, which fails the build
+ * if a literal count reappears in the copy. (This used to name a
+ * lib/catalog-counts.test.ts that has never existed.)
  */
 export interface CatalogCounts {
   total: number;

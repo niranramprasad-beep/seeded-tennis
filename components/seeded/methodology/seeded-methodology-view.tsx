@@ -40,7 +40,14 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
     body: `Official athletics site, current season. If only last season's roster is listed, the team page shows the date we last checked it and links to the official roster, marked "Roster may be out of date."`,
   },
   { label: "Coaches", body: "Official staff page. We link to it instead of listing emails directly." },
-  { label: "Ratings", body: "Singles and doubles UTR from each player's public profile, with the date we checked it." },
+  // Was "...with the date we checked it." There is no check date: no
+  // source field and no date field exists on `School`, every team range
+  // renders as "Unverified estimate", and the Confidence section of THIS
+  // PAGE says there is no published source or check date behind any of
+  // them. The page was contradicting itself, and a visitor reads this row
+  // as a statement of fact rather than of intent. Caught by widening
+  // lib/copy-honesty.test.ts to scan for check-date claims.
+  { label: "Ratings", body: "Singles and doubles UTR from each player's public profile. We don't record when we last checked — treat every rating here as undated." },
   { label: "Academics", body: `Public admissions ranges. Marked "Estimated" when exact numbers aren't published.` },
 ];
 

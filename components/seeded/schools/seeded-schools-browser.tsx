@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ChevronDown, Search } from "lucide-react";
@@ -13,6 +13,7 @@ import {
   schoolUtrRange,
   summerBeforeSeniorYear,
   utrToPct,
+  type SchoolFitBand,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
@@ -160,6 +161,37 @@ export function SeededSchoolsBrowser({
   // an empty band, not a greyed-out guess — no fit.
   const hasUtr = hasRealUtr(effectiveUtr);
 
+  // THE ONLY PLACE THIS FILE IS ALLOWED TO CLASSIFY A SCHOOL.
+  //
+  // The gate used to be repeated at each of three call sites, and an
+  // independent verifier found the third one ungated after the other two
+  // were fixed — the Compare drawer rendered "Reach" for a visitor with no
+  // rating, 110 lines below the guard that was supposed to have removed
+  // every band on the page. Repeating a condition is how you eventually
+  // forget it.
+  //
+  // So there is one call site, it returns `null` without a rating, and
+  // `FitBadge` cannot render a null band. A fourth caller added later gets
+  // the gate for free. lib/schools-neutral-without-utr.test.ts fails the
+  // build if `classifySchoolFit` is ever called anywhere else in this file.
+  const bandFor = useCallback(
+    (s: School): SchoolFitBand | null =>
+      hasUtr ? classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection) : null,
+    [hasUtr, effectiveUtr, whatIf.whatIfProjection]
+  );
+
+  // The rating, or null — the only value in this file that may be FORMATTED
+  // or plotted. Gating each use of `effectiveUtr` separately is what put
+  // "You 0.0" on 37 rows; and when that was fixed with a ternary, the guard
+  // checking it could still be satisfied by a neighbouring `hasUtr` on the
+  // line above, because a positional check is not a structural one.
+  //
+  // `youUtr` is null without a rating, so `.toFixed()` on it does not
+  // typecheck. CLAUDE.md's rule is "never .toFixed() on a raw currentUTR";
+  // this makes the raw value unformattable rather than merely guarded, and
+  // the test asserts `effectiveUtr.toFixed` appears nowhere at all.
+  const youUtr: number | null = hasUtr ? effectiveUtr : null;
+
   // Same real grad-year context as the what-if hook, plus the full catalog
   // — explainSchoolFit only needs the catalog for its point-7 alternative-
   // school suggestion. Uses the SAME history choice as the what-if pass
@@ -262,6 +294,14 @@ export function SeededSchoolsBrowser({
   );
   const savedSlugs = useMemo(() => new Set(player.targetSchoolSlugs), [player.targetSchoolSlugs]);
 
+  // "gap" and "fit" are both distance-from-your-rating orders. Without a
+  // rating they would sort the catalogue by distance from zero — the
+  // weakest programs first, presented as if it meant something. The SELECT
+  // reads this same value, so the control can never claim an order the
+  // list is not in (including one restored from localStorage).
+  const safeSort: SeededSchoolSort =
+    hasUtr || sort === "academics" || sort === "default" ? sort : "default";
+
   const visible = useMemo(() => {
     const filtered = ranked.filter((s) => {
       if (region !== "all" && regionForState(s.state) !== region) return false;
@@ -270,20 +310,11 @@ export function SeededSchoolsBrowser({
       // chips aren't rendered), but localStorage can still hand us one from
       // a previous signed-in session — so it is ignored rather than applied
       // against the sentinel, which would have hidden the whole catalogue.
-      else if (
-        hasUtr &&
-        chip !== "all" &&
-        classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection) !== chip
-      )
-        return false;
+      else if (hasUtr && chip !== "all" && bandFor(s) !== chip) return false;
       return true;
     });
-    // "gap" and "fit" are both distance-from-your-rating orders. Without a
-    // rating they would sort the catalogue by distance from zero, i.e. the
-    // weakest programs first, presented as if it meant something.
-    const safeSort = hasUtr || sort === "academics" ? sort : "default";
     return sortSchoolsForSeeded(filtered, safeSort, effectiveUtr, whatIf.whatIfProjection);
-  }, [ranked, region, chip, sort, hasUtr, effectiveUtr, whatIf.whatIfProjection, savedSlugs]);
+  }, [ranked, region, chip, safeSort, hasUtr, effectiveUtr, bandFor, whatIf.whatIfProjection, savedSlugs]);
 
   // A materially different list (a filter/sort change) invalidates
   // whatever row the keyboard highlight was pointing at.
@@ -457,16 +488,28 @@ export function SeededSchoolsBrowser({
         </div>
         <label className="flex items-center gap-1.5 text-xs font-medium text-stone">
           Sort
+          {/* "Gap (closest first)" and "Fit (band order)" both order the
+              list by distance from YOUR rating, so without one they fall
+              back to the default order. The control used to accept them
+              anyway: it showed "Gap" as selected, persisted it, and left
+              the rows in catalogue order — the dropdown asserting something
+              about the list that was not true, which is the same class of
+              problem as a fabricated band. They are disabled instead, with
+              the reason given rather than left to be guessed at. */}
           <select
-            value={sort}
+            value={safeSort}
             onChange={(e) => setSort(e.target.value as SeededSchoolSort)}
             className="h-8 rounded-lg border border-input bg-card px-2 font-sans text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
           >
-            {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
+            {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => {
+              const needsUtr = key === "gap" || key === "fit";
+              return (
+                <option key={key} value={key} disabled={needsUtr && !hasUtr}>
+                  {label}
+                  {needsUtr && !hasUtr ? " — needs your UTR" : ""}
+                </option>
+              );
+            })}
           </select>
         </label>
       </div>
@@ -556,7 +599,7 @@ export function SeededSchoolsBrowser({
               {showDataCol && <span>Data</span>}
             </div>
             {visible.map((s, index) => {
-              const fit = classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection);
+              const fit = bandFor(s);
               const range = schoolUtrRange(s);
               const expanded = expandedSlug === s.slug;
               // Only the currently-expanded row actually builds the full
@@ -630,7 +673,7 @@ export function SeededSchoolsBrowser({
                         </p>
                       </Link>
                     </div>
-                    {hasUtr ? (
+                    {fit ? (
                       <FitBadge band={fit} />
                     ) : (
                       <span className="text-[13px] text-stone-light">Not tracked</span>
@@ -639,19 +682,17 @@ export function SeededSchoolsBrowser({
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
-                      youPct={hasUtr ? utrToPct(effectiveUtr) : null}
-                      // `You ${effectiveUtr.toFixed(1)}` was unconditional,
-                      // so every row of the logged-out page read "You 0.0".
-                      // The team range is real data and stays either way.
+                      youPct={youUtr === null ? null : utrToPct(youUtr)}
+                      // The team range is real data and shows either way.
                       caption={
-                        hasUtr
-                          ? `You ${effectiveUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                        youUtr === null
+                          ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `You ${youUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
-                      you={hasUtr ? effectiveUtr : null}
+                      you={youUtr}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
@@ -740,12 +781,22 @@ export function SeededSchoolsBrowser({
       <Drawer open={compareOpen} onClose={() => setCompareOpen(false)} title="Compare schools" widthClass="max-w-xl">
         <div className="flex flex-col gap-4">
           {compareSchools.map((s) => {
-            const fit = classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection);
+            // Gated on hasUtr like every other band on this page. An
+            // independent verifier found this one ungated after the rest
+            // were fixed: tick two schools, open "Compare side by side",
+            // and both cards said "Reach" — the sentinel-derived band,
+            // 110 lines below the guard that was supposed to have removed
+            // every one of them. A drawer is still the page.
+            const fit = bandFor(s);
             return (
               <div key={s.id} className="rounded-xl border border-line p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{s.shortName}</p>
-                  <FitBadge band={fit} />
+                  {fit ? (
+                    <FitBadge band={fit} />
+                  ) : (
+                    <span className="text-[13px] text-stone-light">Not tracked</span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
                   {s.conference} · {s.division} · {s.city}, {s.state}

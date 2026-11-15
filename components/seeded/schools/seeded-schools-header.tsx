@@ -19,8 +19,12 @@ export function SchoolsHeader({ counts }: { counts: CatalogCounts }) {
       <Badge variant="leaf" size="md" className="mb-3">
         Free to browse
       </Badge>
+      {/* Said "among D1 tennis" directly above a count covering all three
+          divisions — only 54 of the 68 are D1 (6 D2, 8 D3). Two true
+          sentences that read together as "68 D1 programs", which is the
+          same failure the derived counts were introduced to stop. */}
       <h1 className="text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
-        Find your honest fit among <span className="serif-accent text-grass">D1 tennis</span>.
+        Find your honest fit in <span className="serif-accent text-grass">college tennis</span>.
       </h1>
       {/* P0-7: was "Every program with real roster UTRs…" — the team UTRs
           are unverified estimates, not real roster data. The count is now

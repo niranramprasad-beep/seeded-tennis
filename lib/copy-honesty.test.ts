@@ -16,7 +16,15 @@ import { join } from "node:path";
 // sourced roster import), delete its entry deliberately in the same commit
 // that makes it true. Don't reword around the check.
 
-const ROOTS = ["components", "app"];
+// `lib` is in this list because it was NOT, and that was the single biggest
+// hole in this guard: /privacy's entire body lives in lib/legal/policy.ts,
+// so the most honesty-sensitive page on the site was outside the scan. An
+// independent verifier planted five banned phrases in one string there —
+// "Weekly training plan. Rosters verified Oct 2026. Sent every Sunday. We'll
+// email you a weekly report within 48 hours. Browse 68 programs." — and the
+// full suite stayed green. Every user-facing string in lib/ (policy copy,
+// config, type-level labels) is now scanned too.
+const ROOTS = ["components", "app", "lib"];
 const EXTS = [".tsx", ".ts"];
 
 function sourceFiles(dir: string, acc: string[] = []): string[] {
@@ -114,6 +122,16 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "UTR entries are self-reported; Seeded never checks them",
   },
   {
+    // Added after a FAQ answer written in this very pass said "Official
+    // team rosters and public UTR profiles, WITH THE DATE WE CHECKED."
+    // That is the P0-7 claim ("shows its source and date") in words the
+    // existing pattern did not match — a reword around a live guard, which
+    // CLAUDE.md names as the thing not to do. There is no source field and
+    // no date field on `School`.
+    pattern: /date we checked|checked on \d|last checked \d|as of [A-Z][a-z]{2} \d/,
+    why: "no School record carries a source or a check date; the ranges are unverified estimates",
+  },
+  {
     // Found by the launch UI review: /pricing was selling "Weekly training
     // plan" as a paid feature. Seeded does not generate training plans and
     // is not going to — "No auto-generated training plans, manual calendar
@@ -121,13 +139,23 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // player fills in, so the feature is called a training calendar.
     //
     // This bans Seeded PROMISING to produce one ("weekly training plan",
-    // "your training plan", "we'll weight your training plan"). It
-    // deliberately does NOT ban the words inside /training itself, where a
-    // plan is a grouping the USER creates out of their own sessions —
-    // "Organize sessions into full training plans" is a true description of
-    // what that screen lets someone do, and renaming it would hide, not
-    // fix, the real open violation (the auto-generating setup wizard, TODO
-    // #2). The line is: who makes the plan.
+    // "your training plan", "we'll weight your training plan"). It does not
+    // reach inside /training itself.
+    //
+    // THE STATED REASON FOR THAT CARVE-OUT DOES NOT FULLY HOLD, and an
+    // independent verifier was right to push on it. The argument was "a
+    // plan inside /training is a grouping the USER creates" — but
+    // components/training/training-view.tsx ships a button labelled
+    // "Generate my training week" wired to `generatePersonalizedPlan()`,
+    // which writes a week of sessions Seeded invented. Seeded makes that
+    // plan, not the user, so the line is crossed inside the exempt scope.
+    //
+    // It is still carved out here on purpose, because the fix is to DELETE
+    // THE GENERATOR, not to rename it — banning the phrase would push
+    // someone to relabel the button and leave the behaviour. That is
+    // docs/TODO.md #2 and it is a product change, out of scope for a
+    // copy pass. Recorded so the exemption is not mistaken for a finding
+    // that the feature is fine.
     pattern:
       /weekly training plan|your training plan|training plan (?:for you|toward)|we'?ll weight your training/i,
     why: "Seeded never generates a training plan; the calendar is filled in by hand",
@@ -137,7 +165,24 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // /pricing promised "68 D1/D2/D3 programs" while /schools listed 37 —
     // both true (68 is the whole catalogue, 37 is the men's half) and
     // together they read as a broken promise, because neither said which.
-    pattern: /\b\d{2,}\s+(?:D1\b[^.]{0,20})?programs\b/i,
+    // First version was /\b\d{2,}\s+(?:D1\b[^.]{0,20})?programs\b/i, which
+    // required "programs" to follow the number almost immediately. It
+    // therefore missed the exact form the pages actually use — a verifier
+    // replaced `{ranked.length} {genderLabel} programs.` with the literal
+    // "37 men's programs." and the suite stayed green. It also missed
+    // "68 schools" and "68 D1, D2 and D3 programs". Now: any 2+ digit
+    // number followed, within a short run of words, by programs/schools/
+    // teams. Written-out numerals are still a gap and are not worth the
+    // false positives.
+    // Second attempt. The first was too loose and flagged four innocent
+    // strings — "6 of her 12 target schools" in a labelled sample report,
+    // "Save 10+ schools across 3 bands" (a goal, not a count), a line of
+    // combinedScore arithmetic, and a correction note containing
+    // "under-13 account ... cannot see schools". This matches a CATALOGUE
+    // SIZE claim specifically: a number followed only by division or
+    // gender words before "programs"/"schools".
+    pattern:
+      /\b\d{2,}\s+(?:(?:D[123]|men's|women's|college|tennis)[,/]?\s*(?:and\s+)?)*(?:programs?|schools?)\b/i,
     why: "program counts are derived from the catalogue (getCatalogCounts), never typed into copy",
   },
 ];

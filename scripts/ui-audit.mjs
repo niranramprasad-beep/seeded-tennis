@@ -38,7 +38,7 @@ const PAGES = [
   { slug: "home", path: "/" },
   { slug: "pricing", path: "/pricing" },
   { slug: "schools", path: "/schools" },
-  { slug: "school-detail", path: process.env.AUDIT_SCHOOL_PATH ?? "/schools/stanford-men" },
+  { slug: "school-detail", path: process.env.AUDIT_SCHOOL_PATH ?? "/schools/stanford-m" },
   { slug: "login", path: "/login" },
   { slug: "signup", path: "/signup" },
   { slug: "onboarding", path: "/onboarding" },

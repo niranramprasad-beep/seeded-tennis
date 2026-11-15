@@ -3,7 +3,7 @@
 Short, ordered, and about *what happens next*. `docs/MASTER_ROADMAP.md`
 stays the full picture with acceptance criteria; this file is the queue.
 
-Last updated 2026-11-14.
+Last updated 2026-11-15.
 
 ---
 
@@ -121,6 +121,24 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       the built-in sender allows a few messages an hour, so with "Confirm
       email" on, launch day's third signup cannot confirm. Re-test one real
       signup end to end once Resend is live.
+- [ ] **WEEK 1, ITEM #2 — delete the training-week generator.** CLAUDE.md:
+      "No auto-generated training plans — manual calendar only." That rule
+      is still violated in code, and now with a line number:
+      `components/training/training-view.tsx` ships a button labelled
+      **"Generate my training week"** wired to `generatePersonalizedPlan()`,
+      which writes a full week of invented sessions ("Serve plus first-ball
+      patterns", "Filmed set play"). Found by an independent verifier on
+      2026-11-15 while testing whether the copy guard's /training carve-out
+      was defensible — it is not, as argued.
+      **The fix is to remove the generator, not to rename the button.**
+      `lib/copy-honesty.test.ts` deliberately does NOT ban the phrase inside
+      /training, precisely so nobody closes this by relabelling it. The
+      marketing surfaces that SOLD a generated plan are already fixed; this
+      is the behaviour behind them.
+      Not a launch blocker only because the feature is behind auth and the
+      copy no longer advertises it. It is still a stated non-negotiable
+      being broken.
+
 - [ ] **WEEK 1, ITEM #1 — make `is_parent_member()` role-aware.** Niran's
       call on 2026-11-15: not a launch blocker, disclosed in `/privacy`
       instead, no migration on launch day. `is_parent_member()` returns true

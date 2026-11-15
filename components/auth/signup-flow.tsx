@@ -105,8 +105,14 @@ export function SignupFlow({
   // does not fit the pattern we imagined, and would turn a privacy
   // preference into a failed signup. The hint fires when a player types a
   // second word that is longer than an initial.
+  // `/\s+\S{2,}\s*$/` counted the trailing period, so "Niran R." — the
+  // exact format the placeholder and the help text recommend — triggered
+  // the "shorten it" nudge. A nudge that fires on its own example teaches
+  // people to ignore nudges. The last word is now an initial if it is a
+  // single letter with an optional dot.
+  const lastWord = name.trim().split(/\s+/).slice(-1)[0] ?? "";
   const looksLikeFullSurname =
-    !isParentSignup && /\s+\S{2,}\s*$/.test(name.trim()) && name.trim().split(/\s+/).length > 1;
+    !isParentSignup && name.trim().split(/\s+/).length > 1 && !/^[A-Za-z]\.?$/.test(lastWord);
 
   // P0-8. A player who may be under 13 cannot start their own family: there
   // would be nobody in it who can give parental consent, so the account
@@ -655,8 +661,15 @@ function Centered({ children }: { children: React.ReactNode }) {
   const isSeeded = design === "seeded";
   return (
     <div className="relative min-h-[calc(100vh-73px)] overflow-hidden">
-      <div className="relative mx-auto flex min-h-[calc(100vh-73px)] max-w-[420px] flex-col justify-center container-px py-10">
-        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+      {/* Same shell as AuthCard: same max width, the same px-5 gutter (not
+          container-px, which is 40px and was making this card 340px wide
+          against /login's 380px), and the same card surface — border,
+          radius, padding and shadow. The inputs were unified first and the
+          CARDS were not, so the two screens still did not match: 380 vs 340
+          wide, p-6 vs p-8, 12px vs 14px radius, 1px border vs none, solid
+          vs glass. A verifier measured all five. */}
+      <div className="relative mx-auto flex min-h-[calc(100vh-73px)] w-full max-w-[420px] flex-col justify-center px-5 py-12">
+        <div className="rounded-xl border border-line bg-card p-6 shadow-soft">
           {children}
         </div>
       </div>

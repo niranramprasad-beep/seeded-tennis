@@ -14,7 +14,7 @@ import {
   type SubscriptionTier,
 } from "@/lib/types";
 import type { CatalogCounts } from "@/lib/db/schools";
-import { seededCardHeading } from "@/components/seeded/ui/heading";
+import { seededCardHeading, seededCardLabel } from "@/components/seeded/ui/heading";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
@@ -355,7 +355,7 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
                 </Badge>
               )}
 
-              <h2 className={cn("text-xl font-medium text-ink", isSeeded && "font-seeded")}>{plan.name}</h2>
+              <h2 className={seededCardLabel}>{plan.name}</h2>
               <p className="mt-1 text-sm text-stone">{plan.tagline}</p>
 
               <div className="mt-5 flex items-baseline gap-1.5">
@@ -427,7 +427,7 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
 
       <FadeIn className="mt-14">
         <div className="rounded-xl border border-line bg-subtle p-6 text-center">
-          <h2 className={cn(seededCardHeading, "text-lg sm:text-xl")}>
+          <h2 className={seededCardHeading}>
             What stays free, always
           </h2>
           <p className="mx-auto mt-2 max-w-[560px] text-pretty text-sm text-stone">
@@ -461,7 +461,9 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
           <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr>
-                <th className="w-2/5 py-4 text-left" />
+                <th className="w-2/5 py-4 text-left" scope="col">
+                  <span className="sr-only">Feature</span>
+                </th>
                 {PLANS.map((p) => (
                   <th key={p.tier} className="px-4 py-4 text-center">
                     <span className="block font-medium text-ink">{p.name}</span>

@@ -312,10 +312,11 @@ function CountTile({ value, label, bg, fg }: { value: number; label: string; bg:
 function TrustStrip() {
   return (
     <section className="border-y border-line bg-card">
-      {/* 15px, not 14, and text-ink-2 rather than text-stone: this is the
-          first honesty claim a visitor reads and it was the faintest text
-          on the page. Contrast is re-measured in both light and dark in
-          docs/screenshots/polish/after.json. */}
+      {/* 15px, not 14. This is the first honesty claim a visitor reads and
+          it was the faintest text on the page. The colour is UNCHANGED
+          (still text-stone) — an earlier version of this comment claimed
+          text-ink-2 and was simply wrong about its own diff. Measured:
+          6.24:1 light, 7.14:1 dark, both past AA. */}
       <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-x-8 gap-y-3 px-6 py-5 text-[15px] leading-[1.5] text-stone">
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
@@ -627,12 +628,32 @@ function MethodAndFounder() {
 
 // Three of these four used to have no answer at all — `{ q: "..." }` with
 // no `a`, which as a native <details> meant a disclosure that opened onto
-// nothing. Every answer below restates something this codebase already
-// commits to elsewhere (the methodology page, /privacy, and the Free tier's
-// own feature list) rather than making a new claim: the roster numbers are
-// labelled unverified estimates wherever they render
-// (UTR_RANGE_SOURCE_LABEL), and the under-13 gate really is enforced by RLS
-// on 21 tables rather than by the signup form.
+// nothing.
+//
+// TWO OF THE THREE ANSWERS WRITTEN HERE WERE FALSE, and an independent
+// verifier caught both. Recorded rather than quietly corrected, because the
+// way they went wrong is the way copy always goes wrong on this project:
+//
+//  1. "Official team rosters and public UTR profiles, WITH THE DATE WE
+//     CHECKED." There is no source field and no date field on `School`
+//     (lib/types.ts) — `UTR_RANGE_SOURCE_LABEL` is the literal string
+//     "Unverified estimate", every school page says so on screen, and
+//     /methodology — the page this very answer links to — says "there is no
+//     published source or check date behind any of them". Worse, it was a
+//     REWORD AROUND A LIVE GUARD: copy-honesty.test.ts bans
+//     /shows its source and date/, and "with the date we checked" makes the
+//     same claim in words the regex misses. CLAUDE.md forbids exactly that.
+//
+//  2. "...enforced in the database, not just on the signup form." True on
+//     STAGING. Production is still on 23 migrations with no
+//     `consent_status` column at all, and `main` auto-deploys — so merging
+//     that sentence would have published a child-safety claim with nothing
+//     behind it, and left it false for as long as the code was ahead of the
+//     migrations.
+//
+// Both now say only what is true of the code as it stands, independent of
+// rollout order. When the consent migrations land on production, strengthen
+// the second answer deliberately — in the commit that makes it true.
 const FAQ_ITEMS: { q: string; a: string; href?: string; hrefLabel?: string }[] = [
   {
     q: "How is this different from UTR's college tools?",
@@ -640,13 +661,13 @@ const FAQ_ITEMS: { q: string; a: string; href?: string; hrefLabel?: string }[] =
   },
   {
     q: "Where does the roster data come from?",
-    a: "Official team rosters and public UTR profiles, with the date we checked. Team ranges are estimates, and they are labelled as estimates everywhere they appear — we never show a percent chance.",
+    a: "Public team rosters and UTR profiles. The team ranges you see are unverified estimates with no published source or check date behind them, and they are labelled that way everywhere they appear — we never show a percent chance.",
     href: "/methodology",
     hrefLabel: "How we calculate fit",
   },
   {
     q: "My child is 14. Who owns the account?",
-    a: "They can hold their own account. For younger players a parent sets it up, and an under-13 account stays inactive until an adult in the family approves it — enforced in the database, not just on the signup form.",
+    a: "They can hold their own account. For younger players a parent sets it up: onboarding asks for a birth year, and an under-13 account needs an adult in the family to approve it before it can be used.",
     href: "/privacy",
     hrefLabel: "What we store, and for how long",
   },

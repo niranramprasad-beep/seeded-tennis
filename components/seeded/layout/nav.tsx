@@ -95,6 +95,8 @@ export function SeededNav() {
           className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink hover:border-line lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
+          aria-expanded={open}
+          aria-controls="seeded-mobile-menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -107,6 +109,7 @@ export function SeededNav() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
+            id="seeded-mobile-menu"
             className="overflow-hidden border-t border-line lg:hidden"
           >
             <div className="flex flex-col gap-1 px-6 py-4">

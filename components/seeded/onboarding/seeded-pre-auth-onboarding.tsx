@@ -36,11 +36,24 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
   const router = useRouter();
   const { beginSession } = usePlayer();
 
+  // A rating Postgres would actually accept: `profiles_current_utr_check`
+  // (migration 006, live on production) is `between 1 and 16.5`. Anything
+  // else is not a low rating, it is the absence of one.
+  const isUsableUtr = (v: number) => Number.isFinite(v) && v >= 1 && v <= 16.5;
+
   const [utr, setUtr] = useState(() => params.get("utr") ?? "7");
   const [gradYear, setGradYear] = useState(() => Number(params.get("gradYear")) || gradYearOptions()[1]);
   const [gender, setGender] = useState<Gender>(() => (params.get("gender") as Gender) || "women");
   const [gpa, setGpa] = useState(() => params.get("gpa") ?? "3.5");
-  const [editing, setEditing] = useState(!params.get("utr"));
+  // Was `!params.get("utr")`, which only caught a MISSING param. "0" is a
+  // non-empty string and therefore truthy, so `/onboarding?utr=0` — and
+  // `?utr=abc`, via `parseFloat(...) || 0` below — skipped the form and
+  // rendered a whole fit report against the sentinel: "UTR 0.0",
+  // "realistic target for 0 programs", "Reach 0 / Target 0 / Likely 0".
+  // Reachable from the homepage CTA by clearing the prefilled rating.
+  // Now anything that is not a rating the database would accept starts on
+  // the form, which is what the page is for.
+  const [editing, setEditing] = useState(() => !isUsableUtr(parseFloat(params.get("utr") ?? "")));
 
   const utrNum = parseFloat(utr) || 0;
   const filtered = useMemo(() => schools.filter((s) => s.gender === gender), [schools, gender]);
@@ -115,7 +128,11 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
         setGender={setGender}
         gpa={gpa}
         setGpa={setGpa}
-        onContinue={() => setEditing(false)}
+        // Same gate on the way out of the form: Continue cannot hand the
+        // report an unusable value either.
+        onContinue={() => {
+          if (isUsableUtr(parseFloat(utr))) setEditing(false);
+        }}
       />
     );
   }

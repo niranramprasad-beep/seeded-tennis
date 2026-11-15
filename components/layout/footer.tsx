@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
-const COLUMNS = [
+const COLUMNS: {
+  title: string;
+  links: { href: string; label: string; external?: boolean }[];
+}[] = [
   {
     title: "Platform",
     links: [
@@ -28,8 +32,15 @@ const COLUMNS = [
     title: "Support",
     links: [
       { href: "/contact", label: "Contact" },
+      // "Methodology" was missing here while the homepage footer had it,
+      // and this is the footer that actually renders on /pricing,
+      // /schools, every school page, /tournament-fit, /how-it-works and
+      // /parents. Two footers disagreeing about what the site contains.
+      { href: "/methodology", label: "Methodology" },
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
+      // The support address existed on exactly one page — the homepage.
+      { href: `mailto:${SUPPORT_EMAIL}`, label: SUPPORT_EMAIL, external: true },
     ],
   },
 ];
@@ -89,20 +100,27 @@ export function Footer() {
                 {col.title}
               </h2>
               <ul className="mt-4 space-y-2.5">
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className={cn(
-                        "group inline-flex items-center gap-1 text-sm text-stone transition-colors hover:text-ink",
-                        isSeeded && "font-seeded"
+                {col.links.map((l) => {
+                  const className = cn(
+                    "group inline-flex items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink",
+                    isSeeded && "font-seeded"
+                  );
+                  // next/link would try to route a mailto: internally.
+                  return (
+                    <li key={l.label}>
+                      {l.external ? (
+                        <a href={l.href} className={className}>
+                          {l.label}
+                        </a>
+                      ) : (
+                        <Link href={l.href} className={className}>
+                          {l.label}
+                          <ArrowUpRight className="h-3 w-3 -translate-x-1 opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+                        </Link>
                       )}
-                    >
-                      {l.label}
-                      <ArrowUpRight className="h-3 w-3 -translate-x-1 opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
-                    </Link>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

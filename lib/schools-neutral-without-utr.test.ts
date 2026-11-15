@@ -62,8 +62,21 @@ describe("the UTR sentinel is detectably wrong, which is why the guard exists", 
   });
 });
 
+// Comments are stripped before any of this is scanned. An earlier version
+// did NOT strip them, and an independent verifier pointed out that one of
+// the two things satisfying its caption assertion was the explanatory
+// COMMENT quoting `You ${effectiveUtr.toFixed(1)}` — the guard was reading
+// the prose about the bug as evidence the bug was fixed.
+function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//"))
+    .join("\n");
+}
+
 describe("the schools browser gates every derived output on hasRealUtr", () => {
-  const source = readFileSync(BROWSER, "utf8");
+  const source = stripComments(readFileSync(BROWSER, "utf8"));
 
   it("derives a single hasUtr flag from hasRealUtr", () => {
     expect(source).toMatch(/const hasUtr = hasRealUtr\(effectiveUtr\)/);
@@ -77,16 +90,71 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     expect(before).toMatch(/hasUtr\s*$|hasUtr[\s\S]*\?\s*$/);
   });
 
-  it("never interpolates a raw currentUTR into a 'You …' caption", () => {
-    // Any `You ${...toFixed}` must sit on the true side of a hasUtr
-    // ternary. Stated positionally rather than as a "must not appear"
-    // pattern: the caption is correct copy once there IS a rating, so
-    // banning the string outright would be wrong and would be worked
-    // around by moving it one line.
-    const youCaptions = [...source.matchAll(/You \$\{effectiveUtr\.toFixed\(1\)\}/g)];
-    for (const m of youCaptions) {
-      const before = source.slice(Math.max(0, m.index! - 300), m.index!);
-      expect(before, "a 'You {utr}' caption outside a hasUtr branch").toMatch(/hasUtr[\s\S]*\?/);
+  // THE IMPORTANT ONE. The previous version of this file checked the
+  // hasUtr declaration, the countSchoolFits gate, the caption, the prompt
+  // and the sort — and said nothing at all about the band badge. A
+  // verifier replaced the row's gated badge with a bare
+  // `<FitBadge band={fit} />`, putting "Reach" on all 37 rows of the
+  // logged-out page — the exact headline symptom this file exists to
+  // prevent — and the full suite stayed green.
+  //
+  // Checking each badge's surroundings would just be a better lint. The
+  // component instead has ONE gated entry point, and this asserts that
+  // invariant: classifySchoolFit is called exactly once, inside bandFor,
+  // which returns null without a rating. A band that can be null cannot be
+  // handed to FitBadge without the typechecker objecting, so a fourth
+  // caller added later is gated by construction rather than by vigilance.
+  it("classifies in exactly one place, and that place is gated", () => {
+    const calls = [...source.matchAll(/classifySchoolFit\s*\(/g)];
+    expect(
+      calls.length,
+      "classifySchoolFit must be called only inside bandFor — add a caller there, not here"
+    ).toBe(1);
+
+    const at = calls[0].index!;
+    const window = source.slice(Math.max(0, at - 200), at);
+    expect(window, "the single classify call is not behind hasUtr").toMatch(/hasUtr\s*\?/);
+  });
+
+  it("bandFor returns null without a rating, so a band is unrepresentable", () => {
+    expect(source).toMatch(/const bandFor\s*=/);
+    expect(source).toMatch(/SchoolFitBand\s*\|\s*null/);
+    expect(source).toMatch(/hasUtr\s*\?[\s\S]{0,160}?:\s*null/);
+  });
+
+  it("every FitBadge is fed from a nullable band, never from a raw classify", () => {
+    for (const m of source.matchAll(/<FitBadge[^>]*band=\{([^}]*)\}/g)) {
+      expect(m[1].trim(), "FitBadge must receive a checked band variable").toMatch(/^fit$/);
+    }
+    // ...and each one sits inside a truthiness check on that variable.
+    for (const m of source.matchAll(/<FitBadge/g)) {
+      const before = source.slice(Math.max(0, m.index! - 160), m.index!);
+      expect(before, "a FitBadge outside a `fit ? ...` branch").toMatch(/fit\s*\?/);
+    }
+  });
+
+  it("never formats the raw rating — the sentinel is unformattable, not merely guarded", () => {
+    // This was a POSITIONAL check (does `hasUtr ?` appear in the 300
+    // characters before the caption) and a verifier defeated it: with the
+    // caption de-gated, the `youPct={hasUtr ? ...}` line directly above it
+    // still satisfied the window. A guard that can be satisfied by a
+    // NEIGHBOUR is not checking the thing it names.
+    //
+    // Structural instead: `effectiveUtr` is never formatted or plotted
+    // anywhere in this file. Everything user-visible goes through
+    // `youUtr`, which is `number | null`, so `.toFixed()` on the raw
+    // value does not typecheck — the compiler enforces this and the test
+    // only stops someone removing the seam.
+    expect(source, "format youUtr, not the raw effectiveUtr").not.toMatch(
+      /effectiveUtr\s*\.\s*toFixed/
+    );
+    expect(source).toMatch(/const youUtr:\s*number \| null = hasUtr \? effectiveUtr : null/);
+    for (const m of source.matchAll(/toFixed\(/g)) {
+      const before = source.slice(Math.max(0, m.index! - 40), m.index!);
+      expect(
+        before,
+        "a .toFixed() on something other than youUtr or a real team number"
+      ).toMatch(/youUtr|range\.(min|max)|avgRosterUTR|minCompetitiveUTR|gapTo\w+|\bexplanation\./);
     }
   });
 
@@ -94,7 +162,19 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     expect(source).toMatch(/Enter your UTR to see your fit/);
   });
 
-  it("does not sort by gap or fit without a rating", () => {
-    expect(source).toMatch(/hasUtr \|\| sort === "academics" \? sort : "default"/);
+  it("does not sort by gap or fit without a rating, and says so in the control", () => {
+    // Asserts the SEAM, not one spelling of the condition: a single
+    // `safeSort` that both the list and the <select> read, so the dropdown
+    // cannot display an order the rows are not in. The control used to
+    // accept "Gap (closest first)", persist it, and leave the catalogue in
+    // default order.
+    expect(source).toMatch(/const safeSort:\s*SeededSchoolSort\s*=/);
+    expect(source).toMatch(/hasUtr[\s\S]{0,80}?:\s*"default"/);
+    expect(source, "the list must sort by safeSort").toMatch(
+      /sortSchoolsForSeeded\(\s*filtered,\s*safeSort/
+    );
+    expect(source, "the select must display safeSort, not the raw stored sort").toMatch(
+      /value=\{safeSort\}/
+    );
   });
 });
