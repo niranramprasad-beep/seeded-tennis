@@ -99,8 +99,13 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       new post-checkout sync are both dead on arrival.
 - [ ] Add the four new plan IDs to Vercel Production; keep the two legacy
       ones (table in §K).
-- [ ] Let `/api/whop/webhook` through the maintenance middleware on `main`
-      (one-token matcher change, §K step 4) before attempting any replay.
+- [x] ~~Let `/api/whop/webhook` through the maintenance middleware on
+      `main`~~ — **moot, and worth knowing why.** The matcher change was
+      only ever needed because the merge plan kept the maintenance
+      middleware alive on `main`. It doesn't: `middleware.ts` is deleted on
+      `v1` (commit below this one), so after the merge there is no
+      middleware on any path and the webhook answers normally. The replay
+      therefore waits on the deploy, not on a matcher.
 - [ ] Replay the missed `membership.activated` events, or reconcile the two
       existing customers by hand.
 - [ ] Run the $0 promo-code end-to-end test (§K) on staging.

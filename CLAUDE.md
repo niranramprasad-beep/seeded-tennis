@@ -5,9 +5,12 @@
 and Niran says go.
 
 `v1` is the single line of development (renamed from `docs/production-audit`
-on 2026-11-11). It already contains every commit on `main`, so there is never
-anything to merge *up* — only down, when Niran says so. `main` auto-deploys
-to seededtennis.com with no staging gate, which is why that gate is a person.
+on 2026-11-11). It contained every commit on `main` until the maintenance
+commit landed on `main` alone on 2026-11-14; `main` was merged back into `v1`
+on 2026-11-15 (`0cea97e`) and `middleware.ts` deleted in the commit after it,
+which is the only way the merge down actually removes the 503 — see HANDOFF
+§J step 15. `main` auto-deploys to seededtennis.com with no staging gate,
+which is why that gate is a person.
 
 `origin/macbook-backup` is an archive of six pre-redesign commits that never
 landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
@@ -23,7 +26,7 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
 ## Current blockers (keep in sync with MASTER_ROADMAP)
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
-- P0-5: production is in **maintenance mode** since 2026-11-14 (`main` @ `d059006`, one revertable commit adding `middleware.ts`, verified live 503). The broken `contacted` write no longer reaches users. Real close-out is the `v1` merge.
+- P0-5: production is in **maintenance mode** since 2026-11-14 (`main` @ `d059006`, one commit adding `middleware.ts`, verified live 503). The broken `contacted` write no longer reaches users. Real close-out is the `v1` merge. **That commit is not revertable from `v1`** — it is not an ancestor of `v1`, and the plain merge *keeps* `middleware.ts`, so the deploy would have gone READY with the site still 503. Handled on `v1` instead: merge `main` in, then delete the file in its own commit. HANDOFF §J step 15.
 - P0-6: **PARTLY done, and the dangerous half is still open.** Staging is
   `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone, and Vercel
   **Preview** genuinely reads it (proved by grepping the deployed client

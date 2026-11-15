@@ -18,12 +18,17 @@
 ## Before every production deploy
 - [ ] CI green (typecheck, lint, tests, build)
 - [ ] Every migration in this deploy already applied + verified on staging
-- [ ] **For the `v1` → `main` merge specifically:** migrations `022` and `024`
-      applied first, and the maintenance-mode commit on `main` reverted (it is
-      one self-contained commit adding only `middleware.ts`). `024` is the
-      coupled one — the outreach tier gate and the Free 3-school cap are
-      already in the `v1` code, so merging without it gives Player users an
-      outreach board that fails every write.
+- [ ] **For the `v1` → `main` merge specifically:** all sixteen migrations
+      applied first (full order in HANDOFF §J), and the maintenance page gone
+      — **not by reverting the commit on `main`.** `d059006` is not an
+      ancestor of `v1`, so there is nothing to revert, and the plain merge
+      keeps `middleware.ts`: the deploy reports READY and the site still
+      answers 503. Done on `v1` instead (merge `main` in, delete the file in
+      its own commit), so by the time you read this the only thing to check
+      is that `middleware.ts` is absent from the merge result. `024` is the
+      coupled migration — the outreach tier gate and the Free 3-school cap
+      are already in the `v1` code, so merging without it gives Player users
+      an outreach board that fails every write.
 - [ ] Migration order decided: additive DB change first, code second; destructive DB change only after the code that stopped using it is live
 - [ ] `get_advisors` security + performance reviewed on staging
 - [ ] QA journeys 1–20 on the preview URL

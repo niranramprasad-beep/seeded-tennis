@@ -1737,17 +1737,26 @@ would still answer 503. A silent failure at the last step of the rollout.
 CLAUDE.md's "`v1` already contains every commit on `main`" was true when it
 was written and stopped being true the moment the maintenance commit landed.
 
-Do this instead (each line verified in a scratch worktree, 2026-11-15):
-1. On `v1`: `git merge origin/main` — clean, and it brings `middleware.ts` in.
-2. `git rm middleware.ts && git commit` — now the removal is an explicit
-   change on `v1`'s side, which is what makes the merge drop it.
-3. Confirm before opening anything: merge `v1` into a detached `origin/main`
-   in a scratch worktree and check `test -f middleware.ts` is false.
+**Steps 1–3 below are DONE on `v1`** — they are ordinary git commits, they
+needed no sign-off, and doing them early is what lets a preview build prove
+the site renders without the file. Nothing in them touches production.
+
+1. ~~On `v1`: `git merge origin/main`~~ — **done**, commit `0cea97e`. Clean;
+   it brings `middleware.ts` in.
+2. ~~`git rm middleware.ts && git commit`~~ — **done**, the commit directly
+   after `0cea97e`. The removal is now an explicit change on `v1`'s side,
+   which is what makes the merge drop it.
+3. ~~Confirm before opening anything~~ — **done**: merged `v1` into a
+   detached `origin/main` in a scratch worktree; `test -f middleware.ts` is
+   false and the merge is clean. Re-run that dry-run if anything else lands
+   on `main` first.
 4. Push `v1`. Open the PR from `v1` to `main`. CI (`verify`) must be green —
    it runs typecheck, lint, the full suite and a production build.
 5. Merge. Vercel auto-deploys `main` to seededtennis.com. **Confirm the site
-   returns 200 and not 503 before calling the deploy done.**
-4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
+   returns 200 and not 503 before calling the deploy done.** This is the
+   check that would have caught the silent failure above, so do not skip it
+   because the Vercel dashboard says READY.
+6. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
 roll back with it. Of steps 1–14, all are backwards-compatible with the old
