@@ -224,6 +224,20 @@ change: `remove_family_member()` only deletes the `parent_accounts` row, so
 a removed member would keep the column and keep their access. That is now a
 passing test rather than a worry.
 
+## Still open: `anon` holds column grants on `profiles`
+
+Harmless today and worth closing anyway. `anon` has table-level SELECT on
+`profiles` (and the other user tables). It reads nothing, because every
+policy is `to authenticated` and RLS denies by default — but that is one
+mechanism deep, and 037's whole lesson is that column grants are the layer
+RLS cannot reach.
+
+`revoke select on public.profiles from anon;` is probably safe (nothing
+pre-auth reads a profile — the pre-auth fit report is pure client-side
+computation over the school catalog), but it is an unrequested change to the
+auth surface and it belongs in its own commit with its own check that signup
+and the signed-out pages still work.
+
 ## Still open: two silent-empty paths introduced 2026-11-15
 
 Recorded rather than fixed, because both fail CLOSED and an empty family page
