@@ -88,6 +88,35 @@ Full detail: `docs/SECURITY_REVIEW_INDEPENDENT.md` (S-17 through S-21 in
 
 ---
 
+## Night 2 in five lines (2026-11-15)
+
+1. **Seven tasks done (A–G).** Next 15.5.29 with **zero production
+   dependency vulnerabilities**; rate limits moved into the database;
+   two controls the product described but did not enforce made real; the
+   entire rollout rehearsed end to end; the launch pages taken from **202
+   accessibility violations to 0**; and two independent review passes.
+2. **Tests 574 → 615. Readiness 79 → 84.** `tsc`, `lint`, the full suite
+   and a production build are green at every commit.
+3. **An independent reviewer found two Criticals in my own fixes, and both
+   were real.** Migrations 032/033 broke *every profile write in the app*
+   (an `.upsert()` fires BEFORE INSERT triggers even when the row exists),
+   and 034 broke *account deletion for every user* (the cascade tried to log
+   a rate-limit event for a user it had just deleted). Both reproduced on
+   staging, both fixed in **035**, both re-tested seven ways.
+4. **The rehearsal found four defects in the rollback half of the plan** —
+   including step 8's, which could never have run at all. The plan now has
+   runnable SQL everywhere and measured timings (218 ms forward).
+5. **Nothing was applied to production and nothing was merged to `main`.**
+   `main` is still `d059006` serving the 503. Production was read-only
+   throughout.
+
+**The honest headline:** the two most dangerous bugs of the night were
+introduced by me, while fixing something else, and were caught by a second
+pair of eyes rather than by my own testing. That is now twice in two nights.
+
+<details>
+<summary>Night 1's summary (2026-11-14)</summary>
+
 ## The night in five lines
 
 1. **Seven tasks done, one running.** Fonts self-hosted (builds no longer
@@ -111,132 +140,170 @@ Full detail: `docs/SECURITY_REVIEW_INDEPENDENT.md` (S-17 through S-21 in
 
 ---
 
+
+</details>
+
 ## 1. WHAT NIRAN DOES BY HAND
+
+Three items. Two of them are the last things you do, after the deploy is
+live.
 
 ### 🔴 Blocks launch
 
-**a. Point `.env.local` at staging.** Local dev currently reads and writes
-**production**. Replace these two lines in `.env.local` (both values are
-public — they ship in the client bundle):
+**a. A lawyer or an adult reads `/privacy` and `/terms`.** The mechanisms
+are all built and tested — deletion really deletes, the export is complete
+and guarded, under-13 accounts are inert until an adult consents, and the
+copy claims no verification we do not do. The document that explains this to
+a parent, names the processors and states retention is the half that is not
+code, and it is not mine to sign off. Seven specific questions are in
+`docs/TODO.md`, headed by the one that could change the product: whether our
+consent mechanism satisfies COPPA's *verifiable* parental consent. It may
+not.
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://gnlcpnsweqbtwpaqhqqg.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<the staging publishable key from Vercel Preview>
-```
+### 🔴 The last two things, in this order, after the deploy is live
 
-Also blank or replace `SUPABASE_SERVICE_ROLE_KEY` in that file — leaving
-production's there while the browser talks to staging is worse than either
-alone, because server routes would write to production while the UI shows
-staging. **Until this is done, nobody should sign in locally.**
+**b. `support@seededtennis.com` must exist and be monitored.** The privacy
+policy tells parents to use this address for requests about their child. A
+published address that bounces is worse than no address at all.
 
-**b. `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` in Vercel → Production.** The
-last thing you do, after the deploy is live. Without it the Google button
-does not render.
-
-~~**c. Enable the Google provider in Supabase.**~~ **Already done** —
-corrected 2026-11-15. The provider is enabled in Supabase production, the
-Google Cloud redirect URI is
-`https://tfpjssmhiptbwigarxpx.supabase.co/auth/v1/callback` and **must stay
-that way** (Supabase handles the OAuth round trip, then redirects on to
-`seededtennis.com/auth/callback`, which the existing
-`https://seededtennis.com/**` allowlist entry already covers). Nothing to
-change here; do not "fix" the Google Cloud URI to point at seededtennis.com.
-
-~~**d. Google consent-screen privacy/terms URLs.**~~ **After launch** — the
-pages have to be live before Google will accept them. `/privacy` and
-`/terms` ship in this release, so add the links once the deploy is up.
-
-**e. `support@seededtennis.com` must exist and be monitored.** The privacy
-policy tells parents to use it for requests about their child. A published
-address that bounces is worse than no address.
+**c. `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` in Vercel → Production.** The
+very last step. Without it the Google button does not render — which is
+deliberate, so the button cannot appear before the deploy that supports it.
 
 ### 🟡 Before the first paying customer
 
-**f. Have a lawyer read `/privacy` and `/terms`.** Seven specific questions
-in `docs/TODO.md`, headed by the one that could change the product: whether
-our consent mechanism satisfies COPPA's *verifiable* parental consent. It may
-not.
+**d. Decide on CAPTCHA** for signup and password reset (backlog item in
+`docs/TODO.md`). Leaked-password protection stays deferred per your call —
+it is Pro-only.
 
-**g. Decide on CAPTCHA** for signup and password reset (backlog item in
-`docs/TODO.md`). Leaked-password protection stays deferred per your call.
+### ✅ Done since the last report — nothing needed from you
 
-### ⚪ Informational
-
-**h.** The 4 new Whop plan IDs are in Vercel for Production + Preview +
-Development — confirmed. The 2 legacy IDs are Production-only; that is fine
-(no checkout ever sells them) but add them to Preview if you want the
-post-checkout sync to find legacy memberships on a preview build.
-
----
+- ~~**Point `.env.local` at staging.**~~ **Done, and verified tonight:** the
+  URL resolves to `gnlcpnsweqbtwpaqhqqg`, with zero occurrences of the
+  production ref in the file. Local dev no longer touches real users' data.
+- ~~**Enable the Google provider in Supabase.**~~ Already enabled. The
+  Google Cloud redirect URI is
+  `https://tfpjssmhiptbwigarxpx.supabase.co/auth/v1/callback` and **must
+  stay that way** — Supabase handles the OAuth round trip and then redirects
+  on to `seededtennis.com/auth/callback`, which the existing
+  `https://seededtennis.com/**` allowlist entry already covers. Do not
+  "fix" the Google Cloud URI to point at seededtennis.com.
+- ~~**Google consent-screen privacy/terms URLs.**~~ **After launch** — the
+  pages must be live before Google will accept them. `/privacy` and
+  `/terms` ship in this release.
+- The 4 new Whop plan IDs are in Vercel for Production, Preview and
+  Development; the 2 legacy IDs are Production-only, which is correct (no
+  checkout ever sells them).
 
 ## 2. WHAT CLAUDE RUNS AFTER "GO"
 
-Nothing below has been started. Full detail and per-step rollback in
-`docs/HANDOFF.md` §J and §K.
+Nothing below has been started. **This whole sequence was rehearsed end to
+end on staging on 2026-11-15** against a database rolled back to
+production's exact 23-migration shape and seeded with prod-shaped data —
+every pre-flight, every verify, and every rollback. Timings below are
+measured, not estimated. Full detail in `docs/HANDOFF.md` §J and §K.
+
+⚠️ **Before running a single verify step, read §J's note on `set local role
+authenticated`.** In the Supabase SQL editor you are `postgres`, and
+`postgres` bypasses RLS — a verify that counts rows returns everything and
+looks like a pass no matter what the policies say. With the role switch, an
+approved parent sees 1 profile row; without it, 12. I hit this mid-rehearsal
+and briefly recorded the wrong number.
 
 **Step 0 — Backup.** Supabase → Database → Backups, note the timestamp.
-*Rollback: this IS the rollback for everything that follows.*
+*This IS the rollback for everything that follows — and note that running
+every documented rollback still does NOT return the schema to its
+pre-rollout shape (16 functions, 13 columns and a table stay behind, by
+design). The PITR checkpoint is the only true undo.*
 
-**Steps 1–8 — Migrations, in this exact order**, verifying after each:
+**Steps 1–12 — Migrations, in this exact order**, verifying after each.
+Total measured database time: **218 ms**. The time is not the risk; the
+reading between steps is.
 
-| # | Migration(s) | Pre-flight that must not be skipped | Rollback |
-|---|---|---|---|
-| 1 | `025` | expect a no-op on prod | nothing to undo |
-| 2 | `022` | `git show main:lib/auth.ts` writes no locked column | `drop trigger profiles_protect_privileged` |
-| 3 | `023` + `026` | every existing `parent_accounts` row backfills to `approved` | restore policies, never drop columns |
-| 4 | `024` | count Free accounts already holding >3 targets | drop trigger + restore old policy |
-| 5 | `027` | 1 production row is `privacy_level='public'` — that person loses nothing they use | recreate the policy |
-| 6 | `028` | additive | drop function + table |
-| 7 | `029` | **0 rows have `deletion_requested_at`** (checked read-only — nobody is owed a manual deletion) | drop function; a completed deletion is not reversible |
-| 8 | `030` + `031` | **🔴 the one that matters: `select consent_status, count(*) from profiles group by 1` must be every row `not_required`, zero `pending`.** One `pending` row means a locked-out account — stop and roll back. | drop the 21 restrictive policies first, sort the rest after |
+| # | Migration(s) | ms | Pre-flight that must not be skipped | Rollback |
+|---|---|---|---|---|
+| 1 | `025` | 30 | expect a no-op on prod | nothing to undo |
+| 2 | `022` | 9 | `git show main:lib/auth.ts` writes no locked column | `drop trigger profiles_protect_privileged` |
+| 3 | `023` + `026` | 47 | every existing `parent_accounts` row backfills to `approved`, count matching the pre-count | restore policies + the two pre-023 helpers + `drop table family_join_attempts` (all now literal SQL in §J) |
+| 4 | `024` | 6 | count Free accounts already holding >3 targets | drop the trigger and **drop** `coach_outreach_write_own` — do NOT recreate it, prod has no such policy |
+| 5 | `027` | 5 | 1 production row is `privacy_level='public'` — that person loses nothing they use | recreate the policy; `badges`/`friendships` stay locked |
+| 6 | `028` | 16 | additive | drop function + table |
+| 7 | `029` | 1 | **0 rows have `deletion_requested_at`** (checked read-only — nobody is owed a manual deletion) | drop function; a completed deletion is not reversible |
+| 8 | `030` + `031` | 73 | **🔴 the one that matters: every row `not_required`, zero `pending`.** One `pending` row means a locked-out account — stop. | drop the 21 restrictive policies FIRST; then the restores, which need `drop function family_members()` before recreating it (it raises `42P13` otherwise) and a `revoke`/`grant` pair after |
+| 9 | `032` | 5 | — | restore 035's trigger body, not 032's literal text |
+| 10 | `033` | 7 | — | §J step 10, now runnable SQL |
+| 11 | `034` | 19 | **the only step that can refuse an ordinary user's write** — watch it after deploying | drop 20 triggers + 3 functions; **also revert `lib/rate-limit.ts` to `consume_rate_limit` or every write 429s** |
+| 12 | `035` | — | **not optional.** Without it, 032/033 break every profile write and 034 breaks account deletion for everyone. | §J step 12 |
 
-**Step 9 — The code.** PR `v1` → `main` **including `git revert d059006`**
+**Step 13 — The code.** PR `v1` → `main` **including `git revert d059006`**
 (the maintenance middleware), wait for `verify` to pass, merge. Never bypass
 the ruleset. *Rollback: Vercel → promote the previous production deployment,
 then run 024's rollback SQL.*
 
-**Step 10 — Live checks on seededtennis.com:** 200 not 503, signup, login,
+**Step 14 — Live checks on seededtennis.com:** 200 not 503, signup, login,
 Google login, onboarding, under-13 consent, family join + approve, fit
-report, outreach gating, pricing toggle.
+report, outreach gating, pricing toggle. **Plus the two the rehearsal added:
+rename yourself in Settings** (this is what 032/033 broke) **and delete a
+throwaway account** (this is what 034 broke).
 
-**Step 11 — Whop.** Send a test `membership.activated` from the dashboard,
+**Step 15 — Whop.** Send a test `membership.activated` from the dashboard,
 expect **200**. Then replay the missed events. ⚠️ **The webhook is reachable
-only after step 9** — the maintenance middleware 503s it, which is why your
+only after step 13** — the maintenance middleware 503s it, which is why the
 earlier test delivery got a 503. If replay does not reconcile
-`mem_xZKHm92QxEIqsS` (your bullis.org Player membership, metadata intact), I
+`mem_xZKHm92QxEIqsS` (the bullis.org Player membership, metadata intact), I
 set `subscription_tier='player'` and `whop_membership_id='mem_xZKHm92QxEIqsS'`
-on that profile with the service role.
+on that profile with the service role. **That path is rehearsed:** a
+service-role write goes through the 022/033/035 trigger, while the same
+write from a browser session is refused `42501`.
 
-**Step 12 — The $0 purchase**, walked through together. Full script in
+**Step 16 — The $0 purchase**, walked through together. Full script in
 `docs/HANDOFF.md` §K: 100%-off promo on `plan_iWNSNKqks0ddp`, confirm $12 →
 $0, complete it, then check the tier in the database, the webhook delivery,
 and that `/outreach` unlocks.
 
----
-
 ## 3. OPEN ITEMS, SORTED
 
 **Blocks launch**
-- `.env.local` → staging (above)
-- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true`, last (above). The provider itself
-  is already enabled and the redirect URI is already correct.
+- A lawyer or an adult reads `/privacy` and `/terms` (above)
 - `support@seededtennis.com` live (above)
-- The production rollout itself (§J)
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true`, last (above)
+- The production rollout itself (§J, now 16 steps and rehearsed)
+
+**Found Night 2, open, and worth a decision before launch**
+- **A parent cannot read a JOINED player's profile or UTR history.**
+  `approve_family_join()` leaves the joiner's `profiles.family_code` NULL
+  and both read policies require it non-null, so the ordinary family flow
+  gives a `/family` page with none of the player's real numbers. It denies
+  access rather than granting it, so nothing is exposed by waiting — but it
+  makes the parent view hollow for most families. Three candidate fixes,
+  cheapest first, in `docs/TODO.md`. All of them widen cross-user reads for
+  minors, so each needs the 027/030 attack-test treatment.
+- **`/sample-report` reports no First Contentful Paint**, so Lighthouse and
+  PageSpeed score it 0 although the page renders correctly and fast. A
+  measurement anomaly on a marketing page; bisect plan in `docs/TODO.md`.
+- **`/onboarding`'s server HTML is a spinner** — the pre-auth flow only
+  renders after hydration, so a crawler without JS sees nothing. It is the
+  top of the funnel at sitemap priority 0.9.
 
 **Week 1**
-- Lawyer review of `/privacy` and `/terms`
 - Reconcile the bullis.org membership if replay misses it
-- `next@16` upgrade — clears the last critical + high in production deps,
-  both currently unreachable (no `remotePatterns`, zero `next/image`,
+- `next@16` — clears the last critical + high in production deps, both
+  currently unreachable (no `remotePatterns`, zero `next/image`,
   Vercel-hosted; postcss is build-time only)
-- Browser-path E2E for signup/OAuth/checkout/export once local dev is safe
+- Browser-path E2E for signup/OAuth/checkout/export
 - CAPTCHA decision
+- **Make `Player.currentUTR` nullable.** Tonight's fix made the placeholder
+  a detectable sentinel (`0`, which the codebase already reads as "not
+  logged"); making the state unrepresentable is still the better fix and
+  still a 79-site change.
 
 **Later**
 - Nonce-based CSP (drops `'unsafe-inline'`; needs middleware)
 - P1-DATA-1 real roster import — still the highest-value product work
 - P1-UX-2 delete Legacy · P1-UX-1 theme flips · P1-FIT-3 noisy projections
 - Error tracking: still 1/10, and the billing outage is what that looks like
+- Mobile performance 73–81, limited by LCP; measure the real deployment
+  before optimising
 - `/dev/family-preview` seeds the old `CHEN-7K4P` code format
 
 ---
