@@ -622,3 +622,64 @@ is not a clean result.**
 `systemSync` defaults to true, so light and dark are both "the default" and
 contrast has to be measured in both. The first audit forced light and would
 have shipped a dark-mode contrast failure.
+
+---
+
+## 2026-11-15 — Two adversarial passes, seven guards defeated, and what that says
+
+Two independent verifiers, run back to back against the same branch. Between
+them they defeated **six of the guard tests written in this session**, three
+on each pass, and found a false claim in **every** commit message of this
+round. The pattern is consistent enough to be worth writing down.
+
+**Every guard that failed, failed the same way: it checked a SPELLING, not a
+PROPERTY.**
+
+- "no `countSchoolFits` without a gate" — so a band badge rendered
+  ungated instead.
+- "a `hasUtr ?` within 300 characters of the caption" — satisfied by a
+  neighbouring `hasUtr` on the line above.
+- "`classifySchoolFit` is called once, behind `hasUtr ?`" — satisfied by
+  `hasUtr ? effectiveUtr : player.currentUTR`, which is gated and still
+  wrong.
+- "`| null` in the return type" — satisfied by an annotation on a function
+  that never returned null.
+- "no UI file calls `generatePersonalizedPlan(`" — so a file passed it
+  around as a value, then a NEW file in an unscanned root imported it.
+- "a number followed by programs/schools" — so the copy said "teams".
+- "`date we checked`" — so the copy said "date we **last** checked".
+
+**Decided: a guard must assert something the compiler can be made to
+enforce, or it is a lint and must say so in its own name.** The ones that
+now hold do it by removing the capability rather than policing it:
+`classifySchoolFit` can only be handed `youUtr`, which is `number | null`,
+so the fallback that broke it does not typecheck; `generatePersonalizedPlan`
+is not exported, so no module can import it regardless of which roots a test
+walks. Both defeats now fail `tsc`, not just `vitest`.
+
+**Decided: scan `lib/` too.** Two separate defeats used it — `/privacy`'s
+entire body lives in `lib/legal/policy.ts`, and a one-file helper in `lib/`
+re-reached the generator. A scan whose roots are `components` and `app` is
+not scanning the application.
+
+**Decided: a comment describing a regex is not the regex.** The count
+pattern's own comment claimed it covered "teams"; it never did, and a
+verifier shipped a hardcoded count through that exact gap.
+
+**The uncomfortable one.** Three commit messages in this round asserted
+fixes that were not made: a `/methodology` check-date claim "fixed" in one
+of three places, a colour that was never changed, a test file that does not
+exist, and a behavioural justification for keeping the setup questionnaire
+that nothing in the code supports. None of these were caught by tests,
+review, or self-checking — only by someone adversarial reading the diff
+against the running app. **Write the claim from the measurement, not the
+intent.**
+
+**Also decided: verify the verifier.** One HIGH was reported as "/pricing
+sells a Weekly family report but the table is monthly and nothing writes
+it". The table really is monthly and unwritten — but the weekly report does
+not read that table. It computes live from the family's own logged data on a
+genuine 7-day window. The claim on /pricing was accurate; the one that was
+false was in `/privacy`, which described the unused table as something
+Seeded writes. Taking the finding at face value would have removed true copy
+and left false copy in place.

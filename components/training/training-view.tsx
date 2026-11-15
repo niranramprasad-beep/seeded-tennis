@@ -473,10 +473,20 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   // only" forbids, and it was the last place the rule was still broken
   // after the Gemini copilot was deleted (P1-SEC-1).
   //
-  // The questionnaire still earns its place: the answers drive the hours
-  // and constraints shown alongside the calendar, and the templates a
-  // player can CHOOSE to apply. It just no longer produces a plan on their
-  // behalf. They land on an empty week and fill it in.
+  // WHAT THE ANSWERS ACTUALLY DO, measured rather than assumed — an
+  // earlier version of this comment (and the commit message that shipped
+  // it) claimed they "drive the hours and constraints shown alongside the
+  // calendar". They do not. `weeklyHours`, `primaryGoal` and `constraints`
+  // are read in exactly two places: the generator below, now unreachable,
+  // and buildTemplateSessions(), which only runs when a player opens the
+  // Templates drawer and picks one. Nothing beside the calendar renders
+  // them.
+  //
+  // So this is honestly a three-question gate whose answers matter only if
+  // the player later chooses a template. That is a real product smell and
+  // it is docs/TODO.md week-1 item #2's companion question — either show
+  // the answers somewhere or stop asking for them. It is not a reason to
+  // put the generator back.
   //
   // generatePersonalizedPlan() itself is still in this file, deliberately —
   // deleting it is docs/TODO.md week-1 item #2, done on its own so the
@@ -904,7 +914,7 @@ function TrainingQuestionnaire({
       <div className="bg-grass px-6 py-8 text-on-primary sm:px-9">
         <p className="font-serif text-lg italic text-leaf-accent">Training setup</p>
         <h1 className="mt-2 text-3xl font-light tracking-tight sm:text-5xl">
-          Build a real week for {playerName}.
+          Set up the calendar for {playerName}.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-on-primary/78">
           No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinalGrade(grade)} grade timeline,
@@ -1769,7 +1779,13 @@ function blankSession(day: WeekdayShort, typeId: string, startTime = "16:00"): T
   };
 }
 
-export function generatePersonalizedPlan({
+// NOT exported. A verifier imported the exported version into a new
+// lib/training-autofill.ts — a root the guard did not scan — and called it
+// from applyPreferences with the whole suite green. Keeping it unexported
+// means there is no way to reach it from another file at all, which is a
+// stronger statement than any scan: the module boundary enforces it.
+// eslint-disable-next-line no-unused-vars
+function generatePersonalizedPlan({
   preferences,
   playerUtr,
   grade,

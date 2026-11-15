@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 
 export default function ContactPage() {
   const { design } = useDesign();
@@ -24,8 +25,8 @@ function LegacyContact() {
             <div>
               <p className="text-lg text-ink">
                 Send an email to{" "}
-                <a href="mailto:NiranRamprasad@gmail.com" className="font-medium text-grass underline-offset-4 hover:underline">
-                  NiranRamprasad@gmail.com
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-grass underline-offset-4 hover:underline">
+                  {SUPPORT_EMAIL}
                 </a>{" "}
                 for any questions.
               </p>
@@ -34,7 +35,7 @@ function LegacyContact() {
               </p>
             </div>
             <a
-              href="mailto:NiranRamprasad@gmail.com"
+              href={`mailto:${SUPPORT_EMAIL}`}
               className={buttonVariants({ variant: "primary", size: "lg" })}
             >
               <Mail className="h-4 w-4" />
@@ -66,10 +67,10 @@ function SeededContact() {
                 <p className="text-lg text-ink">
                   Send an email to{" "}
                   <a
-                    href="mailto:NiranRamprasad@gmail.com"
+                    href={`mailto:${SUPPORT_EMAIL}`}
                     className="font-medium text-grass underline-offset-4 hover:underline"
                   >
-                    NiranRamprasad@gmail.com
+                    {SUPPORT_EMAIL}
                   </a>{" "}
                   for any questions.
                 </p>
@@ -78,7 +79,7 @@ function SeededContact() {
                 </p>
               </div>
               <a
-                href="mailto:NiranRamprasad@gmail.com"
+                href={`mailto:${SUPPORT_EMAIL}`}
                 className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-pill px-6 py-3.5 font-seeded text-sm font-semibold text-white shadow-seeded-1"
                 style={{ background: "var(--s-accent-gradient)" }}
               >

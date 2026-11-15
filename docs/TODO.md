@@ -134,6 +134,15 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       reviewable on its own. `lib/training-no-autogen.test.ts` fails the
       build if any UI file so much as names it — mutation-tested six ways,
       including passing it around as a value and aliasing it.
+      **Companion question for the same pass:** the setup questionnaire is
+      now a three-question gate whose answers are read in exactly one live
+      place — `buildTemplateSessions()`, which only runs if the player opens
+      the Templates drawer. Nothing beside the calendar shows the hours,
+      goal or constraints they entered. Either surface them or stop asking.
+      (A commit message in this round claimed the answers "drive the hours
+      and constraints shown beside the calendar". They do not; that was
+      measured and the claim was wrong.)
+
       **Related question for the same pass:** `buildTemplateSessions()` also
       writes sessions Seeded wrote, though only when a player explicitly
       picks a template. That is a defensible reading of "manual" and it is

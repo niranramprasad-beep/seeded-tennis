@@ -3,6 +3,7 @@ import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { utrToPct } from "@/lib/school-fit";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { cn } from "@/lib/utils";
 
 // Illustrative example for the Team ranges section — not a live school, just
@@ -19,7 +20,7 @@ const RANGE_EXAMPLE = { low: 8.8, median: 9.7, high: 10.6, you: 9.5 };
 // Confidence level, a real roster-verified date, a real players-leaving
 // count) that the rest of the product doesn't fabricate yet — those show
 // "Not tracked" on live school pages instead of a guess.
-const REPORT_ERROR_HREF = `mailto:NiranRamprasad@gmail.com?subject=${encodeURIComponent(
+const REPORT_ERROR_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
   "Error on Seeded's methodology page"
 )}`;
 
@@ -35,11 +36,25 @@ const TOC: { id: string; label: string }[] = [
 ];
 
 const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
+  // This table described a pipeline Seeded does not have. `School`
+  // (lib/types.ts) stores a team's avgRosterUTR, minCompetitiveUTR and
+  // usNewsRanking and nothing else — no roster rows, no per-player
+  // ratings, no coach record, no source, no check date. The school pages
+  // have said so all along ("Individual roster data isn't tracked yet",
+  // "Coaching staff: Not tracked"); only this page claimed otherwise.
   {
     label: "Rosters",
-    body: `Official athletics site, current season. If only last season's roster is listed, the team page shows the date we last checked it and links to the official roster, marked "Roster may be out of date."`,
+    body:
+      "Individual roster rows aren't stored. What a team page shows is a single estimated UTR range for the squad, not a list of players — so there is no per-roster check date to show either.",
   },
-  { label: "Coaches", body: "Official staff page. We link to it instead of listing emails directly." },
+  {
+    label: "Coaches",
+    // staffDirectorySearchUrl() builds a google.com/search URL. It is not
+    // a link to the official staff page, and saying so was the difference
+    // between "we looked it up" and "we hand you a search".
+    body:
+      "Not stored. Each team page opens a web search for that school's staff directory rather than listing any coach or email, because we have none on file.",
+  },
   // Was "...with the date we checked it." There is no check date: no
   // source field and no date field exists on `School`, every team range
   // renders as "Unverified estimate", and the Confidence section of THIS
@@ -74,7 +89,7 @@ export function SeededMethodologyView() {
           no way to reach Schools or Pricing. */}
       <div className="mx-auto max-w-[1200px] px-6 py-10">
         <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
-          Methodology · Updated Nov 8, 2026
+          Methodology
         </p>
         <h1 className="mt-3 max-w-[720px] font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-ink">
           How Seeded decides which teams are realistic for you.
@@ -100,9 +115,9 @@ export function SeededMethodologyView() {
           <div className="min-w-0 max-w-[760px] flex-1">
             <Section id="data-source" number={1} title="Where the data comes from">
               <p className="text-stone">
-                Rosters and head coaches come from each school&apos;s official athletics website. Ratings come from
-                public UTR profiles. Every team page shows the date we last checked it and links to the official
-                roster.
+                Team UTR ranges are our own estimates, built from public UTR profiles. We do not store rosters,
+                individual player ratings, coach records, or the date any of it was last checked &mdash; so no team
+                page can show you one. Every range is labelled an unverified estimate wherever it appears.
               </p>
               <div className="mt-4 rounded-xl border border-line bg-card">
                 {DATA_SOURCE_ROWS.map((row, i) => (

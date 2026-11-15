@@ -128,7 +128,13 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // existing pattern did not match — a reword around a live guard, which
     // CLAUDE.md names as the thing not to do. There is no source field and
     // no date field on `School`.
-    pattern: /date we checked|checked on \d|last checked \d|as of [A-Z][a-z]{2} \d/,
+    // Third widening. "date we LAST checked it" matched none of the first
+    // version's alternatives and was live in two more places in the same
+    // file the commit said it had corrected — a reword around the guard,
+    // sitting inside the fix for a reword around the guard. Also catches
+    // "mark the date", which was the same claim on the homepage.
+    pattern:
+      /date we (?:last )?check(?:ed)?|(?:last|we) checked (?:it|on)|mark(?:s|ed)? the date|checked on \d|as of [A-Z][a-z]{2} \d/i,
     why: "no School record carries a source or a check date; the ranges are unverified estimates",
   },
   {
@@ -180,9 +186,14 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // combinedScore arithmetic, and a correction note containing
     // "under-13 account ... cannot see schools". This matches a CATALOGUE
     // SIZE claim specifically: a number followed only by division or
-    // gender words before "programs"/"schools".
+    // gender words before "programs"/"schools"/"teams".
+    //
+    // `teams?` and `Division I/II/III` were missing from the third version
+    // while the comment above it already CLAIMED teams was covered — so
+    // "Browse 68 D1 teams across 37 men's teams" shipped past it in a
+    // verifier's mutation. A comment describing a regex is not the regex.
     pattern:
-      /\b\d{2,}\s+(?:(?:D[123]|men's|women's|college|tennis)[,/]?\s*(?:and\s+)?)*(?:programs?|schools?)\b/i,
+      /\b\d{2,}\s+(?:(?:D[123]|Division\s+[IV]+|men's|women's|college|tennis)[,/]?\s*(?:and\s+)?)*(?:programs?|schools?|teams?)\b/i,
     why: "program counts are derived from the catalogue (getCatalogCounts), never typed into copy",
   },
 ];

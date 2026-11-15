@@ -161,6 +161,24 @@ export function SeededSchoolsBrowser({
   // an empty band, not a greyed-out guess — no fit.
   const hasUtr = hasRealUtr(effectiveUtr);
 
+  // The rating, or null. Declared before anything that could want a
+  // number, because it is the only number any of them may have.
+  //
+  // A verifier defeated the previous arrangement in one line: `bandFor`
+  // took the raw `effectiveUtr` behind a `hasUtr ?`, so swapping that for
+  // `hasUtr ? effectiveUtr : player.currentUTR` — a plausible "don't leave
+  // the rows blank" fallback — put "Reach" back on all 37 rows with the
+  // whole suite green. Every assertion still passed: one classify call, a
+  // `hasUtr ?` in the window before it, a `| null` return type that never
+  // returned null.
+  //
+  // The fix is to take the number away. `classifySchoolFit` is now reached
+  // only through `youUtr`, which is `number | null`, so the un-gated
+  // fallback does not typecheck — `player.currentUTR` is a `number` and
+  // cannot be assigned to it without re-introducing a null check. The
+  // compiler enforces it; the test only stops someone removing the seam.
+  const youUtr: number | null = hasUtr ? effectiveUtr : null;
+
   // THE ONLY PLACE THIS FILE IS ALLOWED TO CLASSIFY A SCHOOL.
   //
   // The gate used to be repeated at each of three call sites, and an
@@ -176,21 +194,9 @@ export function SeededSchoolsBrowser({
   // build if `classifySchoolFit` is ever called anywhere else in this file.
   const bandFor = useCallback(
     (s: School): SchoolFitBand | null =>
-      hasUtr ? classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection) : null,
-    [hasUtr, effectiveUtr, whatIf.whatIfProjection]
+      youUtr === null ? null : classifySchoolFit(youUtr, s, whatIf.whatIfProjection),
+    [youUtr, whatIf.whatIfProjection]
   );
-
-  // The rating, or null — the only value in this file that may be FORMATTED
-  // or plotted. Gating each use of `effectiveUtr` separately is what put
-  // "You 0.0" on 37 rows; and when that was fixed with a ternary, the guard
-  // checking it could still be satisfied by a neighbouring `hasUtr` on the
-  // line above, because a positional check is not a structural one.
-  //
-  // `youUtr` is null without a rating, so `.toFixed()` on it does not
-  // typecheck. CLAUDE.md's rule is "never .toFixed() on a raw currentUTR";
-  // this makes the raw value unformattable rather than merely guarded, and
-  // the test asserts `effectiveUtr.toFixed` appears nowhere at all.
-  const youUtr: number | null = hasUtr ? effectiveUtr : null;
 
   // Same real grad-year context as the what-if hook, plus the full catalog
   // — explainSchoolFit only needs the catalog for its point-7 alternative-

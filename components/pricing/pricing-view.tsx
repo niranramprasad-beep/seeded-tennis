@@ -94,7 +94,7 @@ function plansFor(c: CatalogCounts): Plan[] {
     highlights: [
       "Everything in Player",
       "Parent dashboard — read-only view of the plan",
-      "Season budget parents control",
+      "Season budget, shared with the family",
       "Weekly family report",
     ],
   },

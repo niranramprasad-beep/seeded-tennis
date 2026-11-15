@@ -111,15 +111,37 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
       "classifySchoolFit must be called only inside bandFor — add a caller there, not here"
     ).toBe(1);
 
-    const at = calls[0].index!;
-    const window = source.slice(Math.max(0, at - 200), at);
-    expect(window, "the single classify call is not behind hasUtr").toMatch(/hasUtr\s*\?/);
+    // Not "is there a hasUtr nearby" — a verifier satisfied that with the
+    // de-gated line itself, and satisfied the `| null` return-type check
+    // with an annotation on a function that never returned null. Both
+    // checks were positional dressed up as structural.
+    //
+    // The ARGUMENT is what matters: the classifier may only ever be handed
+    // `youUtr`. That value is `number | null`, so the fallback that broke
+    // this last time (`hasUtr ? effectiveUtr : player.currentUTR`) does not
+    // typecheck — tsc is the real enforcement and this stops the seam
+    // being removed.
+    expect(
+      source.slice(calls[0].index!, calls[0].index! + 40),
+      "classifySchoolFit must be called with youUtr, never a raw number"
+    ).toMatch(/classifySchoolFit\(\s*youUtr\b/);
   });
 
-  it("bandFor returns null without a rating, so a band is unrepresentable", () => {
+  it("the only rating in scope is nullable, and the raw player value is not reachable", () => {
+    expect(source).toMatch(/const youUtr:\s*number \| null = hasUtr \? effectiveUtr : null/);
     expect(source).toMatch(/const bandFor\s*=/);
-    expect(source).toMatch(/SchoolFitBand\s*\|\s*null/);
-    expect(source).toMatch(/hasUtr\s*\?[\s\S]{0,160}?:\s*null/);
+    expect(source).toMatch(/youUtr === null \? null :/);
+    // `player.currentUTR` belongs to the what-if hook's input and nowhere
+    // else; every defeat so far has reached for it as a fallback.
+    const uses = [...source.matchAll(/player\.currentUTR/g)];
+    expect(
+      uses.length,
+      "player.currentUTR is the sentinel — read it only to seed useWhatIfUtr"
+    ).toBe(1);
+    const before = source.slice(Math.max(0, uses[0].index! - 120), uses[0].index!);
+    expect(before, "the one player.currentUTR read is not the what-if input").toMatch(
+      /useWhatIfUtr\(\{[\s\S]*$/
+    );
   });
 
   it("every FitBadge is fed from a nullable band, never from a raw classify", () => {

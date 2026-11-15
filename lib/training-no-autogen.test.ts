@@ -23,7 +23,11 @@ import { join } from "node:path";
 // UI file names the generator, not that nothing ever auto-fills a calendar.
 // It is mutation-tested below against the real call site that shipped.
 
-const UI_ROOTS = ["components", "app"];
+// `lib` is here because it was not, and that was the whole defeat: a
+// verifier added lib/training-autofill.ts, imported the exported generator
+// from training-view.tsx, and called it from applyPreferences. Every
+// assertion passed, because none of them looked at lib/.
+const UI_ROOTS = ["components", "app", "lib"];
 const EXTS = [".ts", ".tsx"];
 
 /** The generator's own definition lives here; everything else is a caller. */
@@ -95,6 +99,18 @@ describe("no UI path auto-generates a training plan", () => {
       /function\s+generatePersonalizedPlan\s*\(/.test(strippedSource(f))
     );
     expect(definers).toEqual([DEFINITION_FILE]);
+  });
+
+  it("the generator is not exported, so no other module can reach it", () => {
+    // The identifier-count check above only covers files this test walks.
+    // Not exporting it is the part that holds regardless: there is no way
+    // to import what is not exported, so a new file in any root — scanned
+    // or not — cannot call it.
+    const src = strippedSource(DEFINITION_FILE);
+    expect(src, "un-export it; it is deleted in week 1 anyway").not.toMatch(
+      /export\s+(?:async\s+)?function\s+generatePersonalizedPlan\b/
+    );
+    expect(src).not.toMatch(/export\s*\{[^}]*\bgeneratePersonalizedPlan\b/);
   });
 
   it("completing the setup questionnaire stores preferences and nothing else", () => {

@@ -90,8 +90,8 @@ function HeroCopy() {
           schools are real, the roster numbers aren't sourced yet. */}
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
         Enter your UTR and grad year. Seeded compares you to real programs,
-        sorts schools into Reach, Target and Likely, and turns the gap into a
-        week-by-week plan your parents can see.
+        sorts schools into Reach, Target and Likely, and turns the gap into
+        season targets you plan against, on a calendar your parents can see.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
         <Link
@@ -575,7 +575,7 @@ function MethodAndFounder() {
       <Reveal className="rounded-xl border border-line bg-card p-7">
         <h2 className={cn(seededCardHeading, "m-0")}>How fit works</h2>
         <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
-          <li>We pull each roster&apos;s public UTRs and mark the date.</li>
+          <li>We estimate each team&apos;s UTR range from public profiles, and label it an estimate.</li>
           <li>
             We place you on that range and count seniors who graduate before
             you arrive.

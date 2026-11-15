@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { Footer } from "@/components/layout/footer";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn, hasRealUtr } from "@/lib/utils";
 
@@ -104,7 +105,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             </p>
             <div className="mt-2.5">
               <a
-                href={`mailto:NiranRamprasad@gmail.com?subject=${encodeURIComponent(
+                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
                   `Wrong data on ${school.name}`
                 )}`}
                 className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone hover:text-ink"
@@ -215,7 +216,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             </div>
             <p className="mt-2.5 text-sm text-stone">
               #{school.usNewsRanking} national academic ranking · #{nationalRank} among{" "}
-              {school.division} {programType.toLowerCase()} programs by fit.
+              {school.division} {programType.toLowerCase()} programs in this catalogue, by academic rank and team level.
             </p>
             <EmptyState className="mt-3" title="Cost, aid, and enrollment data coming soon." />
           </div>
