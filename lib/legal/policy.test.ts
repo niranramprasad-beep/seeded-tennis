@@ -23,6 +23,20 @@ describe("every section is sourced", () => {
     }
   });
 
+  it("every section cites at least one checkable path", () => {
+    // The gap an independent verifier found: the file-existence sweep below
+    // only matches *.ts/tsx/sql, so a section whose `source` is pure prose
+    // had NOTHING checked — and that is exactly the section whose claim
+    // ("parents are read-only except the season budget") turned out to be
+    // false. A source with no path is a source nobody can audit.
+    const unsourced = PRIVACY_SECTIONS.filter(
+      (s) => !/[\w./-]+\.(?:tsx|ts|sql)/.test(s.source)
+    ).map((s) => s.id);
+    // POLICY_* constants and the effective date are the two legitimate
+    // exceptions — they are values in this very file.
+    expect(unsourced.filter((id) => !["changes", "contact"].includes(id))).toEqual([]);
+  });
+
   it("references files that actually exist", () => {
     // Pull every "path/like/this.ext" out of the source fields and check it.
     const paths = new Set<string>();
@@ -79,6 +93,19 @@ describe("the claims still match the code", () => {
     const schools = read("lib", "db", "schools.ts");
     // A Gmail compose link, never an API send.
     expect(schools).not.toMatch(/gmail\.googleapis|messages\.send/i);
+  });
+
+  it("describes parent write access accurately", () => {
+    // Checked against pg_policies, not against CLAUDE.md's wording. Parents
+    // can write the season budget AND encouragement notes; an earlier draft
+    // claimed the budget was the only one.
+    const parents = PRIVACY_SECTIONS.find((s) => s.id === "parents")!;
+    const text = parents.body.join(" ").toLowerCase();
+    expect(text).toContain("budget");
+    expect(text).toMatch(/note/);
+    expect(text, "the old, false claim").not.toMatch(
+      /read-only everywhere except the season budget/
+    );
   });
 
   it("names every processor the code actually uses", () => {

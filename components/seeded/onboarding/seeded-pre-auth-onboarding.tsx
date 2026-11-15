@@ -8,7 +8,8 @@ import type { FamilyRole, Gender, Player, SchoolLite } from "@/lib/types";
 import { getCurrentGrade, getCurrentSchoolYear, getDefaultCommitDate } from "@/lib/time";
 import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct, type FitCounts } from "@/lib/school-fit";
 import { usePlayer } from "@/lib/context/player-context";
-import { signUp, signInWithGoogle } from "@/lib/auth";
+import { signUp } from "@/lib/auth";
+import { GoogleButton, GoogleDivider } from "@/components/auth/auth-card";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { parentConsentRequired } from "@/lib/config/consent";
@@ -516,23 +517,19 @@ function SaveReportAside({
         </div>
       ) : (
         <>
-          <button
-            onClick={async () => {
-              setGoogleLoading(true);
-              const result = await signInWithGoogle();
-              setGoogleLoading(false);
-              if (!result.ok) setError(result.error ?? "Couldn't start Google sign-in.");
-            }}
-            disabled={googleLoading}
-            className="mt-4.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover disabled:opacity-60"
-          >
-            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue with Google"}
-          </button>
-          <div className="my-4 flex items-center gap-3 text-[13px] text-stone">
-            <span className="h-px flex-1 bg-line" />
-            or
-            <span className="h-px flex-1 bg-line" />
+          {/* The shared GoogleButton, NOT a hand-rolled one. This file had
+              its own copy with no feature-flag check at all, so
+              "Continue with Google" rendered on this PUBLIC page with
+              NEXT_PUBLIC_GOOGLE_AUTH_ENABLED unset — the exact bug the flag
+              exists to prevent, in the one place nobody looked, because the
+              test that was supposed to catch a reimplementation checked
+              three hand-picked files in components/auth/ and this is not
+              one of them. Found by an independent verifier, 2026-11-15.
+              The test now greps the whole repo. */}
+          <div className="mt-4.5">
+            <GoogleButton />
           </div>
+          <GoogleDivider />
           <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">
             Full name
             <input

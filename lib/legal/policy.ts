@@ -59,10 +59,16 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
   {
     id: "parents",
     title: "What parents can and cannot do",
-    source: "migration 019/023 RLS policies; is_parent_member(); season_budgets write policy",
+    // Checked against pg_policies on 2026-11-15, not against intent. An
+    // earlier draft of this section said parents are "read-only everywhere
+    // except the season budget" — copied from CLAUDE.md's own wording, and
+    // wrong: encouragement_notes_insert_parent lets an approved member write
+    // a note. Naming the two writes is the honest version.
+    source:
+      "supabase/migrations/023_family_join_rpc.sql (is_family_member); season_budgets + budget_expenses write policies; encouragement_notes_insert_parent",
     body: [
       "A parent who has been approved into a family can see the player's profile, UTR history, match results, tournaments, saved schools and outreach progress.",
-      "Parents are read-only everywhere except the season budget, which they can edit. A parent cannot change a player's profile, log results for them, or send anything on their behalf.",
+      "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",
     ],
   },
@@ -121,7 +127,8 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
   {
     id: "security",
     title: "How your data is protected",
-    source: "RLS policies on all 24 tables; migration 022 column lock; migration 028 rate limits; next.config.mjs headers",
+    source:
+      "supabase/migrations/022_lock_privileged_profile_columns.sql; supabase/migrations/028_api_rate_limits.sql; supabase/migrations/032_block_family_code_on_profile_insert.sql; next.config.mjs security headers",
     body: [
       "Every table enforces who can read and write each row inside the database itself, not just in the app. A page that forgot to check something still cannot return another person's data.",
       "The fields that decide what you have paid for and which family you belong to cannot be changed from a browser at all.",

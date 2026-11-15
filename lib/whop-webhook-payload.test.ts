@@ -2,6 +2,12 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { unwrapWebhook } from "@whop/sdk/helpers";
 import { tierForPlanId, type WhopPlanIds } from "./whop";
+// The REAL readers the route calls — not a local copy. An earlier version of
+// this file defined its own `planIdOf`/`emailOf` and linked them to the route
+// with a readFileSync + toContain, which meant it passed for a route rewritten
+// to `return data.plan_id ?? null` (with the old expression left in a comment)
+// and FAILED for a behaviour-preserving refactor. It was checking a string.
+import { emailOf, planIdOf, type MembershipEventData as Data } from "./whop-payload";
 
 // TASK 1. The payloads below are the REAL shape, copied from a live read of
 // membership `mem_xZKHm92QxEIqsS` against the Whop API at
@@ -91,25 +97,6 @@ function sign(payload: string, id = "msg_test") {
   };
 }
 
-// The handler's own field readers. Kept in step with
-// app/api/whop/webhook/route.ts — if that file's readers change, these must
-// too, and a test that goes green while the route goes wrong is caught by
-// the "the route reads the same way" test at the bottom.
-interface Data {
-  id?: string;
-  status?: string;
-  variant_id?: string;
-  plan_id?: string;
-  plan?: { id?: string } | null;
-  metadata?: Record<string, unknown> | null;
-  email?: string | null;
-  user?: { email?: string | null } | null;
-  member?: { email?: string | null; user?: { email?: string | null } | null } | null;
-}
-const planIdOf = (d: Data) => d.variant_id ?? d.plan_id ?? d.plan?.id ?? null;
-const emailOf = (d: Data) =>
-  d.member?.email ?? d.member?.user?.email ?? d.user?.email ?? d.email ?? null;
-
 describe("the 2026-11-14 payload, signed and unwrapped", () => {
   for (const type of ["membership.activated", "membership.updated", "membership.deactivated"]) {
     it(`${type}: verifies and yields a usable membership`, () => {
@@ -191,16 +178,22 @@ describe("the 2026-11-14 payload, signed and unwrapped", () => {
   });
 });
 
-describe("the route reads the same way this test does", () => {
-  it("has the variant_id-first reader and the four-deep email reader", async () => {
+describe("the route uses these exact readers", () => {
+  it("imports them rather than keeping its own copy", async () => {
+    // Now a one-line structural check with a real behavioural suite behind
+    // it, rather than the other way round. If the route stops importing
+    // these, the 9 tests above stop describing the route.
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const route = readFileSync(
       join(__dirname, "..", "app", "api", "whop", "webhook", "route.ts"),
       "utf8"
     );
-    // Guards against this file drifting into testing its own local copy.
-    expect(route).toContain("data.variant_id ?? data.plan_id ?? data.plan?.id");
-    expect(route).toContain("data.member?.email");
+    expect(route).toContain('from "@/lib/whop-payload"');
+    expect(route).toContain("planIdOf(data)");
+    expect(route).toContain("emailOf(data)");
+    // And no local redefinition sneaking back in.
+    expect(route).not.toMatch(/function\s+planIdOf/);
+    expect(route).not.toMatch(/function\s+emailOf/);
   });
 });

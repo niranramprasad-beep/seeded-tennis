@@ -89,6 +89,36 @@ unchanged, so nothing else moves.
 
 ---
 
+## 2026-11-15 — CORRECTION to the entry below: it is 25 advisories, not one
+
+**What I got wrong.** The entry below describes the remaining `next`
+vulnerability as the Image-Optimizer `remotePatterns` DoS and concludes "both
+currently unreachable". `npm audit --omit=dev --json` shows the `next`
+finding bundles **25 separate advisories** — 3 critical, 9 high, 11 moderate,
+2 low. I read the first one `npm audit` printed, verified its two checkable
+sub-claims, and generalised to the bundle.
+
+The two sub-claims are still true — no `remotePatterns`, zero `next/image`
+imports, both re-verified. They just do not cover the other 24. Several are
+squarely in scope for a Vercel-hosted App Router app: cache confusion of
+response bodies, cache poisoning in RSC responses, unauthenticated disclosure
+of internal Server Function endpoints, DoS in App Router via Server Actions,
+XSS in App Router apps using CSP.
+
+**What changes.** "Both currently unreachable" is withdrawn. The `next@16`
+upgrade moves from Week 1 to **the top of Week 1, before the first paying
+customer**, and `docs/TODO.md` is updated. It is still not a tonight job —
+it is a major with App Router breaking changes, and doing it unreviewed at
+midnight would be worse than the exposure.
+
+**How this happened**, because the pattern matters more than the entry: I
+verified the first item and asserted the set. The same shape as the
+`family_code` INSERT hole found hours earlier — check one path, assume the
+rest, write the assumption down as a finding. Found by an independent
+verifier running `npm audit --json` rather than reading the summary line.
+
+---
+
 ## 2026-11-14 — Leave the Next.js critical and the postcss high unfixed
 
 **Decision.** Production dependencies went 5 vulnerabilities → 2. The two

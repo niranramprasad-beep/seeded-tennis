@@ -4,6 +4,13 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { TIER_PRICE_USD } from "@/lib/types";
 import { priceUsdForPlanId } from "@/lib/whop";
 import { applyMembershipToProfile, findProfileIdByEmail } from "@/lib/whop-sync";
+import {
+  HANDLED_WEBHOOK_EVENTS,
+  emailOf,
+  planIdOf,
+  supabaseUserIdOf,
+  type MembershipEvent,
+} from "@/lib/whop-payload";
 import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 
 // Whop is the source of truth for who is paying. This is one of the two
@@ -42,48 +49,6 @@ import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 //     path including this one, so deliveries AND replays are blocked until
 //     it is amended. See docs/HANDOFF.md §K step 4.
 
-interface MembershipEventData {
-  id?: string;
-  status?: string;
-  /** The 2026-11-14 shape. */
-  variant_id?: string;
-  /** Pre-2026-11-14 shapes, still accepted. */
-  plan_id?: string;
-  plan?: { id?: string } | null;
-  metadata?: Record<string, unknown> | null;
-  /** The live resource has no top-level email and `member` is often null, so
-   * every path here is a maybe. The email fallback is best-effort by
-   * design — see findProfileIdByEmail. */
-  email?: string | null;
-  user?: { email?: string | null } | null;
-  member?: { email?: string | null; user?: { email?: string | null } | null } | null;
-}
-
-interface MembershipEvent {
-  type?: string;
-  data?: MembershipEventData;
-}
-
-const HANDLED_EVENTS = new Set([
-  "membership.activated",
-  "membership.updated",
-  "membership.deactivated",
-]);
-
-function planIdOf(data: MembershipEventData): string | null {
-  return data.variant_id ?? data.plan_id ?? data.plan?.id ?? null;
-}
-
-function emailOf(data: MembershipEventData): string | null {
-  return (
-    data.member?.email ??
-    data.member?.user?.email ??
-    data.user?.email ??
-    data.email ??
-    null
-  );
-}
-
 /** Server-side only, and deliberately without the email itself: a webhook log
  * line is not a place to write a customer's address. */
 function log(message: string, detail: Record<string, unknown> = {}) {
@@ -119,7 +84,7 @@ export async function POST(req: Request) {
   const type = event.type ?? "";
   const data = event.data ?? {};
 
-  if (!HANDLED_EVENTS.has(type)) {
+  if (!HANDLED_WEBHOOK_EVENTS.has(type)) {
     // 200, not 4xx: an unhandled event is not a delivery failure, and
     // returning an error would make Whop retry it and eventually disable the
     // endpoint for "delivery failures".
@@ -134,8 +99,7 @@ export async function POST(req: Request) {
   }
 
   // Who is this? Metadata first — every checkout we start sets it.
-  let supabaseUserId =
-    typeof data.metadata?.supabase_user_id === "string" ? data.metadata.supabase_user_id : null;
+  let supabaseUserId = supabaseUserIdOf(data);
   let matchedBy: "metadata" | "email" | null = supabaseUserId ? "metadata" : null;
 
   if (!supabaseUserId) {

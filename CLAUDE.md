@@ -103,8 +103,17 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   never auto-send.
 - **UTR = profile link + manual check-in only.** Never fetch or scrape
   UTR data from anywhere.
-- **Parents are read-only except the season budget.** Enforced in the UI
-  and at the RLS layer.
+- **Parents can write exactly two things: the season budget (and its
+  expenses) and encouragement notes. Everything else is read-only.**
+  Enforced at the RLS layer.
+  Corrected 2026-11-15 — this said "read-only except the season budget",
+  which omitted `encouragement_notes_insert_parent` and made the privacy
+  policy wrong for a while. Two related notes: that policy's WITH CHECK is
+  `is_family_member(family_code)`, so despite the name **any approved member
+  can write a note, not only a parent**; and `is_parent_member()` likewise
+  grants budget writes to any approved joiner regardless of `role`. The
+  trust model inside an approved family is flatter than this bullet implies.
+  Check `pg_policies`, not this file, before relying on it.
 - **Under-13 → a parent creates the account**, checked at onboarding.
 - **The mockups are the source of truth for UI.** Match them exactly;
   flag anything that looks wrong instead of silently "improving" it.

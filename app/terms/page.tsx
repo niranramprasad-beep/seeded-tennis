@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
@@ -23,9 +24,25 @@ const TERMS = [
   },
   {
     title: "Privacy",
-    body: "Seeded stores your account details, tennis profile and activity to run your dashboard and family features. Your data is never sold, and only approved members of your own family can see it. Accounts for players under 13 do nothing until a parent or guardian approves them. You can download everything we hold, or delete your account and all of it immediately, from Settings. The full privacy policy — what we collect, who else touches it, and how long we keep it — is at /privacy.",
+    body: "Seeded stores your account details, tennis profile and activity to run your dashboard and family features. Your data is never sold, and only approved members of your own family can see it. Accounts for players under 13 do nothing until a parent or guardian approves them. You can download everything we hold, or delete your account and all of it immediately, from Settings. The full privacy policy — what we collect, who else touches it, and how long we keep it — is linked below.",
   },
 ];
+
+// A clickable link, not the literal text "/privacy". The Privacy section
+// above used to end with "…is at /privacy." — a URL rendered as prose, which
+// nobody can click and which an independent verifier flagged as the kind of
+// thing that reads as a link in review and is not one.
+function PrivacyLink() {
+  return (
+    <p className="mt-6 text-sm text-stone">
+      The full privacy policy is here:{" "}
+      <Link href="/privacy" className="text-grass underline underline-offset-2">
+        seededtennis.com/privacy
+      </Link>
+      .
+    </p>
+  );
+}
 
 export default function TermsPage() {
   const { design } = useDesign();
@@ -54,6 +71,7 @@ function LegacyTerms() {
           </section>
         ))}
       </Card>
+      <PrivacyLink />
     </div>
   );
 }
@@ -86,6 +104,7 @@ function SeededTerms() {
           ))}
         </div>
       </Reveal>
+      <PrivacyLink />
     </div>
   );
 }

@@ -142,8 +142,17 @@ Specifically needs a human with legal training:
 
 ## Dependency debt
 
-- **`next` critical + `postcss` high need a Next.js major.** Both are
-  unreachable in this app today (no `remotePatterns`, zero `next/image`
+- **🔴 `next` needs a major upgrade, and it is 25 advisories, not one.**
+  3 critical, 9 high, 11 moderate, 2 low, bundled into a single `npm audit`
+  finding. **Top of Week 1, before the first paying customer.** Several are
+  in scope for a Vercel App Router app: cache confusion of response bodies,
+  RSC cache poisoning, unauthenticated disclosure of internal Server Function
+  endpoints, DoS via Server Actions, XSS in App Router apps using CSP. An
+  earlier version of this entry said "both unreachable" on the strength of
+  the first advisory only — see the correction in `docs/DECISIONS.md`.
+  The two checkable sub-claims remain true (no `remotePatterns`, zero
+  `next/image` imports) but they cover one advisory of 25.
+- **`postcss` high** is build-time only (no `remotePatterns`, zero `next/image`
   imports, Vercel-hosted not self-hosted; postcss is build-time only over our
   own CSS) — reasoning and evidence in `docs/DECISIONS.md`. `next@14.2.35` is
   the newest 14.2.x, so there is no patch inside the major. Plan a

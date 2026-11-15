@@ -1,5 +1,56 @@
 # Overnight run — 2026-11-14/15
 
+## 🔴 READ THIS SECOND — the verifier found a live Google button on a public page
+
+An independent verifier checked every "Done when" against the code rather
+than against this report. **18 PASS · 6 PARTIAL · 1 FAIL.**
+
+**The FAIL:** `components/seeded/onboarding/seeded-pre-auth-onboarding.tsx`
+hand-rolled its own "Continue with Google" button, called `signInWithGoogle()`
+directly, and had **zero** references to the feature flag. It rendered on the
+**public** `/onboarding` page with `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` unset.
+
+That is the exact bug Task 2 claims to have found and fixed — in a fourth
+file. And my test for it was worthless: it iterated **three hand-picked
+filenames** in `components/auth/`, so it asserted what I already believed
+rather than what was true. A plain `grep -rn signInWithGoogle` finds it in
+one second.
+
+**Fixed:** the page now renders the shared, guarded `GoogleButton`. The test
+now greps the whole repo and requires exactly one caller
+(`auth-card.tsx`), plus a second check that any file mentioning the Google
+label imports the guarded component.
+
+**It changes the morning plan.** Hand-off step (b) said "set the flag last,
+after enabling the provider" — that ordering protected nothing while the
+pre-auth button was live with the flag off. It is real again now.
+
+### Three more things the verifier was right about
+
+1. **The `next` vulnerability is 25 advisories, not one.** I read the first
+   one `npm audit` printed, verified its two sub-claims, and generalised.
+   "Both currently unreachable" is **withdrawn** — several are in scope for a
+   Vercel App Router app. `next@16` moves to the top of Week 1. Correction in
+   `docs/DECISIONS.md`.
+2. **A privacy-policy claim was false.** "Parents are read-only everywhere
+   except the season budget" — `encouragement_notes_insert_parent` lets them
+   write notes. Worse, that policy checks only `is_family_member()`, so
+   **any** approved member can, not just a parent. Fixed in the policy, in
+   CLAUDE.md's non-negotiables, and the policy test now fails when a section
+   cites no checkable path (which is why that section had nothing checked).
+3. **My webhook payload test checked a string, not behaviour.** The readers
+   are now in `lib/whop-payload.ts` and the test calls the real ones.
+   Mutation-tested: breaking `planIdOf` fails 5 of 9; restoring passes all 9.
+
+Also fixed: `/terms` ended a sentence with the literal text "is at /privacy"
+— now a real link, in both renderers.
+
+Still open and honestly so: the `/family` screenshots are of
+`/dev/family-preview` (Task 6 says so; Task 2's evidence list did not), and
+rate limiting remains advisory because PostgREST is reachable directly.
+
+---
+
 ## 🔴 READ THIS FIRST — a Critical hole in my own work, found and fixed
 
 An independent review agent found that **the entire family approval gate
