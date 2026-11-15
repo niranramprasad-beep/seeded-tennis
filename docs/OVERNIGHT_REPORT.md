@@ -1557,3 +1557,63 @@ checks re-run against the final trigger and passing.
 One self-inflicted build break along the way, caught by the build: my
 import-insertion script put an import above a `"use client"` directive.
 Fixed, and I checked every other touched file for the same thing.
+
+---
+
+## Final state at the end of Night 2
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npx next lint` | clean |
+| `npx vitest run` | **624 tests, 48 files, all passing** |
+| `npx next build` | passes, **twice in a row** |
+| axe across 10 pages × 2 viewports | **0 violations** |
+| Lighthouse mobile | accessibility **100**, SEO **100** on every scoreable page |
+| Working tree | clean, everything pushed to `v1` |
+| Supabase security advisors (staging) | 3 categories, all expected and documented — see below |
+
+**Advisors, unchanged in kind from before the night's work:**
+- `rls_enabled_no_policy` ×4 — `badges`, `friendships`, `family_join_attempts`,
+  `rate_limit_events`. All four are deliberately locked: RLS on with no
+  policies denies every write.
+- `authenticated_security_definer_function_executable` ×20 — these are the
+  product's RPC API. CLAUDE.md records why the EXECUTE grant cannot simply be
+  revoked: Postgres checks the privilege against whoever runs the query, so
+  revoking it fails any policy that uses the function **closed**. The count
+  rose 19 → 20 with `profile_row_exists`, which returns only a boolean and is
+  needed by a SECURITY INVOKER trigger.
+- `auth_leaked_password_protection` ×1 — Pro-only, deferred by Niran.
+
+**Production was never touched.** Its only use tonight was read-only
+introspection: `list_migrations`, `pg_policies`, `pg_get_functiondef`,
+`information_schema`, and one read of a migration's recorded statements.
+`main` is still `d059006`, serving the maintenance 503.
+
+**Staging** is in the full post-rollout state with all fourteen migrations
+applied, the rehearsal fixtures left in place as seed data, and every
+acceptance check passing.
+
+---
+
+## The one thing to take from this run
+
+Three Criticals tonight and last night. **All three were introduced by a fix,
+not found in old code**, and **none was caught by my own testing** — each
+needed an independent pass:
+
+| Found by | What it was | Introduced by |
+|---|---|---|
+| Night 1 reviewer | family takeover via profile INSERT | the original design |
+| Night 2 reviewer | 032/033 break every profile write | **the fix for the above** |
+| Night 2 verifier | the `0` sentinel violates a live CHECK | **the fix for the above** |
+
+Each time I had tested the path I was thinking about and assumed the rest.
+Each time the write-up said "done" before it was. The review step is not a
+formality on this project — it is the only control that has caught any of
+these, and it has now caught one every single time it has run.
+
+**If only one habit survives from tonight: after fixing something, test the
+path you were NOT thinking about.** In all three cases that was an ordinary
+user doing an ordinary thing — renaming themselves, deleting their account,
+signing up without a UTR.
