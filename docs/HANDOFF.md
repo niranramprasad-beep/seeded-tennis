@@ -607,11 +607,11 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply fourteen migrations to production in order
+Apply fifteen migrations to production in order
 (025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
-034 → 035), verifying after each; then revert the maintenance commit and merge
-`v1` to `main` as a single PR with CI green. (This line said "twelve" while
-listing eleven until 2026-11-15 — count the arrows, not the adjective.) The database changes go FIRST and
+034 → 035 → 036), verifying after each; then revert the maintenance commit and
+merge `v1` to `main` as a single PR with CI green. (This line said "twelve"
+while listing eleven until 2026-11-15 — count the arrows, not the adjective.) The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
 is no window where deployed code is talking to a schema it doesn't
 understand. Code goes last.
@@ -1079,9 +1079,65 @@ updates. Verified twice on staging — once by the reviewer, once by me.
 
 **Rollback:**
 ```sql
--- Restore 030's version of the trigger function verbatim, then:
+-- Restores 030's version of the trigger function: consent derivation and the
+-- write-once birth_year rule, but no family_code INSERT guard. Spelled out
+-- here because "restore 030's version verbatim" is not something anyone can
+-- paste during an incident — the same defect that was found and fixed in
+-- four other steps of this plan. Found and fixed 2026-11-15 (second pass).
+create or replace function public.protect_privileged_profile_columns()
+returns trigger language plpgsql security invoker set search_path = public
+as $fn$
+begin
+  if current_user in ('service_role', 'postgres', 'supabase_admin') then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.subscription_tier      := 'free';
+    new.whop_membership_id     := null;
+    new.stripe_customer_id     := null;
+    new.stripe_subscription_id := null;
+    new.consent_status := case when public.consent_required_for_birth_year(new.birth_year)
+                               then 'pending' else 'not_required' end;
+    new.consent_granted_at := null;
+    new.consent_granted_by := null;
+    return new;
+  end if;
+  if new.subscription_tier      is distinct from old.subscription_tier
+  or new.whop_membership_id     is distinct from old.whop_membership_id
+  or new.stripe_customer_id     is distinct from old.stripe_customer_id
+  or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+  or new.role                   is distinct from old.role
+  or new.family_code            is distinct from old.family_code
+  then
+    raise exception 'This profile field can only be changed by Seeded.'
+      using errcode = '42501';
+  end if;
+  if old.birth_year is not null and new.birth_year is distinct from old.birth_year then
+    raise exception 'Date of birth can only be changed by Seeded. Contact support.'
+      using errcode = '42501';
+  end if;
+  if old.birth_year is null and new.birth_year is not null then
+    new.consent_status := case when public.consent_required_for_birth_year(new.birth_year)
+                               then 'pending' else 'not_required' end;
+    new.consent_granted_at := null;
+    new.consent_granted_by := null;
+  else
+    new.consent_status     := old.consent_status;
+    new.consent_granted_at := old.consent_granted_at;
+    new.consent_granted_by := old.consent_granted_by;
+  end if;
+  return new;
+end;
+$fn$;
+revoke all on function public.protect_privileged_profile_columns()
+  from public, anon, authenticated;
+
 drop function if exists public.family_code_is_taken(text);
 ```
+**This restores the 23502/42501 upsert bug 035 exists to fix.** 030's INSERT
+branch runs on every `.upsert()` of an existing row, so after this, profile
+writes fail again for anyone whose request omits `birth_year`. Only roll back
+this far as part of rolling back steps 13→8 together.
 **Risk: low to apply, and it is strictly a tightening** — it cannot affect an
 existing row, only a new INSERT that claims a taken code.
 
@@ -1330,12 +1386,41 @@ reproduced against staging before this migration was written.
 
 **Rollback:**
 ```sql
--- Returns to the 034 behaviour, which breaks deletion. Prefer rolling the
--- whole set back (steps 9-11) over leaving this one off.
-drop function if exists public.profile_row_exists(uuid);
--- then restore 032's trigger body and 034's enforce_write_rate_limit()
--- and delete_my_account() from those files.
+-- 1. LEAVE public.profile_row_exists() IN PLACE. Do not drop it.
+--
+--    An earlier version of this rollback dropped it. Step 10's rollback
+--    creates a trigger body that CALLS it, so running the two in the
+--    documented reverse order (12, then 10) left every profile write in the
+--    app raising `42883 function public.profile_row_exists(uuid) does not
+--    exist` — a second outage, caused by the rollback. Reproduced on staging
+--    2026-11-15 with exactly the upsert writeCurrentPlayerProfile() issues.
+--    The function is a SECURITY DEFINER one-liner answering "does this
+--    profile row exist", granted only to `authenticated`; leaving it is
+--    additive and inert, like the other 16 functions a full rollback leaves
+--    behind (see "These rollbacks restore BEHAVIOUR, not SCHEMA" above).
+--
+-- 2. Re-run these three migration files, in this order, to restore the
+--    function bodies 035 replaced. Every statement in all three is
+--    `create or replace` / `if exists` / `if not exists`, so re-running them
+--    is safe and was verified on staging 2026-11-15:
+--
+--      supabase/migrations/028_api_rate_limits.sql
+--          -> consume_rate_limit()        (035 rewrote it to read
+--                                          rate_limit_for_bucket())
+--      supabase/migrations/029_real_account_deletion.sql
+--          -> delete_my_account()         (035 added the rate-limit bypass)
+--      supabase/migrations/034_enforce_rate_limits_in_database.sql
+--          -> enforce_write_rate_limit(), rate_limit_for_bucket()
+--
+--    Naming the files rather than pasting the bodies is deliberate: a
+--    hand-copied function body in this document is a body that drifts from
+--    the migration it claims to be.
 ```
+**Rolling this back restores two behaviours that are known to be broken** —
+034's cascade deletion fails with `23503` for every user, and 032/033's
+INSERT branch fails ordinary profile upserts. It exists only as a step on the
+way to rolling back 13→8 together, never as a resting state. If you have
+rolled back this far, keep going.
 **Risk: low to apply, and it only loosens checks that were never meant to
 fire.** The security properties of 032, 033 and 034 are all preserved and
 were re-tested after the fix.

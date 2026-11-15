@@ -1617,3 +1617,143 @@ these, and it has now caught one every single time it has run.
 path you were NOT thinking about.** In all three cases that was an ordinary
 user doing an ordinary thing — renaming themselves, deleting their account,
 signing up without a UTR.
+
+---
+
+# MORNING RUN (2026-11-15, after Niran's "fix it" on the family gap)
+
+## TASK A — final dress rehearsal on staging: **DONE, all green**
+
+Niran's decision on the one open judgement call was to fix the joined-member
+read gap. That became migration **036** (`0ec2473`), and this rehearsal ran
+the whole plan again from production's shape with 036 in it.
+
+### A1. Backward sweep to production's 23-migration shape
+
+Every documented rollback from §J step 13 down to step 2 was executed in
+reverse order. Then checked against production, read-only:
+
+| Pre-flight | Result |
+|---|---|
+| Production still has exactly 23 migrations | ✅ 23 — the plan is not stale |
+| Tables, both sides | ✅ 23 vs 23 |
+| Columns | staging 231, production 223 — **8 extra, all accounted for** |
+
+The 8 are exactly the additive columns the rollbacks deliberately leave
+behind: `parent_accounts.{status, approved_at, approved_by, reminded_at}`
+(023 + 026) and `profiles.{birth_year, consent_status, consent_granted_at,
+consent_granted_by}` (030). This is §J's own "these rollbacks restore
+BEHAVIOUR, not SCHEMA" — now enumerated rather than asserted.
+
+### A2. Three more defects in the rollback half, found by running it
+
+Last night's rehearsal found four. This one found **three more**, and one of
+them would have caused a second outage *during* an incident.
+
+| # | Defect | Severity |
+|---|---|---|
+| 5 | **Step 12's rollback dropped `profile_row_exists()`, which step 10's rollback calls.** Running them in the documented reverse order (12, then 10) left every profile write in the app raising `42883 function public.profile_row_exists(uuid) does not exist`. Reproduced on staging with exactly the upsert `writeCurrentPlayerProfile()` issues. Fixed: step 12 now says, in capitals, to leave the function in place, and explains why. | **High** — the rollback breaks the app worse than the thing it is rolling back |
+| 6 | **Step 12's rollback was prose, not SQL** — "then restore 032's trigger body and 034's enforce_write_rate_limit() and delete_my_account() from those files". Not pasteable at 3am. Fixed: it now names the three files to re-run, in order, and records that all three are idempotent (verified statement by statement). | Medium — same defect class that was fixed in four other steps |
+| 7 | **Step 9's rollback was prose too** — "Restore 030's version of the trigger function verbatim". Fixed: 030's trigger body is now written out in full, with a note that it restores the 23502/42501 upsert bug 035 exists to fix, so it is only a waypoint. | Medium |
+
+### A3. Forward sweep — all fifteen, in §J order, with every pre-flight
+
+`025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
+034 → 035 → 036`, applied from the repo files.
+
+| Step | Pre-flight / verify | Result |
+|---|---|---|
+| 2 (022) | trigger present | ✅ |
+| 3 (023+026) | 4 pre-existing links backfilled to `approved`, zero `pending`, count unchanged; `families` locked; self-insert policy gone; rate-limit table created | ✅ 4 / 4 / 0 |
+| 4 (024) | zero free accounts over the 3-target limit; outreach write now `has_tier('player')` | ✅ 0 |
+| 5 (027) | rows with `privacy_level='public'` | ✅ 1, the one known row |
+| 6 (028) | `data_export` allows 3, denies the 4th with `retry_after_seconds`; unknown bucket fails closed | ✅ 3 then denied, 3600, `unknown_bucket` |
+| 7 (029) | profiles owed a manual deletion | ✅ 0 |
+| **8 (030+031)** | **mandatory: every row `not_required`, zero `pending`** | ✅ **12 / 12 / 0** — nobody locked out |
+| 8 | gate landed on 21 tables; restored `family_members()` has no PUBLIC/`anon` grant | ✅ 21; `postgres=X, authenticated=X, service_role=X` |
+| 9 (032) | takeover INSERT raises 42501 | ✅ |
+| 10 (033) | sibling player writing a "parent" note refused; profile INSERT with no `birth_year` refused | ✅ 42501 / 23502 |
+| 11 (034) | exactly 20 direct `utr_entries` writes allowed, 21st refused | ✅ **20, then 53400** |
+| 12 (035) | rename via upsert succeeds, consent preserved; `delete_my_account()` deletes everywhere | ✅ 200; profile + UTR + rate-limit rows + auth user all 0 |
+| 13 (036) | parent reads the joined player; other family sees nothing | ✅ 2 profiles / UTR 7.90 / 3 rows; 1 / 0 / 0 |
+
+**Then: do the 27 live function bodies match the repo?** Yes — all 27, byte
+for byte with comments and whitespace normalised, 0 differences. Worth
+stating because the recorded migration *statement text* did NOT match (only
+1 of 7 hashes), since I reflowed comments when inlining the files. The
+textual difference is real and the semantic one is nil; the check that
+matters is the function bodies, and it is clean.
+
+### A4. The three rollbacks Niran named, re-proved individually
+
+| Rollback | Proof |
+|---|---|
+| **Step 8 (030+031)** | Both halves. Without the `drop function` first, `create or replace` raises **42P13** (031 widened the return type 8→9 columns) — this is the defect that meant the highest-risk step's rollback *could never run*. With the drop, clean: 8 OUT columns, and the ACL carries no PUBLIC and no `anon`. |
+| **Step 9 (032)** | The newly written-out SQL runs, and the hole genuinely reopens: with 032 rolled back, a second row successfully claims `FAKEFAMILY01` from an account that was refused 42501 moments before. Rolled back, so the forward state survived. |
+| **Step 12 (035)** | 029's `delete_my_account()` restored → deletion fails again with exactly the documented **23503** on `rate_limit_events_user_id_fkey`. `profile_row_exists()` left in place, so nothing else broke. Forward state restored afterwards. |
+| **Step 13 (036)**, extra | Runs clean; the pre-036 behaviour returns exactly (parent back to 1 profile, 0 UTR rows); and dropping the predicate before its seven policies raises **2BP01**, so the documented ordering is load-bearing. Rows written while 036 was live keep their correct stamp — nothing to undo. |
+
+### A5. Ordinary-user checks, on the real v1 preview reading staging
+
+Preview `0ec2473`. Confirmed first by grepping the deployed client chunks:
+**staging ref present, production ref absent** (0 of 24 files). Every check
+below went through the deployed app's own endpoints with a real signed-in
+JWT — Supabase Auth for the session, then the app's API routes and
+PostgREST, which is what the browser client uses.
+
+| Check | Result |
+|---|---|
+| Sign up without a UTR | ✅ 201. `current_utr` is **NULL**, not the 0 sentinel; `consent_status` derived to `not_required` |
+| Rename yourself in Settings | ✅ `POST /api/profile` → **200 `{"ok":true}`**, sent with `currentUTR: 0` — the exact payload that raised 23514 before 035. Name changed, UTR still NULL |
+| Export data | ✅ `GET /api/account/export` → **200**, 18 tables, with `exported_at` / `account_id` / `about` / `data` |
+| Family join + approve + parent reads player | ✅ **0 profiles and 0 UTR rows before approval; profile + all 3 UTR rows (6.1, 6.4, 6.8) + the match after.** This is 036's whole purpose, in the parent-first flow, end to end |
+| Under-13 consent | ✅ Inert: own profile only, 0 UTR rows, writes **403**. Parent approves → `consent: granted` in the same action; `my_consent_state` → `granted` |
+| Delete your account | ✅ `deleted`, `family_deleted: true`; profile, auth user, family, family_code and rate-limit rows all **0**; the token reads nothing afterwards |
+| Pricing → checkout starts | ⚠️ **Not verifiable on Preview, by design.** `WHOP_API_KEY` is a Production-only variable, so `getWhop()` is null and the route refuses cleanly with 500 "Billing isn't configured yet." before it ever reaches a plan ID. Must be checked live — it is on the TASK C list |
+
+**One thing the stamp test taught, worth keeping.** The joiner's match written
+*before* approval is stamped `family_code = NULL` (correct — a pending member
+is not in a family), and the one written *after* carries `RPPARENTAAAA`. The
+parent can read **both**, because 036's read policy keys off the owner's
+*current* membership rather than the row's stamp. Had it relied on the stamp
+alone, every row a player wrote while waiting to be approved would have been
+invisible to their family for ever. That was the design argument; this is the
+evidence for it.
+
+### A6. Two findings that are not mine to fix
+
+1. **Supabase Auth email confirmation + the built-in SMTP quota.** A real
+   signup through the deployed preview returned
+   **`429 over_email_send_rate_limit`**, which means (a) "Confirm email" is
+   ON on staging and (b) the project's built-in email quota is small and was
+   exhausted by two attempts. The app handles the confirmation case correctly
+   (`signUp` returns `confirmationRequired` and defers the profile write), so
+   this is not a code bug — but **if production is configured the same way,
+   signups will start failing with a 429 after the first couple per hour.**
+   I could not read production's setting: it is a dashboard value, and the
+   data is ambiguous (10 users, all confirmed, but only 2 confirmation emails
+   ever sent). **Niran must check Authentication → Sign In / Providers →
+   "Confirm email" on production, and either turn it off or configure custom
+   SMTP, before announcing.** Launching is still strictly better than the
+   current 503, and the symptom is instantly diagnosable, which is why this
+   is a check and not a block.
+2. **Supabase Auth rejects the `.example` TLD.** `*@test.example` addresses
+   cannot be created through the real signup flow — staging's existing
+   fixtures with those addresses were inserted straight into `auth.users`,
+   which is why they look fine. Use `@example.com` when reseeding.
+
+### A7. What staging holds now
+
+The full post-rollout state, all fifteen migrations, plus clearly-fake
+fixtures: `FAKEFAMILY01` (creator-parent + joined player), `FAKEFAMILY02`,
+`TESTFAMILYA`, `STAGINGDEMO1`, `RPPARENTAAAA` (the rehearsal's parent-first
+family with an approved player and an approved under-13 with consent
+granted), and `attacker-insert@test.example` — an auth user with no profile,
+kept deliberately because testing a profile INSERT needs one.
+`stranger@test.example` and `fake-rp-player@example.com` were consumed by the
+deletion tests; that was the test.
+
+Advisors: 3 categories, all expected — 4 × `rls_enabled_no_policy` on
+deliberately locked tables, 21 × `authenticated_security_definer_function_executable`
+(the RPC API; up one, for 036's `shares_approved_family_with`), 1 ×
+leaked-password protection (Pro-plan, deferred). No new kinds.
