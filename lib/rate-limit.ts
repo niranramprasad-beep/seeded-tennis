@@ -37,6 +37,27 @@ export const RATE_LIMIT_BUCKETS = [
 
 export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
 
+/** Buckets with NO table behind them, which the route must therefore COUNT
+ * rather than peek at.
+ *
+ * 034 moved enforcement to per-table triggers and switched every route to
+ * `peek_rate_limit`, which only reads. That is right for a bucket whose
+ * table carries the trigger — counting in both places would halve the real
+ * limit. It is wrong for these three: they describe an ACTION, not a table
+ * write, so no trigger ever fires and `v_used` stayed 0 forever.
+ *
+ * A verification pass found the result: `/api/account/export` — a full JSON
+ * dump of everything stored about a person — had no rate limit at all,
+ * while `rate_limit_for_bucket` still declared 3/hour for it and the code
+ * read as though that were enforced.
+ *
+ * `account_deletion` and `whop_checkout` were in the same state. */
+const ROUTE_COUNTED_BUCKETS = new Set<RateLimitBucket>([
+  "account_deletion",
+  "data_export",
+  "whop_checkout",
+]);
+
 export interface RateLimitVerdict {
   allowed: boolean;
   retryAfterSeconds: number;
@@ -81,7 +102,9 @@ export async function consumeRateLimit(
   // So this call is manners, not enforcement: it lets a user see a friendly
   // 429 before the work is attempted, instead of a raw database error
   // after. Removing it would weaken the message, not the limit.
-  const { data, error } = await supabase.rpc("peek_rate_limit", { p_bucket: bucket });
+  // Peek where a table trigger counts; consume where nothing else will.
+  const fn = ROUTE_COUNTED_BUCKETS.has(bucket) ? "consume_rate_limit" : "peek_rate_limit";
+  const { data, error } = await supabase.rpc(fn, { p_bucket: bucket });
 
   if (error || !data || typeof data !== "object") {
     return { allowed: false, retryAfterSeconds: 60 };

@@ -28,7 +28,7 @@ import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
 import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
-import { formatUTR, formatUtrOrNotTracked } from "@/lib/utils";
+import { formatUTR, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
 function initialOf(name: string): string {
@@ -72,7 +72,13 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
       d.setHours(0, 0, 0, 0);
       return d;
     };
-    return real.length > 0 ? real : [{ date: todayAtMidnight(), utr: player.currentUTR }];
+    // No real entries AND no real current UTR means there is nothing to
+    // plot. A synthetic point at the 0 sentinel drew the trajectory from
+    // "UTR 0", which is a rating nobody has.
+    if (real.length > 0) return real;
+    return hasRealUtr(player.currentUTR)
+      ? [{ date: todayAtMidnight(), utr: player.currentUTR }]
+      : [];
   }, [utrEntries, player.currentUTR]);
   // The "what if my UTR is ___ by June {year}?" slider — same shared hook
   // and math as the Schools browser (lib/hooks/use-what-if-utr.ts),
@@ -159,8 +165,16 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
 
   // Point 2: the real pace needed to close current -> goal by senior
   // summer, against the real player UTR (not the what-if slider).
+  // Every number this produces is derived from the player's current UTR —
+  // the gap, the required pace per year, the "faster than realistic" read.
+  // Computed from the 0 sentinel it told a player with no rating that they
+  // need "about 7.1/year", which is a confident answer to a question we
+  // cannot answer.
   const goalPace = useMemo(
-    () => computeGoalPace(player.currentUTR, goalUTR, player.graduationYear),
+    () =>
+      hasRealUtr(player.currentUTR)
+        ? computeGoalPace(player.currentUTR, goalUTR, player.graduationYear)
+        : null,
     [player.currentUTR, goalUTR, player.graduationYear]
   );
   const [showRealisticOnly, setShowRealisticOnly] = useState(false);
@@ -174,8 +188,14 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
 
   // Point 4: the 5 real catalog schools closest to the player's actual
   // level, independent of what's currently targeted.
+  // "whose roster level is nearest your current UTR" — from the sentinel
+  // that is simply the five lowest-rated programs in the catalog, presented
+  // as a personalised shortlist.
   const closestSchools = useMemo(
-    () => closestSchoolsByUtrGap(player.currentUTR, pickerSchools, 5, realProjectionInput),
+    () =>
+      hasRealUtr(player.currentUTR)
+        ? closestSchoolsByUtrGap(player.currentUTR, pickerSchools, 5, realProjectionInput)
+        : [],
     [player.currentUTR, pickerSchools, realProjectionInput]
   );
 

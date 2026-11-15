@@ -26,7 +26,7 @@ interface RangeBarProps {
   low?: number;
   median?: number;
   high?: number;
-  you?: number;
+  you?: number | null;
 }
 
 function signed(value: number): string {
@@ -55,7 +55,12 @@ export function RangeBar({
   const reduceMotion = useReducedMotion();
   const [tapOpen, setTapOpen] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
-  const hasDetail = low != null && median != null && high != null && you != null;
+  // `you != null` was not enough: the "not tracked" sentinel is 0, and
+  // `0 != null` is true, so the tooltip rendered "You 0.0 · Gap to median
+  // -12.1" on every school row. Hiding the dot without hiding the tooltip
+  // fixed the picture and left the claim.
+  const hasRealYou = you != null && you > 0;
+  const hasDetail = low != null && median != null && high != null && hasRealYou;
 
   // Touch has no real :hover — tap toggles the tooltip instead, and any
   // tap outside the bar dismisses it (the "tap-elsewhere-to-dismiss"
@@ -112,7 +117,7 @@ export function RangeBar({
           className={cn("absolute inset-y-0 w-0.5 bg-grass", transitionClass)}
           style={{ left: `${medianPct}%` }}
         />
-        {youPct != null && (
+        {youPct != null && hasRealYou && (
           <div
             className={cn(
               "absolute h-[18px] w-[18px] rounded-full border-2 border-on-lime bg-lime-accent",

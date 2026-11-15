@@ -41,7 +41,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 // Legacy key from before outreach status was synced to Supabase — still read
 // once on load so no one's existing tracking silently disappears when this
@@ -112,7 +112,10 @@ function CoachesInner({ schools }: { schools: School[] }) {
           name: m.tournamentName,
           level: "",
           result:
-            m.opponentUtr && m.opponentUtr >= player.currentUTR
+            // Without a real UTR, `>= 0` made EVERY opponent "above your
+            // level", which is a claim about the player's standing drawn
+            // from the not-tracked sentinel.
+            m.opponentUtr && hasRealUtr(player.currentUTR) && m.opponentUtr >= player.currentUTR
               ? `beat a UTR ${m.opponentUtr.toFixed(1)} opponent`
               : "picked up wins",
         })),

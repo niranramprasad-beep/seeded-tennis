@@ -37,7 +37,7 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   otherwise for several hours.** The §0 rule stands and matters: never sign
   in through real auth locally. Fix is in docs/OVERNIGHT_REPORT.md under
   "What Niran does by hand".
-- **Thirteen migrations are applied and attack-tested on STAGING and none are on production:** 025, 022, 023, 026, 024, 027, 028, 029, 030, 031, 032, 033, 034. Order, per-step verify and per-step rollback: `docs/HANDOFF.md` §J. Nothing ships until Niran says go.
+- **Fourteen migrations are applied and attack-tested on STAGING and none are on production:** 025, 022, 023, 026, 024, 027, 028, 029, 030, 031, 032, 033, 034, 035. **035 is not optional and must ship with them** — without it 032/033 break every profile write in the app (an `.upsert()` fires BEFORE INSERT triggers even when the row exists) and 034 breaks `delete_my_account()` for every user. Order, per-step verify and per-step rollback: `docs/HANDOFF.md` §J. Nothing ships until Niran says go.
   The highest-risk step is 030 + 031 — a RESTRICTIVE policy on 21 tables. Its pre-flight check (every existing `profiles` row `consent_status = 'not_required'`, zero `'pending'`) is not optional.
   **The whole sequence was rehearsed end to end on 2026-11-15** against a database rolled back to production's 23-migration shape. Four defects were found in the ROLLBACK half and fixed — including step 8's, which could never run at all (`create or replace` cannot restore a function whose return type a later migration widened; it needs `drop function` first).
   **Two traps that rehearsal exposed, worth knowing before you verify anything:**
@@ -160,3 +160,32 @@ fingerprint before proposing anything for production.
 `025_reconcile_profiles_schema_drift.sql` and DATABASE_SPEC. If you build a
 fresh database, apply 025 too, and apply 019 before 018 (production's real
 order, which is not the repo's numbering).
+
+## The UTR placeholder — read before touching `Player.currentUTR`
+
+`emptyPlayer.currentUTR` is **0**, and `currentUTR <= 0` means "no rating
+logged yet". It was 7 until 2026-11-15, when an independent review found
+`buildCoachEmail()` rendering **"My UTR is 7.0 (self-reported)"** for a
+player who had never entered one — in an email a minor signs their name to.
+
+Two things to know, both learned the hard way the same night:
+
+1. **0 is an IN-MEMORY sentinel. The database rejects it.**
+   `profiles_current_utr_check` (migration 006, live on production) is
+   `current_utr is null or current_utr between 1 and 16.5`, and
+   `utr_entries_utr_check` is `utr between 1 and 16.5` with no NULL escape.
+   Writing the sentinel raises **23514**. `writeCurrentPlayerProfile()`
+   converts it: `current_utr: player.currentUTR > 0 ? player.currentUTR : null`.
+   **Never write `player.currentUTR` straight to Postgres.**
+   `lib/utr-sentinel.test.ts` fails the build if that conversion is removed.
+2. **Anything DERIVED from the UTR must check `hasRealUtr()` first.** The
+   sentinel is detectable, not harmless: left unchecked it produced "Fit
+   checked against UTR 0.00", a required pace of "7.1/year", a "closest
+   schools" list that was just the catalog's five lowest, a tooltip reading
+   "You 0.0 · Gap to median −12.1", and a training plan called "0.0 UTR
+   build week". Use `hasRealUtr(v)` / `formatUtrOrNotTracked(v)` from
+   `lib/utils.ts` — never `formatUTR` or `.toFixed()` on a raw currentUTR.
+
+The real fix is `Player.currentUTR: number | null`, so the unknown case is
+unrepresentable rather than merely detectable. That is a 79-site change and
+is still open — see `docs/TODO.md`.

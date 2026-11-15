@@ -7,7 +7,7 @@ import { formatDate } from "@/lib/time";
 import { formatUTR } from "@/lib/utils";
 
 interface GoalPaceWarningProps {
-  goalPace: GoalPace;
+  goalPace: GoalPace | null;
   goalUTR: number;
   showingRealisticOnly: boolean;
   onShowRealistic: () => void;
@@ -27,6 +27,10 @@ export function GoalPaceWarning({
   onShowRealistic,
   onShowAll,
 }: GoalPaceWarningProps) {
+  // null when the player has no real UTR: every field below (gap, required
+  // pace, byDate) is derived from it, so there is no warning to give — only
+  // an invented one.
+  if (!goalPace) return null;
   const isWarning = goalPace.paceRead === "faster-than-realistic" || goalPace.paceRead === "no-time-left";
   if (!isWarning) return null;
 

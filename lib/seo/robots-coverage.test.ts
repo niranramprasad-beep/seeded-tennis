@@ -54,25 +54,43 @@ function reachesAuthGate(file: string, depth = 0, seen = new Set<string>()): boo
   seen.add(file);
   const src = readFileSync(file, "utf8");
   if (/<AuthGate[\s/>]/.test(src)) return true;
-  // Both `from "@/components/x"` and `import("@/components/x")`, and `app/`
-  // as well as `components/` so a layout importing a sibling is followed.
-  for (const m of src.matchAll(/(?:from|import\()\s*"@\/((?:components|app)\/[^"]+)"/g)) {
-    for (const cand of [`${m[1]}.tsx`, `${m[1]}.ts`, `${m[1]}/index.tsx`]) {
-      if (reachesAuthGate(join(REPO, cand), depth + 1, seen)) return true;
+  // Aliased AND relative imports. A second verification pass got past the
+  // alias-only regex with `import { Inner } from "./inner"` — a shape this
+  // repo already uses (`app/layout.tsx` imports `./providers`).
+  for (const m of src.matchAll(/(?:from|import\()\s*["'](@\/(?:components|app)\/[^"']+|\.{1,2}\/[^"']+)["']/g)) {
+    const spec = m[1];
+    const base = spec.startsWith("@/")
+      ? join(REPO, spec.slice(2))
+      : join(dirname(file), spec);
+    for (const cand of [`${base}.tsx`, `${base}.ts`, `${base}/index.tsx`, `${base}/index.ts`]) {
+      if (reachesAuthGate(cand, depth + 1, seen)) return true;
     }
   }
   return false;
 }
 
-/** The page plus every `layout.tsx` above it. A gate in a layout protects
- * the whole subtree and is invisible to a page-only scan. */
+/** The page plus every wrapper above it: `layout.tsx` AND `template.tsx`,
+ * at every ancestor segment.
+ *
+ * `template.tsx` was the second bypass a verification pass built — Next
+ * wraps children with it exactly as it does a layout, and this repo already
+ * has an `app/template.tsx`. Reconstructing paths from URL segments also
+ * skips route-group directories, whose names never appear in the URL, so
+ * those are walked explicitly. */
 function routeChainFiles(route: string): string[] {
-  const segments = route === "/" ? [] : route.slice(1).split("/");
   const files = [pageFileFor(route)];
-  for (let i = 0; i <= segments.length; i++) {
-    files.push(join(APP, ...segments.slice(0, i), "layout.tsx"));
+  const pageDir = dirname(pageFileFor(route));
+
+  // Walk up the real directory tree, so `(group)` segments are included.
+  let dir = pageDir;
+  for (;;) {
+    files.push(join(dir, "layout.tsx"), join(dir, "template.tsx"));
+    if (dir === APP) break;
+    const parent = dirname(dir);
+    if (parent === dir || !parent.startsWith(APP)) break;
+    dir = parent;
   }
-  return files.filter((f) => existsSync(f));
+  return [...new Set(files)].filter((f) => existsSync(f));
 }
 
 function routeIsGated(route: string): boolean {

@@ -77,9 +77,10 @@ P1-OPS-1 (CI + branch protection), P1-OPS-3 (migration drift), P1-SEC-2
 app code can reach.
 
 **Everything database-side is written, applied and attack-tested on
-staging, and none of it is on production.** **Thirteen** migrations are now
+staging, and none of it is on production.** **Fourteen** migrations are now
 queued behind one word from Niran (025, 022, 023, 026, 024, 027, 028, 029,
-030, 031, 032, 033, 034). P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
+030, 031, 032, 033, 034, 035). **035 is not optional** — without it 032/033
+break every profile write and 034 breaks account deletion for everyone. P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
 count as fixed only once they ship.
 
 The whole sequence was **rehearsed end to end on 2026-11-15** against a

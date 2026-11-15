@@ -6,7 +6,7 @@ import { evaluateTournamentFit } from "@/lib/tournament-fit";
 import type { TournamentEntry } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 // Same "border + bg + text" chip language as FitBadge (components/seeded/
 // ui/fit-badge.tsx)'s target/reach bands — reused directly rather than
@@ -35,6 +35,10 @@ export function UpcomingTournamentsCard({
   onMarkEntered,
 }: {
   entries: TournamentEntry[];
+  /** NULL/0 when the player has not entered a rating. Every fit verdict
+   *  below is computed FROM it, so without one there is nothing honest to
+   *  say about a tournament's fit — the caption and the per-entry chips are
+   *  dropped rather than computed from the sentinel. */
   playerUtr: number;
   onMarkEntered: (id: string) => void;
 }) {
@@ -43,8 +47,11 @@ export function UpcomingTournamentsCard({
     [entries]
   );
 
+  const utrKnown = hasRealUtr(playerUtr);
+
   const fits = useMemo(() => {
     const map = new Map<string, ReturnType<typeof evaluateTournamentFit>>();
+    if (!utrKnown) return map;
     sorted.forEach((t) => {
       map.set(
         t.id,
@@ -62,7 +69,7 @@ export function UpcomingTournamentsCard({
       );
     });
     return map;
-  }, [sorted, playerUtr]);
+  }, [sorted, playerUtr, utrKnown]);
 
   // The single nearest-upcoming good-fit entry that isn't entered yet gets
   // the primary "Enter" CTA — the one tournament a family most likely needs
@@ -79,7 +86,11 @@ export function UpcomingTournamentsCard({
     <div className="rounded-xl border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Upcoming tournaments</h2>
-        <span className="text-[13px] text-stone">Fit checked against UTR {playerUtr.toFixed(2)}</span>
+        <span className="text-[13px] text-stone">
+          {utrKnown
+            ? `Fit checked against UTR ${playerUtr.toFixed(2)}`
+            : "Add your UTR to check fit"}
+        </span>
       </div>
 
       {sorted.length === 0 ? (

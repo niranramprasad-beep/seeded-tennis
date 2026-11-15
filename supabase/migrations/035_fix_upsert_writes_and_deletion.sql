@@ -102,14 +102,27 @@ begin
              then 'pending' else 'not_required' end;
       new.consent_granted_at := null;
       new.consent_granted_by := null;
-    else
-      -- The row exists; its consent state is the database's, not the
-      -- payload's. The DO UPDATE half re-checks this anyway, but an
-      -- upsert's `excluded` must not carry a client-chosen value.
-      select p.consent_status, p.consent_granted_at, p.consent_granted_by
-        into new.consent_status, new.consent_granted_at, new.consent_granted_by
-        from public.profiles p where p.id = new.id;
     end if;
+    -- NOTE: when the row already exists, the consent columns are left
+    -- exactly as the payload had them and are NEVER read here.
+    --
+    -- An earlier draft did `select ... into new.consent_status ... from
+    -- profiles where id = new.id`, which a verification pass flagged: this
+    -- trigger is SECURITY INVOKER, so that read is RLS-filtered, and
+    -- `SELECT INTO` with no rows sets its targets to NULL *silently* while
+    -- consent_status is NOT NULL. Routing it through a SECURITY DEFINER
+    -- helper then failed for a different reason — the trigger runs as
+    -- `authenticated`, so the helper would have to be executable by every
+    -- signed-in user, turning it into a consent-status oracle for any uuid.
+    --
+    -- Neither is necessary. For an upsert, `DO UPDATE SET` only assigns the
+    -- columns in the payload, and consent_status is not one of them — so
+    -- whatever this branch leaves in `excluded` never reaches the stored
+    -- row. The BEFORE UPDATE branch below then forces consent from `old`,
+    -- which is the authoritative value. For a plain INSERT onto an existing
+    -- id, the statement fails with 23505 regardless.
+    --
+    -- The shortest correct code here is no code.
 
     return new;
   end if;

@@ -85,9 +85,15 @@ function LegacyParentDashboard() {
   // to the signed-in parent's own placeholder UTR. The legacy design is
   // still reachable (footer + Settings → Appearance), so it gets the same
   // honest "Not tracked".
-  const currentUTR = resolveFamilyPlayerFacts(playerMember, player).currentUtr;
-  const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
-  const grade = getCurrentGrade(graduationYear);
+  // A verification pass caught this file half-fixed: the UTR used the shared
+  // rule while the line below still fell through to the signed-in PARENT's
+  // own graduation_year — the exact symptom the original bug report named.
+  // Five further fields in the "Player snapshot" card below read `player.`
+  // directly for the player's data and were the parent's own row too.
+  const playerFacts = resolveFamilyPlayerFacts(playerMember, player);
+  const currentUTR = playerFacts.currentUtr;
+  const graduationYear = playerFacts.graduationYear;
+  const grade = graduationYear == null ? null : getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
   const tournamentPct = Math.round(
@@ -122,7 +128,7 @@ function LegacyParentDashboard() {
           label="Current UTR"
           value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
         />
-        <StatTile icon={GraduationCap} label="Grade" value={`${grade}th`} />
+        <StatTile icon={GraduationCap} label="Grade" value={grade == null ? "Not tracked" : `${grade}th`} />
         <StatTile icon={CalendarDays} label="Check-ins" value={String(checkins.length)} />
         <StatTile icon={Trophy} label="Matches logged" value={String(completedMatches)} />
       </div>
@@ -135,17 +141,37 @@ function LegacyParentDashboard() {
               <Target className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Player snapshot</h2>
             </div>
-            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-              <Field label="Class of" value={String(player.graduationYear)} />
-              <Field label="Target schools" value={String(player.targetSchoolSlugs.length)} />
-              <Field label="Country" value={player.country} />
-            </dl>
+            {playerFacts.hasLinkedPlayer ? (
+              <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+                <Field
+                  label="Class of"
+                  value={graduationYear == null ? "Not tracked" : String(graduationYear)}
+                />
+                <Field
+                  label="Target schools"
+                  value={String(playerMember?.targetSchoolSlugs?.length ?? player.targetSchoolSlugs.length)}
+                />
+                <Field label="Country" value={playerMember ? "Not tracked" : player.country} />
+              </dl>
+            ) : (
+              <p className="mt-5 text-sm text-stone">
+                No player has been linked to this family yet, so there is
+                nothing to show here. Seeded won&rsquo;t fill these in from
+                your own account.
+              </p>
+            )}
             <div className="mt-5 border-t-hairline border-line pt-5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone">Tournament season</span>
                 <span className="font-medium text-ink">
-                  {player.tournamentsPlayed}
-                  <span className="text-stone-light">/{player.tournamentsGoal}</span>
+                  {playerMember ? (
+                    "Not tracked"
+                  ) : (
+                    <>
+                      {player.tournamentsPlayed}
+                      <span className="text-stone-light">/{player.tournamentsGoal}</span>
+                    </>
+                  )}
                 </span>
               </div>
               <Progress value={tournamentPct} className="mt-3" />

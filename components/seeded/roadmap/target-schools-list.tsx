@@ -10,7 +10,7 @@ import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { formatDate } from "@/lib/time";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 interface TargetSchoolsListProps {
   /** Real order from player.targetSchoolSlugs, resolved to school objects
@@ -177,11 +177,11 @@ export function TargetSchoolsList({
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(s.avgRosterUTR)}
-                youPct={utrToPct(effectiveUtr)}
+                youPct={hasRealUtr(effectiveUtr) ? utrToPct(effectiveUtr) : null}
                 low={range.min}
                 median={s.avgRosterUTR}
                 high={range.max}
-                you={effectiveUtr}
+                you={hasRealUtr(effectiveUtr) ? effectiveUtr : null}
               />
               <p className="text-xs text-stone">
                 {gapLabel}

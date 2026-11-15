@@ -196,7 +196,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 low={range.min}
                 median={school.avgRosterUTR}
                 high={range.max}
-                you={player.currentUTR}
+                you={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
               />
             </div>
             <p className="mt-3 text-sm text-stone">

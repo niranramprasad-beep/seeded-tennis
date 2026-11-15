@@ -39,7 +39,7 @@ import { SeededActionRail } from "@/components/seeded/training/action-rail";
 import { SeededWeekPlanner } from "@/components/seeded/training/week-planner";
 import { SeededDayPlanner } from "@/components/seeded/training/day-planner";
 import { SeededMonthPlanner } from "@/components/seeded/training/month-planner";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 import {
   WEEK_ORDER,
@@ -171,7 +171,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
       plans: [
         {
           id: createUuid(),
-          name: `${player.currentUTR.toFixed(1)} UTR build week`,
+          name: hasRealUtr(player.currentUTR)
+            ? `${player.currentUTR.toFixed(1)} UTR build week`
+            : "Build week",
           goal: `Close the gap toward ${player.targetSchoolSlugs.length ? "target-school" : "college"} roster pace without overloading recovery.`,
           sessionIds: sessions.map((s) => s.id),
         },
@@ -292,7 +294,12 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const totalMinutes = activeSessions.reduce((sum, s) => sum + s.duration, 0);
   const completedMinutes = activeSessions.filter((s) => s.completed).reduce((sum, s) => sum + s.duration, 0);
   const progress = totalMinutes ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
-  const recommendedHours = Math.max(basePlan.weeklyHours, player.currentUTR + 2);
+  // Without a real UTR this was max(weeklyHours, 0 + 2) — a recommendation
+  // derived from the "not tracked" sentinel. Fall back to the plan's own
+  // weekly hours instead of pretending the rating informed it.
+  const recommendedHours = hasRealUtr(player.currentUTR)
+    ? Math.max(basePlan.weeklyHours, player.currentUTR + 2)
+    : basePlan.weeklyHours;
 
   const donutData = useMemo(() => {
     const totals = new Map<string, number>();

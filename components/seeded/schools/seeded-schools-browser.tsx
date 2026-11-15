@@ -30,7 +30,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 const selectClass =
   "h-10 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
@@ -576,12 +576,12 @@ export function SeededSchoolsBrowser({
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
-                      youPct={utrToPct(effectiveUtr)}
+                      youPct={hasRealUtr(effectiveUtr) ? utrToPct(effectiveUtr) : null}
                       caption={`You ${effectiveUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
-                      you={effectiveUtr}
+                      you={hasRealUtr(effectiveUtr) ? effectiveUtr : null}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>

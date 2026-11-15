@@ -105,15 +105,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const finalized = { ...next, onboarded: true };
     setPlayer(finalized);
     setIsAuthed(true);
-    void saveCurrentPlayer(finalized);
+    // Both of these used to be bare `void`s with no `.catch`. A failure was
+    // an unhandled rejection: nothing written, nothing said, nothing logged.
+    // That is the same silent-loss pattern that was fixed on /events, and it
+    // sat one file over on the path that creates an account.
+    void saveCurrentPlayer(finalized).catch((e) => {
+      console.error("Onboarding profile save failed", e);
+    });
+
     // The onboarding UTR must count as a dated entry from day one — otherwise
     // it has no date to compare against, and the first later backfill (even
     // an older one) would wrongly become "the most recent entry on record."
-    void createUtrEntry({
-      utr: finalized.currentUTR,
-      recordedAt: localDateKey(),
-      note: "Starting UTR",
-    });
+    //
+    // Only when there IS one. `utr_entries_utr_check` (migration 006) is
+    // `utr between 1 and 16.5` with no NULL escape, so writing the 0
+    // "not tracked" sentinel raises 23514. A player who finishes onboarding
+    // without entering a rating simply has no starting entry, which is the
+    // truth.
+    if (finalized.currentUTR > 0) {
+      void createUtrEntry({
+        utr: finalized.currentUTR,
+        recordedAt: localDateKey(),
+        note: "Starting UTR",
+      }).catch((e) => {
+        console.error("Onboarding UTR entry failed", e);
+      });
+    }
   }, []);
 
   // Tracks the latest player outside React's state-update batching so

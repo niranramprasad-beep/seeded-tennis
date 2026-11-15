@@ -19,7 +19,7 @@ import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededRoadmapLayout } from "@/components/seeded/roadmap/seeded-roadmap-layout";
-import { formatUTR, cn } from "@/lib/utils";
+import { formatUTR, cn, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 
 // recharts only loads once this chart actually renders, on the client.
 const UTRLineChart = dynamic(
@@ -145,7 +145,7 @@ function LegacyRoadmapLayout({
       <Reveal className="max-w-2xl">
         <span className="eyebrow text-gold">Your roadmap</span>
         <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-          From {formatUTR(player.currentUTR)} to{" "}
+          From {formatUtrOrNotTracked(player.currentUTR)} to{" "}
           <span className="serif-accent text-grass">{formatUTR(goalUTR)}</span>,
           year by year.
         </h1>
@@ -184,8 +184,9 @@ function LegacyRoadmapLayout({
             <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
           </div>
           <p className="mt-3 text-sm text-on-primary/80">
-            +{formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you
-            are today
+            {hasRealUtr(player.currentUTR)
+              ? `+${formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
+              : "Log a UTR to see the gap from where you are today"}
           </p>
           <div className="mt-4 flex flex-wrap gap-1.5">
             {targetSchools.map((s) => (

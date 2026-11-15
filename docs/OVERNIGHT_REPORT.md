@@ -95,14 +95,14 @@ Full detail: `docs/SECURITY_REVIEW_INDEPENDENT.md` (S-17 through S-21 in
    two controls the product described but did not enforce made real; the
    entire rollout rehearsed end to end; the launch pages taken from **202
    accessibility violations to 0**; and two independent review passes.
-2. **Tests 574 → 615. Readiness 79 → 84.** `tsc`, `lint`, the full suite
+2. **Tests 574 → 624. Readiness 79 → 84.** `tsc`, `lint`, the full suite
    and a production build are green at every commit.
-3. **An independent reviewer found two Criticals in my own fixes, and both
-   were real.** Migrations 032/033 broke *every profile write in the app*
-   (an `.upsert()` fires BEFORE INSERT triggers even when the row exists),
-   and 034 broke *account deletion for every user* (the cascade tried to log
-   a rate-limit event for a user it had just deleted). Both reproduced on
-   staging, both fixed in **035**, both re-tested seven ways.
+3. **Two independent review passes found three Criticals in my own work,
+   and all three were real.** Migrations 032/033 broke *every profile write
+   in the app*; 034 broke *account deletion for every user*; and the
+   sentinel I introduced to fix a dishonest coach email violated a **live
+   CHECK constraint on production**, which would have broken every profile
+   write again. All three reproduced on staging before being fixed.
 4. **The rehearsal found four defects in the rollback half of the plan** —
    including step 8's, which could never have run at all. The plan now has
    runnable SQL everywhere and measured timings (218 ms forward).
@@ -110,9 +110,14 @@ Full detail: `docs/SECURITY_REVIEW_INDEPENDENT.md` (S-17 through S-21 in
    `main` is still `d059006` serving the 503. Production was read-only
    throughout.
 
-**The honest headline:** the two most dangerous bugs of the night were
-introduced by me, while fixing something else, and were caught by a second
-pair of eyes rather than by my own testing. That is now twice in two nights.
+**The honest headline:** every Critical tonight was introduced by me while
+fixing something else, and none was caught by my own testing — each took an
+independent pass. Night 1's reviewer found a family-takeover hole; Night 2's
+found that the fix for it broke every profile write; the verifier then found
+that *my fix for that* broke them again a different way. **Three nights,
+three fixes that carried new Criticals.** The pattern is not bad luck: it is
+that I verify the path I was thinking about and assume the rest. The review
+step is the only thing that has caught any of it.
 
 <details>
 <summary>Night 1's summary (2026-11-14)</summary>
@@ -1418,3 +1423,127 @@ I did about `parent_accounts`, `badges` and `friendships`, independently.
 **This is the second night running that an independent pass found a Critical
 in work I had already tested and written up as done. The review step is
 paying for itself every time.**
+
+## TASK F — self-check and a second verifier: **DONE, and it found another Critical**
+
+A second fresh agent verified the fixes from TASK E. It found **a Critical I
+introduced while fixing the previous Critical** — the third night running
+that a fix has carried a new one.
+
+### Critical — the `0` sentinel violates a live CHECK constraint
+
+`profiles_current_utr_check` (migration **006**, applied and live on
+production **now**) is:
+
+```sql
+check (current_utr is null or current_utr between 1 and 16.5)
+```
+
+So the sentinel I introduced to stop the coach email claiming a UTR —
+`currentUTR: 0` — goes straight into `writeCurrentPlayerProfile`'s upsert and
+raises **23514**. Reproduced on staging:
+
+```
+ERROR 23514: new row for relation "profiles" violates check constraint
+"profiles_current_utr_check"
+```
+
+Every profile write would have failed for any user with no UTR: a parent
+finishing signup and then editing anything, a player starring a school,
+saving weaknesses, requesting deletion. The old placeholder of 7 satisfied
+the constraint, so this was **new breakage introduced by the fix**.
+
+`utr_entries_utr_check` is `utr between 1 and 16.5` with **no NULL escape**,
+and `completeOnboarding` wrote `utr: finalized.currentUTR` with no `.catch` —
+so a player finishing onboarding without a rating hit 23514 as an unhandled
+rejection. Silent, on the path that creates an account.
+
+**Fixed:** `current_utr: player.currentUTR > 0 ? player.currentUTR : null`.
+0 in memory, NULL in the database, and the two round-trip. The onboarding
+entry is skipped when there is no rating, and both onboarding writes now
+have `.catch`. `lib/utr-sentinel.test.ts` transcribes the live predicate and
+fails if the sentinel can reach Postgres again.
+
+### High — the sentinel was leaking into six more screens
+
+The verifier's point was sharper than the bug list: *"fixed at the source,
+not the pixel" was correctly diagnosed, then repeated.* I had fixed display
+sites and the email, and left the arithmetic.
+
+- **`/events`** rendered the literal string **"Fit checked against UTR
+  0.00"**, unconditionally, above the empty state — the first thing a new
+  user sees on that page. The same 0 drove `evaluateTournamentFit`, which
+  clamps to 1 and then states the invented rating in prose: *"At UTR 1.0
+  this level's typical field would be a big step up."*
+- **`RangeBar`'s tooltip** still printed **"You 0.0 · Gap to median −12.1"**
+  — in the component I had edited. I made `youPct` nullable and hid the dot,
+  and left `you` and the tooltip. Two of its three callers were never
+  touched, so the dot sat at 0% on **all 68 school rows** and on `/plan`.
+- **`/plan`** produced four confident wrong answers from 0: a required pace
+  of **7.1/year**, a roadmap checkpoint of 5.5, a chart point at UTR 0, and
+  a "closest schools" list that was simply the five lowest-rated programs in
+  the catalog.
+- **The legacy design** — which ships and is reachable from the footer and
+  Settings → Appearance — showed a 6xl **"0.0"** under "Your current UTR"
+  with "+8.4 to reach your goal", a plan named **"0.0 UTR build week"**,
+  training hours computed from `0 + 2`, and every logged opponent counted as
+  "above your level".
+- **`parent-dashboard-view`** still used the parent's own graduation year,
+  target-school count, country and tournament counters as the player's.
+  **My claim that "all four views use `resolveFamilyPlayerFacts()`" was
+  false** — I had converted one line in that file and left the `??` on the
+  next.
+
+All fixed, each with the unknown case rendering an honest state rather than
+a number.
+
+### High — three rate-limit buckets were never counted
+
+034 switched every route to `peek_rate_limit`, which only reads. That is
+correct for a bucket whose table carries the trigger. It is wrong for
+`account_deletion`, `data_export` and `whop_checkout`, which describe an
+action and have no table behind them — so nothing ever incremented their
+counter. **`/api/account/export`, a full JSON dump of everything stored
+about a person, had no rate limit at all** while the policy still declared
+3/hour.
+
+Fixed: those three consume, the rest peek, and a test asserts the partition
+is **total** — a bucket counted by neither now fails the build.
+
+### Medium — two more ways past my SEO guard, and 035 breaking its own rule
+
+The verifier built a gate behind a **relative import** (`./inner`) and one in
+a **`template.tsx`**, and all ten of my tests passed. Both are closed —
+relative specifiers are resolved now, and the wrapper chain walks real
+directories (so route groups are included) collecting `layout.tsx` *and*
+`template.tsx`. I replanted both cases to confirm they fail.
+
+035's header argued at length that inline subqueries in that trigger are
+RLS-filtered and unsafe — and then did an inline `SELECT INTO` forty lines
+later, which sets its targets to NULL silently when no row matches. Routing
+it through a SECURITY DEFINER helper failed for a different reason: the
+trigger runs as `authenticated`, so the helper would have to be executable by
+every signed-in user — a consent-status oracle for any uuid. **The read is
+removed entirely.** `DO UPDATE SET` only assigns payload columns, consent is
+not one, and the UPDATE branch forces it from `old` regardless. The shortest
+correct code was none.
+
+### What the verifier confirmed
+
+All nine legacy contrast fixes, re-measured independently (4.62–5.57:1, none
+under 4.5). All five new/changed test blocks, mutation-tested. All four
+previously-claimed SEO closures, replanted. The pricing derivation is
+byte-identical to the hand-typed sentence. `setToast` is sound with no stale
+closure. **035's trigger loses no protection** — the UPDATE branch is
+byte-identical to 033's. No division by UTR anywhere. `getSchools()` = 68.
+
+### Verification after all of it
+
+`rm -rf .next && tsc && lint && vitest && build` — tsc clean, lint clean,
+**624 tests**, production build passes. axe still **0** across 10 pages × 2
+viewports, no blank screens, no raw error text. All seven staging acceptance
+checks re-run against the final trigger and passing.
+
+One self-inflicted build break along the way, caught by the build: my
+import-insertion script put an import above a `"use client"` directive.
+Fixed, and I checked every other touched file for the same thing.

@@ -33,7 +33,7 @@ import { DailyCheckinCard } from "./daily-checkin-card";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { localDateKey } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { cn, formatUTR } from "@/lib/utils";
+import { cn, formatUTR, hasRealUtr } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
@@ -496,12 +496,18 @@ function LegacyDashboardLayout({
               </svg>
               <p className="text-sm text-on-primary/80">Your current UTR</p>
               <div className="relative mt-1 text-6xl font-bold tracking-tight sm:text-7xl">
-                <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
+                {hasRealUtr(player.currentUTR) ? (
+                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
+                ) : (
+                  <span className="text-3xl font-semibold sm:text-4xl">Not tracked</span>
+                )}
               </div>
               <p className="relative mt-3 text-sm text-on-primary/80">
-                {targetUTR > player.currentUTR
-                  ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
-                  : "You're at or above your current goal"}
+                {!hasRealUtr(player.currentUTR)
+                  ? "Log a UTR to see how far you are from your goal."
+                  : targetUTR > player.currentUTR
+                    ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
+                    : "You're at or above your current goal"}
               </p>
               <Button
                 variant="outline"

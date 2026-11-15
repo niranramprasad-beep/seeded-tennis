@@ -632,7 +632,16 @@ export async function writeCurrentPlayerProfile(
     gender: player.gender,
     role: player.role,
     family_code: player.familyCode ?? null,
-    current_utr: player.currentUTR,
+    // NULL, not 0. `profiles_current_utr_check` (migration 006, live on
+    // production) is `current_utr is null or current_utr between 1 and 16.5`,
+    // so writing the 0 sentinel raises 23514 and every profile write fails
+    // for anyone who has not entered a UTR — found by a verification pass
+    // after the sentinel landed, reproduced on staging.
+    //
+    // This is also the more honest shape: "not tracked" is NULL in the
+    // database, 0 only in memory, and the two round-trip
+    // (NULL -> 0 via mapProfileToPlayer, 0 -> NULL here).
+    current_utr: player.currentUTR > 0 ? player.currentUTR : null,
     graduation_year: player.graduationYear,
     commitment_date: player.commitmentDate,
     target_school_slugs: player.targetSchoolSlugs,

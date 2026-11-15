@@ -145,6 +145,50 @@ describe("the route peeks and never consumes", () => {
     ).not.toContain("consume_rate_limit");
   });
 
+  it("CONSUMES for the three buckets that have no table behind them", async () => {
+    // These describe an action, not a table write, so no trigger ever fires
+    // for them. Peeking at a counter nothing increments means no limit at
+    // all — which is what /api/account/export had: a full JSON dump of
+    // everything stored about a person, with a declared limit of 3/hour
+    // that was never enforced.
+    for (const bucket of ["account_deletion", "data_export", "whop_checkout"] as const) {
+      const client = stubClient({ data: { allowed: true, remaining: 1 } });
+      await consumeRateLimit(client, bucket);
+      expect(client.calls, bucket).toEqual(["consume_rate_limit"]);
+    }
+  });
+
+  it("PEEKS for every bucket a table trigger counts", async () => {
+    for (const bucket of [
+      "profile_write",
+      "utr_entry",
+      "match_write",
+      "outreach_write",
+      "budget_write",
+      "training_write",
+    ] as const) {
+      const client = stubClient({ data: { allowed: true, remaining: 5 } });
+      await consumeRateLimit(client, bucket);
+      expect(client.calls, bucket).toEqual(["peek_rate_limit"]);
+    }
+  });
+
+  it("every bucket is either counted by a route or by a table trigger", async () => {
+    // The partition must be total: a bucket in neither set is unlimited,
+    // which is the bug this pair of tests exists to prevent.
+    const triggerBuckets = new Set([
+      "profile_write", "utr_entry", "match_write", "outreach_write",
+      "budget_write", "training_write",
+    ]);
+    const routeBuckets = new Set(["account_deletion", "data_export", "whop_checkout"]);
+    for (const bucket of RATE_LIMIT_BUCKETS) {
+      expect(
+        triggerBuckets.has(bucket) || routeBuckets.has(bucket),
+        `${bucket} is counted by nothing`
+      ).toBe(true);
+    }
+  });
+
   it("peeks exactly once per check", async () => {
     const client = stubClient({ data: { allowed: true, remaining: 5 } });
     await consumeRateLimit(client, "profile_write");

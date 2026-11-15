@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUtrOrNotTracked } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, LogOut, Palette, Users, User2 } from "lucide-react";
@@ -109,7 +110,7 @@ function LegacySettingsView() {
         </div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name} />
-          <Field label="Current UTR" value={player.currentUTR.toFixed(1)} />
+          <Field label="Current UTR" value={formatUtrOrNotTracked(player.currentUTR)} />
           <Field label="Grade" value={`${getCurrentGrade(player.graduationYear)}th grade`} />
           <Field label="Class of" value={String(player.graduationYear)} />
           <Field label="Gender" value={player.gender === "female" ? "Female" : "Male"} />
