@@ -355,4 +355,68 @@ and the file now lists the grades at the top.
 
 ---
 
-## TASK 4 — Privacy policy + terms: *in progress*
+## TASK 4 — Privacy policy + terms (draft): **DONE — REQUIRES LEGAL/ADULT REVIEW**
+
+`/privacy` is new; `/terms` now points at it instead of carrying a
+one-paragraph stand-in. Linked from the footer, the settings privacy card,
+the homepage footer, the pre-auth signup form, the signup wizard's final
+step, and both parent-consent cards.
+
+### Every claim is sourced, and the build checks it
+
+The content is **data**, in `lib/legal/policy.ts`, and each section carries a
+`source` naming the file or migration that makes it true.
+`lib/legal/policy.test.ts` (15 tests) then checks the code still does what
+the policy says:
+
+| policy claim | what the test checks |
+|---|---|
+| deletion is immediate | `029` contains `delete from auth.users`, and the route's zod schema has no `cancel`/`request` action |
+| under-13 accounts are inert | `030` has `as restrictive for all to authenticated` + `account_active()` |
+| nothing is publicly visible | `027` drops `profiles_discovery_read` |
+| Seeded never sends coach email | `lib/db/schools.ts` references no Gmail API |
+| the processor list is complete | Supabase, Vercel, Whop, Google Analytics, Google all named |
+| no removed processor is listed | no Gemini, Stripe or OpenAI anywhere |
+| no email promise | no "we'll email you" (P0-7's rule) |
+| no claimed verification | no "verified parent", and it says "cannot verify" explicitly |
+| no retention promise we don't keep | no "within N days" |
+
+It also checks every file path cited in a `source` exists — which caught two
+mistakes in my own test (a regex that truncated `.tsx` to `.ts`, and a
+`"cancel"` check matching a comment rather than code).
+
+A privacy policy that drifts from the product is the most expensive kind of
+stale copy: a written promise about children's data that nobody re-reads
+after the code changes underneath it.
+
+### What it says, in short
+
+Everything stored and why (birth year exists for exactly one reason — the
+under-13 check); that nothing is visible to any other user and there is no
+public profile or directory; that under-13 accounts do nothing until an adult
+approves, enforced in the database; that **Seeded cannot verify anyone is an
+adult, and whoever approves is stating it**; the five processors and nothing
+else; that coach email is a compose link we never send; that deletion is
+immediate and irreversible; and that export is two clicks away with no reason
+required.
+
+### ⚠️ Not reviewed by a lawyer
+
+`docs/TODO.md` now carries seven specific items, headed by the one that could
+change the product: **whether our consent mechanism satisfies COPPA's
+"verifiable parental consent" at all.** It may not. If it does not, the
+options are real verification or refusing under-13 accounts — and that is a
+decision for an adult, not for me.
+
+Also flagged: `support@seededtennis.com` must exist and be monitored before
+launch, because the policy tells parents to use it for requests about their
+child.
+
+### Verification
+
+`tsc` clean · `lint` clean · **568 tests pass** · build passes (`/privacy`
+renders at 187 B static).
+
+---
+
+## TASK 5 — Independent security review: *running in a separate agent*

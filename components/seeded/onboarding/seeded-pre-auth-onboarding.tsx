@@ -624,7 +624,13 @@ function SaveReportAside({
           <SeededButton className="mt-4.5 w-full" onClick={save} disabled={submitting} loading={submitting}>
             Save and build my plan
           </SeededButton>
-          <p className="mt-3 text-center text-xs text-stone">No card. We never sell player data.</p>
+          <p className="mt-3 text-center text-xs text-stone">
+            No card. We never sell player data.{" "}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-grass">
+              Privacy policy
+            </Link>
+            .
+          </p>
         </>
       )}
     </aside>

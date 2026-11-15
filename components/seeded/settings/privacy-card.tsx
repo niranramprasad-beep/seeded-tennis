@@ -110,7 +110,7 @@ export function PrivacyCard({
 
       <p className="mt-4 text-sm text-stone">
         We never sell player data.{" "}
-        <Link href="/terms#privacy" className="text-grass underline underline-offset-2">
+        <Link href="/privacy" className="text-grass underline underline-offset-2">
           Privacy policy (incl. minors)
         </Link>
       </p>

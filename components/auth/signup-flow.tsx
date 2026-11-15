@@ -25,6 +25,7 @@ import {
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { GoogleButton, GoogleDivider } from "./auth-card";
+import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
 
 const COUNTRIES = [
@@ -579,6 +580,18 @@ export function SignupFlow({
             </Button>
           )}
         </div>
+
+        <p className="mt-5 text-center text-xs text-stone">
+          {SIGNUP_CONSENT_NOTE.replace("the Terms and the Privacy policy.", "")}
+          <Link href="/terms" className="underline underline-offset-2 hover:text-grass">
+            Terms
+          </Link>{" "}
+          and the{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-grass">
+            Privacy policy
+          </Link>
+          .
+        </p>
 
         <p className="mt-6 text-center text-sm text-stone">
           Already have an account?{" "}

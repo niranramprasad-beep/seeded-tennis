@@ -28,7 +28,7 @@ const COLUMNS = [
     title: "Support",
     links: [
       { href: "/contact", label: "Contact" },
-      { href: "/terms#privacy", label: "Privacy" },
+      { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
     ],
   },

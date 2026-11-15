@@ -668,7 +668,7 @@ function HomeFooter() {
         <Link href="/how-it-works" className="hover:text-grass">
           About
         </Link>
-        <Link href="/terms#privacy" className="hover:text-grass">
+        <Link href="/privacy" className="hover:text-grass">
           Privacy (incl. minors)
         </Link>
         <Link href="/terms" className="hover:text-grass">

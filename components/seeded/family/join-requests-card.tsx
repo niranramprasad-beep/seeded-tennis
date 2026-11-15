@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { UserPlus } from "lucide-react";
 import {
@@ -133,7 +134,11 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
                 </p>
                 <p className="mt-1.5 text-xs text-stone">
                   Seeded can&rsquo;t verify that you are an adult or that you are this
-                  player&rsquo;s parent. Approving is you stating it.
+                  player&rsquo;s parent. Approving is you stating it.{" "}
+                  <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+                    What we store
+                  </Link>
+                  .
                 </p>
               </div>
             ) : (
@@ -183,7 +188,11 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               <p className="mt-1.5 text-xs text-stone">
                 Seeded can&rsquo;t verify that you are an adult or that you are this
                 player&rsquo;s parent. Giving consent is you stating it. Only a parent account
-                can do this.
+                can do this.{" "}
+                <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+                  What we store
+                </Link>
+                .
               </p>
               <div className="mt-3">
                 <SeededButton

@@ -107,6 +107,39 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
 
 ---
 
+## What a lawyer has to check before launch (P0-8)
+
+`/privacy` and `/terms` are a careful, verified description of what the
+software does, written by Claude. **They are not legal advice and no lawyer
+has read them.** `lib/legal/policy.ts` carries a source for every claim and
+`lib/legal/policy.test.ts` fails the build when one stops being true — but
+"accurate about the code" and "legally sufficient" are different standards.
+
+Specifically needs a human with legal training:
+
+1. **COPPA.** Users are 13–18 and under-13s are allowed with a parent's
+   approval. Our mechanism is: the account is inert until an adult in the
+   family states they are the parent. **Seeded verifies nothing** — the
+   policy says so plainly. Whether "verifiable parental consent" under COPPA
+   is satisfied by that is the central legal question, and the answer may be
+   no. If it is no, the options are real verification (card, ID, signed
+   form) or refusing under-13 accounts outright.
+2. **Who the controller is**, and whether a US-only product needs GDPR/UK
+   wording. We make no claim either way right now.
+3. **State minor-privacy laws** (California's Age-Appropriate Design Code
+   and equivalents) — data minimisation, default privacy settings, and
+   whether a 15-year-old can consent for themselves.
+4. **The terms themselves**: liability, disclaimers, arbitration, governing
+   law. The current /terms is five short paragraphs and reads as a product
+   summary, not a contract.
+5. **Retention.** We keep data until the account is deleted, with no expiry.
+   That is simple and honest; whether it is lawful for minors' data is not
+   for us to say.
+6. **The contact address** `support@seededtennis.com` must actually exist and
+   be monitored before launch — the policy tells parents to use it for data
+   requests about their child.
+7. **Processor agreements** with Supabase, Vercel and Whop (DPAs).
+
 ## Dependency debt
 
 - **`next` critical + `postcss` high need a Next.js major.** Both are
