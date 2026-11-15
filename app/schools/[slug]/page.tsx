@@ -39,13 +39,18 @@ export async function generateStaticParams() {
   return schools.map((s) => ({ slug: s.slug }));
 }
 
+// Next 15: `params` is a Promise. Dynamic APIs (params, searchParams,
+// cookies, headers) became async so a page can start streaming before the
+// router has finished resolving them. Awaited once here rather than threaded
+// through — nothing below needs it lazily.
 export default async function SchoolDetailPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
   const [school, allSchools] = await Promise.all([
-    getSchool(params.slug),
+    getSchool(slug),
     getSchools(),
   ]);
   if (!school) notFound();

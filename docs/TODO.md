@@ -142,7 +142,12 @@ Specifically needs a human with legal training:
 
 ## Dependency debt
 
-- **🔴 `next` needs a major upgrade, and it is 25 advisories, not one.**
+- ✅ **DONE 2026-11-15: `next` upgraded 14.2.35 → 15.5.29.** All 25 advisories
+  cleared; production dependencies are now at **zero** vulnerabilities (a
+  postcss override handles the copy bundled inside next). See
+  `docs/DECISIONS.md`. The entry below is kept for the record of what the
+  exposure was.
+- ~~**`next` needs a major upgrade, and it is 25 advisories, not one.**~~
   3 critical, 9 high, 11 moderate, 2 low, bundled into a single `npm audit`
   finding. **Top of Week 1, before the first paying customer.** Several are
   in scope for a Vercel App Router app: cache confusion of response bodies,
@@ -158,10 +163,11 @@ Specifically needs a human with legal training:
   the newest 14.2.x, so there is no patch inside the major. Plan a
   `next@16` + `eslint-config-next@16` upgrade as its own piece of work, with
   the App Router breaking changes read first. **Week 1, not launch-blocking.**
-- Dev-only vulnerabilities after this pass: 2 critical, 5 high, 8 moderate
-  (`vitest`/`vite`/`tinypool` chain, `eslint-config-next` → `glob`). They
-  affect the test runner and the linter, not anything shipped. Clearing them
-  means upgrading vitest to 2.x/3.x, which is its own migration.
+- **Dev-only vulnerabilities remaining: 2 critical, 2 high, 8 moderate**
+  (`vitest` → `vite` → `tinypool`, plus `brace-expansion`). Down from 3/6/8.
+  Nothing here ships — it is the test runner and the linter. vitest 5 will
+  not install without `--legacy-peer-deps` and is four majors of migration.
+  Week 2, not launch-blocking.
 
 ## Smaller things worth not forgetting
 

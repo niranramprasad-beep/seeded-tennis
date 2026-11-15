@@ -129,18 +129,22 @@ production's there while the browser talks to staging is worse than either
 alone, because server routes would write to production while the UI shows
 staging. **Until this is done, nobody should sign in locally.**
 
-**b. `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` in Vercel → Production.** Without
-it the Google button does not render. Set it **last**, after (c) — with the
-flag on and the provider off, the button appears and Supabase refuses.
+**b. `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` in Vercel → Production.** The
+last thing you do, after the deploy is live. Without it the Google button
+does not render.
 
-**c. Enable the Google provider in Supabase → Authentication → Providers →
-Google.** Add the client ID and secret from the Google console, and add the
-redirect URL **`https://seededtennis.com/auth/callback`** to Supabase's
-allowlist *and* to the Google console's "Authorised redirect URIs".
+~~**c. Enable the Google provider in Supabase.**~~ **Already done** —
+corrected 2026-11-15. The provider is enabled in Supabase production, the
+Google Cloud redirect URI is
+`https://tfpjssmhiptbwigarxpx.supabase.co/auth/v1/callback` and **must stay
+that way** (Supabase handles the OAuth round trip, then redirects on to
+`seededtennis.com/auth/callback`, which the existing
+`https://seededtennis.com/**` allowlist entry already covers). Nothing to
+change here; do not "fix" the Google Cloud URI to point at seededtennis.com.
 
-**d. Google OAuth consent screen** needs a privacy policy URL and a terms
-URL. They now exist: `https://seededtennis.com/privacy` and
-`https://seededtennis.com/terms`.
+~~**d. Google consent-screen privacy/terms URLs.**~~ **After launch** — the
+pages have to be live before Google will accept them. `/privacy` and
+`/terms` ship in this release, so add the links once the deploy is up.
 
 **e. `support@seededtennis.com` must exist and be monitored.** The privacy
 policy tells parents to use it for requests about their child. A published
@@ -214,7 +218,8 @@ and that `/outreach` unlocks.
 
 **Blocks launch**
 - `.env.local` → staging (above)
-- Google provider + flag + redirect URLs (above)
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true`, last (above). The provider itself
+  is already enabled and the redirect URI is already correct.
 - `support@seededtennis.com` live (above)
 - The production rollout itself (§J)
 

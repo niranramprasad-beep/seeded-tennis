@@ -7,6 +7,69 @@ Newest first.
 
 ---
 
+## 2026-11-15 — next@15, not next@16
+
+**Decision.** Upgraded `next` 14.2.35 → **15.5.29** (and
+`eslint-config-next` to match). React stays on 18.
+
+**Why.** The brief asked for the smallest version that clears every
+critical/high `next` advisory. 15.5.29 does: the `next` finding drops from
+**25 advisories (3 critical, 9 high, 11 moderate, 2 low) to zero criticals
+and zero highs**. Going to 16 as `npm audit fix --force` suggested would
+have pulled a second major's worth of breaking changes for no additional
+security benefit, and 16 removes `next lint` entirely, which is a separate
+migration.
+
+Only one breaking change actually bit: `params` is a Promise in Next 15
+(`app/schools/[slug]/page.tsx`). Dynamic APIs went async so a page can start
+streaming before the router finishes resolving them. No `cookies()`,
+`headers()` or `searchParams` call sites existed to migrate, and the caching
+default change does not affect us — nothing relied on the old implicit
+`fetch` cache.
+
+**How to undo.** `npm i next@14.2.35 eslint-config-next@14.2.35` and revert
+the `await params` change. You would be re-accepting 25 advisories.
+
+---
+
+## 2026-11-15 — Pin postcss with an npm override
+
+**Decision.** Added `overrides: { postcss: "^8.5.23" }` and lifted the direct
+devDependency to match.
+
+**Why.** `next@15.5.29` bundles `postcss@8.4.31` at
+`node_modules/next/node_modules/postcss`, which carries two **high**
+advisories — arbitrary file read via an attacker-controlled
+`sourceMappingURL`, and path traversal in previous source-map auto-loading.
+npm's only offered fix was `next@16`, a major, for a transitive package that
+an override fixes outright. npm refused the override while the direct
+devDependency range conflicted, so that was lifted to the same line; both now
+resolve to 8.5.33.
+
+**Result: production dependencies have ZERO vulnerabilities**, down from
+1 critical + 1 high (29 advisories between them).
+
+**How to undo.** Delete the `overrides` block. Re-check it whenever `next` is
+upgraded — once next ships a safe postcss itself, the override is dead weight.
+
+---
+
+## 2026-11-15 — Left the vitest chain on 1.6.1
+
+**Decision.** Did not upgrade vitest. The remaining dev-only vulnerabilities
+(2 critical, 2 high: `vitest`, `tinypool`, `vite`, `brace-expansion`) stay.
+
+**Why.** vitest 5 cannot be installed without `--legacy-peer-deps` or
+`--force` against the current tree, and the brief rules out forced
+resolutions. It is also four majors of test-runner migration. None of it
+ships: these affect the test runner and the linter, not a single byte served
+to a user. **Production deps are at zero**, which was the actual bar.
+
+**How to undo.** `npm i -D vitest@5 --legacy-peer-deps`, then expect config
+and API migration work. Tracked in docs/TODO.md.
+
+---
+
 ## 2026-11-14 — Rewrote two lines of the pricing mockup's copy
 
 **Decision.** The spec's footer line is "Cancel in two clicks. Accounts for
