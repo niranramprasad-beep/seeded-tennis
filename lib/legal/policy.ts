@@ -42,7 +42,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     body: [
       "When you make an account we store your name, email address, the year you were born, whether you are a player or a parent, and your family code. The birth year is there for one reason: to know whether you are under 13, because under-13 accounts need a parent's permission before they work.",
       "If you are a player, you also give us tennis details so the product can do anything useful: your UTR, graduation year, grade, gender for team comparison, country, home area, GPA if you enter one, and a link to your UTR profile if you add one. Seeded never fetches anything from UTR — every rating here is one you typed in.",
-      "As you use Seeded we store what you create: UTR check-ins, match results, tournaments you track, schools you save, coach-outreach notes and stages, daily check-ins, training plans, your recruiting checklist, and your settings. If your family uses the season budget, we store the budget and its expenses.",
+      "As you use Seeded we store what you create: UTR check-ins, match results, tournaments you track, schools you save, coach-outreach notes and stages, daily check-ins, your training calendar, your recruiting checklist, and your settings. If your family uses the season budget, we store the budget and its expenses.",
       "We do not collect your location, your contacts, your photos, or anything from your device beyond what your browser sends with an ordinary web request.",
     ],
   },

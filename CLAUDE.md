@@ -93,9 +93,13 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   - **Never delete `WHOP_PLAN_PLAYER` / `WHOP_PLAN_FAMILY`.** They are the
     legacy $19/$39 plans people are still subscribed on, kept resolve-only:
     `tierForPlanId()` maps them, `planIdFor()` never sells them.
-  - **The local Whop API key cannot read this account's memberships** (401 on
-    `memberships.list`). `/api/whop/membership` and `/api/whop/sync` both
-    depend on that call. Check the key before believing either works.
+  - **The Whop API key works again (re-tested 2026-11-15).** Niran rolled it;
+    the current Owner-role key returns 200 on `memberships.list` and on
+    `webhooks.retrieve` for `hook_ActwvOQFQX4Pm`. The old key's blanket 401
+    is what made `/api/whop/membership` return `null` and `/api/whop/sync`
+    report `whop-unreachable` — that diagnosis is spent, so don't repeat it.
+    One real quirk remains: `plans.list` needs `account_id`, not
+    `company_id`.
 - P1-SEC-1/P1-SEC-5: DONE — the Gemini copilot and Stripe routes are deleted. V1 ships no AI feature. **The Gemini and Stripe keys still need revoking at the provider.**
 
 ## Always

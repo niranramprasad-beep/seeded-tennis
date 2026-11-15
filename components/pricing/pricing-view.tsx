@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
@@ -13,6 +13,8 @@ import {
   type BillingInterval,
   type SubscriptionTier,
 } from "@/lib/types";
+import type { CatalogCounts } from "@/lib/db/schools";
+import { seededCardHeading } from "@/components/seeded/ui/heading";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
@@ -45,17 +47,24 @@ function cadenceLabel(tier: SubscriptionTier, interval: BillingInterval): string
   return interval === "yearly" ? "per year" : "per month";
 }
 
-const PLANS: Plan[] = [
+// Counted from the catalogue and passed in from the server component, never
+// typed into the copy — see getCatalogCounts() in lib/db/schools.ts for why.
+function browseLine(c: CatalogCounts): string {
+  return `Browse ${c.total} ${c.divisionLabel} programs — ${c.men} men's, ${c.women} women's`;
+}
+
+function plansFor(c: CatalogCounts): Plan[] {
+  return [
   {
     tier: "free",
     name: "Free",
     tagline: "See where you fit.",
     // P0-7: this said "Browse all D1 tennis programs" / "Explore every
-    // program". The catalog is 68 programs (54 D1, 6 D2, 8 D3) against ~1,100
-    // real D1 programs alone. Quote the real number — and change this copy
-    // when the data changes (P1-DATA-1), not before.
+    // program". The catalog is a fraction of ~1,100 real D1 programs alone.
+    // Quote the real number — and change the DATA (P1-DATA-1), not this
+    // sentence, when that changes.
     highlights: [
-      "Browse 68 D1, D2 and D3 programs",
+      browseLine(c),
       "Team UTR estimates & academic rankings",
       `Track ${FREE_TIER_TARGET_SCHOOL_LIMIT} target schools`,
       "Full school detail pages",
@@ -89,7 +98,8 @@ const PLANS: Plan[] = [
       "Weekly family report",
     ],
   },
-];
+  ];
+}
 
 interface Row {
   label: string;
@@ -98,11 +108,12 @@ interface Row {
   family: boolean;
 }
 
-const MATRIX: { group: string; rows: Row[] }[] = [
+function matrixFor(c: CatalogCounts): { group: string; rows: Row[] }[] {
+  return [
   {
     group: "Discover",
     rows: [
-      { label: "Browse 68 D1/D2/D3 programs", free: true, player: true, family: true },
+      { label: browseLine(c), free: true, player: true, family: true },
       { label: "Team UTR estimates & rankings", free: true, player: true, family: true },
       { label: "School detail pages", free: true, player: true, family: true },
       { label: "Tournament fit checker", free: true, player: true, family: true },
@@ -120,7 +131,12 @@ const MATRIX: { group: string; rows: Row[] }[] = [
     rows: [
       { label: "Personal roadmap", free: false, player: true, family: true },
       { label: "Year-by-year UTR targets", free: false, player: true, family: true },
-      { label: "Weekly training plan", free: false, player: true, family: true },
+      // Was "Weekly training plan". Seeded does not generate training plans
+      // and is not going to — "No auto-generated training plans, manual
+      // calendar only" is a non-negotiable in CLAUDE.md. What exists is a
+      // calendar you fill in yourself, so that is what it is called.
+      // lib/copy-honesty.test.ts fails the build if the old phrase returns.
+      { label: "Training calendar", free: false, player: true, family: true },
       { label: "What-if school planner", free: false, player: true, family: true },
     ],
   },
@@ -143,7 +159,8 @@ const MATRIX: { group: string; rows: Row[] }[] = [
       { label: "Weekly family report", free: false, player: false, family: true },
     ],
   },
-];
+  ];
+}
 
 async function getAccessToken(): Promise<string | undefined> {
   const supabase = getSupabase();
@@ -151,11 +168,13 @@ async function getAccessToken(): Promise<string | undefined> {
   return data.session?.access_token;
 }
 
-export function PricingView() {
+export function PricingView({ counts }: { counts: CatalogCounts }) {
   const { design } = useDesign();
   const isSeeded = design === "seeded";
   const { tier } = useTier();
   const { isAuthed, hydrated } = usePlayer();
+  const PLANS = useMemo(() => plansFor(counts), [counts]);
+  const MATRIX = useMemo(() => matrixFor(counts), [counts]);
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState("");
@@ -173,7 +192,10 @@ export function PricingView() {
   const choose = async (t: SubscriptionTier) => {
     // Signed-out visitors need an account first — nothing to bill yet.
     if (!hydrated || !isAuthed) {
-      router.push("/signup");
+      // Except on Free, where there is nothing to bill at all: the free
+      // thing is the fit report, so take them to it instead of to a signup
+      // form for a plan they already have by default.
+      router.push(t === "free" ? "/onboarding" : "/signup");
       return;
     }
 
@@ -276,7 +298,17 @@ export function PricingView() {
       {/* plan cards */}
       <div className="mt-8 grid items-start gap-5 lg:grid-cols-3">
         {PLANS.map((plan, i) => {
-          const current = tier === plan.tier;
+          // `tier` from useTier() is "free" for a signed-out visitor as well
+          // as for a signed-in free user — it has no third state. So the
+          // Free card badged itself "Current plan" and disabled its own
+          // button for every stranger who had never heard of Seeded, which
+          // is both wrong and the worst possible CTA on the page.
+          //
+          // "Current" is now gated on actually being signed in. While the
+          // session is still hydrating nobody is "current" either, so the
+          // card never flickers from a claim to a CTA.
+          const signedIn = hydrated && isAuthed;
+          const current = signedIn && tier === plan.tier;
           // Any plan ranked at or below what the user already has must
           // never be a live checkout target — clicking Player while already
           // on Family would start a brand-new Whop checkout for a tier
@@ -355,7 +387,13 @@ export function PricingView() {
                     ? "Current plan"
                     : includedAlready
                       ? "Included in your plan"
-                      : `Choose ${plan.name}`}
+                      : // A stranger on the Free card is not "choosing a
+                        // plan", they are starting — and the fit report is
+                        // the free thing, so send them to it rather than to
+                        // a signup form with nothing behind it yet.
+                        !signedIn && plan.tier === "free"
+                        ? "Start free"
+                        : `Choose ${plan.name}`}
               </Button>
 
               <ul className="mt-6 space-y-3 border-t-[0.5px] border-line pt-6">
@@ -389,10 +427,10 @@ export function PricingView() {
 
       <FadeIn className="mt-14">
         <div className="rounded-xl border border-line bg-subtle p-6 text-center">
-          <h2 className="font-seeded text-lg font-semibold text-ink">
+          <h2 className={cn(seededCardHeading, "text-lg sm:text-xl")}>
             What stays free, always
           </h2>
-          <p className="mx-auto mt-2 max-w-[560px] text-sm text-stone">
+          <p className="mx-auto mt-2 max-w-[560px] text-pretty text-sm text-stone">
             Every school page, your first fit report, and{" "}
             <Link href="/methodology" className="text-grass underline underline-offset-2">
               our methodology
@@ -404,7 +442,7 @@ export function PricingView() {
 
       {/* comparison table */}
       <FadeIn className="mt-16">
-        <h2 className="text-center text-2xl font-light tracking-tight text-ink">
+        <h2 className={cn(seededCardHeading, "text-center")}>
           Compare every feature
         </h2>
         {/* A 640px table in a 350px viewport scrolls horizontally, and a

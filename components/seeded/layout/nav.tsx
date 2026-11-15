@@ -25,6 +25,21 @@ const MARKETING_LINKS: NavLink[] = [
 // Plain static header (no fixed-over-hero/scroll-shrink/glass backdrop) —
 // every one of the 11 mockups shows a simple bordered top bar in normal
 // document flow, not the ambient floating nav the old Seeded design used.
+//
+// THE HEADER USED TO WRAP TO TWO ROWS AT EVERY DESKTOP WIDTH, and the cause
+// was not "not enough room". The nav had `flex-wrap`, and TWO `flex-1`
+// children: the links list and an empty `aria-hidden` spacer div. Two equal
+// flex-1 siblings split the free space 50/50, so the links were handed
+// exactly half of it — measured at 1440px: a 360px box holding ~480px of
+// links, next to a 360px box holding nothing. `flex-wrap` then did the
+// obvious thing and dropped "For parents" and "Pricing" onto a second row,
+// making the header 94px tall instead of 65px on six pages.
+//
+// So: the spacer is gone, `flex-wrap` is gone, every link is
+// `whitespace-nowrap`, and the end group is `shrink-0` so the links shrink
+// before the sign-in/CTA pair ever does. There is a measured regression test
+// for this — scripts/ui-audit.mjs records `distinctTops` and header height
+// per width, and docs/screenshots/polish/after.json is the record.
 export function SeededNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -35,11 +50,11 @@ export function SeededNav() {
     <header className="border-b border-line bg-cream">
       <nav
         aria-label="Main"
-        className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-6 px-6 py-3.5"
+        className="mx-auto flex max-w-[1200px] flex-nowrap items-center gap-5 px-6 py-3.5 xl:gap-6"
       >
         <Link
           href="/"
-          className="flex items-center gap-2 font-seeded text-xl font-bold text-ink"
+          className="flex shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
           onClick={() => setOpen(false)}
         >
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">
@@ -49,31 +64,35 @@ export function SeededNav() {
           Seeded
         </Link>
 
-        <div className="hidden flex-1 flex-wrap gap-5 text-[15px] lg:flex">
+        <div className="hidden min-w-0 flex-1 items-center gap-4 text-[15px] lg:flex xl:gap-5">
           {MARKETING_LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={cn("text-ink hover:text-grass", isActive(l.href) && "font-semibold text-grass")}
+              className={cn(
+                "whitespace-nowrap text-ink hover:text-grass",
+                isActive(l.href) && "font-semibold text-grass"
+              )}
             >
               {l.label}
             </Link>
           ))}
         </div>
-        <div className="hidden flex-1 lg:block" aria-hidden={true} />
 
-        <Link href="/login" className="hidden text-[15px] text-ink hover:text-grass lg:inline">
-          Sign in
-        </Link>
-        <Link
-          href="/onboarding"
-          className="hidden min-h-11 items-center justify-center gap-2 rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600 lg:inline-flex"
-        >
-          Get my free fit report
-        </Link>
+        <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-5">
+          <Link href="/login" className="whitespace-nowrap text-[15px] text-ink hover:text-grass">
+            Sign in
+          </Link>
+          <Link
+            href="/onboarding"
+            className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+          >
+            Get my free fit report
+          </Link>
+        </div>
 
         <button
-          className="ml-auto flex h-11 w-11 items-center justify-center rounded-lg border border-transparent text-ink hover:border-line lg:hidden"
+          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink hover:border-line lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >

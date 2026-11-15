@@ -49,16 +49,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
-  // Seeded's pre-auth onboarding (Onboarding.dc.html), the Methodology page
-  // (Methodology.dc.html), and the sample parent report (pixel-exact to
-  // "12 Sample parent report.png") each have their own dedicated, simpler
-  // header — neither of which shows the standard marketing nav above it.
-  // Scoped to these routes; every other signed-out marketing page keeps the
-  // shared SeededNav. Also keeps /sample-report's own minimal header from
-  // ever stacking under the full nav, which matters here specifically: this
-  // route must never look like it's part of the authenticated app chrome.
-  const hideSeededNav =
-    isSeeded && (pathname === "/onboarding" || pathname === "/methodology" || pathname === "/sample-report");
+  // /onboarding and /methodology used to be listed here too, each rendering
+  // its own cut-down header instead. That was the mockups' structure, and on
+  // a real site it meant the two pages a visitor is most likely to land on
+  // from search had no navigation at all: /methodology offered a logo and a
+  // CTA and no way to reach Schools or Pricing, and /onboarding's first
+  // screen had no <header> element whatsoever — measured, not guessed
+  // (docs/screenshots/polish/before.json records NO-HEADER at 375, 1024 and
+  // 1440). Both now get the shared SeededNav like every other public page,
+  // and their bespoke headers have been removed so nothing stacks.
+  //
+  // /sample-report keeps its own header on purpose: it is a standalone
+  // artefact of what the weekly parent report looks like, and must never
+  // read as part of the authenticated app chrome.
+  const hideSeededNav = isSeeded && pathname === "/sample-report";
   useScrollToTopOnRouteChange(pathname);
 
   return (

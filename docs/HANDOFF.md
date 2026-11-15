@@ -1984,9 +1984,34 @@ That restores the duplicate rows and the wrong "account holder" label; nothing
 else depends on this function's shape.
 
 ### Step 14c — migration 039 (removal for profile-only members; `parent_reports` stops being client-writable)
-**Ships with 036 + 037 + 038.** Both halves were found by the independent
-verification pass that followed the third rehearsal, and both were measured
-against **production's real data, read-only**.
+**Ships with 036 + 037 + 038. Not optional, and not droppable** — Niran
+confirmed on 2026-11-15 that 039 ships. There is no "launch at seventeen"
+path; an earlier draft of the go sequence carried one and it has been
+deleted.
+
+**Rehearsed in position, not bolted on.** 039 was written after the third
+rehearsal had already run, so the obvious question is whether it was ever
+exercised in sequence from production's 23-migration shape. It was. Staging's
+migration ledger records the whole run in ascending order with nothing after
+it:
+
+```
+r3_step01_025 … r3_step13_036 → r3_step14_037 → r3_step14b_038 → r3_step14c_039
+```
+
+Re-measured against that end state on 2026-11-15, as a real `authenticated`
+member rather than as `postgres`: an approved member reads **1** `profiles`
+row, the roster returns **7 rows / 7 distinct / exactly 1 holder**, a
+profile-only member removes cleanly
+(`{"status":"removed","link_removed":false,"family_code_cleared":true}`), the
+account holder is still refused `22023`, and `parent_reports` INSERT is
+refused **42501 as an approved parent AND as a sibling player** while the
+family can still read the table. Every mutating probe ran inside a
+transaction that was rolled back, so staging is unchanged.
+
+Both halves were found by the independent verification pass that followed the
+third rehearsal, and both were measured against **production's real data,
+read-only**.
 
 **1. A member with no `parent_accounts` row could never be removed.**
 `remove_family_member()` deletes from `parent_accounts` and raises when
@@ -2187,24 +2212,31 @@ returns 503. Since 2026-11-14 that blocks both new deliveries and any replay.
 It post-dates both payments, so it is not the cause — but it must be fixed
 before any replay is attempted, or the replay will fail too.
 
-### What could not be checked, and why
+### What could not be checked, and why — RESOLVED 2026-11-15
 
-The local `WHOP_API_KEY` **cannot read this account's own data.**
-`plans.list({product_ids})` works (public pricing); `memberships.list`,
-`webhooks.list` and `webhooks.retrieve` all return **401 Authentication
-failed**, including when scoped to `biz_UskbjibeFag2Pv`. So the webhook's
-`api_version` and `created_at` could not be confirmed from the API — the
-diagnosis above rests on the dashboard facts plus the SDK's own definitions.
+**This section described a key that no longer exists.** It said the local
+`WHOP_API_KEY` could not read this account's own data: `memberships.list`,
+`webhooks.list` and `webhooks.retrieve` all returned **401 Authentication
+failed**, even scoped to `biz_UskbjibeFag2Pv`, so the webhook's
+`api_version` could not be confirmed from the API and both
+`/api/whop/membership` and `/api/whop/sync` were effectively dead.
 
-This matters beyond diagnosis:
-- `/api/whop/membership` already silently returns `null` on any API failure,
-  so the billing tab has probably never shown a renewal date or a manage
-  link.
-- `/api/whop/sync` (the new safety net) needs `memberships.list`. With a key
-  like this one it returns `whop-unreachable` and changes nothing — honest,
-  but useless.
+Niran rolled the key. Re-tested on the current Owner-role key: both
+`memberships.list` and `webhooks.retrieve` on `hook_ActwvOQFQX4Pm` return
+**200**. So:
 
-**If production uses this same key, fix the key before trusting either.**
+- `/api/whop/membership` can now actually populate the billing tab.
+- `/api/whop/sync` can now actually reconcile a membership, which makes it a
+  real safety net rather than an honest no-op.
+- The webhook's `api_version` IS checkable from the API now — worth doing as
+  step 0 of §K rather than trusting the dashboard's rendering of it.
+
+One genuine quirk survives and is not an auth problem: **`plans.list` takes
+`account_id`, not `company_id`.** A `company_id` call fails in a way that
+looks like the old 401 and is not.
+
+The original 401 diagnosis is kept above because it explains two years of
+`null` billing data, not because it is still true. Do not re-derive it.
 
 ### Dashboard changes — Niran's, in order
 

@@ -300,7 +300,7 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
                 <StepShell
                   eyebrow="Your game"
                   title="What do you want to improve?"
-                  subtitle="We'll weight your training plan toward these. Choose as many as you like."
+                  subtitle="Seeded highlights these when you plan your week. Choose as many as you like."
                 >
                   <div className="mt-8 grid gap-3 sm:grid-cols-2">
                     {WEAKNESS_OPTIONS.map((w) => {

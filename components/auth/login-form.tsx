@@ -73,16 +73,18 @@ export function LoginForm() {
       subtitle="Pick up where you left off."
       error={authError ?? error}
       google={{ next: next ?? undefined }}
+      // One sign-in for everyone. There used to be a second "Parent sign
+      // in" link to /parent-login, which asked a visitor to classify
+      // themselves before authenticating — and got it wrong often enough to
+      // matter, since the only thing that actually decides what you see is
+      // `profiles.role`, resolved after sign-in either way. The two forms
+      // posted the same credentials to the same endpoint. Parent SIGNUP is
+      // still its own choice on /signup, because that genuinely creates a
+      // different kind of account.
       footer={
-        <>
-          <p>
-            New here? <AuthFooterLink href="/signup">Create an account</AuthFooterLink>
-          </p>
-          <p className="mt-2">
-            Following your child?{" "}
-            <AuthFooterLink href="/parent-login">Parent sign in</AuthFooterLink>
-          </p>
-        </>
+        <p>
+          New here? <AuthFooterLink href="/signup">Create an account</AuthFooterLink>
+        </p>
       }
     >
       {searchParams.get("confirmed") === "1" && (

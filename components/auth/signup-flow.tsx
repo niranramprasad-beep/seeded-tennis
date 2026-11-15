@@ -24,7 +24,7 @@ import {
 } from "@/lib/config/consent";
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
-import { GoogleButton, GoogleDivider } from "./auth-card";
+import { AuthField, GoogleButton, GoogleDivider, authInputClass } from "./auth-card";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
 
@@ -47,8 +47,10 @@ const COUNTRIES = [
   "Other",
 ];
 
-const inputClass =
-  "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+// The shared auth input, not a second copy of it. /login and /signup used
+// to disagree on height, radius, border weight and text size; the one spec
+// now lives in components/auth/auth-card.tsx and both screens import it.
+const inputClass = authInputClass;
 
 const STEPS = ["Account", "About you", "Family"];
 
@@ -95,6 +97,16 @@ export function SignupFlow({
 
   const accountValid =
     name.trim() && /\S+@\S+\.\S+/.test(email) && password.length >= 6;
+
+  // Data minimisation for minors: we ask a player for a first name and a
+  // last initial, so a full surname is more than Seeded needs to hold about
+  // a child. This NUDGES rather than blocks — a hard reject would be
+  // trivially worked around ("NiranR"), would lock out anyone whose name
+  // does not fit the pattern we imagined, and would turn a privacy
+  // preference into a failed signup. The hint fires when a player types a
+  // second word that is longer than an initial.
+  const looksLikeFullSurname =
+    !isParentSignup && /\s+\S{2,}\s*$/.test(name.trim()) && name.trim().split(/\s+/).length > 1;
 
   // P0-8. A player who may be under 13 cannot start their own family: there
   // would be nobody in it who can give parental consent, so the account
@@ -364,27 +376,52 @@ export function SignupFlow({
                     </div>
                   </div>
                 )}
-                <div className="mt-6 space-y-3">
-                  <input
-                    className={inputClass}
-                    placeholder={isParentSignup ? "Parent full name" : "Player's full name"}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                  <input
-                    className={inputClass}
-                    type="email"
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <input
-                    className={inputClass}
-                    type="password"
-                    placeholder="Password (6+ characters)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                {/* Labelled fields rather than placeholder-only, matching
+                    /login: a placeholder disappears the moment you type,
+                    which on a three-field form is where people lose track
+                    of which box they are in. */}
+                <div className="mt-6 space-y-4">
+                  <AuthField
+                    label={isParentSignup ? "Your name" : "Player's name"}
+                    htmlFor="signup-name"
+                    help={
+                      isParentSignup
+                        ? undefined
+                        : looksLikeFullSurname
+                          ? "A last initial is enough — you can shorten it if you'd rather we didn't store the full surname."
+                          : "First name and last initial is enough — e.g. Niran R."
+                    }
+                  >
+                    <input
+                      id="signup-name"
+                      className={inputClass}
+                      autoComplete="name"
+                      placeholder={isParentSignup ? "Alex Ramprasad" : "Niran R."}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </AuthField>
+                  <AuthField label="Email address" htmlFor="signup-email">
+                    <input
+                      id="signup-email"
+                      className={inputClass}
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </AuthField>
+                  <AuthField label="Password" htmlFor="signup-password" help="At least 6 characters.">
+                    <input
+                      id="signup-password"
+                      className={inputClass}
+                      type="password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </AuthField>
                 </div>
               </div>
             )}
@@ -617,8 +654,8 @@ function Centered({ children }: { children: React.ReactNode }) {
   const { design } = useDesign();
   const isSeeded = design === "seeded";
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
+    <div className="relative min-h-[calc(100vh-73px)] overflow-hidden">
+      <div className="relative mx-auto flex min-h-[calc(100vh-73px)] max-w-[420px] flex-col justify-center container-px py-10">
         <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
           {children}
         </div>

@@ -113,6 +113,33 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern: /verified (?:singles )?(?:rating|result)s?\b/i,
     why: "UTR entries are self-reported; Seeded never checks them",
   },
+  {
+    // Found by the launch UI review: /pricing was selling "Weekly training
+    // plan" as a paid feature. Seeded does not generate training plans and
+    // is not going to — "No auto-generated training plans, manual calendar
+    // only" is a non-negotiable in CLAUDE.md. What exists is a calendar the
+    // player fills in, so the feature is called a training calendar.
+    //
+    // This bans Seeded PROMISING to produce one ("weekly training plan",
+    // "your training plan", "we'll weight your training plan"). It
+    // deliberately does NOT ban the words inside /training itself, where a
+    // plan is a grouping the USER creates out of their own sessions —
+    // "Organize sessions into full training plans" is a true description of
+    // what that screen lets someone do, and renaming it would hide, not
+    // fix, the real open violation (the auto-generating setup wizard, TODO
+    // #2). The line is: who makes the plan.
+    pattern:
+      /weekly training plan|your training plan|training plan (?:for you|toward)|we'?ll weight your training/i,
+    why: "Seeded never generates a training plan; the calendar is filled in by hand",
+  },
+  {
+    // The program count must come from getCatalogCounts(), never a literal.
+    // /pricing promised "68 D1/D2/D3 programs" while /schools listed 37 —
+    // both true (68 is the whole catalogue, 37 is the men's half) and
+    // together they read as a broken promise, because neither said which.
+    pattern: /\b\d{2,}\s+(?:D1\b[^.]{0,20})?programs\b/i,
+    why: "program counts are derived from the catalogue (getCatalogCounts), never typed into copy",
+  },
 ];
 
 describe("no user-facing copy promises something the code can't do", () => {

@@ -19,7 +19,7 @@ const TERMS = [
     body: "Family members may share player progress and planning data. Each user is responsible for keeping login credentials and family codes private.",
   },
   {
-    title: "Training plans",
+    title: "Training calendar",
     body: "Training content is not medical advice. Players should adapt workloads with coaches, trainers, parents, and healthcare professionals as needed.",
   },
   {

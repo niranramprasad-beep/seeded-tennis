@@ -122,17 +122,17 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
 
   return (
     <div className="min-h-[calc(100vh-57px)] bg-cream">
-      <header className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-4 px-6 py-[18px]">
-        <Link href="/" className="font-seeded text-xl font-bold text-ink">
-          Seeded
-        </Link>
+      {/* The logo used to live here, as this page's only header. It is now
+          the shared SeededNav above (app-shell), so this is just the
+          progress strip — which is what it always should have been. */}
+      <div className="mx-auto flex max-w-[1200px] items-center px-6 py-[18px]">
         <ol aria-label="Progress" className="m-0 flex flex-1 flex-wrap justify-center gap-2 p-0 text-[13px] text-stone">
           <ProgressChip done>1 · Your level</ProgressChip>
           <ProgressChip active>2 · Your fit report</ProgressChip>
           <ProgressChip>3 · Save it</ProgressChip>
           <ProgressChip>4 · Your plan</ProgressChip>
         </ol>
-      </header>
+      </div>
 
       <main className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-6 px-6 pb-16 pt-4">
         <section className="min-w-0 flex-[999_1_640px]">

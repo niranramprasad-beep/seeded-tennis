@@ -14,7 +14,7 @@ export default function EventsError({
       error={error}
       reset={reset}
       title="Couldn't load Events."
-      description="Your training plan and match prep didn't come through — try again."
+      description="Your training calendar and match prep didn't come through — try again."
     />
   );
 }

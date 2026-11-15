@@ -147,6 +147,19 @@ export function SeededSchoolsBrowser({
   });
   const effectiveUtr = whatIf.hypotheticalUTR;
 
+  // A signed-out visitor, or anyone who has never logged a rating, carries
+  // the `currentUTR <= 0` sentinel. `hasRealUtr` is the ONLY thing that may
+  // decide whether anything derived from it is shown — see the placeholder
+  // section of CLAUDE.md. Before this guard the page computed every band
+  // against 0, so a first-time visitor was told "Reach 37 · Target 0 ·
+  // Likely 0" and every row read "You 0.0", which is both a fabricated
+  // number and a wrong answer: 0 is below every team floor, so the
+  // classifier honestly reports "reach" for the entire catalogue.
+  //
+  // With no rating we show the catalogue and no fit at all. Not a zero, not
+  // an empty band, not a greyed-out guess — no fit.
+  const hasUtr = hasRealUtr(effectiveUtr);
+
   // Same real grad-year context as the what-if hook, plus the full catalog
   // — explainSchoolFit only needs the catalog for its point-7 alternative-
   // school suggestion. Uses the SAME history choice as the what-if pass
@@ -238,9 +251,14 @@ export function SeededSchoolsBrowser({
   const academicValue: "all" | AcademicTier =
     maxRank <= 25 ? "top25" : maxRank <= 50 ? "top50" : maxRank <= 100 ? "top100" : "all";
 
+  // Not computed at all without a rating — a count derived from the
+  // sentinel is a number nobody can defend.
   const counts = useMemo(
-    () => countSchoolFits(effectiveUtr, ranked, whatIf.whatIfProjection),
-    [effectiveUtr, ranked, whatIf.whatIfProjection]
+    () =>
+      hasUtr
+        ? countSchoolFits(effectiveUtr, ranked, whatIf.whatIfProjection)
+        : null,
+    [hasUtr, effectiveUtr, ranked, whatIf.whatIfProjection]
   );
   const savedSlugs = useMemo(() => new Set(player.targetSchoolSlugs), [player.targetSchoolSlugs]);
 
@@ -248,12 +266,24 @@ export function SeededSchoolsBrowser({
     const filtered = ranked.filter((s) => {
       if (region !== "all" && regionForState(s.state) !== region) return false;
       if (chip === "saved") return savedSlugs.has(s.slug);
-      else if (chip !== "all" && classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection) !== chip)
+      // A band filter is unreachable from the UI without a rating (the band
+      // chips aren't rendered), but localStorage can still hand us one from
+      // a previous signed-in session — so it is ignored rather than applied
+      // against the sentinel, which would have hidden the whole catalogue.
+      else if (
+        hasUtr &&
+        chip !== "all" &&
+        classifySchoolFit(effectiveUtr, s, whatIf.whatIfProjection) !== chip
+      )
         return false;
       return true;
     });
-    return sortSchoolsForSeeded(filtered, sort, effectiveUtr, whatIf.whatIfProjection);
-  }, [ranked, region, chip, sort, effectiveUtr, whatIf.whatIfProjection, savedSlugs]);
+    // "gap" and "fit" are both distance-from-your-rating orders. Without a
+    // rating they would sort the catalogue by distance from zero, i.e. the
+    // weakest programs first, presented as if it meant something.
+    const safeSort = hasUtr || sort === "academics" ? sort : "default";
+    return sortSchoolsForSeeded(filtered, safeSort, effectiveUtr, whatIf.whatIfProjection);
+  }, [ranked, region, chip, sort, hasUtr, effectiveUtr, whatIf.whatIfProjection, savedSlugs]);
 
   // A materially different list (a filter/sort change) invalidates
   // whatever row the keyboard highlight was pointing at.
@@ -349,8 +379,11 @@ export function SeededSchoolsBrowser({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-tight text-ink">Schools</h1>
+          {/* "Sorted by fit for you" is only true once there is a rating to
+              sort against — without one the order is the catalogue's own. */}
           <p className="mt-1.5 text-stone">
-            Sorted by fit for you. {ranked.length} {gender === "men" ? "men's" : "women's"} programs.
+            {hasUtr ? "Sorted by fit for you. " : ""}
+            {ranked.length} {genderLabel} programs.
           </p>
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
@@ -370,30 +403,54 @@ export function SeededSchoolsBrowser({
       </div>
 
       <div className="mt-5">
-        <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} />
+        {hasUtr ? (
+          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} />
+        ) : (
+          // The what-if slider is "what if my rating were X by June" — it
+          // has nothing to move from without a rating, and rendering it
+          // anyway is what put a 0.0 on the screen.
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
+            <p className="m-0 text-[15px] text-ink">
+              <strong className="font-semibold">Enter your UTR to see your fit.</strong>{" "}
+              <span className="text-stone">
+                Every program below is listed either way — fit bands need a rating to compare against.
+              </span>
+            </p>
+            <Link
+              href="/onboarding"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+            >
+              Enter my UTR
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <ChipButton active={chip === "all"} onClick={() => setChip("all")} variant="dark">
+          <ChipButton active={chip === "all" || (!hasUtr && chip !== "saved")} onClick={() => setChip("all")} variant="dark">
             All {ranked.length}
           </ChipButton>
-          <ChipButton active={chip === "reach"} onClick={() => setChip("reach")} variant="reach">
-            Reach {counts.reach}
-          </ChipButton>
-          <ChipButton active={chip === "target"} onClick={() => setChip("target")} variant="target">
-            Target {counts.target}
-          </ChipButton>
-          <ChipButton active={chip === "likely"} onClick={() => setChip("likely")} variant="likely">
-            Likely {counts.likely}
-          </ChipButton>
-          <ChipButton
-            active={chip === "out-of-range"}
-            onClick={() => setChip("out-of-range")}
-            variant="outOfRange"
-          >
-            Out of range {counts.outOfRange}
-          </ChipButton>
+          {counts && (
+            <>
+              <ChipButton active={chip === "reach"} onClick={() => setChip("reach")} variant="reach">
+                Reach {counts.reach}
+              </ChipButton>
+              <ChipButton active={chip === "target"} onClick={() => setChip("target")} variant="target">
+                Target {counts.target}
+              </ChipButton>
+              <ChipButton active={chip === "likely"} onClick={() => setChip("likely")} variant="likely">
+                Likely {counts.likely}
+              </ChipButton>
+              <ChipButton
+                active={chip === "out-of-range"}
+                onClick={() => setChip("out-of-range")}
+                variant="outOfRange"
+              >
+                Out of range {counts.outOfRange}
+              </ChipButton>
+            </>
+          )}
           <ChipButton active={chip === "saved"} onClick={() => setChip("saved")} variant="plain">
             Saved {savedSlugs.size}
           </ChipButton>
@@ -505,9 +562,11 @@ export function SeededSchoolsBrowser({
               // Only the currently-expanded row actually builds the full
               // explanation (real regression + alternatives lookup) — no
               // reason to pay that cost for every row in the list.
-              const explanation = expanded
-                ? explainSchoolFit(effectiveUtr, s, explanationInput)
-                : null;
+              // Without a rating this produced "Gap to team floor: +9.1"
+              // and a "closest schools" list that was just the catalogue's
+              // five weakest programs — both measured against the sentinel.
+              const explanation =
+                expanded && hasUtr ? explainSchoolFit(effectiveUtr, s, explanationInput) : null;
               return (
                 <div key={s.id}>
                   {/* The row was `role="button" tabIndex={0}` wrapping a
@@ -571,17 +630,28 @@ export function SeededSchoolsBrowser({
                         </p>
                       </Link>
                     </div>
-                    <FitBadge band={fit} />
+                    {hasUtr ? (
+                      <FitBadge band={fit} />
+                    ) : (
+                      <span className="text-[13px] text-stone-light">Not tracked</span>
+                    )}
                     <RangeBar
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
-                      youPct={hasRealUtr(effectiveUtr) ? utrToPct(effectiveUtr) : null}
-                      caption={`You ${effectiveUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                      youPct={hasUtr ? utrToPct(effectiveUtr) : null}
+                      // `You ${effectiveUtr.toFixed(1)}` was unconditional,
+                      // so every row of the logged-out page read "You 0.0".
+                      // The team range is real data and stays either way.
+                      caption={
+                        hasUtr
+                          ? `You ${effectiveUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                      }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
-                      you={hasRealUtr(effectiveUtr) ? effectiveUtr : null}
+                      you={hasUtr ? effectiveUtr : null}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
@@ -591,6 +661,17 @@ export function SeededSchoolsBrowser({
                       <DataChip status={dataVerificationChip(s).status}>{dataVerificationChip(s).label}</DataChip>
                     )}
                   </div>
+                  {expanded && !hasUtr && (
+                    <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-stone last:border-b-0">
+                      <p className="m-0">
+                        Add your UTR and Seeded will explain where you sit against this
+                        team&apos;s range and what would move you up a band.{" "}
+                        <Link href="/onboarding" className="font-semibold text-grass underline underline-offset-4 hover:text-grass-700">
+                          Enter my UTR
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                   {expanded && explanation && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-ink last:border-b-0">
                       <p>{explanation.summary}</p>

@@ -60,20 +60,11 @@ const FIT_BAND_ROWS: { band: FitBand; body: string }[] = [
 export function SeededMethodologyView() {
   return (
     <div className="text-ink">
-      <header className="border-b border-line bg-cream">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-6 py-[18px]">
-          <Link href="/" className="font-seeded text-xl font-bold text-ink">
-            Seeded
-          </Link>
-          <Link
-            href="/onboarding"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
-          >
-            Get my free fit report
-          </Link>
-        </div>
-      </header>
-
+      {/* No bespoke header here any more: this page renders under the shared
+          SeededNav like every other public page (see
+          components/layout/app-shell.tsx). The old one had a logo and a CTA
+          and no navigation, which left a visitor arriving from search with
+          no way to reach Schools or Pricing. */}
       <div className="mx-auto max-w-[1200px] px-6 py-10">
         <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
           Methodology · Updated Nov 8, 2026

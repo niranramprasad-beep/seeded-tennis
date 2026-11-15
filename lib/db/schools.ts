@@ -24,6 +24,66 @@ function resolve<T>(value: T): Promise<T> {
   return Promise.resolve(value);
 }
 
+/* ----------------------------------------------------- catalog size facts */
+
+/**
+ * How big the catalog actually is, counted from the catalog.
+ *
+ * Every program count on the marketing pages used to be a literal typed
+ * into the copy — "68" in five places across /pricing and /schools. They
+ * were not wrong, but they disagreed in a way a visitor notices: /pricing
+ * promised 68 programs and /schools listed 37, because 68 is the whole
+ * catalogue and 37 is the men's half of it, and neither sentence said which
+ * it meant. Two true numbers reading as one broken promise.
+ *
+ * So: counted here, labelled by gender wherever shown, and guarded by
+ * lib/catalog-counts.test.ts, which fails the build if a literal count
+ * reappears in the copy.
+ */
+export interface CatalogCounts {
+  total: number;
+  men: number;
+  women: number;
+  d1: number;
+  d2: number;
+  d3: number;
+  /** "D1, D2 and D3" — only the divisions actually present. */
+  divisionLabel: string;
+}
+
+function countCatalog(): CatalogCounts {
+  const byDivision = (d: Division) => schoolsData.filter((s) => s.division === d).length;
+  const d1 = byDivision("D1");
+  const d2 = byDivision("D2");
+  const d3 = byDivision("D3");
+  const present = (["D1", "D2", "D3"] as const).filter(
+    (d) => schoolsData.some((s) => s.division === d)
+  );
+  const divisionLabel =
+    present.length <= 1
+      ? present.join("")
+      : `${present.slice(0, -1).join(", ")} and ${present[present.length - 1]}`;
+
+  return {
+    total: schoolsData.length,
+    men: schoolsData.filter((s) => s.gender === "men").length,
+    women: schoolsData.filter((s) => s.gender === "women").length,
+    d1,
+    d2,
+    d3,
+    divisionLabel,
+  };
+}
+
+// Computed once at module load from the same array every other query here
+// reads. Exported through an async getter so server components keep the
+// catalogue out of the client bundle.
+const catalogCounts: CatalogCounts = countCatalog();
+
+export async function getCatalogCounts(): Promise<CatalogCounts> {
+  return resolve(catalogCounts);
+}
+
 /* ----------------------------------------------------------------- schools */
 
 export async function getSchools(): Promise<School[]> {

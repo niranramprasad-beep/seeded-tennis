@@ -560,3 +560,65 @@ principle, but it would not reproduce production's *drift* — the whole reason
 025 exists and the reason the repo cannot build production from `0001` alone.
 Rolling the existing clone back and then removing the leftovers reproduces both
 the schema and the history.
+
+---
+
+## 2026-11-15 — Launch UI polish: four of the sixteen items were honesty bugs, not polish
+
+A premium UI/UX + PM review of the `v1` preview (dpl `7291c17`) returned 16
+items, split P0/P1. Four of the P0s are not cosmetic and would have been
+launch blockers under this repo's own rules:
+
+- **`/schools` computed every fit band against the UTR sentinel.** A
+  logged-out visitor saw "Reach 37 · Target 0 · Likely 0" and "You 0.0" on
+  all 37 rows. `hasRealUtr()` already guarded the range-bar dot — someone had
+  fixed half of it — but `countSchoolFits`, `classifySchoolFit`,
+  `explainSchoolFit`, the sort and the row caption were all unguarded, and
+  the caption interpolated `effectiveUtr.toFixed(1)` unconditionally. This is
+  precisely the failure the CLAUDE.md placeholder section was written about
+  after the last one.
+- **`/pricing` sold "Weekly training plan."** Seeded does not generate
+  training plans; "manual calendar only" is a non-negotiable.
+  `lib/copy-honesty.test.ts` existed and did not cover it.
+- **`/pricing` badged Free as "Current plan" to logged-out strangers**,
+  because `useTier()` returns `"free"` for signed-out and signed-in-free
+  alike and nothing checked which.
+- **Program counts disagreed** — 68 on `/pricing`, 37 rows on `/schools`.
+  Both numbers were true (68 is the catalogue, 37 is the men's half) and
+  neither sentence said which, so together they read as a broken promise.
+
+**Decided: the counts come from `getCatalogCounts()` and are labelled by
+gender.** Computed on the server so the catalogue stays out of the client
+bundle, and `lib/copy-honesty.test.ts` now fails the build on a literal
+count in copy.
+
+**Decided: the line on "training plan" is who makes the plan.** Seeded
+promising to produce one is banned. The word inside `/training`, where a
+player groups their own sessions, is left alone — renaming it there would
+hide rather than fix the real open violation (the auto-generating setup
+wizard, TODO #2).
+
+**Decided: the CTA band uses fixed colours, not theme tokens.** The first
+fix (ink button on the green band) measured 2.77:1 in light and 1.79:1 in
+dark, because `bg-ink` and `bg-grass` BOTH invert between modes — two
+mode-flipping tokens cannot be relied on to stay apart. It is now the same
+always-dark panel treatment the parents section already uses, measuring
+14.24:1 / 14.53:1.
+
+**The header bug was not "not enough room".** The nav had `flex-wrap` and
+two `flex-1` children — the links list and an empty `aria-hidden` spacer —
+so the links were handed exactly half the free space: a 360px box holding
+~480px of links, next to a 360px box holding nothing, on every page at every
+desktop width.
+
+**Lesson, and it cost a pass to learn:** the first audit run reported 0 axe
+violations and photographed three blank bands. A `fullPage` screenshot never
+scrolls, so `whileInView` sections had not rendered — the audit was
+measuring a page that did not exist. Scrolling first turned 0 violations
+into 2 real ones. **A clean result from a harness you have not watched work
+is not a clean result.**
+
+**Also: a brand-new visitor's first paint follows their OS.**
+`systemSync` defaults to true, so light and dark are both "the default" and
+contrast has to be measured in both. The first audit forced light and would
+have shipped a dark-mode contrast failure.

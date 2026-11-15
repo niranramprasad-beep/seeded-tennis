@@ -16,10 +16,19 @@ import { cn } from "@/lib/utils";
 // disagreed before: different card widths, different error treatments, and a
 // Google button on none of them. The spec's measurements live here once.
 
-/** Input spec: 44px tall, 1px #D6D3C8, radius 6, 16px text. 16px matters —
- * iOS Safari zooms the page when a focused input is smaller than that. */
+/**
+ * The one input style for every auth screen.
+ *
+ * /login and /signup disagreed on all four of height, radius, border and
+ * text size — 44px/radius-6/1px/16px here, 48px/radius-12/0.5px/14px on
+ * signup — so two screens one click apart looked like two products. This is
+ * signup's rounder, taller shape (the one that reads better) at login's
+ * 16px text, which is not a style choice: iOS Safari zooms the whole page
+ * when you focus an input whose text is under 16px, and signup's 14px was
+ * doing exactly that on a phone.
+ */
 export const authInputClass =
-  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink " +
+  "h-12 w-full rounded-xl border border-input bg-card px-4 text-base text-ink " +
   "placeholder:text-stone-light focus:outline-none focus-visible:ring-2 " +
   "focus-visible:ring-grass/40 focus-visible:ring-offset-1";
 
@@ -81,7 +90,10 @@ export function AuthCard({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[420px] px-5 py-12">
+    // Vertically centred in the space below the 73px header, matching
+    // /signup. /login used to sit at `py-12` from the top while /signup
+    // centred itself, so moving between them jumped the card up the screen.
+    <div className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-5 py-12 min-h-[calc(100vh-73px)]">
       <div className="rounded-xl border border-line bg-card p-6 shadow-soft">
         <h1 className="font-seeded text-xl font-semibold tracking-tight text-ink">{title}</h1>
         {subtitle && <p className="mt-1.5 text-[15px] leading-[1.5] text-stone">{subtitle}</p>}

@@ -2,13 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { Gender, SchoolLite } from "@/lib/types";
+import { ChevronDown } from "lucide-react";
+import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { countSchoolFits } from "@/lib/school-fit";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
+import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/heading";
 
 // Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No
 // JS viewport detection exists anywhere in this codebase — every other
@@ -308,7 +312,11 @@ function CountTile({ value, label, bg, fg }: { value: number; label: string; bg:
 function TrustStrip() {
   return (
     <section className="border-y border-line bg-card">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-5 text-sm text-stone">
+      {/* 15px, not 14, and text-ink-2 rather than text-stone: this is the
+          first honesty claim a visitor reads and it was the faintest text
+          on the page. Contrast is re-measured in both light and dark in
+          docs/screenshots/polish/after.json. */}
+      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-x-8 gap-y-3 px-6 py-5 text-[15px] leading-[1.5] text-stone">
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
@@ -356,7 +364,7 @@ function WhatItDoes() {
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
         UTR tells you where you stand. Seeded tells you what to do next.
       </p>
-      <h2 className="mt-3 max-w-[760px] font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-ink">
+      <h2 className={cn(seededSectionHeading, "mt-3 max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
       </h2>
       <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -504,7 +512,7 @@ function ParentsSection() {
           <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
             For parents
           </p>
-          <h2 className="mt-3 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-[#EEF1EC]">
+          <h2 className={cn(seededSectionHeading, "mt-3 text-balance text-[#EEF1EC]")}>
             See if the plan is working, without nagging.
           </h2>
           {/* P0-7: this promised "A Sunday email with...". Seeded sends no
@@ -559,10 +567,12 @@ function ParentsSection() {
 /* --------------------------------------------------- METHOD + FOUNDER */
 
 function MethodAndFounder() {
+  // items-start: the two cards used to stretch to a shared height, which
+  // left dead space under the shorter one. Each is now its own height.
   return (
-    <section id="how-fit-works" className="mx-auto grid max-w-[1200px] grid-cols-1 gap-6 px-6 py-20 lg:grid-cols-2">
+    <section id="how-fit-works" className="mx-auto grid max-w-[1200px] grid-cols-1 items-start gap-6 px-6 py-20 lg:grid-cols-2">
       <Reveal className="rounded-xl border border-line bg-card p-7">
-        <h2 className="m-0 text-2xl text-ink">How fit works</h2>
+        <h2 className={cn(seededCardHeading, "m-0")}>How fit works</h2>
         <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
           <li>We pull each roster&apos;s public UTRs and mark the date.</li>
           <li>
@@ -580,19 +590,30 @@ function MethodAndFounder() {
         </Link>
       </Reveal>
       <Reveal index={1} step={0.08} className="rounded-xl border border-line bg-card p-7">
-        <h2 className="m-0 text-2xl text-ink">Who built this</h2>
+        <h2 className={cn(seededCardHeading, "m-0")}>Who built this</h2>
         <p className="mt-4 leading-[1.6] text-stone">
           I&apos;m a junior tennis player going through recruiting right now.
           I built Seeded because my family was tracking schools, tournaments
           and coach emails in five different places.
         </p>
-        <p className="mt-3 font-semibold text-ink">Seeded&apos;s founder</p>
+        <p className="mt-3 font-semibold text-ink">
+          Niran — Seeded&apos;s founder
+        </p>
+        <p className="mt-1 text-[15px] leading-[1.55] text-stone">
+          Junior player at a DMV high school, building the tool my family needed.
+        </p>
         {/* P0-7: was "and we fix it within 48 hours" — a one-person project
             with no on-call rotation and no ticketing. Don't promise a
-            turnaround we have no way to hold ourselves to. */}
-        <p className="mt-1 text-sm text-stone">
+            turnaround we have no way to hold ourselves to.
+            The link is underlined, not just green: axe flagged
+            `link-in-text-block` here (serious) because colour was the only
+            thing distinguishing it from the sentence around it. */}
+        <p className="mt-3 text-sm text-stone">
           Found a wrong number?{" "}
-          <Link href="/contact" className="text-grass hover:text-grass-700">
+          <Link
+            href="/contact"
+            className="font-medium text-grass underline underline-offset-4 hover:text-grass-700"
+          >
             Report it
           </Link>{" "}
           and I&apos;ll look into it.
@@ -604,29 +625,100 @@ function MethodAndFounder() {
 
 /* ----------------------------------------------------------------- FAQ */
 
-const FAQ_ITEMS = [
+// Three of these four used to have no answer at all — `{ q: "..." }` with
+// no `a`, which as a native <details> meant a disclosure that opened onto
+// nothing. Every answer below restates something this codebase already
+// commits to elsewhere (the methodology page, /privacy, and the Free tier's
+// own feature list) rather than making a new claim: the roster numbers are
+// labelled unverified estimates wherever they render
+// (UTR_RANGE_SOURCE_LABEL), and the under-13 gate really is enforced by RLS
+// on 21 tables rather than by the signup form.
+const FAQ_ITEMS: { q: string; a: string; href?: string; hrefLabel?: string }[] = [
   {
     q: "How is this different from UTR's college tools?",
     a: "UTR shows where your rating sits. Seeded uses that to plan your season, judge tournaments and run coach outreach, and gives parents a shared view.",
   },
-  { q: "Where does the roster data come from?" },
-  { q: "My child is 14. Who owns the account?" },
-  { q: "What does the free plan include?" },
-] as const;
+  {
+    q: "Where does the roster data come from?",
+    a: "Official team rosters and public UTR profiles, with the date we checked. Team ranges are estimates, and they are labelled as estimates everywhere they appear — we never show a percent chance.",
+    href: "/methodology",
+    hrefLabel: "How we calculate fit",
+  },
+  {
+    q: "My child is 14. Who owns the account?",
+    a: "They can hold their own account. For younger players a parent sets it up, and an under-13 account stays inactive until an adult in the family approves it — enforced in the database, not just on the signup form.",
+    href: "/privacy",
+    hrefLabel: "What we store, and for how long",
+  },
+  {
+    q: "What does the free plan include?",
+    a: `Browsing the whole school catalogue, team UTR estimates and academic rankings, full school detail pages, the tournament fit checker, and up to ${FREE_TIER_TARGET_SCHOOL_LIMIT} saved target schools.`,
+    href: "/pricing",
+    hrefLabel: "Compare the plans",
+  },
+];
 
+// Was a stack of native <details>/<summary>. Two problems with that here:
+// the disclosure triangle is the browser's own marker and ignores the
+// design system entirely, and the section sat at max-w-[880px] while every
+// other section on the page is max-w-[1200px], so it read as a different
+// page that had been pasted in.
+//
+// This is a real accordion: each header is a <button> (so Enter, Space and
+// focus come from the platform, not from a keydown handler), carries
+// aria-expanded and aria-controls, and the panel it names is the thing that
+// shows and hides. Several can be open at once — these are independent
+// questions, not a single-choice list.
 function Faq() {
+  const [open, setOpen] = useState<string[]>([]);
+  const toggle = (q: string) =>
+    setOpen((prev) => (prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q]));
+
   return (
-    <section className="mx-auto max-w-[880px] px-6 pb-20 pt-6">
-      <h2 className="m-0 mb-5 font-seeded text-[32px] font-bold text-ink">
+    <section className="mx-auto max-w-[1200px] px-6 pb-20 pt-6">
+      <h2 className={cn(seededSectionHeading, "m-0 mb-5")}>
         Questions parents ask
       </h2>
       <div className="border-t border-line">
-        {FAQ_ITEMS.map((item) => (
-          <details key={item.q} className="border-b border-line py-4.5">
-            <summary className="cursor-pointer text-[17px] font-semibold">{item.q}</summary>
-            {"a" in item && <p className="mt-2 leading-[1.6] text-stone">{item.a}</p>}
-          </details>
-        ))}
+        {FAQ_ITEMS.map((item) => {
+          const isOpen = open.includes(item.q);
+          const panelId = `faq-panel-${item.q.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+          return (
+            <div key={item.q} className="border-b border-line">
+              <h3 className="m-0">
+                <button
+                  type="button"
+                  onClick={() => toggle(item.q)}
+                  aria-expanded={isOpen}
+                  aria-controls={panelId}
+                  className="flex w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2"
+                >
+                  <span>{item.q}</span>
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(
+                      "h-5 w-5 shrink-0 text-stone transition-transform duration-200 motion-reduce:transition-none",
+                      isOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+              </h3>
+              {isOpen && (
+                <div id={panelId} className="max-w-[820px] pb-4.5">
+                  <p className="m-0 leading-[1.6] text-stone">{item.a}</p>
+                  {item.href && (
+                    <Link
+                      href={item.href}
+                      className="mt-2 inline-block font-semibold text-grass underline underline-offset-4 hover:text-grass-700"
+                    >
+                      {item.hrefLabel}
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -636,14 +728,29 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="bg-grass text-on-primary">
+    // One accent, and a band that does not flip.
+    //
+    // This was a lime button on the court-green band: two accents fighting,
+    // and only 1.72:1 between button and band. The first fix (ink button on
+    // the green band) was worse than it looked — `bg-ink` and `bg-grass`
+    // BOTH invert between light and dark, so the pairing measured 2.77:1 in
+    // light and 1.79:1 in dark, still under the 3:1 WCAG wants for a
+    // control's boundary and nowhere near the 4.5:1 asked for here. Two
+    // mode-flipping tokens cannot be relied on to stay apart.
+    //
+    // So this is now a fixed dark band with the single lime accent on it —
+    // the same always-dark treatment, and the same button, as the parents
+    // section directly above (see its comment for why a fixed #14181A
+    // rather than bg-ink). Fixed values on both sides means the ratio is
+    // the same number in both modes.
+    <section className="bg-[#14181A] text-[#EEF1EC]">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6 py-16">
-        <h2 className="m-0 max-w-[640px] font-seeded text-[36px] font-bold leading-[1.15]">
+        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance text-[#EEF1EC]")}>
           Find out where you fit before your next tournament.
         </h2>
         <Link
           href="/onboarding"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-on-lime"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-on-lime transition-opacity hover:opacity-90"
         >
           Get my free fit report
         </Link>
@@ -659,9 +766,9 @@ function FinalCta() {
 // still uses and which is out of scope for this pass.
 function HomeFooter() {
   return (
-    <footer className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-8 px-6 py-10 text-sm text-stone">
+    <footer className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-10 text-sm text-stone">
       <span>© {new Date().getFullYear()} Seeded</span>
-      <span className="flex flex-wrap gap-5">
+      <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <Link href="/methodology" className="hover:text-grass">
           Methodology
         </Link>
@@ -677,6 +784,11 @@ function HomeFooter() {
         <Link href="/contact" className="hover:text-grass">
           Contact
         </Link>
+        {/* A real address people can write to, not only a contact form.
+            Mail to this lands in the support@ forwarding Niran set up. */}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-grass">
+          {SUPPORT_EMAIL}
+        </a>
       </span>
     </footer>
   );

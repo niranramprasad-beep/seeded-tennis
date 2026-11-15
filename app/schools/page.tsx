@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import {
+  getCatalogCounts,
   getConferences,
   getDivisions,
   getSchools,
@@ -17,17 +18,18 @@ export const metadata: Metadata = {
 };
 
 export default async function SchoolsPage() {
-  const [schools, conferences, states, divisions] = await Promise.all([
+  const [schools, conferences, states, divisions, counts] = await Promise.all([
     getSchools(),
     getConferences(),
     getStates(),
     getDivisions(),
+    getCatalogCounts(),
   ]);
 
   return (
     <>
       <div className="mx-auto max-w-content container-px py-10">
-        <SchoolsHeader />
+        <SchoolsHeader counts={counts} />
 
         <div className="mt-8">
           <SchoolsBrowser

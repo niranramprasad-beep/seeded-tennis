@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { formatTierPrice } from "@/lib/types";
+import { getCatalogCounts } from "@/lib/db/schools";
 import { PricingView } from "@/components/pricing/pricing-view";
 import { Footer } from "@/components/layout/footer";
 
@@ -18,10 +19,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Counted from the catalogue on the server, so the whole school data set
+  // stays out of the client bundle.
+  const counts = await getCatalogCounts();
+
   return (
     <>
-      <PricingView />
+      <PricingView counts={counts} />
       <Footer />
     </>
   );

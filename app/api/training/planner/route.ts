@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save your training plan. Try again." },
+      { error: err instanceof Error ? err.message : "Could not save your training calendar. Try again." },
       { status: 500 }
     );
   }

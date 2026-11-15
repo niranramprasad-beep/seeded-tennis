@@ -14,8 +14,29 @@
 ## Executive status
 
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
-write routes, 426 passing unit tests, and a much more careful RLS setup
-than most student projects. That's the good news.
+write routes, **660 passing unit tests in 51 files**, and a much more
+careful RLS setup than most student projects. That's the good news.
+
+**2026-11-15, launch UI polish (all 16 review items closed).** A premium
+UI/UX + PM review of the `v1` preview found 16 issues; four of its P0s were
+honesty bugs rather than cosmetics and are recorded in `docs/DECISIONS.md`:
+`/schools` computed every fit band against the UTR-0 sentinel for
+logged-out visitors ("Reach 37 · Target 0 · Likely 0", "You 0.0" on 37
+rows); `/pricing` sold a "Weekly training plan" that the product
+deliberately does not generate; `/pricing` told logged-out strangers Free
+was their "Current plan"; and the program counts on `/pricing` and
+`/schools` disagreed because neither said which gender it meant. The shared
+header also wrapped to two rows at every desktop width — two `flex-1`
+siblings splitting the row, not a space problem.
+
+Measured after, against a **production build**, in **both light and dark**
+(a first-time visitor follows their OS, so both are "the default"):
+header **73px / 1 row** at 375 / 768 / 1024 / 1280 / 1440 on all 9 pages
+with no horizontal overflow, **0 axe violations**, **0 console errors**,
+Lighthouse **a11y 100 / SEO 100** on 7 pages, CTA contrast **14.24:1 light /
+14.53:1 dark** (was 1.72:1). Evidence, including 72 before/after
+screenshots and the machine-readable measurements, is in
+`docs/screenshots/polish/` and reproducible with `node scripts/ui-audit.mjs`.
 
 The bad news: **it is not launchable.** Of the three original reasons, the
 first has changed shape and the other two are untouched because they need
