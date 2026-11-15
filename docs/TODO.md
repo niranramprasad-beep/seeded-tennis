@@ -121,14 +121,20 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       the built-in sender allows a few messages an hour, so with "Confirm
       email" on, launch day's third signup cannot confirm. Re-test one real
       signup end to end once Resend is live.
-- [ ] **`is_creator` is now the enforced account holder (038), but
-      `is_parent_member()` still is not role-aware.** 038 made the roster's
-      "account holder" flag and `remove_family_member()`'s refusal the same
-      predicate. The budget-write hole is the remaining one of this family:
-      `is_parent_member()` returns true for any approved joiner regardless of
-      `profiles.role`, so a sibling player can write the season budget. Mirror
-      033's pattern (require `profiles.role = 'parent'` AND approved
-      membership). Check `pg_policies`, not the docs.
+- [ ] **WEEK 1, ITEM #1 — make `is_parent_member()` role-aware.** Niran's
+      call on 2026-11-15: not a launch blocker, disclosed in `/privacy`
+      instead, no migration on launch day. `is_parent_member()` returns true
+      for any approved `parent_accounts` row regardless of `profiles.role`,
+      so **an approved sibling PLAYER can insert and update the season budget
+      and its expenses.** Measured twice, through the app's own supabase-js
+      client and again by an independent verification pass — not inferred.
+      The fix is a copy of 033's pattern: require `profiles.role = 'parent'`
+      AND approved membership, in the WITH CHECK on `season_budgets` and
+      `budget_expenses`. Attack-test both directions on staging first (a
+      parent must still write; a sibling must be refused `42501`), then
+      delete the disclosure sentence from `lib/legal/policy.ts` in the SAME
+      commit rather than rewording around it. Check `pg_policies`, not this
+      file. The sibling note write is already correctly refused — 033 holds.
 
 ---
 

@@ -77,7 +77,7 @@ export async function loadFamilyRosterRows(
  * Used instead of `profiles.eq("family_code", code)` for two reasons: that
  * filter cannot see a joiner, whose profile carries no code; and the rows a
  * joiner wrote while their request was still PENDING are stamped
- * `family_code = NULL` for ever (037's trigger freezes the column on
+ * `family_code = NULL` for ever (036's trigger freezes the column on
  * UPDATE, so re-saving cannot heal them). Scoping by owner instead of by
  * stamp is what makes those rows visible to the family — the read policies
  * in 036 key off the owner for exactly the same reason. */

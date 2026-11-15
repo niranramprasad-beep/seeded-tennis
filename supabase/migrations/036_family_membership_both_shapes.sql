@@ -228,7 +228,11 @@ create policy "cost_calculations_read" on public.cost_calculations
 --
 -- NOT NULL note: season_budgets.family_code and encouragement_notes.
 -- family_code are NOT NULL. A caller whose my_family_code() is NULL (no
--- family, or a PENDING member) now gets 23502 instead of 42501. Both are
+--   CORRECTION (independent verification, 2026-11-15): this said a caller
+--   whose my_family_code() is NULL "now gets 23502 instead of 42501".
+--   Measured: a PENDING joiner inserting an encouragement_notes row gets
+--   42501 — RLS is evaluated before the NOT NULL constraint, so the policy
+--   refuses first and the constraint never runs.
 -- refusals and neither is reachable from the UI; the row is not written
 -- either way.
 
@@ -297,4 +301,4 @@ end $$;
 --   -- joined player's new match row carries the family code         -> OK
 --   -- client-supplied foreign family_code on INSERT is discarded    -> OK
 --
--- ROLLBACK: docs/HANDOFF.md §J step 16.
+-- ROLLBACK: docs/HANDOFF.md §J step 13.

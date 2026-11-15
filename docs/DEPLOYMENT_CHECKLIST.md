@@ -17,6 +17,16 @@
 
 ## Before every production deploy
 - [ ] CI green (typecheck, lint, tests, build)
+- [ ] **`/privacy` and `/terms` are only true AFTER the migrations.** Several
+      sentences on those pages describe RLS that does not exist on production
+      until §J has run — "there is no public profile, no directory, no search
+      for other players" is the sharpest one, because production still has
+      `profiles_discovery_read` and one account with
+      `privacy_level = 'public'`. The tests behind those sentences grep
+      migration FILES; they cannot see a database, and `lib/legal/policy.test.ts`
+      now says so in as many words. **So this is a human gate: never merge the
+      code before the migrations, or the site publishes a false privacy
+      promise with a green build behind it.**
 - [ ] Every migration in this deploy already applied + verified on staging
 - [ ] **For the `v1` → `main` merge specifically:** all sixteen migrations
       applied first (full order in HANDOFF §J), and the maintenance page gone

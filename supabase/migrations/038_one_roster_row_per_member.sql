@@ -156,10 +156,9 @@ grant execute on function public.family_members() to authenticated;
 --   select public.remove_family_member('<a non-holder member>');
 --     -> {"status":"removed", ...}
 --
--- ROLLBACK: re-run 037's `family_members()` verbatim (it is the
--- `create function` block in
--- supabase/migrations/037_revoke_on_removal_and_narrow_family_reads.sql,
--- minus the `drop function` before it — the signature is unchanged, so
--- `create or replace` is enough and the grants are preserved). That restores
--- the duplicate rows and the wrong "account holder" label; nothing else
--- depends on this function's shape.
+-- ROLLBACK: docs/HANDOFF.md §J step 14b, where it is written out in full as
+-- pasteable SQL. It used to say "re-run 037's version verbatim" here, which an
+-- independent review correctly called prose: 037's text is a bare
+-- `create function` preceded by a `drop function`, so following that
+-- instruction literally raises 42723 and following it correctly means editing
+-- two things in a hurry. Nothing else depends on this function's shape.

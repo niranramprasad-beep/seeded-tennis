@@ -607,9 +607,9 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply seventeen migrations to production in order
+Apply eighteen migrations to production in order
 (025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
-034 → 035 → 036 → 037 → 038), verifying after each; then merge `v1` to `main` as a
+034 → 035 → 036 → 037 → 038 → 039), verifying after each; then merge `v1` to `main` as a
 single PR with CI green, having first merged `main` into `v1` and deleted
 `middleware.ts` there — **`git revert d059006` cannot work and the plain
 merge keeps the maintenance page; see step 15.** (This line said "twelve"
@@ -897,8 +897,13 @@ read the child's UTR history.
 restore used to be a sentence, and the dropped table was not mentioned at all)
 ```sql
 drop policy if exists families_readable_by_members on public.families;
+-- Guarded so a second run does not fail 42710. Every other block in §J has
+-- this; these two did not, and a rollback you cannot re-run is a rollback you
+-- cannot trust at 3am.
+drop policy if exists "families readable" on public.families;
 create policy "families readable" on public.families
   for select to authenticated using (true);
+drop policy if exists "parent_accounts_insert_self" on public.parent_accounts;
 create policy "parent_accounts_insert_self" on public.parent_accounts
   for insert to authenticated with check (user_id = (select auth.uid()));
 
@@ -922,7 +927,14 @@ as $fn$
                    and p.role = 'parent')
 $fn$;
 
--- 023 also CREATES this table; nothing else references it.
+-- 023 also creates this table. The old comment here said "nothing else
+-- references it" — WRONG: `join_family()` both reads and writes it
+-- (023_family_join_rpc.sql, the rate-limit count and the attempt log). This
+-- rollback leaves the RPCs in place, so dropping the table leaves a
+-- `join_family()` that raises 42P01 on every call. Harmless only because the
+-- rolled-back CODE no longer calls it. Drop the function first, in this
+-- order, so nothing is left half-working:
+drop function if exists public.join_family(text);
 drop table if exists public.family_join_attempts;
 
 -- 023 REWROTE these two policies to use is_family_member(). Production's own
@@ -1928,9 +1940,105 @@ fails the build if the `UNION ALL` or the hardcoded flag comes back; it is
 mutation-tested (a probe migration reintroducing the old shape fails two of its
 four tests).
 
-**Rollback:** re-run 037's `family_members()` body with `create or replace`
-(same signature, so grants are preserved — do NOT `drop function` first). That
-restores the duplicates and the wrong label; nothing else depends on its shape.
+**Rollback:** written out, because "re-run 037's body" is not pasteable. 037's
+text is a bare `create function` preceded by a `drop function`, so an operator
+would have to locate the block, delete the drop AND change `create` to
+`create or replace`; pasted as-is it raises `42723`. That is the defect class
+this plan already fixed twice (steps 9 and 12) and it is not being
+reintroduced in the newest step.
+
+```sql
+create or replace function public.family_members()
+returns table (user_id uuid, name text, email text, role text, status text,
+               is_creator boolean, joined_at timestamptz, reminded_at timestamptz,
+               consent_status text, current_utr numeric, grade integer,
+               graduation_year integer, onboarded boolean,
+               target_school_slugs text[], gender text)
+language sql security definer set search_path = public stable
+as $fn$
+  with fam as (select public.my_family_code() as code)
+  select p.id, coalesce(nullif(p.name,''),'Family member'), p.email,
+         coalesce(p.role,'player'), 'approved'::text, true,
+         p.created_at, null::timestamptz, p.consent_status,
+         p.current_utr, p.grade, p.graduation_year, p.onboarded,
+         p.target_school_slugs, p.gender
+  from public.profiles p, fam
+  where fam.code is not null and p.family_code = fam.code
+    and public.is_family_member(fam.code)
+  union all
+  select pa.user_id, coalesce(nullif(p2.name,''),'Family member'), p2.email,
+         coalesce(p2.role,'parent'), pa.status, false,
+         pa.created_at, pa.reminded_at, p2.consent_status,
+         p2.current_utr, p2.grade, p2.graduation_year, p2.onboarded,
+         p2.target_school_slugs, p2.gender
+  from public.parent_accounts pa
+  join public.profiles p2 on p2.id = pa.user_id, fam
+  where fam.code is not null and pa.family_code = fam.code
+    and public.is_family_member(fam.code)
+  order by 6 desc, 5, 7
+$fn$;
+revoke all on function public.family_members() from public, anon;
+grant execute on function public.family_members() to authenticated;
+```
+That restores the duplicate rows and the wrong "account holder" label; nothing
+else depends on this function's shape.
+
+### Step 14c — migration 039 (removal for profile-only members; `parent_reports` stops being client-writable)
+**Ships with 036 + 037 + 038.** Both halves were found by the independent
+verification pass that followed the third rehearsal, and both were measured
+against **production's real data, read-only**.
+
+**1. A member with no `parent_accounts` row could never be removed.**
+`remove_family_member()` deletes from `parent_accounts` and raises when
+`row_count = 0`; for a member who holds only `profiles.family_code` that is
+every time. 038 then correctly reports `is_creator = false` for them, so
+`/family` renders a Remove button that errors on every click while the member
+keeps full read access for ever. Production, per family — profiles on the code
+/ also linked / profile-only:
+
+| code | on code | linked | profile-only |
+|---|---|---|---|
+| `JORDA-0N6T` | 1 | 0 | 1 |
+| `NIRAN-0FI8` | 4 | 2 | 2 |
+| `NIRAN-0LK2` | 2 | 1 | 1 |
+| `SIDHA-0FBP` | 1 | 0 | 1 |
+
+Most of those profile-only rows **are** the account holder, correctly
+unremovable. **Exactly one is not:** a `player` in `NIRAN-0FI8`, not the
+holder, no link row — unremovable by anyone including the holder. Reproduced
+on staging in that shape, then fixed and re-tested.
+
+**2. `parent_reports` was client-writable.** The policy is named
+`parent_reports_service_insert` and is granted to **`authenticated`** with
+`with check (is_family_member(family_code))`. Verified on staging: an approved
+PARENT *and* an approved SIBLING PLAYER both inserted a report row with an
+arbitrary `title` and `public_url`, which `loadParentReports()` renders to the
+whole family. A policy whose name asserts a rule its body does not implement —
+the same shape as the `encouragement_notes_insert_parent` bug 033 fixed. It is
+live on production and it made CLAUDE.md's "parents can write exactly two
+things… enforced at the RLS layer" and the same sentence in `/privacy` false.
+
+**Apply:** `supabase/migrations/039_removal_for_profile_only_members_and_parent_reports.sql`
+
+**Pre-flight:** none. No columns, no grants; one function body and one dropped
+policy. Worth running the shape query above on production first so you know
+which member becomes removable.
+
+**Verify (as real members, NOT as `postgres`):**
+```sql
+select public.remove_family_member('<a profile-only member>');
+--   -> {"status":"removed","family_code_cleared":true,"link_removed":false}
+select public.remove_family_member('<the account holder>');   -- -> 22023
+select public.remove_family_member('<a stranger>');           -- -> 22023
+insert into public.parent_reports (...);  -- -> 42501, as parent AND as player
+select count(*) from public.parent_reports;  -- unchanged: the READ still works
+```
+Measured after applying: all five as above, and the removed member then read
+1 profile (their own), 0 matches, 0 roster rows, `my_family_code() -> NULL`.
+
+**Rollback:** in the migration's own trailer, written out as runnable SQL.
+Note it restores the unremovable member AND the client write, so roll the
+`/privacy` copy back with it or leave 039 applied.
 
 ### Step 15 — the code (`v1` → `main`)
 Only after steps 1–14 are applied and verified.
@@ -1982,12 +2090,23 @@ write.
 
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
-- [ ] Update `docs/DATABASE_SPEC.md`: mark 022–031 applied to production, with the date
+- [ ] Update `docs/DATABASE_SPEC.md`: mark 022–039 applied to production, with the date
 - [ ] Regenerate `lib/db/database.types.ts` against production (`generate_typescript_types`) — `parent_accounts` gained four columns, `profiles` four, and `rate_limit_events` is new
 - [ ] Turn on Supabase leaked-password protection and a minimum password length (Dashboard → Authentication → Policies). The advisor WARNs on it, and S-6 cannot cover login/signup/reset from app code — those requests never touch a Seeded route
 - [ ] Review Supabase Auth's own per-IP rate limits (Dashboard → Authentication → Rate Limits) for signup, login and password reset
 - [x] Point Vercel **Preview** and local **Development** at staging (P0-6's remaining half) — done 2026-11-14: all three Supabase vars are Production-only, and Preview/Development carry their own pointing at `gnlcpnsweqbtwpaqhqqg`
-- [x] Credentials: `GEMINI_API_KEY` deleted from Vercel; Stripe was never used; the Whop key was verified never committed, so no rotation needed (Niran, 2026-11-14)
+- [ ] **Credentials: NOT done, and this line used to claim it was.** What is
+      true: `GEMINI_API_KEY` was deleted from Vercel, and the Whop key was
+      verified never committed. What is NOT true: that nothing needs
+      revoking. **Deleting an env var is not revoking a key at the
+      provider** — the Gemini key still works wherever it has been seen, and
+      `GEMINI_API_KEY` is still present in the local `.env.local`. CLAUDE.md
+      has said "The Gemini and Stripe keys still need revoking at the
+      provider" the whole time, so this document and that one contradicted
+      each other on a security item. Three to revoke at the provider, per
+      the standing note: **Whop** (exposed twice in terminal screenshots),
+      **Gemini** and **Stripe** (their code is deleted; the keys are not).
+      Niran's to do, in each provider's dashboard.
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 

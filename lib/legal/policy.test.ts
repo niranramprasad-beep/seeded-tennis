@@ -84,9 +84,25 @@ describe("the claims still match the code", () => {
     expect(migration).toContain("account_active()");
   });
 
-  it("there really is no public profile read, as the policy says", () => {
+  it("the migration that removes the public profile read exists and says so", () => {
+    // DELIBERATELY NARROW, and the name of this test says what it checks.
+    //
+    // An independent review pointed out that the previous name — "there
+    // really is no public profile read, as the policy says" — was a promise
+    // this assertion cannot keep. It greps a FILE. It cannot see a database.
+    // On production, today, `profiles_discovery_read` is still live and one
+    // account has `privacy_level = 'public'`, so /privacy's "no public
+    // profile" sentence is true of this branch and false of the server the
+    // branch is not deployed to yet.
+    //
+    // What protects users is the rollout ORDER — every migration lands before
+    // the code merges (docs/HANDOFF.md §J, and the check in
+    // docs/DEPLOYMENT_CHECKLIST.md). Nothing mechanical in this repo can
+    // enforce that, and pretending otherwise is how a false claim ships with
+    // a green test behind it.
     const migration = read("supabase", "migrations", "027_narrow_profile_reads_and_rpc_grants.sql");
     expect(migration).toContain('drop policy if exists "profiles_discovery_read"');
+    expect(migration).toContain("drop function if exists public.are_friends");
   });
 
   it("Seeded really does not send coach email, as the policy says", () => {
