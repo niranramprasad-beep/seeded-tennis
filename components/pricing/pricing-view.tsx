@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Sparkles } from "lucide-react";
 import {
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_RANK,
   formatTierPrice,
-  yearlySavingsPercent,
+  yearlyAsMonthlyLabel,
+  yearlyMonthsFree,
   type BillingInterval,
   type SubscriptionTier,
 } from "@/lib/types";
@@ -47,7 +49,7 @@ const PLANS: Plan[] = [
   {
     tier: "free",
     name: "Free",
-    tagline: "Explore the catalog and find your honest fit.",
+    tagline: "See where you fit.",
     // P0-7: this said "Browse all D1 tennis programs" / "Explore every
     // program". The catalog is 68 programs (54 D1, 6 D2, 8 D3) against ~1,100
     // real D1 programs alone. Quote the real number — and change this copy
@@ -67,7 +69,7 @@ const PLANS: Plan[] = [
     // withholding the main feature.
     tier: "player",
     name: "Player",
-    tagline: "Your plan, and the coach outreach to go with it.",
+    tagline: "Know what to do every week.",
     highlights: [
       "Everything in Free",
       "Unlimited target schools",
@@ -79,7 +81,7 @@ const PLANS: Plan[] = [
   {
     tier: "family",
     name: "Family",
-    tagline: "Adds the parent side: visibility and the season budget.",
+    tagline: "For the parent who pays and wants to see progress.",
     highlights: [
       "Everything in Player",
       "Parent dashboard — read-only view of the plan",
@@ -157,11 +159,12 @@ export function PricingView() {
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState("");
-  // Monthly by default: it is the lower commitment and the number people
-  // compare against. Yearly is the better deal and says so, via a saving
-  // computed from the prices rather than a hand-typed percentage that would
-  // go stale the next time one of them moves.
-  const [interval, setInterval] = useState<BillingInterval>("monthly");
+  // Yearly first, per docs/DESIGN_MOCKUP_SPEC.md. The saving is computed
+  // from the prices (lib/types yearlyMonthsFree) rather than typed in: the
+  // mockup's "2 months free" is wrong in the customer's favour at today's
+  // prices, and a promise that understates is still a promise nobody
+  // checked.
+  const [interval, setInterval] = useState<BillingInterval>("yearly");
 
   // Only ever called for a genuine upgrade — the Free card's button is
   // always disabled (current or includedAlready), so there is no "switch to
@@ -211,12 +214,14 @@ export function PricingView() {
             isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "font-light tracking-tight text-ink"
           )}
         >
-          Start free. Upgrade when you're{" "}
-          <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>ready to commit</span>.
+          Your first fit report is free.{" "}
+          <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>
+            Pay when you want a plan
+          </span>
+          .
         </h1>
-        <p className="mx-auto mt-4 max-w-lg text-pretty text-stone">
-          Browsing schools is always free. Choose a plan to unlock your roadmap,
-          training, and coach outreach.
+        <p className="mx-auto mt-4 max-w-[640px] text-pretty text-[17px] text-stone">
+          One skipped bad-fit tournament (entry plus travel) usually covers a year of Player.
         </p>
         {error && (
           <p className="mx-auto mt-4 max-w-md rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
@@ -243,7 +248,7 @@ export function PricingView() {
           aria-label="Billing interval"
           className="inline-flex rounded-pill border-[0.5px] border-line bg-card p-1"
         >
-          {(["monthly", "yearly"] as const).map((option) => (
+          {(["yearly", "monthly"] as const).map((option) => (
             <button
               key={option}
               type="button"
@@ -260,11 +265,7 @@ export function PricingView() {
               {option === "monthly" ? "Monthly" : "Yearly"}
               {option === "yearly" && (
                 <span className="ml-1.5 text-xs font-medium opacity-80">
-                  {/* The SMALLER of the two savings, so the claim holds for
-                      whichever plan the visitor picks. Player saves 31% and
-                      Family 30%; quoting 31 here would be a number one of
-                      the two cards then contradicts two inches below. */}
-                  save {Math.min(yearlySavingsPercent("player"), yearlySavingsPercent("family"))}%
+                  · {yearlyMonthsFree()} months free
                 </span>
               )}
             </button>
@@ -292,6 +293,8 @@ export function PricingView() {
             <Card
               className={cn(
                 "relative flex h-full flex-col overflow-hidden p-7",
+                // Spec: the Family card carries a 2px court border.
+                plan.tier === "family" && "border-2 border-grass",
                 highlighted
                   ? isSeeded
                     ? "border-0 pt-10 seeded-glass shadow-seeded-3"
@@ -324,17 +327,18 @@ export function PricingView() {
               <p className="mt-1 text-sm text-stone">{plan.tagline}</p>
 
               <div className="mt-5 flex items-baseline gap-1.5">
-                <span className={cn("text-4xl tracking-tight text-ink", isSeeded ? "font-mono" : "font-light")}>
+                <span className="font-mono text-[40px] font-semibold leading-none tracking-tight text-ink tabular-nums">
                   {priceLabel(plan.tier, interval)}
                 </span>
                 <span className="text-sm text-stone-light">
                   {cadenceLabel(plan.tier, interval)}
                 </span>
               </div>
-              {plan.tier !== "free" && interval === "yearly" && (
+              {plan.tier !== "free" && (
                 <p className="mt-1 text-sm text-stone">
-                  {formatTierPrice(plan.tier, "monthly")}/mo billed monthly — yearly saves{" "}
-                  {yearlySavingsPercent(plan.tier)}%.
+                  {interval === "yearly"
+                    ? `About ${yearlyAsMonthlyLabel(plan.tier)} a month.`
+                    : `Or ${formatTierPrice(plan.tier, "yearly")} a year.`}
                 </p>
               )}
 
@@ -367,6 +371,36 @@ export function PricingView() {
           );
         })}
       </div>
+
+      {/* Spec's footer line, with one sentence changed.
+          The mockup reads "Cancel in two clicks. Accounts for players under
+          18 are billed to a parent." The second half is not true — nothing
+          in the product or in Whop checks who owns the card, and a
+          16-year-old can pay with their own. Shipping it would be the exact
+          pattern P0-7 spent a pass removing, so it says what IS true: an
+          under-13 account needs a parent's consent before it works at all
+          (migration 030), and that is enforced in the database.
+          `lib/copy-honesty.test.ts` fails the build if the billing claim
+          returns. */}
+      <p className="mt-6 text-center text-sm text-stone">
+        Cancel any time from your Whop account. Players under 13 need a parent or
+        guardian to approve the account before it works.
+      </p>
+
+      <FadeIn className="mt-14">
+        <div className="rounded-xl border border-line bg-subtle p-6 text-center">
+          <h2 className="font-seeded text-lg font-semibold text-ink">
+            What stays free, always
+          </h2>
+          <p className="mx-auto mt-2 max-w-[560px] text-sm text-stone">
+            Every school page, your first fit report, and{" "}
+            <Link href="/methodology" className="text-grass underline underline-offset-2">
+              our methodology
+            </Link>
+            . No card to see any of it.
+          </p>
+        </div>
+      </FadeIn>
 
       {/* comparison table */}
       <FadeIn className="mt-16">

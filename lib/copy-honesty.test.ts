@@ -75,6 +75,21 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "deletion is immediate (029); nothing is queued and nothing takes 30 days",
   },
   {
+    // Straight out of the pricing mockup. Nothing in the product or in Whop
+    // checks who owns the card — a 16-year-old can pay with their own — so
+    // this is a claim about a control that does not exist. The true version
+    // is on /pricing: under-13 accounts need a parent's consent, which the
+    // database does enforce (migration 030).
+    pattern: /billed to a (?:parent|guardian)|under 18 are billed/i,
+    why: "nobody checks who pays; there is no parent-billing control",
+  },
+  {
+    // "Two clicks" is a measurement of Whop's UI, which we do not own and
+    // cannot keep true.
+    pattern: /cancel in two clicks|cancel in one click/i,
+    why: "cancellation happens in Whop's UI; we cannot promise its click count",
+  },
+  {
     pattern: /(?:deleted|removed) within \d+ days|deletion (?:is |will be )?scheduled|queued for deletion/i,
     why: "deletion is immediate; there is no grace period, queue or scheduled job",
   },

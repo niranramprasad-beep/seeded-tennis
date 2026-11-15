@@ -21,7 +21,16 @@ export function getSupabase(): TypedSupabaseClient | null {
   if (!isSupabaseConfigured) return null;
   if (!browserClient) {
     browserClient = createClient<Database>(url as string, publishableKey as string, {
-      auth: { persistSession: true, autoRefreshToken: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        // PKCE, explicitly. The OAuth callback (app/auth/callback) exchanges
+        // the `?code=` itself rather than relying on whichever flow the
+        // library defaults to this major version — an auth flow that changes
+        // shape under a patch bump is not one to leave implicit.
+        flowType: "pkce",
+        detectSessionInUrl: true,
+      },
     });
   }
   return browserClient;

@@ -7,6 +7,69 @@ Newest first.
 
 ---
 
+## 2026-11-14 — Rewrote two lines of the pricing mockup's copy
+
+**Decision.** The spec's footer line is "Cancel in two clicks. Accounts for
+players under 18 are billed to a parent." Shipped instead: "Cancel any time
+from your Whop account. Players under 13 need a parent or guardian to
+approve the account before it works."
+
+**Why.** The second sentence is not true. Nothing in Seeded or in Whop checks
+who owns the card — a 16-year-old can pay with their own — so it describes a
+control that does not exist. The first is a measurement of Whop's UI, which
+we do not own and cannot keep true. The replacement says the thing that IS
+enforced, in the database, by migration 030. Both originals are now patterns
+in `lib/copy-honesty.test.ts`, so they fail the build if they come back.
+
+**How to undo.** Only if the controls become real. Delete the test entries in
+the same commit that makes them true — never reword around them.
+
+---
+
+## 2026-11-14 — "3 months free", computed, not "2 months free"
+
+**Decision.** The toggle reads "Yearly · 3 months free", from
+`yearlyMonthsFree()` in lib/types.
+
+**Why.** The mockup says 2. At today's prices yearly saves 3.75 months on
+Player and 3.6 on Family, so "2" understates — and a promise that understates
+is still a promise nobody checked. The helper floors the saving and takes the
+minimum across paid tiers, so the number is true for whichever plan the
+visitor picks and moves on its own when a price changes.
+
+**How to undo.** Replace the call with a literal. Then own the literal.
+
+---
+
+## 2026-11-14 — "Parent" on /signup links to /parent-signup
+
+**Decision.** The spec's "I am the" pill radio is on /signup. Choosing Player
+does nothing (it is already selected); choosing Parent navigates to
+/parent-signup.
+
+**Why.** `SignupFlow` had a `role` state with no UI and no working parent
+path — the parent flow is a separate page with different copy, different
+fields and a different landing page. A half-parent mode inside the player
+wizard would have been a worse version of a page that already exists.
+
+**How to undo.** Make the Parent pill set local state and teach SignupFlow
+the parent copy, then delete /parent-signup.
+
+---
+
+## 2026-11-14 — `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` added to .env.local
+
+**Decision.** Appended to the local env file so the Google button renders in
+local dev, matching what production will be.
+
+**Why.** It was needed to verify the button actually appears with the flag
+on — and finding that it appeared with the flag OFF is how the guard bug was
+caught. The file is gitignored; nothing is committed.
+
+**How to undo.** Delete the line.
+
+---
+
 ## 2026-11-14 — Self-host all six font families, not the three named
 
 **Decision.** The overnight brief named Inter, Inter Tight and JetBrains

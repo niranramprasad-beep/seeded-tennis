@@ -24,6 +24,7 @@ import {
 } from "@/lib/config/consent";
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
+import { GoogleButton, GoogleDivider } from "./auth-card";
 import { cn } from "@/lib/utils";
 
 const COUNTRIES = [
@@ -316,6 +317,12 @@ export function SignupFlow({
           >
             {step === 0 && (
               <div>
+                {/* Google first, then an "or" divider, per
+                    docs/DESIGN_MOCKUP_SPEC.md. A Google signup still lands
+                    on /auth/complete for birth year, role and family — the
+                    under-13 consent gate has no bypass. */}
+                <GoogleButton label="Sign up with Google" />
+                <GoogleDivider />
                 <h1 className={cn("text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
                   {isParentSignup ? "Create your parent account" : "Create your account"}
                 </h1>
@@ -324,6 +331,37 @@ export function SignupFlow({
                     ? "Use the family code from your player to connect to their progress."
                     : "This is the player's profile. Parents can join with a code next."}
                 </p>
+                {/* Spec: an "I am the" Player/Parent pill radio. Choosing
+                    Parent routes to /parent-signup rather than flipping a
+                    flag inside this wizard — the parent path has different
+                    copy, different fields and a different landing page, and
+                    a half-parent mode inside the player flow would be a
+                    worse version of a page that already exists. */}
+                {!isParentSignup && (
+                  <div className="mt-5">
+                    <span className="mb-1.5 block text-[13px] font-medium text-stone">
+                      I am the
+                    </span>
+                    <div role="radiogroup" aria-label="I am the" className="flex gap-2">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked
+                        className="min-h-11 flex-1 rounded-pill border border-ink bg-ink px-4 text-[15px] font-semibold text-cream"
+                      >
+                        Player
+                      </button>
+                      <Link
+                        href="/parent-signup"
+                        role="radio"
+                        aria-checked={false}
+                        className="flex min-h-11 flex-1 items-center justify-center rounded-pill border border-input bg-card px-4 text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
+                      >
+                        Parent
+                      </Link>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-6 space-y-3">
                   <input
                     className={inputClass}

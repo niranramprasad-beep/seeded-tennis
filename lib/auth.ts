@@ -5,6 +5,7 @@ import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
+import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 
 export { isSupabaseConfigured };
 
@@ -189,16 +190,25 @@ export async function signUp(
 // Supabase dashboard under Authentication → Providers, which can't be
 // verified or configured from application code; if it isn't enabled yet,
 // Supabase returns a clear provider error here rather than silently failing.
-export async function signInWithGoogle(): Promise<AuthResult> {
+export async function signInWithGoogle(next?: string): Promise<AuthResult> {
   const supa = getSupabase();
   if (!supa) return notConfiguredResult();
+
+  // Always our own callback route, never `window.location.href`. The old
+  // behaviour sent Google back to whatever page the button was on, which
+  // meant no single place exchanged the code, no single place decided where
+  // a brand-new user goes, and a redirect URL that changed per page — so the
+  // Supabase allowlist had to be wide. One path, allowlisted once.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const safeNext = safeRedirectPath(next ?? null);
+  const redirectTo = `${origin}${OAUTH_CALLBACK_PATH}${
+    safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""
+  }`;
 
   try {
     const { error } = await supa.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: typeof window !== "undefined" ? window.location.href : undefined,
-      },
+      options: { redirectTo },
     });
     if (error) return { ok: false, error: friendlyAuthError(error.message) };
     return { ok: true };
@@ -208,6 +218,74 @@ export async function signInWithGoogle(): Promise<AuthResult> {
       error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
     };
   }
+}
+
+/**
+ * Finishes a Google signup.
+ *
+ * Google gives us an authenticated user and an email. It does not give us a
+ * birth year, a role, or a family — the three things the product is built
+ * around and the first of which decides whether the account is allowed to be
+ * active at all (P0-8). So a Google user with no profile row is NOT a
+ * finished signup, and app/auth/complete collects the rest before this runs.
+ *
+ * Deliberately the same `ensureSupabaseProfile` the email path uses, with
+ * the same arguments. There is no second profile-creation path to drift:
+ * the under-13 consent trigger, the family-join RPC and the 022 column lock
+ * all apply identically, because it is the same code.
+ */
+export async function completeOAuthProfile(input: {
+  name: string;
+  country: string;
+  gender: PlayerGender;
+  grade: number;
+  birthYear: number | null;
+  role: FamilyRole;
+  family: FamilyChoice;
+}): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return notConfiguredResult();
+
+  const { data, error } = await supa.auth.getUser();
+  if (error || !data.user) {
+    return { ok: false, error: "Your sign-in expired. Try signing in again." };
+  }
+
+  const familyCode =
+    input.family.mode === "create"
+      ? generateFamilyCode()
+      : input.family.code.trim().toUpperCase();
+  if (input.family.mode === "join" && !familyCode) {
+    return { ok: false, error: "Enter a family code to join." };
+  }
+
+  return ensureSupabaseProfile({
+    userId: data.user.id,
+    email: data.user.email ?? "",
+    name: input.name,
+    country: input.country,
+    gender: input.gender,
+    grade: input.grade,
+    birthYear: input.birthYear,
+    role: input.role,
+    familyCode,
+    familyMode: input.family.mode,
+  });
+}
+
+/** Whether the signed-in user has finished signing up. A Google user exists
+ * in auth with no profile row until app/auth/complete runs. */
+export async function hasSeededProfile(): Promise<boolean> {
+  const supa = getSupabase();
+  if (!supa) return false;
+  const { data } = await supa.auth.getUser();
+  if (!data.user) return false;
+  const { data: profile } = await supa
+    .from("profiles")
+    .select("id")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  return Boolean(profile);
 }
 
 export async function signIn(

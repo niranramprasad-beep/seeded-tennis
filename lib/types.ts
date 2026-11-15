@@ -88,6 +88,35 @@ export function yearlySavingsPercent(tier: SubscriptionTier): number {
   return Math.round(((monthlyYear - TIER_PRICE_USD[tier].yearly) / monthlyYear) * 100);
 }
 
+/**
+ * How many months of the monthly price a year's subscription saves — floored,
+ * and minimised across every paid tier, so the number is true for whichever
+ * plan the visitor picks.
+ *
+ * The mockup's toggle reads "Yearly · 2 months free". At today's prices that
+ * is wrong in the customer's favour (Player saves 3.75 months, Family 3.6),
+ * and a promise that understates is still a promise nobody checked. Computed
+ * like this it holds for both tiers and moves on its own when a price does.
+ */
+export function yearlyMonthsFree(): number {
+  const paid: SubscriptionTier[] = ["player", "family"];
+  return Math.min(
+    ...paid.map((tier) => {
+      const { monthly, yearly } = TIER_PRICE_USD[tier];
+      if (monthly === 0) return 0;
+      return Math.floor((monthly * 12 - yearly) / monthly);
+    })
+  );
+}
+
+/** "About $8.25 a month" — the yearly price expressed monthly, for the
+ * spec's price note. Two decimals only when they are not .00. */
+export function yearlyAsMonthlyLabel(tier: SubscriptionTier): string {
+  const perMonth = TIER_PRICE_USD[tier].yearly / 12;
+  const rounded = Math.round(perMonth * 100) / 100;
+  return Number.isInteger(rounded) ? `$${rounded}` : `$${rounded.toFixed(2)}`;
+}
+
 export type Weakness =
   | "forehand"
   | "backhand"

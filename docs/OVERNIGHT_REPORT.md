@@ -177,4 +177,105 @@ changed — the test file says so at the top.
 
 ---
 
-## TASK 2 — Launch polish: *in progress*
+## TASK 2 — Launch polish: **DONE**
+
+### Google sign-in, end to end
+
+Built, not stubbed:
+
+- `lib/config/auth.ts` — the flag, the callback path, and `safeRedirectPath`
+  for `?next=`. **6 tests** on the redirect alone: `//evil`, `/\evil`,
+  absolute URLs, `javascript:`, control characters. An open redirect on an
+  OAuth callback is worth more than on any other page — the victim arrives
+  having just authenticated, from a link that genuinely started on our domain.
+- `app/auth/callback` — the one place that exchanges a code. Three outcomes:
+  provider error → `/login` with a readable message (never the raw
+  `invalid_grant` at a 15-year-old, never a blank page); no profile →
+  `/auth/complete`; profile → in, honouring a safe `?next=`.
+- `app/auth/complete` — **the no-bypass step.** Google gives an email and a
+  name; it does not give a birth year, a role or a family. It calls
+  `completeOAuthProfile`, which calls the same `ensureSupabaseProfile` the
+  email path calls, with the same arguments — so the under-13 consent
+  trigger, `join_family()` and the 022 column lock all apply because it is
+  the same code, not because it was remembered twice. An under-13 Google
+  signup gets the same forced family-join path.
+- `flowType: "pkce"` set explicitly on the Supabase client. An auth flow that
+  changes shape under a library patch bump is not one to leave implicit.
+
+**A bug this caught.** The flag check lived in `AuthCard`, and
+`signup-flow.tsx` renders `<GoogleButton>` directly — so **/signup showed the
+button with `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` unset.** Found in a 375px
+screenshot, not by a test. The guard now lives inside `GoogleButton` and
+`GoogleDivider`, and `components/auth/google-button-flag.test.ts` fails the
+build if it moves back out or a fourth caller reimplements the button.
+
+Verified both ways: flag unset → no button on `/login` or `/signup`; flag set
+→ "Continue with Google" renders (dev server, `find` result).
+
+### Rebuilt to docs/DESIGN_MOCKUP_SPEC.md
+
+- **New `AuthCard`** — centred 420px card, H2 + subline, Google first, "or"
+  divider, 44px/16px inputs (16px because iOS Safari zooms below it), spec
+  error banner. `/login`, `/signup` and `/auth/complete` share it; they each
+  had their own card width, input sizing and error treatment before, which is
+  how they drifted.
+- **`/pricing`** — spec headline and subline, Yearly default, mono 40px
+  prices, "About $8.25 a month" / "Or $159 a year" notes, 2px court border on
+  Family, "What stays free, always" section, spec taglines.
+- **`/family`** — invite box on the muted panel with a dashed border and the
+  code in mono bold; approval items use the clay tint for the most urgent and
+  the muted panel for the rest. The design tokens already matched the spec's
+  hex values exactly (`--c-clay-tint-bg` = 251 237 230 = #FBEDE6).
+- **`/signup`** — "I am the" Player/Parent pill radio.
+
+### Two copy claims I would not ship
+
+The spec's pricing footer reads *"Cancel in two clicks. Accounts for players
+under 18 are billed to a parent."*
+
+Nothing checks who owns the card — a 16-year-old can pay with their own — so
+the second sentence describes a control that does not exist, and the first
+measures Whop's UI, which we do not own. Shipped instead: *"Cancel any time
+from your Whop account. Players under 13 need a parent or guardian to approve
+the account before it works"* — which is enforced, in the database, by
+migration 030. Both originals are now patterns in `lib/copy-honesty.test.ts`.
+
+Likewise the toggle: the mockup's "2 months free" understates the real saving
+(3.75 months on Player, 3.6 on Family), so it reads "3 months free" from
+`yearlyMonthsFree()` — floored, minimised across tiers, true for both, and it
+moves when a price does.
+
+### Sweep
+
+`grep '\$19|\$39|\$12|\$99|\$159'` across `app/` and `components/`
+returns **only comments** explaining the history — no hardcoded price renders
+anywhere. No `lorem ipsum`, no `TODO:`/`FIXME` in UI. The "coming soon"
+strings on school pages are honest empty states for P1-DATA-1.
+
+### Evidence
+
+8 screenshots in `docs/screenshots/`: `task2-{login,signup,pricing,family}-{desktop,mobile}.jpg`.
+
+**Console on those pages:** clean apart from `/_vercel/insights/script.js`
+and `/_vercel/speed-insights/script.js` 404s, which only happen under a local
+`next start` — those endpoints exist only on Vercel. Not CSP blocks; the CSP
+allows them as same-origin.
+
+**One thing that looked like a bug and was not:** `/login` at 375px read as
+blank in the first screenshot. It is the `animate-fade-in` on route change
+being captured mid-animation — the DOM has the full form, confirmed by
+reading it directly. Recorded so nobody chases it again.
+`prefers-reduced-motion` is already handled globally in `app/globals.css`.
+
+### Verification
+
+`tsc` clean · `lint` clean · **533 tests pass** · production build passes.
+
+### Open issues
+
+- The `/dev/family-preview` harness seeds the old `CHEN-7K4P` code format,
+  which P0-2 replaced. Dev-only route, 404s in production. Logged in TODO.
+
+---
+
+## TASK 3 — Fit report trajectory: *in progress*

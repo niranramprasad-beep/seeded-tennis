@@ -87,6 +87,11 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
     <div className="rounded-xl border border-line bg-card p-5">
       <div className="flex items-center gap-2">
         <UserPlus className="h-4 w-4 text-grass" aria-hidden />
+        {/* NOT "Needs a parent decision" — /family already has a card with
+            that exact heading (bad-fit tournaments), and the spec's
+            instruction is that approvals use the same card and chip
+            LANGUAGE, not the same title. Two identically-titled cards on one
+            page is worse than either name. */}
         <h2 className="text-lg font-semibold text-ink">
           {pending.length === 0
             ? "Waiting on a parent"
@@ -97,10 +102,16 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
       </div>
 
       <div className="mt-4 space-y-3">
-        {pending.map((m) => (
+        {/* Spec: the most urgent item gets the clay tint, the rest sit on the
+            muted panel, so a stack of requests still has one focal point. */}
+        {pending.map((m, i) => (
           <div
             key={m.userId}
-            className="rounded-[14px] border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] p-4"
+            className={
+              i === 0
+                ? "rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4"
+                : "rounded-[14px] border border-line bg-subtle p-4"
+            }
           >
             <p className="font-semibold text-ink">
               {m.name} wants to join your family as {m.role === "parent" ? "Parent" : "Player"}
