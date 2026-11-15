@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
+import { rateLimited } from "@/lib/rate-limit";
 import { createUtrEntry } from "@/lib/db/plan";
 import { UtrEntryBodySchema } from "@/lib/api-schemas/utr-entries";
 
@@ -14,6 +15,11 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  // S-6: one shared, Postgres-backed limiter for every write route. Fails
+  // closed — see lib/rate-limit.ts.
+  const limited = await rateLimited(ctx.supabase, "utr_entry");
+  if (limited) return limited;
 
   const json = await req.json().catch(() => null);
   const parsed = UtrEntryBodySchema.safeParse(json);

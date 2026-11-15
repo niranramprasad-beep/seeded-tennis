@@ -10,6 +10,8 @@ import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct, type FitC
 import { usePlayer } from "@/lib/context/player-context";
 import { signUp, signInWithGoogle } from "@/lib/auth";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
+import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
+import { parentConsentRequired } from "@/lib/config/consent";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip } from "@/components/seeded/ui/data-chip";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -34,16 +36,44 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
 
   const utrNum = parseFloat(utr) || 0;
   const filtered = useMemo(() => schools.filter((s) => s.gender === gender), [schools, gender]);
-  const counts = useMemo(() => countSchoolFits(utrNum, filtered), [utrNum, filtered]);
+
+  // P1-FIT-4: this was the last `classifySchoolFit(utr, school)` in the
+  // product with no third argument. No projection does not mean "abstain" —
+  // it means "reach" for every school below the team floor, so a visitor
+  // who typed 3.0 was shown Stanford as a Reach and "Out of range 0". A
+  // pre-auth visitor has no logged history to project, so the honest input
+  // is the realistic-pace line: where they'd be by the summer before senior
+  // year improving at REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max. See
+  // realisticPaceProjectionFor() for why that bound and not the middle.
+  const projection = useMemo(
+    () =>
+      realisticPaceProjectionFor({
+        currentUTR: utrNum,
+        graduationYear: gradYear,
+        gender: gender === "women" ? "female" : "male",
+      }),
+    [utrNum, gradYear, gender]
+  );
+
+  const counts = useMemo(
+    () => countSchoolFits(utrNum, filtered, projection),
+    [utrNum, filtered, projection]
+  );
+  // Programs in at least one of the three in-range bands. NOT the catalog
+  // size: before P1-FIT-4 every below-floor school counted as Reach, so the
+  // two numbers happened to be equal and the footnote below could use this
+  // one for both. With out-of-range working, a 3.0 visitor has 0 in-band
+  // programs and the footnote would have read "0 programs in the catalog",
+  // which is false — the catalog has 68. They are different questions now.
   const total = counts.reach + counts.target + counts.likely;
 
   const [tab, setTab] = useState<FitBand>("target");
   const tabRows = useMemo(
     () =>
       filtered
-        .filter((s) => classifySchoolFit(utrNum, s) === tab)
+        .filter((s) => classifySchoolFit(utrNum, s, projection) === tab)
         .sort((a, b) => a.minCompetitiveUTR - b.minCompetitiveUTR),
-    [filtered, utrNum, tab]
+    [filtered, utrNum, tab, projection]
   );
 
   if (editing) {
@@ -174,7 +204,7 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
       </main>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">
         Fit bands shown here use your UTR and each program&apos;s roster
-        range — {total} programs for {GENDER_LABEL[gender]} in the catalog.
+        range — {filtered.length} programs for {GENDER_LABEL[gender]} in the catalog.
       </p>
     </div>
   );
@@ -292,7 +322,10 @@ function LevelForm({
 
 /* --------------------------------------------------------- SAVE STEP */
 
-const MIN_SELF_SERVE_AGE = 13;
+// P0-8: the under-13 rule lives in lib/config/consent.ts and is mirrored by
+// migration 030's consent_required_for_birth_year(), with a test asserting
+// the two agree. This file used to carry its own `age < 13`, which was a
+// third copy and the only one that was lenient about the ambiguous year.
 
 function SaveReportAside({
   utr,
@@ -316,8 +349,7 @@ function SaveReportAside({
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const age = new Date().getFullYear() - birthYear;
-  const underAge = age < MIN_SELF_SERVE_AGE;
+  const underAge = parentConsentRequired(birthYear);
 
   const save = async () => {
     setError(null);
@@ -341,6 +373,7 @@ function SaveReportAside({
         country: "United States",
         gender: gender === "women" ? "female" : "male",
         grade,
+        birthYear,
         role,
       },
       { mode: "create" }
@@ -384,7 +417,10 @@ function SaveReportAside({
         <div className="mt-4.5 rounded-lg border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] p-4 text-sm text-[rgb(var(--c-gold-tint-text))]">
           <p className="m-0 font-semibold">A parent creates the account and invites you.</p>
           <p className="mt-1.5">
-            Players under 13 can&apos;t self-serve sign up here.
+            Players under 13 can&apos;t sign up on their own. Your parent or guardian makes
+            their own Seeded account first, then gives you the family code it creates — and
+            has to say yes before your account does anything. Your fit report above stays on
+            this page; nothing is saved yet.
           </p>
           <Link href="/parent-signup" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-grass px-[18px] text-[15px] font-semibold text-on-primary">
             Go to parent sign-up

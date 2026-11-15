@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProfileRoleAndFamily, getRequestScopedSupabase } from "@/lib/api-auth";
+import { rateLimited } from "@/lib/rate-limit";
 import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 
 // Real write path behind /family's "Add expense" — parent/family money
@@ -21,6 +22,11 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  // S-6: one shared, Postgres-backed limiter for every write route. Fails
+  // closed — see lib/rate-limit.ts.
+  const limited = await rateLimited(ctx.supabase, "budget_write");
+  if (limited) return limited;
 
   const json = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(json);

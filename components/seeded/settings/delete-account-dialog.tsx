@@ -6,27 +6,41 @@ import { cn } from "@/lib/utils";
 
 const CONFIRM_WORD = "DELETE";
 
-// This only ever calls `onConfirm`, which the caller wires to setting a
-// `deletion_requested_at` timestamp. Nothing here or downstream deletes an
-// auth user or a data row — not after 30 days, not ever. No purge job exists
-// (P0-8 tracks building one).
+// P0-8. `onConfirm` now runs a real, immediate, irreversible deletion
+// (public.delete_my_account(), migration 029) — every row keyed on the
+// account and the auth user with it. Two earlier versions of this copy are
+// worth remembering, because the shape of the lie changed each time:
 //
-// P0-7: the copy used to describe the job as if it ran — "After 30 days, your
-// profile, results, UTR history, notes and outreach records are permanently
-// removed". A minor asking to be deleted is exactly the person who must not
-// be told a comforting untruth, so this now describes the real mechanism: a
-// request that a human actions. Keep the two-step confirmation (checkbox AND
-// typing DELETE) regardless — the request still matters.
+//   before P0-7  "After 30 days, your profile, results, UTR history, notes
+//                and outreach records are permanently removed" — described a
+//                purge job that did not exist.
+//   after P0-7   "This sends a deletion request — it doesn't delete anything
+//                on its own ... someone removes them by hand" — true at the
+//                time, and a terrible thing to have to tell a 14-year-old.
+//
+// This version says what now happens: it deletes, now, and it cannot be
+// undone. The two-step confirmation (checkbox AND typing DELETE) matters a
+// great deal more than it did when the button only set a timestamp.
+//
+// There is no grace period and no "cancel" state, deliberately. A grace
+// period that nothing enforces is the first version again, and a real one
+// would mean keeping a minor's data after they asked us to stop.
 export function DeleteAccountDialog({
   open,
   onClose,
   onConfirm,
   submitting,
+  error,
 }: {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
   submitting: boolean;
+  /** A real server-side failure. Shown inside the dialog rather than behind
+   * it, because the dialog does not close on failure — the account is still
+   * there and the person needs to know that, not be returned to a settings
+   * page that looks unchanged. */
+  error?: string | null;
 }) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -65,9 +79,17 @@ export function DeleteAccountDialog({
               Delete your account?
             </h2>
             <p className="mt-2 text-sm text-stone">
-              This sends a deletion request — it doesn&apos;t delete anything on its own. Your
-              profile, results, UTR history, notes and outreach records stay until someone
-              removes them by hand. You can cancel the request here until then.
+              This deletes your account and everything in it right now: your profile, your
+              UTR history, your results, your check-ins, your schools and your outreach
+              records. It cannot be undone and there is no way to get it back.
+            </p>
+            <p className="mt-2 text-sm text-stone">
+              If you share a family code, your family keeps their own accounts. The family
+              itself is removed only if you are the last person in it.
+            </p>
+            <p className="mt-2 text-sm text-stone">
+              Want a copy first? Close this and use <span className="font-medium text-ink">Download
+              everything</span>.
             </p>
 
             <label className="mt-4 flex items-start gap-2.5 text-sm text-ink">
@@ -77,7 +99,7 @@ export function DeleteAccountDialog({
                 onChange={(e) => setAcknowledged(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-input"
               />
-              I understand my data isn&apos;t removed until this is actioned.
+              I understand this deletes everything immediately and cannot be undone.
             </label>
 
             <label className="mt-4 block">
@@ -92,6 +114,8 @@ export function DeleteAccountDialog({
                 autoComplete="off"
               />
             </label>
+
+            {error && <p className="mt-4 text-sm text-error">{error}</p>}
 
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
@@ -110,7 +134,7 @@ export function DeleteAccountDialog({
                   "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-line disabled:text-stone-light"
                 )}
               >
-                {submitting ? "Sending…" : "Request deletion"}
+                {submitting ? "Deleting…" : "Delete everything"}
               </button>
             </div>
           </motion.div>

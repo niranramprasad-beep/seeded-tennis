@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-11-14 — Launch blockers: minors' privacy, public reads, rate limits, headers, RPC grants, pre-auth fit — staging only
+
+### P0-8 Minors' privacy (mechanisms done; the policy document is not)
+- **Deletion deletes.** New `029_real_account_deletion.sql` adds `delete_my_account()`, which removes every row keyed on the account and the auth user itself. It takes **no arguments** — it reads `auth.uid()`, so it can only ever delete its caller, which is why it needs none of the service-role client CLAUDE.md forbids for user-initiated writes. The family is deleted only when the departing account was its LAST member, counted across BOTH shapes a membership takes (`profiles.family_code` AND `parent_accounts`): counting only the first would have deleted a parent-first family out from under the child. `season_budgets`/`budget_expenses` have no FK on `family_code`, so they are removed explicitly rather than orphaned. The 30-day "grace period" that queued nothing is gone, and so is its Cancel button.
+- **A real data export.** `GET /api/account/export` returns every row the caller owns, plus the family budget, as JSON, read through the caller's own RLS. The old CSV stays (it is the one people actually open) and is now labelled as the partial thing it is. `lib/db/account-export.test.ts` fails the build if a table in the generated types is neither exported nor listed in `ACCOUNT_EXPORT_OMISSIONS` with a reason — an export that goes quietly stale is worse than none, because it reads as complete.
+- **Under-13 parental consent.** New `030` + `031`. Birth **year** is stored — not a full date of birth, which is a permanent identifier for a child, and the one ambiguous year rounds TOWARD asking for consent. `consent_status` is derived by the trigger and never accepted from the request body; **`birth_year` is write-once from the client**, which is the load-bearing half (without it, a pending 12-year-old edits their birth year and the gate re-derives as `not_required`). A `pending` account reads and writes nothing but its own profile row, enforced by a RESTRICTIVE policy on 21 tables — one policy per table instead of rewriting ~70 permissive ones. An under-13 is offered no "create a family" path, because nobody in a family of one can consent. The adult approving the join records consent in the same action, under copy that states plainly that **Seeded cannot verify that anyone is an adult or a parent**.
+- **Two real bugs found while building it.** The pre-auth signup form already collected a birth year, computed `underAge`, and threw the value away — the "under 13" notice was decoration over a field nothing stored. And `/parent-signup` was hard-wired to "join a family", so the parent of an under-13 could not create the family their child needs. Both fixed.
+- Staging: **17/17** on deletion, **24/24** on consent.
+
+### S-5 — a signed-in stranger could read a minor's whole profile row
+- `027_narrow_profile_reads_and_rpc_grants.sql` drops `profiles_discovery_read`. It granted whole-row SELECT — email, GPA, grade, family_code, Whop and stripe ids — of any profile with `privacy_level='public'`, to every signed-in user. One production row is 'public', set while P0-7's "Public recruiting page" toggle still shipped, for a page that was never built.
+- **Deliberately not replaced with a narrow view**: a mechanism for a feature that does not exist, with no reader, that would trip the security-definer-view advisor. When a public page is real, that is when to add it, with a per-field opt-in rather than one `privacy_level` string.
+- Same leak one table over: `badges_read` exposed any badge row of any 'public' profile. `badges` and `friendships` are now locked (RLS on, no policies) — the state S-13 already described.
+
+### S-6 — rate limits
+- `028_api_rate_limits.sql` + `lib/rate-limit.ts`. Every write route consumes a per-user, per-bucket hourly limit and returns a friendly 429 with `Retry-After`. **In Postgres, not a module-scope Map:** Vercel runs many instances and cold-starts them, so an in-process counter multiplies every limit by the instance count and resets on deploy. It looks like a rate limiter in review and is not one in production.
+- **The limits live inside the SQL function.** `consume_rate_limit(bucket)` takes a bucket and nothing else — a signature with a `limit` argument would let the caller pass `1000000`. Unknown buckets fail closed, and so does the app wrapper when the RPC errors.
+- **Login, signup and password reset are NOT covered and cannot be from app code.** The browser calls Supabase Auth directly; no Seeded route or middleware is ever on that path. Supabase's own per-IP limits and leaked-password protection are the only controls, and both are project settings. Said plainly rather than written up as done.
+
+### S-7 — security headers
+- `next.config.mjs` now sets CSP, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and `Cross-Origin-Opener-Policy`. Verified against a real production build: all present, **zero CSP violations** across `/`, `/onboarding`, `/signup`, `/parent-signup`.
+- `preload` is deliberately absent from HSTS — close to irreversible, and an owner's decision.
+- **Partial on purpose:** `script-src` keeps `'unsafe-inline'`. Removing it needs per-request nonces, nonces need middleware, and `main`'s middleware is the maintenance page. It still blocks every off-origin script host. Recorded as partial in SECURITY_CHECKLIST rather than ticked off.
+
+### S-9 — RPC grants, and a finding worth keeping
+- Dropped `are_friends()`; revoked `current_family_code()` and `generate_family_code()` from `authenticated` (the latter let any signed-in user probe the family code space without ever touching 023's rate limiter).
+- **The advisor's suggestion cannot be applied to the four helpers used inside RLS policies.** Postgres checks EXECUTE against the role running the query, not the policy's owner, so revoking fails the policy closed and breaks the feature. Tested on staging — revoking `is_family_member` made an approved parent's `select from families` raise `42501` — rather than reasoned about from the lint's wording.
+- Every remaining RPC is inventoried in `docs/SECURITY_CHECKLIST.md` with who may call it and why.
+
+### P1-FIT-4 — the last unbounded "Reach"
+- `realisticPaceProjectionFor()` builds the line a visitor would be on improving at `REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max` to the summer before senior year; the homepage calculator and `/onboarding` both pass it. The MAX of the range, not the middle: a school still marked out-of-range is one that stays out of reach on the best realistic trajectory.
+- Verified live: a 3.0 men's visitor who saw "Reach 37 · Out of range 0" now sees 0 in every in-range band.
+- **It exposed a copy bug** — the footnote "{total} programs for Men's in the catalog" used the in-band total, which only ever equalled the catalog size because everything below the floor counted as Reach.
+
+### Advisors
+Ran Supabase security advisors on staging. No ERRORs. Two WARNs and four INFOs, each recorded in SECURITY_CHECKLIST with a decision: leaked-password protection is Niran's project setting; the 17 SECURITY DEFINER functions are each justified; the four `rls_enabled_no_policy` tables are in that state on purpose, because for them the absence of a policy IS the policy.
+
+### Tests
+426 → 472. Three new guards, each covering a rule that is written down in two places — the rate-limit buckets against the migration's CASE, the under-13 age rule against `consent_required_for_birth_year()`, and the export against the schema. Two copies of a rule drifting apart is the failure mode that does not announce itself.
+
+Production untouched throughout. `main` still serves the maintenance page. All eleven migrations are staging-only and queued behind Niran's "go" — HANDOFF §J, steps 1–9.
+
 ## 2026-11-14 — Family join/approval flow (P0-2 part 2) — staging only
 - **Unblocked the P0-2 rollout.** `completeFamilySignup()` in `lib/auth.ts` is rewritten to go through `join_family()` only: no `families` lookup (members-only now, so a joiner read nothing and a valid code looked invalid), no direct `parent_accounts` insert (no client policy), and no `family_code` on a joiner's profile. It also uses `insert` instead of `upsert` so it can never take the UPDATE path that 022 rejects.
 - `generateFamilyCode()` now uses `crypto.getRandomValues` with the same alphabet and length as the database's `generate_family_code()`. The old `FIRSTNAME-XXXX` from `Math.random()` leaked the player's first name and wasn't a secret — both halves of why P0-2 was exploitable.

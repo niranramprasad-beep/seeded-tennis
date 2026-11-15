@@ -5,7 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
+import useSWR from "swr";
 import { usePlayer } from "@/lib/context/player-context";
+import { loadMyConsentState } from "@/lib/db/family-join";
+import { ConsentPendingScreen } from "@/components/seeded/family/consent-pending-screen";
 import { useDesign } from "@/lib/context/design-context";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +27,16 @@ function isParentAllowedPath(pathname: string): boolean {
   );
 }
 
+// P0-8. Pages an under-13 account still reaches while it waits for a
+// parent's consent. Both are about the account itself rather than about
+// tennis, and the database allows both for a pending account by design:
+// /settings so they can download or delete their own data (their own
+// profile row is the one thing a pending account can read), and /family so
+// they can see who they are waiting on and fix a mistyped family code.
+function isConsentPendingAllowedPath(pathname: string): boolean {
+  return pathname.startsWith("/settings") || pathname.startsWith("/family");
+}
+
 // /family is parent-only content (it's framed as "Follow [player]'s climb" —
 // wrong framing for the player themselves). Everything else a player can
 // reach is either player-only or shared (schools, settings, etc.), so this
@@ -38,6 +51,17 @@ function isPlayerBlockedPath(pathname: string): boolean {
 // unreachable backend must never look like "you're signed out".
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated, player, connectionError, retryConnection } = usePlayer();
+
+  // P0-8. A pending-consent account can read nothing, so every page it opens
+  // would render as an empty, working-looking product. This asks the one
+  // question it IS allowed to ask about itself (my_consent_state(), SECURITY
+  // DEFINER) so the app can explain the emptiness instead. Not a gate — the
+  // restrictive RLS policies in migration 030 are the gate.
+  const { data: consent } = useSWR(
+    isAuthed && hydrated ? "my-consent-state" : null,
+    () => loadMyConsentState()
+  );
+  const awaitingParentConsent = consent?.status === "pending";
   const { design } = useDesign();
   const router = useRouter();
   const pathname = usePathname();
@@ -55,10 +79,28 @@ export function AuthGate({ children }: { children: ReactNode }) {
       router.replace("/family");
     } else if (player.role !== "parent" && isPlayerBlockedPath(pathname)) {
       router.replace(playerHome);
-    } else if (player.role !== "parent" && !player.onboarded && pathname !== "/onboarding") {
+    } else if (
+      player.role !== "parent" &&
+      !player.onboarded &&
+      pathname !== "/onboarding" &&
+      // A pending-consent account cannot complete onboarding — every write
+      // it would make is refused by RLS — so sending it there would be a
+      // loop of failing saves. It gets ConsentPendingScreen instead.
+      !awaitingParentConsent
+    ) {
       router.replace("/onboarding");
     }
-  }, [hydrated, connectionError, isAuthed, player.onboarded, player.role, pathname, router, playerHome]);
+  }, [
+    hydrated,
+    connectionError,
+    isAuthed,
+    player.onboarded,
+    player.role,
+    pathname,
+    router,
+    playerHome,
+    awaitingParentConsent,
+  ]);
 
   if (hydrated && connectionError) {
     return (
@@ -76,6 +118,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
         </Button>
       </div>
     );
+  }
+
+  if (awaitingParentConsent && !isConsentPendingAllowedPath(pathname)) {
+    return <ConsentPendingScreen firstName={player.name?.split(" ")[0]} />;
   }
 
   const blockedForOnboarding =

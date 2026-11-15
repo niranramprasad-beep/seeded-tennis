@@ -50,6 +50,17 @@ export interface FamilyRosterMember {
   isCreator: boolean;
   joinedAt: string;
   remindedAt: string | null;
+  /** P0-8. 'pending' means this member is under 13 and no adult in the
+   * family has recorded parental consent yet, so their account reads nothing
+   * even once their family link is approved (migration 030). The approval
+   * card uses this to say what approving actually does. */
+  consentStatus: "not_required" | "pending" | "granted";
+}
+
+/** P0-8. The caller's own consent position, from my_consent_state(). */
+export interface MyConsentState {
+  status: "not_required" | "pending" | "granted" | "unknown";
+  birthYearKnown: boolean;
 }
 
 const RATE_LIMITED = "53400";
@@ -122,7 +133,66 @@ export async function loadFamilyRoster(signal?: AbortSignal): Promise<FamilyRost
     isCreator: Boolean(r.is_creator),
     joinedAt: r.joined_at,
     remindedAt: r.reminded_at,
+    consentStatus: narrowConsent(r.consent_status),
   }));
+}
+
+function narrowConsent(value: unknown): "not_required" | "pending" | "granted" {
+  // Anything unrecognised reads as 'pending', which is the safe direction:
+  // the UI then asks an adult rather than quietly treating a child's account
+  // as cleared.
+  return value === "granted" || value === "not_required" ? value : "pending";
+}
+
+/**
+ * P0-8. Whether the signed-in account is waiting on a parent's consent.
+ *
+ * Needed as its own call because a pending account can read nothing — not
+ * even the roster — so there is no other way for the app to find out why its
+ * screens are empty. my_consent_state() is SECURITY DEFINER and tells the
+ * caller about themselves only.
+ */
+export async function loadMyConsentState(signal?: AbortSignal): Promise<MyConsentState> {
+  const supabase = getSupabase();
+  if (!supabase) return { status: "unknown", birthYearKnown: false };
+
+  let q = supabase.rpc("my_consent_state");
+  if (signal) q = q.abortSignal(signal);
+  const { data, error } = await q;
+  if (error || !data || typeof data !== "object") {
+    return { status: "unknown", birthYearKnown: false };
+  }
+  const payload = data as { status?: unknown; birth_year_known?: unknown };
+  const status = payload.status;
+  return {
+    status:
+      status === "pending" || status === "granted" || status === "not_required"
+        ? status
+        : "unknown",
+    birthYearKnown: payload.birth_year_known === true,
+  };
+}
+
+/**
+ * P0-8. Records parental consent for an under-13 member whose family link is
+ * already approved — the case approve_family_join() cannot cover because the
+ * approval already happened (or was done by another player, who cannot
+ * consent). Returns null on success, else a message safe to show.
+ */
+export async function grantParentConsent(userId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "Not configured.";
+  const { data, error } = await supabase.rpc("grant_parent_consent", { p_user_id: userId });
+  if (error) return "Could not record that. Try again.";
+  const payload = (data ?? {}) as { status?: string; reason?: string };
+  if (payload.status === "granted" || payload.status === "nothing_pending") return null;
+  if (payload.reason === "not_a_parent_account") {
+    return "Only a parent account can give consent for someone under 13.";
+  }
+  if (payload.reason === "own_account_pending") {
+    return "Your own account is still waiting for a parent's approval.";
+  }
+  return "You can't give consent for that person.";
 }
 
 /** Any APPROVED member may approve. Returns null on success, else a message. */

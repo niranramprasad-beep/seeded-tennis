@@ -533,7 +533,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birth_year: number | null
           commitment_date: string | null
+          consent_granted_at: string | null
+          consent_granted_by: string | null
+          consent_status: string
           country: string | null
           created_at: string
           current_utr: number | null
@@ -563,7 +567,11 @@ export type Database = {
           whop_membership_id: string | null
         }
         Insert: {
+          birth_year?: number | null
           commitment_date?: string | null
+          consent_granted_at?: string | null
+          consent_granted_by?: string | null
+          consent_status?: string
           country?: string | null
           created_at?: string
           current_utr?: number | null
@@ -593,7 +601,11 @@ export type Database = {
           whop_membership_id?: string | null
         }
         Update: {
+          birth_year?: number | null
           commitment_date?: string | null
+          consent_granted_at?: string | null
+          consent_granted_by?: string | null
+          consent_status?: string
           country?: string | null
           created_at?: string
           current_utr?: number | null
@@ -631,6 +643,27 @@ export type Database = {
             referencedColumns: ["code"]
           },
         ]
+      }
+      rate_limit_events: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: number
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       recruiting_checklist_items: {
         Row: {
@@ -1038,8 +1071,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      are_friends: { Args: { a: string; b: string }; Returns: boolean }
+      account_active: { Args: never; Returns: boolean }
+      consent_required_for_birth_year: {
+        Args: { p_birth_year: number }
+        Returns: boolean
+      }
+      consume_rate_limit: { Args: { p_bucket: string }; Returns: Json }
       current_family_code: { Args: never; Returns: string }
+      delete_my_account: { Args: never; Returns: Json }
+      grant_parent_consent: { Args: { p_user_id: string }; Returns: Json }
+      my_consent_state: { Args: never; Returns: Json }
       has_tier: { Args: { required_tier: string }; Returns: boolean }
       is_family_member: {
         Args: { target_family_code: string }
@@ -1069,6 +1110,7 @@ export type Database = {
           is_creator: boolean
           joined_at: string
           reminded_at: string | null
+          consent_status: string
         }[]
       }
     }

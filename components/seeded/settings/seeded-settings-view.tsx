@@ -10,7 +10,7 @@ import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { buildAccountDataCsv, downloadTextFile } from "@/lib/data/export-csv";
-import { postJson } from "@/lib/api-client";
+import { getText, postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { slugify } from "@/lib/utils";
 import { SeededSettingsShell, type SettingsTabId } from "./seeded-settings-shell";
@@ -37,7 +37,7 @@ const TIER_LABEL: Record<SubscriptionTier, string> = {
 // route among the tabs — SeededSettingsShell links it to /settings/billing
 // instead of a client tab.
 export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
-  const { player, updatePlayer, setPlayerLocal, signOut } = usePlayer();
+  const { player, updatePlayer, signOut } = usePlayer();
   const { tier } = useTier();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
@@ -51,13 +51,20 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
   // loaders/savers in lib/db/settings.ts are intentionally left in place for
   // when either feature becomes real (POST-V1); only the dead wiring is gone.
 
-  // --- Download my data
+  // --- Download my data (P0-8)
+  // Two downloads, two different promises. The CSV is the old behaviour,
+  // unchanged: readable, and built from whichever SWR caches are warm. The
+  // JSON is the data-rights export — server-side, every table, and complete
+  // by construction rather than by whichever pages happen to have loaded.
+  // See lib/db/account-export.ts.
   const { data: matches } = useSWR("matches", () => loadMatches());
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
-  const [downloading, setDownloading] = useState(false);
-  const handleDownload = () => {
-    setDownloading(true);
+  const [downloading, setDownloading] = useState<"everything" | "spreadsheet" | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleDownloadSpreadsheet = () => {
+    setDownloading("spreadsheet");
     try {
       const csv = buildAccountDataCsv({
         player,
@@ -68,42 +75,43 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
       });
       downloadTextFile(`seeded-data-${slugify(player.name || "player")}-${localDateKey()}.csv`, csv);
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
-  // --- Delete account (soft delete, 30-day grace period — see
-  // delete-account-dialog.tsx's doc comment for the full policy). Real
-  // write path: app/api/account/deletion (zod-validated, request-scoped
-  // RLS client) — NOT the generic saveCurrentPlayer()/updatePlayer()
-  // profile-patch every other field on this page still uses. On success,
-  // setPlayerLocal only syncs the already-written value into local state;
-  // on failure, deleteError surfaces the server's specific message instead
-  // of silently doing nothing (the previous fire-and-forget behavior).
-  const [deletingBusy, setDeletingBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const requestDeletion = async () => {
-    setDeletingBusy(true);
-    setDeleteError(null);
+  const handleDownloadEverything = async () => {
+    setDownloading("everything");
     try {
-      await postJson("/api/account/deletion", { action: "request" });
-      setPlayerLocal({ deletionRequestedAt: new Date().toISOString() });
+      const json = await getText("/api/account/export");
+      downloadTextFile(`seeded-everything-${slugify(player.name || "player")}-${localDateKey()}.json`, json);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Could not start account deletion. Try again.");
+      setExportError(err instanceof Error ? err.message : "Could not build your download.");
     } finally {
-      setDeletingBusy(false);
+      setDownloading(null);
     }
   };
-  const cancelDeletion = async () => {
-    setDeletingBusy(true);
+
+  // --- Delete account (P0-8: real, immediate, irreversible)
+  // Was a soft delete behind a 30-day grace period that deleted nothing.
+  // Now calls public.delete_my_account() through the same validated route.
+  // On success there is no session and no account left to render, so this
+  // signs out locally and sends them to the homepage rather than leaving a
+  // settings page bound to a user that no longer exists.
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteAccount = async () => {
+    setDeleting(true);
     setDeleteError(null);
     try {
-      await postJson("/api/account/deletion", { action: "cancel" });
-      setPlayerLocal({ deletionRequestedAt: null });
+      await postJson("/api/account/deletion", { action: "delete", confirm: "DELETE" });
+      signOut();
+      router.replace("/?deleted=1");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Could not cancel account deletion. Try again.");
+      setDeleteError(
+        err instanceof Error ? err.message : "Could not delete your account. Try again."
+      );
     } finally {
-      setDeletingBusy(false);
+      setDeleting(false);
     }
   };
 
@@ -122,13 +130,13 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
               (POST-V1). Same for the "notifications" tab below. */}
           <AppearanceCard />
           <PrivacyCard
-            onDownload={handleDownload}
+            onDownloadEverything={handleDownloadEverything}
+            onDownloadSpreadsheet={handleDownloadSpreadsheet}
             downloading={downloading}
-            deletionRequestedAt={player.deletionRequestedAt}
-            onRequestDeletion={requestDeletion}
-            onCancelDeletion={cancelDeletion}
-            deletingBusy={deletingBusy}
-            deletionError={deleteError}
+            onDelete={deleteAccount}
+            deleting={deleting}
+            deleteError={deleteError}
+            exportError={exportError}
           />
         </>
       )}
@@ -148,13 +156,13 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
 
       {activeTab === "privacy" && (
         <PrivacyCard
-          onDownload={handleDownload}
+          onDownloadEverything={handleDownloadEverything}
+          onDownloadSpreadsheet={handleDownloadSpreadsheet}
           downloading={downloading}
-          deletionRequestedAt={player.deletionRequestedAt}
-          onRequestDeletion={requestDeletion}
-          onCancelDeletion={cancelDeletion}
-          deletingBusy={deletingBusy}
-          deletionError={deleteError}
+          onDelete={deleteAccount}
+          deleting={deleting}
+          deleteError={deleteError}
+          exportError={exportError}
         />
       )}
     </SeededSettingsShell>

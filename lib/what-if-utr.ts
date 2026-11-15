@@ -33,7 +33,11 @@
 import type { PlayerGender } from "@/lib/types";
 import { computeUtrProjection, type UtrDataPoint } from "@/lib/utr-projection";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import { summerBeforeSeniorYear, type SchoolFitProjectionInput } from "@/lib/school-fit";
+import {
+  REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
+  summerBeforeSeniorYear,
+  type SchoolFitProjectionInput,
+} from "@/lib/school-fit";
 
 export type WhatIfPaceMode = "mine" | "plus1.5" | "custom";
 
@@ -225,5 +229,60 @@ export function whatIfProjectionFor(
       graduationYear: real.graduationYear,
       now: real.now,
     }),
+  };
+}
+
+/* ------------------------------------------------------------ P1-FIT-4 */
+// The pre-auth journey (the homepage calculator and
+// seeded-pre-auth-onboarding) has no logged UTR history at all: the visitor
+// has typed one number and nothing else. That was the last place in the
+// product still calling classifySchoolFit with no projection, and "no
+// projection" is not neutral — classifySchoolFit answers "reach" for every
+// school below the team floor, so a 3.0 UTR visitor was told Stanford was
+// a Reach and that zero of 68 programs were out of range.
+//
+// What's honest to show someone we know one number about is the band they'd
+// land in if they improved as fast as players realistically do. That upper
+// bound is already a shared, documented constant —
+// REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max (/methodology, the pace warning,
+// the what-if slider) — so this reuses it rather than inventing a pace.
+//
+// Deliberately the MAX of the realistic range, not the middle: the question
+// "could I close this gap at all?" deserves the most generous realistic
+// answer. A school still marked out-of-range is one that stays out of reach
+// even on the best realistic trajectory, which is a claim the constant
+// supports. The line itself is synthetic in exactly the sense
+// syntheticUtrHistoryFor documents — a restatement of an assumption, never
+// stored, never shown, never mixed with real entries.
+export interface RealisticPaceProjectionInput {
+  /** The one number the visitor typed. */
+  currentUTR: number;
+  graduationYear: number;
+  gender: PlayerGender;
+  /** Injectable for tests; defaults to `new Date()`. */
+  now?: Date;
+}
+
+export function realisticPaceProjectionFor(
+  input: RealisticPaceProjectionInput
+): SchoolFitProjectionInput {
+  const now = input.now ?? new Date();
+  const targetUTR = computePlusPaceUTR({
+    currentUTR: input.currentUTR,
+    graduationYear: input.graduationYear,
+    gender: input.gender,
+    ratePerYear: REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max,
+    now,
+  });
+  return {
+    utrHistory: syntheticUtrHistoryFor({
+      currentUTR: input.currentUTR,
+      targetUTR,
+      graduationYear: input.graduationYear,
+      now,
+    }),
+    graduationYear: input.graduationYear,
+    gender: input.gender,
+    now,
   };
 }

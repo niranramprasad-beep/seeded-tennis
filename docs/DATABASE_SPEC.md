@@ -11,7 +11,7 @@ profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
 ## Tables
 | Table | Purpose | Keys / constraints (live) | RLS summary | Risks |
 |---|---|---|---|---|
-| `profiles` | One per account | PK id → auth.users; FK family_code → families.code | own R/W; family read; "public" read | **S-1**: privileged columns writable; **S-5**: full-row public read; 2 orphan auth users |
+| `profiles` | One per account | PK id → auth.users; FK family_code → families.code | own R/W; approved-family read. **No public read after 027.** Pending-consent accounts see only their own row (030) | 2 orphan auth users. `privacy_level` is now a stored preference nothing reads |
 | `families` | Family code registry | unique code | **SELECT true for all authenticated**; insert any | **S-2** |
 | `family_codes` | Code ↔ player | FK code, FK player_id | members/owner read; owner insert | code guessable |
 | `parent_accounts` | Parent ↔ family | unique(user_id, family_code) | self insert (no approval) | **S-2** |
@@ -27,10 +27,25 @@ profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
 | `encouragement_notes` | Parent → player notes | FKs | family read; parent insert | — |
 | `parent_reports` | Weekly snapshots | unique(family_code, month) | family read/insert | nothing generates them |
 | `user_settings` | Notification prefs + misc JSON | FK user_id | own | prefs stored, never used |
-| `badges`, `friendships` | Removed features | — | locked | drop (P3) |
+| `badges`, `friendships` | Removed features | — | **locked (027): RLS on, no policies** | drop (P3) |
+| `family_join_attempts` | Join attempt log (023) | FK user_id | none — SECURITY DEFINER only | feeds the 5/hour join limit |
+| `rate_limit_events` | API call counters (028) | FK user_id | none — SECURITY DEFINER only | per-user, per-bucket, hourly; self-cleans rows older than a day |
 
 ## Functions (SECURITY DEFINER)
-`set_updated_at`, `current_family_code`, `is_family_member`, `is_parent_member`, `are_friends` (dead), `has_tier`. `anon` EXECUTE revoked; `authenticated` can call all via RPC (advisor WARN).
+On staging after 031: `set_updated_at`, `current_family_code`,
+`is_family_member`, `is_parent_member`, `has_tier`, `account_active`,
+`join_family`, `approve_family_join`, `deny_family_join`,
+`remove_family_member`, `remind_family_approval`,
+`cancel_my_family_request`, `my_family_code`, `my_pending_family_request`,
+`family_members`, `my_consent_state`, `grant_parent_consent`,
+`generate_family_code`, `consume_rate_limit`, `delete_my_account`.
+`are_friends` is **dropped** (027).
+
+`anon` and `PUBLIC` EXECUTE revoked throughout. Which ones `authenticated`
+may call, and why each one must stay, is the inventory table in
+`docs/SECURITY_CHECKLIST.md` — including the empirical finding that the four
+used inside RLS policies cannot be revoked without failing those policies
+closed.
 
 ## Migrations
 
@@ -38,7 +53,7 @@ profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
 | | project | migrations applied |
 |---|---|---|
 | **Production** | `tfpjssmhiptbwigarxpx` | 23 (through `performance_rls_and_indexes`) |
-| **Staging** | `gnlcpnsweqbtwpaqhqqg` | the same 23, **plus** 025, 022, 023, 024 |
+| **Staging** | `gnlcpnsweqbtwpaqhqqg` | the same 23, **plus** 025, 022, 023, 024, 026, 027, 028, 029, 030, 031 |
 
 Staging was built from this repo on 2026-11-14 and verified against
 production with a nine-category schema fingerprint (columns, constraints,
@@ -87,6 +102,12 @@ been tested, so follow production's order if rebuilding.
 - `023_family_join_rpc.sql` — P0-2. **Staging only.** Breaks `lib/auth.ts`; see TODO item 1.
 - `024_tier_gating_outreach_player_free_targets.sql` — P1-PRICE-1. **Staging only.**
 - `025_reconcile_profiles_schema_drift.sql` — the drift above. **Staging only**, no-op on prod.
+- `026_family_approval_flow.sql` — P0-2's approval half. **Staging only.** Ships with 023.
+- `027_narrow_profile_reads_and_rpc_grants.sql` — S-5 + S-9. **Staging only.** Drops `profiles_discovery_read`, locks `badges`/`friendships`, drops `are_friends()`, revokes `current_family_code()` / `generate_family_code()` from `authenticated`.
+- `028_api_rate_limits.sql` — S-6. **Staging only.** New table `rate_limit_events` + `consume_rate_limit(bucket)`.
+- `029_real_account_deletion.sql` — P0-8. **Staging only.** `delete_my_account()`.
+- `030_under13_parent_consent.sql` — P0-8. **Staging only.** Four columns on `profiles`, a rewritten 022 trigger, `account_active()` + a RESTRICTIVE policy on 21 tables, `grant_parent_consent()`, `my_consent_state()`, consent folded into `approve_family_join()`.
+- `031_family_roster_consent.sql` — P0-8. **Staging only.** `family_members()` gains `consent_status`. Ships with 030.
 
 Rollout order and per-step rollback: `docs/HANDOFF.md` §J.
 

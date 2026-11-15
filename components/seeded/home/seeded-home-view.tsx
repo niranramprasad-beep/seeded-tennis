@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Gender, SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { countSchoolFits } from "@/lib/school-fit";
+import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { Reveal } from "@/components/shared/reveal";
 import { SeededButton } from "@/components/seeded/ui/button";
@@ -136,7 +137,23 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
     () => schools.filter((s) => s.gender === gender),
     [schools, gender]
   );
-  const counts = useMemo(() => countSchoolFits(utrNum, filtered), [utrNum, filtered]);
+  // P1-FIT-4: same realistic-pace projection the pre-auth fit report uses,
+  // so the homepage counts and the /onboarding counts the visitor sees next
+  // are produced by one path and cannot disagree. Without it, every school
+  // below the team floor counted as Reach and "Out of range" was always 0.
+  const projection = useMemo(
+    () =>
+      realisticPaceProjectionFor({
+        currentUTR: utrNum,
+        graduationYear: gradYear,
+        gender: gender === "women" ? "female" : "male",
+      }),
+    [utrNum, gradYear, gender]
+  );
+  const counts = useMemo(
+    () => countSchoolFits(utrNum, filtered, projection),
+    [utrNum, filtered, projection]
+  );
   const total = counts.reach + counts.target + counts.likely;
 
   const query = new URLSearchParams({

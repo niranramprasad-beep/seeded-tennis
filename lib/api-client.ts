@@ -38,3 +38,44 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
   }
   return payload as T;
 }
+
+/**
+ * Same auth and same error contract as postJson, but for a GET that returns
+ * a file body rather than a JSON envelope — currently only
+ * /api/account/export (P0-8), which streams the caller's whole record.
+ *
+ * It cannot be a plain <a href>: the route authenticates with a bearer
+ * token, and a link carries no headers. Putting the token in the URL instead
+ * would write a credential into history, the referrer and any proxy log.
+ *
+ * A failure still arrives as JSON ({ error }), so this reads the body as
+ * text and only tries to parse it when the response was NOT ok — the success
+ * path never parses the thing it is about to hand to the user.
+ */
+export async function getText(url: string): Promise<string> {
+  const supabase = getSupabase();
+  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in first.");
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new Error("Can't reach the server right now. Check your connection and try again.");
+  }
+
+  const body = await res.text();
+  if (!res.ok) {
+    let message = "Something went wrong. Try again.";
+    try {
+      const parsed = JSON.parse(body) as { error?: unknown };
+      if (typeof parsed.error === "string") message = parsed.error;
+    } catch {
+      // Not JSON (a proxy error page, say) — keep the generic message rather
+      // than showing the user raw HTML.
+    }
+    throw new Error(message);
+  }
+  return body;
+}

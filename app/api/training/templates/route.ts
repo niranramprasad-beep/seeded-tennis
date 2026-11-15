@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
+import { rateLimited } from "@/lib/rate-limit";
 import { saveTrainingTemplate } from "@/lib/db/events";
 import { TrainingTemplateBodySchema } from "@/lib/api-schemas/training-templates";
 
@@ -10,6 +11,11 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  // S-6: one shared, Postgres-backed limiter for every write route. Fails
+  // closed — see lib/rate-limit.ts.
+  const limited = await rateLimited(ctx.supabase, "training_write");
+  if (limited) return limited;
 
   const json = await req.json().catch(() => null);
   const parsed = TrainingTemplateBodySchema.safeParse(json);

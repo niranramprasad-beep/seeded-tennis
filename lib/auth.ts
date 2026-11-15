@@ -16,6 +16,12 @@ export interface AccountInput {
   gender: PlayerGender;
   grade: number;
   role: "player" | "parent";
+  /** P0-8. Collected at signup so the product knows who is under 13 instead
+   * of inferring it from `grade`. The database decides what it means:
+   * profiles.consent_status is derived from this by the 022/030 trigger and
+   * is never read from the request body. Optional only so the pre-030 call
+   * sites and tests keep compiling — the signup form always sends it. */
+  birthYear?: number | null;
 }
 
 export type FamilyChoice =
@@ -135,6 +141,7 @@ export async function signUp(
           gender: input.gender,
           grade: input.grade,
           role: input.role,
+          birth_year: input.birthYear ?? null,
           family_code: familyCode,
           family_mode: family.mode,
         },
@@ -167,6 +174,7 @@ export async function signUp(
     gender: input.gender,
     grade: input.grade,
     role: input.role,
+    birthYear: input.birthYear ?? null,
     familyCode,
     familyMode: family.mode,
   });
@@ -596,6 +604,9 @@ async function ensureSupabaseProfile(input: {
   gender: PlayerGender;
   grade: number;
   role: FamilyRole;
+  /** P0-8: written on INSERT only. The trigger turns it into
+   * consent_status, and makes it write-once afterwards. */
+  birthYear?: number | null;
   familyCode: string;
   familyMode: "create" | "join";
 }): Promise<AuthResult> {
@@ -632,6 +643,7 @@ async function ensureSupabaseProfile(input: {
       country: input.country,
       gender: input.gender,
       role: input.role,
+      birth_year: input.birthYear ?? null,
       family_code: input.familyCode,
       graduation_year: graduationYear,
       commitment_date: getDefaultCommitDate(graduationYear),
@@ -666,6 +678,7 @@ async function ensureSupabaseProfile(input: {
     country: input.country,
     gender: input.gender,
     role: input.role,
+    birth_year: input.birthYear ?? null,
     graduation_year: graduationYear,
     commitment_date: getDefaultCommitDate(graduationYear),
     tournaments_goal: 12,

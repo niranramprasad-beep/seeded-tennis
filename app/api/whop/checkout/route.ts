@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthedUser } from "@/lib/api-auth";
+import { getRequestScopedSupabase } from "@/lib/api-auth";
+import { rateLimited } from "@/lib/rate-limit";
 import { getWhop, WHOP_PLAN_IDS } from "@/lib/whop";
 import type { SubscriptionTier } from "@/lib/types";
 
@@ -19,10 +20,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
 
-  const user = await getAuthedUser(req);
-  if (!user) {
+  // S-6: needs a request-scoped client (not just the decoded user) so the
+  // limiter's RPC runs as this caller. Creating a Whop checkout
+  // configuration is an outbound call to a paid provider on every request,
+  // so it is rate-limited like any other write.
+  const ctx = await getRequestScopedSupabase(req);
+  if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+  const user = ctx.user;
+
+  const limited = await rateLimited(ctx.supabase, "whop_checkout");
+  if (limited) return limited;
 
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const config = await whop.checkoutConfigurations.create({

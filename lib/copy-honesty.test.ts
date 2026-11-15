@@ -66,7 +66,25 @@ const BANNED: { pattern: RegExp; why: string }[] = [
   },
   {
     pattern: /Removes everything within 30 days/i,
-    why: "deletion only sets deletion_requested_at; no purge job exists",
+    // P0-8 UPDATE (2026-11-14): the reason this is banned CHANGED, so the
+    // entry stays but the explanation had to be rewritten. Deletion is now
+    // real (migration 029, delete_my_account) — but it is IMMEDIATE. A
+    // 30-day promise is still false, now in the other direction: it would
+    // tell someone their data lingers for a month when it is already gone,
+    // and it would imply a purge job that still does not exist.
+    why: "deletion is immediate (029); nothing is queued and nothing takes 30 days",
+  },
+  {
+    pattern: /(?:deleted|removed) within \d+ days|deletion (?:is |will be )?scheduled|queued for deletion/i,
+    why: "deletion is immediate; there is no grace period, queue or scheduled job",
+  },
+  {
+    // P0-8. The consent flow states plainly that Seeded cannot check any of
+    // this. These patterns catch the affirmative claim only — the honest
+    // negation ("Seeded can't verify that you are an adult") must keep
+    // passing, which is why none of them match the word "verify" alone.
+    pattern: /\bverified parent\b|\bparent verification\b|we verify (?:that )?you/i,
+    why: "there is no adult or parent verification of any kind; consent is a stated claim",
   },
   {
     pattern: /all D1 (?:tennis )?(?:programs|schools)|Browse all D1/i,

@@ -43,9 +43,17 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
           <div key={m.userId} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <span className="block truncate text-ink">{m.name}</span>
-              {m.status === "pending" && (
+              {m.status === "pending" ? (
                 <span className="text-xs text-stone">Waiting to be approved</span>
-              )}
+              ) : m.consentStatus === "pending" ? (
+                /* P0-8: approved into the family, but under 13 with no
+                   parental consent recorded, so their account still reads
+                   nothing. Two different kinds of "waiting", and showing one
+                   label for both would leave a parent wondering why an
+                   approved child still sees an empty app. The consent button
+                   itself lives on JoinRequestsCard. */
+                <span className="text-xs text-stone">Under 13 — waiting for a parent&rsquo;s consent</span>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span
@@ -58,7 +66,11 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
               >
                 {m.role === "player" ? "Player" : "Parent"}
                 {m.isCreator ? " · account holder" : ""}
-                {m.status === "pending" ? " · pending" : ""}
+                {m.status === "pending"
+                  ? " · pending"
+                  : m.consentStatus === "pending"
+                    ? " · needs consent"
+                    : ""}
               </span>
               {/* The account holder belongs via their own profile, and 022
                   forbids changing that from the client — so there is

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
+import { rateLimited } from "@/lib/rate-limit";
 import { writeCurrentPlayerProfile } from "@/lib/auth";
 import { PlayerBodySchema } from "@/lib/api-schemas/profile";
 import {
@@ -20,6 +21,11 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  // S-6: one shared, Postgres-backed limiter for every write route. Fails
+  // closed — see lib/rate-limit.ts.
+  const limited = await rateLimited(ctx.supabase, "profile_write");
+  if (limited) return limited;
 
   const json = await req.json().catch(() => null);
   const parsed = PlayerBodySchema.safeParse(json);

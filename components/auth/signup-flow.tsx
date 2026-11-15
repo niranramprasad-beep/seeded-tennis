@@ -17,6 +17,11 @@ import type { Player, PlayerGender, FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDesign } from "@/lib/context/design-context";
 import { signUp } from "@/lib/auth";
+import {
+  birthYearOptions,
+  isPlausibleBirthYear,
+  parentConsentRequired,
+} from "@/lib/config/consent";
 import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -70,6 +75,10 @@ export function SignupFlow({
   const [country, setCountry] = useState("United States");
   const [gender, setGender] = useState<PlayerGender>("male");
   const [grade, setGrade] = useState(10);
+  // P0-8. Year only, never a full date of birth — see lib/config/consent.ts.
+  // Starts empty rather than at a plausible default: a prefilled birth year
+  // is a guess the product would then act on.
+  const [birthYear, setBirthYear] = useState<number | null>(null);
   const [role, setRole] = useState<FamilyRole>(accountType);
   const [familyMode, setFamilyMode] = useState<"create" | "join">(
     isParentSignup ? "join" : "create"
@@ -85,18 +94,53 @@ export function SignupFlow({
   const accountValid =
     name.trim() && /\S+@\S+\.\S+/.test(email) && password.length >= 6;
 
+  // P0-8. A player who may be under 13 cannot start their own family: there
+  // would be nobody in it who can give parental consent, so the account
+  // would be created and then permanently locked (the database refuses to
+  // let a 'player' account consent for anyone, including itself). So the
+  // only path offered is joining an adult's family with their code.
+  //
+  // A PARENT signing up for themselves is never gated by this, whatever year
+  // they enter — they are the adult.
+  const needsParentConsent = !isParentSignup && parentConsentRequired(birthYear);
+  const aboutYouValid = isPlausibleBirthYear(birthYear);
+  // A PARENT signup used to be hard-wired to "join", which made the
+  // parent-first case impossible: the parent of an under-13 has to create
+  // the family, because their child cannot (nobody in a family of one can
+  // give parental consent). The data layer already supported it — the
+  // create path in ensureSupabaseProfile writes whatever role it is given —
+  // so the only thing missing was the choice. Default stays "join", which
+  // is what most parents are doing.
+  const effectiveFamilyMode: "create" | "join" =
+    needsParentConsent ? "join" : familyMode;
+
   const submit = async () => {
     setError(null);
-    if ((familyMode === "join" || isParentSignup) && !joinCode.trim()) {
-      setError("Enter a family code to join.");
+    if (!isPlausibleBirthYear(birthYear)) {
+      setError("Choose the year you were born.");
+      return;
+    }
+    if (effectiveFamilyMode === "join" && !joinCode.trim()) {
+      setError(
+        needsParentConsent
+          ? "Enter your parent or guardian's family code. They need a Seeded account first."
+          : "Enter a family code to join."
+      );
       return;
     }
     setSubmitting(true);
     const result = await signUp(
-      { name, email, password, country, gender, grade, role: isParentSignup ? "parent" : role },
-      isParentSignup || familyMode === "join"
-        ? { mode: "join", code: joinCode }
-        : { mode: "create" }
+      {
+        name,
+        email,
+        password,
+        country,
+        gender,
+        grade,
+        birthYear,
+        role: isParentSignup ? "parent" : role,
+      },
+      effectiveFamilyMode === "join" ? { mode: "join", code: joinCode } : { mode: "create" }
     );
     setSubmitting(false);
     if (!result.ok) {
@@ -106,7 +150,7 @@ export function SignupFlow({
 
     if (result.confirmationRequired) {
       setConfirmationEmail(email);
-      if (familyMode === "create" && result.familyCode) setCreatedCode(result.familyCode);
+      if (effectiveFamilyMode === "create" && result.familyCode) setCreatedCode(result.familyCode);
       return;
     }
 
@@ -128,10 +172,12 @@ export function SignupFlow({
     };
     beginSession(player);
 
-    if (isParentSignup) {
-      router.replace("/family");
-    } else if (familyMode === "create" && result.familyCode) {
+    if (effectiveFamilyMode === "create" && result.familyCode) {
+      // Includes a parent who just created the family: the code IS the thing
+      // they came for, since it is what their player signs up with.
       setCreatedCode(result.familyCode);
+    } else if (isParentSignup) {
+      router.replace("/family");
     } else {
       router.replace("/onboarding");
     }
@@ -194,10 +240,18 @@ export function SignupFlow({
           <h1 className={cn("mt-5 text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
             Your family is ready.
           </h1>
-          <p className="mt-2 text-stone">
-            Share this code so parents and siblings can join {name.split(" ")[0]}
-            's account.
-          </p>
+          {isParentSignup ? (
+            <p className="mt-2 text-stone">
+              Give this code to your player when they sign up. You&rsquo;ll see their request
+              on your Today page and approve it there — Seeded doesn&rsquo;t email or text
+              you, so it&rsquo;s worth doing together.
+            </p>
+          ) : (
+            <p className="mt-2 text-stone">
+              Share this code so parents and siblings can join {name.split(" ")[0]}
+              &rsquo;s account.
+            </p>
+          )}
           <div className="mx-auto mt-6 flex max-w-xs items-center justify-between gap-3 rounded-card border-[0.5px] border-line bg-card p-4">
             <span className="font-mono text-2xl tracking-wider text-grass">
               {createdCode}
@@ -217,9 +271,9 @@ export function SignupFlow({
             variant="primary"
             size="lg"
             className="mt-8"
-            onClick={() => router.replace("/onboarding")}
+            onClick={() => router.replace(isParentSignup ? "/family" : "/onboarding")}
           >
-            Build my roadmap
+            {isParentSignup ? "Go to my family" : "Build my roadmap"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
@@ -331,6 +385,34 @@ export function SignupFlow({
                     />
                   </div>
                   <div>
+                    {/* P0-8. Year only. The product needs to know who is
+                        under 13; it does not need a child's exact date of
+                        birth, which is a permanent identifier it would then
+                        have to keep. */}
+                    <Label>Year you were born</Label>
+                    <select
+                      className={inputClass}
+                      value={birthYear ?? ""}
+                      onChange={(e) =>
+                        setBirthYear(e.target.value ? Number(e.target.value) : null)
+                      }
+                    >
+                      <option value="">Select a year</option>
+                      {birthYearOptions().map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                    {needsParentConsent && (
+                      <p className="mt-2 text-sm text-stone">
+                        Because you&apos;re under 13, a parent or guardian has to set Seeded up
+                        and say yes before your account starts working. You&apos;ll need their
+                        family code on the next step.
+                      </p>
+                    )}
+                  </div>
+                  <div>
                     <Label>Grade in school</Label>
                     <div className="grid grid-cols-5 gap-2">
                       {[8, 9, 10, 11, 12].map((g) => (
@@ -356,37 +438,61 @@ export function SignupFlow({
             {step === 2 && (
               <div>
                 <h1 className={cn("text-3xl tracking-tight text-ink", isSeeded ? "font-seeded font-semibold" : "font-light")}>
-                  {isParentSignup ? "Join your player's family" : "Your family"}
+                  {isParentSignup ? "Your player's family" : "Your family"}
                 </h1>
                 <p className="mt-2 text-stone">
                   {isParentSignup
-                    ? "Enter the code your player created. This gives you the parent dashboard."
-                    : "Families share one player's data with different roles."}
+                    ? "Either your player already has a Seeded account, or you're setting one up for them. Under 13s need you to go first."
+                    : needsParentConsent
+                      ? "Under 13, so this has to be your parent or guardian's family. Ask them to create their own Seeded account first, then enter the family code it gives them."
+                      : "Families share one player's data with different roles."}
                 </p>
-                {!isParentSignup && (
+                {/* P0-8: an under-13 player is offered no "create a family"
+                    option. Nobody in a family of one can give parental
+                    consent, so that path creates an account that can never
+                    be unlocked. */}
+                {!needsParentConsent && (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <FamilyOption
                     icon={UserPlus}
                     title="Create a family"
-                    body="Start fresh and get a code to share."
+                    body={
+                      isParentSignup
+                        ? "Your player doesn't have an account yet. You'll get a code to give them."
+                        : "Start fresh and get a code to share."
+                    }
                     active={familyMode === "create"}
                     onClick={() => setFamilyMode("create")}
                   />
                   <FamilyOption
                     icon={Users}
                     title="Join a family"
-                    body="Connect to an existing account."
+                    body={
+                      isParentSignup
+                        ? "Your player already signed up and gave you their code."
+                        : "Connect to an existing account."
+                    }
                     active={familyMode === "join"}
                     onClick={() => setFamilyMode("join")}
                   />
                 </div>
                 )}
-                {(familyMode === "join" || isParentSignup) && (
+                {needsParentConsent && (
+                  <div className="mt-6 rounded-xl border-[0.5px] border-line bg-subtle p-4 text-sm text-stone">
+                    <p className="font-medium text-ink">What happens next</p>
+                    <p className="mt-1.5">
+                      Your account is created but stays switched off — no results, no schools,
+                      no plan — until your parent or guardian opens Seeded and says yes. They
+                      see the request on their Today page.
+                    </p>
+                  </div>
+                )}
+                {effectiveFamilyMode === "join" && (
                   <motion.input
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(inputClass, "mt-3 font-mono uppercase tracking-wider")}
-                    placeholder="Family code (e.g. CHEN-7K4P)"
+                    placeholder={needsParentConsent ? "Your parent's family code" : "Family code"}
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   />
@@ -417,7 +523,7 @@ export function SignupFlow({
               variant="primary"
               size="lg"
               onClick={() => go(1)}
-              disabled={step === 0 && !accountValid}
+              disabled={(step === 0 && !accountValid) || (step === 1 && !aboutYouValid)}
             >
               Continue
               <ArrowRight className="h-4 w-4" />

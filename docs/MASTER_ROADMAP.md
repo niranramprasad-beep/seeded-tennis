@@ -55,27 +55,31 @@ guards added this session only protect the product if someone runs them.
 
 ## Current production-readiness score
 
-**52 / 100** (31 at the 2026-11-10 audit)
+**68 / 100** (31 at the 2026-11-10 audit, 52 earlier on 2026-11-14)
 
-Closed since: P0-3, P0-4, P0-7, P1-SEC-1, P1-SEC-5, P1-FIT-1, P1-FIT-2,
-P1-OPS-1 (CI), P1-OPS-3 (migration drift), and P0-6 in substance (staging
-exists and matches prod). P0-1, P0-2 and P1-PRICE-1 are written, applied
-and attack-tested on staging but **not on production** — they count as
-fixed only once they ship.
+Closed since: P0-3, P0-4, P0-6 (staging exists AND Preview/Development now
+point at it), P0-7, P1-SEC-1, P1-SEC-5, P1-FIT-1, P1-FIT-2, P1-FIT-4,
+P1-OPS-1 (CI + branch protection), P1-OPS-3 (migration drift), P1-SEC-2
+(S-5), P1-SEC-4 (S-7), P1-SEC-6 (S-9), and P1-SEC-3 (S-6) in the half that
+app code can reach.
 
-The three remaining P0s are the expensive ones: two authorization holes
-(P0-1, P0-2), no staging database (P0-5/P0-6), and minors' privacy (P0-8).
-All four need a decision or a migration sign-off — none can be closed by
-writing code alone.
+**Everything database-side is written, applied and attack-tested on
+staging, and none of it is on production.** Eleven migrations are queued
+behind one word from Niran. P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
+count as fixed only once they ship.
+
+What is genuinely left after the rollout is small and specific: a privacy
+policy an adult has to write (P0-8's other half), two Supabase Auth
+settings, and the product problem — P1-DATA-1.
 
 | Area | Score | Why |
 |---|---|---|
-| Security | 6/10 | Both P0 authorization holes are fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Two further bugs found and fixed during testing (S-15, S-16). Still missing: rate limits outside family-join, security headers, P1-SEC-2 |
+| Security | 8/10 | Both P0 authorization holes, the whole-row public profile read (S-5), rate limits on every write route (S-6), the RPC grant surface (S-9) and the under-13 gate are all fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Security headers (S-7) are in the code and verified against a production build. Four bugs found by the tests themselves (S-15, S-16, the dead birth-year field, the parent-first dead end). Not fixed: login/signup/reset rate limits, which app code cannot reach at all; nonce CSP |
 | Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
-| Reliability/Deploy | 6/10 | Staging exists and is a verified schema clone; CI runs typecheck/lint/tests/build on every PR; production is in a deliberate maintenance state with a written rollout + rollback plan. Still missing: branch protection, and Preview/Development still point at production |
-| Legal/privacy | 3/10 | Minors, COPPA, one-paragraph privacy policy, deletion still not implemented — but the UI no longer tells a minor their data will be "removed within 30 days" when nothing removes it (P0-7) |
-| Testing | 6/10 | 426 unit tests pass, incl. four build-failing honesty guards (catalog, copy, coach email, fit-band agreement) each confirmed to fail when its bug is reintroduced; still zero integration/E2E/RLS tests, and no CI runs any of it |
+| Reliability/Deploy | 8/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all eleven migrations. Still missing: error tracking |
+| Legal/privacy | 6/10 | Deletion deletes (029). A complete JSON export exists, guarded by a test that fails the build when a new table is neither exported nor explicitly excluded. Under-13 accounts are inert until an adult in their family consents, enforced by RLS and not by the UI. Nothing about any user is visible to another signed-in user outside their family. **Still open and not Claude's to close: the privacy policy itself** — one paragraph inside `/terms`, no processor list, no retention, needs an adult or a lawyer |
+| Testing | 7/10 | 472 unit tests pass, incl. seven build-failing guards — catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts |
 
 ---
@@ -294,7 +298,43 @@ writing code alone.
 
 - [ ] **P0-8 Minors' privacy, consent and deletion**
 
-  Status: BLOCKED (REQUIRES LEGAL/ADULT REVIEW)
+  Status: **MECHANISMS DONE + ATTACK-TESTED ON STAGING (2026-11-14). Not on
+  production. The privacy POLICY is still open and REQUIRES LEGAL/ADULT
+  REVIEW.**
+  Built (migrations 029, 030, 031 + `v1` code):
+  - **Real deletion.** `delete_my_account()` removes every row keyed on the
+    account and the auth user itself. Takes no arguments — it reads
+    `auth.uid()`, so it cannot delete anyone else by construction, which is
+    why it needs no service-role client. The family is deleted only when the
+    departing account was its LAST member, counted across BOTH shapes a
+    membership takes (`profiles.family_code` and `parent_accounts`) —
+    counting only the first would have deleted a parent-first family out
+    from under the child. `season_budgets`/`budget_expenses` have no FK on
+    `family_code`, so they are removed explicitly; everything else cascades.
+    Staging: 17/17.
+  - **Data export.** `GET /api/account/export` returns every row the caller
+    owns plus the family budget, as JSON, read through the caller's own RLS.
+    `lib/db/account-export.test.ts` fails the build if a table in the
+    generated types is neither exported nor listed in
+    `ACCOUNT_EXPORT_OMISSIONS` with a reason.
+  - **Under-13 consent.** Birth year is stored (year only — a full DOB is a
+    permanent identifier for a child, and the ambiguous year rounds TOWARD
+    asking for consent). `consent_status` is derived by the trigger and
+    never accepted from the request body; `birth_year` is write-once from
+    the client, which is the load-bearing half (edit your birth year and the
+    gate re-derives as `not_required`). A `pending` account reads and writes
+    nothing but its own profile row, enforced by a RESTRICTIVE policy on 21
+    tables rather than by the UI. An under-13 is offered no "create a
+    family" path, because nobody in a family of one can consent. The adult
+    approving the join records consent in the same action, under copy that
+    says plainly that Seeded cannot verify adulthood. Staging: 24/24.
+  - **Nothing about a minor is public by default.** 027 dropped the policy
+    that made `privacy_level='public'` mean anything; new accounts record
+    `private`.
+  **Still open:** the privacy policy and terms. Mechanisms exist; the
+  document that explains them to a parent, lists processors (Supabase,
+  Vercel, Whop, Google Analytics) and states retention does not. Claude is
+  not writing that.
   Priority: P0
   Category: Legal / Privacy
   Why this matters: Users are 13–18, and under-13s are allowed via a parent-created account. The privacy policy is one paragraph inside `/terms`. It doesn't list processors (Supabase, Vercel, Whop, Google Analytics, Google Gemini), retention, parental rights, or how deletion works. The under-13 check is client-side only (birth year isn't even stored). Account deletion doesn't delete. GPA, grade, email and UTR history of minors are stored.
@@ -322,9 +362,45 @@ writing code alone.
   **Still needs Niran:** delete the AI key from Vercel **and revoke it at
   Google**. An unused key in an env var is still a live credential.
   (Niran took this on 2026-11-11 and is doing it by hand.)
-- [ ] **P1-SEC-2 Restrict public-profile reads** — `profiles_discovery_read` lets any authenticated user read the *whole row* (email, GPA, grade, family_code, stripe ids) of any profile with `privacy_level='public'` (1 such row live). Friends feature is gone, so drop the public/friends branches or expose a narrow view. Acceptance: SQL test as stranger returns no columns beyond name/grad year (or nothing).
-- [ ] **P1-SEC-3 Rate limiting + abuse controls** — none exist on any API route, signup, family join, or check-in. Add Vercel Firewall rate-limit rules (cheapest) for `/api/*` and auth. Enable Supabase leaked-password protection (advisor WARN, confirmed).
-- [ ] **P1-SEC-4 Security headers** — `next.config.mjs` sets none. Add CSP (start report-only), `X-Frame-Options: DENY`/`frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
+- [x] **P1-SEC-2 Restrict public-profile reads** — COMPLETE on staging (027).
+  Dropped `profiles_discovery_read` outright rather than narrowing it: V1 has
+  no public-profile surface at all, so "your own row, plus a family that has
+  approved you" is the honest rule. Deliberately NOT replaced with a narrow
+  view — a mechanism for a feature that does not exist, with no reader, that
+  would trip the security-definer-view advisor. Same leak fixed one table
+  over: `badges_read` exposed any badge row of any 'public' profile.
+  Verified: stranger sees 1 profile (their own), 0 badges, 0 friendships, 0
+  families; approved parent still reads the child, the family and the UTR
+  history. Rollback: HANDOFF §J step 5.
+  ~~ORIGINAL:~~ — `profiles_discovery_read` lets any authenticated user read the *whole row* (email, GPA, grade, family_code, stripe ids) of any profile with `privacy_level='public'` (1 such row live). Friends feature is gone, so drop the public/friends branches or expose a narrow view. Acceptance: SQL test as stranger returns no columns beyond name/grad year (or nothing).
+- [~] **P1-SEC-3 Rate limiting + abuse controls** — the half app code can
+  reach is COMPLETE on staging (028). Every write route consumes a
+  Postgres-backed per-user, per-bucket hourly limit and returns a friendly
+  429 with `Retry-After`. Postgres, not a module-scope Map, because Vercel
+  runs many instances: an in-process counter multiplies every limit by the
+  instance count. The limits live INSIDE the SQL function — a signature
+  taking a `limit` argument would let the caller raise its own ceiling. Fails
+  closed. `lib/rate-limit.test.ts` asserts the TypeScript bucket list matches
+  the migration's CASE in both directions.
+  **The other half is impossible from here:** login, signup and password
+  reset go from the browser straight to Supabase Auth, so no Seeded route or
+  middleware is ever on that path. Supabase's own per-IP limits and
+  leaked-password protection are the only controls for them, and both are
+  project settings (Niran).
+  ~~ORIGINAL:~~ — none exist on any API route, signup, family join, or check-in. Add Vercel Firewall rate-limit rules (cheapest) for `/api/*` and auth. Enable Supabase leaked-password protection (advisor WARN, confirmed).
+- [x] **P1-SEC-4 Security headers** — COMPLETE on `v1`, verified against a
+  production build (`next build && next start`): all headers present, zero
+  CSP violations across `/`, `/onboarding`, `/signup`, `/parent-signup`. CSP,
+  HSTS (2 years + subdomains; `preload` deliberately NOT set — close to
+  irreversible and an owner's call), `X-Frame-Options: DENY`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`. Enforcing, not report-only.
+  **Partial on purpose:** `script-src` keeps `'unsafe-inline'`. Removing it
+  needs per-request nonces, nonces need middleware, and `main`'s middleware
+  is the maintenance page. It still blocks every off-origin script host,
+  which is the realistic attack. Nonce upgrade is P2 and is recorded as such
+  rather than written up as done.
+  ~~ORIGINAL:~~ — `next.config.mjs` sets none. Add CSP (start report-only), `X-Frame-Options: DENY`/`frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
 - [x] **P1-SEC-5 Remove dead billing surface** — COMPLETE (same commit).
   Deleted `/api/stripe/{checkout,portal,webhook}` and `lib/stripe.ts`;
   uninstalled the `stripe` package; removed the Stripe vars from
@@ -333,7 +409,16 @@ writing code alone.
   **Still needs Niran:** delete the Stripe vars from Vercel and revoke the
   secret key in the Stripe dashboard.
   (Niran took this on 2026-11-11 and is doing it by hand.)
-- [ ] **P1-SEC-6 Revoke EXECUTE on helper functions from `authenticated` where RLS doesn't need direct RPC access** — advisor flags `are_friends`, `current_family_code`, `has_tier`, `is_family_member`, `is_parent_member` as callable via `/rest/v1/rpc/*`. Low impact (they only answer about the caller) but `is_family_member(code)` is an oracle for valid family codes until P0-2 lands. Drop `are_friends` entirely.
+- [x] **P1-SEC-6** — COMPLETE on staging (027), with a finding worth keeping.
+  Dropped `are_friends()`; revoked `current_family_code()` and
+  `generate_family_code()` from `authenticated` (the latter let anyone probe
+  the code space without touching 023's rate limiter). **The advisor's
+  suggestion cannot be applied to the four helpers used inside RLS
+  policies** — Postgres checks EXECUTE against the role running the query,
+  so revoking fails the policy closed. Tested on staging, not reasoned
+  about. Every remaining RPC is inventoried with who may call it and why in
+  `docs/SECURITY_CHECKLIST.md`.
+  ~~ORIGINAL: Revoke EXECUTE on helper functions from `authenticated` where RLS doesn't need direct RPC access** — advisor flags `are_friends`, `current_family_code`, `has_tier`, `is_family_member`, `is_parent_member` as callable via `/rest/v1/rpc/*`. Low impact (they only answer about the caller) but `is_family_member(code)` is an oracle for valid family codes until P0-2 lands. Drop `are_friends` entirely.
 - [x] **P1-FIT-1 Fit bands disagree between screens** — COMPLETE (commit
   "P1-FIT-1 + P1-FIT-2: one fit band, and stop capturing a placeholder UTR").
   `whatIfProjectionFor()` now always returns a projection: real history for
@@ -374,7 +459,21 @@ writing code alone.
   Verified live: `/dev/plan-preview` (a 9.42 player) shows "What if my UTR is
   9.4" and "You 9.4", not 7.0.
 - [ ] **P1-FIT-3 Projection outputs are nonsense on noisy data** — Stanford page: "Pace: Projected 4.3 by Jun 1, 2028" for a 5.81 player; Plan chart band runs from ~6.2 down to ~2.0. One logged entry of ~7.0 between ~4.3 and ~5.6 dominates the regression. Fix: outlier rejection, floor projection at current UTR minus a small decay, show "not enough consistent data" instead of a falling forecast.
-- [ ] **P1-FIT-4 Pre-auth "Reach" is unbounded** — the homepage calculator and onboarding call `classifySchoolFit` without a projection, so a 3.0 UTR player sees Stanford as "Reach". Use a fixed realistic-pace cap (0.5–1.5/yr from `REALISTIC_UTR_IMPROVEMENT_PER_YEAR`) to mark Out of range.
+- [x] **P1-FIT-4 Pre-auth "Reach" is unbounded** — COMPLETE.
+  `realisticPaceProjectionFor()` (lib/what-if-utr.ts) builds the synthetic
+  line a visitor would be on improving at
+  `REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max` to the summer before senior year,
+  and both pre-auth screens — the homepage calculator and `/onboarding` —
+  pass it. The MAX of the range, not the middle: "could I close this gap at
+  all?" deserves the most generous realistic answer, so a school still
+  marked out-of-range is one that stays out of reach on the best realistic
+  trajectory. Verified live on a production build: a 3.0 men's visitor who
+  previously saw "Reach 37 · Out of range 0" now sees 0 in every in-range
+  band. Guarded by five new cases in `lib/fit-band-consistency.test.ts`.
+  **It exposed a copy bug:** the fit-report footnote said "{total} programs
+  for Men's in the catalog" using the in-band total, which was only ever
+  equal to the catalog size because everything below the floor counted as
+  Reach. It now reads the catalog length. ~~ORIGINAL:~~ — the homepage calculator and onboarding call `classifySchoolFit` without a projection, so a 3.0 UTR player sees Stanford as "Reach". Use a fixed realistic-pace cap (0.5–1.5/yr from `REALISTIC_UTR_IMPROVEMENT_PER_YEAR`) to mark Out of range.
   **Now the last place this pattern survives.** P1-FIT-1 removed the
   `undefined` projection everywhere else; `seeded-pre-auth-onboarding.tsx:44`
   is the remaining `classifySchoolFit(utr, s)` with no third argument.
@@ -563,23 +662,44 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-1. **Point Vercel Preview + local Development at staging.** The other half
-   of P0-6. Staging is a verified clone with fake seed data; there is no
-   longer a reason for local dev to read real users' data.
-2. **Branch protection on `main`** so CI actually gates. Needs Niran.
-3. **Run the production rollout** (HANDOFF §J): 025 → 022 → 023 + 026 → 024,
-   then revert the maintenance commit and merge `v1`. Blocked on 1–2.
-4. **Revoke the removed credentials** — Gemini at Google, Stripe secret in
-   Stripe, rotate Whop. Needs Niran.
-5. P1-FIT-4 — the last `classifySchoolFit` call with no projection
-   (`seeded-pre-auth-onboarding.tsx:44`).
-6. P1-FIT-3 — projections are still nonsense on noisy data.
-7. P1-DATA-1 — real roster import. Highest-value product task: a 5.81
-   player still has zero schools in range.
-8. P1-UX-2 — delete Legacy.
-9. P1-SEC-2/3/4 — public-profile reads, rate limits on the rest of `/api/*`,
-   security headers.
-10. P0-8 — minors' privacy, consent, real deletion. Needs legal/adult review.
+Everything in 1–3 is blocked on one word from Niran. Nothing below it can
+be worked on usefully first — the whole queue is behind the rollout.
+
+1. **Run the production rollout** (HANDOFF §J). Eleven migrations in order:
+   025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031, then revert
+   the maintenance commit and merge `v1`. Every step has its own verify and
+   rollback. The gates that used to block this — branch protection,
+   Preview/Development on staging, credentials — are all done.
+   **Highest-risk step is 8** (030 + 031): a restrictive policy on 21
+   tables. Do not skip its pre-flight check that every existing row is
+   `consent_status = 'not_required'`.
+2. **The people who asked to be deleted under the old flow.** Query in
+   HANDOFF §J step 7. 029 does not action them; they are owed a real
+   deletion by hand, with their confirmation. Do this deliberately and
+   soon — some of them have been waiting since before deletion worked.
+3. **Supabase Auth settings** (Niran): leaked-password protection and a
+   minimum password length. Login, signup and password reset cannot be
+   rate-limited from app code — the browser talks to Supabase directly —
+   so Supabase's own per-IP limits are the only control that exists.
+4. **P0-8's other half: the privacy policy.** Deletion, export, consent and
+   minor-visibility are all built and tested. The document that explains
+   them to a parent, names the processors and states retention is not, and
+   needs an adult or a lawyer. This is the last thing standing between the
+   product and being honest with the people whose children use it.
+5. **P1-DATA-1 — real roster import** (migration 012, reserved). Now the
+   single highest-value task, and P1-FIT-4 made the case sharper rather
+   than softer: a 3.0 visitor correctly sees zero programs in range, which
+   is the honest answer and a bad product. 68 programs is not a catalog.
+6. P1-FIT-3 — projections are still nonsense on noisy data ("Projected 4.3"
+   for a 5.81 player). Needs outlier rejection and a floor.
+7. P1-UX-2 — delete Legacy. Last place with its own copy and its own coach
+   view; every honesty guard has to cover it twice.
+8. P1-UX-1 — theme flips between pages. Visible on every session.
+9. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
+   middleware, so it waits until the maintenance middleware is reverted.
+10. Observability: there is still no error tracking and no alerting. 1/10
+    is the lowest score on the board and the rollout is about to make it
+    matter.
 
 **Production is in maintenance mode** (`main` @ `d059006`, verified live
 503). Low-risk window for the rollout, but the clock is running.

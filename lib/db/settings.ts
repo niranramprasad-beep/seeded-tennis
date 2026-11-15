@@ -3,9 +3,7 @@
 // membership snapshot used by the billing tab, and account deletion.
 // Moved verbatim from the former lib/supabase/settings-prefs.ts,
 // lib/supabase/design-preference.ts, and lib/supabase/billing.ts. Account
-// deletion is NEW here — it previously had no dedicated write path, only
-// going through the generic saveCurrentPlayer()/updatePlayer() profile-patch
-// in lib/auth.ts; see requestAccountDeletion/cancelAccountDeletion below and
+// deletion lives here too — see deleteMyAccount() at the bottom and
 // app/api/account/deletion/route.ts, the real server-validated path for it.
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
@@ -155,36 +153,29 @@ export async function loadMembershipSnapshot(): Promise<MembershipSnapshot | nul
 }
 
 /* -------------------------------------------------------- account deletion */
-// Soft-delete-with-grace-period, backed by `profiles.deletion_requested_at`
-// (migration 014_profile_fields_and_deletion.sql — not yet applied, see
-// that file's header). Setting it never hard-deletes anything itself — the
-// real 30-day purge is a separate operational job outside the app's scope;
-// the UI just shows "Deletion scheduled for {date} — Cancel" while it's
-// set. This is the one account-deletion write path the app has — flagged
-// explicitly as a destructive, highest-priority write to move behind real
-// validation (see app/api/account/deletion/route.ts), unlike the dozen
-// other profile fields that still go through lib/auth.ts's generic
-// saveCurrentPlayer()/updatePlayer() patch.
+// P0-8. Real deletion, backed by public.delete_my_account() (migration 029):
+// every row keyed on the account, plus the auth user itself, plus the family
+// when the departing account was its last member. Not a soft delete and not
+// a scheduled job — by the time this resolves, the account is gone.
 //
-// Both functions take an explicit `{ supabase, userId }` pair rather than
-// resolving their own via the browser session — they're written to be
-// called from a server route handler with a request-scoped, RLS-respecting
-// client (lib/api-auth.ts's getRequestScopedSupabase), which is the only
-// real caller; there's no optimistic browser-direct equivalent to preserve
-// here the way the other ctx-accepting functions in lib/db/outreach.ts and
-// lib/db/family.ts have.
-export async function requestAccountDeletion(
-  supabase: TypedSupabaseClient,
-  userId: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("profiles")
-    .update({ deletion_requested_at: new Date().toISOString() })
-    .eq("id", userId);
+// The RPC takes NO arguments. It reads auth.uid() and can delete nothing but
+// its caller, which is why this never needs the service-role client that
+// CLAUDE.md forbids for user-initiated writes. There is correspondingly
+// nothing to get wrong here: no id to pass, no id to pass wrongly.
+//
+// The former requestAccountDeletion/cancelAccountDeletion pair is deleted.
+// They wrote and cleared profiles.deletion_requested_at, which queued
+// nothing; the column stays as the record of who asked while that flow was
+// live (see the comment migration 029 puts on it) and the app no longer
+// writes it.
+export async function deleteMyAccount(
+  supabase: TypedSupabaseClient
+): Promise<{ familyDeleted: boolean }> {
+  const { data, error } = await supabase.rpc("delete_my_account");
   if (error) throw new Error(error.message);
-}
-
-export async function cancelAccountDeletion(supabase: TypedSupabaseClient, userId: string): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ deletion_requested_at: null }).eq("id", userId);
-  if (error) throw new Error(error.message);
+  const payload = (data ?? {}) as { status?: string; family_deleted?: boolean };
+  if (payload.status !== "deleted") {
+    throw new Error("Account deletion did not complete.");
+  }
+  return { familyDeleted: payload.family_deleted === true };
 }

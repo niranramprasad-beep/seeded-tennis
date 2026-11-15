@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifySchoolFit, countSchoolFits, explainSchoolFit } from "./school-fit";
-import { whatIfProjectionFor } from "./what-if-utr";
+import { realisticPaceProjectionFor, whatIfProjectionFor } from "./what-if-utr";
 import type { SchoolLite } from "./types";
 
 // P1-FIT-1. The same player and the same school produced different bands on
@@ -166,6 +166,69 @@ describe("what-if modes agree with the screens they drive", () => {
         expect(rank).toBeGreaterThanOrEqual(previous);
         previous = rank;
       }
+    }
+  });
+});
+
+// ---------------------------------------------------------------- P1-FIT-4
+// The pre-auth journey (homepage calculator -> /onboarding fit report) knows
+// exactly one thing about the visitor: the UTR they typed. Both screens used
+// to call the classifier with no projection, which is not an abstention —
+// classifySchoolFit returns "reach" for every school below the team floor
+// when it has none. Live symptom on a signed-out /onboarding: "Reach 37 ·
+// Out of range 0", and a 3.0 visitor told Stanford was a Reach.
+//
+// These lock the two properties that matter: the pre-auth path produces
+// out-of-range for a gap no realistic pace closes, and the homepage and the
+// fit report cannot disagree (they are one function, called with one input).
+describe("P1-FIT-4 pre-auth fit uses a realistic-pace projection", () => {
+  const elite = school({ slug: "elite", minCompetitiveUTR: 12.3, avgRosterUTR: 13.6 });
+  // 1.5/yr is the top of REALISTIC_UTR_IMPROVEMENT_PER_YEAR, so ~2.4 years
+  // of runway buys at most ~3.6 UTR. A 3.0 visitor cannot reach 12.3.
+  const preAuth = (currentUTR: number, graduationYear: number) =>
+    realisticPaceProjectionFor({ currentUTR, graduationYear, gender: "male", now: NOW });
+
+  it("marks a gap no realistic pace can close as out-of-range, not reach", () => {
+    expect(classifySchoolFit(3.0, elite, preAuth(3.0, 2028))).toBe("out-of-range");
+  });
+
+  it("still allows reach where the realistic pace does close the gap", () => {
+    const closeable = school({ slug: "closeable", minCompetitiveUTR: 8.0, avgRosterUTR: 9.0 });
+    expect(classifySchoolFit(6.0, closeable, preAuth(6.0, 2028))).toBe("reach");
+  });
+
+  it("does not downgrade a school the visitor already qualifies for", () => {
+    expect(classifySchoolFit(13.9, elite, preAuth(13.9, 2028))).toBe("likely");
+    expect(classifySchoolFit(12.5, elite, preAuth(12.5, 2028))).toBe("target");
+  });
+
+  it("stops reporting zero out-of-range for a low-UTR visitor", () => {
+    const catalog = [
+      elite,
+      school({ slug: "mid", minCompetitiveUTR: 9.0, avgRosterUTR: 10.0 }),
+      school({ slug: "low", minCompetitiveUTR: 4.0, avgRosterUTR: 5.0 }),
+    ];
+    const counts = countSchoolFits(3.0, catalog, preAuth(3.0, 2028));
+    expect(counts.outOfRange).toBeGreaterThan(0);
+  });
+
+  it("gives the homepage calculator and the fit report the same answer", () => {
+    // Both screens build the projection from the same three inputs through
+    // the same helper; this fails if either starts deriving its own.
+    const fromHome = realisticPaceProjectionFor({
+      currentUTR: 5.81,
+      graduationYear: 2028,
+      gender: "female",
+      now: NOW,
+    });
+    const fromReport = realisticPaceProjectionFor({
+      currentUTR: 5.81,
+      graduationYear: 2028,
+      gender: "female",
+      now: NOW,
+    });
+    for (const s of [elite, school({ slug: "b", minCompetitiveUTR: 7, avgRosterUTR: 8 })]) {
+      expect(classifySchoolFit(5.81, s, fromHome)).toBe(classifySchoolFit(5.81, s, fromReport));
     }
   });
 });

@@ -607,9 +607,10 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply four migrations to production in order (025 → 022 → 023 → 024),
-verifying after each; then revert the maintenance commit and merge `v1`
-to `main` as a single PR with CI green. The database changes go FIRST and
+Apply nine migrations to production in order
+(025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031), verifying
+after each; then revert the maintenance commit and merge `v1` to `main` as
+a single PR with CI green. The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
 is no window where deployed code is talking to a schema it doesn't
 understand. Code goes last.
@@ -650,7 +651,7 @@ The function can stay; the trigger is what enforces.
 **Known behaviour change:** `family_code` becomes unchangeable on UPDATE
 from the client. A player who signs up without a family and later creates
 one must go through a server-side path. Check this against the live signup
-flow before shipping the code in step 5 — it is fine for existing users.
+flow before shipping the code in step 9 — it is fine for existing users.
 
 ### Step 3 — migrations 023 + 026 (P0-2: join_family RPC and the approval flow)
 **What:** pending/approved state on `parent_accounts`; `families` readable
@@ -718,26 +719,164 @@ create policy coach_outreach_write_own on public.coach_outreach
   with check (user_id = (select auth.uid()) and public.has_tier('family'));
 ```
 **Risk: low, instantly reversible** — but if you roll this back you must
-also roll back the step-5 code, or the UI offers outreach the DB refuses.
+also roll back the step-9 code, or the UI offers outreach the DB refuses.
 
-### Step 5 — the code (`v1` → `main`)
-Only after steps 1–4 are applied and verified.
+### Step 5 — migration 027 (S-5 narrow profile reads + S-9 RPC grants)
+**What:** drops `profiles_discovery_read`, which let any signed-in user read
+the WHOLE row — email, GPA, grade, family_code, Whop and stripe ids — of any
+profile with `privacy_level='public'`. Also locks the dead `badges` and
+`friendships` tables (RLS on, no policies), drops `are_friends()`, and
+revokes `authenticated` EXECUTE on `current_family_code()` and
+`generate_family_code()`.
+**Check first — this is the only step with a named production row:**
+```sql
+select id, name from public.profiles where privacy_level = 'public';
+-- 1 row at the 2026-11-10 audit. That person loses nothing they use
+-- (there is no public page), but they are the only user whose stored
+-- preference stops meaning anything.
+```
+**Apply:** `supabase/migrations/027_narrow_profile_reads_and_rpc_grants.sql`
+**Verify (as a stranger account):** `select count(*) from public.profiles`
+returns 1 (their own row) — not 2. `badges` and `friendships` return 0.
+`current_family_code()` and `generate_family_code()` raise `42501`.
+Then as an approved parent: the child's profile, the family row and the
+child's UTR history all still read.
+**Rollback:**
+```sql
+create policy profiles_discovery_read on public.profiles
+  for select to authenticated
+  using (privacy_level = 'public' or id = (select auth.uid())
+         or family_code = public.current_family_code());
+grant execute on function public.current_family_code() to authenticated;
+grant execute on function public.generate_family_code() to authenticated;
+-- badges/friendships policies: restore from migration 021's text if anything
+-- actually needs them. `are_friends()` is gone; the badges policy that used
+-- it would need rewriting, which is a sign you should not restore it.
+```
+**Risk: low.** Nothing in the app reads another user's profile outside a
+family, so the only thing that can break is something nobody built.
+
+### Step 6 — migration 028 (S-6 rate limits)
+**What:** adds `rate_limit_events` (RLS on, no policies, grants revoked) and
+`consume_rate_limit(bucket)`. Purely additive: nothing existing reads or
+writes either, and no policy changes.
+**Order:** can go before or after the code, but going FIRST is better — the
+code fails CLOSED if the RPC is missing (`lib/rate-limit.ts`), so shipping
+the code first would 429 every write route until this lands.
+**Apply:** `supabase/migrations/028_api_rate_limits.sql`
+**Verify:** call `consume_rate_limit('data_export')` four times as a test
+user — three allowed, the fourth returns `allowed: false` with a
+`retry_after_seconds`. A different user is unaffected. An unknown bucket
+returns `allowed: false, reason: unknown_bucket`.
+**Rollback:**
+```sql
+drop function if exists public.consume_rate_limit(text);
+drop table if exists public.rate_limit_events;
+```
+Safe to drop — the table holds only counters, no user content. **But do not
+roll this back while the step-9 code is live**: every write route would
+then fail closed and the app would refuse all writes.
+**Risk: very low on its own; coupled to the code in one direction only.**
+
+### Step 7 — migration 029 (P0-8 real account deletion)
+**What:** adds `delete_my_account()`. Additive — no policy or column
+changes, and nothing calls it until the step-9 code ships.
+**Apply:** `supabase/migrations/029_real_account_deletion.sql`
+**Check first:**
+```sql
+select id, email, deletion_requested_at from public.profiles
+where deletion_requested_at is not null;
+```
+Anyone in that list asked to be deleted under the old soft-delete flow and
+is still owed a real deletion **by hand** — this migration does not action
+them. Do it deliberately, with their confirmation, not as part of the
+rollout.
+**Verify on staging only, never on a production account:** the function
+removes the auth user, every keyed row, and the family when the departing
+account was its last member; a family with anyone left in it survives.
+**Rollback:**
+```sql
+drop function if exists public.delete_my_account();
+```
+**This rollback restores the FUNCTION, not any data.** A completed deletion
+is not reversible — that is the point, and it is what the UI says before it
+runs. If you roll back the code without rolling back this, nothing calls it
+and nothing happens.
+**Risk: low to apply, permanent in effect once the code calls it.**
+
+### Step 8 — migrations 030 + 031 (P0-8 under-13 parental consent)
+**What:** `profiles` gains `birth_year`, `consent_status`,
+`consent_granted_at`, `consent_granted_by`; the 022 trigger is replaced with
+a version that derives `consent_status` from `birth_year` and makes
+`birth_year` write-once from the client; `account_active()` plus a
+RESTRICTIVE policy on 20 tables so a `pending` account reads and writes
+nothing but its own profile row; `grant_parent_consent()`,
+`my_consent_state()`; `approve_family_join()` also records consent;
+`family_members()` gains `consent_status`.
+**Apply BOTH, in order:** `030_under13_parent_consent.sql`, then
+`031_family_roster_consent.sql`. 031 drops and recreates
+`family_members()`, which the app calls — inside one migration, so no
+deploy sees the gap, but they must not be split across deploys.
+**Effect on existing users: none.** Every pre-030 account has
+`birth_year = null`, `consent_required_for_birth_year(null)` is false, and
+the INSERT branch of the trigger is the only thing that sets
+`consent_status` — so every existing row stays `not_required` and
+`account_active()` returns true for all of them. **Verify that, don't
+assume it:**
+```sql
+select consent_status, count(*) from public.profiles group by consent_status;
+-- expect: every row 'not_required', zero 'pending'
+```
+If a single row comes back `pending`, STOP and roll back — that account is
+locked out.
+**Also verify** a normal user can still read and write after the restrictive
+policies land. This step touches every table's RLS; it is the highest-blast-
+radius step in the whole plan.
+**Rollback:**
+```sql
+do $$ declare t text; begin
+  foreach t in array array['utr_entries','matches','coach_outreach',
+    'tournament_entries','daily_checkins','cost_calculations',
+    'recruiting_checklist_items','user_settings','training_plans',
+    'workout_sessions','exercises','session_exercises','saved_templates',
+    'encouragement_notes','parent_reports','season_budgets','budget_expenses',
+    'family_codes','parent_accounts','families','profiles'] loop
+    execute format('drop policy if exists account_active_required on public.%I', t);
+  end loop;
+end $$;
+-- then restore 026's family_members() (eight columns, no consent_status)
+-- and 022's protect_privileged_profile_columns() verbatim from those files.
+```
+Dropping the 21 restrictive policies alone is enough to unlock any account —
+do that first if someone is locked out, and sort the rest afterwards. Leave
+the new columns; they are additive and harmless.
+**Risk: the highest in this plan.** Roll back by dropping policies, never by
+dropping columns.
+
+### Step 9 — the code (`v1` → `main`)
+Only after steps 1–8 are applied and verified.
 1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
 2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
 3. Merge. Vercel auto-deploys `main` to seededtennis.com.
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it — but every one of steps 1–4 is backwards-compatible
-with the old code **except 024's outreach tier change**, so if you roll the
-code back, also run 024's rollback SQL.
+roll back with it. Of steps 1–8, all are backwards-compatible with the old
+code **except two**, so if you roll the code back:
+- run 024's rollback SQL (the old code writes outreach at Family tier), and
+- leave 028 in place (the old code does not call the limiter at all).
+027, 029, 030 and 031 are safe to leave applied under the old code: it never
+reads another user's profile, never calls `delete_my_account()`, and has no
+account that is `pending` consent.
 
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
-- [ ] Update `docs/DATABASE_SPEC.md`: mark 022/023/024/025 applied to production, with the date
-- [ ] Regenerate `lib/db/database.types.ts` against production (`generate_typescript_types`) — `parent_accounts` gained three columns
-- [ ] Point Vercel **Preview** and local **Development** at staging (P0-6's remaining half) so this never has to be rehearsed on prod again
-- [ ] Revoke the Gemini and Stripe keys; rotate Whop
+- [ ] Update `docs/DATABASE_SPEC.md`: mark 022–031 applied to production, with the date
+- [ ] Regenerate `lib/db/database.types.ts` against production (`generate_typescript_types`) — `parent_accounts` gained four columns, `profiles` four, and `rate_limit_events` is new
+- [ ] Turn on Supabase leaked-password protection and a minimum password length (Dashboard → Authentication → Policies). The advisor WARNs on it, and S-6 cannot cover login/signup/reset from app code — those requests never touch a Seeded route
+- [ ] Review Supabase Auth's own per-IP rate limits (Dashboard → Authentication → Rate Limits) for signup, login and password reset
+- [x] Point Vercel **Preview** and local **Development** at staging (P0-6's remaining half) — done 2026-11-14: all three Supabase vars are Production-only, and Preview/Development carry their own pointing at `gnlcpnsweqbtwpaqhqqg`
+- [x] Credentials: `GEMINI_API_KEY` deleted from Vercel; Stripe was never used; the Whop key was verified never committed, so no rotation needed (Niran, 2026-11-14)
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
