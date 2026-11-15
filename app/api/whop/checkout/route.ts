@@ -53,7 +53,10 @@ export async function POST(req: Request) {
 
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const config = await whop.checkoutConfigurations.create({
-    plan_id: planId,
+    // `variant_id`, not `plan_id`. Whop's 2026-11-14 API renamed plans to
+    // variants across the board; @whop/sdk 2.8.1 follows it. The ids
+    // themselves are unchanged and still `plan_`-prefixed.
+    variant_id: planId,
     // Read back by both the webhook and /api/whop/sync. It is the only
     // reliable link between a Whop membership and a Seeded account — the
     // email fallback in lib/whop-sync.ts exists for purchases that never

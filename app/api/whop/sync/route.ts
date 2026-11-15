@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   for (const planId of planIds) {
     if (matched) break;
     try {
-      const page = await whop.memberships.list({ plan_id: planId, first: 25 });
+      const page = await whop.memberships.list({ variant_id: planId, first: 25 });
       reachedWhop = true;
       for await (const membership of page) {
         const metadata = membership.metadata as Record<string, unknown> | null;
@@ -76,11 +76,10 @@ export async function POST(req: Request) {
         // one on record; otherwise take the first match so a cancellation
         // still reconciles.
         if (!matched || ACCESS_GRANTING_STATUSES.has(status)) {
-          // `memberships.list` returns the flat Membership shape
-          // (`plan_id`), unlike the webhook payload, which may serialize the
-          // nested one. Falls back to the plan we filtered by, which is the
-          // same id by construction.
-          matched = { id: membership.id, planId: membership.plan_id ?? planId, status };
+          // `variant_id` since the 2026-11-14 API version. Falls back to
+          // the variant we filtered by, which is the same id by
+          // construction.
+          matched = { id: membership.id, planId: membership.variant_id ?? planId, status };
         }
         if (ACCESS_GRANTING_STATUSES.has(status)) break;
       }

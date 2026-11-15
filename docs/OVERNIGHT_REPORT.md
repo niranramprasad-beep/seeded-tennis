@@ -118,4 +118,63 @@ None.
 
 ---
 
-## TASK 1 — Whop webhook payload compatibility: *in progress*
+## TASK 1 — Whop webhook payload compatibility: **DONE**
+
+### The bug, and why nothing could have caught it
+
+The handler read the plan as `plan_id ?? plan?.id`. The 2026-11-14 membership
+resource has **neither**. Whop's 2026-11-14 API renamed plans to variants, so
+the field is **`variant_id`** — ids unchanged, still `plan_`-prefixed.
+
+Every delivery would have resolved to "unknown plan", granted nothing, and
+returned 200. The same silent nothing as the original outage, one layer
+further in — and it would have looked like the webhook was working.
+
+The existing tests all passed, because every one of them used a payload
+shape someone had invented.
+
+**Confirmed against the live API**, not reasoned about: a read of
+`mem_xZKHm92QxEIqsS` at `api_version_date: 2026-11-14` returns
+`variant_id`, `product_id`, `status`, `metadata` and no `plan_id` anywhere.
+
+### What changed
+
+- `@whop/sdk` **2.1.0 → 2.8.1**. The upgrade independently confirms the
+  rename — it moved `plan_id` → `variant_id` on `Membership`,
+  `ListMembershipsRequest` and `CreateCheckoutConfigurationsRequest`, and
+  typecheck failed on all three until they were updated.
+- `app/api/whop/webhook/route.ts` — `variant_id ?? plan_id ?? plan?.id`, so a
+  webhook pinned to an older version still works. Email reader widened to
+  `member.email ?? member.user.email ?? user.email ?? email`, since the live
+  resource has no top-level email and `member` is often null.
+- `app/api/whop/checkout/route.ts` — `variant_id` on checkout creation.
+- `app/api/whop/sync/route.ts` — `variant_id` filter and field.
+
+### Tests: 512 → 521
+
+New `lib/whop-webhook-payload.test.ts`, built on the **recorded** resource
+shape (field names verbatim from the live API, values faked):
+
+- `membership.activated` / `.updated` / `.deactivated`, each correctly
+  signed, unwrapped through the real verifier, resolving to the right tier
+- all six plan ids resolved from a real-shaped payload
+- **the regression stated as a test**: the old `plan_id ?? plan?.id` reader
+  returns `null` on this payload and resolves to `"free"`, while the current
+  reader returns `"player"`
+- a pre-2026-11-14 payload still resolves
+- a payload whose `variant_id` is swapped after signing is rejected
+- a guard asserting the route still contains the same readers, so the test
+  cannot drift into testing its own local copy
+
+### Verification
+
+`tsc` clean · `lint` clean · **521 tests pass** · production build passes.
+
+### Open issues
+
+None. Re-record the fixtures if the webhook's `api_version_date` is ever
+changed — the test file says so at the top.
+
+---
+
+## TASK 2 — Launch polish: *in progress*

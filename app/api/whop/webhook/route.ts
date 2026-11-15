@@ -24,11 +24,20 @@ import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 //
 // Two consequences for this file, both deliberate:
 //
-//  1. Nobody has ever seen a real payload. The field reads below accept both
-//     shapes a v1 membership event can serialize — `plan_id` and
-//     `plan.id`, `user.email` and `email` — rather than betting on one. That
-//     is not defensive clutter: picking wrong means another silent failure
-//     of exactly the kind that produced this comment.
+//  1. The plan arrives as `variant_id`, and getting that wrong is how this
+//     fails silently a second time. CONFIRMED against the live API on
+//     2026-11-14 by reading the real membership at this exact
+//     `api_version_date`: the resource has `variant_id`, `product_id`,
+//     `status`, `metadata` — and **no `plan_id` and no nested `plan`**.
+//     Whop's 2026-11-14 version renamed plans to variants throughout
+//     (@whop/sdk 2.8.1 follows it); the ids are unchanged and still
+//     `plan_`-prefixed. An earlier draft of this file read `plan_id ??
+//     plan?.id`, neither of which exists, so every delivery would have
+//     resolved to "unknown plan" and granted nothing — the same silent
+//     nothing as the original outage, one layer further in.
+//     The older names are still accepted below, because a webhook pinned to
+//     an older `api_version_date` would send them and costing two `??` to
+//     survive that is nothing.
 //  2. The maintenance middleware on `main` currently returns 503 for every
 //     path including this one, so deliveries AND replays are blocked until
 //     it is amended. See docs/HANDOFF.md §K step 4.
@@ -36,11 +45,18 @@ import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 interface MembershipEventData {
   id?: string;
   status?: string;
+  /** The 2026-11-14 shape. */
+  variant_id?: string;
+  /** Pre-2026-11-14 shapes, still accepted. */
   plan_id?: string;
   plan?: { id?: string } | null;
   metadata?: Record<string, unknown> | null;
+  /** The live resource has no top-level email and `member` is often null, so
+   * every path here is a maybe. The email fallback is best-effort by
+   * design — see findProfileIdByEmail. */
   email?: string | null;
   user?: { email?: string | null } | null;
+  member?: { email?: string | null; user?: { email?: string | null } | null } | null;
 }
 
 interface MembershipEvent {
@@ -55,11 +71,17 @@ const HANDLED_EVENTS = new Set([
 ]);
 
 function planIdOf(data: MembershipEventData): string | null {
-  return data.plan_id ?? data.plan?.id ?? null;
+  return data.variant_id ?? data.plan_id ?? data.plan?.id ?? null;
 }
 
 function emailOf(data: MembershipEventData): string | null {
-  return data.user?.email ?? data.email ?? null;
+  return (
+    data.member?.email ??
+    data.member?.user?.email ??
+    data.user?.email ??
+    data.email ??
+    null
+  );
 }
 
 /** Server-side only, and deliberately without the email itself: a webhook log
