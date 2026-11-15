@@ -109,6 +109,13 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
 - [ ] Replay the missed `membership.activated` events, or reconcile the two
       existing customers by hand.
 - [ ] Run the $0 promo-code end-to-end test (§K) on staging.
+- [ ] **Soft 404 on unknown school slugs.** `/schools/<anything>` returns
+      HTTP **200** with a page titled "School not found — Seeded" (measured on
+      the f0f2919 preview). Google indexes a 200, so junk slugs can become
+      indexable pages. Low risk today — nothing links to them and the sitemap
+      lists only real pages — but the honest status is 404. P2; `robots.txt`
+      does not disallow `/schools/`, so if this is left, consider whether it
+      should.
 - [ ] **Supabase SMTP (Resend).** Niran is wiring this 2026-11-15. A real
       signup against the preview returned `429 over_email_send_rate_limit`:
       the built-in sender allows a few messages an hour, so with "Confirm

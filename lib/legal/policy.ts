@@ -77,6 +77,17 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // attack-tested in both directions (stranger, pending, other family,
     // removed member) rather than asserted.
     //
+    // The budget sentence is new (2026-11-15) and it exists because the
+    // app-layer run proved the gap rather than inferring it: signed in as an
+    // approved PLAYER sibling through real auth, `budget_expenses` INSERT and
+    // `season_budgets` UPDATE both succeeded. `is_parent_member()` returns
+    // true for any approved `parent_accounts` row regardless of
+    // `profiles.role`, which is the same shape of bug 033 fixed for notes and
+    // is still open for budgets (docs/TODO.md). Until it is fixed, the policy
+    // says what the database does. Nothing here should be read as promising
+    // parent-only budgets — the note restriction is called out separately
+    // precisely because it is the only one of the two that holds.
+    //
     // The removal sentence below was FALSE when 036 first shipped it, for
     // exactly the users production already has. `remove_family_member()`
     // only deleted the `parent_accounts` row, and every one of production's
@@ -101,6 +112,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       "Approval is the opt-in, and it is the only one. Someone whose request is still waiting sees nothing at all, and the moment a member is removed from a family they can no longer see anything about anyone in it.",
       "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf.",
       "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",
+      "The season budget is different, and we would rather say so than let you assume otherwise: any approved member of the family can edit it, including a player. If that matters to you, treat the budget as shared with everyone you approve.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",
     ],
   },
