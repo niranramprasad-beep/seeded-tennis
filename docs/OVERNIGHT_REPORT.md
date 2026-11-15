@@ -1,7 +1,151 @@
 # Overnight run — 2026-11-14/15
 
-> Live log. Updated after every task. Read this plus `git log` before
-> resuming anything.
+## The night in five lines
+
+1. **Seven tasks done, one running.** Fonts self-hosted (builds no longer
+   touch the network), the Whop webhook's real payload field found and fixed,
+   Google sign-in built end to end, auth/pricing/family rebuilt to spec, the
+   fit report now projects to junior year, and a privacy policy whose claims
+   the build checks. An independent security review is still running.
+2. **Tests 512 → 568.** `tsc`, `lint`, full suite and production build green
+   at every commit; the build now passes three times in a row where it used
+   to fail about one run in two.
+3. **Two bugs found that would have shipped silently:** the webhook reads
+   `variant_id`, not `plan_id` (every delivery would have granted nothing),
+   and the Google button rendered with its feature flag **off**.
+4. **One thing I got wrong and corrected:** CLAUDE.md said local dev no
+   longer touches production. It does. `.env.local` was never repointed.
+5. **Readiness: 68 → 79.** Nothing was applied to production, nothing was
+   merged to `main`, and `main` is still `d059006` serving the 503.
+
+---
+
+## 1. WHAT NIRAN DOES BY HAND
+
+### 🔴 Blocks launch
+
+**a. Point `.env.local` at staging.** Local dev currently reads and writes
+**production**. Replace these two lines in `.env.local` (both values are
+public — they ship in the client bundle):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://gnlcpnsweqbtwpaqhqqg.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<the staging publishable key from Vercel Preview>
+```
+
+Also blank or replace `SUPABASE_SERVICE_ROLE_KEY` in that file — leaving
+production's there while the browser talks to staging is worse than either
+alone, because server routes would write to production while the UI shows
+staging. **Until this is done, nobody should sign in locally.**
+
+**b. `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` in Vercel → Production.** Without
+it the Google button does not render. Set it **last**, after (c) — with the
+flag on and the provider off, the button appears and Supabase refuses.
+
+**c. Enable the Google provider in Supabase → Authentication → Providers →
+Google.** Add the client ID and secret from the Google console, and add the
+redirect URL **`https://seededtennis.com/auth/callback`** to Supabase's
+allowlist *and* to the Google console's "Authorised redirect URIs".
+
+**d. Google OAuth consent screen** needs a privacy policy URL and a terms
+URL. They now exist: `https://seededtennis.com/privacy` and
+`https://seededtennis.com/terms`.
+
+**e. `support@seededtennis.com` must exist and be monitored.** The privacy
+policy tells parents to use it for requests about their child. A published
+address that bounces is worse than no address.
+
+### 🟡 Before the first paying customer
+
+**f. Have a lawyer read `/privacy` and `/terms`.** Seven specific questions
+in `docs/TODO.md`, headed by the one that could change the product: whether
+our consent mechanism satisfies COPPA's *verifiable* parental consent. It may
+not.
+
+**g. Decide on CAPTCHA** for signup and password reset (backlog item in
+`docs/TODO.md`). Leaked-password protection stays deferred per your call.
+
+### ⚪ Informational
+
+**h.** The 4 new Whop plan IDs are in Vercel for Production + Preview +
+Development — confirmed. The 2 legacy IDs are Production-only; that is fine
+(no checkout ever sells them) but add them to Preview if you want the
+post-checkout sync to find legacy memberships on a preview build.
+
+---
+
+## 2. WHAT CLAUDE RUNS AFTER "GO"
+
+Nothing below has been started. Full detail and per-step rollback in
+`docs/HANDOFF.md` §J and §K.
+
+**Step 0 — Backup.** Supabase → Database → Backups, note the timestamp.
+*Rollback: this IS the rollback for everything that follows.*
+
+**Steps 1–8 — Migrations, in this exact order**, verifying after each:
+
+| # | Migration(s) | Pre-flight that must not be skipped | Rollback |
+|---|---|---|---|
+| 1 | `025` | expect a no-op on prod | nothing to undo |
+| 2 | `022` | `git show main:lib/auth.ts` writes no locked column | `drop trigger profiles_protect_privileged` |
+| 3 | `023` + `026` | every existing `parent_accounts` row backfills to `approved` | restore policies, never drop columns |
+| 4 | `024` | count Free accounts already holding >3 targets | drop trigger + restore old policy |
+| 5 | `027` | 1 production row is `privacy_level='public'` — that person loses nothing they use | recreate the policy |
+| 6 | `028` | additive | drop function + table |
+| 7 | `029` | **0 rows have `deletion_requested_at`** (checked read-only — nobody is owed a manual deletion) | drop function; a completed deletion is not reversible |
+| 8 | `030` + `031` | **🔴 the one that matters: `select consent_status, count(*) from profiles group by 1` must be every row `not_required`, zero `pending`.** One `pending` row means a locked-out account — stop and roll back. | drop the 21 restrictive policies first, sort the rest after |
+
+**Step 9 — The code.** PR `v1` → `main` **including `git revert d059006`**
+(the maintenance middleware), wait for `verify` to pass, merge. Never bypass
+the ruleset. *Rollback: Vercel → promote the previous production deployment,
+then run 024's rollback SQL.*
+
+**Step 10 — Live checks on seededtennis.com:** 200 not 503, signup, login,
+Google login, onboarding, under-13 consent, family join + approve, fit
+report, outreach gating, pricing toggle.
+
+**Step 11 — Whop.** Send a test `membership.activated` from the dashboard,
+expect **200**. Then replay the missed events. ⚠️ **The webhook is reachable
+only after step 9** — the maintenance middleware 503s it, which is why your
+earlier test delivery got a 503. If replay does not reconcile
+`mem_xZKHm92QxEIqsS` (your bullis.org Player membership, metadata intact), I
+set `subscription_tier='player'` and `whop_membership_id='mem_xZKHm92QxEIqsS'`
+on that profile with the service role.
+
+**Step 12 — The $0 purchase**, walked through together. Full script in
+`docs/HANDOFF.md` §K: 100%-off promo on `plan_iWNSNKqks0ddp`, confirm $12 →
+$0, complete it, then check the tier in the database, the webhook delivery,
+and that `/outreach` unlocks.
+
+---
+
+## 3. OPEN ITEMS, SORTED
+
+**Blocks launch**
+- `.env.local` → staging (above)
+- Google provider + flag + redirect URLs (above)
+- `support@seededtennis.com` live (above)
+- The production rollout itself (§J)
+
+**Week 1**
+- Lawyer review of `/privacy` and `/terms`
+- Reconcile the bullis.org membership if replay misses it
+- `next@16` upgrade — clears the last critical + high in production deps,
+  both currently unreachable (no `remotePatterns`, zero `next/image`,
+  Vercel-hosted; postcss is build-time only)
+- Browser-path E2E for signup/OAuth/checkout/export once local dev is safe
+- CAPTCHA decision
+
+**Later**
+- Nonce-based CSP (drops `'unsafe-inline'`; needs middleware)
+- P1-DATA-1 real roster import — still the highest-value product work
+- P1-UX-2 delete Legacy · P1-UX-1 theme flips · P1-FIT-3 noisy projections
+- Error tracking: still 1/10, and the billing outage is what that looks like
+- `/dev/family-preview` seeds the old `CHEN-7K4P` code format
+
+---
+
+> Per-task log below. Read this plus `git log` before resuming anything.
 
 ## Step 0 — Whop permission check: **PASS**
 
