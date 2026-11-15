@@ -1102,8 +1102,8 @@ PageSpeed Insights will show 0 for a marketing page.
 ### SEO
 
 **Before: 6 of 10 pages had no canonical URL, and `/pricing`, `/schools` and
-every school page shared the site-wide default title** — 37 school pages
-competing as one page in search.
+every school page shared the site-wide default title** — all 68 school
+pages competing as one page in search.
 
 - `/pricing`, `/schools` and `/sample-report` gained titles, descriptions and
   canonicals.
@@ -1172,3 +1172,182 @@ rewriting the hero copy to serve both widths. Recorded rather than touched.
 tsc clean, lint clean, **589 tests** (580 + 9 new SEO coverage tests),
 production build passes, Lighthouse accessibility 100 and SEO 100 on every
 scoreable page.
+
+## TASK E — independent review of tonight's changes: **DONE, and it found two Criticals in my own work**
+
+A fresh agent that wrote none of this code reviewed commits `2ae5f8c~1..e8fc8df`.
+It found **17 issues: 2 Critical, 2 High, 6 Medium, 7 Low** — and it was
+right about the two that mattered most. I reproduced both against staging
+before fixing them.
+
+### Critical 1 — migrations 032 and 033 broke every profile write in the app
+
+`writeCurrentPlayerProfile()` saves with supabase-js `.upsert()`, which
+compiles to `INSERT ... ON CONFLICT (id) DO UPDATE`. **PostgreSQL fires
+BEFORE INSERT row triggers for the whole statement before it detects the
+conflict.** So the INSERT branch of `protect_privileged_profile_columns()`
+runs on ordinary profile UPDATES, where `birth_year` is absent (the `Player`
+type has no such field) and `family_code` is the user's own.
+
+Reproduced on staging, as the signed-in user, on a row that already exists:
+
+```
+ERROR 23502: A birth year is required to create an account.    (033)
+ERROR 42501: Use the join code to request access ...           (032)
+```
+
+`app/api/profile/route.ts` calls this "the single highest-traffic write path
+in the app". **Renaming yourself in Settings would have failed with "A birth
+year is required to create an account."** So would finishing onboarding,
+saving a target school, logging a UTR check-in, and requesting deletion.
+
+Note what this means about last night: 032 was *last* night's Critical fix,
+found by *that* night's reviewer. The fix for one Critical introduced
+another, and only a second independent pass caught it.
+
+### Critical 2 — migration 034 broke account deletion, which is all of P0-8
+
+`delete_my_account()` is SECURITY DEFINER but reads `auth.uid()`, and the
+caller's JWT role is `authenticated`, so 034's service-role exemption never
+applied to it. The reviewer predicted a rate-limit `53400` after 20 cascaded
+`utr_entries`. **The actual failure, reproduced on staging, is worse and
+hits every user regardless of how much data they have:**
+
+```
+ERROR 23503: insert or update on table "rate_limit_events" violates
+foreign key constraint "rate_limit_events_user_id_fkey"
+DETAIL: Key (user_id)=(...) is not present in table "users".
+CONTEXT: ... delete from auth.users where id=v_user
+```
+
+As the cascade removes `auth.users`, the trigger tries to log a rate-limit
+event for a user that no longer exists. The mechanism the privacy policy
+promises — and the one a parent is most likely to use — was broken for
+everyone.
+
+### Both fixed by migration 035, with seven checks run on staging
+
+| # | Check | Result |
+|---|---|---|
+| A | `.upsert()` on an existing profile, no `birth_year` | **allowed** |
+| B | in-family user upserts carrying their own `family_code` | **allowed** |
+| C | genuinely new profile claiming a taken `family_code` | still `42501` |
+| D | genuinely new profile with no `birth_year` | still `23502` |
+| E | new under-13 profile, self-granted paid tier | `pending`, tier scrubbed to `free` |
+| F | `delete_my_account()` with 50 cascaded `utr_entries` | **succeeds**; profile, entries and auth user all gone |
+| G | limiter still enforces | exactly 20 writes, 21st refused |
+
+035 also raises the `training_write` bucket from 120 to 2000 (the calendar
+re-upserts ~48 rows per save, so the limit sat below a single ordinary
+save), and makes `consume_rate_limit` actually read `rate_limit_for_bucket()`
+— which 034's own comment had claimed it already did and it did not.
+
+### High — the placeholder 7 was reaching a college coach's inbox
+
+The reviewer ran `buildCoachEmail` and got:
+
+```
+My UTR is 7.0 (self-reported).
+```
+
+for a player who has never entered one. My Task B commit said "fixed at the
+source, not the pixel". **That was false.** I fixed four family views; the
+source — `emptyPlayer.currentUTR = 7`, reached whenever `profiles.current_utr`
+is NULL — was untouched. A minor was signing their name to a self-report
+they never made, which is P0-4 broken as directly as it can be.
+
+Fixed properly this time: the placeholder is **0**, which is not a valid UTR
+and which `currentUTR <= 0` already means "not logged yet" throughout this
+codebase (`lib/fit.ts:94`, and the note above `explainSchoolFit`). The coach
+email now omits the sentence, the subject fragment and the signature line
+entirely rather than inventing a rating; four display sites print "Not
+tracked"; and the school-detail range bar omits the "you" marker instead of
+parking it at 0%. Mutation-tested both ways.
+
+### High — silent data loss on /events
+
+`persist()` was `void save(...).catch(() => undefined)`. With writes now
+refusable, the calendar would show an edit applied, the write would fail,
+and nothing would say so. The error surfaces as a toast now. The optimistic
+update stays — SWR corrects the view on focus — but the person is told.
+
+### Medium — my own guards had holes, proved by construction
+
+The reviewer built three gated-but-crawlable routes and **all nine of my SEO
+tests passed**: a gate in `layout.tsx` (never read), a chain one level
+deeper than my cap of 3, and a `dynamic(() => import(...))` the regex could
+not see. A fourth by inspection: I filtered out every `[slug]` route.
+
+All four are closed, and I replanted the reviewer's exact three cases to
+prove it — the test now fails with `['/zztest-deep', '/zztest-dynamic',
+'/zztest-layout']` and passes again once they are removed.
+
+Two more weak guards strengthened: the rate-limit stub ignored the RPC name
+(so switching `peek_rate_limit` back to `consume_rate_limit` left all tests
+green — and that one word is the whole of 034's design), and the family-UTR
+guard pinned one spelling of the bug, defeated by a rename. The rule is now
+a pure function, `resolveFamilyPlayerFacts()`, with behavioural tests and
+all four family views wired to it.
+
+### Medium — "202 violations to zero" was true only for the default design
+
+`--c-stone-light` is defined in **eleven** blocks in `app/globals.css`. I
+fixed two and left nine legacy themes between 2.37:1 and 3.85:1, and those
+themes ship — the legacy Settings view offers a theme switcher for all of
+them. All nine are fixed now (every one ≥ 4.6:1 against its own block's
+surfaces), and `lib/theme-contrast.test.ts` parses the real stylesheet and
+checks every block, so the claim is verified by the build rather than
+asserted by a commit message.
+
+**My first measurement of those nine disagreed with the reviewer's and mine
+was wrong.** I scanned a ±60-line window for each token's background, which
+picks up a neighbouring theme's colours. With proper brace-depth parsing my
+numbers matched the reviewer's exactly.
+
+### Medium — /family was still borrowing the parent's data
+
+Fixing `currentUtr` left `graduationYear` and `gender` still falling through
+to the signed-in parent, so a parent's class year could print as the
+player's (the original bug report named exactly that) and **a girl's UTR
+trajectory could be projected with her father's growth curve.** Both fixed.
+The subtitle also printed "on track for 0 of 5 targets" when the honest
+answer is that we cannot tell; it now says so.
+
+### Also fixed
+
+- §J step 10's rollback was still half prose inside a ```sql fence — the
+  exact defect Task C claimed to have fixed four of. Now runnable SQL.
+- §J's "Risk: low, and strictly a tightening" for 033 was false. Corrected,
+  with the upsert mechanism explained.
+- `app/pricing/page.tsx` retyped four prices against CLAUDE.md's explicit
+  rule; it derives them from `TIER_PRICE_USD` now.
+- `robots: { index: false }` was on 2 of 13 private pages. It is on all of
+  them, and the SEO test now checks — which immediately found four more
+  (`/family/budget`, `/family/weekly-reports`, `/reset-password`,
+  `/settings/billing`).
+- Two stale CSS comments: one citing a colour (`rgb(30,38,33)`) that exists
+  nowhere in the file, one asserting `--c-stone-light` "stays intentionally
+  sub-4.5 ... never body text", which would have got the fix reverted.
+
+### One correction to the reviewer
+
+It reported **69** school pages against my "37". Both are wrong:
+`getSchools()` returns **68** (37 men's, 31 women's), which is what
+`generateStaticParams` builds. My "37" was the men's subset; its 69 was a
+grep artifact across the three data files. CLAUDE.md's 68 was right all
+along.
+
+### What the reviewer confirmed
+
+The Next 15 async-`params` migration is complete repo-wide; the new
+`generateMetadata` is correct; the `/schools` `role="button"` removal broke
+nothing (and the j/k claim is literally true); `/cost-calculator` really is
+not public content; the budget math is correct with a null UTR and
+fabricates no verdict; no `undefined` reaches `classifySchoolFit`; 033's
+`encouragement_notes` policy is sound; 034's JWT-role fix is correct; and no
+client-writable table is missing a trigger — it reached the same conclusion
+I did about `parent_accounts`, `badges` and `friendships`, independently.
+
+**This is the second night running that an independent pass found a Critical
+in work I had already tested and written up as done. The review step is
+paying for itself every time.**

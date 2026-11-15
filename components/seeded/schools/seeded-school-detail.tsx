@@ -19,7 +19,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { Footer } from "@/components/layout/footer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 interface Props {
   school: School;
@@ -187,8 +187,12 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(school.avgRosterUTR)}
-                youPct={utrToPct(player.currentUTR)}
-                caption={`You ${player.currentUTR.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                youPct={hasRealUtr(player.currentUTR) ? utrToPct(player.currentUTR) : null}
+                caption={
+                  hasRealUtr(player.currentUTR)
+                    ? `You ${player.currentUTR.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                    : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
+                }
                 low={range.min}
                 median={school.avgRosterUTR}
                 high={range.max}

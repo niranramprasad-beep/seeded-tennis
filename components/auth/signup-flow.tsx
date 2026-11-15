@@ -159,7 +159,8 @@ export function SignupFlow({
     const graduationYear = getGradYearFromGrade(grade);
     const player: Player = {
       name,
-      currentUTR: 7,
+      // No UTR until the player enters one (lib/data/user.ts).
+      currentUTR: 0,
       graduationYear,
       commitmentDate: getDefaultCommitDate(graduationYear),
       gender,

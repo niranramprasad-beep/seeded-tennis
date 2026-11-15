@@ -148,7 +148,14 @@ export function buildCoachEmail(
 ): CoachEmail {
   const programType = school.gender === "women" ? "women's" : "men's";
 
-  const utr = `${player.currentUTR.toFixed(1)} (self-reported)`;
+  // A UTR the player never entered must not appear in an email they sign.
+  // `currentUTR <= 0` is this codebase's "not logged yet" convention
+  // (lib/fit.ts, explainSchoolFit's note, lib/data/user.ts). When it is
+  // unknown the sentence, the subject fragment and the signature line are
+  // all omitted — the draft simply does not mention a rating, which is the
+  // honest version and still a usable email.
+  const utrKnown = Number.isFinite(player.currentUTR) && player.currentUTR > 0;
+  const utr = utrKnown ? `${player.currentUTR.toFixed(1)} (self-reported)` : null;
 
   // 1) Results, strictly from what the player logged themselves. With nothing
   // logged we fall back to their own tournament counts — never a
@@ -179,7 +186,7 @@ export function buildCoachEmail(
   // version also promised "my roadmap has me closing that gap well before I'd
   // arrive on campus" — a commitment the player never made, and one the
   // projection often doesn't support.
-  const utrSentence = `My UTR is ${utr}.`;
+  const utrSentence = utr ? `My UTR is ${utr}.` : "";
 
   // 4) Development focus — only when the player actually selected areas.
   const focus = player.weaknesses.map((w) => WEAKNESS_PHRASES[w]).filter(Boolean);
@@ -197,7 +204,13 @@ export function buildCoachEmail(
         } this season, and I'm happy to send the schedule once it's set.`
       : "";
 
-  const subject = `${player.graduationYear} ${programType} recruit · UTR ${utr} · ${player.name} — interested in ${school.shortName}`;
+  const subject = [
+    `${player.graduationYear} ${programType} recruit`,
+    utr ? `UTR ${utr}` : null,
+    player.name,
+  ]
+    .filter(Boolean)
+    .join(" · ") + ` — interested in ${school.shortName}`;
 
   const opening = [resultsSentence, utrSentence].filter(Boolean).join(" ");
 
@@ -218,7 +231,7 @@ ${focusSentence ? focusSentence + " " : ""}I'd welcome the chance to tell you mo
 Thank you for your time.
 
 ${player.name}
-UTR ${utr} · Class of ${player.graduationYear}`;
+${utr ? `UTR ${utr} · ` : ""}Class of ${player.graduationYear}`;
 
   return { subject, body };
 }

@@ -607,9 +607,9 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply thirteen migrations to production in order
+Apply fourteen migrations to production in order
 (025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
-034), verifying after each; then revert the maintenance commit and merge
+034 → 035), verifying after each; then revert the maintenance commit and merge
 `v1` to `main` as a single PR with CI green. (This line said "twelve" while
 listing eleven until 2026-11-15 — count the arrows, not the adjective.) The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
@@ -1134,14 +1134,74 @@ drop policy if exists "encouragement_notes_insert_parent" on public.encouragemen
 create policy "encouragement_notes_insert_parent"
 on public.encouragement_notes for insert to authenticated
 with check (parent_id = (select auth.uid()) and public.is_family_member(family_code));
--- 2. restore 032's version of protect_privileged_profile_columns() verbatim
---    (i.e. the same body WITHOUT the `new.birth_year is null` branch)
+-- 2. restore the pre-033 trigger body. This used to say "restore 032's
+--    version verbatim", which is not something anyone can paste at 3am —
+--    the same mistake this plan's other rollbacks were fixed for. Note it
+--    restores the 035 form (the `profile_row_exists` guard), NOT 032's
+--    literal text: 032's version breaks every profile upsert in the app.
+create or replace function public.protect_privileged_profile_columns()
+returns trigger language plpgsql security invoker set search_path = public
+as $fn$
+declare v_is_new_account boolean;
+begin
+  if current_user in ('service_role','postgres','supabase_admin') then return new; end if;
+  if tg_op = 'INSERT' then
+    v_is_new_account := not public.profile_row_exists(new.id);
+    if v_is_new_account and new.family_code is not null
+       and public.family_code_is_taken(new.family_code) then
+      raise exception 'Use the join code to request access to an existing family; it cannot be set on a profile directly.'
+        using errcode='42501';
+    end if;
+    new.subscription_tier := 'free'; new.whop_membership_id := null;
+    new.stripe_customer_id := null; new.stripe_subscription_id := null;
+    if v_is_new_account then
+      new.consent_status := case when public.consent_required_for_birth_year(new.birth_year)
+                                 then 'pending' else 'not_required' end;
+      new.consent_granted_at := null; new.consent_granted_by := null;
+    else
+      select p.consent_status, p.consent_granted_at, p.consent_granted_by
+        into new.consent_status, new.consent_granted_at, new.consent_granted_by
+        from public.profiles p where p.id = new.id;
+    end if;
+    return new;
+  end if;
+  if new.subscription_tier is distinct from old.subscription_tier
+  or new.whop_membership_id is distinct from old.whop_membership_id
+  or new.stripe_customer_id is distinct from old.stripe_customer_id
+  or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+  or new.role is distinct from old.role
+  or new.family_code is distinct from old.family_code
+  then raise exception 'This profile field can only be changed by Seeded.' using errcode='42501'; end if;
+  if old.birth_year is not null and new.birth_year is distinct from old.birth_year then
+    raise exception 'Date of birth can only be changed by Seeded. Contact support.' using errcode='42501'; end if;
+  if old.birth_year is null and new.birth_year is not null then
+    new.consent_status := case when public.consent_required_for_birth_year(new.birth_year)
+                               then 'pending' else 'not_required' end;
+    new.consent_granted_at := null; new.consent_granted_by := null;
+  else
+    new.consent_status := old.consent_status;
+    new.consent_granted_at := old.consent_granted_at;
+    new.consent_granted_by := old.consent_granted_by;
+  end if;
+  return new;
+end; $fn$;
+revoke all on function public.protect_privileged_profile_columns() from public, anon, authenticated;
 ```
-**Risk: low, and strictly a tightening.** The service role is exempt via the
-trigger's first branch, so the Whop webhook and support tooling are
-unaffected. Every client signup path already sends `birth_year`
-(`components/auth/signup-flow.tsx`, the pre-auth form in
-`seeded-pre-auth-onboarding.tsx`, and `completeOAuthProfile` for Google).
+⚠️ **Risk: this step is NOT "strictly a tightening", which is what this
+line used to claim.** As written, 033 broke every profile write in the app:
+`writeCurrentPlayerProfile()` saves with `.upsert()`, Postgres fires BEFORE
+INSERT triggers for the whole statement before it detects the conflict, and
+the payload has no `birth_year` because the `Player` type has no such field.
+Renaming yourself in Settings failed with "A birth year is required to
+create an account." The same mechanism broke 032 for anyone already in a
+family. **Both are fixed by step 12 (035), which must be applied in the same
+window — do not ship 032 or 033 without it.**
+
+"Every client signup path already sends `birth_year`" is true and was
+irrelevant: the break was on update-shaped upserts, which can never send it.
+
+The service role is exempt via the trigger's first branch, so the Whop
+webhook and support tooling are unaffected.
 
 ### Step 11 — migration 034 (rate limits enforced in the database)
 
@@ -1215,15 +1275,80 @@ write. The limits are generous (20/hour for UTR entries, 60/hour for
 profiles, 120/hour for training) and are per-user per-hour, but this is the
 step to watch after deploying.
 
-### Step 12 — the code (`v1` → `main`)
-Only after steps 1–11 are applied and verified.
+### Step 12 — migration 035 (fixes two Criticals that 032/033/034 introduced)
+
+**This step is not optional and cannot be deferred.** Without it, 032 and
+033 break every profile write in the app and 034 breaks account deletion for
+every user. All three were found by an independent review on 2026-11-15 and
+reproduced against staging before this migration was written.
+
+**What it fixes:**
+
+1. **Profile writes.** `writeCurrentPlayerProfile()` saves with supabase-js
+   `.upsert()`, which compiles to `INSERT ... ON CONFLICT DO UPDATE`.
+   PostgreSQL fires BEFORE INSERT row triggers for the whole statement
+   *before* it detects the conflict, so the INSERT branch of
+   `protect_privileged_profile_columns()` runs on ordinary profile UPDATES —
+   where `birth_year` is absent (the `Player` type has no such field) and
+   `family_code` is the user's own. Reproduced on staging:
+   `ERROR 23502: A birth year is required to create an account.` and
+   `ERROR 42501: Use the join code to request access ...`, for a user
+   renaming themselves. 035 gates both checks on `profile_row_exists()`, a
+   SECURITY DEFINER helper, so they apply only to a genuine account
+   creation.
+2. **Account deletion — all of P0-8.** `delete_my_account()` is SECURITY
+   DEFINER but reads `auth.uid()`, and the caller's JWT role is
+   `authenticated`, so 034's service-role exemption never applied. The
+   predicted failure was a rate-limit `53400` after 20 cascaded rows; the
+   actual failure, reproduced on staging, is worse and hits **every** user:
+   as the cascade removes `auth.users`, the trigger tries to log a
+   rate-limit event for a user that no longer exists —
+   `ERROR 23503: ... violates foreign key constraint
+   "rate_limit_events_user_id_fkey"`. 035 adds a transaction-scoped
+   `seeded.bypass_rate_limit` marker that only `delete_my_account()` sets.
+   A client cannot set a GUC through PostgREST.
+3. **The training bucket was below one ordinary save.** The calendar
+   re-upserts every plan row on each save (~48 rows) against a shared limit
+   of 120, and `/events` swallows the error — so edits would appear to apply
+   and never be written. Raised to 2000.
+4. **`consume_rate_limit` now reads `rate_limit_for_bucket()`**, which 034's
+   own comment incorrectly claimed it already did.
+
+**Apply:** `supabase/migrations/035_fix_upsert_writes_and_deletion.sql`
+
+**Verify (all seven were run on staging):**
+- an `.upsert()` on an EXISTING profile with no `birth_year` **succeeds**
+- an in-family user's upsert carrying their own `family_code` **succeeds**
+- a genuinely new profile claiming a taken `family_code` still raises `42501`
+- a genuinely new profile with no `birth_year` still raises `23502`
+- a new under-13 profile still lands `consent_status = 'pending'` and has its
+  tier scrubbed to `free`
+- `delete_my_account()` succeeds for a user with 50 cascaded `utr_entries`
+  and removes the profile, the entries and the auth user
+- the limiter still enforces: exactly 20 direct `utr_entries` writes, 21st
+  refused
+
+**Rollback:**
+```sql
+-- Returns to the 034 behaviour, which breaks deletion. Prefer rolling the
+-- whole set back (steps 9-11) over leaving this one off.
+drop function if exists public.profile_row_exists(uuid);
+-- then restore 032's trigger body and 034's enforce_write_rate_limit()
+-- and delete_my_account() from those files.
+```
+**Risk: low to apply, and it only loosens checks that were never meant to
+fire.** The security properties of 032, 033 and 034 are all preserved and
+were re-tested after the fix.
+
+### Step 13 — the code (`v1` → `main`)
+Only after steps 1–12 are applied and verified.
 1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
 2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
 3. Merge. Vercel auto-deploys `main` to seededtennis.com.
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it. Of steps 1–11, all are backwards-compatible with the old
+roll back with it. Of steps 1–12, all are backwards-compatible with the old
 code **except two**, so if you roll the code back:
 - run 024's rollback SQL (the old code writes outreach at Family tier), and
 - leave 028 in place (the old code does not call the limiter at all).

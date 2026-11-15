@@ -85,10 +85,24 @@ export function useEventsCalendar(
   const persist = useCallback(
     (next: TrainingPlannerState) => {
       mutatePlanner(next, { revalidate: false });
-      // Best-effort background write — same "optimistic update, silent
-      // revalidate-on-focus correction if it actually failed" posture as
-      // events-inner.tsx's existing markEntered.
-      void saveTrainingPlannerState(next).catch(() => undefined);
+      // Optimistic update, but NOT a silent one any more.
+      //
+      // This used to be `.catch(() => undefined)`. An independent review
+      // pointed out what that costs once writes can be refused: the calendar
+      // shows the edit applied, the write fails, and nothing anywhere says
+      // so — the user closes the tab and the change is gone. The review
+      // found it while tracing a rate limit that sat below the size of one
+      // ordinary save, but the swallow is wrong regardless of why the write
+      // failed (offline, signed out, a server error).
+      //
+      // The optimistic update stays: SWR revalidates on focus and will
+      // correct the view. The difference is that the person is told.
+      void saveTrainingPlannerState(next).catch(() => {
+        setToast({
+          message: "That change didn't save. Check your connection and try again.",
+          variant: "error",
+        });
+      });
     },
     [mutatePlanner]
   );

@@ -7,7 +7,18 @@ import type { Player } from "@/lib/types";
 // always resolve to the actual Supabase profile, never a hardcoded demo user.
 export const emptyPlayer: Player = {
   name: "",
-  currentUTR: 7,
+  // 0, NOT 7. An independent review found the old placeholder reaching a
+  // college coach's inbox: buildCoachEmail() renders "My UTR is 7.0
+  // (self-reported)" for a player who has never entered one, in an email
+  // they sign their name to. That is the P0-4 rule broken as directly as it
+  // can be.
+  //
+  // 0 is not a valid UTR (the scale starts around 1), and `currentUTR <= 0`
+  // is ALREADY this codebase's convention for "no real UTR logged yet" —
+  // see lib/fit.ts:94 and the note in lib/school-fit.ts above
+  // explainSchoolFit(). This aligns the placeholder with that convention
+  // instead of inventing a plausible-looking rating.
+  currentUTR: 0,
   graduationYear: 2028,
   commitmentDate: "2027-09-01",
   gender: "male",

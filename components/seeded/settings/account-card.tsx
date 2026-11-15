@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import type { Player } from "@/lib/types";
 import { getCurrentGrade } from "@/lib/time";
-import { formatUTR } from "@/lib/utils";
+import { formatUTR, formatUtrOrNotTracked } from "@/lib/utils";
 
 // The mockup doesn't detail Account tab content beyond its nav label — this
 // is the real identity data already available via usePlayer()/useTier(),
@@ -27,7 +27,7 @@ export function AccountCard({
       <h2 className="text-lg font-semibold text-ink">Account</h2>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
         <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name || "—"} />
-        <Field label="Current UTR" value={formatUTR(player.currentUTR)} />
+        <Field label="Current UTR" value={formatUtrOrNotTracked(player.currentUTR)} />
         <Field label="Grade" value={`${getCurrentGrade(player.graduationYear)}th grade`} />
         <Field label="Class of" value={String(player.graduationYear)} />
         <Field label="Gender" value={player.gender === "female" ? "Female" : "Male"} />

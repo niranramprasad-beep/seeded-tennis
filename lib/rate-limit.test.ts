@@ -113,13 +113,44 @@ describe("a refused request is explained, not coded at the user", () => {
   });
 });
 
-// A stub shaped like the one `.rpc()` call this module makes.
+// A stub shaped like the one `.rpc()` call this module makes. It RECORDS the
+// function name: an independent review pointed out that the previous stub
+// ignored it, so changing `peek_rate_limit` back to `consume_rate_limit` left
+// all eleven tests green — and that one word is the whole of 034's
+// double-counting design. The route peeks; only the table trigger consumes.
+// If both consumed, every API write would count twice and halve the limit.
 function stubClient(response: { data?: unknown; error?: unknown }) {
-  return {
-    rpc: async () => ({ data: response.data ?? null, error: response.error ?? null }),
-    // Shaped to the one call this module makes, not to the whole client.
-  } as any;
+  const calls: string[] = [];
+  const client = {
+    rpc: async (fn: string) => {
+      calls.push(fn);
+      return { data: response.data ?? null, error: response.error ?? null };
+    },
+    calls,
+  };
+  return client as any as import("@supabase/supabase-js").SupabaseClient<
+    import("./db/database.types").Database
+  > & { calls: string[] };
 }
+
+describe("the route peeks and never consumes", () => {
+  it("calls peek_rate_limit, not consume_rate_limit", async () => {
+    const client = stubClient({ data: { allowed: true, remaining: 5 } });
+    await consumeRateLimit(client, "utr_entry");
+    expect(client.calls).toEqual(["peek_rate_limit"]);
+    // Stated as its own assertion so the failure message says why it matters.
+    expect(
+      client.calls,
+      "the API routes must PEEK; 034's per-table trigger is the only counter"
+    ).not.toContain("consume_rate_limit");
+  });
+
+  it("peeks exactly once per check", async () => {
+    const client = stubClient({ data: { allowed: true, remaining: 5 } });
+    await consumeRateLimit(client, "profile_write");
+    expect(client.calls).toHaveLength(1);
+  });
+});
 
 describe("the limiter fails closed", () => {
   it("refuses when the RPC errors", async () => {

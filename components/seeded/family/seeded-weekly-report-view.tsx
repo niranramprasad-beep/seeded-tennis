@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
+import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
@@ -66,7 +67,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   // through to the signed-in PARENT's own profile, whose UTR is the
   // `emptyPlayer` placeholder rather than any real rating. Null means "not
   // tracked" and is rendered as those words.
-  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
+  const currentUTR = resolveFamilyPlayerFacts(playerMember, player).currentUtr;
 
   const weekDelta = useMemo(() => {
     if (!utrEntries) return null;

@@ -28,7 +28,7 @@ import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
 import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
-import { formatUTR } from "@/lib/utils";
+import { formatUTR, formatUtrOrNotTracked } from "@/lib/utils";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
 function initialOf(name: string): string {
@@ -214,7 +214,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
         </div>
         <div className="flex flex-wrap gap-7">
           <StatTile
-            value={formatUTR(player.currentUTR)}
+            value={formatUtrOrNotTracked(player.currentUTR)}
             label={
               lastLoggedUtr
                 ? `UTR · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`

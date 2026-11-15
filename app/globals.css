@@ -26,7 +26,7 @@
     --c-tennis: 190 242 100;
     --c-ink: 17 24 39;
     --c-stone: 75 85 99;
-    --c-stone-light: 156 163 175;
+    --c-stone-light: 109 114 122;
     --c-line: 229 231 235;
     --c-error-bg: 251 234 229;
     --c-error: 156 59 34;
@@ -64,7 +64,7 @@
     --c-tennis: 242 160 61;
     --c-ink: 42 33 28;
     --c-stone: 122 106 95;
-    --c-stone-light: 169 155 140;
+    --c-stone-light: 118 108 98;
     --c-line: 236 223 210;
     --c-error-bg: 251 234 229;
     --c-error: 156 59 34;
@@ -103,7 +103,7 @@
     --c-tennis: 124 226 254;
     --c-ink: 238 238 238;
     --c-stone: 180 180 180;
-    --c-stone-light: 110 110 110;
+    --c-stone-light: 132 132 132;
     --c-line: 58 58 58;
     --c-error-bg: 57 23 20;
     --c-error: 229 77 46;
@@ -129,7 +129,7 @@
     --c-tennis: 34 211 238;
     --c-ink: 15 23 42;
     --c-stone: 71 85 105;
-    --c-stone-light: 148 163 184;
+    --c-stone-light: 102 112 127;
     --c-line: 226 232 240;
     --c-error-bg: 251 234 229;
     --c-error: 156 59 34;
@@ -155,7 +155,7 @@
     --c-tennis: 203 255 55;
     --c-ink: 17 20 14;
     --c-stone: 88 94 79;
-    --c-stone-light: 143 151 132;
+    --c-stone-light: 109 115 100;
     --c-line: 222 228 216;
     --c-error-bg: 251 234 229;
     --c-error: 156 59 34;
@@ -181,7 +181,7 @@
     --c-tennis: 228 200 105;
     --c-ink: 22 25 29;
     --c-stone: 95 91 82;
-    --c-stone-light: 149 143 130;
+    --c-stone-light: 116 112 101;
     --c-line: 229 222 207;
     --c-error-bg: 251 234 229;
     --c-error: 156 59 34;
@@ -233,7 +233,7 @@
     --c-tennis: 216 232 74;
     --c-ink: 243 246 238;
     --c-stone: 155 166 154;
-    --c-stone-light: 107 118 106;
+    --c-stone-light: 128 137 127;
     --c-line: 27 38 31;
     --c-error-bg: 45 24 24;
     --c-error: 248 113 113;
@@ -275,7 +275,7 @@
     --c-tennis: 200 168 96;
     --c-ink: 21 32 28;
     --c-stone: 92 102 94;
-    --c-stone-light: 150 158 148;
+    --c-stone-light: 106 112 105;
     --c-line: 225 222 212;
     --c-gold: 184 149 79;
     --c-error-bg: 251 234 229;
@@ -316,7 +316,7 @@
     --c-tennis: 110 231 185;
     --c-ink: 237 237 239;
     --c-stone: 139 139 147;
-    --c-stone-light: 99 99 107;
+    --c-stone-light: 127 127 134;
     --c-line: 24 24 28;
     --c-error-bg: 45 20 24;
     --c-error: 248 113 140;
@@ -469,31 +469,15 @@
     --s-accent-gradient: linear-gradient(135deg, rgb(31 107 74) 0%, rgb(194 100 58) 100%);
   }
 
-  /* Dark — a genuine dark palette, since the 11 mockups never shipped one
-     (the only real dark-mode artifact in the source design is the single
-     "dark bg #0E1411" swatch on the Design System mockup's color section —
-     that exact value is reused below as --c-bg, not re-approximated, so the
-     one real decision the designs made is honored). Everything else here is
-     newly constructed, keeping the same color *roles* as light (court green
-     primary, ball-yellow accent, clay/reach, warning gold, error red) with
-     values re-tuned for a dark surface: desaturated-but-warm near-black
-     background (not pure black/blue-black), brightened accents so they keep
-     punch against it, and light warm-gray ink/text. Every text/bg pairing
-     below was checked against WCAG contrast math (see the type-scale "never
-     below 4.5:1" rule referenced in design-system-preview.tsx) — ink, stone,
-     primary, lime, leaf, gold and the error trio all clear 6:1+ against both
-     --c-bg and --c-card; --c-stone-light stays intentionally sub-4.5 the
-     same way light mode's own stone-light (3.0:1) does, since both are
-     decorative/tertiary labels, never body text.
-     The primary ramp's direction flips vs. light mode on purpose — exactly
-     like Legacy's own "night" theme does for the same reason: on a dark
-     surface, moving "further" from the background means getting lighter,
-     not darker, so --c-primary-900 here is the brightest step (a pale mint)
-     instead of light mode's near-black one. --c-on-primary also flips to a
-     near-black ink rather than white, because this mode's primary is bright
-     enough that white text on it fails contrast — same move the
-     "concept-matchpoint"/"concept-nightrally" themes make for their own
-     bright primaries. */
+  /* Was: "--c-stone-light stays intentionally sub-4.5 the same way light
+   mode's own stone-light (3.0:1) does, since both are decorative/tertiary
+   labels, never body text."
+   That was wrong on both counts and is deleted rather than reworded: axe
+   found 127 contrast failures on this token across 10 pages, and they were
+   ordinary labels people need to read. Every --c-stone-light in this file
+   is now >= 4.5:1 against its own block's --c-bg and --c-card. A comment
+   asserting a deliberate exemption is exactly what would get the fix
+   reverted by the next reader. */
   [data-design="seeded"][data-seeded-mode="dark"] {
     --c-bg: 14 20 17;
     --c-card: 23 30 26;
@@ -510,8 +494,12 @@
     --c-tennis: 222 242 120;
     --c-ink: 236 237 231;
     --c-stone: 163 170 162;
-    /* 4.63:1 on the card background rgb(30,38,33) — the harder of the two
-       dark surfaces (was 110 117 110 = 3.27:1). */
+    /* Was 110 117 110. Measured against this block's OWN surfaces:
+       5.57:1 on --c-bg (14 20 17), 5.07:1 on --c-card (23 30 26), 5.37:1 on
+       --c-panel-bg (18 24 21).
+       An earlier version of this comment cited "rgb(30,38,33)", a colour
+       that appears nowhere in this file — it came from a screenshot probe,
+       not from the stylesheet. The ratio was understated as a result. */
     --c-stone-light: 136 142 136;
     --c-line: 52 61 54;
     --c-gold: 226 171 83;

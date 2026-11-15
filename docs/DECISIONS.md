@@ -370,3 +370,52 @@ can is just the old hand-written list with extra steps.
 
 **How to undo.** Revert the commit; `app/robots.ts` goes back to its literal
 array.
+
+## 2026-11-15 — the placeholder UTR is 0, not 7, and the email omits it
+
+**Decision.** `emptyPlayer.currentUTR` is `0`. The coach email omits the UTR
+sentence, the subject fragment and the signature line when it is not real;
+four display sites print "Not tracked"; the school range bar omits the "you"
+marker rather than parking it at 0%.
+
+**Why this time and not last time.** Last night I decided to leave
+`Player.currentUTR: number` alone (79 read sites, 1am) and wrote in this file
+that the result was "a contained honesty bug". An independent review then ran
+`buildCoachEmail` and got "My UTR is 7.0 (self-reported)" for a player who
+had never entered one. It was not contained: it shipped in an email a minor
+signs their name to, which is P0-4 — the rule that every sentence in a coach
+email traces to a value the player entered.
+
+**Why 0 is not just a different invented number.** 0 is not a valid UTR (the
+scale starts near 1), and `currentUTR <= 0` is ALREADY this codebase's
+convention for "no real UTR logged yet" — `lib/fit.ts:94` returns a null
+projection for it, and the note above `explainSchoolFit` describes it as
+"the same `currentUTR <= 0` convention already used by the pre-auth
+tournament-fit calculator". This aligns the placeholder with an existing
+sentinel rather than inventing one.
+
+**What is still deferred.** `Player.currentUTR` is still `number`, not
+`number | null`. The sentinel makes the lie detectable at every site that
+checks; making it unrepresentable is still the better fix and still a
+79-site change.
+
+**How to undo.** Revert the commit. `lib/db/schools.test.ts` fails if the
+placeholder returns, and fails again if the email states a rating for it.
+
+## 2026-11-15 — fixed the Criticals in a new migration, not by editing 032/033/034
+
+**Decision.** 035 supersedes the three function bodies rather than amending
+the applied migrations.
+
+**Why.** 032, 033 and 034 are applied to staging and are already written into
+the §J rollout as numbered steps with their own verify and rollback blocks.
+Editing an applied migration in place means the file and the database it was
+applied to no longer agree, and anyone reading §J afterwards cannot tell
+which version ran. 033 already supersedes 032's function; 035 continuing that
+pattern is the repo's existing convention.
+
+**The cost, stated plainly.** The rollout is fourteen steps instead of
+thirteen, and 032/033 must never ship without 035 — which is now stated in
+bold in both steps.
+
+**How to undo.** §J step 12's rollback.

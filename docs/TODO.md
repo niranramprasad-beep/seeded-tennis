@@ -294,3 +294,22 @@ pages.
 `/sample-report` is live. If it reports 0 there too, bisect by temporarily
 removing `UtrVsPlanChart` from the page and re-measuring. Do not "fix" it by
 adding an artificial paint; find the cause first.
+
+## /onboarding's server HTML is a spinner (found Night 2 by the review)
+
+Low, but it is the top of the funnel and sitemap priority 0.9.
+`OnboardingPageSwitch` only renders `SeededPreAuthOnboarding` once
+`hydrated && !isAuthed`; before hydration it renders `<AuthGate>`, whose
+unhydrated branch is a spinning element. So a crawler that does not execute
+JavaScript sees a spinner, not the free fit report.
+
+The `GATED_BUT_PUBLIC` exemption in `lib/seo/private-routes.ts` says
+"a signed-out Seeded visitor gets SeededPreAuthOnboarding" — true for a
+JS-executing client only. Lighthouse SEO scores 100 because it does not
+check rendered content.
+
+Not fixed because the fix is a real architecture decision, not a tweak: the
+design choice is read from `localStorage`, which is why this cannot be a
+server redirect (see the comment in `components/shared/seeded-route-redirect.tsx`).
+Options are to server-render the pre-auth flow as the default and swap after
+hydration, or to accept it and drop the page's sitemap priority.

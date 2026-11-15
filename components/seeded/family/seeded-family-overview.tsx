@@ -14,6 +14,7 @@ import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { classifySchoolFit } from "@/lib/school-fit";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
+import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
@@ -98,9 +99,18 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   // Null now means "not tracked" and is rendered as those words. The `??`
   // is gone on purpose: a player member with a null UTR must NOT fall
   // through to the viewer's own number.
-  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
-  const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
-  const gender = playerMember?.gender ?? player.gender;
+  const playerFacts = resolveFamilyPlayerFacts(playerMember, player);
+  const currentUTR = playerFacts.currentUtr;
+  // Same correction as the UTR above, for the same reason. An independent
+  // review pointed out that fixing only `currentUtr` left these two still
+  // falling through to the signed-in PARENT's own row whenever the player's
+  // value is null — so a parent's graduation_year could be printed as the
+  // player's class year (the original bug report named exactly that), and
+  // the parent's gender could pick the growth curve used to project the
+  // player's UTR. A girl's trajectory drawn with her father's curve is a
+  // fabricated number with extra steps.
+  const graduationYear = playerFacts.graduationYear;
+  const gender = playerFacts.gender ?? undefined;
   // A parent's OWN profile has no target schools of its own — always prefer
   // the real PLAYER row's list (see FamilyMember's targetSchoolSlugs
   // comment in lib/db/family.ts (formerly lib/supabase/features.ts)).
@@ -110,24 +120,30 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
     [schools, targetSlugs]
   );
 
-  const grade = getCurrentGrade(graduationYear, now);
-  const standing = gradeStandingName(grade);
+  // A class year we do not have is not a class year we may guess at. The
+  // standing line only renders when this is real.
+  const grade = graduationYear == null ? null : getCurrentGrade(graduationYear, now);
+  const standing = grade == null ? null : gradeStandingName(grade);
   const seasonWord = currentSeason(now);
 
-  // With no UTR there is no trajectory to project and no fit to classify.
-  // Returning null here rather than substituting a number keeps the
-  // one-fit-path rule intact: classifySchoolFit is simply never called.
+  // A projection needs a real UTR, a real class year AND a real gender (the
+  // growth curve differs). Missing any one of them means there is no
+  // trajectory to draw, so this returns null and classifySchoolFit is never
+  // called — the one-fit-path rule stays intact.
   const fitProjection = useMemo(() => {
-    if (currentUTR == null) return null;
+    if (currentUTR == null || graduationYear == null || gender == null) return null;
     const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
     const utrHistory = real.length > 0 ? real : [{ date: now, utr: currentUTR }];
     return { utrHistory, graduationYear, gender, now };
   }, [utrEntries, currentUTR, graduationYear, gender, now]);
 
+  // null, not 0. "on track for 0 of 5 targets" is a claim — and a
+  // discouraging one to show a parent — when the truth is that we cannot
+  // tell yet.
   const onTrackCount = useMemo(
     () =>
       currentUTR == null || fitProjection == null
-        ? 0
+        ? null
         : targetSchools.filter((s) => {
             const fit = classifySchoolFit(currentUTR, s, fitProjection);
             return fit !== "reach" && fit !== "out-of-range";
@@ -230,9 +246,19 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
             {firstName}&rsquo;s recruiting
           </h1>
           <p className="mt-1.5 text-stone">
-            Class of {graduationYear} ·{" "}
-            {standing.charAt(0).toUpperCase() + standing.slice(1)} {seasonWord} · on track for{" "}
-            {onTrackCount} of {targetSchools.length} targets
+            {[
+              graduationYear == null ? null : `Class of ${graduationYear}`,
+              standing == null
+                ? null
+                : `${standing.charAt(0).toUpperCase()}${standing.slice(1)} ${seasonWord}`,
+              targetSchools.length === 0
+                ? null
+                : onTrackCount == null
+                  ? `${targetSchools.length} target${targetSchools.length === 1 ? "" : "s"} · not enough data to say how many are in range`
+                  : `on track for ${onTrackCount} of ${targetSchools.length} targets`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "No player details to show yet."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">

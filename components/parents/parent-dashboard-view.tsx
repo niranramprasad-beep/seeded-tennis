@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
+import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ function LegacyParentDashboard() {
   // to the signed-in parent's own placeholder UTR. The legacy design is
   // still reachable (footer + Settings → Appearance), so it gets the same
   // honest "Not tracked".
-  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
+  const currentUTR = resolveFamilyPlayerFacts(playerMember, player).currentUtr;
   const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
   const grade = getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;

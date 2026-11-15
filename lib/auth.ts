@@ -376,7 +376,9 @@ function buildPlayerFromAuthProfile(input: {
   return {
     ...emptyPlayer,
     name: input.name || input.email,
-    currentUTR: 7,
+    // Not 7 — see lib/data/user.ts. A brand-new account has no UTR until the
+    // person enters one, and `<= 0` is how the rest of the code says so.
+    currentUTR: 0,
     graduationYear,
     commitmentDate: getDefaultCommitDate(graduationYear),
     gender: input.gender,
@@ -452,6 +454,7 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
   return {
     ...emptyPlayer,
     name: profile.name || fallbackEmail || emptyPlayer.name,
+    // A null current_utr becomes 0 ("not tracked"), never a plausible number.
     currentUTR: Number(profile.current_utr ?? emptyPlayer.currentUTR),
     graduationYear,
     commitmentDate: profile.commitment_date ?? getDefaultCommitDate(graduationYear),

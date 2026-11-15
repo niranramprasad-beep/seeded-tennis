@@ -15,7 +15,7 @@ import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { formatUTR } from "@/lib/utils";
+import { formatUTR, hasRealUtr } from "@/lib/utils";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
@@ -110,7 +110,7 @@ export function SeededDashboardLayout({
         </h1>
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink">
-            UTR {formatUTR(player.currentUTR)}
+            {hasRealUtr(player.currentUTR) ? `UTR ${formatUTR(player.currentUTR)}` : "UTR not tracked"}
           </span>
           {targetSchools.length > 0 && (
             <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">

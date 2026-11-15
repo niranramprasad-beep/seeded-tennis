@@ -9,6 +9,23 @@ export function formatUTR(value: number): string {
   return value.toFixed(2).replace(/\.00$/, ".0");
 }
 
+/** True when this is a UTR somebody actually entered.
+ *
+ * `currentUTR <= 0` is this codebase's convention for "not logged yet"
+ * (lib/fit.ts:94, explainSchoolFit's note, lib/data/user.ts). Use this
+ * wherever a rating is DISPLAYED, so an unknown one reads "Not tracked"
+ * instead of "0.0" — which would be a different invented number, not an
+ * improvement on 7.0. */
+export function hasRealUtr(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/** `formatUTR` for display: the number when it is real, "Not tracked"
+ * otherwise. */
+export function formatUtrOrNotTracked(value: number | null | undefined): string {
+  return hasRealUtr(value) ? formatUTR(value) : "Not tracked";
+}
+
 export function monthsBetween(from: Date, to: Date): number {
   return Math.max(
     0,

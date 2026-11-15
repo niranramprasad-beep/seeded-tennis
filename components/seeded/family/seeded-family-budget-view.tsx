@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
+import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadTournamentEntries } from "@/lib/db/events";
@@ -38,7 +39,7 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   // parent's placeholder UTR, which here decided each entered tournament's
   // fit chip — "bad fit" verdicts computed from a rating nobody entered.
   // buildSeasonBudgetSummary now takes null and omits the verdict instead.
-  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
+  const currentUTR = resolveFamilyPlayerFacts(playerMember, player).currentUtr;
   const seasonLabel = seasonBudget?.seasonLabel ?? seasonTitle(now);
   const totalBudget = seasonBudget?.totalBudget ?? 0;
 

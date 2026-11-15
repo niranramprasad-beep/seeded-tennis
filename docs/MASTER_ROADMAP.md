@@ -679,7 +679,7 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 
 ## SEO tasks
 - [x] **2026-11-15:** every public page now has a unique title, description
-  and canonical (6 of 10 had no canonical; `/pricing`, `/schools` and all 37
+  and canonical (6 of 10 had no canonical; `/pricing`, `/schools` and all 68
   school pages shared the site-wide default title). Lighthouse SEO 100.
   robots.txt was disallowing the superseded routes (`/dashboard`,
   `/roadmap`, `/coaches`) while the live gated ones (`/today`, `/plan`,

@@ -11,7 +11,10 @@ interface RangeBarProps {
   /** Median tick position, 0–100. */
   medianPct: number;
   /** "You" dot position, 0–100. */
-  youPct: number;
+  /** Where the player sits on the bar, or null when they have no real UTR
+   *  yet — the marker is then simply not drawn, rather than parked at 0%
+   *  where it would read as "this player is off the bottom of the scale". */
+  youPct: number | null;
   caption?: string;
   className?: string;
   /** Raw UTR values behind the positions above — optional only for a
@@ -109,13 +112,15 @@ export function RangeBar({
           className={cn("absolute inset-y-0 w-0.5 bg-grass", transitionClass)}
           style={{ left: `${medianPct}%` }}
         />
-        <div
-          className={cn(
-            "absolute h-[18px] w-[18px] rounded-full border-2 border-on-lime bg-lime-accent",
-            transitionClass
-          )}
-          style={{ left: `calc(${youPct}% - 9px)`, top: "-4px" }}
-        />
+        {youPct != null && (
+          <div
+            className={cn(
+              "absolute h-[18px] w-[18px] rounded-full border-2 border-on-lime bg-lime-accent",
+              transitionClass
+            )}
+            style={{ left: `calc(${youPct}% - 9px)`, top: "-4px" }}
+          />
+        )}
 
         {hasDetail && (
           <div

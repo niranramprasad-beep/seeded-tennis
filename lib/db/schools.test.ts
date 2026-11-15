@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { combinedScore, buildCoachEmail } from "./schools";
+import { emptyPlayer } from "@/lib/data/user";
 import type { Player, School } from "@/lib/types";
 
 const school: School = {
@@ -50,6 +51,47 @@ describe("combinedScore", () => {
   it("rewards a stronger roster UTR with a higher score, all else equal", () => {
     const strongerRoster = { ...school, avgRosterUTR: 14 };
     expect(combinedScore(strongerRoster)).toBeGreaterThan(combinedScore(school));
+  });
+});
+
+describe("buildCoachEmail never states a UTR the player did not enter", () => {
+  // Found by an independent review on 2026-11-15, which ran this function
+  // and got:
+  //
+  //     My UTR is 7.0 (self-reported).
+  //
+  // for a player who had never entered one. The 7 was the `emptyPlayer`
+  // placeholder (lib/data/user.ts), reached whenever `profiles.current_utr`
+  // is NULL. A minor was signing their name to a self-report they never
+  // made, which is P0-4 ("every sentence in the coach email traces to a
+  // value the player entered") broken as directly as it can be.
+  //
+  // The placeholder is 0 now, and `<= 0` means "not logged yet" throughout.
+
+  for (const unknown of [0, -1, Number.NaN]) {
+    it(`omits the rating entirely when currentUTR is ${String(unknown)}`, () => {
+      const email = buildCoachEmail({ ...player, currentUTR: unknown }, school);
+      const whole = `${email.subject}\n${email.body}`;
+      expect(whole).not.toMatch(/UTR/i);
+      expect(whole).not.toMatch(/self-reported/i);
+      // and it is still a usable email, not a broken one
+      expect(email.body).toContain(player.name);
+      expect(email.body).toContain(school.shortName);
+      expect(whole).not.toMatch(/undefined|null|NaN|0\.0/);
+    });
+  }
+
+  it("still states a real rating, labelled self-reported", () => {
+    const email = buildCoachEmail({ ...player, currentUTR: 9.4 }, school);
+    expect(email.body).toContain("My UTR is 9.4 (self-reported).");
+    expect(email.subject).toContain("UTR 9.4 (self-reported)");
+  });
+
+  it("the placeholder that caused this is gone from the codebase", () => {
+    // emptyPlayer is what buildCoachEmail receives for a profile whose
+    // current_utr is NULL. If it goes back to a plausible number, every
+    // assertion above passes and the bug returns.
+    expect(emptyPlayer.currentUTR).toBeLessThanOrEqual(0);
   });
 });
 
