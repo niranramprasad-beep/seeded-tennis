@@ -616,11 +616,103 @@ are all backwards-compatible with the code currently on `main`, so there
 is no window where deployed code is talking to a schema it doesn't
 understand. Code goes last.
 
+### The 2026-11-15 dress rehearsal — what it proved and what it changed
+
+This whole plan was executed end to end against a database rolled back to
+production's exact 23-migration shape, seeded with prod-shaped fake data (an
+account with no family, a parent holding a family code, a player who JOINED
+that family, a minor, and an account carrying a `whop_membership_id`). Every
+documented rollback was run first, in reverse order, to get there.
+
+**Measured database time for the whole forward rollout: 218 ms.** Per step:
+
+| Step | Migration | Forward | Documented rollback |
+|---|---|---|---|
+| 1 | 025 | 30.2 ms | n/a (no-op) |
+| 2 | 022 | 9.3 ms | 35.4 ms |
+| 3 | 023 | 29.4 ms | 24.9 ms |
+| 3 | 026 | 17.9 ms | (same step) |
+| 4 | 024 | 5.7 ms | 7.7 ms |
+| 5 | 027 | 4.5 ms | 1.5 ms |
+| 6 | 028 | 15.6 ms | 10.6 ms |
+| 7 | 029 | 1.0 ms | 1.8 ms |
+| 8 | 030 | 68.8 ms | 13.2 ms |
+| 8 | 031 | 4.3 ms | (same step) |
+| 9 | 032 | 4.6 ms | 9.9 ms |
+| 10 | 033 | 7.3 ms | 17.8 ms |
+| 11 | 034 | 19.2 ms | 20.7 ms |
+
+The elapsed time is not the risk; **the verification between steps is**. Plan
+the window around reading results, not around waiting for SQL.
+
+**Checks that passed on prod-shaped data, as written:**
+- Production has exactly 23 applied migrations. ✓
+- Step 3: all 4 pre-existing `parent_accounts` rows backfilled to `approved`,
+  zero `pending`, count matching the pre-count. ✓
+- Step 4: zero free accounts already holding more than 3 targets. ✓
+- Step 5: 1 row with `privacy_level='public'` — the one named row. ✓
+- Step 6: `consume_rate_limit('data_export')` → 3 allowed, 4th denied with a
+  `retry_after_seconds`. ✓
+- Step 7: zero profiles with `deletion_requested_at` set on this database.
+- **Step 8's mandatory pre-flight: all 12 rows `not_required`, zero
+  `pending`.** Nobody is locked out. ✓
+- Step 9: the takeover INSERT raises `42501`; creating a family with a fresh
+  code still works. ✓
+- Step 10: a player member writing a "parent" note is refused `42501`; an
+  approved parent still can. ✓
+- Step 11: exactly 20 direct `utr_entries` writes allowed, the 21st refused.
+  ✓
+
+**Four defects in this plan, found by running it:**
+1. **Step 8's rollback did not execute at all** — `create or replace` cannot
+   restore the 8-column `family_members()` over 031's 9-column version
+   (`42P13`). It needs a `drop function` first. Fixed above.
+2. **Step 4's rollback created a policy production does not have.** Fixed
+   above.
+3. **Step 3's rollback never mentioned `family_join_attempts`**, a table 023
+   creates. Fixed above.
+4. **Restoring a dropped SECURITY DEFINER function re-grants EXECUTE to
+   PUBLIC.** `CREATE OR REPLACE` keeps the old grants; a fresh `CREATE` after
+   a `DROP` does not. The rehearsal did this to `are_friends()` and only
+   noticed by diffing function ACLs against production. Every restore in this
+   document now carries its `revoke`/`grant` pair.
+
+**Two things to understand before trusting any "verify" step:**
+
+- **In the Supabase SQL editor you are `postgres`, and `postgres` bypasses
+  RLS.** A verify that counts rows will happily return everything and look
+  like a pass. `set_config('request.jwt.claims', ...)` alone does NOT fix
+  this — it sets `auth.uid()` but leaves you as a superuser. Run checks like
+  this:
+  ```sql
+  begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"sub":"<user-uuid>","role":"authenticated"}';
+  -- ... the check ...
+  rollback;
+  ```
+  With the role switch, an approved parent sees **1** profile row. Without
+  it, 12. The rehearsal hit this and briefly recorded the wrong number.
+- **These rollbacks restore BEHAVIOUR, not SCHEMA.** After running every
+  documented rollback, the database still differed from the pre-rollout
+  baseline by 16 functions, 13 columns, 7 constraints, 4 indexes and 1 table
+  — all of it additive and inert, exactly as each step says. That is the
+  right trade for an incident, but it means **"rolled back" never means
+  "back to how it was."** The only true restore is the PITR checkpoint from
+  the pre-flight. Take it.
+
+**One ledger difference worth knowing:** production has a migration staging
+does not (`rls_auto_enable_revoke_direct_grants`, 20261110210151 — three
+`revoke execute` lines). The resulting ACLs are byte-identical on both, so
+the schema fingerprint cannot see it; only `list_migrations` can. Staging is
+a faithful schema clone with a shorter history.
+
 ### Pre-flight (do all of these before touching production)
 - [ ] `verify` CI job green on `v1` (P1-OPS-1; branch protection on `main` set up)
 - [ ] Take a fresh production backup / PITR checkpoint. Supabase → Database → Backups. **Note the timestamp here: ______**
 - [ ] Confirm production still has exactly 23 applied migrations (`list_migrations`); if it has more, someone changed it and this plan is stale
-- [ ] Re-run the schema fingerprint on prod and staging. Expect them to differ ONLY by 022/023/024/025 — if anything else differs, stop
+- [ ] Re-run the schema fingerprint on prod and staging. Expect them to differ ONLY by the migrations staging has and prod does not — if anything else differs, stop. **Measured 2026-11-15:** with staging rolled back to the 23-migration shape, 23 of 23 tables matched production column-for-column, and 5 of the 9 fingerprint categories matched byte-for-byte. The other four (functions, function grants, policies and one column default) differed only because of objects recreated by hand during the rehearsal, each tracked down to parity. Do not expect a clean 9/9 unless nothing has been hand-restored
+- [ ] Have the rollback SQL ready **and know that running all of it still does not return the schema to its pre-rollout shape** — see the rehearsal section above. The PITR checkpoint is the only real undo
 - [ ] Confirm the Whop webhook's service-role path is understood: 022 and 024 both exempt `service_role`, so billing writes keep working
 - [ ] Have the rollback SQL for each step pasted into a scratch buffer BEFORE you start
 
@@ -652,7 +744,7 @@ The function can stay; the trigger is what enforces.
 **Known behaviour change:** `family_code` becomes unchangeable on UPDATE
 from the client. A player who signs up without a family and later creates
 one must go through a server-side path. Check this against the live signup
-flow before shipping the code in step 10 — it is fine for existing users.
+flow before shipping the code in step 12 — it is fine for existing users.
 
 ### Step 3 — migrations 023 + 026 (P0-2: join_family RPC and the approval flow)
 **What:** pending/approved state on `parent_accounts`; `families` readable
@@ -677,16 +769,42 @@ then the attack suite: stranger sees 0 families; direct `parent_accounts`
 insert rejected; `join_family` on a valid code returns `pending`; a pending
 link reads nothing; rate limit fires on attempt 6; an approved parent CAN
 read the child's UTR history.
-**Rollback:**
+**Rollback:** (made runnable by the 2026-11-15 dress rehearsal — the helper
+restore used to be a sentence, and the dropped table was not mentioned at all)
 ```sql
 drop policy if exists families_readable_by_members on public.families;
 create policy "families readable" on public.families
   for select to authenticated using (true);
 create policy "parent_accounts_insert_self" on public.parent_accounts
   for insert to authenticated with check (user_id = (select auth.uid()));
--- restore the pre-023 helper definitions (drop the `status = 'approved'` clause)
--- and the pre-023 family-read policies from migration 021's text.
+
+-- The pre-023 helpers, verbatim from PRODUCTION's own definitions
+-- (pg_get_functiondef on 2026-11-15). The difference 023 introduces is the
+-- `and pa.status = 'approved'` clause; these are the versions without it.
+create or replace function public.is_family_member(target_family_code text)
+returns boolean language sql stable security definer set search_path to 'public'
+as $fn$
+  select exists (select 1 from public.profiles p
+                 where p.id = auth.uid() and p.family_code = target_family_code)
+      or exists (select 1 from public.parent_accounts pa
+                 where pa.user_id = auth.uid() and pa.family_code = target_family_code)
+$fn$;
+
+create or replace function public.is_parent_member(target_family_code text)
+returns boolean language sql stable security definer set search_path to 'public'
+as $fn$
+  select exists (select 1 from public.profiles p
+                 where p.id = auth.uid() and p.family_code = target_family_code
+                   and p.role = 'parent')
+$fn$;
+
+-- 023 also CREATES this table; nothing else references it.
+drop table if exists public.family_join_attempts;
 ```
+**The `status`/`approved_at`/`approved_by` columns and the RPCs can stay** —
+see below. `create or replace` on the two helpers preserves their existing
+grants, so no re-grant is needed here (unlike a DROP + CREATE, which does not
+— see step 8).
 **The `status`/`approved_at`/`approved_by` columns and the RPCs can stay —
 they are additive and harmless once the policies are back.** Do not drop
 them in a hurry; dropping columns is the only irreversible move here.
@@ -710,17 +828,22 @@ prune. Count them before shipping so the support answer is ready:
 select count(*) from public.profiles
 where subscription_tier='free' and coalesce(array_length(target_school_slugs,1),0) > 3;
 ```
-**Rollback:**
+**Rollback:** (corrected by the 2026-11-15 dress rehearsal — the old text
+recreated a policy production does not have)
 ```sql
 drop trigger if exists enforce_free_tier_target_limit on public.profiles;
 drop policy if exists coach_outreach_write_own on public.coach_outreach;
-create policy coach_outreach_write_own on public.coach_outreach
-  for all to authenticated
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()) and public.has_tier('family'));
 ```
+**Do NOT recreate `coach_outreach_write_own`.** 024 is what CREATES it;
+before 024 there is no such policy. Production's pre-024 writes are covered
+by `coach_outreach_write_own_insert` / `_update` / `_delete` from migration
+010, which already require `has_tier('family')` and which 024 never touches.
+The previous version of this rollback created a fourth, broader `FOR ALL`
+policy, leaving production in a state it has never been in. Verified on a
+prod-equivalent baseline: no `coach_outreach_write_own` existed, and applying
+024 created it.
 **Risk: low, instantly reversible** — but if you roll this back you must
-also roll back the step-10 code, or the UI offers outreach the DB refuses.
+also roll back the step-12 code, or the UI offers outreach the DB refuses.
 
 ### Step 5 — migration 027 (S-5 narrow profile reads + S-9 RPC grants)
 **What:** drops `profiles_discovery_read`, which let any signed-in user read
@@ -775,13 +898,13 @@ drop function if exists public.consume_rate_limit(text);
 drop table if exists public.rate_limit_events;
 ```
 Safe to drop — the table holds only counters, no user content. **But do not
-roll this back while the step-9 code is live**: every write route would
+roll this back while the step-12 code is live**: every write route would
 then fail closed and the app would refuse all writes.
 **Risk: very low on its own; coupled to the code in one direction only.**
 
 ### Step 7 — migration 029 (P0-8 real account deletion)
 **What:** adds `delete_my_account()`. Additive — no policy or column
-changes, and nothing calls it until the step-9 code ships.
+changes, and nothing calls it until the step-12 code ships.
 **Apply:** `supabase/migrations/029_real_account_deletion.sql`
 **Check first:**
 ```sql
@@ -845,8 +968,77 @@ do $$ declare t text; begin
     execute format('drop policy if exists account_active_required on public.%I', t);
   end loop;
 end $$;
--- then restore 026's family_members() (eight columns, no consent_status)
--- and 022's protect_privileged_profile_columns() verbatim from those files.
+```
+**Then restore the two functions. This half used to be a sentence, and the
+sentence did not work:**
+```sql
+-- 42P13. 031 WIDENED the return type (eight columns -> nine), and
+-- `create or replace` cannot change a function's OUT columns. The restore
+-- MUST drop first. The forward migration 031 knows this and does it; this
+-- rollback did not, so it failed on the first statement every time it was
+-- run. Caught by the 2026-11-15 dress rehearsal.
+drop function if exists public.family_members();
+create function public.family_members()
+returns table (user_id uuid, name text, email text, role text, status text,
+               is_creator boolean, joined_at timestamptz, reminded_at timestamptz)
+language sql security definer set search_path = public stable
+as $fn$
+  with fam as (select public.my_family_code() as code)
+  select p.id, coalesce(nullif(p.name,''),'Family member'), p.email,
+         coalesce(p.role,'player'), 'approved'::text, true,
+         p.created_at, null::timestamptz
+  from public.profiles p, fam
+  where fam.code is not null and p.family_code = fam.code
+    and public.is_family_member(fam.code)
+  union all
+  select pa.user_id, coalesce(nullif(p2.name,''),'Family member'), p2.email,
+         coalesce(p2.role,'parent'), pa.status, false,
+         pa.created_at, pa.reminded_at
+  from public.parent_accounts pa
+  join public.profiles p2 on p2.id = pa.user_id, fam
+  where fam.code is not null and pa.family_code = fam.code
+    and public.is_family_member(fam.code)
+  order by 6 desc, 5, 7
+$fn$;
+-- NOT OPTIONAL. A function created fresh (as opposed to CREATE OR REPLACE'd)
+-- gets EXECUTE for PUBLIC by default. Skipping these two lines silently hands
+-- anon the family roster. The rehearsal did exactly that to are_friends()
+-- and only caught it by diffing grants against production.
+revoke all on function public.family_members() from public, anon;
+grant execute on function public.family_members() to authenticated;
+
+-- 022's version of the trigger function: no consent derivation, no birth_year
+-- rules, no family_code INSERT guard.
+create or replace function public.protect_privileged_profile_columns()
+returns trigger language plpgsql security invoker set search_path = public
+as $fn$
+begin
+  if current_user in ('service_role','postgres','supabase_admin') then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.subscription_tier      := 'free';
+    new.whop_membership_id     := null;
+    new.stripe_customer_id     := null;
+    new.stripe_subscription_id := null;
+    return new;
+  end if;
+  if new.subscription_tier      is distinct from old.subscription_tier
+  or new.whop_membership_id     is distinct from old.whop_membership_id
+  or new.stripe_customer_id     is distinct from old.stripe_customer_id
+  or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+  or new.role                   is distinct from old.role
+  or new.family_code            is distinct from old.family_code
+  then
+    raise exception 'This profile field can only be changed by Seeded.'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$fn$;
+
+-- 030 also changes a column DEFAULT, which nothing else here restores.
+alter table public.profiles alter column privacy_level set default 'friends';
 ```
 Dropping the 21 restrictive policies alone is enough to unlock any account —
 do that first if someone is locked out, and sort the rest afterwards. Leave

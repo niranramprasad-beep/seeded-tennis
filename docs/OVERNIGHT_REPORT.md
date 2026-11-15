@@ -916,3 +916,115 @@ reason).
 tsc clean, lint clean, **580 tests** (574 + the 6 new honesty tests), production build passes.
 Migrations 033 + 034 are applied to **staging only**; rollback steps are
 `docs/HANDOFF.md` §J steps 10 and 11.
+
+## TASK C — full launch dress rehearsal on staging: **DONE**
+
+The whole rollout was executed against a database rolled back to
+production's exact 23-migration shape, seeded with prod-shaped fake data,
+then replayed forward step by step with every pre-flight and verify as
+written. Full detail, timings and the corrected SQL now live in
+`docs/HANDOFF.md` §J under "The 2026-11-15 dress rehearsal".
+
+### How the rehearsal substrate was built, and why it is not a fresh copy
+
+The brief asked for a staging *copy*. The Supabase org is on the **free
+plan** with both of its two projects already in use (production and
+staging), so a third project and database branching are both unavailable —
+and each would be a billing action I would not take unattended anyway.
+
+Instead the rehearsal ran on staging itself, rolled backwards to the
+baseline using **the plan's own rollback SQL**, in reverse order. That turned
+out to be better than a fresh copy: it satisfied "run each step's ROLLBACK at
+least once" with the real rollbacks against real objects, and it is what
+surfaced three of the four defects below. The baseline was then verified
+against production directly: **all 23 tables matched production
+column-for-column**, and 5 of 9 fingerprint categories matched byte-for-byte.
+
+### Seed data (clearly fake, `@example.com`, RFC 2606)
+
+A player with no family; a parent holding a family code; a player who JOINED
+that family through `parent_accounts`; a minor (grade 6); and an account
+carrying a `whop_membership_id`. 12 profiles, 4 families, 4 parent_accounts.
+
+### Every documented rollback ran. Four were wrong.
+
+| # | Defect | Severity |
+|---|---|---|
+| 1 | **Step 8's rollback did not execute at all.** `create or replace` cannot restore the 8-column `family_members()` over 031's 9-column version — Postgres raises `42P13` and demands a `DROP FUNCTION` first. It failed on its first statement every time. Migration 031 itself does the drop correctly; only the rollback instruction forgot. | **High** — this is the rollback for the highest-blast-radius step, the one you reach for when accounts are locked out. |
+| 2 | **Step 4's rollback created a policy production does not have.** It recreated `coach_outreach_write_own` with `has_tier('family')`, but 024 is what *creates* that policy; before 024 there is none. Verified on the prod-equivalent baseline. "Rolling back" would have left production in a shape it has never been in. | Medium |
+| 3 | **Step 3's rollback never mentioned `family_join_attempts`**, a table 023 creates. | Low |
+| 4 | **Restoring a dropped SECURITY DEFINER function silently re-grants EXECUTE to PUBLIC and `anon`.** `CREATE OR REPLACE` keeps existing grants; a fresh `CREATE` after a `DROP` does not. The rehearsal did exactly this to `are_friends()` and caught it only by diffing function ACLs against production. Every restore in §J now carries its `revoke`/`grant` pair. | **High** — a rollback that reopens anon access is worse than the problem it fixes. |
+
+Two of §J's rollbacks were also prose ("restore the pre-023 helpers", "restore
+026's `family_members()` verbatim"). At 3am during an incident, "restore it
+verbatim from that file" is not a rollback. Both are now literal, runnable
+SQL, taken from **production's own `pg_get_functiondef` output** rather than
+from repo text that may have drifted.
+
+### The forward replay: every step applied and verified
+
+218 ms of database time for all eleven steps (per-step table in §J). Every
+documented check passed on prod-shaped data:
+
+- Production has exactly 23 migrations ✓
+- Step 3: all 4 `parent_accounts` rows backfilled to `approved`, zero
+  `pending`, count matching the pre-count ✓
+- Step 4: zero free accounts already over 3 targets ✓
+- Step 5: exactly 1 row with `privacy_level='public'` ✓
+- Step 6: `consume_rate_limit('data_export')` → 3 allowed, 4th denied ✓
+- **Step 8's mandatory pre-flight: all 12 rows `not_required`, zero
+  `pending`** — nobody is locked out ✓
+- Step 9: takeover INSERT raises `42501`; creating a family with a fresh code
+  still works ✓
+- Step 10: a player member writing a "parent" note refused `42501`; an
+  approved parent still can ✓
+- Step 11: exactly 20 direct `utr_entries` writes allowed, the 21st refused ✓
+
+### The trap that would have made every verify a false pass
+
+**In the Supabase SQL editor you are `postgres`, and `postgres` bypasses
+RLS.** `set_config('request.jwt.claims', ...)` sets `auth.uid()` but leaves
+you a superuser, so a row-count check returns everything and looks like a
+pass. I hit this mid-rehearsal and briefly recorded "12 profiles visible to a
+parent" as if it were a result. With `set local role authenticated` as well,
+the real answer is **1**. §J now spells out the correct incantation. Any
+verify in this plan run without it is worthless.
+
+### What the rehearsal independently reproduced
+
+On clean prod-shaped data, with RLS properly enforced, an approved parent can
+read their joined player's roster row but **zero** of their UTR entries. That
+is the TASK B finding (`docs/TODO.md`), reproduced from scratch rather than
+inferred from the policy text.
+
+### §K (billing)
+
+Most of §K is Whop dashboard work and a live $0 checkout — neither is
+rehearsable from here. The one step that is, **step 6, reconciling the two
+real paying customers by hand with the service role**, was rehearsed on
+staging and works: a `service_role` write sets `subscription_tier` and
+`whop_membership_id` through the 022/033 trigger, while the same write from a
+browser session is refused `42501`. Worth knowing before touching two
+customers who have already paid twice for nothing.
+
+### Preview code deploy
+
+The TASK B commit (`d057bc8`) built green as a Vercel preview. Fetched over a
+share link: **200**, with every security header present on a real deployment
+rather than a local build — CSP, HSTS, `X-Frame-Options: DENY`,
+Referrer-Policy, Permissions-Policy, COOP, `X-Content-Type-Options`, plus
+`x-robots-tag: noindex` on the preview. Vercel env config confirms Preview
+and Development both carry the **staging** `NEXT_PUBLIC_SUPABASE_URL`
+(`gnlcpnsweqbtwpaqhqqg`) while production has its own three. I also grepped
+42 deployed chunks for either project ref and found neither, so that check
+was inconclusive and is **not** offered as evidence — the env configuration
+is.
+
+### State left behind
+
+Staging is back in the full post-rollout state (28 functions, 21 restrictive
+policies, 20 rate-limit triggers, 4 consent columns, 25 tables) with the
+rehearsal fixtures still in place as seed data. The timing table was dropped.
+Nothing was applied to production; the only production access in this task
+was read-only introspection (`list_migrations`, `pg_policies`,
+`pg_get_functiondef`, `information_schema`).

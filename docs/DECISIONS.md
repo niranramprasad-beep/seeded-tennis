@@ -304,3 +304,31 @@ It denies access rather than granting it, so nothing is exposed by waiting.
 
 **How to undo.** Nothing to undo — no change was made. The write-up is at
 the end of `docs/TODO.md`.
+
+## 2026-11-15 — the dress rehearsal ran on staging itself, not a fresh copy
+
+**Decision.** TASK C asked for a staging *copy* at production's 23-migration
+shape. I rolled the existing staging project backwards to that shape instead,
+using the rollout plan's own rollback SQL in reverse order, then replayed
+forward.
+
+**Why.** The Supabase org is on the **free plan** and already has its two
+projects (production + staging). A third project is not available, database
+branching is a paid feature, and either would be a billing action taken while
+the account owner is asleep — not something to do unattended.
+
+**Why it turned out better anyway.** Running the real rollbacks against real
+objects is what found three of the four defects in §J. A fresh copy built
+from migration files would have exercised none of them: the rollback SQL
+would never have run at all, and the fact that step 8's rollback raises
+`42P13` before doing anything would still be undiscovered.
+
+**What it cost.** The baseline is a rolled-back database rather than a
+pristine one, so a few objects were recreated by hand and 4 of 9 fingerprint
+categories differ from production in expression text (not in counts, and all
+23 tables match column-for-column). Each difference was tracked to its cause
+rather than waved through.
+
+**How to undo.** Nothing to undo — staging is back in its full post-rollout
+state. To redo it properly later, upgrade the Supabase org to a paid plan and
+use a database branch, which is what this is for.
