@@ -35,6 +35,37 @@
 -- true only by accident (the delete hit zero rows for a creator), and with
 -- production's double-linked shape it was not true at all.
 
+-- THE ACCOUNT HOLDER IS NOT REMOVABLE, and now that is enforced rather than
+-- accidental. 026 says "there is deliberately no way to evict the account
+-- holder here", which was true only because the delete hit zero rows for
+-- someone with no `parent_accounts` link. Production's rows all carry BOTH a
+-- link and the code, so the holder DID have a link and was removable — and
+-- the first version of this migration then also cleared their
+-- `profiles.family_code`, which locked the account holder out of their own
+-- family on the say-so of any approved member. Caught on staging before this
+-- shipped: as the joined player, `remove_family_member(<the holder>)`
+-- returned removed and left the holder with `family_code = NULL`.
+--
+-- The holder is `family_codes.player_id` where that row exists (only 2 of
+-- production's 6 families have one) and otherwise the earliest-created
+-- profile carrying the code.
+
+create or replace function public.family_account_holder(p_code text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select fc.player_id from public.family_codes fc where fc.code = p_code),
+    (select p.id from public.profiles p
+      where p.family_code = p_code order by p.created_at, p.id limit 1)
+  );
+$$;
+
+revoke all on function public.family_account_holder(text) from public, anon, authenticated;
+
 create or replace function public.remove_family_member(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -60,6 +91,12 @@ begin
     raise exception 'You cannot remove yourself.' using errcode = '22023';
   end if;
 
+  -- Enforced, not accidental. Same message as the no-such-request case, so
+  -- this is not an oracle for who holds the family.
+  if p_user_id = public.family_account_holder(v_code) then
+    raise exception 'That person cannot be removed.' using errcode = '22023';
+  end if;
+
   delete from public.parent_accounts
   where user_id = p_user_id and family_code = v_code;
 
@@ -68,9 +105,10 @@ begin
     raise exception 'That person cannot be removed.' using errcode = '22023';
   end if;
 
-  -- The half that was missing. SECURITY DEFINER runs as the owner, so the
-  -- 022/030/035 trigger's exemption applies and this write is allowed —
-  -- which is the only reason it can be done here and not from the client.
+  -- The half that was missing, and the reason the /privacy removal sentence
+  -- is true. SECURITY DEFINER runs as the owner, so the 022/030/035 trigger's
+  -- exemption applies and this write is allowed — the only reason it can
+  -- happen here and not from the client.
   select count(*) into v_other_holders
   from public.profiles
   where family_code = v_code and id <> p_user_id;
@@ -81,10 +119,9 @@ begin
     get diagnostics v_deleted = row_count;
     v_code_cleared := v_deleted > 0;
   end if;
-  -- If they were the LAST profile holding the code, the column is left
-  -- alone: clearing it would leave the family with no holder and orphan it.
-  -- Such a person is the account holder, and 026 is explicit that the
-  -- account holder is not evictable. Their link is gone either way.
+  -- If they were somehow the last profile holding the code, leave it rather
+  -- than orphan the family. The holder guard above means that case should be
+  -- unreachable; this is the belt to its braces.
 
   return jsonb_build_object('status', 'removed', 'family_code_cleared', v_code_cleared);
 end;

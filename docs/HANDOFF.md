@@ -1584,10 +1584,25 @@ same code** (the pre-023 shape, when the app wrote both). Reproduced on
 staging — after removal the member still read 2 profiles and 3 `utr_entries`
 rows, `my_family_code()` still resolved, and `family_members()` still listed
 them as an approved creator. 037 clears the profile column on removal, but
-only when somebody else still holds that code, so the account holder cannot
-be evicted and a family is never left with no holder. Both production
-families satisfy that: `NIRAN-0FI8` has 4 profiles holding the code to 2
-links, `NIRAN-0LK2` has 2 to 1.
+only when somebody else still holds that code, and **it refuses to remove the
+family's account holder at all.**
+
+That second guard exists because the first version of this migration did not
+have it, and it was worse than the bug it fixed: production's rows all carry
+BOTH a link and the code, so the account holder DID have a removable link,
+and clearing their `profiles.family_code` locked them out of their own family
+on the say-so of any approved member. Reproduced on staging before it shipped
+— as the joined player, `remove_family_member(<the holder>)` returned
+`removed` and left the holder with `family_code = NULL`. The holder is
+`family_codes.player_id` where that row exists (2 of production's 6 families)
+and otherwise the earliest-created profile carrying the code; the refusal
+reuses the "That person cannot be removed." message so it is not an oracle
+for who holds the family. 026 claimed the account holder was not evictable;
+until now that was true only because the delete hit zero rows for someone
+with no link.
+
+Both production families satisfy the other-holders guard: `NIRAN-0FI8` has 4
+profiles holding the code to 2 links, `NIRAN-0LK2` has 2 to 1.
 
 **2. The family read was the whole row.** RLS cannot narrow COLUMNS, and
 `authenticated` holds column-level SELECT on every `profiles` column — so any

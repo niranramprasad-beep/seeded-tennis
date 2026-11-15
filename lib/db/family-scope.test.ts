@@ -269,3 +269,51 @@ describe("migration 036 keeps the parts the fix depends on", () => {
     expect(sql).not.toMatch(/update\s+public\.profiles\s+set\s+family_code/i);
   });
 });
+
+describe("migration 037 keeps the parts that make /privacy true", () => {
+  const sql = readFileSync(
+    join("supabase", "migrations", "037_revoke_on_removal_and_narrow_family_reads.sql"),
+    "utf8"
+  );
+
+  it("removal clears the removed member's profile family_code", () => {
+    // Without this, "the moment a member is removed they can no longer see
+    // anything about anyone in it" is false for every member production has:
+    // all three of its parent_accounts rows also carry the code on their own
+    // profile, and both my_family_code() and shares_approved_family_with()
+    // fall back to that column.
+    expect(sql).toMatch(/update public\.profiles set family_code = null/);
+  });
+
+  it("refuses to remove the family's account holder", () => {
+    // 026 said the account holder is not evictable; it was true only by
+    // accident. Clearing their code on someone else's say-so locked them out
+    // of their own family — reproduced on staging before this shipped.
+    expect(sql).toContain("create or replace function public.family_account_holder");
+    expect(sql).toMatch(
+      /if p_user_id = public\.family_account_holder\(v_code\) then\s*\n\s*raise exception/
+    );
+  });
+
+  it("only clears the code when somebody else still holds it", () => {
+    expect(sql).toMatch(/if v_other_holders > 0 then/);
+  });
+
+  it("drops the cross-user profiles policy and enumerates the roster columns", () => {
+    expect(sql).toMatch(/drop policy if exists "family_members_read" on public\.profiles/);
+    // A return type cannot change under CREATE OR REPLACE (42P13), and a
+    // fresh CREATE after a DROP re-grants EXECUTE to PUBLIC.
+    expect(sql).toMatch(/drop function if exists public\.family_members\(\)/);
+    expect(sql).toMatch(/grant execute on function public\.family_members\(\) to authenticated/);
+    for (const col of ["current_utr", "grade", "graduation_year", "onboarded",
+                       "target_school_slugs", "gender"]) {
+      expect(sql).toContain(col);
+    }
+    // The columns that must NOT be in the cross-user surface.
+    for (const col of ["gpa", "birth_year", "whop_membership_id",
+                       "stripe_customer_id", "stripe_subscription_id"]) {
+      expect(sql.includes(`  ${col} `)).toBe(false);
+    }
+  });
+});
+

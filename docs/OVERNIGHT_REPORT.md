@@ -1863,3 +1863,38 @@ a scratch worktree before opening the PR), each line verified.
 - Nothing was tested through the deployed Preview app by the verifier — §A5's
   Preview results are mine alone.
 - Billing/Whop untouched by both of us.
+
+### And then my own fix had a hole in it, which I caught before shipping
+
+037's first version cleared the removed member's `profiles.family_code`
+whenever somebody else still held the code. That is wrong in production's
+exact shape, and worse than the bug it fixed.
+
+Production's `parent_accounts` rows all carry **both** a link and the code.
+So the family's account holder has a removable link — and 037 would then also
+clear their profile code, **locking the account holder out of their own
+family on the say-so of any approved member.** Reproduced on staging before
+it went anywhere: as the joined player,
+`remove_family_member(<the holder>)` returned `removed` and left the holder
+with `family_code = NULL`.
+
+026 says "there is deliberately no way to evict the account holder here."
+That was true only by accident — the delete hit zero rows for someone with no
+link — and production's shape made it false.
+
+**Fixed:** 037 now identifies the account holder (`family_codes.player_id`
+where that row exists, which is 2 of production's 6 families, otherwise the
+earliest-created profile carrying the code) and refuses to remove them,
+reusing the existing "That person cannot be removed." message so the refusal
+is not an oracle for who holds the family. Verified both ways: a joined
+member's attempt on the holder is refused, and the holder removing a joined
+player still revokes completely (1 profile, 0 roster rows, NULL family code).
+Guarded by four assertions in `lib/db/family-scope.test.ts`.
+
+**That is four times in three days that a fix here opened something new.**
+Night 1's fix broke every profile write; its fix violated a live CHECK
+constraint; 036 broke a promise it shipped in the same file; and 037's first
+draft handed one member the power to evict the account holder. The only thing
+that has reliably caught them is someone — or something — re-checking the path
+the author was not thinking about. Three of the four were found that way and
+one by writing the attack out before believing the fix.
