@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMembershipToProfile, findProfileIdByEmail } from "./whop-sync";
+import { applyMembershipToProfile, escapeLikePattern, findProfileIdByEmail } from "./whop-sync";
 
 // A stand-in for the service-role client, holding profile rows in memory and
 // answering only the four query shapes lib/whop-sync.ts actually builds.
@@ -12,6 +12,24 @@ interface Row {
   email?: string | null;
   subscription_tier?: string;
   whop_membership_id?: string | null;
+}
+
+/** Postgres ILIKE semantics, so the stub behaves like the database rather
+ * than like a string compare. Without this the wildcard regression below
+ * would pass against a stub that never had wildcards in the first place. */
+function likeMatches(value: string, pattern: string): boolean {
+  let rx = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === "\\") {
+      // Escaped: the next character is a literal.
+      i++;
+      rx += pattern[i]?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") ?? "";
+    } else if (ch === "%") rx += ".*";
+    else if (ch === "_") rx += ".";
+    else rx += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${rx}$`, "i").test(value);
 }
 
 function fakeAdmin(rows: Row[], opts: { failWrites?: boolean } = {}) {
@@ -41,9 +59,7 @@ function fakeAdmin(rows: Row[], opts: { failWrites?: boolean } = {}) {
         function match() {
           return state.filter((row) =>
             filters.every((f) =>
-              f.op === "ilike"
-                ? String(row[f.col] ?? "").toLowerCase() === String(f.value).toLowerCase()
-                : row[f.col] === f.value
+              f.op === "ilike" ? likeMatches(String(row[f.col] ?? ""), String(f.value)) : row[f.col] === f.value
             )
           );
         }
@@ -322,6 +338,27 @@ describe("the email fallback", () => {
       { id: "u2", email: "shared@example.com" },
     ]);
     expect(await findProfileIdByEmail(client, "shared@example.com")).toBeNull();
+  });
+
+  it("treats a wildcard in the buyer's email as a literal", async () => {
+    // The bug: the email comes from Whop, i.e. from whoever paid, and
+    // PostgREST's ilike treats % and _ as wildcards. A membership bought as
+    // "%@gmail.com" matched a stranger and attached a paid tier to their
+    // account. The limit(2) ambiguity check does NOT catch it — a pattern
+    // matching exactly one row looks like a clean match.
+    const { client } = fakeAdmin([{ id: "victim", email: "someone@gmail.com" }]);
+    expect(await findProfileIdByEmail(client, "%@gmail.com")).toBeNull();
+    expect(await findProfileIdByEmail(client, "someone@gmail._om")).toBeNull();
+    // And a literal match still works.
+    expect(await findProfileIdByEmail(client, "someone@gmail.com")).toBe("victim");
+  });
+
+  it("escapes the three characters LIKE treats specially", () => {
+    expect(escapeLikePattern("a%b")).toBe("a\\%b");
+    expect(escapeLikePattern("a_b")).toBe("a\\_b");
+    // Backslash first, or it would escape the escapes added after it.
+    expect(escapeLikePattern("a\\b")).toBe("a\\\\b");
+    expect(escapeLikePattern("plain@example.com")).toBe("plain@example.com");
   });
 
   it("returns null for no match, no email and an empty string", async () => {

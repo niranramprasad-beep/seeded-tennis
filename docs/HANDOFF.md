@@ -607,8 +607,8 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply nine migrations to production in order
-(025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031), verifying
+Apply twelve migrations to production in order
+(025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032), verifying
 after each; then revert the maintenance commit and merge `v1` to `main` as
 a single PR with CI green. The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
@@ -651,7 +651,7 @@ The function can stay; the trigger is what enforces.
 **Known behaviour change:** `family_code` becomes unchangeable on UPDATE
 from the client. A player who signs up without a family and later creates
 one must go through a server-side path. Check this against the live signup
-flow before shipping the code in step 9 — it is fine for existing users.
+flow before shipping the code in step 10 — it is fine for existing users.
 
 ### Step 3 — migrations 023 + 026 (P0-2: join_family RPC and the approval flow)
 **What:** pending/approved state on `parent_accounts`; `families` readable
@@ -719,7 +719,7 @@ create policy coach_outreach_write_own on public.coach_outreach
   with check (user_id = (select auth.uid()) and public.has_tier('family'));
 ```
 **Risk: low, instantly reversible** — but if you roll this back you must
-also roll back the step-9 code, or the UI offers outreach the DB refuses.
+also roll back the step-10 code, or the UI offers outreach the DB refuses.
 
 ### Step 5 — migration 027 (S-5 narrow profile reads + S-9 RPC grants)
 **What:** drops `profiles_discovery_read`, which let any signed-in user read
@@ -853,15 +853,60 @@ the new columns; they are additive and harmless.
 **Risk: the highest in this plan.** Roll back by dropping policies, never by
 dropping columns.
 
-### Step 9 — the code (`v1` → `main`)
-Only after steps 1–8 are applied and verified.
+### Step 9 — migration 032 (CRITICAL: family takeover via profile INSERT)
+
+**What:** blocks setting `profiles.family_code` on INSERT to a code that is
+already taken. Found by an independent security review on 2026-11-15.
+
+**The hole it closes.** 022 locks `family_code` on UPDATE; its INSERT branch
+leaves it alone, and `profiles_insert_own` only checks `id = auth.uid()`.
+`is_family_member()` reads `profiles.family_code` directly. So a signed-up
+account with no profile row yet — which is every account between signup and
+its first profile write, and any account that simply never makes one — could
+INSERT a profile carrying **someone else's family code and `role='parent'`**
+and become an approved member instantly. That buys the minor's name, email,
+birth year, GPA, UTR and full UTR history, every family member's email and
+`consent_status` including an under-13 sibling's, parent-level **write** on
+the season budget, and the ability to send the child a note.
+
+**The entire 023/026 pending-approval design was bypassed.** The only thing
+that had been holding the door was `lib/auth.ts` politely not doing it — a
+comment in that file asserted the database would reject it, and the database
+would not. Prerequisite is knowing the 12-character family code, which is
+not guessable but *is* the value the product hands to prospective joiners,
+i.e. exactly the population the PENDING gate exists to hold back.
+
+**Apply:** `supabase/migrations/032_block_family_code_on_profile_insert.sql`
+
+**Verify:** as a signed-up user with no profile row, inserting a profile with
+an existing `family_code` must raise `42501`. Then confirm all three
+legitimate paths still work: creating a family with a fresh code, joining via
+`join_family()` (still lands PENDING and reads nothing), and ordinary profile
+updates. Verified twice on staging — once by the reviewer, once by me.
+
+**Rollback:**
+```sql
+-- Restore 030's version of the trigger function verbatim, then:
+drop function if exists public.family_code_is_taken(text);
+```
+**Risk: low to apply, and it is strictly a tightening** — it cannot affect an
+existing row, only a new INSERT that claims a taken code.
+
+⚠️ **This migration ships with the code whether or not it has been applied.**
+It was swept into commit `3bc07ac` ("Task 6: E2E on staging…") by a `git add
+-A` while the review was still running, so the file travels with any `v1` →
+`main` merge under a commit message about end-to-end testing. Apply it in
+this window; do not let the merge be the first time it appears on production.
+
+### Step 10 — the code (`v1` → `main`)
+Only after steps 1–9 are applied and verified.
 1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
 2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
 3. Merge. Vercel auto-deploys `main` to seededtennis.com.
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it. Of steps 1–8, all are backwards-compatible with the old
+roll back with it. Of steps 1–9, all are backwards-compatible with the old
 code **except two**, so if you roll the code back:
 - run 024's rollback SQL (the old code writes outreach at Family tier), and
 - leave 028 in place (the old code does not call the limiter at all).

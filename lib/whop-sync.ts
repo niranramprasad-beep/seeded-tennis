@@ -144,6 +144,13 @@ export async function applyMembershipToProfile(
  * Ambiguity resolves to "do nothing", never to "pick the first" — granting a
  * paid tier to the wrong account is worse than granting it late.
  */
+/** Escapes the three characters Postgres treats specially in a LIKE pattern,
+ * so a value supplied by someone else is matched literally. Backslash first,
+ * or it would escape the escapes added after it. */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 export async function findProfileIdByEmail(
   admin: SupabaseClient<Database>,
   email: string | null | undefined
@@ -152,10 +159,22 @@ export async function findProfileIdByEmail(
   const normalized = email.trim().toLowerCase();
   if (!normalized) return null;
 
+  // The email comes from Whop — i.e. from whoever bought the membership —
+  // and PostgREST's `ilike` treats `%` and `_` as WILDCARDS. A membership
+  // bought as `%@gmail.com` matched a stranger's profile and attached a paid
+  // tier to their account. The `limit(2)` ambiguity check below does not
+  // save it: a pattern matching exactly one row looks like a clean,
+  // unambiguous match.
+  //
+  // Escaped rather than switched to `.eq()`, because the match has to stay
+  // case-insensitive: `profiles.email` is written from the signup form
+  // verbatim, so it can be mixed case, and `.eq()` against a lowercased
+  // needle would silently stop matching those rows. Failing to match is the
+  // safer direction, but it is still wrong.
   const { data, error } = await admin
     .from("profiles")
     .select("id")
-    .ilike("email", normalized)
+    .ilike("email", escapeLikePattern(normalized))
     .limit(2);
 
   if (error || !data || data.length !== 1) return null;

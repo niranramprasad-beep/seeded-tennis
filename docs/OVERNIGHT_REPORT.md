@@ -1,5 +1,42 @@
 # Overnight run — 2026-11-14/15
 
+## 🔴 READ THIS FIRST — a Critical hole in my own work, found and fixed
+
+An independent review agent found that **the entire family approval gate
+could be bypassed in one statement.** Migration 022 locks `family_code` on
+UPDATE; its INSERT branch leaves it alone. Any signed-up account with no
+profile row yet could INSERT one carrying **someone else's family code and
+`role='parent'`** and become an approved member instantly — a minor's name,
+email, birth year, GPA, UTR and full history, every member's email and
+consent status including an under-13 sibling's, and write access to the
+season budget.
+
+The only thing holding the door was `lib/auth.ts` politely not doing it. A
+comment I wrote in that file asserted the database would reject it. **The
+database would not.** That is the failure worth remembering from tonight:
+I verified the UPDATE path and assumed the INSERT path, and wrote the
+assumption down as though it were a check.
+
+Fixed in `032_block_family_code_on_profile_insert.sql`, applied to staging,
+attack-tested twice — once by the reviewer, once by me independently. The
+attack now raises `42501`; creating a family, joining honestly (still lands
+PENDING, reads nothing) and ordinary profile updates all still work.
+
+**Two consequences for the rollout:**
+
+1. **032 is now HANDOFF §J step 9**, before the code merge. Apply it in the
+   same window.
+2. ⚠️ **It is already committed under a misleading message.** My `git add -A`
+   swept it into `3bc07ac` ("Task 6: E2E on staging…") while the review was
+   still running, so the file travels with any `v1` → `main` merge whether or
+   not the migration has been applied. I did not rewrite pushed history to
+   extract it; §J step 9 and this note are the fix.
+
+Full detail: `docs/SECURITY_REVIEW_INDEPENDENT.md` (S-17 through S-21 in
+`docs/SECURITY_CHECKLIST.md`).
+
+---
+
 ## The night in five lines
 
 1. **Seven tasks done, one running.** Fonts self-hosted (builds no longer
@@ -17,6 +54,9 @@
    longer touches production. It does. `.env.local` was never repointed.
 5. **Readiness: 68 → 79.** Nothing was applied to production, nothing was
    merged to `main`, and `main` is still `d059006` serving the 503.
+6. **One Critical, found by a reviewer who did not write the code** — see the
+   box above. Three smaller findings fixed or documented. This is the
+   strongest argument tonight for the review step being worth its cost.
 
 ---
 
@@ -666,4 +706,40 @@ production build passes.
 
 ---
 
-## TASK 5 — Independent security review: *running in a separate agent*
+## TASK 5 — Independent security review: **DONE**
+
+Report: `docs/SECURITY_REVIEW_INDEPENDENT.md`. **1 Critical · 1 Medium ·
+3 Low · 2 Info**, every one reproduced on staging before being written down.
+Production was never touched.
+
+| # | Finding | Status |
+|---|---|---|
+| **S-17** | **Critical** — family takeover + minor-data exposure via the `profiles` INSERT path | **Fixed (032), attack-tested twice** |
+| S-18 | Medium — the under-13 gate is skipped by *omitting* `birth_year` | **Not fixed, deliberately** — see below |
+| S-19 | Low — `findProfileIdByEmail` passed a Whop-supplied email to `.ilike()` as a *pattern*; `%@gmail.com` would attach a paid tier to a stranger | **Fixed on `v1`** + regression test |
+| S-20 | Low — 8 API routes return raw Postgres `err.message` | Open (S-10 already covers it) |
+| S-21 | Low — rate limiting is advisory; PostgREST is reachable directly with the same token | Open |
+| S-22 | Info — `families` INSERT is open to any authenticated user; `is_parent_member()` grants budget writes to any approved joiner regardless of role | Open |
+
+**On S-18, why I did not fix it.** Requiring `birth_year` at the database
+layer would break signup entirely if any path forgot to send it — a worse
+failure than the one it prevents. It is also the inherent limit of
+self-declared age: a child who lies defeats any such gate, which is exactly
+why the privacy policy says we cannot verify. It is a product and legal call
+and it belongs with the open half of P0-8, not with me at midnight.
+
+**On S-19, why it is mine.** I wrote that line, and my own test for it used
+literal addresses, so it never exercised a wildcard. The new test's stub
+implements real LIKE semantics — otherwise it would have been checking a
+string compare and passing for the wrong reason.
+
+**Verified clean, so it need not be redone** (evidence in the report): anon
+access, tier and consent escalation via INSERT, the UPDATE lockdown, tier
+gating, all 18 SECURITY DEFINER functions, a pending joiner self-approving, a
+minor self-consenting, webhook spoofing and replay, `/api/whop/sync`
+self-granting, all 11 API routes for IDOR, the OAuth open redirect, secret
+leakage, and the CSP.
+
+**Advisors on staging: no new warning categories.** The SECURITY DEFINER
+count moved 17 → 18 and the eighteenth is the reviewer's own
+`family_code_is_taken()`.
