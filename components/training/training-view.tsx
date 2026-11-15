@@ -466,20 +466,24 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   // turned a model's JSON straight into create/update/delete on the player's
   // real sessions — the write half of the removed copilot.
 
+  // THIS USED TO CALL generatePersonalizedPlan() AND WRITE A WHOLE WEEK OF
+  // INVENTED SESSIONS — "Serve plus first-ball patterns", "Filmed set play"
+  // — none of which the player had asked for or logged. That is the exact
+  // thing CLAUDE.md's "No auto-generated training plans — manual calendar
+  // only" forbids, and it was the last place the rule was still broken
+  // after the Gemini copilot was deleted (P1-SEC-1).
+  //
+  // The questionnaire still earns its place: the answers drive the hours
+  // and constraints shown alongside the calendar, and the templates a
+  // player can CHOOSE to apply. It just no longer produces a plan on their
+  // behalf. They land on an empty week and fill it in.
+  //
+  // generatePersonalizedPlan() itself is still in this file, deliberately —
+  // deleting it is docs/TODO.md week-1 item #2, done on its own so the
+  // diff is reviewable. lib/training-no-autogen.test.ts fails the build if
+  // any UI calls it again in the meantime.
   const applyPreferences = (preferences: TrainingPreferences) => {
-    const generated = generatePersonalizedPlan({
-      preferences,
-      playerUtr: player.currentUTR,
-      grade: currentGrade,
-      weaknesses: player.weaknesses,
-    });
-    setState((prev) => ({
-      ...prev,
-      preferences,
-      sessions: generated.sessions,
-      plans: [generated.plan],
-      activePlanId: generated.plan.id,
-    }));
+    setState((prev) => ({ ...prev, preferences }));
   };
 
   const applyTemplate = (key: TemplateKey) => {
@@ -986,8 +990,7 @@ function TrainingQuestionnaire({
             })
           }
         >
-          Generate my training week
-          <Sparkles className="h-4 w-4" />
+          Save and open my calendar
         </Button>
       </div>
     </motion.div>
@@ -1766,7 +1769,7 @@ function blankSession(day: WeekdayShort, typeId: string, startTime = "16:00"): T
   };
 }
 
-function generatePersonalizedPlan({
+export function generatePersonalizedPlan({
   preferences,
   playerUtr,
   grade,
