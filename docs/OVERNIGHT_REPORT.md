@@ -630,4 +630,40 @@ at staging first. Listed for the morning.
 
 ---
 
+## TASK 7 — Self-check: **one real gap found and closed**
+
+I re-read the whole brief against what is on disk, "Done when" by "Done
+when". Everything held except one thing:
+
+**Task 2 asked for before/after screenshots. I only had "after."** I had
+started editing `/login`, `/signup`, `/pricing` and `/family` before
+capturing the originals, so the before state was gone from the working tree.
+
+Recovered rather than hand-waved: Vercel still hosts the preview for commit
+`20a3632`, which is the last build before Task 2 touched any of those pages.
+Screenshotted it. `task2-login-desktop-BEFORE.jpg` shows the old glass panel
+with no Google button; `task2-pricing-desktop-BEFORE.jpg` shows the old
+"Start free. Upgrade when you're ready to commit." headline. Genuine before
+state, from a real deployment, not a reconstruction.
+
+Also re-confirmed in this pass:
+
+| Claim | Re-checked |
+|---|---|
+| 3 clean builds with local fonts | re-ran; `grep -rn "next/font/google"` returns only the comment |
+| no hardcoded prices | grep returns comments only |
+| 2031/UTR-9 no longer "all reaches" | 8 → 31, read off the running app |
+| Google flag works both ways | button absent with flag unset, present with it set |
+| staging E2E fixtures cleaned up | `e2e-%@test.example` → 0 rows |
+| `main` untouched | `origin/main` = `d059006`, site still 503 |
+
+A second, independent verifier agent is now checking every "Done when"
+against the code and the running app rather than against this report. Its
+findings go to `docs/VERIFICATION.md`.
+
+**Final run:** `tsc` clean · `lint` clean · **568 tests across 43 files** ·
+production build passes.
+
+---
+
 ## TASK 5 — Independent security review: *running in a separate agent*
