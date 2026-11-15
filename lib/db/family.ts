@@ -7,7 +7,11 @@ import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { resolveGraduationYear } from "@/lib/time";
 import { narrowLiteral, narrowOptionalLiteral } from "./narrow";
-import { approvedFamilyMemberIds, resolveMyFamilyCode } from "./family-scope";
+import {
+  approvedFamilyMemberIds,
+  loadFamilyRosterRows,
+  resolveMyFamilyCode,
+} from "./family-scope";
 import type { Json, Tables } from "./database.types";
 
 // text columns backed only by a Postgres CHECK constraint — see
@@ -76,35 +80,38 @@ export interface FamilyMember {
 export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMember[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
-  // NOT `.eq("family_code", ...)`: a joiner's profile carries no family code
-  // (migration 023/032), so that filter silently drops the very member a
-  // parent opened /family to see. The approved ids come from the
-  // `family_members()` RPC, which unions both membership shapes, and RLS
-  // (`family_members_read`, rewritten in 036) independently narrows the rows
-  // to that same family — so this is an explicit filter, not a bare select.
-  const memberIds = await approvedFamilyMemberIds(supabase, signal);
-  if (!memberIds.length) return [];
-  let query = supabase
-    .from("profiles")
-    .select(
-      "id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded,target_school_slugs,gender"
-    )
-    .in("id", memberIds)
-    .order("role", { ascending: false });
-  if (signal) query = query.abortSignal(signal);
-  const { data } = await query;
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    name: row.name ?? "Family member",
-    email: row.email ?? "",
-    role: (row.role ?? "player") as "player" | "parent",
-    currentUtr: row.current_utr == null ? null : Number(row.current_utr),
-    graduationYear: resolveGraduationYear(row),
-    onboarded: Boolean(row.onboarded),
-    targetSchoolSlugs: row.target_school_slugs ?? [],
-    gender: narrowOptionalLiteral(row.gender, GENDERS),
-    createdAt: row.created_at ?? undefined,
-  }));
+  // The roster comes from `family_members()` and NOTHING else.
+  //
+  // It used to be a `profiles` select filtered by `family_code`, which could
+  // not see a joiner at all (their profile carries no code — 023/032). The
+  // obvious repair was to widen the RLS policy and keep selecting `profiles`,
+  // and that is what migration 036 did — until a review pointed out that RLS
+  // cannot narrow COLUMNS, so letting one member read another's row exposed
+  // the whole row: gpa, birth_year, whop_membership_id, both stripe ids. 027
+  // calls that exact shape the hole it closed.
+  //
+  // So 037 dropped the cross-user policy and moved the roster into the
+  // SECURITY DEFINER function, where the column list is enumerated and
+  // enforced. Reintroducing a cross-user `profiles` read here would reopen
+  // the whole row — see lib/db/family-scope.ts.
+  const rows = await loadFamilyRosterRows(supabase, signal);
+  return rows
+    .filter((row) => row.status === "approved")
+    .map((row) => ({
+      id: row.user_id,
+      name: row.name ?? "Family member",
+      email: row.email ?? "",
+      role: (row.role ?? "player") as "player" | "parent",
+      currentUtr: row.current_utr == null ? null : Number(row.current_utr),
+      graduationYear: resolveGraduationYear({
+        grade: row.grade,
+        graduation_year: row.graduation_year,
+      }),
+      onboarded: Boolean(row.onboarded),
+      targetSchoolSlugs: row.target_school_slugs ?? [],
+      gender: narrowOptionalLiteral(row.gender, GENDERS),
+      createdAt: row.joined_at ?? undefined,
+    }));
 }
 
 /* ----------------------------------------------------------- parent reports */
@@ -165,19 +172,17 @@ export async function loadEncouragementNotes(signal?: AbortSignal): Promise<Enco
     .order("created_at", { ascending: false });
   if (signal) notesQuery = notesQuery.abortSignal(signal);
   const { data } = await notesQuery;
-  const authorIds = [...new Set((data ?? []).map((row) => row.parent_id).filter(Boolean))];
-  let authors = new Map<string, { name: string; role: "player" | "parent" }>();
-  if (authorIds.length) {
-    let authorQuery = supabase.from("profiles").select("id,name,role").in("id", authorIds);
-    if (signal) authorQuery = authorQuery.abortSignal(signal);
-    const { data: profileRows } = await authorQuery;
-    authors = new Map(
-      (profileRows ?? []).map((row) => [
-        row.id,
-        { name: row.name ?? "Family member", role: (row.role ?? "parent") as "player" | "parent" },
-      ])
-    );
-  }
+  // Who wrote each note comes from the roster, not from a cross-user
+  // `profiles` select — 037 dropped that policy on purpose (see
+  // loadFamilyMembers). Every note author is by definition a member of this
+  // family, so the roster already has them.
+  const roster = await loadFamilyRosterRows(supabase, signal);
+  const authors = new Map<string, { name: string; role: "player" | "parent" }>(
+    roster.map((row) => [
+      row.user_id,
+      { name: row.name ?? "Family member", role: (row.role ?? "parent") as "player" | "parent" },
+    ])
+  );
   return (data ?? []).map((row) => ({
     id: row.id,
     body: row.body,
@@ -281,7 +286,13 @@ export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCa
   const { id, profile: p, familyCode } = await familyScope(signal);
   if (!supabase || !id) return [];
   let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false }).limit(4);
-  query = p?.role === "parent" && familyCode ? query.eq("family_code", familyCode) : query.eq("user_id", id);
+  // Scope by OWNER, not by the row's stamped family_code. A row a joiner
+  // wrote while their request was still PENDING is stamped NULL for ever
+  // (036's trigger freezes the column on UPDATE), so a family_code filter
+  // hides it from their family permanently. The read policy keys off the
+  // owner for the same reason — this makes the query match the policy.
+  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
+  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data } = await query;
   return (data ?? []).map(mapCost);

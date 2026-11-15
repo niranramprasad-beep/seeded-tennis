@@ -76,10 +76,28 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // more than the database did. 036 makes it true, and the sentence is now
     // attack-tested in both directions (stranger, pending, other family,
     // removed member) rather than asserted.
+    //
+    // The removal sentence below was FALSE when 036 first shipped it, for
+    // exactly the users production already has. `remove_family_member()`
+    // only deleted the `parent_accounts` row, and every one of production's
+    // three links belongs to someone whose own `profiles.family_code` is the
+    // same code (the pre-023 shape), so both my_family_code() and
+    // shares_approved_family_with() still matched after removal. Found by an
+    // independent review and reproduced on staging: the "removed" member
+    // still read 2 profiles and 3 utr_entries rows. Migration **037** makes
+    // the sentence true by clearing the profile column on removal too.
+    //
+    // The second sentence is the exact column list, because RLS cannot
+    // narrow columns: 037 dropped the cross-user `profiles` policy and moved
+    // the roster into `family_members()`, where the columns are enumerated.
+    // Before that, one family member could read another's whole row — gpa,
+    // birth year, billing ids. Say what is shared, not "the profile".
     source:
-      "supabase/migrations/023_family_join_rpc.sql (is_family_member); supabase/migrations/036_family_membership_both_shapes.sql (shares_approved_family_with + the seven family read policies); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent)",
+      "supabase/migrations/023_family_join_rpc.sql (is_family_member); supabase/migrations/036_family_membership_both_shapes.sql (shares_approved_family_with + six family read policies); supabase/migrations/037_revoke_on_removal_and_narrow_family_reads.sql (remove_family_member clears the profile code; family_members() column list; family_members_read dropped); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent)",
     body: [
-      "A parent who has been approved into a family can see the player's profile, UTR history, match results, tournaments, saved schools and outreach progress. This works the same whether the parent created the account and the player joined with the code, or the other way round.",
+      "A parent who has been approved into a family can see the player's UTR history, match results, tournaments, check-ins, saved schools and outreach progress. This works the same whether the parent created the account and the player joined with the code, or the other way round.",
+      "What one family member can see of another, from their profile, is exactly this: name, email, whether they are a player or a parent, when they joined, their current UTR, grade, graduation year and gender, and the schools they are tracking. Not their GPA, not their birth year, and nothing about billing — those are visible only to the person themselves.",
+      "Everyone in a family can see this about everyone else in it, not only parents about players. A sibling in the same family sees the same list.",
       "Approval is the opt-in, and it is the only one. Someone whose request is still waiting sees nothing at all, and the moment a member is removed from a family they can no longer see anything about anyone in it.",
       "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf.",
       "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",

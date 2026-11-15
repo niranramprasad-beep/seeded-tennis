@@ -10,7 +10,7 @@ import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/rec
 import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
-import { resolveMyFamilyCode } from "./family-scope";
+import { approvedFamilyMemberIds, resolveMyFamilyCode } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import { getSchoolsBySlugs } from "./schools";
@@ -300,11 +300,13 @@ export async function loadDailyCheckins(signal?: AbortSignal): Promise<DailyChec
   // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
   // who joined with a code, so a joined parent saw only their own rows
   // (i.e. none) instead of the family's. See migration 036.
-  const familyCode = await resolveMyFamilyCode(supabase, signal);
-  query =
-    p?.role === "parent" && familyCode
-      ? query.eq("family_code", familyCode)
-      : query.eq("user_id", id);
+  // Scope by OWNER, not by the row's stamped family_code. A row a joiner
+  // wrote while their request was still PENDING is stamped NULL for ever
+  // (036's trigger freezes the column on UPDATE), so a family_code filter
+  // hides it from their family permanently. The read policy keys off the
+  // owner for the same reason — this makes the query match the policy.
+  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
+  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];

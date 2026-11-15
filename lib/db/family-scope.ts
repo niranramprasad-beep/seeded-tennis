@@ -32,21 +32,59 @@ export async function resolveMyFamilyCode(
   return (data as string | null) ?? null;
 }
 
-/** The user ids of every APPROVED member of the caller's family, from the
- * `family_members()` RPC (migrations 026 + 031).
+/** One row of `family_members()` (migrations 026 + 031 + 037).
  *
- * Used instead of `profiles.eq("family_code", code)` for the same reason:
- * that filter cannot see a joiner, whose profile carries no code. Pending
- * members are excluded here as well as by RLS — a pending request is not a
- * member and must not appear on the roster. */
-export async function approvedFamilyMemberIds(
+ * 037 widened this function to carry the roster columns and DROPPED the
+ * `family_members_read` policy on `profiles`, because RLS cannot narrow
+ * columns: any policy letting one member read another's row exposed the
+ * whole row — gpa, birth_year, whop_membership_id, both stripe ids. The
+ * enumerated list below is now the entire cross-user surface, and it is
+ * enforced in the database rather than by whichever columns a caller
+ * happens to select. Do not reintroduce a cross-user `profiles` read. */
+export interface FamilyRosterRow {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  status: string | null;
+  is_creator: boolean | null;
+  joined_at: string | null;
+  reminded_at: string | null;
+  consent_status: string | null;
+  current_utr: number | string | null;
+  grade: number | null;
+  graduation_year: number | null;
+  onboarded: boolean | null;
+  target_school_slugs: string[] | null;
+  gender: string | null;
+}
+
+/** The caller's family roster. Pending members are returned (the approval
+ * card needs them) — filter on `status` when you mean members. */
+export async function loadFamilyRosterRows(
   supabase: TypedSupabaseClient,
   signal?: AbortSignal
-): Promise<string[]> {
+): Promise<FamilyRosterRow[]> {
   let q = supabase.rpc("family_members");
   if (signal) q = q.abortSignal(signal);
   const { data, error } = await q;
   if (error) return [];
-  const rows = (data ?? []) as { user_id: string; status: string | null }[];
+  return (data ?? []) as unknown as FamilyRosterRow[];
+}
+
+/** The user ids of every APPROVED member of the caller's family.
+ *
+ * Used instead of `profiles.eq("family_code", code)` for two reasons: that
+ * filter cannot see a joiner, whose profile carries no code; and the rows a
+ * joiner wrote while their request was still PENDING are stamped
+ * `family_code = NULL` for ever (037's trigger freezes the column on
+ * UPDATE, so re-saving cannot heal them). Scoping by owner instead of by
+ * stamp is what makes those rows visible to the family — the read policies
+ * in 036 key off the owner for exactly the same reason. */
+export async function approvedFamilyMemberIds(
+  supabase: TypedSupabaseClient,
+  signal?: AbortSignal
+): Promise<string[]> {
+  const rows = await loadFamilyRosterRows(supabase, signal);
   return [...new Set(rows.filter((r) => r.status === "approved").map((r) => r.user_id))];
 }

@@ -1711,14 +1711,23 @@ PostgREST, which is what the browser client uses.
 | Delete your account | ✅ `deleted`, `family_deleted: true`; profile, auth user, family, family_code and rate-limit rows all **0**; the token reads nothing afterwards |
 | Pricing → checkout starts | ⚠️ **Not verifiable on Preview, by design.** `WHOP_API_KEY` is a Production-only variable, so `getWhop()` is null and the route refuses cleanly with 500 "Billing isn't configured yet." before it ever reaches a plan ID. Must be checked live — it is on the TASK C list |
 
-**One thing the stamp test taught, worth keeping.** The joiner's match written
-*before* approval is stamped `family_code = NULL` (correct — a pending member
-is not in a family), and the one written *after* carries `RPPARENTAAAA`. The
-parent can read **both**, because 036's read policy keys off the owner's
-*current* membership rather than the row's stamp. Had it relied on the stamp
-alone, every row a player wrote while waiting to be approved would have been
-invisible to their family for ever. That was the design argument; this is the
-evidence for it.
+**One thing the stamp test taught — and the claim I got wrong here.** The
+joiner's match written *before* approval is stamped `family_code = NULL`
+(correct — a pending member is not in a family), and the one written *after*
+carries `RPPARENTAAAA`. RLS lets the parent read both, because 036's read
+policy keys off the owner's current membership rather than the row's stamp.
+
+I then wrote that this meant such rows were safe, and that was wrong. **The
+app never asked for them.** `loadMatches`, `loadTournamentEntries`,
+`loadCoachOutreach`, `loadDailyCheckins` and `loadCostCalculations` still
+filtered the parent's view with `.eq("family_code", code)` — 036 changed only
+where that code came from, not the filter — and the stamp trigger freezes the
+column on UPDATE, so a NULL can never heal. So every row a player wrote while
+waiting for approval would have been permanently invisible on the family
+page, and I had verified RLS and assumed the rest. An independent review
+found it an hour later. Fixed: those five queries now filter
+`.in("user_id", approvedFamilyMemberIds())`, which is what the policy keys
+off. The design argument was right; the evidence I gave for it was not.
 
 ### A6. Two findings that are not mine to fix
 
@@ -1757,3 +1766,100 @@ Advisors: 3 categories, all expected — 4 × `rls_enabled_no_policy` on
 deliberately locked tables, 21 × `authenticated_security_definer_function_executable`
 (the RPC API; up one, for 036's `shares_approved_family_with`), 1 ×
 leaked-password protection (Pro-plan, deferred). No new kinds.
+
+## TASK A, continued — the independent verifier: **three HIGHs in my own work**
+
+A fresh agent with no context reviewed `0ec2473` + `3571598` adversarially.
+It could not break 036 with a stranger, a pending member, another family, a
+removed member (post-023 shape), an unconsented under-13 or `anon` — and it
+confirmed the stamp trigger, the upsert paths, the solo-player-with-no-family
+case and `delete_my_account()` all behave. **Then it found three real defects,
+two of which made a sentence this work shipped untrue.** Fixed in migration
+**037** and the commit alongside it.
+
+### 1. Removal did not revoke — in production's exact data shape
+
+036's header argues against setting a joiner's `profiles.family_code` because
+`remove_family_member()` only deletes the `parent_accounts` row, so a member
+holding both would keep access. It then shipped this in `/privacy`:
+
+> "the moment a member is removed from a family they can no longer see
+> anything about anyone in it"
+
+**All three of production's `parent_accounts` rows belong to users whose own
+`profiles.family_code` is the same code** — the pre-023 shape, from when the
+app wrote both. I verified that read-only on production and reproduced the
+consequence on staging: after removal the member still read 2 profiles and 3
+`utr_entries` rows, `my_family_code()` still resolved, and `family_members()`
+still listed them as an approved creator.
+
+I wrote the sentence and I wrote the paragraph explaining why the mechanism it
+denies exists. Both in the same file.
+
+**Fixed:** 037 clears the profile column on removal, but only when somebody
+else still holds that code — so the account holder cannot be evicted and a
+family is never orphaned. Both production families satisfy that
+(`NIRAN-0FI8` 4 holders to 2 links, `NIRAN-0LK2` 2 to 1). Verified both
+directions: the removed member drops to 1 profile / 0 UTR / 0 roster / NULL
+family code, and the parent's roster drops to 2 with 0 of the removed
+member's rows.
+
+### 2. The family read was the whole row — the shape 027 existed to close
+
+RLS cannot narrow **columns**, and `authenticated` holds column-level SELECT
+on every `profiles` column. So any policy letting one member read another's
+row exposed email, gpa, birth_year, `whop_membership_id`, both stripe ids,
+`utr_profile_link`, `privacy_level`, `username`, `home_area`. 027's own
+write-up calls that row shape the hole it closed — it closed it for
+strangers and left it inside the family, and 036 widened the family case from
+one flow to both, and to sibling-to-sibling.
+
+This is live on production right now, before any of my work: family
+`NIRAN-0FI8` has **four** profiles holding the same code, so four accounts
+can read each other's complete rows.
+
+**Fixed:** 037 drops `family_members_read` and moves the roster into
+`family_members()`, which now returns an enumerated 15-column list. A family
+member sees name, email, role, status, creator flag, joined/reminded, consent
+status, current UTR, grade, graduation year, onboarded, target schools,
+gender — and **not** gpa, birth_year, billing ids, utr_profile_link,
+privacy_level, username or home_area. Verified: an approved parent now reads
+**1** `profiles` row (their own, 0 cross-user), gets a 3-row roster, and
+still reads the joined player's 3 UTR rows and 2 matches. **Net effect is
+narrower than before 036 and narrower than before this whole piece of work.**
+
+### 3. Rows written while PENDING were invisible in the app
+
+Covered above, in §A5's correction. My claim there was wrong and the review
+was right.
+
+### The smaller ones, all fixed
+
+| # | What | Fix |
+|---|---|---|
+| 4 | `DECISIONS.md`'s "why no backfill" had the logic **backwards** — the policies key off current membership and ignore the stamp, so 036 *does* widen reads of pre-existing rows, retroactively | Rewritten to say the widening is deliberate and reaches backwards, which is the part a parent would notice |
+| 5 | `family-scope.test.ts` was "mutation-tested" and "fails on any reintroduction" in CLAUDE.md. **It was neither.** The detector keyed on four hard-coded receiver names, and its comment-stripper deleted from any `//` — including inside a string, so a line with a URL was invisible. The review defeated it **eight** ways | Rewritten with a string-aware comment stripper, any-receiver matching, destructuring and `["family_code"]` forms; all eight defeats are now test cases; mutation-tested against the real repo in two shapes, each naming the file. A second invariant added: no cross-user `profiles` read |
+| 6 | Stale numbers inside the same commit: "four rollback defects" (seven), the verification crib's "1 profile row; without it, 12", and — worst — CLAUDE.md still shouting that **`.env.local` points at PRODUCTION** when it points at staging | All corrected. I re-ran the greps myself: 1 staging ref, **0** production refs, no service-role key, and `.env.local.prod-backup` is covered by `.gitignore`'s `.env*` rule with no env file tracked |
+| 7 | "all 27 live function bodies match the repo" undercounts the comparable set (30 repo-defined functions are live) | The 27 that matched are the 27 I compared; the claim is now scoped to that rather than phrased as complete |
+| 8 | MASTER_ROADMAP said "nine build-failing guards" and listed seven. I then replaced it with "eleven" and listed **thirteen** — the same mistake, in the fix | Counted by listing the files. Thirteen, enumerated |
+| 9 | "the rollback restores the pre-036 behaviour **exactly**" | It does not: rows stamped during the 036 window stay family-readable afterwards. Reworded, and §J step 13 already said so |
+| 10 | Two new silent-empty paths (`approvedFamilyMemberIds()` returns `[]` on RPC error) | Left as-is and recorded: fail-closed, and an empty family page is the right failure for a transient RPC error. Noted in `docs/TODO.md` |
+
+### And one defect the verifier did not find, because I found it first
+
+**§J step 15's "revert the maintenance commit" could not work.** `d059006` is
+not an ancestor of `v1` and `middleware.ts` has never existed there, so
+`git revert d059006` has nothing to delete — and the plain merge is **clean
+and keeps the file**. I dry-ran the real merge in a throwaway worktree:
+Vercel would have reported READY and seededtennis.com would still answer 503.
+The last step of the rollout, failing silently. Step 15 now carries the
+sequence that works (merge `main` into `v1`, delete the file there, confirm in
+a scratch worktree before opening the PR), each line verified.
+
+### Not covered by the verifier, stated so it is not mistaken for verified
+
+- §J step 12's rollback was **inspected, not executed** by the verifier. I
+  did execute it (§A4) and it produced the documented 23503.
+- Nothing was tested through the deployed Preview app by the verifier — §A5's
+  Preview results are mine alone.
+- Billing/Whop untouched by both of us.

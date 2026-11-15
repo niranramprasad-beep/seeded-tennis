@@ -44,12 +44,26 @@ and frozen on UPDATE. Tested: an insert supplying `FAKEFAMILY02` from a
 member of `FAKEFAMILY01` lands on `FAKEFAMILY01`, and `FAKEFAMILY02` sees
 nothing.
 
-**Why no backfill.** Rows written before 036 keep their NULL `family_code`
-and stay readable by their owner alone. Backfilling would retroactively widen
-who can read data that was private when it was written, which is not
-something a migration should decide on a user's behalf. The cost is that a
-family who joined before launch sees history only from launch forward; that
-is the safer direction and it is written down rather than quietly fixed.
+**Why no backfill — and a correction, because the first version of this
+paragraph had the logic backwards.** It said rows written before 036 "stay
+readable by their owner alone" and that backfilling "would retroactively
+widen who can read data that was private when it was written." That is wrong,
+and an independent review caught it: the seven rewritten policies key off the
+row OWNER's current membership and ignore the stamp entirely, so **036 does
+retroactively widen reads of every pre-existing row** on `profiles`,
+`utr_entries`, `matches`, `tournament_entries`, `coach_outreach`,
+`daily_checkins` and `cost_calculations`. Proven on staging: a NULL-stamped
+pre-036 match is readable by the parent right now.
+
+That widening is deliberate and it covers history — a parent who is approved
+today sees their player's past results, not only the ones logged afterwards,
+which is what anyone would expect of a family page. What is NOT backfilled is
+the `family_code` column itself, and that is a much smaller claim: the column
+stays NULL on old rows, which matters only for the four genuinely
+family-scoped tables (`parent_reports`, `season_budgets`, `budget_expenses`,
+`encouragement_notes`) whose rows are always written with a resolved code
+anyway. Niran should know the read widening reaches backwards, because it is
+the part a parent would notice and the part a lawyer would ask about.
 
 **What I deliberately did NOT change.** `is_parent_member()` still grants
 season-budget writes to any approved joiner regardless of `role`, so a
@@ -75,8 +89,15 @@ flows or neither.
 Order matters: the seven policies must be restored before
 `shares_approved_family_with` is dropped, or the drop raises `2BP01`. Both
 the ordering failure and the clean rollback were run on staging on
-2026-11-15, and the post-rollback state was confirmed to be the pre-036
-behaviour exactly.
+2026-11-15.
+
+An earlier version of this paragraph said the rollback restores the pre-036
+behaviour "exactly". It does not, and the word was wrong: rows stamped while
+036 was live keep their `family_code`, and the restored policies read
+`… or is_family_member(family_code)`, so every row a joiner wrote during the
+036 window stays readable by the whole family after the rollback. That is a
+defensible outcome — the family could already see those rows — but it is not
+"exactly" the prior state, and §J step 13's own note says so.
 
 ## 2026-11-15 — next@15, not next@16
 

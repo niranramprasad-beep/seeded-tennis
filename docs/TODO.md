@@ -224,6 +224,24 @@ change: `remove_family_member()` only deletes the `parent_accounts` row, so
 a removed member would keep the column and keep their access. That is now a
 passing test rather than a worry.
 
+## Still open: two silent-empty paths introduced 2026-11-15
+
+Recorded rather than fixed, because both fail CLOSED and an empty family page
+is the right failure for a transient RPC error — but the next person should
+know they are new.
+
+- `approvedFamilyMemberIds()` / `loadFamilyRosterRows()` return `[]` on any
+  `family_members()` RPC error, and `loadFamilyMembers()` then renders the
+  "no player has joined yet" state. Before 036/037 the roster came from a
+  direct `select`, so a failure surfaced differently.
+- `getProfileRoleAndFamily()` ignores a `my_family_code` RPC error, and the
+  budget routes turn the resulting `null` into a 403 "You're not part of a
+  family yet." That message is wrong for a transient failure.
+
+Both want the same fix: distinguish "no family" from "could not ask", and
+show an error state for the second. Small, and worth doing before the first
+support email about it.
+
 ## Still open: `is_parent_member()` is flatter than its name
 
 Deliberately left out of 036 — a write-authorisation change nobody asked for

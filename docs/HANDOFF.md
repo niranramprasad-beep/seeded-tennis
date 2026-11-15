@@ -607,10 +607,12 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply fifteen migrations to production in order
+Apply sixteen migrations to production in order
 (025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
-034 → 035 → 036), verifying after each; then revert the maintenance commit and
-merge `v1` to `main` as a single PR with CI green. (This line said "twelve"
+034 → 035 → 036 → 037), verifying after each; then merge `v1` to `main` as a
+single PR with CI green, having first merged `main` into `v1` and deleted
+`middleware.ts` there — **`git revert d059006` cannot work and the plain
+merge keeps the maintenance page; see step 15.** (This line said "twelve"
 while listing eleven until 2026-11-15 — count the arrows, not the adjective.) The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
 is no window where deployed code is talking to a schema it doesn't
@@ -641,6 +643,15 @@ documented rollback was run first, in reverse order, to get there.
 | 9 | 032 | 4.6 ms | 9.9 ms |
 | 10 | 033 | 7.3 ms | 17.8 ms |
 | 11 | 034 | 19.2 ms | 20.7 ms |
+| 12 | 035 | not separately timed | re-proved 2026-11-15 (23503 returns) |
+| 13 | 036 | not separately timed | re-proved 2026-11-15 (2BP01 ordering) |
+| 14 | 037 | not separately timed | written 2026-11-15, not yet re-proved |
+
+The second rehearsal (2026-11-15, after 036) measured wall-clock per step
+from the client rather than database time, so it is not comparable with the
+figures above and is deliberately not tabulated as if it were. The number
+that matters has not changed: the elapsed SQL is not the risk, the
+verification between steps is.
 
 The elapsed time is not the risk; **the verification between steps is**. Plan
 the window around reading results, not around waiting for SQL.
@@ -654,8 +665,12 @@ the window around reading results, not around waiting for SQL.
 - Step 6: `consume_rate_limit('data_export')` → 3 allowed, 4th denied with a
   `retry_after_seconds`. ✓
 - Step 7: zero profiles with `deletion_requested_at` set on this database.
-- **Step 8's mandatory pre-flight: all 12 rows `not_required`, zero
-  `pending`.** Nobody is locked out. ✓
+- **Step 8's mandatory pre-flight: every row `not_required`, zero
+  `pending`.** Nobody is locked out. ✓ — 12 of 12 on staging. **On production
+  expect 8 of 8**: it has 8 profiles to staging's 12, so do not let the
+  rehearsal's number make a correct 8 look wrong. The column does not exist
+  until 030 creates it with `default 'not_required'`, so this check runs
+  immediately after 030 and before 031, not before the step.
 - Step 9: the takeover INSERT raises `42501`; creating a family with a fresh
   code still works. ✓
 - Step 10: a player member writing a "parent" note is refused `42501`; an
@@ -1553,15 +1568,174 @@ the data is minors'. It was attack-tested in both directions before being
 written up. If you roll the code back but leave 036 applied, nothing breaks —
 the old code simply never asks for the wider rows.
 
-### Step 14 — the code (`v1` → `main`)
-Only after steps 1–13 are applied and verified.
-1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
-2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
-3. Merge. Vercel auto-deploys `main` to seededtennis.com.
+### Step 14 — migration 037 (removal now revokes; the family read stops being the whole row)
+
+**036 does not ship without this.** An independent review found three defects
+in 036 within an hour of it being written, two of which made a sentence 036
+itself shipped in `/privacy` untrue. All three are fixed here.
+
+**1. Removal did not revoke, and this is production's actual data shape.**
+036 argued against setting a joiner's `profiles.family_code` because
+`remove_family_member()` only deletes the `parent_accounts` row — then shipped
+copy saying "the moment a member is removed from a family they can no longer
+see anything about anyone in it." Checked read-only on production: **all three
+`parent_accounts` rows belong to users whose own `profiles.family_code` is the
+same code** (the pre-023 shape, when the app wrote both). Reproduced on
+staging — after removal the member still read 2 profiles and 3 `utr_entries`
+rows, `my_family_code()` still resolved, and `family_members()` still listed
+them as an approved creator. 037 clears the profile column on removal, but
+only when somebody else still holds that code, so the account holder cannot
+be evicted and a family is never left with no holder. Both production
+families satisfy that: `NIRAN-0FI8` has 4 profiles holding the code to 2
+links, `NIRAN-0LK2` has 2 to 1.
+
+**2. The family read was the whole row.** RLS cannot narrow COLUMNS, and
+`authenticated` holds column-level SELECT on every `profiles` column — so any
+policy letting one member read another's row exposed email, gpa, birth_year,
+`whop_membership_id`, both stripe ids, `utr_profile_link`, `privacy_level`,
+`username` and `home_area`. 027's own text calls that row shape the hole it
+closed; it closed it for strangers and left it inside the family, and 036
+widened the family case from one flow to both. Live on production today:
+family `NIRAN-0FI8` has **four** profiles holding the same code, so four
+accounts can read each other's complete rows. 037 drops
+`family_members_read` and moves the roster into `family_members()`, which now
+returns an enumerated 15-column list. **Net effect is narrower than before
+036 and narrower than before this whole piece of work.**
+
+**3. Rows written while PENDING were invisible to the family in the app.**
+036 fixed the policy and left the data layer filtering on the row's stamped
+`family_code`. A row a joiner writes before approval is stamped NULL, and the
+trigger freezes the column on UPDATE, so re-saving cannot heal it: RLS allowed
+those rows and the app never asked for them. Fixed in the code, not here —
+five call sites now filter `.in("user_id", approvedFamilyMemberIds())`.
+
+**Pre-flight.** None. 037 replaces two functions and drops one policy; it
+reads and writes no existing row.
+
+**Verify — as a test user, NOT as postgres:**
+```sql
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<an approved parent>","role":"authenticated"}';
+select count(*) from public.profiles;            -- 1, and only 1: their own row
+select count(*) from public.family_members();    -- 2+, the roster
+select count(*) from public.utr_entries
+ where user_id = '<the joined player>';          -- > 0, history still readable
+rollback;
+```
+Then, in the legacy double-linked shape, `remove_family_member('<id>')` must
+return `{"status":"removed","family_code_cleared":true}`, after which the
+removed member reads 1 profile (their own), 0 `utr_entries`, 0
+`family_members()` rows, 0 families, and `my_family_code()` is NULL. All of
+that was run on staging on 2026-11-15.
+
+**Rollback:**
+```sql
+-- 1. Restore 036's cross-user read policy. NOTE: this reopens the whole-row
+--    read described above. Prefer rolling 036 back too (step 13).
+drop policy if exists "family_members_read" on public.profiles;
+create policy "family_members_read" on public.profiles
+  for select to authenticated
+  using (public.shares_approved_family_with(profiles.id));
+
+-- 2. Restore 031's nine-column family_members(). DROP first — a return type
+--    cannot change under CREATE OR REPLACE (42P13) — and follow with the
+--    revoke/grant pair, because a fresh CREATE re-grants EXECUTE to PUBLIC.
+drop function if exists public.family_members();
+create function public.family_members()
+returns table (user_id uuid, name text, email text, role text, status text,
+               is_creator boolean, joined_at timestamptz, reminded_at timestamptz,
+               consent_status text)
+language sql security definer set search_path = public stable
+as $fn$
+  with fam as (select public.my_family_code() as code)
+  select p.id, coalesce(nullif(p.name,''),'Family member'), p.email,
+         coalesce(p.role,'player'), 'approved'::text, true,
+         p.created_at, null::timestamptz, p.consent_status
+  from public.profiles p, fam
+  where fam.code is not null and p.family_code = fam.code
+    and public.is_family_member(fam.code)
+  union all
+  select pa.user_id, coalesce(nullif(p2.name,''),'Family member'), p2.email,
+         coalesce(p2.role,'parent'), pa.status, false,
+         pa.created_at, pa.reminded_at, p2.consent_status
+  from public.parent_accounts pa
+  join public.profiles p2 on p2.id = pa.user_id, fam
+  where fam.code is not null and pa.family_code = fam.code
+    and public.is_family_member(fam.code)
+  order by 6 desc, 5, 7
+$fn$;
+revoke all on function public.family_members() from public, anon;
+grant execute on function public.family_members() to authenticated;
+
+-- 3. Restore 026's remove_family_member(), which does not clear the profile
+--    column. This re-breaks the /privacy removal sentence; roll the copy
+--    back with it or leave 037 applied.
+create or replace function public.remove_family_member(p_user_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $fn$
+declare v_code text; v_deleted int;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode='28000'; end if;
+  v_code := public.my_family_code();
+  if v_code is null or not public.is_family_member(v_code) then
+    raise exception 'You are not in a family.' using errcode='22023'; end if;
+  if p_user_id = auth.uid() then
+    raise exception 'You cannot remove yourself.' using errcode='22023'; end if;
+  delete from public.parent_accounts where user_id = p_user_id and family_code = v_code;
+  get diagnostics v_deleted = row_count;
+  if v_deleted = 0 then
+    raise exception 'That person cannot be removed.' using errcode='22023'; end if;
+  return jsonb_build_object('status','removed');
+end; $fn$;
+revoke all on function public.remove_family_member(uuid) from public, anon;
+grant execute on function public.remove_family_member(uuid) to authenticated;
+```
+**Risk: low to apply, and it only narrows.** Rolling it back is the risky
+direction, because it widens a read of minors' data and re-breaks a sentence
+in `/privacy`.
+
+### A thing to know about 036's stamp trigger, found by the same review
+
+`families` has `ON DELETE SET NULL` onto `matches`, `daily_checkins` and
+`cost_calculations`. Deleting a family therefore fires an **UPDATE** on those
+three tables, and 036's `stamp_family_code` trigger does
+`new.family_code := old.family_code` on UPDATE — which would revert the
+referential action and break `delete_my_account()`. It does not, because a
+referential action runs as the table owner, so `current_user` is `postgres`
+and hits the trigger's exemption. **That exemption is load-bearing for
+account deletion and nothing in the migration said so.** Verified: the sole
+creator of a family holding stamped rows in all three tables deleted cleanly
+(`{"status":"deleted","family_deleted":true}`).
+
+### Step 15 — the code (`v1` → `main`)
+Only after steps 1–14 are applied and verified.
+**`git revert d059006` DOES NOT WORK, and the obvious merge leaves
+production on the 503.** This step said to revert that commit in the PR. It
+cannot be reverted from `v1`: **`d059006` is not an ancestor of `v1`** and
+`middleware.ts` has never existed there, so there is nothing for the inverse
+patch to delete. Worse, the plain merge is clean and *keeps* the file —
+verified on 2026-11-15 by dry-running the real merge in a throwaway worktree:
+`middleware.ts` survives, so Vercel would report READY and seededtennis.com
+would still answer 503. A silent failure at the last step of the rollout.
+
+CLAUDE.md's "`v1` already contains every commit on `main`" was true when it
+was written and stopped being true the moment the maintenance commit landed.
+
+Do this instead (each line verified in a scratch worktree, 2026-11-15):
+1. On `v1`: `git merge origin/main` — clean, and it brings `middleware.ts` in.
+2. `git rm middleware.ts && git commit` — now the removal is an explicit
+   change on `v1`'s side, which is what makes the merge drop it.
+3. Confirm before opening anything: merge `v1` into a detached `origin/main`
+   in a scratch worktree and check `test -f middleware.ts` is false.
+4. Push `v1`. Open the PR from `v1` to `main`. CI (`verify`) must be green —
+   it runs typecheck, lint, the full suite and a production build.
+5. Merge. Vercel auto-deploys `main` to seededtennis.com. **Confirm the site
+   returns 200 and not 503 before calling the deploy done.**
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it. Of steps 1–13, all are backwards-compatible with the old
+roll back with it. Of steps 1–14, all are backwards-compatible with the old
 code **except two**, so if you roll the code back:
 - run 024's rollback SQL (the old code writes outreach at Family tier), and
 - leave 028 in place (the old code does not call the limiter at all).
