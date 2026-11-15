@@ -107,6 +107,20 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
 
 ---
 
+## Dependency debt
+
+- **`next` critical + `postcss` high need a Next.js major.** Both are
+  unreachable in this app today (no `remotePatterns`, zero `next/image`
+  imports, Vercel-hosted not self-hosted; postcss is build-time only over our
+  own CSS) — reasoning and evidence in `docs/DECISIONS.md`. `next@14.2.35` is
+  the newest 14.2.x, so there is no patch inside the major. Plan a
+  `next@16` + `eslint-config-next@16` upgrade as its own piece of work, with
+  the App Router breaking changes read first. **Week 1, not launch-blocking.**
+- Dev-only vulnerabilities after this pass: 2 critical, 5 high, 8 moderate
+  (`vitest`/`vite`/`tinypool` chain, `eslint-config-next` → `glob`). They
+  affect the test runner and the linter, not anything shipped. Clearing them
+  means upgrading vitest to 2.x/3.x, which is its own migration.
+
 ## Smaller things worth not forgetting
 
 - Regenerate `lib/db/database.types.ts` against production after the

@@ -1,46 +1,78 @@
-# Seeded — Decisions Log
+# Decisions
 
-Format: date · decision · why · status. Older decisions are in
-`docs/HANDOFF.md` §F and still stand unless overridden here.
+Calls made without asking, because asking wasn't an option at the time.
+Each one: what, why, and how to undo it.
 
-- **2026-11-10 · V1 scope cut to the recruiting core.** Training calendar, copilot, notifications, weekly emails, public recruiting page, transfer portal and probability features are POST-V1. Why: each is either unbacked by real data or adds attack surface before the core is honest. Status: proposed — needs owner sign-off.
-- **2026-11-10 · Legacy design system will be removed, not maintained.** Why: it doubles every screen and keeps the copilot, `/coaches` and `/training` alive. Status: proposed.
-- **2026-11-10 · Privileged profile columns are server-only.** `subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*` change only via service role or dedicated RPCs. Migration 022 drafted. Status: proposed — needs sign-off.
-- **2026-11-10 · Coach contact info is never stored or generated.** Link the school's staff directory; the player types the recipient. Why: invented emails reached the UI and drafts. Status: **IMPLEMENTED** (P0-3) — fields deleted from `School`; recipient is a validated user-typed input; `schools-catalog-honesty.test.ts` guards re-add.
+Newest first.
 
-## 2026-11-10 — Staff directory is a web search, not a stored or guessed URL
-**Context:** P0-3 removed `recruitingPageUrl` (68 × `https://example.com/...`).
-The school detail and outreach composer still need to get a player to the real
-coaching staff. The obvious replacement is to construct the athletics URL —
-`gostanford.com/sports/mens-tennis/coaches` or similar.
-**Decision:** Link a web search for `"{school name} {men's|women's} tennis staff
-directory"` (`staffDirectorySearchUrl`). Store nothing per school.
-**Alternatives considered:** (a) store a real per-school staff URL — correct but
-needs 68 × manual verification and ongoing maintenance as athletics sites
-rearrange, and it belongs with the P1-DATA-1 import, not ahead of it;
-(b) construct the URL from a domain pattern — this is inventing data with extra
-steps: patterns differ per school and a confidently wrong link pointing at
-another program is worse than no link.
-**Reason:** A guessed URL is invented data. A search result is something the
-player evaluates themselves, and it degrades honestly when the site moves.
-**Consequences:** One extra click for the user. If P1-DATA-1 imports verified
-staff pages with a source and date, swap the href at the two call sites and
-delete the helper.
+---
 
-## 2026-11-10 — Unverified roster numbers get labeled, not removed or "fixed"
-**Context:** `avgRosterUTR`/`minCompetitiveUTR` have no source or date, but
-unlike the coach fields they are load-bearing: the four fit bands, the Plan
-projection and the school detail range bar are all computed from them.
-**Decision:** Keep the numbers exactly as they are and render
-`UTR_RANGE_SOURCE_LABEL` ("Unverified estimate") wherever they appear.
-**Alternatives considered:** (a) delete them like the coach fields — would leave
-the product with no fit model at all, i.e. no product; (b) replace them with
-better-researched estimates — still unsourced, and a more plausible invented
-number is more dangerous, not less.
-**Reason:** The harm in P0-3 was presenting invention as fact. Labeling removes
-the false claim without pretending we can fix the data in a copy change.
-**Consequences:** The label stays on every roster number until P1-DATA-1 lands
-real sourced rows; at that point `UTR_RANGE_SOURCE_LABEL` becomes a per-school
-source + date string rather than a constant.
-- **2026-11-10 · Fit bands must come from one function with one projection input.** No screen may call `classifySchoolFit` without a projection that can produce "out-of-range". Status: proposed.
-- **2026-11-10 · Staging Supabase before any further migration.** Status: proposed.
+## 2026-11-14 — Self-host all six font families, not the three named
+
+**Decision.** The overnight brief named Inter, Inter Tight and JetBrains
+Mono. I self-hosted those plus Cormorant Garamond, Space Grotesk and IBM
+Plex Mono — every family `app/layout.tsx` loads.
+
+**Why.** The point of the task is that the build makes no network call. Three
+of six still fetching from Google leaves the failure exactly where it was,
+just less often — and "builds 3× in a row" would have been luck, not proof.
+The other three are Legacy concept-theme faces (P1-UX-2 will delete them with
+Legacy); self-hosting them costs 112 KB of committed woff2 and removes the
+last build-time dependency.
+
+**How to undo.** Put the `next/font/google` imports back in
+`app/layout.tsx` and delete `app/fonts/`. The CSS variable names are
+unchanged, so nothing else moves.
+
+---
+
+## 2026-11-14 — Leave the Next.js critical and the postcss high unfixed
+
+**Decision.** Production dependencies went 5 vulnerabilities → 2. The two
+that remain (`next` critical, `postcss` high) are only fixable by upgrading
+to `next@16`, a major. Left in place, documented, not forced.
+
+**Why.** The brief ruled out a major Next/React upgrade tonight. Both are
+also unreachable in this app, which is the part worth checking rather than
+assuming:
+
+- **`next` — DoS via Image Optimizer `remotePatterns`.** We configure no
+  `remotePatterns` (`grep remotePatterns next.config.mjs` → 0), import
+  `next/image` in **zero** files, and deploy on Vercel rather than
+  self-hosted. The advisory is specifically about self-hosted apps.
+- **`postcss` — XSS via unescaped `</style>` in stringify output.** postcss
+  runs at build time over our own CSS. No user input reaches it, and nothing
+  ships postcss to the browser.
+
+`next@14.2.35` is already the newest 14.2.x, so there is no patch inside the
+major.
+
+**How to undo.** `npm i next@latest eslint-config-next@latest` and fix the
+breaking changes. Tracked in docs/TODO.md.
+
+---
+
+## 2026-11-14 — Remove `geist` and `pdf-lib`
+
+**Decision.** Uninstalled both.
+
+**Why.** Zero references anywhere outside `package.json` — checked across
+`.ts`, `.tsx`, `.css`, `.mjs` and `.json`. `geist` is a font package the app
+never used (it has its own faces); `pdf-lib` was presumably for a report
+export that was never built. Unused dependencies are attack surface and
+audit noise.
+
+**How to undo.** `npm i geist pdf-lib`.
+
+---
+
+## 2026-11-14 — Remove the CI build retry
+
+**Decision.** `.github/workflows/ci.yml` runs `npm run build` once.
+
+**Why.** The three-attempt retry existed only for the Google Fonts flake,
+which no longer exists now the fonts are local. A CI that passes on the
+second attempt teaches people to re-run rather than read the failure.
+
+**How to undo.** Restore the loop from git history — but if the build is
+flaking again, find out why first.

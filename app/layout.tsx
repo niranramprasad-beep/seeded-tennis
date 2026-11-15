@@ -1,12 +1,5 @@
 import type { Metadata } from "next";
-import {
-  Inter,
-  Inter_Tight,
-  Cormorant_Garamond,
-  Space_Grotesk,
-  IBM_Plex_Mono,
-  JetBrains_Mono,
-} from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/app-shell";
@@ -15,8 +8,31 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { GoogleAnalytics } from "@/components/shared/google-analytics";
 
-const inter = Inter({
-  subsets: ["latin"],
+// ---------------------------------------------------------------------------
+// Fonts are SELF-HOSTED. Do not move these back to next/font/google.
+// ---------------------------------------------------------------------------
+// `next/font/google` fetches the font CSS and the woff2 files from Google at
+// BUILD time. That made every production build depend on a third-party
+// network call, and it failed often enough that CI carried a three-attempt
+// retry: `Cannot read properties of null (reading '1')` out of the font
+// loader, which is what that fetch failing looks like from the inside. It
+// took down a real production redeploy of `main` on 2026-11-14.
+//
+// The files in app/fonts/ are the latin subset, pulled once from Google's
+// own CDN and committed. Same faces, same glyphs, no build-time network.
+// Variable files where Google publishes one (Inter, Inter Tight, JetBrains
+// Mono, Space Grotesk) so a single file covers every weight; static files
+// for the two families that have no variable version.
+//
+// `display: "swap"` and the CSS variable names are unchanged, so globals.css
+// and every component keep working untouched.
+//
+// To update a face: re-download the latin woff2 from the Google Fonts CSS
+// API and replace the file. Do not add a family here without adding its file.
+
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
+  weight: "100 900",
   variable: "--font-inter",
   display: "swap",
 });
@@ -24,9 +40,9 @@ const inter = Inter({
 // Seeded design system's display/headline face (components/seeded/ui/*,
 // text headlines in components/seeded/*) — pixel-matches the mockups'
 // "Inter Tight" spec. Legacy never references --font-inter-tight.
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+const interTight = localFont({
+  src: "./fonts/InterTight-Variable.woff2",
+  weight: "100 900",
   variable: "--font-inter-tight",
   display: "swap",
 });
@@ -35,34 +51,43 @@ const interTight = Inter_Tight({
 // pixel-matches the mockups' "JetBrains Mono" spec. Selected via the
 // --font-mono-active indirection in globals.css so Legacy's "Night Rally"
 // concept theme keeps IBM Plex Mono (below) unchanged.
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "600"],
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.woff2",
+  weight: "100 800",
   variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+// Cormorant Garamond has no variable version on Google Fonts, so each
+// weight and style is its own file.
+const cormorant = localFont({
+  src: [
+    { path: "./fonts/CormorantGaramond-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/CormorantGaramond-400italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/CormorantGaramond-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/CormorantGaramond-500italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/CormorantGaramond-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/CormorantGaramond-600italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-cormorant",
   display: "swap",
 });
 
 // Used only by the "Match Point" design concept theme.
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "700"],
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-Variable.woff2",
+  weight: "300 700",
   variable: "--font-space-grotesk",
   display: "swap",
 });
 
 // Used only by the "Night Rally" design concept theme — every stat number
 // renders in this mono face there, for a precision-instrument feel.
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["500", "600"],
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/IBMPlexMono-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexMono-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-plex-mono",
   display: "swap",
 });

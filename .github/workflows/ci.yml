@@ -57,34 +57,18 @@ jobs:
       - name: Tests
         run: npm test
 
-      # `next/font` fetches Google Fonts at build time and intermittently
-      # fails with "Cannot read properties of null (reading '1')". Reproduced
-      # locally on 2026-11-11: three failures and several successes across
-      # otherwise identical runs, with and without env vars present. It is a
-      # network flake, not a code fault.
+      # One attempt. The retry that used to live here existed for the
+      # `next/font` Google Fonts flake ("Cannot read properties of null
+      # (reading '1')"), which took down a real production redeploy on
+      # 2026-11-14. The fonts are self-hosted now (app/fonts/, next/font/local
+      # in app/layout.tsx) so the build makes no third-party network call and
+      # the flake is gone — verified with three consecutive clean builds.
       #
-      # Retried rather than ignored, because a CI that fails at random is a CI
-      # people learn to force-merge past — which would defeat the point of
-      # making this a required check. Only the build is retried; typecheck,
-      # lint and tests are deterministic and get exactly one attempt.
-      #
-      # The real fix is to self-host the fonts and remove the build-time
-      # network dependency (roadmap P2). Delete this retry when that lands.
+      # Do not reintroduce a retry. A build that needs retrying is telling you
+      # something, and a CI that passes on the second try is one people learn
+      # to force-merge past.
       - name: Build
-        run: |
-          for attempt in 1 2 3; do
-            echo "::group::next build (attempt $attempt/3)"
-            if npm run build; then
-              echo "::endgroup::"
-              echo "Build succeeded on attempt $attempt."
-              exit 0
-            fi
-            echo "::endgroup::"
-            echo "::warning::Build attempt $attempt failed. If the log above shows a next/font error this is the known Google Fonts flake; anything else is a real failure."
-            sleep 10
-          done
-          echo "::error::Build failed three times. Treat this as a real failure, not the font flake."
-          exit 1
+        run: npm run build
 
       # No deploy step on purpose. main auto-deploys to seededtennis.com via
       # Vercel's own Git integration, and that gate is deliberately a person
