@@ -155,6 +155,20 @@ the URL itself is what matters, so that is unaffected — but anyone reading
 the terms cannot click through, and the report's phrasing implies they can.
 
 **6. The `/family` screenshots are the dev harness, not `/family`.**
+> **RESOLVED 2026-11-15 (Night 2, TASK B).** `docs/screenshots/taskB-family-real-{desktop,mobile}.png`
+> are the real `/family`, captured through a real sign-in as a staging parent
+> against staging data, in headless Chrome at 1440×900 and 375×812. The old
+> `task2-family-*.jpg` pair is kept only as the record of this finding —
+> do not cite it as evidence of `/family`.
+>
+> **This finding was right in a way it did not know.** The first real capture
+> showed "7.0 UTR" for an account whose `current_utr` is NULL in the
+> database: the `emptyPlayer` placeholder leaking onto a launch screen
+> through `playerMember?.currentUtr ?? player.currentUTR`. A fixture agrees
+> with whatever you believe; that is the whole argument for this item.
+> Fixed at the source, guarded by `lib/family-utr-honesty.test.ts`, and
+> written up under TASK B in `docs/OVERNIGHT_REPORT.md`.
+
 `task2-family-{desktop,mobile}.jpg` are `/dev/family-preview`, visibly showing
 the superseded `CHEN-7K4P` code format. TASK 6 discloses this ("`/family`
 (harness)"); TASK 2's "Evidence" section lists them among "8 screenshots in
@@ -162,7 +176,19 @@ the superseded `CHEN-7K4P` code format. TASK 6 discloses this ("`/family`
 describes `/family` changes whose only visual evidence is a route that 404s
 in production.
 
-**7. The under-13 gate is client-side only.** Not claimed either way by the
+**7. The under-13 gate is client-side only.**
+> **RESOLVED 2026-11-15 (Night 2, TASK B).** Migration 033 adds a
+> `birth_year is null` branch to `protect_privileged_profile_columns()`, so a
+> client profile INSERT that omits the field raises `23502` instead of
+> landing `not_required`. The gate can no longer be skipped by leaving a
+> field out. `birth_year` stays nullable on the column itself — existing
+> rows predate it and a NOT NULL would mean inventing a birth year — so this
+> constrains NEW client inserts only. Attack-tested on staging; rollout and
+> rollback are `docs/HANDOFF.md` §J step 10.
+>
+> The finding was correct, and its instinct ("Task 5 found a Critical by
+> asking exactly this question about an INSERT path") was the right one.
+ Not claimed either way by the
 report, but it is load-bearing for the TASK 4 privacy policy, which states
 *"your account is created but does nothing at all until a parent or guardian
 approves it. … That is enforced by the database, not by hiding buttons."* The

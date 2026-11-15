@@ -607,10 +607,11 @@ also means **the clock is running**, so don't sit in this state longer
 than needed.
 
 ### The one-paragraph version
-Apply twelve migrations to production in order
-(025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032), verifying
-after each; then revert the maintenance commit and merge `v1` to `main` as
-a single PR with CI green. The database changes go FIRST and
+Apply thirteen migrations to production in order
+(025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032 → 033 →
+034), verifying after each; then revert the maintenance commit and merge
+`v1` to `main` as a single PR with CI green. (This line said "twelve" while
+listing eleven until 2026-11-15 — count the arrows, not the adjective.) The database changes go FIRST and
 are all backwards-compatible with the code currently on `main`, so there
 is no window where deployed code is talking to a schema it doesn't
 understand. Code goes last.
@@ -898,21 +899,149 @@ It was swept into commit `3bc07ac` ("Task 6: E2E on staging…") by a `git add
 `main` merge under a commit message about end-to-end testing. Apply it in
 this window; do not let the merge be the first time it appears on production.
 
-### Step 10 — the code (`v1` → `main`)
-Only after steps 1–9 are applied and verified.
+### Step 10 — migration 033 (parent-only notes + birth year required)
+
+**What:** two controls the product DESCRIBED but did not enforce. Found by
+the independent verification pass on 2026-11-15.
+
+1. **`encouragement_notes` INSERT really is parents-only.** The policy was
+   named `encouragement_notes_insert_parent` and its WITH CHECK was
+   `parent_id = auth.uid() AND is_family_member(family_code)` — "any approved
+   member of this family", which says nothing about being a parent. A sibling
+   player, or any approved joiner, could write a note the UI presents as
+   coming from a parent. Nobody noticed because the policy's NAME asserted
+   the rule its body did not implement, and both `CLAUDE.md` and the privacy
+   policy inherited the claim. `is_parent_member()` is not the fix either —
+   it returns true for any approved `parent_accounts` row regardless of
+   `profiles.role`. The new check requires both halves explicitly.
+2. **`birth_year` is required on a client profile INSERT.** 030 derives
+   `consent_status` from `birth_year`, and
+   `consent_required_for_birth_year(null)` is FALSE — so a profile INSERT
+   that simply OMITTED the field landed `not_required`, `account_active()`
+   returned true, and **the entire under-13 gate was skipped by leaving a
+   field out.** Verified on staging before writing the fix: the column is
+   nullable, its CHECK permits NULL, and the trigger's INSERT branch accepted
+   a row without it.
+
+**Apply:** `supabase/migrations/033_parent_notes_and_required_birth_year.sql`
+
+**Pre-flight:** none required. It constrains NEW client inserts only —
+existing rows with a NULL `birth_year` predate the column and are
+deliberately grandfathered (a NOT NULL would mean inventing a birth year).
+
+**Verify:** (a) as an approved PLAYER member, inserting an
+`encouragement_notes` row must be refused; (b) as an approved PARENT, it must
+still succeed; (c) a client profile INSERT with no `birth_year` must raise
+`23502`; (d) an under-13 birth year must still land `pending`. All four
+attack-tested on staging 2026-11-15.
+
+**Rollback:**
+```sql
+-- 1. restore the permissive note policy
+drop policy if exists "encouragement_notes_insert_parent" on public.encouragement_notes;
+create policy "encouragement_notes_insert_parent"
+on public.encouragement_notes for insert to authenticated
+with check (parent_id = (select auth.uid()) and public.is_family_member(family_code));
+-- 2. restore 032's version of protect_privileged_profile_columns() verbatim
+--    (i.e. the same body WITHOUT the `new.birth_year is null` branch)
+```
+**Risk: low, and strictly a tightening.** The service role is exempt via the
+trigger's first branch, so the Whop webhook and support tooling are
+unaffected. Every client signup path already sends `birth_year`
+(`components/auth/signup-flow.tsx`, the pre-auth form in
+`seeded-pre-auth-onboarding.tsx`, and `completeOAuthProfile` for Google).
+
+### Step 11 — migration 034 (rate limits enforced in the database)
+
+**What:** moves rate-limit ENFORCEMENT from our API routes into the tables
+themselves.
+
+**The gap it closes.** 028 put the counter in Postgres so it would survive
+multiple serverless instances — correct, and still only half the job. The
+limit was *consumed* by `lib/rate-limit.ts`, i.e. by our own routes. But
+`authenticated` holds table-level INSERT/UPDATE/DELETE, so a client with the
+same bearer token can POST straight to `/rest/v1/utr_entries` and never touch
+a route. **Every limit was advisory.** 024's comment already conceded this
+for `profiles`; it was true of every table.
+
+**Apply:** `supabase/migrations/034_enforce_rate_limits_in_database.sql`
+
+A BEFORE INSERT OR UPDATE OR DELETE trigger (`zz_rate_limit_<table>`) on 20
+tables, plus `rate_limit_for_bucket()` (the policy, in one place) and
+`peek_rate_limit()` (the same answer, spending nothing). The routes now PEEK
+rather than consume — if both counted, every API write would count twice and
+halve the real limit. The `zz_` prefix matters: triggers fire in name order
+and this must run AFTER the column-protection trigger on `profiles`, so a
+write that is going to be rejected as a privilege violation does not also
+spend the caller's budget.
+
+**Verify:** as a test user (NOT as `postgres`), 20 direct `utr_entries`
+inserts succeed and the 21st raises `53400`; a second user is unaffected at
+the first's ceiling; the service role is never limited. Attack-tested on
+staging 2026-11-15.
+
+⚠️ **The trap this hit, recorded so it is not repeated.** The first version
+exempted the service role with `current_user in ('postgres', 'service_role')`.
+The function is SECURITY DEFINER — it must be, to write `rate_limit_events`,
+which `authenticated` deliberately cannot touch — and **SECURITY DEFINER sets
+`current_user` to the function OWNER**. So the exemption matched every caller
+and the trigger silently limited nobody: all 25 attack writes succeeded. It
+now reads the JWT role claim instead. This is the mirror image of 032's trap,
+where an inline `exists(...)` in a SECURITY INVOKER trigger was filtered by
+RLS. Same lesson from the other side: know which user a function thinks it
+is, and never trust a guard you have not watched fail.
+
+**Rollback:**
+```sql
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'profiles','utr_entries','matches','coach_outreach','season_budgets',
+    'budget_expenses','training_plans','workout_sessions','exercises',
+    'session_exercises','saved_templates','daily_checkins',
+    'tournament_entries','cost_calculations','recruiting_checklist_items',
+    'user_settings','families','family_codes','encouragement_notes',
+    'parent_reports'
+  ] loop
+    execute format('drop trigger if exists %I on public.%I', 'zz_rate_limit_' || t, t);
+  end loop;
+end $$;
+drop function if exists public.enforce_write_rate_limit();
+drop function if exists public.peek_rate_limit(text);
+drop function if exists public.rate_limit_for_bucket(text);
+```
+⚠️ **Rolling 034 back requires rolling the code back too, or reverting
+`lib/rate-limit.ts` to call `consume_rate_limit`** — that file now calls
+`peek_rate_limit`, which this rollback drops, and it FAILS CLOSED. Dropping
+the function without the code change turns every rate-limited write into a
+429. 028's `consume_rate_limit` is untouched by 034 and still exists, so the
+revert is a one-line change back.
+
+**Risk: medium.** It is the only step that can refuse an ordinary user's
+write. The limits are generous (20/hour for UTR entries, 60/hour for
+profiles, 120/hour for training) and are per-user per-hour, but this is the
+step to watch after deploying.
+
+### Step 12 — the code (`v1` → `main`)
+Only after steps 1–11 are applied and verified.
 1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
 2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
 3. Merge. Vercel auto-deploys `main` to seededtennis.com.
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it. Of steps 1–9, all are backwards-compatible with the old
+roll back with it. Of steps 1–11, all are backwards-compatible with the old
 code **except two**, so if you roll the code back:
 - run 024's rollback SQL (the old code writes outreach at Family tier), and
 - leave 028 in place (the old code does not call the limiter at all).
-027, 029, 030 and 031 are safe to leave applied under the old code: it never
-reads another user's profile, never calls `delete_my_account()`, and has no
-account that is `pending` consent.
+027, 029, 030, 031, 032 and 033 are safe to leave applied under the old code:
+it never reads another user's profile, never calls `delete_my_account()`, has
+no account that is `pending` consent, and never inserts a profile carrying a
+taken family code. **034 is the exception** — see its own rollback note: the
+old code calls `consume_rate_limit`, which 034 leaves in place, so leaving
+034 applied is safe, but dropping it while the NEW code is live 429s every
+write.
 
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again

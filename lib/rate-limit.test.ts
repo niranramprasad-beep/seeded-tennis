@@ -16,8 +16,12 @@ import {
 // fast" on the user's FIRST request — correct, but a terrible way to find
 // out. So the lists are compared here instead.
 
+// 034 is the source of truth now: it moved the policy out of
+// consume_rate_limit's inlined CASE into rate_limit_for_bucket(), which the
+// peek, the consume and the per-table trigger all read. Three callers of one
+// CASE had to become a function, or the three would drift.
 const MIGRATION = readFileSync(
-  join(__dirname, "..", "supabase", "migrations", "028_api_rate_limits.sql"),
+  join(__dirname, "..", "supabase", "migrations", "034_enforce_rate_limits_in_database.sql"),
   "utf8"
 );
 
@@ -45,14 +49,40 @@ describe("the bucket list matches migration 028", () => {
     }
   });
 
-  it("has no SQL limit for a bucket no route uses", () => {
-    // A stale entry is harmless but means the policy no longer describes the
-    // product. Both directions, so the two lists cannot drift apart.
-    for (const bucket of bucketsDefinedInMigration().keys()) {
+  it("defines a limit for every bucket the per-table trigger can assign", () => {
+    // The other direction, and it changed in 034. The app's bucket list is
+    // now a SUBSET of the policy: the trigger assigns buckets for tables
+    // that have no route of their own (daily_checkins, families, …), so a
+    // policy entry with no matching route is expected rather than stale.
+    //
+    // What must hold is that every bucket the TRIGGER can produce has a
+    // number — otherwise a write to that table raises "No rate-limit bucket
+    // defined" at a real user.
+    const defined = bucketsDefinedInMigration();
+    const assigned = [...MIGRATION.matchAll(/when '[a-z_]+'\s+then '([a-z_]+)'/g)].map((m) => m[1]);
+    expect(assigned.length, "could not find the table -> bucket mapping").toBeGreaterThan(10);
+    for (const bucket of new Set(assigned)) {
       expect(
-        (RATE_LIMIT_BUCKETS as readonly string[]).includes(bucket),
-        `028_api_rate_limits.sql defines "${bucket}" but no route asks for it`
+        defined.has(bucket),
+        `the trigger assigns "${bucket}" but rate_limit_for_bucket() has no limit for it`
       ).toBe(true);
+    }
+  });
+
+  it("limits every table a client can write directly", () => {
+    // S-21: the whole point of 034. If a table is client-writable and has no
+    // trigger, PostgREST is an unlimited write endpoint for it.
+    // Parse the `targets constant text[] := array[ ... ]` block rather than
+    // line-by-line: the migration packs several table names per line, so a
+    // per-line regex silently matched almost nothing.
+    const block = MIGRATION.slice(
+      MIGRATION.indexOf("targets constant text[] := array["),
+      MIGRATION.indexOf("];", MIGRATION.indexOf("targets constant text[] := array["))
+    );
+    const attached = [...block.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+    expect(attached.length, "could not parse the trigger target list").toBeGreaterThan(15);
+    for (const table of ["profiles", "utr_entries", "matches", "coach_outreach", "user_settings"]) {
+      expect(attached, `${table} has no rate-limit trigger`).toContain(table);
     }
   });
 

@@ -87,7 +87,18 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const playerMember = members.find((m) => m.role === "player");
   const playerName = playerMember?.name || player.name || "your player";
   const firstName = playerName.split(" ")[0];
-  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+  // `playerMember?.currentUtr ?? player.currentUTR` looked harmless and was
+  // not: when the family has no approved PLAYER, `player` is the signed-in
+  // PARENT's own profile, whose current_utr is null in the database and whose
+  // Player mapping substitutes the `emptyPlayer` placeholder of 7
+  // (lib/auth.ts:455, lib/data/user.ts). /family rendered "7.0 UTR" for a
+  // rating that exists nowhere. Found while capturing the real screenshots
+  // for TASK B — the /dev/family-preview fixture had a UTR, so it hid this.
+  //
+  // Null now means "not tracked" and is rendered as those words. The `??`
+  // is gone on purpose: a player member with a null UTR must NOT fall
+  // through to the viewer's own number.
+  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
   const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
   const gender = playerMember?.gender ?? player.gender;
   // A parent's OWN profile has no target schools of its own — always prefer
@@ -103,7 +114,11 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const standing = gradeStandingName(grade);
   const seasonWord = currentSeason(now);
 
+  // With no UTR there is no trajectory to project and no fit to classify.
+  // Returning null here rather than substituting a number keeps the
+  // one-fit-path rule intact: classifySchoolFit is simply never called.
   const fitProjection = useMemo(() => {
+    if (currentUTR == null) return null;
     const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
     const utrHistory = real.length > 0 ? real : [{ date: now, utr: currentUTR }];
     return { utrHistory, graduationYear, gender, now };
@@ -111,10 +126,12 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
 
   const onTrackCount = useMemo(
     () =>
-      targetSchools.filter((s) => {
-        const fit = classifySchoolFit(currentUTR, s, fitProjection);
-        return fit !== "reach" && fit !== "out-of-range";
-      }).length,
+      currentUTR == null || fitProjection == null
+        ? 0
+        : targetSchools.filter((s) => {
+            const fit = classifySchoolFit(currentUTR, s, fitProjection);
+            return fit !== "reach" && fit !== "out-of-range";
+          }).length,
     [targetSchools, currentUTR, fitProjection]
   );
 
@@ -191,6 +208,20 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
     return <FamilyJoinPrompt onJoined={() => void refreshJoinState()} />;
   }
 
+  // A parent whose family has no approved PLAYER has no player data to show.
+  // Everything below this line reads the player's row; with no player member
+  // it read the PARENT's own row instead and presented it as the player's —
+  // "<parent's first name>'s recruiting", the parent's graduation_year as the
+  // class year, and the placeholder UTR. None of it was the player's and the
+  // UTR was nobody's.
+  //
+  // This is the ordinary under-13 path, where the parent creates the account
+  // first and the player joins after, so it is a first-run screen, not an
+  // edge case.
+  if (!playerMember && player.role !== "player") {
+    return <FamilyAwaitingPlayer familyCode={familyCode} />;
+  }
+
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -216,7 +247,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          value={formatUTR(currentUTR)}
+          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
           label={
             <>
               UTR
@@ -260,6 +291,47 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
       <Toast open={!!toast} onDismiss={() => setToast("")} variant="success">
         {toast || " "}
       </Toast>
+    </div>
+  );
+}
+
+/** /family with no readable player row. Shows the real state of the family —
+ * who is in it, who has asked to join, and the invite code — and deliberately
+ * shows no ratings, class year or targets, because there is no player data to
+ * base them on.
+ *
+ * The copy deliberately says "no player data to show" rather than "nobody has
+ * joined": an APPROVED joiner's profile is currently unreadable by the parent
+ * (their `profiles.family_code` stays NULL and `family_members_read` requires
+ * it to be non-null — see docs/TODO.md), so "nobody has joined" would be a
+ * false statement on a screen that is listing that very person under Family
+ * members. */
+function FamilyAwaitingPlayer({ familyCode }: { familyCode: string }) {
+  return (
+    <div className="mx-auto max-w-content container-px py-10">
+      <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">
+        Your family
+      </h1>
+      <p className="mt-1.5 max-w-prose text-stone">
+        No player data to show yet. Once a player&rsquo;s own account is linked
+        to this family, their UTR, results, target schools and season budget
+        show up here.
+      </p>
+
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+        <div className="rounded-xl border border-line bg-card p-5">
+          <p className="font-medium text-ink">Nothing to show yet</p>
+          <p className="mt-1.5 text-sm text-stone">
+            Seeded won&rsquo;t estimate a rating, a class year or a target list
+            for a player it hasn&rsquo;t met. Share your invite code and approve
+            the request, and this page fills in with their real numbers.
+          </p>
+        </div>
+        <div className="space-y-4">
+          <JoinRequestsCard />
+          <FamilyMembersCard familyCode={familyCode} />
+        </div>
+      </div>
     </div>
   );
 }

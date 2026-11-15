@@ -192,3 +192,68 @@ Specifically needs a human with legal training:
   `TESTFAMILYA`, left in place deliberately as seed data. `TESTFAMILYB` and
   three of those users were consumed by the deletion tests and are gone —
   that was the test.
+
+## A parent cannot read a JOINED player's profile or UTR history (found Night 2, TASK B)
+
+**This is a product bug, not a security hole — it denies access rather than
+granting it — but it is the reason `/family` looked like it worked.**
+
+What I found while taking the real `/family` screenshots: `/family` rendered
+
+    Robin's recruiting · Class of 2028 · Junior fall
+    7.0  UTR
+
+for a staging family whose parent had no UTR at all (`current_utr` is NULL
+in the database). The 7 came from the `emptyPlayer` placeholder via
+`playerMember?.currentUtr ?? player.currentUTR`, where `player` is the
+signed-in PARENT. That fallback is fixed (see the commit, and
+`lib/family-utr-honesty.test.ts`), and `/family` now says "Not tracked" and
+shows an explicit "no player has joined yet" state.
+
+**But the reason `playerMember` was undefined in the first place is the real
+bug, and it is not fixed:**
+
+- `join_family()` / `approve_family_join()` link the joiner through
+  `parent_accounts` and deliberately leave their `profiles.family_code` NULL.
+  Verified on staging after a real approval through the UI:
+  `profiles.family_code` = NULL, `parent_accounts.status` = 'approved'.
+- The `profiles` read policy is
+  `family_members_read: (family_code IS NOT NULL) AND is_family_member(family_code)`.
+  A NULL family_code can never satisfy it.
+- So **a parent can never read the profile of a player who JOINED** — only
+  of one whose own profile carries the family code (the account-holder path).
+- `utr_entries_select_family` has the same shape
+  (`EXISTS (... owner.family_code IS NOT NULL AND is_family_member(...))`),
+  so the joined player's UTR history is unreadable too.
+- `matches`, `coach_outreach` and `tournament_entries` carry their own
+  `family_code` column instead and do not have this problem — which is why
+  the feature looked half-alive.
+
+This means the ordinary flow — a parent creates the account, the player joins
+with the code — produces a `/family` page that can show none of the player's
+real numbers. Before tonight that emptiness was disguised as the parent's own
+placeholder data, which is why it was never noticed.
+
+`lib/legal/policy.ts` says "A parent who has been approved into a family can
+see the player's profile, UTR history, match results, tournaments, saved
+schools and outreach progress." That is the INTENDED behaviour and the
+permitted one; for a joined player it currently does not happen. It
+over-states access rather than under-stating it, so it is not a privacy
+problem, but it should be true before launch.
+
+**Why I did not fix it tonight:** the fix widens what one user may read about
+another. The candidate is to have `family_members()` (SECURITY DEFINER,
+already the roster source) also return the approved player's `current_utr`
+and `graduation_year`, and to give `utr_entries` a family-read path that goes
+through `parent_accounts` rather than `profiles.family_code`. Both change
+cross-user visibility for minors' data and deserve the same attack-test
+treatment as 027/030 — not a 1am change made by the person who found it.
+
+**Suggested fix, in order:** (1) decide whether the joiner's
+`profiles.family_code` should simply be set on approval, which would make
+every existing policy work unchanged and is by far the smallest change —
+check first why 023/026 deliberately left it NULL, because there may be a
+takeover reason (032 blocks claiming a taken code on INSERT, which suggests
+there is); (2) if it must stay NULL, widen `family_members()` and add a
+`parent_accounts`-based read path for `utr_entries`; (3) attack-test both
+directions — a non-member, and a PENDING member — before believing either.

@@ -232,3 +232,75 @@ second attempt teaches people to re-run rather than read the failure.
 
 **How to undo.** Restore the loop from git history — but if the build is
 flaking again, find out why first.
+
+## 2026-11-15 — `playwright-core` + axe as devDependencies, driving the installed Chrome
+
+**Decision.** Added `playwright-core@1.49.1`, `@axe-core/playwright@4.10.1`
+and `axe-core@4.10.2` as devDependencies, installed with
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` and pointed at the Chrome already on
+the machine (`channel: "chrome"`).
+
+**Why.** TASK B needs real `/family` screenshots taken through a real
+sign-in, and TASK D needs keyboard walkthroughs, axe runs and before/after
+mobile measurements. The in-app browser pane could not do it: it scales an
+emulated 1440px viewport into an ~800px pane and mis-composites
+`position: fixed` elements, which produced a screenshot showing the sidebar
+overlapping the page content when the DOM geometry proved there was no
+overlap (`aside` 0–232, `main` from 248). Evidence that is an artifact of
+the capture tool is worse than no evidence.
+
+**Cost checked, not assumed.** `npm audit --omit=dev` still reports **zero**
+production vulnerabilities after the install, so TASK A's result stands. No
+browser binaries were downloaded.
+
+**How to undo.** `npm uninstall -D playwright-core @axe-core/playwright
+axe-core`. Nothing in `app/`, `components/` or `lib/` imports them; the
+capture script lives in the session scratchpad, not in the repo.
+
+## 2026-11-15 — a null UTR renders "Not tracked"; `Player.currentUTR` keeps its type
+
+**Decision.** Made the *family* UTR path nullable
+(`FamilyMember.currentUtr`, `buildSeasonBudgetSummary`,
+`pendingSkipDecisions`) and had the four family views print "Not tracked".
+Left `Player.currentUTR: number` and its `emptyPlayer` placeholder of 7
+alone.
+
+**Why.** The bug was that `/family` showed "7.0 UTR" for an account whose
+`current_utr` is NULL — the placeholder leaking onto a screen through
+`playerMember?.currentUtr ?? player.currentUTR`. The root-cause fix in the
+purest sense is `Player.currentUTR: number | null`, but that type has **79
+read sites across 26 files**, most of them inside fit maths that CLAUDE.md
+specifically warns must never receive a non-number
+("Never pass `undefined` as the projection to `classifySchoolFit`"). A
+79-site type change through the fit engine, at 1am, with the launch
+rehearsal still ahead, trades a contained honesty bug for an uncontained
+correctness risk.
+
+The nullable boundary is drawn exactly where the unknown value enters a
+screen. `classifySchoolFit` is never called with a substituted number — the
+projection is null and the section is skipped.
+
+**How to undo.** Revert the commit. **What to do instead, properly:** make
+`Player.currentUTR` nullable and let the compiler find all 79, with the fit
+engine's own null handling (`lib/fit.ts:94` already returns null for a null
+UTR) as the pattern. That is a focused piece of work, not a 1am one.
+
+## 2026-11-15 — did NOT widen cross-user reads to fix the joined-player gap
+
+**Decision.** Found that a parent cannot read an approved joined player's
+profile or UTR history at all (their `profiles.family_code` stays NULL and
+both read policies require it non-null). Wrote it up in `docs/TODO.md` with
+the evidence and three candidate fixes; did not change any policy.
+
+**Why.** Every candidate fix widens what one user may read about another
+user who is a minor. 027 and 030 each took a full attack-test pass in both
+directions before being believed, and the same is owed here. It is also not
+obviously a bug rather than a deliberate choice — 032 exists precisely
+because claiming a family code is a takeover vector, so there may be a
+reason 023/026 left the joiner's `family_code` NULL. Finding out is step one
+of the fix, and it is a reading task, not a typing task.
+
+It denies access rather than granting it, so nothing is exposed by waiting.
+
+**How to undo.** Nothing to undo — no change was made. The write-up is at
+the end of `docs/TODO.md`.

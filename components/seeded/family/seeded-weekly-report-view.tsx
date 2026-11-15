@@ -61,7 +61,12 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   const playerMember = members.find((m) => m.role === "player");
   const playerName = playerMember?.name || player.name || "your player";
   const firstName = playerName.split(" ")[0];
-  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+  // Same correction as seeded-family-overview.tsx: a `??` here let a player
+  // row with no UTR, or a family with no approved player at all, fall
+  // through to the signed-in PARENT's own profile, whose UTR is the
+  // `emptyPlayer` placeholder rather than any real rating. Null means "not
+  // tracked" and is rendered as those words.
+  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
 
   const weekDelta = useMemo(() => {
     if (!utrEntries) return null;
@@ -120,7 +125,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ReportTile
-          value={formatUTR(currentUTR)}
+          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
           label={
             weekDelta
               ? `UTR · ${weekDelta.delta >= 0 ? "+" : ""}${weekDelta.delta.toFixed(2)} this week`

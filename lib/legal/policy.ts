@@ -49,10 +49,11 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
   {
     id: "minors",
     title: "If you are under 18",
-    source: "migration 030_under13_parent_consent.sql; migration 027 (profiles_discovery_read dropped)",
+    source:
+      "supabase/migrations/030_under13_parent_consent.sql; supabase/migrations/027_narrow_profile_reads_and_rpc_grants.sql; supabase/migrations/033_parent_notes_and_required_birth_year.sql (birth year required)",
     body: [
       "Most people using Seeded are between 13 and 18. Nothing you put in Seeded is visible to other users — there is no public profile, no directory, no search for other players, and no way for a signed-in stranger to look you up. The only people who can see your information are the members of your own family who you or another approved member have approved.",
-      "If you are under 13, your account is created but does nothing at all until a parent or guardian approves it. You cannot see schools, save anything, or build a plan before then. That is enforced by the database, not by hiding buttons.",
+      "If you are under 13, your account is created but does nothing at all until a parent or guardian approves it. You cannot see schools, save anything, or build a plan before then. That is enforced by the database, not by hiding buttons — and the account cannot be created at all without a birth year, so the check cannot be skipped by leaving it blank.",
       "Seeded cannot verify that anyone is an adult or that they are your parent. When someone approves an under-13 account, they are stating it. We record who approved it and when.",
     ],
   },
@@ -65,10 +66,11 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // wrong: encouragement_notes_insert_parent lets an approved member write
     // a note. Naming the two writes is the honest version.
     source:
-      "supabase/migrations/023_family_join_rpc.sql (is_family_member); season_budgets + budget_expenses write policies; encouragement_notes_insert_parent",
+      "supabase/migrations/023_family_join_rpc.sql (is_family_member); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent)",
     body: [
       "A parent who has been approved into a family can see the player's profile, UTR history, match results, tournaments, saved schools and outreach progress.",
       "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf.",
+      "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",
     ],
   },

@@ -108,12 +108,15 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   Enforced at the RLS layer.
   Corrected 2026-11-15 — this said "read-only except the season budget",
   which omitted `encouragement_notes_insert_parent` and made the privacy
-  policy wrong for a while. Two related notes: that policy's WITH CHECK is
-  `is_family_member(family_code)`, so despite the name **any approved member
-  can write a note, not only a parent**; and `is_parent_member()` likewise
-  grants budget writes to any approved joiner regardless of `role`. The
-  trust model inside an approved family is flatter than this bullet implies.
-  Check `pg_policies`, not this file, before relying on it.
+  policy wrong for a while.
+  That policy's WITH CHECK was `is_family_member(family_code)` — "any
+  approved member", despite the name — so a sibling player could write a
+  note the UI presents as from a parent. **Fixed in migration 033**: the
+  writer's own `profiles.role` must be `'parent'` AND they must be an
+  approved member. Attack-tested both ways on staging.
+  Still true and still flatter than it sounds: `is_parent_member()` grants
+  budget writes to any approved joiner regardless of `role`. Check
+  `pg_policies`, not this file, before relying on it.
 - **Under-13 → a parent creates the account**, checked at onboarding.
 - **The mockups are the source of truth for UI.** Match them exactly;
   flag anything that looks wrong instead of silently "improving" it.

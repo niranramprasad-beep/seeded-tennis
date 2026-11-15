@@ -34,7 +34,11 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
 
   const playerMember = members.find((m) => m.role === "player");
-  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+  // See seeded-family-overview.tsx. The `??` borrowed the signed-in
+  // parent's placeholder UTR, which here decided each entered tournament's
+  // fit chip — "bad fit" verdicts computed from a rating nobody entered.
+  // buildSeasonBudgetSummary now takes null and omits the verdict instead.
+  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
   const seasonLabel = seasonBudget?.seasonLabel ?? seasonTitle(now);
   const totalBudget = seasonBudget?.totalBudget ?? 0;
 

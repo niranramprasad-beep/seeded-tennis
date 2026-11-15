@@ -65,7 +65,13 @@ function entryLabel(entry: TournamentEntry): string {
 
 export function buildSeasonBudgetSummary(args: {
   totalBudget: number;
-  playerUtr: number;
+  /** NULL when the player has no recorded UTR. Every fit verdict below is
+   * computed FROM the UTR, so without one there is no honest verdict to
+   * show: the line item falls back to its plain "entries" category chip and
+   * the bad-fit rollup stays at zero. Previously /family passed a
+   * placeholder number, which produced real-looking "bad fit" chips for a
+   * rating nobody had entered. */
+  playerUtr: number | null;
   entries: TournamentEntry[];
   expenses: BudgetExpense[];
 }): SeasonBudgetSummary {
@@ -78,17 +84,20 @@ export function buildSeasonBudgetSummary(args: {
 
   for (const entry of entries) {
     if (entry.status !== "entered") continue;
-    const fit = evaluateTournamentFit({
-      name: entry.name,
-      level: entry.level,
-      playerUtr,
-      goalUtr: entry.goalUtr,
-      drawUtr: entry.drawUtr,
-      travelHours: entry.travelHours,
-      distanceMiles: entry.distanceMiles,
-      entryCost: entry.entryCost,
-      travelCost: entry.travelCost,
-    });
+    const fit =
+      playerUtr == null
+        ? null
+        : evaluateTournamentFit({
+            name: entry.name,
+            level: entry.level,
+            playerUtr,
+            goalUtr: entry.goalUtr,
+            drawUtr: entry.drawUtr,
+            travelHours: entry.travelHours,
+            distanceMiles: entry.distanceMiles,
+            entryCost: entry.entryCost,
+            travelCost: entry.travelCost,
+          });
     entriesSpent += Math.max(0, entry.entryCost ?? 0);
     travelSpent += Math.max(0, entry.travelCost ?? 0);
     lineItems.push({
@@ -96,7 +105,7 @@ export function buildSeasonBudgetSummary(args: {
       date: entry.eventDate,
       label: entryLabel(entry),
       cost: entryTotalCost(entry),
-      chip: fit.verdict,
+      chip: fit ? fit.verdict : "entries",
     });
   }
 
@@ -122,6 +131,7 @@ export function buildSeasonBudgetSummary(args: {
   let skippedBadFitSaved = 0;
   for (const entry of entries) {
     if (entry.status === "entered") continue;
+    if (playerUtr == null) continue;
     const fit = evaluateTournamentFit({
       name: entry.name,
       level: entry.level,
@@ -165,7 +175,11 @@ export interface PendingSkipDecision {
  * event instead of just the rollup. There is no real "coach invited to a
  * camp" signal anywhere in this app (no camp-invite data model exists), so
  * this is the only real decision type that card shows. */
-export function pendingSkipDecisions(entries: TournamentEntry[], playerUtr: number): PendingSkipDecision[] {
+export function pendingSkipDecisions(
+  entries: TournamentEntry[],
+  playerUtr: number | null
+): PendingSkipDecision[] {
+  if (playerUtr == null) return [];
   return entries
     .filter((e) => e.status !== "entered")
     .map((entry) => {

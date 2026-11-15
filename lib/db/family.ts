@@ -36,7 +36,11 @@ export interface FamilyMember {
   name: string;
   email: string;
   role: "player" | "parent";
-  currentUtr: number;
+  /** NULL when the member has never recorded a UTR. It is deliberately
+   * nullable: the old `Number(row.current_utr ?? 0)` turned "unknown" into
+   * a confident 0.0 on /family, and a parent row (which never has a UTR)
+   * always reads null. "Not tracked" is the honest render. */
+  currentUtr: number | null;
   graduationYear: number | null;
   onboarded: boolean;
   // Additive (/family's Seeded rebuild needs these). A parent's OWN
@@ -70,7 +74,7 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
     name: row.name ?? "Family member",
     email: row.email ?? "",
     role: (row.role ?? "player") as "player" | "parent",
-    currentUtr: Number(row.current_utr ?? 0),
+    currentUtr: row.current_utr == null ? null : Number(row.current_utr),
     graduationYear: resolveGraduationYear(row),
     onboarded: Boolean(row.onboarded),
     targetSchoolSlugs: row.target_school_slugs ?? [],

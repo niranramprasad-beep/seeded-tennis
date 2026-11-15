@@ -1077,6 +1077,9 @@ export type Database = {
         Returns: boolean
       }
       consume_rate_limit: { Args: { p_bucket: string }; Returns: Json }
+      peek_rate_limit: { Args: { p_bucket: string }; Returns: Json }
+      rate_limit_for_bucket: { Args: { p_bucket: string }; Returns: number }
+      family_code_is_taken: { Args: { p_code: string }; Returns: boolean }
       current_family_code: { Args: never; Returns: string }
       delete_my_account: { Args: never; Returns: Json }
       grant_parent_consent: { Args: { p_user_id: string }; Returns: Json }

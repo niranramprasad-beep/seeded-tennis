@@ -799,3 +799,120 @@ leakage, and the CSP.
 **Advisors on staging: no new warning categories.** The SECURITY DEFINER
 count moved 17 → 18 and the eighteenth is the reviewer's own
 `family_code_is_taken()`.
+
+---
+
+# NIGHT 2 — 2026-11-15
+
+## TASK A — Next.js security upgrade: **DONE** (committed `2ae5f8c`)
+
+Full reasoning is in that commit message and `docs/DECISIONS.md`. Summary:
+next 14.2.35 → **15.5.29**, which clears every critical and high `next`
+advisory; postcss pinned to 8.5.x through an `overrides` entry to clear the
+two highs next bundles. **Production dependencies: 29 advisories → zero.**
+What remains (12) is dev-only — vitest, vite, tinypool, brace-expansion —
+and none of it ships. One breaking change bit: `params` is a Promise in
+Next 15, so `app/schools/[slug]/page.tsx` awaits it.
+
+Evidence: three consecutive clean production builds, all 34 routes
+smoke-tested for non-200s (zero), console clean apart from the Vercel
+Analytics 404s that only occur under a local `next start`.
+
+## TASK B — closing the PARTIALs from docs/VERIFICATION.md: **DONE**
+
+| # | Item | Result | Evidence |
+|---|---|---|---|
+| B-1 | `birth_year` required on a client profile INSERT | **PASS** | 033; a client INSERT omitting it raises `23502`. The under-13 gate could previously be skipped by leaving the field out. |
+| B-2 | Under-13 account still lands `pending` | **PASS** | Attack-tested on staging; `account_active()` false, all 21 restrictive policies deny. |
+| B-3 | A player member cannot write an encouragement note | **PASS** | 033; the old policy's WITH CHECK said `is_family_member(...)` — "any approved member" — despite being named `..._insert_parent`. Now the writer's own `profiles.role` must be `'parent'`. |
+| B-4 | An approved parent still can | **PASS** | Same migration, happy path on staging. |
+| B-5 | Rate limits enforced in the DATABASE, not the route | **PASS** | 034; a BEFORE INSERT/UPDATE/DELETE trigger on 20 tables. Direct PostgREST writes that bypass every API route are now limited. |
+| B-6 | The limit is the limit | **PASS** | Exactly 20 direct `utr_entries` writes allowed, the 21st raises `53400`. |
+| B-7 | One user's limit does not affect another | **PASS** | Second staging user unaffected at the first's ceiling. |
+| B-8 | Real `/family` screenshots, not `/dev/family-preview` | **PASS — and it found a bug** | See below. `docs/screenshots/taskB-family-real-{desktop,mobile}.png`, captured through a real sign-in as a staging parent against staging data. |
+
+### B-8 found a fabricated number on a live screen
+
+The whole point of banning the `/dev/family-preview` fixture was that a
+fixture agrees with whatever you believe. The first real capture showed:
+
+    Robin's recruiting · Class of 2028 · Junior fall
+    7.0  UTR
+
+for a parent account whose `current_utr` is **NULL in the database**. The
+7 is the `emptyPlayer` placeholder (`lib/data/user.ts`, `lib/auth.ts:455`),
+reached through
+
+    const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+
+where `player` is the signed-in PARENT. The class year was the parent's own
+`graduation_year`. None of it was any player's data, and the UTR was
+nobody's. That is the first non-negotiable rule in CLAUDE.md, on a launch
+screen, shipped.
+
+**Fixed, at the source rather than the pixel:**
+
+- `lib/db/family.ts` — `FamilyMember.currentUtr` is `number | null`. It was
+  `Number(row.current_utr ?? 0)`, which turned "unknown" into a confident
+  0.0 for any member without a rating.
+- `lib/family-budget.ts` — `buildSeasonBudgetSummary` and
+  `pendingSkipDecisions` take `number | null`. Both compute tournament fit
+  verdicts FROM the UTR, so a placeholder produced real-looking "bad fit"
+  chips for a rating nobody entered. With null they omit the verdict.
+- Four view files lose the `??` fallback and print **"Not tracked"**:
+  `seeded-family-overview`, `seeded-family-budget-view`,
+  `seeded-weekly-report-view`, and the legacy `parent-dashboard-view`
+  (still reachable from the footer and Settings → Appearance).
+- `/family` gains an explicit **"Your family — no player has joined yet"**
+  state instead of rendering the parent's own row as the player's. This is
+  the ordinary under-13 path, where the parent creates the account first,
+  so it is a first-run screen rather than an edge case.
+- `classifySchoolFit` is never called with a substituted number — the
+  projection is null and the fit section is skipped, keeping the
+  one-fit-path rule intact.
+
+**`lib/family-utr-honesty.test.ts`** guards it, and the guard was wrong
+twice before it was right:
+
+1. First version used `\s` in a `git grep -E` pattern. `git grep -E` is
+   POSIX ERE, where `\s` matches **nothing** — the search silently returned
+   no hits and the test passed happily with the bug reintroduced.
+2. Fixing the regex immediately exposed a **fourth** offending file I had
+   not fixed (`seeded-family-budget-view.tsx`).
+3. The second version anchored on `^[^:]*:[0-9]+:`, git grep's output
+   prefix, which never matches file content — vacuous again.
+
+It is now mutation-tested: reintroducing the bug in each of the four files
+is caught in each of the four. **This is the third time this run that I
+wrote a test that asserted nothing and only found out by deliberately
+breaking the code. Mutation-test the guard, every time.**
+
+### What B-8 did NOT fix — read this
+
+Chasing why `playerMember` was undefined turned up a real product bug that
+is **not** fixed and is written up in full in `docs/TODO.md`:
+
+**A parent cannot read a JOINED player's profile or UTR history at all.**
+`approve_family_join()` leaves the joiner's `profiles.family_code` NULL
+(verified on staging after approving through the real UI), and both
+`family_members_read` and `utr_entries_select_family` require
+`family_code IS NOT NULL`. So the ordinary flow — parent creates the
+account, player joins with the code — yields a `/family` page that can show
+none of the player's real numbers. Before tonight that emptiness was
+disguised as the parent's placeholder data, which is exactly why nobody
+noticed.
+
+It denies access rather than granting it, so it is not a security hole. I
+did not fix it because the fix widens what one user may read about another
+minor, and that deserves the same attack-test treatment as 027/030 rather
+than a 1am change by the person who found it. TODO.md has the three
+candidate fixes in order, starting with the cheapest (find out why 023/026
+deliberately left `family_code` NULL — 032 suggests there is a takeover
+reason).
+
+### Verification
+
+`rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run` —
+tsc clean, lint clean, **580 tests** (574 + the 6 new honesty tests), production build passes.
+Migrations 033 + 034 are applied to **staging only**; rollback steps are
+`docs/HANDOFF.md` §J steps 10 and 11.

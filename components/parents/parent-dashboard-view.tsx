@@ -80,7 +80,11 @@ function LegacyParentDashboard() {
   const playerMember = members.find((m) => m.role === "player");
   const playerName = playerMember?.name ?? player.name ?? "your player";
   const firstName = playerName.split(" ")[0];
-  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
+  // See seeded-family-overview.tsx for the full note: the `??` fell through
+  // to the signed-in parent's own placeholder UTR. The legacy design is
+  // still reachable (footer + Settings → Appearance), so it gets the same
+  // honest "Not tracked".
+  const currentUTR: number | null = playerMember ? playerMember.currentUtr : player.currentUTR;
   const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
   const grade = getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;
@@ -112,7 +116,11 @@ function LegacyParentDashboard() {
 
       {/* stat tiles */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="Current UTR" value={formatUTR(currentUTR)} />
+        <StatTile
+          icon={TrendingUp}
+          label="Current UTR"
+          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
+        />
         <StatTile icon={GraduationCap} label="Grade" value={`${grade}th`} />
         <StatTile icon={CalendarDays} label="Check-ins" value={String(checkins.length)} />
         <StatTile icon={Trophy} label="Matches logged" value={String(completedMatches)} />
