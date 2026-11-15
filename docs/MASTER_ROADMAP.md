@@ -55,7 +55,20 @@ guards added this session only protect the product if someone runs them.
 
 ## Current production-readiness score
 
-**79 / 100** (31 at the 2026-11-10 audit, 52 and 68 earlier on 2026-11-14)
+**84 / 100** (31 at the 2026-11-10 audit; 52, 68 and 79 on 2026-11-14)
+
+Night 2 (2026-11-15) moved it from 79: production dependency vulnerabilities
+are at zero (Next 15.5.29), rate limits are enforced by the database rather
+than by our routes, two controls the product described but did not enforce
+are now real (parent-only notes, required birth year), the rollout plan has
+been rehearsed end to end and four defects in its rollbacks fixed, and the
+launch pages went from 202 accessibility violations to zero with Lighthouse
+accessibility and SEO at 100.
+
+It is not higher because the three things that actually gate launch are
+unchanged: **nothing is on production yet**, the privacy policy still needs
+an adult or lawyer to review it, and a parent still cannot read a joined
+player's data (see "Found Night 2" below).
 
 Closed since: P0-3, P0-4, P0-6 (staging exists AND Preview/Development now
 point at it), P0-7, P1-SEC-1, P1-SEC-5, P1-FIT-1, P1-FIT-2, P1-FIT-4,
@@ -64,9 +77,32 @@ P1-OPS-1 (CI + branch protection), P1-OPS-3 (migration drift), P1-SEC-2
 app code can reach.
 
 **Everything database-side is written, applied and attack-tested on
-staging, and none of it is on production.** Eleven migrations are queued
-behind one word from Niran. P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
+staging, and none of it is on production.** **Thirteen** migrations are now
+queued behind one word from Niran (025, 022, 023, 026, 024, 027, 028, 029,
+030, 031, 032, 033, 034). P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
 count as fixed only once they ship.
+
+The whole sequence was **rehearsed end to end on 2026-11-15** against a
+database rolled back to production's exact 23-migration shape and seeded
+with prod-shaped data: 218 ms of database time, every pre-flight and verify
+passing, and four defects found and fixed in the ROLLBACK half of the plan
+(one of which meant the highest-risk step's rollback had never been able to
+run at all). See `docs/HANDOFF.md` §J.
+
+### Found Night 2, open, and not Claude's to close alone
+
+- **A parent cannot read a JOINED player's profile or UTR history.**
+  `approve_family_join()` leaves the joiner's `profiles.family_code` NULL,
+  and both `family_members_read` and `utr_entries_select_family` require it
+  to be non-null. The ordinary flow — parent creates the account, player
+  joins with the code — therefore yields a `/family` page that can show none
+  of the player's real numbers. It denies access rather than granting it, so
+  nothing is exposed by waiting, but every candidate fix widens what one
+  user may read about another minor and deserves the same attack-test pass
+  as 027/030. Full write-up and three candidate fixes in `docs/TODO.md`.
+- **`/sample-report` reports no First Contentful Paint**, so Lighthouse and
+  PageSpeed score it 0 even though the page renders correctly. A measurement
+  anomaly on a marketing page, with a bisect plan in `docs/TODO.md`.
 
 What is genuinely left after the rollout is small and specific: a privacy
 policy an adult has to write (P0-8's other half), two Supabase Auth
@@ -620,13 +656,37 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 - [ ] P1-UX-1…4 and all P2 visual items above.
 
 ## Performance tasks
-- [ ] Measure first: run Lighthouse on `/`, `/schools`, `/schools/[slug]` on a production build. The catalog ships as a TS module to the client; after P1-DATA-1, page it from the DB. No other bottleneck was observed at current scale (8 profiles).
+- [x] **2026-11-15: measured.** Lighthouse mobile on a production build:
+  performance 73–81, limited by LCP (5.1–6.0 s simulated, 4× CPU throttle).
+  TBT 0–10 ms and CLS ≤ 0.09, so the pages are not janky — just slow to
+  paint the largest element. Not optimised: a local `next start` is the
+  wrong thing to tune against; measure the real deployment next.
+- [ ] `/sample-report` reports no FCP at all, so Lighthouse scores it 0 —
+  a measurement anomaly, not a broken page. Bisect plan in `docs/TODO.md`.
+- [ ] The catalog still ships as a TS module to the client; after P1-DATA-1, page it from the DB. The catalog ships as a TS module to the client; after P1-DATA-1, page it from the DB. No other bottleneck was observed at current scale (8 profiles).
 
 ## Accessibility tasks
-- [ ] Visible labels on login inputs. [ ] FAQ and row-control touch targets ≥ 24px. [ ] Compare checkbox contrast. [ ] Chart text alternatives (summary sentence already present — keep it). [ ] Keyboard pass on what-if slider and calendar drag. [ ] `prefers-reduced-motion` for Reveal animations.
+- [x] **2026-11-15: 202 axe violations → 0** across 10 pages at 375px and
+  1440px, and Lighthouse mobile accessibility is 100 on every scoreable
+  page. Fixed: the `--c-stone-light` contrast token (127 nodes), the
+  `/schools` row's nested interactive controls (74), the unfocusable
+  `/pricing` table scroller, and the footer's h4 headings (heading-order).
+  332 focusable elements checked — all have a visible focus ring.
+- [ ] Still open: FAQ and row-control touch targets ≥ 24px. [ ] Keyboard
+  pass on the what-if slider and calendar drag (neither is on the 10 pages
+  audited). [ ] Chart text alternatives (summary sentence already present —
+  keep it).
 
 ## SEO tasks
-- See SEO_CHECKLIST.md.
+- [x] **2026-11-15:** every public page now has a unique title, description
+  and canonical (6 of 10 had no canonical; `/pricing`, `/schools` and all 37
+  school pages shared the site-wide default title). Lighthouse SEO 100.
+  robots.txt was disallowing the superseded routes (`/dashboard`,
+  `/roadmap`, `/coaches`) while the live gated ones (`/today`, `/plan`,
+  `/outreach`, `/events`) were crawlable — now derived from
+  `lib/seo/private-routes.ts` with a test that walks the app directory. The
+  sitemap was missing the privacy policy.
+- See SEO_CHECKLIST.md for the rest.
 
 ## AI tasks
 - [x] P1-SEC-1 — copilot removed. **V1 now ships no AI feature at all.**
@@ -677,14 +737,23 @@ usefully first.
    new safety net useless if production shares it. Nothing else on this list
    matters as much as a customer paying and getting nothing.
 
-1. **Run the production rollout** (HANDOFF §J). Eleven migrations in order:
-   025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031, then revert
-   the maintenance commit and merge `v1`. Every step has its own verify and
-   rollback. The gates that used to block this — branch protection,
-   Preview/Development on staging, credentials — are all done.
+1. **Run the production rollout** (HANDOFF §J). **Thirteen** migrations in
+   order: 025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032
+   → 033 → 034, then revert the maintenance commit and merge `v1`. Every
+   step has its own verify and rollback. The gates that used to block this
+   — branch protection, Preview/Development on staging, credentials — are
+   all done.
+   **The whole sequence was rehearsed on 2026-11-15** against a database
+   rolled back to production's shape: 218 ms of database time, every
+   pre-flight passing, and four defects fixed in the rollback half.
    **Highest-risk step is 8** (030 + 031): a restrictive policy on 21
    tables. Do not skip its pre-flight check that every existing row is
-   `consent_status = 'not_required'`.
+   `consent_status = 'not_required'`. **Step 11 (034) is the only step that
+   can refuse an ordinary user's write** — watch it after deploying.
+   **Before running any verify step, read §J's note on `set local role
+   authenticated`**: in the SQL editor you are `postgres`, `postgres`
+   bypasses RLS, and a verify run without the role switch passes no matter
+   what the policies say.
 2. **The people who asked to be deleted under the old flow.** Query in
    HANDOFF §J step 7. 029 does not action them; they are owed a real
    deletion by hand, with their confirmation. Do this deliberately and
@@ -698,6 +767,12 @@ usefully first.
    them to a parent, names the processors and states retention is not, and
    needs an adult or a lawyer. This is the last thing standing between the
    product and being honest with the people whose children use it.
+4b. **A parent cannot read a joined player's data** (found Night 2). The
+   ordinary family flow produces a `/family` page with none of the player's
+   real numbers. Not a leak — the opposite — but it makes the parent view
+   hollow for most families. Three candidate fixes, cheapest first, in
+   `docs/TODO.md`; all of them widen cross-user reads for minors, so each
+   needs the 027/030 attack-test treatment before it ships.
 5. **P1-DATA-1 — real roster import** (migration 012, reserved). Now the
    single highest-value task, and P1-FIT-4 made the case sharper rather
    than softer: a 3.0 visitor correctly sees zero programs in range, which
