@@ -278,4 +278,81 @@ reading it directly. Recorded so nobody chases it again.
 
 ---
 
-## TASK 3 — Fit report trajectory: *in progress*
+## TASK 3 — Fit report trajectory: **DONE**
+
+### The headline number
+
+Class of 2031, UTR 9.0, women's — the case the brief names:
+
+| | programs in range (likely + target) |
+|---|---|
+| **Today** | **8** |
+| **By junior year (2029)** | **31** |
+
+Bands today read Reach 23 · Target 8 · Likely 0. It was never "all reaches"
+after P1-FIT-4, but 8 of 31 were missing, because the report was answering
+"where are you now?" to a 13-year-old when the question is "where will you be
+when coaches look?".
+
+Screenshot: `docs/screenshots/task3-trajectory-2031-utr9.jpg`.
+
+### Deterministic, and it says so
+
+`lib/fit.ts` — current UTR, a grade, three constants. Same inputs, same
+answer, checkable with a pen. **No model produces any number.** A model may
+write a sentence about them; it may not produce one.
+
+`lib/config/growth.ts` is the only place growth assumptions live, and its
+header says in as many words that they are assumptions and not data —
+Seeded has no longitudinal UTR dataset, and presenting a guess as a forecast
+would be the invented-coach-emails failure (P0-3) in a shape that is harder
+to notice. Slow/normal/fast are the ends and midpoint of
+`REALISTIC_UTR_IMPROVEMENT_PER_YEAR` (0.5–1.5/yr), the band the methodology
+page, the what-if slider and the pace warning already use — one band, not a
+second opinion.
+
+The UI never shows a projected number alone: an **Estimate** chip, "Assumes
+typical growth of 1.0 UTR per year", and "Seeded has no growth data for
+junior players yet, so this is an assumption, not a forecast."
+
+Plus the line the brief asks for, verbatim, from one constant: *"Recruiting
+usually happens junior year — this shows where you're headed, not just where
+you are."*
+
+### The two rules that make it honest
+
+- **A junior or senior gets their current rating back at every pace.** They
+  are being recruited now; projecting growth onto them would invent a better
+  player than the one coaches are looking at, in the months when that matters
+  most. The panel says so instead of showing a forecast.
+- **No UTR produces `null`, not a default.** There is no honest projection
+  from a number we do not have, and a caller that forgets to handle it breaks
+  loudly rather than rendering a guess. The panel shows "No rating yet — we
+  won't guess one for you."
+
+Projections are also capped at the per-gender realistic ceiling, and say so
+("capped at the top of college tennis") rather than showing a suspiciously
+round number with no explanation.
+
+### Tests: 533 → 553
+
+`lib/fit.test.ts`, 20 cases, every date injected. Covers each case the brief
+names: Class of 2031 UTR 9, 2027 UTR 11 (senior), 2028 UTR 6, a current
+junior, missing UTR, out-of-range UTR — plus determinism and one-decimal
+rounding (UTR publishes two; a projection carrying two implies precision the
+assumption does not have).
+
+**A correction worth recording:** my first draft of this test file guessed
+the grade arithmetic and was a year out on every case — at the pinned date
+the school year is 2027, so Class of 2028 is a **junior**, not a sophomore.
+The brief's "Class of 2028, UTR 6" and "a current junior" are the same
+player. Fixed by reading `getCurrentGrade` rather than reasoning about it,
+and the file now lists the grades at the top.
+
+### Verification
+
+`tsc` clean · `lint` clean · **553 tests pass** · production build passes.
+
+---
+
+## TASK 4 — Privacy policy + terms: *in progress*

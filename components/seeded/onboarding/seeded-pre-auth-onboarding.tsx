@@ -12,6 +12,13 @@ import { signUp, signInWithGoogle } from "@/lib/auth";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { parentConsentRequired } from "@/lib/config/consent";
+import { countBands, projectUtrAtRecruiting } from "@/lib/fit";
+import {
+  GROWTH_ESTIMATE_CAPTION,
+  GROWTH_ESTIMATE_CHIP,
+  RECRUITING_TIMING_NOTE,
+  growthAssumptionLabel,
+} from "@/lib/config/growth";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip } from "@/components/seeded/ui/data-chip";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -58,6 +65,26 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
   const counts = useMemo(
     () => countSchoolFits(utrNum, filtered, projection),
     [utrNum, filtered, projection]
+  );
+
+  // TASK 3. Where this player is headed by the time coaches actually look.
+  // Deterministic — lib/fit.ts, three constants, no model. Null when the
+  // visitor has not given a UTR, which the panel below renders as an empty
+  // state rather than a guess.
+  const trajectory = useMemo(
+    () =>
+      projectUtrAtRecruiting({
+        currentUtr: utrNum > 0 ? utrNum : null,
+        graduationYear: gradYear,
+        gender: gender === "women" ? "female" : "male",
+      }),
+    [utrNum, gradYear, gender]
+  );
+
+  const bandsToday = useMemo(() => countBands(filtered, utrNum), [filtered, utrNum]);
+  const bandsAtRecruiting = useMemo(
+    () => (trajectory ? countBands(filtered, trajectory.normal) : null),
+    [filtered, trajectory]
   );
   // Programs in at least one of the three in-range bands. NOT the catalog
   // size: before P1-FIT-4 every below-floor school counted as Reach, so the
@@ -121,6 +148,67 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
             Sorted by how well your rating, graduating seniors and academics
             line up. Bands update every time you log a result.
           </p>
+
+          {/* TASK 3: where you're headed, not just where you are. */}
+          <section
+            aria-label="Projected rating at recruiting time"
+            className="mt-5 rounded-xl border border-line bg-card p-5"
+          >
+            {!trajectory ? (
+              <>
+                <p className="font-semibold text-ink">No rating yet</p>
+                <p className="mt-1 text-sm text-stone">
+                  Add your UTR above and we&rsquo;ll show where you&rsquo;re headed by junior
+                  year. We won&rsquo;t guess one for you.
+                </p>
+              </>
+            ) : trajectory.isAtOrPastRecruiting ? (
+              <>
+                <p className="font-semibold text-ink">
+                  You&rsquo;re being recruited now, at {utrNum.toFixed(1)}.
+                </p>
+                <p className="mt-1 text-sm text-stone">
+                  The bands below use your rating today — no projected growth, because
+                  coaches are looking at this season.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <span className="text-sm text-stone">By junior year ({trajectory.recruitingYear})</span>
+                  <span className="font-mono text-[28px] font-semibold leading-none tabular-nums text-ink">
+                    {trajectory.normal.toFixed(1)}
+                  </span>
+                  <span className="rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
+                    {GROWTH_ESTIMATE_CHIP}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm text-stone">
+                  Slower {trajectory.slow.toFixed(1)} · faster {trajectory.fast.toFixed(1)}
+                  {trajectory.cappedByCeiling ? " (capped at the top of college tennis)" : ""}
+                </p>
+                {bandsAtRecruiting && (
+                  <p className="mt-2.5 text-sm text-ink">
+                    Programs in range:{" "}
+                    <strong className="font-mono tabular-nums">
+                      {bandsToday.likely + bandsToday.target}
+                    </strong>{" "}
+                    today →{" "}
+                    <strong className="font-mono tabular-nums">
+                      {bandsAtRecruiting.likely + bandsAtRecruiting.target}
+                    </strong>{" "}
+                    by junior year.
+                  </p>
+                )}
+                <p className="mt-2.5 text-xs text-stone">
+                  {growthAssumptionLabel("normal")} {GROWTH_ESTIMATE_CAPTION}
+                </p>
+              </>
+            )}
+            <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
+              {RECRUITING_TIMING_NOTE}
+            </p>
+          </section>
 
           <div role="tablist" aria-label="Fit bands" className="mt-6 flex flex-wrap gap-2">
             {(["reach", "target", "likely"] as const).map((band) => (
