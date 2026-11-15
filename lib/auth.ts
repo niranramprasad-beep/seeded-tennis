@@ -461,6 +461,20 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
     gender: (profile.gender ?? emptyPlayer.gender) as PlayerGender,
     country: profile.country ?? emptyPlayer.country,
     role: (profile.role ?? emptyPlayer.role) as FamilyRole,
+    // DELIBERATELY the raw profile column, NOT my_family_code().
+    //
+    // This value is round-tripped straight back into the profile by
+    // writeCurrentPlayerProfile() below, and 022/030/035's trigger REJECTS
+    // any client change to family_code with 42501. A joiner's profile
+    // carries NULL on purpose; substituting their real family code here
+    // would turn every ordinary profile save — renaming yourself in
+    // Settings — into "This profile field can only be changed by Seeded."
+    // for every member who joined with a code.
+    //
+    // Nothing displays this. /family reads the shareable code from
+    // loadMyFamilyCode() (the my_family_code() RPC), which answers for both
+    // membership shapes. If you need "which family is this user in",
+    // that is the function you want — see lib/db/family-scope.ts.
     familyCode: profile.family_code ?? undefined,
     targetSchoolSlugs:
       (profile.target_school_slugs as string[] | null) ??

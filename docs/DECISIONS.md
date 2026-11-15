@@ -7,6 +7,77 @@ Newest first.
 
 ---
 
+## 2026-11-15 — the joined-member read gap: widen the predicate, not the column
+
+**Decision.** Migration **036**. An approved member of a family can read any
+other APPROVED member's profile, UTR history, matches, tournaments,
+check-ins, cost projections and outreach — whichever of the two membership
+shapes either of them holds. Implemented as a single predicate,
+`shares_approved_family_with(uuid)`, replacing seven read policies, plus a
+`stamp_family_code` BEFORE INSERT/UPDATE trigger on the nine tables that
+carry their own `family_code` column.
+
+Niran decided the policy question (quoted in the migration header); the
+decisions recorded here are the three I made in implementing it.
+
+**Why not just set the joiner's `profiles.family_code` on approval** — by far
+the smallest change, and the first candidate in `docs/TODO.md`:
+
+> `remove_family_member()` only deletes the `parent_accounts` row.
+
+A removed member would keep a `family_code` on their profile and therefore
+keep every family read. Revocation has to live in exactly one place, and
+`parent_accounts` is that place. Verified on staging: after
+`remove_family_member()`, the parent's view of the removed player drops to
+0 rows immediately. That test is the whole argument.
+
+**Why the stamp is a database trigger and not an app fix.** The app did also
+need changing — eight call sites in five files scoped their queries by
+reading `profiles.family_code` and bailed out before RLS was ever consulted
+— but *which family a row belongs to* is a security property, so it belongs
+where no new call site can forget it. It also closed a hole that was already
+open and unrelated to the bug: every INSERT policy on those tables checks
+only `user_id = auth.uid()` and never the `family_code`, so a client could
+stamp its own row with any family's code and publish its own data onto a
+stranger's family page. After 036 the client's value is discarded on INSERT
+and frozen on UPDATE. Tested: an insert supplying `FAKEFAMILY02` from a
+member of `FAKEFAMILY01` lands on `FAKEFAMILY01`, and `FAKEFAMILY02` sees
+nothing.
+
+**Why no backfill.** Rows written before 036 keep their NULL `family_code`
+and stay readable by their owner alone. Backfilling would retroactively widen
+who can read data that was private when it was written, which is not
+something a migration should decide on a user's behalf. The cost is that a
+family who joined before launch sees history only from launch forward; that
+is the safer direction and it is written down rather than quietly fixed.
+
+**What I deliberately did NOT change.** `is_parent_member()` still grants
+season-budget writes to any approved joiner regardless of `role`, so a
+sibling player can write the budget. It is a write-authorisation change
+nobody asked for, and putting it in the launch migration would mean
+launching on a policy change no one had reviewed. `docs/TODO.md` carries the
+fix (mirror 033's pattern).
+
+**One over-reach I chose, and it should be read as such.** Niran's words were
+"approved **parents** in that family may read that player's data." I
+implemented "approved **members**", because that is already what the
+working half does — `family_members_read` has meant "any approved member"
+since 023 §8, so in the player-first flow a sibling could already read the
+account holder's profile. Restricting the new path to `role = 'parent'` would
+have made the same data readable in one flow and not the other, which is the
+kind of asymmetry that produced this bug in the first place. The practical
+delta is that a sibling player in the same family can read another sibling's
+UTR. If that is not wanted, add `and exists (select 1 from profiles where
+id = auth.uid() and role = 'parent')` to the predicate — but do it in both
+flows or neither.
+
+**How to undo.** `docs/HANDOFF.md` §J step 13 carries the full rollback.
+Order matters: the seven policies must be restored before
+`shares_approved_family_with` is dropped, or the drop raises `2BP01`. Both
+the ordering failure and the clean rollback were run on staging on
+2026-11-15, and the post-rollback state was confirmed to be the pre-036
+behaviour exactly.
+
 ## 2026-11-15 — next@15, not next@16
 
 **Decision.** Upgraded `next` 14.2.35 → **15.5.29** (and

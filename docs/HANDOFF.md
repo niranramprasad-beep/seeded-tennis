@@ -1340,15 +1340,143 @@ drop function if exists public.profile_row_exists(uuid);
 fire.** The security properties of 032, 033 and 034 are all preserved and
 were re-tested after the fix.
 
-### Step 13 — the code (`v1` → `main`)
-Only after steps 1–12 are applied and verified.
+### Step 13 — migration 036 (the joined-member read gap, and the write half nobody had noticed)
+
+**This step is not optional either, and it is the only one that changes what
+one user may read about another.** Apply it with the rest; the code on `v1`
+depends on it.
+
+Niran's decision, 2026-11-15: a player who joins with the code and is
+approved has opted in, so approved members of that family may read that
+player's data, exactly as in the player-first flow. Nobody outside the
+family, no pending members.
+
+**What it fixes.** Membership has two storage shapes — the creator's
+`profiles.family_code`, and every joiner's `parent_accounts` row, whose
+`profiles.family_code` is deliberately NULL because writing it is the
+takeover hole 022/032 closed. `my_family_code()` (026) answers across both;
+almost nothing else did.
+
+1. **Reads.** `family_members_read` was `(family_code IS NOT NULL) AND
+   is_family_member(family_code)` and `utr_entries_select_family` keyed off
+   `profiles owner.family_code` the same way. A joiner's is NULL, so neither
+   could ever match. Reproduced on staging before the migration: the
+   creator-parent of `FAKEFAMILY01` saw **1 profile (their own) and 0 of the
+   joined player's 3 `utr_entries` rows**, while `my_family_code()` returned
+   `FAKEFAMILY01`. 036 replaces seven read policies with
+   `shares_approved_family_with(uuid)`.
+2. **Writes.** Nine tables carry their own `family_code`, stamped by the app
+   from `profiles.family_code`. For a joiner that was NULL, so their
+   matches and tournaments were unreadable by their own family, and **a
+   joined PARENT could not write at all** — `encouragement_notes` /
+   `season_budgets` / `budget_expenses` all WITH CHECK on the row's
+   family_code. Reproduced on staging with the trigger disabled:
+   `42501 new row violates row-level security policy for table
+   "encouragement_notes"`. 036 stamps the column from `my_family_code()` in
+   a BEFORE INSERT/UPDATE trigger. That also closes a hole already open:
+   those tables' INSERT policies check only `user_id = auth.uid()` and never
+   the family_code, so a client could publish its own data into a stranger's
+   family page.
+
+`docs/TODO.md` recorded (2) as "matches, coach_outreach and
+tournament_entries ... do not have this problem." That was wrong — true in
+the player-first flow, false in the parent-first one, which is the ordinary
+one.
+
+**Pre-flight.** Nothing to check: 036 only replaces policies and adds a
+trigger, and it neither reads nor writes any existing row. Confirm the
+functions it depends on are present first, which they are after steps 3 and
+8:
+```sql
+select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public' and proname in ('my_family_code','is_family_member');
+-- expect both
+```
+
+**Verify — as a test user, NOT as postgres.** `postgres` bypasses RLS;
+`set_config('request.jwt.claims', ...)` sets `auth.uid()` but leaves you a
+superuser, so every count comes back complete and looks like a pass. Use
+`set local role authenticated` as well:
+```sql
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<the creator-parent>","role":"authenticated"}';
+select count(*) from public.profiles;                               -- 2, not 1
+select count(*) from public.utr_entries where user_id='<the joiner>'; -- > 0
+rollback;
+```
+Then repeat as a stranger, as a PENDING member, and as a member of another
+family: each must see **1 profile (their own) and 0 rows** of the joiner's.
+Then `remove_family_member('<the joiner>')` and re-check the parent: back to
+1 and 0, immediately. All five were run on staging on 2026-11-15.
+
+**Rollback:**
+```sql
+-- 1. Restore 023 §8 / 027's read policies.
+drop policy if exists "family_members_read" on public.profiles;
+create policy "family_members_read" on public.profiles
+  for select to authenticated
+  using (family_code is not null and public.is_family_member(family_code));
+
+drop policy if exists "utr_entries_select_family" on public.utr_entries;
+create policy "utr_entries_select_family" on public.utr_entries
+  for select to authenticated
+  using (exists (
+    select 1 from public.profiles owner
+    where owner.id = utr_entries.user_id
+      and owner.family_code is not null
+      and public.is_family_member(owner.family_code)));
+
+-- 2. Restore the five row-stamped read policies.
+do $$
+declare t text;
+begin
+  foreach t in array array['matches','tournament_entries','coach_outreach',
+                           'daily_checkins','cost_calculations'] loop
+    execute format('drop policy if exists %I on public.%I', t||'_read', t);
+    execute format($f$
+      create policy %I on public.%I for select to authenticated
+      using ((user_id = (select auth.uid())) or public.is_family_member(family_code))
+    $f$, t||'_read', t);
+  end loop;
+end $$;
+
+-- 3. Drop the stamp. Rows written while 036 was live keep the family_code it
+--    gave them, which is the CORRECT value in both shapes — nothing to undo.
+do $$
+declare t text;
+begin
+  foreach t in array array['matches','coach_outreach','tournament_entries',
+                           'daily_checkins','cost_calculations',
+                           'encouragement_notes','season_budgets',
+                           'budget_expenses','parent_reports'] loop
+    execute format('drop trigger if exists stamp_family_code on public.%I', t);
+  end loop;
+end $$;
+drop function if exists public.stamp_family_code();
+
+-- 4. The predicate last: dropping it before the policies that call it fails.
+drop function if exists public.shares_approved_family_with(uuid);
+```
+**Order matters.** `drop function ... shares_approved_family_with` while any
+of the seven policies still references it raises `2BP01` (dependent objects).
+Steps 1 and 2 must come first. This is the same class of defect the 2026-11-15
+rehearsal found four times in the rollback half of this plan.
+
+**Risk: medium.** It is the only step that widens cross-user visibility, and
+the data is minors'. It was attack-tested in both directions before being
+written up. If you roll the code back but leave 036 applied, nothing breaks —
+the old code simply never asks for the wider rows.
+
+### Step 14 — the code (`v1` → `main`)
+Only after steps 1–13 are applied and verified.
 1. Open a PR from `v1` to `main`. CI (`verify`) must be green.
 2. In that PR, **revert the maintenance commit** `d059006` (`git revert d059006`) — it is one self-contained commit that only adds `middleware.ts`.
 3. Merge. Vercel auto-deploys `main` to seededtennis.com.
 4. Smoke-test on production immediately: sign in; load `/today`, `/plan`, `/schools`, `/outreach`; mark a coach "emailed" (this is the P0-5 write that is broken today — it must now succeed); save a target school; as a Family account, open the parent view and edit the season budget.
 **Rollback:** Vercel → Deployments → the previous production deployment →
 "Promote to Production". Instant, code-only. The database changes do NOT
-roll back with it. Of steps 1–12, all are backwards-compatible with the old
+roll back with it. Of steps 1–13, all are backwards-compatible with the old
 code **except two**, so if you roll the code back:
 - run 024's rollback SQL (the old code writes outreach at Family tier), and
 - leave 028 in place (the old code does not call the limiter at all).

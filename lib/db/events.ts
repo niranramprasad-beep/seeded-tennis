@@ -8,6 +8,7 @@
 import type { Weakness, Intensity, WeekdayShort } from "@/lib/types";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { resolveMyFamilyCode } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { narrowLiteral, narrowNullableLiteral } from "./narrow";
 import type { Json, Tables } from "./database.types";
@@ -188,7 +189,11 @@ export async function loadMatches(signal?: AbortSignal): Promise<MatchRecord[]> 
     .select("*")
     .order("match_date", { ascending: false })
     .limit(MATCHES_LIMIT);
-  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
+  // who joined with a code, so a joined parent saw only their own rows
+  // (i.e. none) instead of the family's. See migration 036.
+  const familyCode = await resolveMyFamilyCode(supabase, signal);
+  query = p?.role === "parent" && familyCode ? query.eq("family_code", familyCode) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
@@ -408,7 +413,11 @@ export async function loadTournamentEntries(signal?: AbortSignal): Promise<Tourn
     .from("tournament_entries")
     .select("*")
     .order("event_date", { ascending: true });
-  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
+  // who joined with a code, so a joined parent saw only their own rows
+  // (i.e. none) instead of the family's. See migration 036.
+  const familyCode = await resolveMyFamilyCode(supabase, signal);
+  query = p?.role === "parent" && familyCode ? query.eq("family_code", familyCode) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
@@ -437,13 +446,17 @@ export async function saveTournamentEntry(
   if (validationError) throw new Error(validationError);
 
   const supabase = getSupabase();
-  const { id: userId, profile: p } = await userIdAndProfile();
+  const { id: userId } = await userIdAndProfile();
   if (!supabase || !userId) return null;
+
+  // 036's stamp_family_code trigger sets this authoritatively on INSERT and
+  // freezes it on UPDATE; sending the resolved value keeps the two in step.
+  const familyCode = await resolveMyFamilyCode(supabase);
 
   const row = {
     id: input.id,
     user_id: userId,
-    family_code: p?.family_code ?? null,
+    family_code: familyCode,
     name: input.name.trim(),
     level: input.level,
     event_date: input.eventDate,

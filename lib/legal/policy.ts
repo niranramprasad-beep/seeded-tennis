@@ -65,10 +65,22 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // except the season budget" — copied from CLAUDE.md's own wording, and
     // wrong: encouragement_notes_insert_parent lets an approved member write
     // a note. Naming the two writes is the honest version.
+    //
+    // The first sentence below was TRUE OF INTENT AND FALSE OF THE CODE
+    // until migration 036 (2026-11-15). A joiner's profiles.family_code is
+    // deliberately NULL, and both family_members_read and
+    // utr_entries_select_family required it to be non-null — so in the
+    // ordinary flow (a parent creates the account, the player joins with the
+    // code) the parent could read none of it. It DENIED access rather than
+    // granting it, so nothing was ever exposed; the policy simply promised
+    // more than the database did. 036 makes it true, and the sentence is now
+    // attack-tested in both directions (stranger, pending, other family,
+    // removed member) rather than asserted.
     source:
-      "supabase/migrations/023_family_join_rpc.sql (is_family_member); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent)",
+      "supabase/migrations/023_family_join_rpc.sql (is_family_member); supabase/migrations/036_family_membership_both_shapes.sql (shares_approved_family_with + the seven family read policies); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent)",
     body: [
-      "A parent who has been approved into a family can see the player's profile, UTR history, match results, tournaments, saved schools and outreach progress.",
+      "A parent who has been approved into a family can see the player's profile, UTR history, match results, tournaments, saved schools and outreach progress. This works the same whether the parent created the account and the player joined with the code, or the other way round.",
+      "Approval is the opt-in, and it is the only one. Someone whose request is still waiting sees nothing at all, and the moment a member is removed from a family they can no longer see anything about anyone in it.",
       "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf.",
       "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",

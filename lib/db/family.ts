@@ -7,6 +7,7 @@ import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { resolveGraduationYear } from "@/lib/time";
 import { narrowLiteral, narrowOptionalLiteral } from "./narrow";
+import { approvedFamilyMemberIds, resolveMyFamilyCode } from "./family-scope";
 import type { Json, Tables } from "./database.types";
 
 // text columns backed only by a Postgres CHECK constraint — see
@@ -27,6 +28,22 @@ async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<
 async function profile(): Promise<Tables<"profiles"> | null> {
   const { profile: p } = await userIdAndProfile();
   return p;
+}
+
+/** id + profile + the family the user ACTUALLY belongs to.
+ *
+ * `profile.family_code` is NULL for anyone who joined with a code, so every
+ * family-scoped query here asks `my_family_code()` instead — see
+ * lib/db/family-scope.ts and migration 036. Never scope by `p.family_code`. */
+async function familyScope(signal?: AbortSignal): Promise<{
+  id: string | null;
+  profile: Tables<"profiles"> | null;
+  familyCode: string | null;
+}> {
+  const supabase = getSupabase();
+  const { id, profile: p } = await userIdAndProfile();
+  if (!supabase || !id) return { id, profile: p, familyCode: null };
+  return { id, profile: p, familyCode: await resolveMyFamilyCode(supabase, signal) };
 }
 
 /* ---------------------------------------------------------- family roster */
@@ -58,14 +75,21 @@ export interface FamilyMember {
 
 export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMember[]> {
   const supabase = getSupabase();
-  const p = await profile();
-  if (!supabase || !p?.family_code) return [];
+  if (!supabase) return [];
+  // NOT `.eq("family_code", ...)`: a joiner's profile carries no family code
+  // (migration 023/032), so that filter silently drops the very member a
+  // parent opened /family to see. The approved ids come from the
+  // `family_members()` RPC, which unions both membership shapes, and RLS
+  // (`family_members_read`, rewritten in 036) independently narrows the rows
+  // to that same family — so this is an explicit filter, not a bare select.
+  const memberIds = await approvedFamilyMemberIds(supabase, signal);
+  if (!memberIds.length) return [];
   let query = supabase
     .from("profiles")
     .select(
       "id,email,name,role,current_utr,grade,graduation_year,created_at,onboarded,target_school_slugs,gender"
     )
-    .eq("family_code", p.family_code)
+    .in("id", memberIds)
     .order("role", { ascending: false });
   if (signal) query = query.abortSignal(signal);
   const { data } = await query;
@@ -109,9 +133,9 @@ function mapReport(row: Tables<"parent_reports">): ParentReport {
 
 export async function loadParentReports(signal?: AbortSignal): Promise<ParentReport[]> {
   const supabase = getSupabase();
-  const p = await profile();
-  if (!supabase || !p?.family_code) return [];
-  let query = supabase.from("parent_reports").select("*").eq("family_code", p.family_code).order("month", { ascending: false });
+  const { familyCode } = await familyScope(signal);
+  if (!supabase || !familyCode) return [];
+  let query = supabase.from("parent_reports").select("*").eq("family_code", familyCode).order("month", { ascending: false });
   if (signal) query = query.abortSignal(signal);
   const { data } = await query;
   return (data ?? []).map(mapReport);
@@ -132,12 +156,12 @@ export interface EncouragementNote {
 // the first resolves.
 export async function loadEncouragementNotes(signal?: AbortSignal): Promise<EncouragementNote[]> {
   const supabase = getSupabase();
-  const p = await profile();
-  if (!supabase || !p?.family_code) return [];
+  const { familyCode } = await familyScope(signal);
+  if (!supabase || !familyCode) return [];
   let notesQuery = supabase
     .from("encouragement_notes")
     .select("*")
-    .eq("family_code", p.family_code)
+    .eq("family_code", familyCode)
     .order("created_at", { ascending: false });
   if (signal) notesQuery = notesQuery.abortSignal(signal);
   const { data } = await notesQuery;
@@ -165,12 +189,15 @@ export async function loadEncouragementNotes(signal?: AbortSignal): Promise<Enco
 
 export async function saveEncouragementNote(body: string) {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
-  if (!supabase || !id || !p?.family_code) return;
+  const { id, profile: p, familyCode } = await familyScope();
+  if (!supabase || !id || !familyCode) return;
+  // The database stamps family_code authoritatively on INSERT (036's
+  // stamp_family_code trigger), so this value is a belt-and-braces match,
+  // not the thing that decides which family the note belongs to.
   await supabase.from("encouragement_notes").insert({
-    family_code: p.family_code,
+    family_code: familyCode,
     parent_id: id,
-    player_id: p.role === "player" ? id : null,
+    player_id: p?.role === "player" ? id : null,
     body,
   });
 }
@@ -227,14 +254,14 @@ export function calculateCost(input: CostInputs): CostResults {
 
 export async function saveCostCalculation(input: CostInputs, name = "College tennis pursuit"): Promise<CostCalculation | null> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const { id, familyCode } = await familyScope();
   if (!supabase || !id) return null;
   const results = calculateCost(input);
   const { data, error } = await supabase
     .from("cost_calculations")
     .insert({
       user_id: id,
-      family_code: p?.family_code ?? null,
+      family_code: familyCode,
       name,
       inputs: input as unknown as Json,
       results: results as unknown as Json,
@@ -251,10 +278,10 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
 // has ever saved.
 export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCalculation[]> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const { id, profile: p, familyCode } = await familyScope(signal);
   if (!supabase || !id) return [];
   let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false }).limit(4);
-  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  query = p?.role === "parent" && familyCode ? query.eq("family_code", familyCode) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data } = await query;
   return (data ?? []).map(mapCost);
@@ -320,9 +347,9 @@ function mapSeasonBudget(row: Tables<"season_budgets">): SeasonBudget {
  * callers should fall back to a computed default label and a $0 total. */
 export async function loadSeasonBudget(signal?: AbortSignal): Promise<SeasonBudget | null> {
   const supabase = getSupabase();
-  const { profile: p } = await userIdAndProfile();
-  if (!supabase || !p?.family_code) return null;
-  let query = supabase.from("season_budgets").select("*").eq("family_code", p.family_code);
+  const { familyCode } = await familyScope(signal);
+  if (!supabase || !familyCode) return null;
+  let query = supabase.from("season_budgets").select("*").eq("family_code", familyCode);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query.maybeSingle();
   if (error || !data) return null;
@@ -398,12 +425,12 @@ function mapBudgetExpense(row: Tables<"budget_expenses">): BudgetExpense {
 
 export async function loadBudgetExpenses(signal?: AbortSignal): Promise<BudgetExpense[]> {
   const supabase = getSupabase();
-  const { profile: p } = await userIdAndProfile();
-  if (!supabase || !p?.family_code) return [];
+  const { familyCode } = await familyScope(signal);
+  if (!supabase || !familyCode) return [];
   let query = supabase
     .from("budget_expenses")
     .select("*")
-    .eq("family_code", p.family_code)
+    .eq("family_code", familyCode)
     .order("expense_date", { ascending: false });
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;

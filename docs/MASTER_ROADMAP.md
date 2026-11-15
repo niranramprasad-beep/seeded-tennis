@@ -55,7 +55,7 @@ guards added this session only protect the product if someone runs them.
 
 ## Current production-readiness score
 
-**84 / 100** (31 at the 2026-11-10 audit; 52, 68 and 79 on 2026-11-14)
+**86 / 100** (31 at the 2026-11-10 audit; 52, 68 and 79 on 2026-11-14; 84 earlier on 2026-11-15)
 
 Night 2 (2026-11-15) moved it from 79: production dependency vulnerabilities
 are at zero (Next 15.5.29), rate limits are enforced by the database rather
@@ -65,10 +65,14 @@ been rehearsed end to end and four defects in its rollbacks fixed, and the
 launch pages went from 202 accessibility violations to zero with Lighthouse
 accessibility and SEO at 100.
 
-It is not higher because the three things that actually gate launch are
-unchanged: **nothing is on production yet**, the privacy policy still needs
-an adult or lawyer to review it, and a parent still cannot read a joined
-player's data (see "Found Night 2" below).
++2 on 2026-11-15 for migration 036: a parent can now read a joined player's
+data, and — found while fixing it — a parent who joined with the code can now
+write the two things parents are allowed to write, which they previously
+could not do at all.
+
+It is not higher because the two things that actually gate launch are
+unchanged: **nothing is on production yet**, and the privacy policy still
+needs an adult or a lawyer to review it.
 
 Closed since: P0-3, P0-4, P0-6 (staging exists AND Preview/Development now
 point at it), P0-7, P1-SEC-1, P1-SEC-5, P1-FIT-1, P1-FIT-2, P1-FIT-4,
@@ -77,10 +81,12 @@ P1-OPS-1 (CI + branch protection), P1-OPS-3 (migration drift), P1-SEC-2
 app code can reach.
 
 **Everything database-side is written, applied and attack-tested on
-staging, and none of it is on production.** **Fourteen** migrations are now
+staging, and none of it is on production.** **Fifteen** migrations are now
 queued behind one word from Niran (025, 022, 023, 026, 024, 027, 028, 029,
-030, 031, 032, 033, 034, 035). **035 is not optional** — without it 032/033
-break every profile write and 034 breaks account deletion for everyone. P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
+030, 031, 032, 033, 034, 035, 036). **035 is not optional** — without it
+032/033 break every profile write and 034 breaks account deletion for
+everyone. **036 is the only step that widens what one user may read about
+another**, and it is the one to read the rollback for first (§J step 13). P0-1, P0-2, P1-PRICE-1 and the P0-8 mechanisms
 count as fixed only once they ship.
 
 The whole sequence was **rehearsed end to end on 2026-11-15** against a
@@ -92,15 +98,23 @@ run at all). See `docs/HANDOFF.md` §J.
 
 ### Found Night 2, open, and not Claude's to close alone
 
-- **A parent cannot read a JOINED player's profile or UTR history.**
-  `approve_family_join()` leaves the joiner's `profiles.family_code` NULL,
-  and both `family_members_read` and `utr_entries_select_family` require it
-  to be non-null. The ordinary flow — parent creates the account, player
-  joins with the code — therefore yields a `/family` page that can show none
-  of the player's real numbers. It denies access rather than granting it, so
-  nothing is exposed by waiting, but every candidate fix widens what one
-  user may read about another minor and deserves the same attack-test pass
-  as 027/030. Full write-up and three candidate fixes in `docs/TODO.md`.
+- ✅ **A parent cannot read a JOINED player's data — CLOSED 2026-11-15 by
+  migration 036**, on Niran's decision that an approved join is the player's
+  opt-in. Membership has two storage shapes and only `my_family_code()` knew
+  both; seven read policies required the owner's `profiles.family_code` to be
+  non-null, which a joiner's never is. Fixing it surfaced a second half
+  nobody had noticed: the nine tables that carry their own `family_code`
+  column were stamped from that same NULL, so a joined player's matches and
+  tournaments were unreadable by their own family **and a joined parent
+  could not write the season budget or an encouragement note at all**.
+  Attack-tested on staging in both directions — stranger, pending member,
+  other family, removed member — plus the two write paths and the rollback.
+  `docs/DECISIONS.md`, §J step 13.
+- **Still open, deliberately not in 036: `is_parent_member()` grants
+  season-budget writes to any approved joiner regardless of `role`**, so a
+  sibling player can write the budget. A write-authorisation change nobody
+  asked for does not belong in the launch migration. Fix (mirror 033's
+  pattern) in `docs/TODO.md`.
 - **`/sample-report` reports no First Contentful Paint**, so Lighthouse and
   PageSpeed score it 0 even though the page renders correctly. A measurement
   anomaly on a marketing page, with a bisect plan in `docs/TODO.md`.
@@ -114,9 +128,9 @@ settings, and the product problem — P1-DATA-1.
 | Security | 8/10 | Both P0 authorization holes, the whole-row public profile read (S-5), rate limits on every write route (S-6), the RPC grant surface (S-9) and the under-13 gate are all fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Security headers (S-7) are in the code and verified against a production build. Four bugs found by the tests themselves (S-15, S-16, the dead birth-year field, the parent-first dead end). Not fixed: login/signup/reset rate limits, which app code cannot reach at all; nonce CSP |
 | Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
-| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all thirteen migrations, **rehearsed end to end on 2026-11-15** (218 ms, four rollback defects found and fixed). **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
+| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all fifteen migrations, **rehearsed end to end on 2026-11-15** (218 ms, four rollback defects found and fixed). **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
 | Legal/privacy | 7/10 | Deletion deletes (029). A complete JSON export exists, guarded by a test that fails the build when a new table is neither exported nor explicitly excluded. Under-13 accounts are inert until an adult in their family consents, enforced by RLS and not by the UI. Nothing about any user is visible to another signed-in user outside their family. `/privacy` now exists, every claim carries the file or migration that makes it true, and `lib/legal/policy.test.ts` fails the build when one stops being true. **Still open and not Claude's to close: a lawyer has to read it** — seven questions in TODO, headed by whether our consent mechanism satisfies COPPA's *verifiable* parental consent at all |
-| Testing | 8/10 | 472 unit tests pass, incl. seven build-failing guards — catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
+| Testing | 8/10 | 635 unit tests pass, incl. nine build-failing guards — catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts. Concretely: two real payments failed to upgrade anybody for six weeks and nothing surfaced it — it was found by reading the Whop dashboard by hand |
 
 ---

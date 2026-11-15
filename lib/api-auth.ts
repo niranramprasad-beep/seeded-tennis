@@ -65,11 +65,18 @@ export async function getProfileRoleAndFamily(
 ): Promise<{ role: "player" | "parent" | null; familyCode: string | null }> {
   const { data } = await supabase
     .from("profiles")
-    .select("role, family_code")
+    .select("role")
     .eq("id", userId)
     .maybeSingle();
+  // NOT `profiles.family_code`. That column is NULL for everyone who joined
+  // with a code (migrations 023/032 deliberately never write it), so reading
+  // it here handed the budget routes a null family and they refused the
+  // write — a parent who joined by code could not save the season budget or
+  // an expense at all. `my_family_code()` (026) answers across both
+  // membership shapes. See lib/db/family-scope.ts and migration 036.
+  const { data: code } = await supabase.rpc("my_family_code");
   return {
     role: narrowNullableLiteral(data?.role ?? null, PROFILE_ROLES),
-    familyCode: data?.family_code ?? null,
+    familyCode: (code as string | null) ?? null,
   };
 }

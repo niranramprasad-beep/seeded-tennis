@@ -10,6 +10,7 @@ import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/rec
 import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { resolveMyFamilyCode } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import { getSchoolsBySlugs } from "./schools";
@@ -296,9 +297,13 @@ export async function loadDailyCheckins(signal?: AbortSignal): Promise<DailyChec
     .select("*")
     .gte("checkin_date", localDateKey(new Date(Date.now() - 31 * 86400000)))
     .order("checkin_date", { ascending: true });
+  // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
+  // who joined with a code, so a joined parent saw only their own rows
+  // (i.e. none) instead of the family's. See migration 036.
+  const familyCode = await resolveMyFamilyCode(supabase, signal);
   query =
-    p?.role === "parent" && p?.family_code
-      ? query.eq("family_code", p.family_code)
+    p?.role === "parent" && familyCode
+      ? query.eq("family_code", familyCode)
       : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
@@ -312,14 +317,16 @@ export async function saveDailyCheckin(input: {
   notes: string;
 }): Promise<DailyCheckin | null> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const { id } = await userIdAndProfile();
   if (!supabase || !id) return null;
+  // 036 stamps family_code in the database; this keeps the sent value in step.
+  const familyCode = await resolveMyFamilyCode(supabase);
   const { data, error } = await supabase
     .from("daily_checkins")
     .upsert(
       {
         user_id: id,
-        family_code: p?.family_code ?? null,
+        family_code: familyCode,
         checkin_date: localDateKey(),
         mood: input.mood,
         focus_areas: input.focusAreas,

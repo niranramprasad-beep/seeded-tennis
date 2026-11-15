@@ -4,6 +4,7 @@
 // former lib/supabase/features.ts's coach_outreach section.
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { resolveMyFamilyCode } from "./family-scope";
 import type { Tables } from "./database.types";
 
 async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<"profiles"> | null }> {
@@ -33,8 +34,12 @@ export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachS
   const supabase = getSupabase();
   const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return {};
+  // `my_family_code()`, not `p.family_code` — the latter is NULL for a
+  // parent who joined with a code, which silently turned a family-wide
+  // outreach board into "my own rows" (i.e. none). See migration 036.
+  const familyCode = await resolveMyFamilyCode(supabase, signal);
   let query = supabase.from("coach_outreach").select("school_slug, status");
-  query = p?.role === "parent" && p?.family_code ? query.eq("family_code", p.family_code) : query.eq("user_id", id);
+  query = p?.role === "parent" && familyCode ? query.eq("family_code", familyCode) : query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return {};
@@ -71,7 +76,8 @@ export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<Outr
   const supabase = getSupabase();
   const { id, profile: p } = await userIdAndProfile();
   if (!supabase || !id) return {};
-  const isParentFamily = Boolean(p?.role === "parent" && p?.family_code);
+  const familyCode = await resolveMyFamilyCode(supabase, signal);
+  const isParentFamily = Boolean(p?.role === "parent" && familyCode);
 
   // Selects widen in three steps, from "everything this task adds" down to
   // the original 009 columns, because remind_at (011) and reply_note (017)
@@ -82,7 +88,7 @@ export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<Outr
   // either) has actually landed; the newer field(s) just stay absent.
   async function runSelect(columns: string): Promise<{ data: OutreachDatedRow[] | null; error: { message: string } | null }> {
     let q = supabase!.from("coach_outreach").select(columns);
-    q = isParentFamily ? q.eq("family_code", p!.family_code as string) : q.eq("user_id", id as string);
+    q = isParentFamily ? q.eq("family_code", familyCode as string) : q.eq("user_id", id as string);
     if (signal) q = q.abortSignal(signal);
     const result = await q;
     return { data: (result.data as unknown as OutreachDatedRow[] | null), error: result.error };
