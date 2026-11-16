@@ -11,6 +11,7 @@ import { SeededNav } from "@/components/seeded/layout/nav";
 import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { CommandPalette } from "@/components/seeded/shared/command-palette";
 import { CheckoutSync } from "@/components/shared/checkout-sync";
+import { AccountDeletedNotice } from "@/components/shared/account-deleted-notice";
 import { cn } from "@/lib/utils";
 import { isPrivateRoute } from "@/lib/seo/private-routes";
 
@@ -182,6 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             that param is present. */}
         <Suspense fallback={null}>
           <CheckoutSync />
+          <AccountDeletedNotice />
         </Suspense>
         <div key={pathname} className="animate-fade-in">{children}</div>
       </main>

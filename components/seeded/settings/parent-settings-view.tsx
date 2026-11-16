@@ -75,7 +75,10 @@ export function ParentSettingsView() {
     try {
       await postJson("/api/account/deletion", { action: "delete", confirm: "DELETE" });
       signOut();
-      router.replace("/?deleted=1");
+      // A full navigation, not router.replace: signing out lets the
+      // Settings page's AuthGate push /login first, and the person who
+      // just deleted their account landed on a sign-in form.
+      window.location.replace("/?deleted=1");
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Could not delete your account. Try again.");
     } finally {

@@ -214,7 +214,9 @@ const FLOWS = {
     await s.page.fill('[aria-labelledby="delete-account-title"] input[placeholder="DELETE"]', "DELETE");
     await s.page.getByRole("button", { name: /^Delete everything$/ }).click();
     await s.page.waitForURL((u) => u.pathname === "/", { timeout: 20000 }).catch(() => {});
+    await s.page.waitForTimeout(1500);
     check("delete", "deleting lands on the homepage, signed out", new URL(s.page.url()).pathname === "/", s.page.url());
+    check("delete", "the homepage confirms the deletion", (await s.page.locator('[role="status"]').allInnerTexts()).some((t) => /account and the data stored with it have been deleted/i.test(t)));
     await s.ctx.close();
     // signing in again must fail
     const ctx = await browser.newContext();
