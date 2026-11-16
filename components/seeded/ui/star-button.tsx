@@ -27,7 +27,9 @@ export function StarButton({ starred, onToggle, label, className }: StarButtonPr
       aria-pressed={starred}
       aria-label={starred ? `Remove ${label} from your targets` : `Add ${label} to your targets`}
       className={cn(
-        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-light transition-colors hover:bg-cream hover:text-ink",
+        // 28px rendered — under the 44px minimum on a phone. The hit area grows
+        // with a negative margin so rows keep their height.
+        "-m-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-light transition-colors hover:bg-cream hover:text-ink sm:-m-0 sm:h-8 sm:w-8",
         starred && "text-lime-accent",
         className
       )}

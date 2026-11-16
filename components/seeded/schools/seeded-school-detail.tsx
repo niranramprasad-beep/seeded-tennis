@@ -83,7 +83,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   return (
     <>
       <div className="mx-auto max-w-content container-px py-10">
-        <Link href="/schools" className="inline-flex items-center gap-1.5 text-sm text-ink hover:underline">
+        <Link href="/schools" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink hover:underline sm:min-h-0">
           <ArrowLeft className="h-4 w-4" />
           Schools
         </Link>
@@ -108,7 +108,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
                   `Wrong data on ${school.name}`
                 )}`}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone hover:text-ink"
+                className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 text-xs font-semibold text-stone hover:text-ink sm:min-h-0 sm:py-1"
               >
                 Report an error
               </a>
@@ -234,7 +234,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               href={staffDirectorySearchUrl(school)}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-grass hover:text-grass-600"
+              className="mt-2.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-0"
             >
               Find the coaching staff
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />

@@ -54,7 +54,7 @@ export function SeededNav() {
       >
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
+          className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
           onClick={() => setOpen(false)}
         >
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">

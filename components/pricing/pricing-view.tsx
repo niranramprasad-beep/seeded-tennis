@@ -278,7 +278,7 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
               aria-checked={interval === option}
               onClick={() => setInterval(option)}
               className={cn(
-                "min-h-10 rounded-pill px-5 text-sm font-semibold transition-colors",
+                "min-h-11 rounded-pill px-5 text-sm font-semibold transition-colors",
                 interval === option
                   ? "bg-grass text-on-primary"
                   : "text-stone hover:text-ink"

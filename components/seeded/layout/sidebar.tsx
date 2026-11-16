@@ -206,7 +206,7 @@ export function SeededSidebar() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "flex min-h-10 items-center gap-2.5 rounded-lg px-3 font-sans text-[15px] transition-colors",
+                  "flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans text-[15px] transition-colors",
                   active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
                   collapsed && "justify-center px-0"
                 )}

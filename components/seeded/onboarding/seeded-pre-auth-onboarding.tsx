@@ -147,7 +147,7 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
         <section className="min-w-0 flex-[999_1_640px]">
           <p className="m-0 text-sm text-stone">
             {GENDER_LABEL[gender]} · UTR {utrNum.toFixed(1)} · Class of {gradYear} · GPA {gpa}{" "}
-            <button onClick={() => setEditing(true)} className="font-semibold text-grass hover:text-grass-700">
+            <button onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
               Edit
             </button>
           </p>

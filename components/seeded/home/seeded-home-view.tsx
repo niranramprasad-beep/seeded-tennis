@@ -344,7 +344,7 @@ function TrustStrip() {
           <strong className="text-ink">Built by a junior player</strong>{" "}
           going through recruiting now.
         </span>
-        <Link href="/methodology" className="text-grass hover:text-grass-700">
+        <Link href="/methodology" className="inline-flex min-h-11 items-center text-grass hover:text-grass-700 sm:min-h-0">
           How we calculate fit
         </Link>
       </div>
@@ -597,7 +597,7 @@ function MethodAndFounder() {
             chance.
           </li>
         </ol>
-        <Link href="/methodology" className="mt-4 inline-block font-semibold text-grass hover:text-grass-700">
+        <Link href="/methodology" className="mt-4 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
           Read the full methodology
         </Link>
       </Reveal>
@@ -723,7 +723,7 @@ function Faq() {
                   onClick={() => toggle(item.q)}
                   aria-expanded={isOpen}
                   aria-controls={panelId}
-                  className="flex w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2"
+                  className="flex min-h-11 w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2"
                 >
                   <span>{item.q}</span>
                   <ChevronDown
@@ -801,24 +801,24 @@ function HomeFooter() {
     <footer className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-10 text-sm text-stone">
       <span>© {new Date().getFullYear()} Seeded</span>
       <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <Link href="/methodology" className="hover:text-grass">
+        <Link href="/methodology" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           Methodology
         </Link>
-        <Link href="/how-it-works" className="hover:text-grass">
+        <Link href="/how-it-works" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           About
         </Link>
-        <Link href="/privacy" className="hover:text-grass">
+        <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           Privacy (incl. minors)
         </Link>
-        <Link href="/terms" className="hover:text-grass">
+        <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           Terms
         </Link>
-        <Link href="/contact" className="hover:text-grass">
+        <Link href="/contact" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           Contact
         </Link>
         {/* A real address people can write to, not only a contact form.
             Mail to this lands in the support@ forwarding Niran set up. */}
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-grass">
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
           {SUPPORT_EMAIL}
         </a>
       </span>

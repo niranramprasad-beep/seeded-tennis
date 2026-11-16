@@ -11,8 +11,8 @@ Lighthouse a11y 100 / SEO 100.
 
 | Workstream | Status |
 |---|---|
-| A — fit report tells one true story | IN PROGRESS |
-| B — real-user walkthroughs (7 personas) | not started |
+| A — fit report tells one true story | **DONE** (`00b972e`) |
+| B — real-user walkthroughs (7 personas) | IN PROGRESS |
 | C — premium design detail pass | not started |
 | D — truth & honesty sweep | not started |
 | E — regression safety | not started |
@@ -110,4 +110,55 @@ itself, and judging a pre-junior player on today's rating.
 | e Men's 4.0 C/2030 | R0 T0 L0 + empty state | same |
 
 Tests 670 → 688. Typecheck, lint, build green.
+
+---
+
+## B — real-user walkthroughs
+
+`scripts/persona-walk.mjs` drives each persona through the public journey on
+a **production build** at 1440 and 375, light and dark — 8 screens × 4
+combinations = 32 captures each, 160 in
+`~/seeded-evidence/final-pass/`. It does not just screenshot: it reads the
+numbers each screen claims and fails on contradictions, because a screenshot
+cannot tell you the headline said 20 and the tabs said 12.
+
+**Result: 80 problems → 0.**
+
+### Two harness bugs found first, which is the point of checking the checker
+
+1. **A 400 on every page.** `/onboarding`'s chunk 400'd everywhere. It was
+   mine: I had rebuilt `.next` without restarting `next start`, so the
+   running server served HTML referencing chunk hashes the rebuild had
+   replaced. The same class of mistake as the blank-screenshot one — a
+   harness reporting a fault it created.
+2. **169 "tap targets under 44px" on /schools.** Almost all were links
+   inside a sentence, which WCAG exempts because you cannot give a word in
+   a paragraph a 44px box. Also counted `sr-only` inputs (1px by design)
+   and 20px checkboxes sitting inside 44px labels.
+
+### Real mobile findings, all fixed
+
+| what | was | now |
+|---|---|---|
+| Header logo, every page | 28px | 44px |
+| `/schools` compare checkbox | 13px | 20px box in a 44px label |
+| `/schools` star + expand buttons | 28px | 44px (negative margin keeps row height) |
+| `/schools` band chips, sort + filter selects | 32–34px | 44px on mobile |
+| `/pricing` billing toggle | 40px | 44px |
+| Footer link columns (6 public routes) | 20px | 44px on mobile |
+| FAQ disclosure buttons | 26px | 44px |
+| Tournament level buttons, sidebar nav | 40px | 44px |
+| School page breadcrumb / "Report an error" / staff link | 20–26px | 44px |
+| Range-bar track (carries the tooltip) | 10px | 50px via `::after`, layout untouched |
+
+The star button needed the fix at the **call site**: the component asked for
+`h-11 w-11` and the caller's `className="h-7 w-7"` won, because `cn()` is
+tailwind-merge and the later class wins. Worth remembering — a component
+cannot enforce its own minimum size against a caller.
+
+The harness now measures a pseudo-element hit area rather than exempting
+it, so the range bar is checked rather than excused.
+
+**Still to walk: personas (f) parent-of-(a) and (g) under-13.** Both need a
+session; see below.
 

@@ -102,7 +102,7 @@ export function Footer() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => {
                   const className = cn(
-                    "group inline-flex items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink",
+                    "group inline-flex min-h-11 items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink sm:min-h-0",
                     isSeeded && "font-seeded"
                   );
                   // next/link would try to route a mailto: internally.
@@ -140,7 +140,7 @@ export function Footer() {
           {isSeeded && (
             <button
               onClick={() => setDesign("legacy")}
-              className="font-seeded text-xs text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline"
+              className="inline-flex min-h-11 items-center font-seeded text-xs text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-0"
             >
               Switch to Legacy
             </button>

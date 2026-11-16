@@ -117,7 +117,8 @@ export function RangeBar({
         }
         className={cn(
           "group relative mt-2 h-2.5 rounded-pill bg-line",
-          hasDetail && "cursor-pointer"
+          hasDetail &&
+            "cursor-pointer after:absolute after:-inset-y-5 after:inset-x-0 after:content-[''] sm:after:hidden"
         )}
       >
         <div

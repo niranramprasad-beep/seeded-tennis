@@ -35,7 +35,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { cn, hasRealUtr } from "@/lib/utils";
 
 const selectClass =
-  "h-10 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
+  "h-11 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-10";
 
 type ChipFilter = "all" | FitBand | "saved";
 
@@ -511,7 +511,7 @@ export function SeededSchoolsBrowser({
           <select
             value={safeSort}
             onChange={(e) => setSort(e.target.value as SeededSchoolSort)}
-            className="h-8 rounded-lg border border-input bg-card px-2 font-sans text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+            className="h-11 rounded-lg border border-input bg-card px-2 font-sans text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-8"
           >
             {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => {
               const needsUtr = key === "gap" || key === "fit";
@@ -652,32 +652,42 @@ export function SeededSchoolsBrowser({
                         e.stopPropagation();
                         setExpandedSlug(expanded ? null : s.slug);
                       }}
-                      className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md p-1 hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/50"
+                      className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-2 hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/50 sm:-m-1 sm:h-7 sm:w-7 sm:p-1"
                     >
                       <ChevronDown
                         className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", expanded && "rotate-180")}
                         aria-hidden
                       />
                     </button>
-                    <input
-                      type="checkbox"
-                      aria-label={`Compare ${s.shortName}`}
-                      checked={compareSlugs.includes(s.slug)}
+                    {/* 13px tall at 375 — the smallest thing on the page
+                        and the one a thumb misses. A native checkbox cannot
+                        be grown to 44px without looking wrong, so the LABEL
+                        is the tap target: clicking it toggles the control,
+                        giving a 44px finger area around a 20px box. */}
+                    <label
+                      className="-m-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center sm:-m-0 sm:h-auto sm:w-auto"
                       onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleCompare(s.slug)}
-                      disabled={!compareSlugs.includes(s.slug) && compareSlugs.length >= 3}
-                    />
+                    >
+                      <span className="sr-only">Compare {s.shortName}</span>
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-grass sm:h-4 sm:w-4"
+                        checked={compareSlugs.includes(s.slug)}
+                        onChange={() => toggleCompare(s.slug)}
+                        disabled={!compareSlugs.includes(s.slug) && compareSlugs.length >= 3}
+                      />
+                    </label>
                     <div className="flex min-w-0 items-center gap-1">
                       <StarButton
                         starred={isStarred(s.slug)}
                         onToggle={() => toggleStar(s.slug, s.shortName)}
                         label={s.shortName}
-                        className="h-7 w-7"
+                        className="h-11 w-11 sm:h-7 sm:w-7"
                       />
                       <Link
                         href={`/schools/${s.slug}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="min-w-0 text-ink"
+                        className="flex min-h-11 min-w-0 flex-col justify-center text-ink sm:min-h-0"
                       >
                         <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
                         <p className="truncate text-xs text-stone-light">
@@ -866,7 +876,7 @@ function ChipButton({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[13px] font-semibold transition-colors",
+        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-[13px] font-semibold transition-colors sm:min-h-0 sm:py-1.5",
         active ? v.on : v.off
       )}
     >
