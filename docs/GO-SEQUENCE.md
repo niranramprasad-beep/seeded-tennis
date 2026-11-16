@@ -9,7 +9,8 @@ stops, and where each pasteable rollback lives.
 
 **Production:** Supabase `tfpjssmhiptbwigarxpx` (23 migrations applied),
 `main` at `d059006` serving the maintenance 503.
-**Who runs it:** Niran. Claude does not apply migrations or merge to `main`.
+**Who runs it:** Niran, or Claude on Niran's explicit current-turn "go"
+(given 2026-11-16; the run's log is in `docs/MASTER_ROADMAP.md`).
 
 Shell notes for this Mac: the Postgres client tools are Homebrew `libpq`,
 which is keg-only, so use full paths (or `export
@@ -81,6 +82,15 @@ roughly **45–60 minutes** in total.
 | 14 | 037 | an approved member reads exactly **1** `profiles` row — **with `set local role authenticated`**, or the count is meaningless | ≠ 1 | §J Step 14 block |
 | 14b | 038 | `family_members()` returns one row per member, one account holder | duplicates | §J Step 14b block |
 | 14c | 039 | `parent_reports` client INSERT → 42501 | allowed | §J Step 14c block |
+| 14d | **040** (needs 035's `profile_row_exists()`) | as an over-limit Free player: same-size upsert and 5 → 4 succeed; 6 and 3 → 4 refused (23514) | otherwise | §J Step 14d (re-run 024's function) |
+
+**040 was added on 2026-11-16, during the production run.** Step 4's
+pre-check found 2 real Free players holding 5 target schools; 024 as written
+refused every profile save for them (the app upserts the whole profile) and
+refused pruning one school at a time. 040 makes the cap block only growth.
+Rehearsed on staging before and after, against that exact shape. It runs
+last because it calls 035's `profile_row_exists()`; the defect only bites
+once the v1 code is live, and the code merges after it.
 
 **036 does not ship without 037, 038 and 039.** If you have to stop after
 036, roll 036 back rather than leave it alone.

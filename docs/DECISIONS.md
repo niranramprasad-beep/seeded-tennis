@@ -7,6 +7,25 @@ Newest first.
 
 ---
 
+## 2026-11-16 — Migration 040: the Free target cap blocks only growth
+
+**Decision (Niran's, on the options laid out mid-rollout).** Fix forward
+rather than roll 024 back. A Free account may never grow its target list
+past 3, but a save that does not add schools always goes through, and an
+upsert's INSERT half on an existing row defers to the UPDATE half.
+
+**Why.** 024 was already on production when its pre-check found 2 real Free
+players with 5 schools. As written it would have refused every profile save
+they made under the v1 code, and refused pruning one school at a time.
+Rolling 024 back instead would leave the v1 code gating outreach at Player
+while the database still required Family — a broken board for every new
+Player buyer.
+
+**How to undo.** Re-run 024's `create or replace function` block (§J step
+14d). Rehearsed on staging before and after.
+
+---
+
 ## 2026-11-16 — Reach vs Out of range: one rule, the player's logged pace
 
 **Decision.** In every view (today, the summer-before-senior-year estimate,

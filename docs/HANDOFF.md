@@ -2065,8 +2065,32 @@ Measured after applying: all five as above, and the removed member then read
 Note it restores the unremovable member AND the client write, so roll the
 `/privacy` copy back with it or leave 039 applied.
 
+### Step 14d — migration 040 (the Free target cap blocks only growth)
+**Added 2026-11-16, during the production run, after 024 was already live.**
+Step 4's pre-check found **2** real Free players with 5 target schools each.
+§J step 4 said the trigger "only blocks growth"; it did not. On UPDATE it
+passed only a SHRINKING list (`<`, not `<=`), and the app's
+`writeCurrentPlayerProfile()` upserts the whole profile with
+`target_school_slugs` every time — so every save those two made would have
+been refused (23514), and so would removing one school, because an upsert's
+INSERT half has no OLD to compare with (the same trap as 035). Measured on
+production in rolled-back transactions, then reproduced on staging.
+**Apply:** `040_free_target_limit_blocks_only_growth.sql`, after 039 (it
+calls `profile_row_exists()` from 035).
+**Verify (as an over-limit Free player, `set local role authenticated`):**
+same-size upsert ok, rename ok, prune 5 → 4 ok; grow to 6, re-grow 4 → 5,
+and a Free player at 3 adding a 4th all 23514; a Player-tier save of 8 ok.
+Staging, before → after: `upsert_same5 23514 → ok`, `upsert_prune4 23514 → ok`,
+everything else unchanged. `lib/db/free-target-limit.test.ts` fails the
+build if the strict version returns.
+**Rollback:** re-run the `create or replace function
+public.enforce_free_tier_target_limit()` block from 024 verbatim (grants
+are kept by `create or replace`). The trigger itself is not touched.
+**Risk: low** — one function body; strictly more permissive than 024 only
+for saves that do not add schools.
+
 ### Step 15 — the code (`v1` → `main`)
-Only after steps 1–14 are applied and verified.
+Only after steps 1–14d are applied and verified.
 **`git revert d059006` DOES NOT WORK, and the obvious merge leaves
 production on the 503.** This step said to revert that commit in the PR. It
 cannot be reverted from `v1`: **`d059006` is not an ancestor of `v1`** and
