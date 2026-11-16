@@ -69,3 +69,17 @@ describe("the 0 sentinel never reaches Postgres", () => {
     }
   });
 });
+
+describe("onboarding never records a rating the player did not choose", () => {
+  // The signed-in onboarding defaulted the slider to 7 and saved it on an
+  // untouched Continue — a "Starting UTR" of 7.0 in the player's history and
+  // "My UTR is 7.0" in their coach email.
+  it("starts with no rating, and step 1 needs a rating or an explicit 'none yet'", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(join(__dirname, "..", "components/onboarding/onboarding-flow.tsx"), "utf8");
+    expect(src).toMatch(/useState<number \| null>\(player\.currentUTR > 0 \? player\.currentUTR : null\)/);
+    expect(src).toMatch(/step === 0\s*\?\s*utr != null \|\| noUtrYet/);
+    expect(src).toMatch(/currentUTR: noUtrYet \|\| utr == null \? 0 : utr/);
+  });
+});

@@ -255,13 +255,19 @@ async function measure(page) {
     const smallText = [];
     for (const el of interactive) {
       if (srOnly(el) || inRunningText(el)) continue;
+      // A range input's target is its thumb (44px in globals.css), not the
+      // 6px track this would otherwise measure.
+      if (el.tagName === "INPUT" && el.getAttribute("type") === "range") continue;
       const r = el.getBoundingClientRect();
       // a control inside a label/target that is itself big enough is fine
       const host = el.closest("label") ?? el;
       const hr = host.getBoundingClientRect();
       // pseudo-element hit areas (range bar ::after) — trust an explicit marker
       const pad = el.getAttribute("data-hit-area");
-      if ((Math.min(r.width, hr.width) < 24 || Math.min(r.height, hr.height) < 24) && !pad) {
+      // The LARGER of the control and its <label> is the target: a 20px
+      // checkbox inside a 44px label is a 44px target. (Harness bug #5: this
+      // took the smaller, and reported the /schools compare boxes as 20px.)
+      if ((Math.max(r.width, hr.width) < 24 || Math.max(r.height, hr.height) < 24) && !pad) {
         smallTargets.push(`${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30)}" ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
       const fs = parseFloat(getComputedStyle(el).fontSize);

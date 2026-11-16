@@ -102,8 +102,20 @@ function friendlyAuthError(message: string): string {
   if (isNetworkFailureMessage(message)) {
     return "Can't reach the server right now. Check your connection, or the Seeded backend may be temporarily unavailable. Please try again in a moment.";
   }
-  if (message.toLowerCase().includes("not confirmed")) {
+  const m = message.toLowerCase();
+  if (m.includes("not confirmed")) {
     return "Check your inbox to confirm your email.";
+  }
+  // Supabase Auth's own wording, which the login form used to show
+  // verbatim ("Invalid login credentials").
+  if (m.includes("invalid login credentials")) {
+    return "That email and password don't match an account. Check both, or reset your password.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "There's already an account with that email. Sign in instead.";
+  }
+  if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
+    return "Too many attempts in a short time. Wait a few minutes and try again.";
   }
   return message;
 }

@@ -2,6 +2,7 @@ import { computeUtrProjection, type UtrDataPoint } from "@/lib/utr-projection";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import type { PlayerGender } from "@/lib/types";
 import { formatUTR } from "@/lib/utils";
+import { formatDate } from "@/lib/time";
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -118,7 +119,7 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, gender }: UtrVsPl
         {projection
           ? "Green band = projected range if your recent pace continues."
           : "Log a few more UTR results to unlock a projected range."}
-        {validCheckpoint && ` Next checkpoint: ${formatUTR(validCheckpoint.utr)} by ${label(validCheckpoint.date)}.`}
+        {validCheckpoint && ` Next checkpoint: ${formatUTR(validCheckpoint.utr)} by ${formatDate(validCheckpoint.date)}.`}
       </p>
     </div>
   );

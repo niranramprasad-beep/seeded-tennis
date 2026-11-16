@@ -205,7 +205,7 @@ describe("explainSchoolFit — summary sentence, real numbers only", () => {
     const explanation = explainSchoolFit(5.8, school, { graduationYear: 2028 });
     // "today": the band may be judged at a junior-year estimate (the fit
     // report's choice), so the sentence says which rating it is quoting.
-    expect(explanation.summary).toBe("Stanford's lowest reliable player is 12.3. You're 5.8 today.");
+    expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.3. You're 5.8 today.");
     expect(explanation.gapToFloor).toBeCloseTo(6.5, 2);
     expect(explanation.gapToMedian).toBeCloseTo(7.8, 2);
   });
@@ -289,7 +289,7 @@ describe("explainSchoolFit — required pace vs the realistic 0.5-1.5/yr band (p
     const nextBand = explanation.nextBand!;
     expect(nextBand.paceRead).toBe("slower-than-realistic");
     expect(nextBand.requiredPaceUtrPerYear).toBeLessThan(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min);
-    expect(nextBand.message).toContain("you have room");
+    expect(nextBand.message).toContain("there's room");
     expect(explanation.unreachable).toBe(false);
   });
 
@@ -555,7 +555,7 @@ describe("computeGoalPace — whole-roadmap pace warning math (point 2)", () => 
     const pace = computeGoalPace(11, 10, 2029, d("2025-11-08"));
     expect(pace.gap).toBe(0);
     expect(pace.requiredPaceUtrPerYear).toBe(0);
-    // 0/yr is below the realistic floor, not "within range" — "you have room," never a warning.
+    // 0/yr is below the realistic floor, not "within range" — "there's room," never a warning.
     expect(pace.paceRead).toBe("slower-than-realistic");
   });
 });

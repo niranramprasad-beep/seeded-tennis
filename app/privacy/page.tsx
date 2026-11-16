@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             <li key={section.id}>
               <a
                 href={`#${section.id}`}
-                className="text-sm text-grass underline-offset-4 hover:underline"
+                className="inline-flex min-h-6 items-center text-sm text-grass underline-offset-4 hover:underline"
               >
                 {section.title}
               </a>

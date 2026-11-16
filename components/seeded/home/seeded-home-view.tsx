@@ -344,7 +344,7 @@ function TrustStrip() {
           <strong className="text-ink">Built by a junior player</strong>{" "}
           going through recruiting now.
         </span>
-        <Link href="/methodology" className="inline-flex min-h-11 items-center text-grass hover:text-grass-700 sm:min-h-0">
+        <Link href="/methodology" className="inline-flex min-h-11 items-center text-grass hover:text-grass-700 sm:min-h-6">
           How we calculate fit
         </Link>
       </div>
@@ -519,17 +519,17 @@ function ProductShotAction({
 function ParentsSection() {
   return (
     // Deliberately always-dark panel (like a fixed Legacy concept-theme
-    // block), independent of site-wide light/dark mode — bg-[#14181A] is a
+    // block), independent of site-wide light/dark mode — bg-[rgb(var(--c-night))] is a
     // fixed value (matching light mode's own --c-ink) rather than bg-ink,
     // which would otherwise flip bright once the site is in dark mode and
     // break every hardcoded light-on-dark color below it.
-    <section className="bg-[#14181A] text-[#EEF1EC]">
+    <section className="bg-[rgb(var(--c-night))] text-[rgb(var(--c-night-text))]">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6 py-20">
         <Reveal className="min-w-0 flex-[1_1_420px]">
           <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
             For parents
           </p>
-          <h2 className={cn(seededSectionHeading, "mt-3 text-balance text-[#EEF1EC]")}>
+          <h2 className={cn(seededSectionHeading, "mt-3 text-balance text-[rgb(var(--c-night-text))]")}>
             See if the plan is working, without nagging.
           </h2>
           {/* P0-7: this promised "A Sunday email with...". Seeded sends no
@@ -537,7 +537,7 @@ function ParentsSection() {
               Auth's own confirmation/reset. The report itself is real and
               lives at /family/weekly-reports; you open it, we don't send it.
               The weekly parent email is POST-V1. */}
-          <p className="mt-4 text-[17px] leading-[1.55] text-[#B9C2BC]">
+          <p className="mt-4 text-[17px] leading-[1.55] text-[rgb(var(--c-night-soft))]">
             A weekly report you can open any time: UTR movement, coach replies,
             upcoming events and what the season has cost so far.
           </p>
@@ -548,31 +548,31 @@ function ParentsSection() {
             See a sample parent report
           </Link>
         </Reveal>
-        <Reveal index={1} step={0.1} className="min-w-0 flex-[1_1_420px] rounded-xl border border-[#26302A] bg-[#1B241F] p-6">
+        <Reveal index={1} step={0.1} className="min-w-0 flex-[1_1_420px] rounded-xl border border-[rgb(var(--c-night-line))] bg-[rgb(var(--c-night-card))] p-6">
           {/* P0-7: these numbers are illustrative, not a real player's. The
               Today mock elsewhere on this page already says "Example player";
               this card didn't, so it read as a real week. */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-sm text-[#9AA59E]">Week of Nov 2</div>
-            <span className="rounded-pill border border-[#26302A] px-2 py-0.5 text-xs font-semibold text-[#9AA59E]">
+            <div className="text-sm text-[rgb(var(--c-night-muted))]">Week of Nov 2</div>
+            <span className="rounded-pill border border-[rgb(var(--c-night-line))] px-2 py-0.5 text-xs font-semibold text-[rgb(var(--c-night-muted))]">
               Example
             </span>
           </div>
           <div className="mt-3.5 grid grid-cols-3 gap-3">
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">+0.12</div>
-              <div className="text-[13px] text-[#9AA59E]">UTR this month</div>
+              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">+0.12</div>
+              <div className="text-[13px] text-[rgb(var(--c-night-muted))]">UTR this week</div>
             </div>
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">2</div>
-              <div className="text-[13px] text-[#9AA59E]">coach replies</div>
+              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">2</div>
+              <div className="text-[13px] text-[rgb(var(--c-night-muted))]">coach replies</div>
             </div>
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[#EEF1EC]">$1,840</div>
-              <div className="text-[13px] text-[#9AA59E]">season spend</div>
+              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">$1,840</div>
+              <div className="text-[13px] text-[rgb(var(--c-night-muted))]">season spend</div>
             </div>
           </div>
-          <div className="mt-4.5 border-t border-[#26302A] pt-4 text-sm text-[#B9C2BC]">
+          <div className="mt-4.5 border-t border-[rgb(var(--c-night-line))] pt-4 text-sm text-[rgb(var(--c-night-soft))]">
             Skipped 2 bad-fit events this fall · saved about $620
           </div>
         </Reveal>
@@ -603,7 +603,7 @@ function MethodAndFounder() {
           <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
           <li>You get one of four bands. We never show a percent chance.</li>
         </ol>
-        <Link href="/methodology" className="mt-4 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
+        <Link href="/methodology" className="mt-4 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6">
           Read the full methodology
         </Link>
       </Reveal>
@@ -781,9 +781,9 @@ function FinalCta() {
     // section directly above (see its comment for why a fixed #14181A
     // rather than bg-ink). Fixed values on both sides means the ratio is
     // the same number in both modes.
-    <section className="bg-[#14181A] text-[#EEF1EC]">
+    <section className="bg-[rgb(var(--c-night))] text-[rgb(var(--c-night-text))]">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6 py-16">
-        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance text-[#EEF1EC]")}>
+        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance text-[rgb(var(--c-night-text))]")}>
           Find out where you fit before your next tournament.
         </h2>
         <Link
@@ -807,24 +807,24 @@ function HomeFooter() {
     <footer className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-10 text-sm text-stone">
       <span>© {new Date().getFullYear()} Seeded</span>
       <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <Link href="/methodology" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <Link href="/methodology" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           Methodology
         </Link>
-        <Link href="/how-it-works" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <Link href="/how-it-works" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           About
         </Link>
-        <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           Privacy (incl. minors)
         </Link>
-        <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           Terms
         </Link>
-        <Link href="/contact" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <Link href="/contact" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           Contact
         </Link>
         {/* A real address people can write to, not only a contact form.
             Mail to this lands in the support@ forwarding Niran set up. */}
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-0">
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
           {SUPPORT_EMAIL}
         </a>
       </span>

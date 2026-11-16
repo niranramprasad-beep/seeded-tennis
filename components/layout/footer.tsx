@@ -102,7 +102,7 @@ export function Footer() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => {
                   const className = cn(
-                    "group inline-flex min-h-11 items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink sm:min-h-0",
+                    "group inline-flex min-h-11 items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink sm:min-h-6",
                     isSeeded && "font-seeded"
                   );
                   // next/link would try to route a mailto: internally.

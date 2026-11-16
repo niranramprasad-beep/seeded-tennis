@@ -31,7 +31,9 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
   const now = useMemo(() => new Date(), []);
 
-  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  const { data: members = [], isLoading: membersLoading } = useSWR<FamilyMember[]>("family-members", () =>
+    loadFamilyMembers()
+  );
   // The family's money: every approved player's entered tournaments,
   // chosen explicitly (lib/db/family-scope.ts DataSubject).
   const { data: tournamentEntries = [] } = useSWR(
@@ -72,14 +74,28 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
     if (saved) mutateExpenses([saved, ...expenses], { revalidate: false });
   };
 
+  if (membersLoading) {
+    // Wait for the roster: the scope line, the player's name and every
+    // player-scoped number below depend on it, and rendering first made the
+    // page jump when they arrived. Keyed so the real page mounts fresh.
+    return (
+      <div key="family-page-skeleton" className="mx-auto max-w-content container-px py-10" aria-busy="true">
+        <p className="sr-only" role="status">Loading…</p>
+        <div className="h-[72px] animate-pulse rounded-lg bg-line/40 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 h-10 w-72 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-content container-px py-10">
+    <div key="family-page" className="mx-auto max-w-content container-px py-10">
       <ParentScopeLine />
       <div className="h-6" aria-hidden />
       <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">Season budget</h1>
       <p className="mt-1.5 max-w-2xl text-stone">
-        Real spend for {playerMember?.name?.split(" ")[0] ?? "your player"}&rsquo;s season, plus a longer-range cost
-        projection.
+        Your family&rsquo;s spend this season &mdash; expenses you add, plus tournaments the players in
+        your family have entered &mdash; and a longer-range projection from your own numbers.
       </p>
 
       <div className="mt-6">
@@ -95,8 +111,8 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
       <div className="mt-10 border-t border-line pt-8">
         <h2 className="text-lg font-semibold text-ink">Longer-range projection</h2>
         <p className="mt-1 max-w-2xl text-sm text-stone">
-          Estimate training, tournaments, travel, and equipment over the years remaining, and compare against
-          realistic scholarship ranges.
+          Add up training, tournaments, travel and equipment over the years remaining, from numbers you enter.
+          Seeded holds no cost-of-attendance or athletic-aid figures, so it does not estimate them.
         </p>
         <div className="-mx-6 mt-2">
           <CostCalculatorView schools={schools} />

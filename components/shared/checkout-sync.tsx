@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { postJson } from "@/lib/api-client";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 
 // The client half of the post-checkout safety net (server half:
 // app/api/whop/sync). Mounted once in the app shell rather than on one page,
@@ -21,7 +22,7 @@ import { postJson } from "@/lib/api-client";
 // wrong choice here — the person has just been charged, and "did that work?"
 // deserves an answer on the page rather than in a log.
 
-type SyncState = "idle" | "working" | "done" | "failed";
+type SyncState = "idle" | "working" | "done" | "none-found" | "failed";
 
 interface SyncResponse {
   synced?: boolean;
@@ -55,7 +56,7 @@ export function CheckoutSync() {
         // `synced: false` is not a failure on its own — "already-current"
         // means the webhook got there first, which is the good outcome.
         const ok = result.synced === true || result.reason === "already-current";
-        setState(ok ? "done" : "failed");
+        setState(ok ? "done" : result.reason === "no-membership-found" ? "none-found" : "failed");
         if (ok) await refresh();
       } catch {
         if (!cancelled) setState("failed");
@@ -85,11 +86,26 @@ export function CheckoutSync() {
   if (state === "done") {
     return <Banner tone="good">You&rsquo;re all set — your plan is active.</Banner>;
   }
+  // Each sentence says only what Seeded actually knows. This used to tell
+  // every failure "Payment received … it usually catches up within a few
+  // minutes" — including an account Whop has no membership for at all
+  // (nobody paid), and resting a timing promise on a webhook that had never
+  // delivered (HANDOFF §K).
+  if (state === "none-found") {
+    return (
+      <Banner tone="neutral">
+        Whop doesn&rsquo;t show a membership for this account yet. If you&rsquo;ve just paid,
+        refresh this page in a minute. If it still doesn&rsquo;t show, email{" "}
+        <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> from the
+        address you paid with and we&rsquo;ll switch your plan on by hand.
+      </Banner>
+    );
+  }
   return (
     <Banner tone="bad">
-      Payment received, but we couldn&rsquo;t switch your plan on automatically. It usually
-      catches up within a few minutes. If it doesn&rsquo;t, email us and we&rsquo;ll fix it by
-      hand — you will not be charged twice.
+      We couldn&rsquo;t confirm your payment with Whop just now. If you paid, nothing is lost:
+      email <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> and
+      we&rsquo;ll switch your plan on by hand.
     </Banner>
   );
 }

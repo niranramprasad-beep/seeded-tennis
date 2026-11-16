@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useDialog } from "@/lib/hooks/use-dialog";
 import { cn } from "@/lib/utils";
 import {
   PARENT_NAV_LINKS,
@@ -53,6 +54,9 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Esc, focus trap, focus return and scroll lock (lib/hooks/use-dialog.ts).
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialog(open, () => setOpen(false), panelRef);
 
   const commands = useMemo(() => {
     const roleCommands = player.role === "parent" ? PARENT_COMMANDS : PLAYER_COMMANDS;
@@ -126,12 +130,14 @@ export function CommandPalette() {
             className="fixed inset-0 z-[100] bg-ink/50"
             onClick={() => setOpen(false)}
           />
+          <div className="pointer-events-none fixed inset-x-0 top-[18vh] z-[101] flex justify-center px-4">
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="seeded-glass fixed left-1/2 top-[18vh] z-[101] w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-[22px] shadow-seeded-3"
+            className="seeded-glass pointer-events-auto w-full max-w-lg overflow-hidden rounded-[22px] shadow-seeded-3"
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
@@ -172,6 +178,7 @@ export function CommandPalette() {
               ))}
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

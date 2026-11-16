@@ -112,7 +112,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       "That last item is an age signal, so we would rather name it than bury it: if a member is under 13 and still waiting for permission, the others in the family can see that they are waiting. They cannot see their birth year.",
       "Everyone in a family can see this about everyone else in it, not only parents about players. A sibling in the same family sees the same list.",
       "Approval is the opt-in, and it is the only one. Someone whose request is still waiting sees nothing at all, and the moment a member is removed from a family they can no longer see anything about anyone in it.",
-      "A parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf. The parent_reports table is not written by anyone at all — no feature generates a row, and after migration 039 no signed-in account can insert one either. The weekly family report you can open is computed live from your own logged data when you open it; it is not stored.",
+      "Apart from their own account details and their own cost projections, a parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf. The parent_reports table is not written by anyone at all — no feature generates a row, and after migration 039 no signed-in account can insert one either. The weekly family report you can open is computed live from the player's logged data when you open it; it is not stored.",
       "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",
       "The season budget is different, and we would rather say so than let you assume otherwise: any approved member of the family can edit it, including a player. If that matters to you, treat the budget as shared with everyone you approve.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",
@@ -165,10 +165,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
   {
     id: "cookies",
     title: "Cookies and analytics",
-    source: "lib/supabase/client.ts persistSession; components/shared/google-analytics.tsx",
+    source: "lib/supabase/client.ts persistSession; components/shared/google-analytics.tsx; components/shared/design-preference-sync.tsx + lib/db/settings.ts saveDesignPreference (theme saved to user_settings when signed in)",
     body: [
       "Signing in stores a session in your browser so you stay signed in. Clearing your browser data signs you out.",
-      "Your theme and a few display preferences are stored in your browser and never leave it.",
+      "Your theme and a few display preferences are stored in your browser. If you are signed in, your theme is also saved to your account so it follows you to another device — that is the only display preference that leaves your browser.",
       "Google Analytics and Vercel Analytics set their own cookies to count visits. We do not use advertising cookies and we do not track you across other sites.",
     ],
   },

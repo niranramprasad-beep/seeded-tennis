@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useDialog } from "@/lib/hooks/use-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,8 @@ export function DeleteAccountDialog({
     setConfirmText("");
     onClose();
   };
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialog(open, close, panelRef, { closeOnEscape: !submitting });
 
   return (
     <AnimatePresence>
@@ -65,12 +68,19 @@ export function DeleteAccountDialog({
             onClick={close}
             className="fixed inset-0 z-[100] bg-ink/50"
           />
+          {/* Centred by flexbox, not left-1/2 + -translate-x-1/2: Framer
+              writes its own inline transform for the y/scale animation and
+              that replaced the Tailwind translate, pushing the panel off the
+              right edge at narrow widths (same fix as budget-modals.tsx). */}
+          <div className="pointer-events-none fixed inset-x-0 top-[14vh] z-[101] flex justify-center px-4">
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed left-1/2 top-[14vh] z-[101] w-full max-w-md -translate-x-1/2 overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3"
+            className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-account-title"
@@ -138,6 +148,7 @@ export function DeleteAccountDialog({
               </button>
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

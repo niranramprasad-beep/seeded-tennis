@@ -35,12 +35,17 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
       <PaidGate
         required="player"
         feature="Your roadmap"
-        blurb="A year-by-year plan with realistic UTR targets, the tournaments that get you there, and a what-if planner to compare schools."
+        // Sold only what /plan contains. It listed "Tournament counts that
+        // match each level" and "An animated trajectory" (Legacy-only, or
+        // not there at all) and "What-if planning across up to five
+        // programs" — while /pricing, correctly, lists the what-if school
+        // planner as FREE (it is on /schools for everyone).
+        blurb="Your plan to the summer before senior year: UTR checkpoints, your target schools in order, and your results beside them."
         perks={[
-          "Year-by-year UTR targets tuned to your schools",
-          "Tournament counts that match each level",
-          "What-if planning across up to five programs",
-          "An animated trajectory you can actually follow",
+          "Year-by-year UTR checkpoints toward your target schools",
+          "Your targets in order, with why each sits in its band",
+          "Recent results beside the plan",
+          "The NCAA contact-date checklist, as general guidance",
         ]}
       >
         <RoadmapInner schools={schools} />

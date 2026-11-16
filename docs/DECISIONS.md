@@ -7,6 +7,27 @@ Newest first.
 
 ---
 
+## 2026-11-15 (overnight) — onboarding asks for a rating; it never assumes one
+
+**Decision.** The signed-in onboarding's UTR step starts empty ("—") and
+Continue needs either a moved slider or "I don't have a UTR yet"; the
+pre-auth fit report's UTR box no longer pre-fills "7". **Why:** an untouched
+Continue saved 7.0 as the player's real rating and history, which flowed
+into bands and the coach email. **Not changed, and logged for week 1:** the
+same flow's Grade (preselected 10th) and gender (preselected men's) are
+visible, confirmable choices rather than silent defaults, so they were left;
+they deserve the same treatment. **Undo:** `useState(player.currentUTR || 7)`
+in `components/onboarding/onboarding-flow.tsx` — don't.
+
+## 2026-11-15 (overnight) — Settings is reachable before onboarding
+
+**Decision.** `isOnboardingExemptPath()` lets an un-onboarded player open
+`/settings`. **Why:** export and delete must not require handing over more
+data first; `/privacy` says you need no reason and no request. **Undo:**
+remove the two `!isOnboardingExemptPath(pathname)` checks in AuthGate.
+
+---
+
 ## 2026-11-15 (overnight) — the mobile tab bar keeps its 11px labels
 
 **Decision.** The brief says no text under 14px on anything a user acts on.
@@ -67,7 +88,9 @@ player's own entries. **Undo:** not recommended; the old pooling is in git.
 real school names) entirely, and the $115/$1,200/$550 default inputs. The
 calculator now totals only what the family types. **Why:** each was a
 Seeded guess presented next to a real school or as the family's own total.
-`/cost-calculator` is Legacy-only (Seeded redirects it to `/family`).
+It renders inside `/family/budget` for Seeded parents (the standalone
+`/cost-calculator` route redirects to `/family` in Seeded), so this was a
+parent-facing surface, not a Legacy-only one.
 **Undo:** git history; do not, without per-school sourced data.
 
 ## 2026-11-15 (overnight) — Playwright WebKit and Firefox installed

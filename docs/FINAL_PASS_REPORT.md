@@ -287,6 +287,57 @@ was being counted as a console error. (4) A "server HTML is empty" check
 that only looked inside `<main>` missed streamed Suspense content on
 `/schools` and the school pages, which DO server-render.
 
+
+---
+
+## WS3 flows (3.5) — real journeys, production build, staging auth
+
+`scripts/flows.mjs`; evidence in `~/seeded-evidence/overnight/flows/`.
+
+| flow | result |
+|---|---|
+| wrong password | stays on /login with a sentence — was Supabase's raw "Invalid login credentials"; now "That email and password don't match an account…" |
+| already signed in → /login | **was shown the sign-in form again**; now sent to /today (or /family for a parent) |
+| under-13 (g): pending gate on /today; Settings reachable | ✅ |
+| sibling PLAYER (a) offered "I'm their parent — give consent" for (g) | **❌ → fixed**: the button (which the server refuses) and "Approve and consent" now show only to a parent; a player is told to ask a parent |
+| parent (f) grants consent through the UI → card disappears → (g) no longer gated | ✅ (DB: `consent_status` granted, `consent_granted_by` set) — (g) reset to pending afterwards for the harness |
+| parent adds a $42 expense | ✅ listed; total $1,280 → $1,322 |
+| JSON export as (a) | ✅ only (a)'s own user-keyed rows; 5 UTR entries; the family budget, as documented. CSV has no sibling/parent rows |
+| 4th export in an hour (b) | ✅ friendly sentence (reworded from "a lot of changes" — it was a download) |
+| `?checkout=success` | **❌ → fixed**: every failure said "Payment received … usually catches up within a few minutes" — including an account Whop has no membership for. Now three honest states |
+| checkout start, 4 plans | ❌ locally, **by design of Whop**: it rejects an `http://localhost` return URL. The route took that URL from the request's Origin header (S-11) and turned Whop's 400 into an empty 500. Fixed: return URL pinned (production domain / preview's own https URL), Whop errors caught as a 502 sentence. **Must be re-checked on the HTTPS preview** — not verifiable locally |
+| new signup (j) opens Settings to delete | **❌ → fixed**: an un-onboarded player was bounced from /settings to /onboarding, so export/delete required onboarding first |
+
+**HIGH found on the way — the onboarding slider invented a UTR.** For a
+player with no rating, the signed-in onboarding preselected **7.0**;
+pressing Continue untouched saved 7.0 as their rating, wrote a "Starting
+UTR" history entry, banded every school against it and put "My UTR is 7.0"
+in the coach email — the exact placeholder CLAUDE.md warns about. The
+rating is now an explicit choice (move the slider, or "I don't have a UTR
+yet"); the pre-auth fit report's UTR box no longer pre-fills "7" and says
+why when the button is pressed without a valid rating.
+
+## RLS attack suite, re-run after tonight's changes (WS4)
+
+Staging, every probe as `authenticated` with JWT claims, one transaction,
+rolled back. `~/seeded-evidence/overnight/ws4/rls-suite.json`.
+
+| # | attack | expected | result |
+|---|---|---|---|
+| 1–3 | player sets own `subscription_tier` / `role=parent` / `family_code` | 42501 | 42501 ×3 |
+| 4 | player inserts a `parent_reports` row | 42501 | 42501 |
+| 5 | player writes a "parent" note | 42501 | 42501 |
+| 6 | player removes the account holder | 22023 | 22023 |
+| 7 | `profiles` rows a member can read | 1 | 1 |
+| 8–11 | stranger reads (a)'s UTR / matches / any budget / roster | 0 | 0 ×4 |
+| 12–13 | stranger joins with a valid code; reads (a)'s UTR while pending | pending; 0 | pending; 0 |
+| 14–15 | under-13 pending logs a UTR / rewrites birth_year | 42501 | 42501 ×2 |
+| 16–17 | minor consents for self / sibling player consents | refused | `not_allowed` (self / not_a_parent_account) |
+| 18 | direct `utr_entries` writes in an hour | 20 then refused | 20 then 53400 |
+
+Plus the 14 parent read-only probes (WS1). Staging security advisors:
+nothing new — no migration was written tonight.
+
 ---
 
 # Previous pass

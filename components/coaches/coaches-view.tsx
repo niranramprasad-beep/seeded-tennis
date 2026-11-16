@@ -147,7 +147,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
   // The legacy-migration fallback lives inside the fetcher itself — SWR
   // calls it once per key and caches whichever result (remote or migrated
   // legacy) comes back, so the migration can't re-run on every revisit.
-  const { data: statuses = {}, mutate: mutateStatuses } = useSWR<StatusMap>(
+  const { data: statuses = {}, mutate: mutateStatuses, isLoading: statusesLoading } = useSWR<StatusMap>(
     "coach-outreach",
     async () => {
       const remote = await loadCoachOutreachDated();
@@ -315,6 +315,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
     return (
       <div className="mx-auto max-w-content container-px py-10">
         <SeededOutreachLayout
+          loading={statusesLoading}
           targetSchools={targetSchools}
           statuses={statuses}
           selectedSlug={selectedSchool?.slug ?? null}

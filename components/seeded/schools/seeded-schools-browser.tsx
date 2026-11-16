@@ -761,7 +761,7 @@ export function SeededSchoolsBrowser({
                         is the tap target: clicking it toggles the control,
                         giving a 44px finger area around a 20px box. */}
                     <label
-                      className="-m-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center sm:-m-0 sm:h-auto sm:w-auto"
+                      className="-m-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center sm:-m-0.5 sm:h-6 sm:w-6"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <span className="sr-only">Compare {s.shortName}</span>
@@ -785,7 +785,7 @@ export function SeededSchoolsBrowser({
                       <Link
                         href={`/schools/${s.slug}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex min-h-11 min-w-0 flex-col justify-center text-ink sm:min-h-0"
+                        className="flex min-h-11 min-w-0 flex-col justify-center text-ink sm:min-h-6"
                       >
                         <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
                         <p className="truncate text-xs text-stone-light">
@@ -982,7 +982,7 @@ function ChipButton({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-sm font-semibold transition-colors sm:min-h-0 sm:py-1.5",
+        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-sm font-semibold transition-colors sm:min-h-6 sm:py-1.5",
         active ? v.on : v.off
       )}
     >

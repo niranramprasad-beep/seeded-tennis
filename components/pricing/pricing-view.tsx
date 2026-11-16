@@ -93,7 +93,7 @@ function plansFor(c: CatalogCounts): Plan[] {
     tagline: "For the parent who pays and wants to see progress.",
     highlights: [
       "Everything in Player",
-      "Parent dashboard — read-only view of the plan",
+      "Parent dashboard — a read-only view of your player's progress",
       "Season budget, shared with the family",
       "Weekly family report",
     ],
@@ -253,7 +253,10 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
           .
         </h1>
         <p className="mx-auto mt-4 max-w-[640px] text-pretty text-[17px] text-stone">
-          One skipped bad-fit tournament (entry plus travel) usually covers a year of Player.
+          {/* Was "One skipped bad-fit tournament (entry plus travel) usually
+              covers a year of Player" — a claim about what tournaments cost
+              that nothing measured. The comparison is the family's to make. */}
+          The tournament checker shows what an event really costs per match before you enter.
         </p>
         {error && (
           <p className="mx-auto mt-4 max-w-md rounded-xl bg-error-bg px-4 py-3 text-sm text-error">

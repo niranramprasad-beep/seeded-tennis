@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { usePlayer } from "@/lib/context/player-context";
 import { UserPlus } from "lucide-react";
 import {
   approveFamilyJoin,
@@ -46,6 +47,14 @@ function sinceLabel(iso: string): string {
 }
 
 export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
+  // Consent is a parent's statement. grant_parent_consent() refuses anyone
+  // whose role is not 'parent', and approve_family_join() records consent
+  // only when a parent approves. This card used to offer a PLAYER — persona
+  // (a), 14, looking at their own /today — an "I'm their parent — give
+  // consent" button for an under-13 sibling, and an "Approve and consent"
+  // button that would approve without consenting.
+  const { player } = usePlayer();
+  const viewerIsParent = player.role === "parent";
   const { data: roster = [], mutate } = useSWR<FamilyRosterMember[]>(
     "family-roster",
     () => loadFamilyRoster()
@@ -127,14 +136,21 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
                 <p className="text-sm font-semibold text-ink">
                   {m.name.split(" ")[0]} is under 13
                 </p>
-                <p className="mt-1 text-sm text-stone">
-                  Approving also records that you consent, as their parent or guardian, to
-                  Seeded storing their information. Their account does nothing at all until
-                  you do.
-                </p>
+                {viewerIsParent ? (
+                  <p className="mt-1 text-sm text-stone">
+                    Approving also records that you consent, as their parent or guardian, to
+                    Seeded storing their information. Their account does nothing at all until
+                    you do.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-stone">
+                    You can approve them into the family, but their account does nothing until
+                    a parent in the family also gives consent.
+                  </p>
+                )}
                 <p className="mt-1.5 text-xs text-stone">
-                  Seeded can&rsquo;t verify that you are an adult or that you are this
-                  player&rsquo;s parent. Approving is you stating it.{" "}
+                  Seeded can&rsquo;t verify that anyone is an adult or this player&rsquo;s
+                  parent.{viewerIsParent ? " Approving is you stating it." : ""}{" "}
                   <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
                     What we store
                   </Link>
@@ -154,7 +170,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               >
                 {busyId === m.userId
                   ? "Saving…"
-                  : m.consentStatus === "pending"
+                  : m.consentStatus === "pending" && viewerIsParent
                     ? "Approve and consent"
                     : "Approve"}
               </SeededButton>
@@ -185,24 +201,33 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
                 They&rsquo;re under 13, so a parent or guardian has to consent to Seeded
                 storing their information. Until then their account reads nothing.
               </p>
-              <p className="mt-1.5 text-xs text-stone">
-                Seeded can&rsquo;t verify that you are an adult or that you are this
-                player&rsquo;s parent. Giving consent is you stating it. Only a parent account
-                can do this.{" "}
-                <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
-                  What we store
-                </Link>
-                .
-              </p>
-              <div className="mt-3">
-                <SeededButton
-                  className="min-h-[38px]"
-                  disabled={busyId === m.userId}
-                  onClick={() => act(m.userId, grantParentConsent)}
-                >
-                  {busyId === m.userId ? "Saving…" : "I'm their parent — give consent"}
-                </SeededButton>
-              </div>
+              {viewerIsParent ? (
+                <>
+                  <p className="mt-1.5 text-xs text-stone">
+                    Seeded can&rsquo;t verify that you are an adult or that you are this
+                    player&rsquo;s parent. Giving consent is you stating it. Only a parent account
+                    can do this.{" "}
+                    <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+                      What we store
+                    </Link>
+                    .
+                  </p>
+                  <div className="mt-3">
+                    <SeededButton
+                      className="min-h-[38px]"
+                      disabled={busyId === m.userId}
+                      onClick={() => act(m.userId, grantParentConsent)}
+                    >
+                      {busyId === m.userId ? "Saving…" : "I'm their parent — give consent"}
+                    </SeededButton>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-1.5 text-sm text-stone">
+                  Only a parent account can give it. Ask a parent in your family to open
+                  Seeded &mdash; they&rsquo;ll see this on their Overview.
+                </p>
+              )}
             </div>
           ))}
         </div>

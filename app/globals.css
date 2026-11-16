@@ -25,6 +25,16 @@
     --c-leaf: 34 197 94;
     --c-tennis: 190 242 100;
     --c-ink: 17 24 39;
+    /* Fixed-dark surfaces (the homepage's parent panel): the same in light
+       AND dark mode by design, so they are NOT redefined per theme. They
+       were raw hex in the component; tokens keep "no raw hex in
+       components" true without changing a pixel. */
+    --c-night: 20 24 26;
+    --c-night-card: 27 36 31;
+    --c-night-line: 38 48 42;
+    --c-night-text: 238 241 236;
+    --c-night-soft: 185 194 188;
+    --c-night-muted: 154 165 158;
     --c-stone: 75 85 99;
     --c-stone-light: 109 114 122;
     --c-line: 229 231 235;

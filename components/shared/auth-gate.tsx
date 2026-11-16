@@ -13,6 +13,7 @@ import { useDesign } from "@/lib/context/design-context";
 import { Button } from "@/components/ui/button";
 import {
   isConsentPendingAllowedPath,
+  isOnboardingExemptPath,
   isParentAllowedPath,
   isPlayerBlockedPath,
 } from "@/lib/route-access";
@@ -62,6 +63,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
       player.role !== "parent" &&
       !player.onboarded &&
       pathname !== "/onboarding" &&
+      // Settings stays reachable before onboarding: downloading or deleting
+      // your account must not require first giving us more data. A new
+      // signup was bounced from /settings to /onboarding, so /privacy's
+      // "you do not need to ask us" was untrue until they finished it.
+      !isOnboardingExemptPath(pathname) &&
       // A pending-consent account cannot complete onboarding — every write
       // it would make is refused by RLS — so sending it there would be a
       // loop of failing saves. It gets ConsentPendingScreen instead.
@@ -126,6 +132,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     player.role !== "parent" &&
     !player.onboarded &&
     pathname !== "/onboarding" &&
+    !isOnboardingExemptPath(pathname) &&
     !consentPendingAllowed;
   const blockedForParent =
     player.role === "parent" && !isParentAllowedPath(pathname);

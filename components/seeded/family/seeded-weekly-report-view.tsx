@@ -54,7 +54,9 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   const now = useMemo(() => new Date(), []);
   const schoolBySlug = useMemo(() => new Map(schools.map((s) => [s.slug, s])), [schools]);
 
-  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  const { data: members = [], isLoading: membersLoading } = useSWR<FamilyMember[]>("family-members", () =>
+    loadFamilyMembers()
+  );
   // The PLAYER's history, explicitly. This read the pooled family list and
   // computed "−4.40 this week" by subtracting one person's rating from
   // another's — see loadUtrEntries() for the whole story.
@@ -137,8 +139,22 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
     return `${fmt(start)} – ${fmt(now)}`;
   }, [now]);
 
+  if (membersLoading) {
+    // Wait for the roster: the scope line, the player's name and every
+    // player-scoped number below depend on it, and rendering first made the
+    // page jump when they arrived. Keyed so the real page mounts fresh.
+    return (
+      <div key="family-page-skeleton" className="mx-auto max-w-content container-px py-10" aria-busy="true">
+        <p className="sr-only" role="status">Loading…</p>
+        <div className="h-[72px] animate-pulse rounded-lg bg-line/40 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 h-10 w-72 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-content container-px py-10">
+    <div key="family-page" className="mx-auto max-w-content container-px py-10">
       <ParentScopeLine />
       <div className="h-6" aria-hidden />
       <div className="flex flex-wrap items-end justify-between gap-4">

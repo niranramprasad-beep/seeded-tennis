@@ -96,6 +96,9 @@ export function RangeBar({
     <div className={className}>
       <div
         ref={trackRef}
+        // Its ::after extends the hit area to 50px (see below); the harness
+        // reads this marker instead of the 10px visual track.
+        data-hit-area={hasDetail ? "50" : undefined}
         role={hasDetail ? "button" : undefined}
         tabIndex={hasDetail ? 0 : undefined}
         aria-label={hasDetail ? "Show range details" : undefined}

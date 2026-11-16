@@ -104,7 +104,7 @@ export function SeededMethodologyView() {
             <ol className="flex flex-col gap-3.5 text-[15px] text-ink">
               {TOC.map((item, i) => (
                 <li key={item.id}>
-                  <a href={`#${item.id}`} className="hover:text-grass">
+                  <a href={`#${item.id}`} className="inline-flex min-h-6 items-center hover:text-grass">
                     {i + 1}. {item.label}
                   </a>
                 </li>

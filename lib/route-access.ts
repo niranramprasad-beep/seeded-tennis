@@ -40,3 +40,10 @@ export function isPlayerBlockedPath(pathname: string): boolean {
   return pathname.startsWith("/family");
 }
 
+
+// Reachable by a signed-in player who has not finished onboarding. Only
+// Settings: exporting or deleting an account must never require handing
+// over more data first (/privacy promises both "without asking").
+export function isOnboardingExemptPath(pathname: string): boolean {
+  return pathname.startsWith("/settings");
+}

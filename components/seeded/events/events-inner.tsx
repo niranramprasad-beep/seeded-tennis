@@ -43,11 +43,16 @@ export function EventsInner({ plans }: { plans: TrainingPlan[] }) {
       <PaidGate
         required="player"
         feature="Events"
-        blurb="Tournaments, match results, and practice in one real schedule — with a fit check on every event you're considering."
+        // Sell only what Player actually adds. The tournament checker is free
+        // on /tournament-fit (and "Add to my events" there writes a real
+        // entry on Free), and a Free player logs a match result through
+        // Today's check-in — neither table is tier-gated in RLS. What IS
+        // gated, by 010/019, is the training calendar.
+        blurb="Your own training calendar, with the tournaments and match results you log, on one schedule."
         perks={[
-          "Fit-checked upcoming tournaments, scored against your real UTR",
-          "Match results logged straight into your real history",
-          "A real calendar for your own training sessions",
+          "A calendar for your own training sessions",
+          "Your sessions, tournaments and results on one schedule",
+          "Session templates you choose and edit yourself",
         ]}
       >
         <EventsContent plans={plans} />

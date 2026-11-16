@@ -75,7 +75,7 @@ function minutesPhrase(seconds: number): string {
  * limits-per-hour: the person doesn't need our policy, they need to know
  * when to try again. */
 export function rateLimitMessage(retryAfterSeconds: number): string {
-  return `That's a lot of changes at once — try again ${minutesPhrase(retryAfterSeconds)}.`;
+  return `You've done that a lot in a short time — try again ${minutesPhrase(retryAfterSeconds)}.`;
 }
 
 /**

@@ -70,7 +70,9 @@ function PreAuthOnboarding({
   // else is not a low rating, it is the absence of one.
   const isUsableUtr = (v: number) => Number.isFinite(v) && v >= 1 && v <= 16.5;
 
-  const [utr, setUtr] = useState(() => params.get("utr") ?? "7");
+  // Empty, not "7": a rating the visitor did not type is not their rating,
+  // and it would be saved to the account they create from this screen.
+  const [utr, setUtr] = useState(() => params.get("utr") ?? "");
   const [gradYear, setGradYear] = useState(() => Number(params.get("gradYear")) || gradYearOptions()[1]);
   const [gender, setGender] = useState<Gender>(() => (params.get("gender") as Gender) || "women");
   // No default. `?? "3.5"` printed "GPA 3.5" for persona (e), who gives
@@ -179,7 +181,7 @@ function PreAuthOnboarding({
           <p className="m-0 text-sm text-stone">
             {GENDER_LABEL[gender]} · UTR {utrNum.toFixed(1)} · Class of {gradYear}
             {gpa.trim() ? ` · GPA ${gpa}` : ""}{" "}
-            <button onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
+            <button onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6">
               Edit
             </button>
           </p>
@@ -499,6 +501,12 @@ function LevelForm({
   setGpa: (v: string) => void;
   onContinue: () => void;
 }) {
+  // An empty or out-of-range rating used to make the button silently do
+  // nothing. Say why, next to the field, once they have tried.
+  const [tried, setTried] = useState(false);
+  const parsed = parseFloat(utr);
+  const utrOk = Number.isFinite(parsed) && parsed >= 1 && parsed <= 16.5;
+  const utrError = tried && !utrOk ? "Enter your UTR — a number from 1 to 16.5." : null;
   return (
     <div className="mx-auto flex min-h-[calc(100vh-57px)] max-w-md flex-col justify-center px-6 py-10">
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-grass">Your level</p>
@@ -510,9 +518,18 @@ function LevelForm({
           <input
             value={utr}
             onChange={(e) => setUtr(e.target.value)}
-            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink placeholder:text-stone-light"
             inputMode="decimal"
+            placeholder="e.g. 8.25"
+            autoComplete="off"
+            aria-invalid={utrError ? true : undefined}
+            aria-describedby={utrError ? "utr-error" : undefined}
           />
+          {utrError && (
+            <span id="utr-error" role="alert" className="text-sm font-normal text-error">
+              {utrError}
+            </span>
+          )}
         </label>
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">
           Grad year
@@ -549,7 +566,13 @@ function LevelForm({
           />
         </label>
       </div>
-      <SeededButton className="mt-6" onClick={onContinue}>
+      <SeededButton
+        className="mt-6"
+        onClick={() => {
+          setTried(true);
+          onContinue();
+        }}
+      >
         See my fit report
       </SeededButton>
     </div>

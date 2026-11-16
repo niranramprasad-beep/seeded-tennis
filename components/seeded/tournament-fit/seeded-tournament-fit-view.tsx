@@ -177,7 +177,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <Link href="/events" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-0">
+      <Link href="/events" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-6">
         <ArrowLeft className="h-4 w-4" />
         Events
       </Link>
@@ -215,7 +215,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                     onClick={() => setLevel(l.value)}
                     aria-pressed={active}
                     className={cn(
-                      "min-h-11 rounded-lg border px-1 font-sans text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
+                      "min-h-11 rounded-lg border px-1 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
                       active
                         ? "border-ink bg-ink text-cream"
                         : "border-line bg-card text-ink hover:bg-subtle-hover"

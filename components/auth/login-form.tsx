@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
@@ -18,7 +18,7 @@ import { AuthCard, AuthField, AuthFooterLink, authInputClass } from "./auth-card
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { beginSession } = usePlayer();
+  const { beginSession, isAuthed, hydrated, player } = usePlayer();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +30,15 @@ export function LoginForm() {
   // rendering its own error page, so sign-in problems have one home.
   const authError = searchParams.get("authError");
   const next = safeRedirectPath(searchParams.get("next"));
+
+  // Already signed in: /login has nothing to offer, so go where signing in
+  // would have gone. It used to show the sign-in form to a signed-in user.
+  useEffect(() => {
+    if (!hydrated || !isAuthed) return;
+    if (next) router.replace(next);
+    else if (player.role === "parent") router.replace("/family");
+    else router.replace(player.onboarded ? "/today" : "/onboarding");
+  }, [hydrated, isAuthed, next, player.role, player.onboarded, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

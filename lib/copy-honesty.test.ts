@@ -302,6 +302,18 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern: /Follow-up reminders/i,
     why: "reads as a notification; Seeded sends none — follow-ups are flagged in the app",
   },
+  {
+    pattern: /lowest reliable (?:player|rating)|highest reliable rating/i,
+    why: "describes per-player roster ratings Seeded does not store; it is an estimated floor",
+  },
+  {
+    pattern: /usually covers a year|pays for itself/i,
+    why: "an unmeasured claim about what tournaments cost families",
+  },
+  {
+    pattern: /read-only view of the plan/i,
+    why: "a parent cannot see /plan; the parent dashboard shows the player's progress",
+  },
 ];
 
 describe("no user-facing copy promises something the code can't do", () => {

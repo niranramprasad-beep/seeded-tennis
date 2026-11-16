@@ -308,7 +308,14 @@ function WeekGrid({
           );
         })}
 
-        <div className="col-span-8 max-h-[420px] overflow-y-auto">
+        {/* A scroll container must be reachable by keyboard (axe
+            scrollable-region-focusable): tabIndex + a name. */}
+        <div
+          className="col-span-8 max-h-[420px] overflow-y-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-accent"
+          tabIndex={0}
+          role="region"
+          aria-label="Week schedule, scrollable"
+        >
           <div className="grid grid-cols-[40px_repeat(7,1fr)]" style={{ height: GRID_HOURS.length * HOUR_HEIGHT }}>
             <div className="relative">
               {GRID_HOURS.map((h) => (

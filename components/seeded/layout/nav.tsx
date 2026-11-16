@@ -70,7 +70,7 @@ export function SeededNav() {
               key={l.href}
               href={l.href}
               className={cn(
-                "whitespace-nowrap text-ink hover:text-grass",
+                "inline-flex min-h-6 items-center whitespace-nowrap text-ink hover:text-grass",
                 isActive(l.href) && "font-semibold text-grass"
               )}
             >
@@ -80,7 +80,7 @@ export function SeededNav() {
         </div>
 
         <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-5">
-          <Link href="/login" className="whitespace-nowrap text-[15px] text-ink hover:text-grass">
+          <Link href="/login" className="inline-flex min-h-6 items-center whitespace-nowrap text-[15px] text-ink hover:text-grass">
             Sign in
           </Link>
           <Link

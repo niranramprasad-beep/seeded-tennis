@@ -110,9 +110,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
   const saved = isStarred(school.slug);
 
+  // Two projections can appear on this card, and they answer different
+  // questions: the band uses a junior-year estimate at TYPICAL growth; this
+  // row extends the pace in the player's own logged ratings to the summer
+  // before senior year. Each says which it is.
   const paceDescription =
     explanation.pace.status === "ready"
-      ? `Projected ${explanation.pace.projectedUTR.toFixed(1)} by ${formatDate(explanation.pace.byDate)}`
+      ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} by ${formatDate(explanation.pace.byDate)}`
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
         : "Log a UTR to see your pace.";
@@ -120,7 +124,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   return (
     <>
       <div className="mx-auto max-w-content container-px py-10">
-        <Link href="/schools" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink hover:underline sm:min-h-0">
+        <Link href="/schools" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink hover:underline sm:min-h-6">
           <ArrowLeft className="h-4 w-4" />
           Schools
         </Link>
@@ -195,14 +199,19 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <FitDriverRow
                 label="UTR"
                 description={`Gap to floor ${signed(explanation.gapToFloor)} · gap to team average ${signed(explanation.gapToMedian)}`}
+                // The chip describes the BAND, which before junior year is
+                // judged at the estimate — while the gaps beside it are
+                // today's. "In range" next to "+2.5 to the floor" read as a
+                // contradiction, so a projected judgement says so.
                 chip={
-                  explanation.band === "likely"
+                  (explanation.band === "likely"
                     ? "Above range"
                     : explanation.band === "target"
                       ? "In range"
                       : explanation.band === "unverified"
                         ? "No UTR logged"
-                        : "Below range" // reach and out-of-range are both below the team floor
+                        : "Below range") + // reach and out-of-range are both below the team floor
+                  (judging?.isProjected && explanation.band !== "unverified" ? " by junior yr (est.)" : "")
                 }
               />
             )}

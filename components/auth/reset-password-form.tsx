@@ -79,7 +79,7 @@ export function ResetPasswordForm() {
             <p className="mt-3 text-pretty leading-relaxed text-stone">
               We sent a reset link to {email}. Open it to choose a new password.
             </p>
-            <Link href="/login" className="mt-6 text-sm font-medium text-grass hover:underline">
+            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-medium text-grass hover:underline sm:min-h-6">
               Back to sign in
             </Link>
           </>
@@ -109,7 +109,7 @@ export function ResetPasswordForm() {
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send reset link<ArrowRight className="h-4 w-4" /></>}
               </Button>
             </form>
-            <Link href="/login" className="mt-6 text-center text-sm font-medium text-grass hover:underline">
+            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center justify-center text-center text-sm font-medium text-grass hover:underline sm:min-h-6">
               Back to sign in
             </Link>
           </>

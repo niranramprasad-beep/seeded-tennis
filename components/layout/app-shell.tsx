@@ -43,6 +43,21 @@ function useScrollToTopOnRouteChange(pathname: string) {
 // to true without navigating away (it shows a success screen in place) — if
 // the wrapper structure differed here, that transition would unmount and
 // remount the page, silently wiping its local state.
+// Routes that show the PUBLIC nav to a signed-out visitor: everything that is
+// not part of the signed-in app. /auth/*, /reset-password and unknown paths
+// (the 404 page) are private for robots.txt but still render the public nav,
+// so they also need it before the session check — otherwise they shift by
+// the header's height on load (measured: CLS 0.06 on /auth/callback and the
+// 404 page at 375).
+const APP_ONLY_PREFIXES = [
+  "/today", "/plan", "/outreach", "/events", "/family", "/settings", "/matches",
+  "/match-mode", "/dashboard", "/roadmap", "/training", "/coaches", "/cost-calculator",
+];
+function rendersPublicNavBeforeSession(pathname: string): boolean {
+  if (!isPrivateRoute(pathname)) return true;
+  return !APP_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated } = usePlayer();
   const { collapsed, hydrated: sidebarHydrated } = useSidebar();
@@ -50,6 +65,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
+  // Before the session check, an app route lays out as the app (sidebar
+  // margin on desktop) so the page does not slide sideways when it resolves.
+  const layoutAsApp = showApp || (!hydrated && isSeeded && !rendersPublicNavBeforeSession(pathname));
   // /onboarding and /methodology used to be listed here too, each rendering
   // its own cut-down header instead. That was the mockups' structure, and on
   // a real site it meant the two pages a visitor is most likely to land on
@@ -68,6 +86,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
+      {/* First focusable element on every page: keyboard users skip the
+          nav (WCAG 2.4.1). Visible only when focused. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-ink focus:shadow-card focus:outline focus:outline-2 focus:outline-lime-accent"
+      >
+        Skip to content
+      </a>
       {hydrated
         ? showApp
           ? isSeeded
@@ -91,12 +117,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           // the length of the session check before the sidebar replaces it;
           // private routes keep rendering nothing (AuthGate shows its own
           // loading state there).
-          !isPrivateRoute(pathname) && isSeeded && !hideSeededNav
+          rendersPublicNavBeforeSession(pathname) && isSeeded && !hideSeededNav
           ? <SeededNav />
-          : null}
+          : isSeeded && !rendersPublicNavBeforeSession(pathname)
+            // An app route (behind AuthGate) will get the sidebar's 56px
+            // mobile top bar once the session resolves. Hold its space now,
+            // or every signed-in page drops 56px on load (measured CLS
+            // 0.069 on /today and /outreach at 375).
+            ? <div className="h-14 border-b border-[rgb(var(--c-line))] bg-panel lg:hidden" aria-hidden />
+            : null}
       <main
+        id="main-content"
+        tabIndex={-1}
         className={cn(
-          showApp && [
+          "focus:outline-none",
+          layoutAsApp && [
             "min-h-screen transition-[margin-left] duration-300 ease-out",
             collapsed ? "lg:ml-[76px]" : "lg:ml-[248px]",
             !sidebarHydrated && "duration-0",

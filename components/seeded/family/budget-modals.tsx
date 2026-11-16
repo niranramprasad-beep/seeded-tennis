@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { useDialog } from "@/lib/hooks/use-dialog";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ export function ModalShell({
   titleId: string;
   children: React.ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialog(open, onClose, panelRef);
   return (
     <AnimatePresence>
       {open && (
@@ -50,7 +53,9 @@ export function ModalShell({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3"
+              ref={panelRef}
+              tabIndex={-1}
+              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}

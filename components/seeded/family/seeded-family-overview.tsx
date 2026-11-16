@@ -57,7 +57,9 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
   const now = useMemo(() => new Date(), []);
 
-  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  const { data: members = [], isLoading: membersLoading } = useSWR<FamilyMember[]>("family-members", () =>
+    loadFamilyMembers()
+  );
   // The PLAYER's history, explicitly — same reason as the weekly report.
   const playerUserId = pickFamilyPlayer(members)?.id ?? null;
   const { data: utrEntries } = useSWR(
@@ -78,13 +80,13 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
   // A pending joiner can read nothing, so /family would otherwise render as
   // a page of empty cards. Show them where they actually are instead.
-  const { data: pendingRequest, mutate: mutatePending } = useSWR<PendingFamilyRequest | null>(
+  const { data: pendingRequest, mutate: mutatePending, isLoading: pendingLoading } = useSWR<PendingFamilyRequest | null>(
     "my-pending-family-request",
     () => loadMyPendingFamilyRequest()
   );
   // A joiner's own profile has no family_code (they are linked through
   // parent_accounts), so the invite code has to come from the database.
-  const { data: resolvedFamilyCode, mutate: mutateFamilyCode } = useSWR<string | null>(
+  const { data: resolvedFamilyCode, mutate: mutateFamilyCode, isLoading: codeLoading } = useSWR<string | null>(
     "my-family-code",
     () => loadMyFamilyCode()
   );
@@ -233,6 +235,22 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
     if (saved) mutateExpenses([saved, ...expenses], { revalidate: false });
   };
 
+  // Until these three have answered, every branch below would be a guess:
+  // with the roster still loading, a parent with a player saw "no player has
+  // joined yet" for half a second; a parent who joined with the code saw the
+  // join-a-family prompt. A skeleton instead, keyed so its nodes are not
+  // reused by the real page (which Chrome would count as a layout shift).
+  if (membersLoading || pendingLoading || codeLoading) {
+    return (
+      <div key="family-skeleton" className="mx-auto max-w-content container-px py-10" aria-busy="true">
+        <p className="sr-only" role="status">Loading your family…</p>
+        <div className="h-[72px] animate-pulse rounded-lg bg-line/40 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 h-10 w-72 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="mt-6 min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
+      </div>
+    );
+  }
+
   if (pendingRequest) {
     return <FamilyPendingScreen request={pendingRequest} onChanged={() => void refreshJoinState()} />;
   }
@@ -271,7 +289,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-content container-px py-10">
+    <div key="family-overview" className="mx-auto max-w-content container-px py-10">
       <ParentScopeLine />
       <div className="h-6" aria-hidden />
       <div className="flex flex-wrap items-end justify-between gap-4">

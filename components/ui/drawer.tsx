@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
+import { useDialog } from "@/lib/hooks/use-dialog";
 import { cn } from "@/lib/utils";
 
 interface DrawerProps {
@@ -25,6 +26,9 @@ export function Drawer({
   footer,
   widthClass = "max-w-md",
 }: DrawerProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  useDialog(open, onClose, panelRef);
   return (
     <AnimatePresence>
       {open && (
@@ -38,12 +42,18 @@ export function Drawer({
             className="fixed inset-0 z-50 bg-ink/30"
           />
           <motion.aside
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={title ? undefined : eyebrow ?? "Panel"}
+            tabIndex={-1}
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className={cn(
-              "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-cream shadow-lift",
+              "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-cream shadow-lift focus:outline-none",
               widthClass
             )}
           >
@@ -55,7 +65,7 @@ export function Drawer({
                   </p>
                 )}
                 {title && (
-                  <h2 className="text-xl font-medium text-ink">{title}</h2>
+                  <h2 id={titleId} className="text-xl font-medium text-ink">{title}</h2>
                 )}
               </div>
               <button

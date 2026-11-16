@@ -7,6 +7,51 @@ Last updated 2026-11-15.
 
 ---
 
+## WEEK 1 — ranked (written by the 2026-11-15 overnight pass)
+
+1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the
+   hero — real results plus a dashed "Estimate" junior-year projection with
+   the slow/fast band; a KPI row (UTR change, Target+Likely by junior year,
+   coaches emailed/replied, season spend vs budget); per-category budget bars
+   that turn amber at 90% and RED with one calm sentence when over budget
+   (icon + text, never colour alone); a budget-vs-actual mini chart; the
+   last 5 expenses; parent next-actions; teaching empty states. Monarch's
+   trend-as-hero, Copilot's calm polish, YNAB's budget-vs-actual — in
+   Seeded's own design system, light and dark. **Build it on tonight's
+   plumbing:** `pickFamilyPlayer()` for the subject, `DataSubject` loaders
+   for every number, `parentScopeSentence()` for the story. **A player
+   switcher** belongs here too: a family with two players sees one of them
+   (deterministically the first to join), and Settings says "Reports show
+   one player for now".
+2. **Role-gate the player tables' INSERT policies** (migration). A parent
+   can still log a UTR/match/event under their OWN id by calling PostgREST
+   directly; the app's routes refuse it (403) and no family screen reads a
+   parent's rows as the player's, but RLS allows it. Mirror 033: require
+   `profiles.role = 'player'` in the WITH CHECK of utr_entries, matches,
+   tournament_entries, coach_outreach, the training tables, daily_checkins.
+   Attack-test a parent refused and a player allowed, on staging first.
+3. **`is_parent_member()` role-aware** (already item #1 under Billing below
+   — unchanged; a joined sibling player can write the budget).
+4. **Delete `generatePersonalizedPlan()`** (already listed below).
+5. **Onboarding's Grade and gender defaults.** Tonight made the UTR an
+   explicit choice; the same signed-in onboarding still preselects 10th
+   grade and men's. They are visible choices the player confirms, not silent
+   defaults, but they produce a graduation year and a growth curve the
+   player never chose if they click through.
+6. **Delete Legacy (P1-UX-2).** Tonight found Legacy-only raw hex colours
+   (`components/tournaments/tournament-fit-view.tsx`,
+   `components/home/fit-finder-teaser.tsx`), a Legacy match-mode "8pm
+   reminder" (browser notifications while open), and Legacy school-page
+   copy; every honesty guard covers Legacy twice.
+7. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
+   `http://localhost` return URL, so the four checkout starts could only be
+   checked to the request. `/api/whop/checkout` now pins the return URL to
+   the production domain or the preview's own `https://$VERCEL_URL`.
+8. **Players' theme follows the account, not the device.** Signed in, the
+   stored theme overrides the browser's on every load (DesignPreferenceSync
+   pulls it). Tonight stopped the per-page-view WRITE; whether a phone and a
+   laptop should share a theme is a product call.
+
 ## Blocking the production rollout
 
 ### 1. ✅ Family linking — DONE (2026-11-14), staging only
@@ -109,7 +154,7 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
 - [ ] Replay the missed `membership.activated` events, or reconcile the two
       existing customers by hand.
 - [ ] Run the $0 promo-code end-to-end test (§K) on staging.
-- [ ] **Soft 404 on unknown school slugs.** `/schools/<anything>` returns
+- [x] **Soft 404 on unknown school slugs — FIXED 2026-11-15 overnight** (`dynamicParams = false`; verify on the next preview that `/schools/not-a-real-school` returns 404). `/schools/<anything>` returns
       HTTP **200** with a page titled "School not found — Seeded" (measured on
       the f0f2919 preview). Google indexes a 200, so junk slugs can become
       indexable pages. Low risk today — nothing links to them and the sitemap

@@ -23,7 +23,7 @@ export function RecentResultsCard({ matches }: { matches: MatchRecord[] }) {
     <div className="mt-5 rounded-xl border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Recent results</h2>
-        <Link href="/matches" className="text-sm font-semibold text-grass underline">
+        <Link href="/matches" className="inline-flex min-h-11 items-center text-sm font-semibold text-grass underline sm:min-h-6">
           All results
         </Link>
       </div>

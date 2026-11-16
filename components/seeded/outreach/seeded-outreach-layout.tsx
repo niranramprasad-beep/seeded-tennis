@@ -61,6 +61,11 @@ export interface SeededOutreachLayoutProps {
   setStatus: (slug: string, status: OutreachStatus | null) => void;
   setReminder: (slug: string) => void;
   outreachError: string;
+  /** True until the saved statuses have loaded. The board used to render
+   * with every school "not started", then re-sort into its real columns a
+   * moment later, pushing everything below it down (CLS 0.18 on /outreach at
+   * 375). It shows a skeleton until the real columns are known. */
+  loading?: boolean;
   /**
    * Bands, already decided. This used to take the player's raw UTR and a
    * projection and classify each card itself, which is how six screens
@@ -101,6 +106,7 @@ export function SeededOutreachLayout({
   saveReplyNote,
   recipient,
   setRecipient,
+  loading = false,
 }: SeededOutreachLayoutProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const bySlug = (slug: string) => targetSchools.find((s) => s.slug === slug);
@@ -118,6 +124,16 @@ export function SeededOutreachLayout({
     const entry = statuses[s.slug];
     return entry?.status === "emailed" && daysSince(entry.updatedAt) >= FOLLOW_UP_AFTER_DAYS;
   }).length;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6" aria-busy="true">
+        <p className="sr-only" role="status">Loading your outreach…</p>
+        <div className="h-9 w-56 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="min-h-[60vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -247,7 +263,7 @@ export function SeededOutreachLayout({
                           e.stopPropagation();
                           setReminder(s.slug);
                         }}
-                        className="self-start text-xs font-semibold text-grass hover:text-grass-600"
+                        className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-6"
                       >
                         Remind me in {REMIND_ME_AFTER_DAYS} days
                       </button>

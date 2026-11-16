@@ -77,3 +77,13 @@ describe("one answer to 'which player is this family screen about'", () => {
     expect(offenders, "use pickFamilyPlayer() from lib/family-view.ts").toEqual([]);
   });
 });
+
+describe("data rights are reachable before onboarding", () => {
+  it("an un-onboarded player is not bounced from Settings", async () => {
+    const { isOnboardingExemptPath } = await import("./route-access");
+    expect(isOnboardingExemptPath("/settings")).toBe(true);
+    expect(isOnboardingExemptPath("/settings/billing")).toBe(true);
+    const gate = readFileSync(join(ROOT, "components/shared/auth-gate.tsx"), "utf8");
+    expect(gate.match(/!isOnboardingExemptPath\(pathname\)/g)?.length).toBe(2);
+  });
+});

@@ -56,6 +56,12 @@ export async function generateMetadata({
   };
 }
 
+// Every real school is prerendered by generateStaticParams below, so any
+// other slug is not a school. Without this, /schools/<anything> streamed a
+// 200 (loading.tsx commits the status before notFound() runs) with a "School
+// not found" page — a soft 404 a crawler can index. Now a real 404.
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   const schools = await getSchools();
   return schools.map((s) => ({ slug: s.slug }));

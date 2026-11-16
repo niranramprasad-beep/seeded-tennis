@@ -51,19 +51,33 @@ export async function POST(req: Request) {
   const limited = await rateLimited(ctx.supabase, "whop_checkout");
   if (limited) return limited;
 
-  const origin = req.headers.get("origin") ?? new URL(req.url).origin;
-  const config = await whop.checkoutConfigurations.create({
-    // `variant_id`, not `plan_id`. Whop's 2026-11-14 API renamed plans to
-    // variants across the board; @whop/sdk 2.8.1 follows it. The ids
-    // themselves are unchanged and still `plan_`-prefixed.
-    variant_id: planId,
-    // Read back by both the webhook and /api/whop/sync. It is the only
-    // reliable link between a Whop membership and a Seeded account — the
-    // email fallback in lib/whop-sync.ts exists for purchases that never
-    // came through here, and is a guess by comparison.
-    metadata: { supabase_user_id: ctx.user.id, tier, interval },
-    redirect_url: `${origin}/dashboard?checkout=success`,
-  });
+  // Where Whop sends the buyer back. It was built from the request's Origin
+  // header (S-11): a header the caller controls, and on a local server an
+  // http:// origin that Whop rejects outright ("must start with https://"),
+  // which surfaced as a bare 500. Now: production always returns to the
+  // real site; a Vercel preview returns to its own https URL.
+  const returnBase = checkoutReturnBase();
+  let config: Awaited<ReturnType<typeof whop.checkoutConfigurations.create>>;
+  try {
+    config = await whop.checkoutConfigurations.create({
+      // `variant_id`, not `plan_id`. Whop's 2026-11-14 API renamed plans to
+      // variants across the board; @whop/sdk 2.8.1 follows it. The ids
+      // themselves are unchanged and still `plan_`-prefixed.
+      variant_id: planId,
+      // Read back by both the webhook and /api/whop/sync. It is the only
+      // reliable link between a Whop membership and a Seeded account — the
+      // email fallback in lib/whop-sync.ts exists for purchases that never
+      // came through here, and is a guess by comparison.
+      metadata: { supabase_user_id: ctx.user.id, tier, interval },
+      redirect_url: `${returnBase}/dashboard?checkout=success`,
+    });
+  } catch (err) {
+    console.error("[whop/checkout] create failed", err instanceof Error ? err.message : String(err));
+    return NextResponse.json(
+      { error: "Couldn't reach Whop to start checkout. Try again in a minute." },
+      { status: 502 }
+    );
+  }
 
   if (!config.purchase_url) {
     return NextResponse.json({ error: "Could not start checkout." }, { status: 500 });
@@ -74,4 +88,16 @@ export async function POST(req: Request) {
     : `https://whop.com${config.purchase_url}`;
 
   return NextResponse.json({ url });
+}
+
+/** The https base Whop returns the buyer to. Never derived from a request
+ * header. Production: the real domain. Vercel preview: that deployment's own
+ * URL (VERCEL_URL is set by Vercel, without a scheme). Anything else falls
+ * back to production, so a misconfigured environment sends buyers to the
+ * real site rather than somewhere unknown. */
+function checkoutReturnBase(): string {
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return "https://seededtennis.com";
 }

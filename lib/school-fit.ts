@@ -321,7 +321,9 @@ function computeNextBandChange(
   playerUtr: number,
   school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
   now: Date,
-  milestone: Date
+  milestone: Date,
+  /** Whose band — a parent reads "would move Avery into Likely". */
+  who: string | null = null
 ): NextBandChange | null {
   if (band === "likely") return null; // already the top band — nothing higher to move into
 
@@ -351,7 +353,7 @@ function computeNextBandChange(
     paceRead === "faster-than-realistic"
       ? "that's faster than most players improve"
       : paceRead === "slower-than-realistic"
-        ? "that's a slower pace than most players need — you have room"
+        ? "that's a slower pace than most players need — there's room"
         : "that's a realistic pace";
 
   return {
@@ -361,7 +363,7 @@ function computeNextBandChange(
     byDate,
     requiredPaceUtrPerYear,
     paceRead,
-    message: `Reaching ${utrNeeded.toFixed(1)} by ${formatDate(milestone)} would move you into ${BAND_LABEL[targetBand]} — about ${requiredPaceUtrPerYear.toFixed(1)}/year, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}/yr).`,
+    message: `Reaching ${utrNeeded.toFixed(1)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]} — about ${requiredPaceUtrPerYear.toFixed(1)}/year, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}/yr).`,
   };
 }
 
@@ -485,12 +487,15 @@ export function explainSchoolFit(
   // 9.4" when the player IS 9.4 is simply wrong — it showed on the Johns
   // Hopkins row next to "Gap to team floor: 0.0".
   const youAre = who ? `${who} is` : "You're";
+  // The below-floor sentence used to read "X's lowest reliable player is
+  // 11.2", which describes a roster Seeded does not have. It is the team's
+  // estimated competitive floor, and says so.
   const summary =
     gapToFloor < 0
       ? `${youAre} ${playerUtr.toFixed(1)} today, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
       : gapToFloor === 0
         ? `${youAre} ${playerUtr.toFixed(1)} today, exactly at ${school.shortName}'s competitive floor.`
-        : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. ${youAre} ${playerUtr.toFixed(1)} today.`;
+        : `${school.shortName}'s estimated competitive floor is ${school.minCompetitiveUTR.toFixed(1)}. ${youAre} ${playerUtr.toFixed(1)} today.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
   const computed = computeUtrProjection(
@@ -506,7 +511,7 @@ export function explainSchoolFit(
           byDate: localDateKey(milestone),
         };
 
-  const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone);
+  const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone, who);
   const unreachable = nextBand != null && (nextBand.paceRead === "faster-than-realistic" || nextBand.paceRead === "no-time-left");
   const alternatives = unreachable ? findAlternativeSchools(school, input.catalog ?? [], playerUtr, projection) : [];
 

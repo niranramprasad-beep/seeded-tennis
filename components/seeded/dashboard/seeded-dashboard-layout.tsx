@@ -11,9 +11,10 @@ import { UtrVsPlanChart } from "./utr-vs-plan-chart";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
+import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
-import { currentSeason, getCurrentGrade } from "@/lib/time";
+import { currentSeason, getCurrentGrade, formatDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { formatUTR, hasRealUtr } from "@/lib/utils";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
@@ -49,6 +50,12 @@ export function SeededDashboardLayout({
 
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
   const { data: matches } = useSWR("matches", () => loadMatches());
+  // Same key JoinRequestsCard reads, so this costs no extra request. The
+  // card sits at the top of the page and appeared ~0.5s after everything
+  // below it, pushing the whole dashboard down 318px at 375 (CLS 0.30,
+  // measured as persona (a), whose family has a member waiting on consent).
+  // Holding the page until the roster has answered lets both appear at once.
+  const { isLoading: rosterLoading } = useSWR<FamilyRosterMember[]>("family-roster", () => loadFamilyRoster());
 
   // actualPoints already carries the player's real UTR history (or the
   // single current-UTR fallback point when there's none yet — see
@@ -95,8 +102,22 @@ export function SeededDashboardLayout({
     now
   )}`;
 
+  if (rosterLoading) {
+    return (
+      // A distinct key: without it React reuses these skeleton nodes for the
+      // real page, and Chrome counts the reused bar "moving" 340px as a
+      // layout shift (it did — CLS 0.18 after the first fix).
+      <div key="today-skeleton" className="flex flex-col gap-4" aria-busy="true">
+        <p className="sr-only" role="status">Loading your week…</p>
+        <div className="h-5 w-48 animate-pulse rounded bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="h-10 w-full max-w-xl animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
+        <div className="min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap gap-6">
+    <div key="today-page" className="flex flex-wrap gap-6">
       {/* Renders nothing unless someone is actually waiting on approval, so
           it costs no space on a normal day. Approved members only — the
           roster RPC returns nothing to anyone else (migration 026). */}
@@ -123,7 +144,9 @@ export function SeededDashboardLayout({
           {nextCheckpoint && (
             <span className="inline-flex items-center rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
               Next checkpoint: {formatUTR(nextCheckpoint.utr)} by{" "}
-              {nextCheckpoint.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {/* One date format everywhere a sentence names a date: the chip
+                  said "Jun 1" (which year?) beside a chart saying "Jun '27". */}
+              {formatDate(nextCheckpoint.date)}
             </span>
           )}
           <button
@@ -195,7 +218,7 @@ export function SeededDashboardLayout({
             <ul className="mt-3 flex flex-col gap-2.5 text-sm">
               {targetSchools.slice(0, 6).map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2">
-                  <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
+                  <Link href={`/schools/${s.slug}`} className="inline-flex min-h-6 items-center truncate text-ink hover:text-grass">
                     {s.shortName}
                   </Link>
                   {fitReport?.bandBySlug.get(s.slug) ? (
