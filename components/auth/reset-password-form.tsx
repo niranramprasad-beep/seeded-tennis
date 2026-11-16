@@ -2,24 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowRight, Check, KeyRound, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { hasRecoverySession, requestPasswordReset, updatePassword } from "@/lib/auth";
+import { SeededButton } from "@/components/seeded/ui/button";
 import {
-  hasRecoverySession,
-  requestPasswordReset,
-  updatePassword,
-} from "@/lib/auth";
-import { useDesign } from "@/lib/context/design-context";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+  AuthCard,
+  AuthField,
+  AuthFooterLink,
+  authInputClass,
+  describedBy,
+} from "./auth-card";
+import { CheckEmailCard } from "./check-email";
 
-const inputClass =
-  "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+// Board 21, "Reset" (docs/DESIGN_MOCKUP_SPEC_V2.md), in four states:
+//   loading -> checking whether the visitor arrived from the email link
+//   request -> "Reset your password", email, PRIMARY "Send reset link"
+//   sent    -> the shared "Check your email" card, with a working resend
+//   update  -> arrived from the link (Supabase gave them a session): set a
+//              new password
+//
+// The board's sub-line says "It works for 1 hour". That is left out on
+// purpose: the link's lifetime is a Supabase Auth project setting (email OTP
+// expiry), which nothing in this repo sets or can read, so the sentence
+// would be a guess presented as a fact.
+
+/** The form's own floor, and what Supabase Auth enforces by default. The
+ * project's real minimum lives in the Supabase dashboard and cannot be read
+ * from here; if it is raised, Supabase refuses and friendlyAuthError says so. */
+const MIN_PASSWORD_LENGTH = 6;
+const ERROR_ID = "reset-error";
 
 export function ResetPasswordForm() {
   const router = useRouter();
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const [mode, setMode] = useState<"loading" | "request" | "update" | "sent">("loading");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,120 +48,129 @@ export function ResetPasswordForm() {
   const sendLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError("Enter the email you signed up with.");
+      return;
+    }
     setSubmitting(true);
+    // Already mapped by friendlyAuthError in lib/auth.ts.
     const result = await requestPasswordReset(email);
     setSubmitting(false);
-    if (!result.ok) return setError(result.error ?? "Couldn't send the email.");
+    if (!result.ok) return setError(result.error ?? "Couldn't send the email. Try again.");
     setMode("sent");
   };
 
   const savePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) return setError("Use at least 6 characters.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
     setSubmitting(true);
     const result = await updatePassword(password);
     setSubmitting(false);
-    if (!result.ok) return setError(result.error ?? "Couldn't update the password.");
+    if (!result.ok) return setError(result.error ?? "Couldn't update the password. Try again.");
     router.push("/login");
   };
 
-  return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        {/* While it checks for a recovery session the card held only a
-            spinner, centred, then grew into the form and jumped 174px up
-            (CLS 0.155 at 375). Hold the form's height while loading. */}
-        <div
-          className={cn(
-            isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2",
-            mode === "loading" && "min-h-[36.75rem]"
-          )}
-        >
-        <span
-          className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold",
-            isSeeded && "border-0"
-          )}
-          style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
-        >
-          <KeyRound className="h-5 w-5" />
-        </span>
+  const backToSignIn = (
+    <p>
+      <AuthFooterLink href="/login">Back to sign in</AuthFooterLink>
+    </p>
+  );
 
-        {mode === "loading" && (
-          <Loader2 className="mt-8 h-6 w-6 animate-spin text-grass" />
-        )}
-
-        {mode === "sent" && (
-          <>
-            <span className="mt-6 flex h-10 w-10 items-center justify-center rounded-full bg-grass text-on-primary">
-              <Check className="h-5 w-5" />
-            </span>
-            <h1 className={cn("mt-4 text-3xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>Check your inbox.</h1>
-            <p className="mt-3 text-pretty leading-relaxed text-stone">
-              We sent a reset link to {email}. Open it to choose a new password.
-            </p>
-            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-medium text-grass hover:underline sm:min-h-6">
-              Back to sign in
-            </Link>
-          </>
-        )}
-
-        {mode === "request" && (
-          <>
-            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Reset password</p>
-            <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
-              Forgot your password?
-            </h1>
-            <p className="mt-3 text-pretty leading-relaxed text-stone">
-              Enter your email and we&rsquo;ll send a secure reset link.
-            </p>
-            <form onSubmit={sendLink} className="mt-7 space-y-3">
-              <input
-                className={inputClass}
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              {error && (
-                <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
-              )}
-              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send reset link<ArrowRight className="h-4 w-4" /></>}
-              </Button>
-            </form>
-            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center justify-center text-center text-sm font-medium text-grass hover:underline sm:min-h-6">
-              Back to sign in
-            </Link>
-          </>
-        )}
-
-        {mode === "update" && (
-          <>
-            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Almost there</p>
-            <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
-              Choose a new password.
-            </h1>
-            <form onSubmit={savePassword} className="mt-7 space-y-3">
-              <input
-                className={inputClass}
-                type="password"
-                placeholder="New password (6+ characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {error && (
-                <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
-              )}
-              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Update password<ArrowRight className="h-4 w-4" /></>}
-              </Button>
-            </form>
-          </>
-        )}
+  if (mode === "loading") {
+    // Holds the request card's height while the session check runs, so the
+    // card does not jump when the real state arrives (CLS, Board 23 rule 6).
+    return (
+      <AuthCard title="Reset your password" busy footer={backToSignIn}>
+        <div className="flex min-h-[9.5rem] items-center justify-center">
+          <Loader2
+            className="h-6 w-6 animate-spin text-grass motion-reduce:animate-none"
+            aria-label="Loading"
+          />
         </div>
-      </div>
-    </div>
+      </AuthCard>
+    );
+  }
+
+  if (mode === "sent") {
+    return (
+      <CheckEmailCard
+        email={email}
+        onResend={() => requestPasswordReset(email)}
+        footer={backToSignIn}
+      />
+    );
+  }
+
+  if (mode === "update") {
+    return (
+      <AuthCard
+        title="Choose a new password"
+        subtitle="Pick one you don't use anywhere else."
+        error={error}
+        errorId={ERROR_ID}
+      >
+        <form onSubmit={savePassword} className="space-y-4" noValidate>
+          <AuthField
+            label="New password"
+            htmlFor="reset-new-password"
+            help={`${MIN_PASSWORD_LENGTH}+ characters.`}
+          >
+            <input
+              id="reset-new-password"
+              name="new-password"
+              className={authInputClass}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={describedBy("reset-new-password", {
+                hint: true,
+                extra: [error && ERROR_ID],
+              })}
+            />
+          </AuthField>
+          <SeededButton type="submit" variant="primary" loading={submitting} className="w-full">
+            {submitting ? "Saving…" : "Save new password"}
+          </SeededButton>
+        </form>
+      </AuthCard>
+    );
+  }
+
+  return (
+    <AuthCard
+      title="Reset your password"
+      subtitle="We'll email you a link to set a new password."
+      error={error}
+      errorId={ERROR_ID}
+      footer={backToSignIn}
+    >
+      <form onSubmit={sendLink} className="space-y-4" noValidate>
+        <AuthField label="Email" htmlFor="reset-email">
+          <input
+            id="reset-email"
+            name="email"
+            className={authInputClass}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy("reset-email", { extra: [error && ERROR_ID] })}
+          />
+        </AuthField>
+        <SeededButton type="submit" variant="primary" loading={submitting} className="w-full">
+          {submitting ? "Sending…" : "Send reset link"}
+        </SeededButton>
+      </form>
+    </AuthCard>
   );
 }

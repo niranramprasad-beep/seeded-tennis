@@ -22,7 +22,6 @@ import {
 import { Card } from "@/components/ui/card";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Footer } from "@/components/layout/footer";
 import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
 import { SchoolDetailSwitch } from "@/components/seeded/schools/school-detail-switch";
 
@@ -267,7 +266,6 @@ export default async function SchoolDetailPage({
           </Card>
         </div>
       </div>
-          <Footer />
         </>
       }
     />

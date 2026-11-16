@@ -5,7 +5,8 @@ import useSWR from "swr";
 import { useMemo } from "react";
 import { Plus, Sparkles } from "lucide-react";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
-import { SeededButton } from "@/components/seeded/ui/button";
+import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
+import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { UtrVsPlanChart } from "./utr-vs-plan-chart";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
@@ -135,7 +136,7 @@ export function SeededDashboardLayout({
         </h1>
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink">
-            {hasRealUtr(player.currentUTR) ? `UTR ${formatUTR(player.currentUTR)}` : "UTR not tracked"}
+            {hasRealUtr(player.currentUTR) ? `UTR ${formatUTR(player.currentUTR)}` : "No UTR yet"}
           </span>
           {targetSchools.length > 0 && (
             <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
@@ -223,11 +224,7 @@ export function SeededDashboardLayout({
                   <Link href={`/schools/${s.slug}`} className="inline-flex min-h-6 items-center truncate text-ink hover:text-grass">
                     {s.shortName}
                   </Link>
-                  {fitReport?.bandBySlug.get(s.slug) ? (
-                    <FitBadge band={fitReport.bandBySlug.get(s.slug)!} />
-                  ) : (
-                    <span className="text-[13px] text-stone-light">Not tracked</span>
-                  )}
+                  {fitReport?.bandBySlug.get(s.slug) && <FitBadge band={fitReport.bandBySlug.get(s.slug)!} />}
                 </li>
               ))}
             </ul>
@@ -264,10 +261,15 @@ function TodayActionRow({ action }: { action: TodayAction }) {
         <div className="text-sm text-stone">{action.description}</div>
       </div>
       <span className="shrink-0 text-[13px] text-stone">{action.minutes} min</span>
-      <Link href={`/outreach?school=${action.school.slug}`}>
-        <SeededButton className="min-h-[38px]">
-          {action.kind === "email" ? "Open draft" : "Review follow-up"}
-        </SeededButton>
+      {/* A link styled as a button — it used to be a <button> nested inside
+          a <Link>, two interactive elements announced as one. Secondary:
+          a list of these is a list of greens otherwise (design system v2
+          rule 1); the Sunday check-in, when due, is the screen's one. */}
+      <Link
+        href={`/outreach?school=${action.school.slug}`}
+        className={cn(seededButtonVariants({ variant: "secondary" }), "min-h-11 shrink-0 sm:min-h-[38px]")}
+      >
+        {action.kind === "email" ? "Open draft" : "Review follow-up"}
       </Link>
     </div>
   );

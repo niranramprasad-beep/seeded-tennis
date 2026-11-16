@@ -96,33 +96,155 @@ function isNetworkFailureMessage(message: string): boolean {
   );
 }
 
-// Turn raw Supabase/network error strings into something a player can act on
-// instead of leaking the developer-level message.
-function friendlyAuthError(message: string): string {
-  if (isNetworkFailureMessage(message)) {
-    return "Can't reach the server right now. Check your connection, or the Seeded backend may be temporarily unavailable. Please try again in a moment.";
+// The sentences a person can see when auth fails. Exported so the UI can
+// recognise one (login-form offers "Resend confirmation email" only for
+// EMAIL_NOT_CONFIRMED) without matching on fragments of prose, and so the
+// tests can assert the mapping without retyping it.
+export const AUTH_ERROR_MESSAGES = {
+  invalidCredentials:
+    "That email and password don't match. Try again, or reset your password.",
+  emailNotConfirmed:
+    "Confirm your email first. Open the link we sent you, then sign in.",
+  alreadyRegistered:
+    "There's already an account with that email. Sign in, or reset your password.",
+  // No number on purpose: the real minimum is a Supabase project setting
+  // (Authentication -> Policies), which this repo cannot read. The forms
+  // check 6 before sending; if the project is ever raised above that, this
+  // sentence stays true and a number here would not.
+  weakPassword:
+    "That password is too short or too easy to guess. Try a longer one you don't use anywhere else.",
+  samePassword: "That's your current password. Choose a new one.",
+  invalidEmail: "That email address doesn't look right. Check it and try again.",
+  emailNotAllowed: "We can't send email to that address right now. Try a different one.",
+  rateLimited: "Too many tries. Wait a minute and try again.",
+  network: "Can't reach Seeded right now. Check your connection and try again.",
+  linkExpired: "That link has expired or was already used. Ask for a new one.",
+  signupsClosed: "New accounts are paused right now. Try again later.",
+  providerUnavailable:
+    "Google sign-in isn't available right now. Use your email and password instead.",
+  serverError: "Something went wrong on our side. Try again in a moment.",
+  unknown: "Something went wrong. Try again in a moment.",
+} as const;
+
+/**
+ * Turn a raw Supabase / network error into a sentence a player can act on.
+ *
+ * Every branch returns one of AUTH_ERROR_MESSAGES and nothing else — the
+ * raw text is never passed through. It used to end in `return message`, so
+ * anything not on the list ("Database error saving new user",
+ * "unexpected_failure", an AuthApiError's JSON) reached the screen verbatim.
+ * Supabase sends both prose ("Invalid login credentials") and codes
+ * ("invalid_credentials"), depending on the endpoint and the supabase-js
+ * version, so each branch matches both.
+ */
+export function friendlyAuthError(message: unknown): string {
+  // An AuthError carries a machine `code` beside its prose; callers pass
+  // the error itself so the code branches below can actually match (they
+  // used to receive `error.message` only — independent review, 2026-11-16).
+  const code =
+    message && typeof message === "object" && "code" in message && typeof (message as { code?: unknown }).code === "string"
+      ? (message as { code: string }).code
+      : "";
+  const text =
+    typeof message === "string"
+      ? message
+      : message instanceof Error
+        ? message.message
+        : message && typeof message === "object" && "message" in message
+          ? String((message as { message?: unknown }).message ?? "")
+          : message == null
+            ? ""
+            : String(message);
+  const raw = code ? `${code} ${text}` : text;
+  const m = raw.toLowerCase();
+
+  if (isNetworkFailureMessage(raw) || m.includes("authretryablefetcherror")) {
+    return AUTH_ERROR_MESSAGES.network;
   }
-  const m = message.toLowerCase();
-  if (m.includes("not confirmed")) {
-    return "Check your inbox to confirm your email.";
+  if (
+    m.includes("rate limit") ||
+    m.includes("rate_limit") ||
+    m.includes("too many requests") ||
+    // "For security purposes, you can only request this after 42 seconds."
+    m.includes("for security purposes") ||
+    /\b429\b/.test(m)
+  ) {
+    return AUTH_ERROR_MESSAGES.rateLimited;
   }
-  // Supabase Auth's own wording, which the login form used to show
-  // verbatim ("Invalid login credentials").
-  if (m.includes("invalid login credentials")) {
-    return "That email and password don't match an account. Check both, or reset your password.";
+  if (m.includes("not confirmed") || m.includes("email_not_confirmed")) {
+    return AUTH_ERROR_MESSAGES.emailNotConfirmed;
   }
-  if (m.includes("already registered") || m.includes("already been registered")) {
-    return "There's already an account with that email. Sign in instead.";
+  if (
+    m.includes("invalid login credentials") ||
+    m.includes("invalid_credentials") ||
+    m.includes("invalid_grant")
+  ) {
+    return AUTH_ERROR_MESSAGES.invalidCredentials;
   }
-  if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
-    return "Too many attempts in a short time. Wait a few minutes and try again.";
+  if (
+    m.includes("already registered") ||
+    m.includes("already been registered") ||
+    m.includes("user_already_exists") ||
+    m.includes("email_exists") ||
+    m.includes("already exists")
+  ) {
+    return AUTH_ERROR_MESSAGES.alreadyRegistered;
   }
-  // Supabase Auth's 500 text — "Unexpected failure, please check server
-  // logs for more information" — was shown verbatim on the login form.
-  if (m.includes("unexpected failure") || m.includes("server logs") || m.includes("internal server error")) {
-    return "Something went wrong on our side. Try again in a moment, or reset your password.";
+  if (m.includes("same_password") || m.includes("different from the old password")) {
+    return AUTH_ERROR_MESSAGES.samePassword;
   }
-  return message;
+  if (
+    m.includes("weak_password") ||
+    m.includes("password should") ||
+    m.includes("password is known") ||
+    m.includes("password is too") ||
+    m.includes("pwned")
+  ) {
+    return AUTH_ERROR_MESSAGES.weakPassword;
+  }
+  if (
+    m.includes("email_address_invalid") ||
+    // Current Supabase prose: Email address "x@y.z" is invalid
+    /email address\s+"[^"]*"\s+is invalid/.test(m) ||
+    m.includes("validate email") ||
+    m.includes("invalid email") ||
+    m.includes("invalid format")
+  ) {
+    return AUTH_ERROR_MESSAGES.invalidEmail;
+  }
+  if (m.includes("email_address_not_authorized") || m.includes("email address not authorized")) {
+    return AUTH_ERROR_MESSAGES.emailNotAllowed;
+  }
+  if (
+    m.includes("otp_expired") ||
+    m.includes("link is invalid or has expired") ||
+    m.includes("token has expired") ||
+    m.includes("auth session missing") ||
+    m.includes("session_not_found") ||
+    m.includes("flow_state")
+  ) {
+    return AUTH_ERROR_MESSAGES.linkExpired;
+  }
+  if (m.includes("signups not allowed") || m.includes("signup_disabled") || m.includes("signups_disabled")) {
+    return AUTH_ERROR_MESSAGES.signupsClosed;
+  }
+  if (m.includes("provider is not enabled") || m.includes("unsupported provider") || m.includes("provider_disabled")) {
+    return AUTH_ERROR_MESSAGES.providerUnavailable;
+  }
+  // Supabase Auth's 500s — "Unexpected failure, please check server logs for
+  // more information", "Database error saving new user" (a trigger refused
+  // the row) — were shown verbatim on the login and signup forms.
+  if (
+    m.includes("unexpected failure") ||
+    m.includes("unexpected_failure") ||
+    m.includes("server logs") ||
+    m.includes("internal server error") ||
+    m.includes("database error") ||
+    /\b5\d\d\b/.test(m)
+  ) {
+    return AUTH_ERROR_MESSAGES.serverError;
+  }
+  return AUTH_ERROR_MESSAGES.unknown;
 }
 
 // Create an account. Supabase is the only backend — if it isn't configured,
@@ -165,7 +287,7 @@ export async function signUp(
         },
       },
     });
-    if (res.error) return { ok: false, error: friendlyAuthError(res.error.message) };
+    if (res.error) return { ok: false, error: friendlyAuthError(res.error) };
     data = res.data;
   } catch (e) {
     return {
@@ -183,7 +305,7 @@ export async function signUp(
   }
 
   const userId = data.user?.id;
-  if (!userId) return { ok: false, error: "Supabase did not return a user id." };
+  if (!userId) return { ok: false, error: AUTH_ERROR_MESSAGES.serverError };
   const profileResult = await ensureSupabaseProfile({
     userId,
     email: input.email,
@@ -227,7 +349,7 @@ export async function signInWithGoogle(next?: string): Promise<AuthResult> {
       provider: "google",
       options: { redirectTo },
     });
-    if (error) return { ok: false, error: friendlyAuthError(error.message) };
+    if (error) return { ok: false, error: friendlyAuthError(error) };
     return { ok: true };
   } catch (e) {
     return {
@@ -316,7 +438,7 @@ export async function signIn(
   try {
     const res = await supa.auth.signInWithPassword({ email, password });
     if (res.error) {
-      return { ok: false, error: friendlyAuthError(res.error.message) };
+      return { ok: false, error: friendlyAuthError(res.error) };
     }
     data = res.data;
   } catch (e) {
@@ -328,7 +450,7 @@ export async function signIn(
     };
   }
   if (!data.user) {
-    return { ok: false, error: "Supabase did not return a signed-in user." };
+    return { ok: false, error: AUTH_ERROR_MESSAGES.serverError };
   }
 
   try {
@@ -414,19 +536,22 @@ export async function resendConfirmationEmail(email: string): Promise<AuthResult
   const supa = getSupabase();
   if (!supa) return { ok: false, error: "Supabase is not configured." };
 
-  const { error } = await supa.auth.resend({
-    type: "signup",
-    email,
-    options: {
-      emailRedirectTo:
-        typeof window !== "undefined"
-          ? `${window.location.origin}/login?confirmed=1`
-          : undefined,
-    },
-  });
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  try {
+    const { error } = await supa.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/login?confirmed=1`
+            : undefined,
+      },
+    });
+    if (error) return { ok: false, error: friendlyAuthError(error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: friendlyAuthError(e) };
+  }
 }
 
 export async function signOut(): Promise<void> {
@@ -440,14 +565,18 @@ export async function requestPasswordReset(email: string): Promise<AuthResult> {
   if (!supa) {
     return { ok: false, error: "Password reset needs Supabase configured." };
   }
-  const { error } = await supa.auth.resetPasswordForEmail(email, {
-    redirectTo:
-      typeof window !== "undefined"
-        ? `${window.location.origin}/reset-password`
-        : undefined,
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  try {
+    const { error } = await supa.auth.resetPasswordForEmail(email, {
+      redirectTo:
+        typeof window !== "undefined"
+          ? `${window.location.origin}/reset-password`
+          : undefined,
+    });
+    if (error) return { ok: false, error: friendlyAuthError(error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: friendlyAuthError(e) };
+  }
 }
 
 // True when the user arrived via a recovery link (a session is present).
@@ -461,9 +590,13 @@ export async function hasRecoverySession(): Promise<boolean> {
 export async function updatePassword(newPassword: string): Promise<AuthResult> {
   const supa = getSupabase();
   if (!supa) return { ok: false, error: "Password reset needs Supabase configured." };
-  const { error } = await supa.auth.updateUser({ password: newPassword });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  try {
+    const { error } = await supa.auth.updateUser({ password: newPassword });
+    if (error) return { ok: false, error: friendlyAuthError(error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: friendlyAuthError(e) };
+  }
 }
 
 function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
@@ -577,7 +710,7 @@ export async function getSessionState(): Promise<SessionState> {
       (userError.name === "AuthRetryableFetchError" ||
         isNetworkFailureMessage(userError.message))
     ) {
-      return { status: "error", message: friendlyAuthError(userError.message) };
+      return { status: "error", message: friendlyAuthError(userError) };
     }
     if (userError || !userData.user) return { status: "signed-out" };
 

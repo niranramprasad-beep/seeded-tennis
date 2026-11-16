@@ -254,9 +254,13 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     // the Overview tab beside it said "Bailey's recruiting".
     expect(source).toMatch(/viewingAsParent/);
     expect(source).toMatch(/resolveFamilyPlayerFacts/);
-    expect(source, "the heading must say whose fit this is").toMatch(
-      /Sorted by fit for \$\{subjectName\}/
+    // The subtitle no longer says "Sorted by fit for {name}" (it wrapped and
+    // shifted the page on phones, 2026-11-16); whose fit it is is said by
+    // the parent line above the table and by the fit column's header.
+    expect(source, "the page must say whose fit this is").toMatch(
+      /Fit below uses the rating on \{subjectName\}/
     );
+    expect(source, "the fit column must name the player").toMatch(/\$\{subjectName\}\\u2019s fit/);
   });
 
   it("shows the visitor how to get a fit instead of a zero", () => {

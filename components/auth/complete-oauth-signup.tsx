@@ -12,8 +12,9 @@ import {
   isPlausibleBirthYear,
   parentConsentRequired,
 } from "@/lib/config/consent";
-import { AuthCard, AuthField, authInputClass } from "./auth-card";
-import { Button } from "@/components/ui/button";
+import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
+import { ChipRadioGroup } from "./chip-radio-group";
+import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 
 // The second half of a Google signup.
@@ -31,6 +32,7 @@ import { cn } from "@/lib/utils";
 // and 022 blocks the privileged columns. Identical code, identical rules.
 
 const COUNTRIES = ["United States", "Canada", "United Kingdom", "Other"];
+const ERROR_ID = "oauth-complete-error";
 
 export function CompleteOAuthSignup() {
   const router = useRouter();
@@ -77,7 +79,8 @@ export function CompleteOAuthSignup() {
   const needsParentConsent = !isParent && parentConsentRequired(birthYear);
   const effectiveFamilyMode: "create" | "join" = needsParentConsent ? "join" : familyMode;
 
-  const submit = async () => {
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Enter your name.");
     if (!isPlausibleBirthYear(birthYear)) return setError("Choose the year you were born.");
@@ -102,15 +105,21 @@ export function CompleteOAuthSignup() {
     });
     setSubmitting(false);
 
+    // Hand-written in lib/auth.ts (ensureSupabaseProfile), never raw.
     if (!result.ok) return setError(result.error ?? "Something went wrong. Try again.");
     router.replace(next ?? (isParent ? "/family" : "/onboarding"));
   };
 
   if (checking) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-grass motion-reduce:animate-none" aria-hidden />
-      </div>
+      <AuthCard title="Finish setting up" busy>
+        <div className="flex min-h-[12rem] items-center justify-center">
+          <Loader2
+            className="h-6 w-6 animate-spin text-grass motion-reduce:animate-none"
+            aria-label="Loading"
+          />
+        </div>
+      </AuthCard>
     );
   }
 
@@ -119,39 +128,31 @@ export function CompleteOAuthSignup() {
       title="Finish setting up"
       subtitle="Google told us who you are. Seeded needs a little more before your account works."
       error={error}
+      errorId={ERROR_ID}
     >
-      <div className="space-y-4">
+      <form onSubmit={submit} className="space-y-4" noValidate>
         <AuthField label="Full name" htmlFor="oauth-name">
           <input
             id="oauth-name"
+            name="name"
             className={authInputClass}
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
+            aria-describedby={describedBy("oauth-name", { extra: [error && ERROR_ID] })}
           />
         </AuthField>
 
-        <AuthField label="I am the" htmlFor="oauth-role">
-          <div id="oauth-role" className="flex gap-2">
-            {(["player", "parent"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                role="radio"
-                aria-checked={role === r}
-                onClick={() => setRole(r)}
-                className={cn(
-                  "min-h-11 flex-1 rounded-pill border px-4 text-[15px] font-semibold transition-colors",
-                  role === r
-                    ? "border-ink bg-ink text-cream"
-                    : "border-input bg-card text-ink hover:bg-subtle-hover"
-                )}
-              >
-                {r === "player" ? "Player" : "Parent"}
-              </button>
-            ))}
-          </div>
-        </AuthField>
+        <ChipRadioGroup<FamilyRole>
+          label="I'm the"
+          name="oauth-role"
+          options={[
+            { value: "player", label: "Player" },
+            { value: "parent", label: "Parent" },
+          ]}
+          value={role}
+          onChange={setRole}
+        />
 
         <AuthField
           label="Year you were born"
@@ -164,9 +165,14 @@ export function CompleteOAuthSignup() {
         >
           <select
             id="oauth-birth-year"
+            name="birth-year"
             className={authInputClass}
             value={birthYear ?? ""}
             onChange={(e) => setBirthYear(e.target.value ? Number(e.target.value) : null)}
+            aria-describedby={describedBy("oauth-birth-year", {
+              hint: true,
+              extra: [error && ERROR_ID],
+            })}
           >
             <option value="">Select a year</option>
             {birthYearOptions().map((y) => (
@@ -182,7 +188,9 @@ export function CompleteOAuthSignup() {
             <AuthField label="Country" htmlFor="oauth-country">
               <select
                 id="oauth-country"
+                name="country"
                 className={authInputClass}
+                autoComplete="country-name"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
               >
@@ -194,98 +202,64 @@ export function CompleteOAuthSignup() {
               </select>
             </AuthField>
 
-            <AuthField label="Team" htmlFor="oauth-gender">
-              <div id="oauth-gender" className="flex gap-2">
-                {(["female", "male"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    role="radio"
-                    aria-checked={gender === g}
-                    onClick={() => setGender(g)}
-                    className={cn(
-                      "min-h-11 flex-1 rounded-pill border px-4 text-[15px] font-semibold transition-colors",
-                      gender === g
-                        ? "border-ink bg-ink text-cream"
-                        : "border-input bg-card text-ink hover:bg-subtle-hover"
-                    )}
-                  >
-                    {g === "female" ? "Women's" : "Men's"}
-                  </button>
-                ))}
-              </div>
-            </AuthField>
+            <ChipRadioGroup<PlayerGender>
+              label="Team"
+              name="oauth-gender"
+              options={[
+                { value: "female", label: "Women's" },
+                { value: "male", label: "Men's" },
+              ]}
+              value={gender}
+              onChange={setGender}
+            />
 
-            <AuthField label="Grade in school" htmlFor="oauth-grade">
-              <div id="oauth-grade" className="grid grid-cols-5 gap-2">
-                {[8, 9, 10, 11, 12].map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    role="radio"
-                    aria-checked={grade === g}
-                    onClick={() => setGrade(g)}
-                    className={cn(
-                      "min-h-11 rounded-lg border text-sm font-semibold transition-colors",
-                      grade === g
-                        ? "border-ink bg-ink text-cream"
-                        : "border-input bg-card text-ink hover:bg-subtle-hover"
-                    )}
-                  >
-                    {g}th
-                  </button>
-                ))}
-              </div>
-            </AuthField>
+            <ChipRadioGroup<number>
+              label="Grade in school"
+              name="oauth-grade"
+              columns={5}
+              options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
+              value={grade}
+              onChange={setGrade}
+            />
           </>
         )}
 
-        <AuthField label="Family" htmlFor="oauth-family">
-          <div id="oauth-family" className="space-y-2">
-            {!needsParentConsent && (
-              <div className="flex gap-2">
-                {(["create", "join"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={familyMode === m}
-                    onClick={() => setFamilyMode(m)}
-                    className={cn(
-                      "min-h-11 flex-1 rounded-pill border px-3 text-[15px] font-semibold transition-colors",
-                      familyMode === m
-                        ? "border-ink bg-ink text-cream"
-                        : "border-input bg-card text-ink hover:bg-subtle-hover"
-                    )}
-                  >
-                    {m === "create" ? "Start a family" : "Join with a code"}
-                  </button>
-                ))}
-              </div>
-            )}
-            {effectiveFamilyMode === "join" && (
-              <input
-                className={cn(authInputClass, "font-mono uppercase tracking-wider")}
-                placeholder={needsParentConsent ? "Your parent's family code" : "Family code"}
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                aria-label="Family code"
-              />
-            )}
-          </div>
-        </AuthField>
+        {!needsParentConsent && (
+          <ChipRadioGroup<"create" | "join">
+            label="Family"
+            name="oauth-family"
+            options={[
+              { value: "create", label: "Start a family" },
+              { value: "join", label: "Join with a code" },
+            ]}
+            value={familyMode}
+            onChange={setFamilyMode}
+          />
+        )}
+        {effectiveFamilyMode === "join" && (
+          <AuthField
+            label={needsParentConsent ? "Your parent's family code" : "Family code"}
+            htmlFor="oauth-family-code"
+          >
+            <input
+              id="oauth-family-code"
+              name="family-code"
+              className={cn(authInputClass, "font-mono uppercase tracking-wider")}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              aria-describedby={describedBy("oauth-family-code", { extra: [error && ERROR_ID] })}
+            />
+          </AuthField>
+        )}
 
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full"
-          onClick={submit}
-          disabled={submitting}
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finish setting up"}
-        </Button>
-        <p className="text-center text-xs text-stone">No card. We never sell player data.</p>
-      </div>
+        <SeededButton type="submit" variant="primary" loading={submitting} className="w-full">
+          {submitting ? "Saving…" : "Finish setting up"}
+        </SeededButton>
+        <p className="text-center text-[13px] text-stone">No card. We never sell player data.</p>
+      </form>
     </AuthCard>
   );
 }

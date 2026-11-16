@@ -13,6 +13,20 @@
 
 ## Executive status
 
+**2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
+Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
+banned badge copy, raw hex, lime button fills, focus ring, primary-button
+caps); one slim footer from AppShell on every route and Legacy only in
+Settings → Appearance; one calm data note per card instead of chip stacks;
+/pricing rebuilt to board 19 (table generated from FEATURE_TIER, cards gated
+and tested); auth screens to board 21 with every error mapped (and a
+`?authError=` text-injection closed); /schools hides the fit column until a
+UTR exists and its CLS is fixed for players and parents (TODO #14 closed via a
+remembered role); /today's nested buttons; pre-redesign styling on four
+marketing pages. **Found, not fixed (Niran's call): the Family plan unlocks
+nothing the code enforces** — see docs/TODO.md "Billing honesty". Evidence:
+`~/seeded-evidence/ui-polish-1/` (before/after, BOARD-DIFFS.md).
+
 **2026-11-16 — V1 IS LIVE.** On Niran's "go": backup to disk, then all 19
 migrations applied to production in the rehearsed order (025, 022, 023,
 026, 024, 027–039, then 040), each verified as a real user in rolled-back

@@ -11,7 +11,7 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { ModalShell } from "@/components/seeded/family/budget-modals";
 import { cn } from "@/lib/utils";
 
-const fieldClass = "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
+const fieldClass = "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus";
 const labelClass = "mb-1.5 block text-sm font-medium text-stone";
 
 export interface SessionFormResult extends SessionFormValues {
@@ -183,7 +183,7 @@ export function SessionFormModal({
               type="checkbox"
               checked={repeat}
               onChange={(e) => setRepeat(e.target.checked)}
-              className="h-4 w-4 rounded border-input text-grass focus:ring-grass/30"
+              className="h-4 w-4 rounded border-input text-grass focus:ring-focus"
             />
             Repeat weekly
           </label>

@@ -5,12 +5,10 @@ import { CalendarCheck, MailCheck, ShieldCheck, TrendingUp } from "lucide-react"
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Footer } from "@/components/layout/footer";
 import { FadeIn } from "@/components/shared/fade-in";
 import { Reveal } from "@/components/shared/reveal";
-import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { BentoGrid, BentoCell } from "@/components/seeded/shared/bento-grid";
 import { useDesign } from "@/lib/context/design-context";
+import { seededButtonVariants } from "@/components/seeded/ui/button";
 
 const items = [
   {
@@ -83,67 +81,48 @@ function LegacyParents() {
           ))}
         </div>
       </div>
-      <Footer />
     </>
   );
 }
 
 function SeededParents() {
-  // Deliberately the calmest page in the Seeded system — muted glass (no
-  // gradient-mesh backdrop, no cursor glow), generous whitespace, a single
-  // quiet accent instead of the homepage's full "under the lights" energy.
-  // Per spec: "a distinct, calmer feel: trust, cost clarity, honesty."
+  // Design system v2 (see the how-it-works page for the same treatment):
+  // the gradient pill and glass buttons, 24px bento cards and gradient icon
+  // tiles were the pre-redesign style. One green button, equal cards.
   return (
-    <>
-      <div className="mx-auto max-w-content container-px py-24">
-        <Reveal className="max-w-3xl">
-          <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-            For parents
-          </span>
-          <h1 className="mt-5 text-balance font-seeded text-5xl font-semibold leading-[0.97] tracking-tight text-ink sm:text-6xl">
-            A calmer way to manage college tennis recruiting.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
-            Seeded gives families one place for school fit, UTR progress, tournaments,
-            spending and coach outreach &mdash; without the spreadsheet spiral.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/signup"
-              className="rounded-pill px-6 py-3.5 text-center font-seeded text-sm font-semibold text-white"
-              style={{ background: "var(--s-accent-gradient)" }}
-            >
-              Start a family account
-            </Link>
-            <Link
-              href="/pricing"
-              className="seeded-glass rounded-pill px-6 py-3.5 text-center font-seeded text-sm font-semibold text-ink"
-            >
-              See plans
-            </Link>
-          </div>
-        </Reveal>
+    <div className="seeded-section-y mx-auto max-w-[1200px] px-6">
+      <Reveal className="seeded-section-head max-w-3xl">
+        <p className="seeded-eyebrow">For parents</p>
+        <h1 className="text-balance font-seeded text-[40px] font-bold leading-[1.08] tracking-[-0.02em] text-ink sm:text-5xl">
+          A calmer way to manage college tennis recruiting.
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
+          Seeded gives families one place for school fit, UTR progress, tournaments,
+          spending and coach outreach &mdash; without the spreadsheet spiral.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link href="/signup" className={seededButtonVariants({ variant: "primary" })}>
+            Start a family account
+          </Link>
+          <Link href="/pricing" className={seededButtonVariants({ variant: "secondary" })}>
+            See plans
+          </Link>
+        </div>
+      </Reveal>
 
-        <BentoGrid className="mt-16">
-          {items.map((item, i) => (
-            <BentoCell key={item.title} span={6}>
-              <Reveal index={i} step={0.08} className="h-full">
-                <SpotlightCard className="flex h-full flex-col rounded-[24px] border border-[rgb(var(--c-line))] bg-card p-7">
-                  <span
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                    style={{ background: "rgb(var(--c-primary) / 0.12)", color: "rgb(var(--c-primary))" }}
-                  >
-                    <item.icon className="h-5 w-5" />
-                  </span>
-                  <h2 className="mt-5 font-seeded text-xl font-medium text-ink">{item.title}</h2>
-                  <p className="mt-2 leading-relaxed text-stone">{item.body}</p>
-                </SpotlightCard>
-              </Reveal>
-            </BentoCell>
-          ))}
-        </BentoGrid>
-      </div>
-      <Footer />
-    </>
+      <ul className="seeded-card-row grid-cols-1 md:grid-cols-2">
+        {items.map((item, i) => (
+          <li key={item.title} className="h-full">
+            <Reveal index={i} step={0.06} className="flex h-full flex-col rounded-xl border border-line bg-card p-6">
+              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-grass-50 text-grass">
+                <item.icon className="h-5 w-5" aria-hidden />
+              </span>
+              <h2 className="mt-5 font-seeded text-xl font-semibold text-ink">{item.title}</h2>
+              <p className="mt-2 leading-relaxed text-stone">{item.body}</p>
+            </Reveal>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

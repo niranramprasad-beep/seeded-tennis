@@ -146,7 +146,9 @@ export function SeededOutreachLayout({
           </p>
         </div>
         <div className="relative">
-          <SeededButton variant="primary" onClick={() => setPickerOpen((v) => !v)} disabled={notStarted.length === 0}>
+          {/* Secondary: the editor's "Mark sent" below is this screen's one
+              green button (design system v2 rule 1). */}
+          <SeededButton variant="secondary" onClick={() => setPickerOpen((v) => !v)} disabled={notStarted.length === 0}>
             New email
           </SeededButton>
           {pickerOpen && notStarted.length > 0 && (
@@ -220,11 +222,7 @@ export function SeededOutreachLayout({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <strong className="text-ink">{s.shortName}</strong>
-                        {band ? (
-                          <FitBadge band={band} className="shrink-0" />
-                        ) : (
-                          <span className="shrink-0 text-xs text-stone-light">Not tracked</span>
-                        )}
+                        {band && <FitBadge band={band} className="shrink-0" />}
                       </div>
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}

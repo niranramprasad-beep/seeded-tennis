@@ -7,8 +7,7 @@ import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/l
 import { getCurrentSchoolYear } from "@/lib/time";
 import { buildFitReport } from "@/lib/fit";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
-import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
-import { SUPPORT_EMAIL } from "@/lib/config/contact";
+import { EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
 import { SeededButton } from "@/components/seeded/ui/button";
@@ -33,7 +32,6 @@ export function SeededHomeView({ schools }: { schools: SchoolLite[] }) {
       <MethodAndFounder />
       <Faq />
       <FinalCta />
-      <HomeFooter />
     </div>
   );
 }
@@ -42,7 +40,7 @@ export function SeededHomeView({ schools }: { schools: SchoolLite[] }) {
 
 function Hero({ schools }: { schools: SchoolLite[] }) {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 pb-14 pt-10 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pb-14 lg:pt-18">
+    <section className="mx-auto max-w-[1200px] px-6 pb-8 pt-10 md:pb-12 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pt-18">
       {/* Desktop: two-column, left copy / right live calculator */}
       <div className="hidden min-w-0 flex-[1.05_1_480px] lg:block">
         <HeroCopy />
@@ -63,13 +61,6 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
           Your UTR against real programs, sorted into Reach, Target and Likely.
         </p>
         <FitCalculatorCard schools={schools} mobile />
-        <ul className="flex flex-col gap-2 text-sm text-stone">
-          {/* P0-7: was "Rosters show source and date". No source or date field
-              exists on a school — the team ranges are unverified estimates. */}
-          <li>✓ Estimates are labelled as estimates</li>
-          <li>✓ Bands, never a % chance</li>
-          <li>✓ Built by a junior player</li>
-        </ul>
       </div>
     </section>
   );
@@ -234,9 +225,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <strong className="text-[15px]">Your fit, in 60 seconds</strong>
         {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
             verified and no verification date is stored anywhere. */}
-        <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-medium text-stone">
-          {UTR_RANGE_SOURCE_LABEL}
-        </span>
+        <EstimateChip />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <MiniField label="Current UTR">
@@ -287,9 +276,11 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <CountTile value={counts.target} label="Target" bg="rgb(var(--c-primary-50))" fg="rgb(var(--c-primary))" />
         <CountTile value={counts.likely} label="Likely" bg="rgb(var(--c-sage-tint-bg))" fg="rgb(var(--c-sage-tint-text))" />
       </div>
+      {/* Secondary on purpose (design system v2 rule 1): beside it, the hero
+          copy's "Get my free fit report" is the screen's one green button. */}
       <Link
         href={`/onboarding?${query}`}
-        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-grass font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
       >
         See my {total || "—"} schools
       </Link>
@@ -328,7 +319,7 @@ function TrustStrip() {
           (still text-stone) — an earlier version of this comment claimed
           text-ink-2 and was simply wrong about its own diff. Measured:
           6.24:1 light, 7.14:1 dark, both past AA. */}
-      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-x-8 gap-y-3 px-6 py-5 text-[15px] leading-[1.5] text-stone">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-3 px-6 py-5 text-[15px] leading-[1.5] text-stone sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-center lg:gap-8">
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
@@ -372,14 +363,14 @@ const CAPABILITY_CARDS = [
 
 function WhatItDoes() {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 pb-6 pt-22">
+    <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
         UTR tells you where you stand. Seeded tells you what to do next.
       </p>
-      <h2 className={cn(seededSectionHeading, "mt-3 max-w-[760px] text-balance")}>
+      <h2 className={cn(seededSectionHeading, "seeded-section-head mt-3 max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
       </h2>
-      <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="seeded-card-row grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {CAPABILITY_CARDS.map((c, i) => (
           <Reveal key={c.title} index={i} step={0.06}>
             <div className="h-full rounded-xl border border-line bg-card p-6">
@@ -405,7 +396,7 @@ function WhatItDoes() {
                 </div>
               )}
               {c.title === "Reach out on time" && (
-                <div className="mt-5 flex gap-1.5 text-[13px]">
+                <div className="mt-5 flex flex-wrap gap-1.5 text-[13px]">
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
                     Emailed 8
                   </span>
@@ -429,7 +420,7 @@ function WhatItDoes() {
 
 function ProductShot() {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 py-18">
+    <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <Reveal>
         <div className="overflow-hidden rounded-xl border border-line bg-card shadow-card-lg">
           <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-3">
@@ -524,7 +515,7 @@ function ParentsSection() {
     // which would otherwise flip bright once the site is in dark mode and
     // break every hardcoded light-on-dark color below it.
     <section className="bg-[rgb(var(--c-night))] text-[rgb(var(--c-night-text))]">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6 py-20">
+      <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6">
         <Reveal className="min-w-0 flex-[1_1_420px]">
           <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
             For parents
@@ -541,9 +532,12 @@ function ParentsSection() {
             A weekly report you can open any time: UTR movement, coach replies,
             upcoming events and what the season has cost so far.
           </p>
+          {/* Rule 1: lime is never a button fill. An outline button in the
+              panel's own text colour: the border is the panel's text colour
+              on the panel, so its contrast is the text's (fixed, both modes). */}
           <Link
             href="/sample-report"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-lime-accent px-[18px] text-[15px] font-semibold text-on-lime"
+            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg border border-[rgb(var(--c-night-text))] px-[18px] text-[15px] font-semibold text-[rgb(var(--c-night-text))] hover:bg-[rgb(var(--c-night-text)/0.08)]"
           >
             See a sample parent report
           </Link>
@@ -584,11 +578,13 @@ function ParentsSection() {
 /* --------------------------------------------------- METHOD + FOUNDER */
 
 function MethodAndFounder() {
-  // items-start: the two cards used to stretch to a shared height, which
-  // left dead space under the shorter one. Each is now its own height.
+  // Design system v2 rule 5: the two cards share a height. The dead space an
+  // earlier stretch left under the shorter card is gone because each card is
+  // a flex column and its last line (the link / the sign-off) sits at the
+  // bottom with mt-auto.
   return (
-    <section id="how-fit-works" className="mx-auto grid max-w-[1200px] grid-cols-1 items-start gap-6 px-6 py-20 lg:grid-cols-2">
-      <Reveal className="rounded-xl border border-line bg-card p-7">
+    <section id="how-fit-works" className="seeded-section-y seeded-card-row mx-auto max-w-[1200px] grid-cols-1 px-6 lg:grid-cols-2">
+      <Reveal className="flex h-full flex-col rounded-xl border border-line bg-card p-7">
         <h2 className={cn(seededCardHeading, "m-0")}>How fit works</h2>
         <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
           {/* Was: "from public profiles", "count seniors who graduate
@@ -604,11 +600,11 @@ function MethodAndFounder() {
           <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
           <li>You get one of four bands. We never show a percent chance.</li>
         </ol>
-        <Link href="/methodology" className="mt-4 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6">
+        <Link href="/methodology" className="mt-auto inline-flex min-h-11 items-center pt-4 font-semibold text-grass hover:text-grass-700 sm:min-h-6">
           Read the full methodology
         </Link>
       </Reveal>
-      <Reveal index={1} step={0.08} className="rounded-xl border border-line bg-card p-7">
+      <Reveal index={1} step={0.08} className="flex h-full flex-col rounded-xl border border-line bg-card p-7">
         <h2 className={cn(seededCardHeading, "m-0")}>Who built this</h2>
         <p className="mt-4 leading-[1.6] text-stone">
           I&apos;m a junior tennis player going through recruiting right now.
@@ -627,7 +623,7 @@ function MethodAndFounder() {
             The link is underlined, not just green: axe flagged
             `link-in-text-block` here (serious) because colour was the only
             thing distinguishing it from the sentence around it. */}
-        <p className="mt-3 text-sm text-stone">
+        <p className="mt-auto pt-3 text-sm text-stone">
           Found a wrong number?{" "}
           <Link
             href="/contact"
@@ -714,8 +710,8 @@ function Faq() {
     setOpen((prev) => (prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q]));
 
   return (
-    <section className="mx-auto max-w-[1200px] px-6 pb-20 pt-6">
-      <h2 className={cn(seededSectionHeading, "m-0 mb-5")}>
+    <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
+      <h2 className={cn(seededSectionHeading, "seeded-section-head m-0")}>
         Questions parents ask
       </h2>
       <div className="border-t border-line">
@@ -730,7 +726,7 @@ function Faq() {
                   onClick={() => toggle(item.q)}
                   aria-expanded={isOpen}
                   aria-controls={panelId}
-                  className="flex min-h-11 w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2"
+                  className="flex min-h-11 w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
                 >
                   <span>{item.q}</span>
                   <ChevronDown
@@ -766,30 +762,23 @@ function Faq() {
 /* ------------------------------------------------------------ FINAL CTA */
 
 function FinalCta() {
+  // Design system v2 rule 1: one green button, and lime is never a fill.
+  // This band used to be a fixed-dark panel with a lime button, sitting
+  // directly under another fixed-dark panel with another lime button — two
+  // accents fighting the page's green CTAs. Court green on that dark band
+  // measured ~2.7:1 in light mode (under the 3:1 a control boundary needs),
+  // so the band is now an ordinary surface and the button the ordinary
+  // primary: the same pairing, and the same contrast, as every other green
+  // button on the site, in both modes.
   return (
-    // One accent, and a band that does not flip.
-    //
-    // This was a lime button on the court-green band: two accents fighting,
-    // and only 1.72:1 between button and band. The first fix (ink button on
-    // the green band) was worse than it looked — `bg-ink` and `bg-grass`
-    // BOTH invert between light and dark, so the pairing measured 2.77:1 in
-    // light and 1.79:1 in dark, still under the 3:1 WCAG wants for a
-    // control's boundary and nowhere near the 4.5:1 asked for here. Two
-    // mode-flipping tokens cannot be relied on to stay apart.
-    //
-    // So this is now a fixed dark band with the single lime accent on it —
-    // the same always-dark treatment, and the same button, as the parents
-    // section directly above (see its comment for why a fixed #14181A
-    // rather than bg-ink). Fixed values on both sides means the ratio is
-    // the same number in both modes.
-    <section className="bg-[rgb(var(--c-night))] text-[rgb(var(--c-night-text))]">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6 py-16">
-        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance text-[rgb(var(--c-night-text))]")}>
+    <section className="border-t border-line bg-card">
+      <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6">
+        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance")}>
           Find out where you fit before your next tournament.
         </h2>
         <Link
           href="/onboarding"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-lime-accent px-6 font-sans text-[15px] font-semibold text-on-lime transition-opacity hover:opacity-90"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-grass px-6 font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
         >
           Get my free fit report
         </Link>
@@ -798,37 +787,3 @@ function FinalCta() {
   );
 }
 
-/* ---------------------------------------------------- HOMEPAGE FOOTER */
-
-// Pixel-exact to Main.dc.html's own (minimal) footer — intentionally not the
-// shared components/layout/footer.tsx, which every other marketing page
-// still uses and which is out of scope for this pass.
-function HomeFooter() {
-  return (
-    <footer className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-10 text-sm text-stone">
-      <span>© {new Date().getFullYear()} Seeded</span>
-      <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <Link href="/methodology" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          Methodology
-        </Link>
-        <Link href="/how-it-works" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          About
-        </Link>
-        <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          Privacy (incl. minors)
-        </Link>
-        <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          Terms
-        </Link>
-        <Link href="/contact" className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          Contact
-        </Link>
-        {/* A real address people can write to, not only a contact form.
-            Mail to this lands in the support@ forwarding Niran set up. */}
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
-          {SUPPORT_EMAIL}
-        </a>
-      </span>
-    </footer>
-  );
-}

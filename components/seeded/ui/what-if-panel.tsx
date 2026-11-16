@@ -120,7 +120,7 @@ export function WhatIfPanel({
               if (!Number.isNaN(v)) setCustom(v);
             }}
             className={cn(
-              "h-8 w-[64px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30",
+              "h-8 w-[64px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus",
               activePaceMode === "custom" && "border-grass"
             )}
           />

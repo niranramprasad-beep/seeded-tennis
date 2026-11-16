@@ -8,7 +8,6 @@ import {
 } from "@/lib/db/schools";
 import { SchoolsBrowser } from "@/components/schools/schools-browser";
 import { SchoolsHeader } from "@/components/seeded/schools/seeded-schools-header";
-import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
   title: "College tennis programs by UTR fit — Seeded",
@@ -40,7 +39,6 @@ export default async function SchoolsPage() {
           />
         </div>
       </div>
-      <Footer />
     </>
   );
 }

@@ -33,7 +33,7 @@ import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
 
 const VERDICT_META: Record<
   Verdict,
@@ -240,7 +240,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                     onClick={() => setLevel(l.value)}
                     aria-pressed={active}
                     className={cn(
-                      "min-h-11 rounded-lg border px-1 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
+                      "min-h-11 rounded-lg border px-1 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
                       active
                         ? "border-ink bg-ink text-cream"
                         : "border-line bg-card text-ink hover:bg-subtle-hover"
@@ -272,7 +272,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 onClick={() => nudgeUtr(-0.1)}
                 disabled={playerUtr == null}
                 aria-label="Decrease UTR"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -293,7 +293,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 onClick={() => nudgeUtr(0.1)}
                 disabled={playerUtr == null}
                 aria-label="Increase UTR"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -320,7 +320,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                     onClick={() => setTravel(p.value)}
                     aria-pressed={active}
                     className={cn(
-                      "min-h-11 rounded-lg border px-2 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
+                      "min-h-11 rounded-lg border px-2 font-sans text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
                       active
                         ? "border-ink bg-ink text-cream"
                         : "border-line bg-card text-ink hover:bg-subtle-hover"

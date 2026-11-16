@@ -106,7 +106,7 @@ export function RecruitingChecklistCard({
           }}
           placeholder="Add your own task…"
           aria-label="Add a custom checklist item"
-          className="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+          className="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus"
         />
         <button
           type="button"

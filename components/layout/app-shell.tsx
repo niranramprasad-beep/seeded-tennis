@@ -8,6 +8,7 @@ import { useDesign } from "@/lib/context/design-context";
 import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
 import { SeededNav } from "@/components/seeded/layout/nav";
+import { Footer } from "./footer";
 import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { CommandPalette } from "@/components/seeded/shared/command-palette";
 import { CheckoutSync } from "@/components/shared/checkout-sync";
@@ -96,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           nav (WCAG 2.4.1). Visible only when focused. */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-ink focus:shadow-card focus:outline focus:outline-2 focus:outline-lime-accent"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-ink focus:shadow-card focus:outline focus:outline-2 focus:outline-focus"
       >
         Skip to content
       </a>
@@ -157,7 +158,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           ((!hydrated && isSeeded && rendersPublicNavBeforeSession(pathname)) || preSessionAppRoute) && "pre-session-main",
           preSessionAppRoute && "min-h-screen",
           layoutAsApp && [
-            "min-h-screen transition-[margin-left] duration-300 ease-out",
+            // pb-24 below lg: the phone tab bar (components/seeded/layout/
+            // sidebar.tsx) is fixed to the bottom, ~75px with the safe-area
+            // inset. Without this it covered the end of every app page —
+            // and, since design system v2, the footer.
+            "min-h-screen pb-24 transition-[margin-left] duration-300 ease-out lg:pb-0",
             collapsed ? "lg:ml-[76px]" : "lg:ml-[248px]",
             !sidebarHydrated && "duration-0",
           ]
@@ -185,7 +190,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           <CheckoutSync />
           <AccountDeletedNotice />
         </Suspense>
-        <div key={pathname} className="animate-fade-in">{children}</div>
+        {/* min-h-[100svh]: the footer below always starts under the fold.
+            Without it, the footer rendered just under a still-loading page
+            and was pushed down as the page filled in — measured CLS 0.7 to
+            1.5 on 311 page loads in the first after-pass. A shift below the
+            viewport does not count toward CLS. */}
+        <div key={pathname} className="min-h-[100svh] animate-fade-in">{children}</div>
+        {/* The ONE footer, on every route (design system v2). Outside the
+            keyed fade so it never remounts or flashes between pages, and
+            inside <main> so app routes give it the sidebar margin. */}
+        <Footer />
       </main>
     </>
   );

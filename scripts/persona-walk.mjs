@@ -27,7 +27,7 @@ const CHROME =
     "Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell"
   );
 const BASE = process.env.AUDIT_BASE ?? "http://localhost:3100";
-const OUT = join(process.env.HOME ?? "", "seeded-evidence/final-pass");
+const OUT = process.env.WALK_OUT ?? join(process.env.HOME ?? "", "seeded-evidence/final-pass");
 
 export const PERSONAS = [
   { id: "a", label: "Men's UTR 8.7, Class of 2031, GPA 3.5 — 7th grader, strong for age",

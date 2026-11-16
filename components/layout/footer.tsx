@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useDesign } from "@/lib/context/design-context";
@@ -45,9 +46,18 @@ const COLUMNS: {
   },
 ];
 
+const LEGACY_FOOTER_ROUTES = ["/", "/parents", "/how-it-works", "/tournament-fit", "/schools", "/schools/", "/pricing"];
+
 export function Footer() {
-  const { design, setDesign } = useDesign();
+  const { design } = useDesign();
+  const pathname = usePathname() ?? "/";
   const isSeeded = design === "seeded";
+
+  if (isSeeded) return <SlimFooter />;
+  // Legacy keeps its old footprint: the four-column footer only on the
+  // marketing pages that rendered it before AppShell took over footers, not
+  // on its app routes and auth screens (independent review, 2026-11-16).
+  if (!LEGACY_FOOTER_ROUTES.some((r) => (r.endsWith("/") ? pathname.startsWith(r) : pathname === r))) return null;
 
   return (
     <footer
@@ -137,15 +147,44 @@ export function Footer() {
           <p className={cn(isSeeded ? "font-seeded" : "font-serif italic", "text-stone")}>
             Your path to college tennis, mapped match by match.
           </p>
-          {isSeeded && (
-            <button
-              onClick={() => setDesign("legacy")}
-              className="inline-flex min-h-11 items-center font-seeded text-sm text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-6"
-            >
-              Switch to Legacy
-            </button>
-          )}
         </div>
+      </div>
+    </footer>
+  );
+}
+
+/**
+ * Design system v2's ONE slim footer (docs/DESIGN_MOCKUP_SPEC_V2.md, shared
+ * parts): Seeded · How we calculate fit · Privacy · Terms · support@. It is
+ * rendered once, by AppShell, on every route — pages never render their own.
+ *
+ * Before this there were three footers: a four-column one on six marketing
+ * pages, a minimal one on the homepage only, and nothing at all on
+ * /methodology, /privacy, /terms, /contact, the auth pages and the app.
+ *
+ * The "Switch to Legacy" button that lived in the old footer is gone on
+ * purpose: Legacy is a setting (Settings -> Appearance), not something a
+ * first-time visitor should trip over (DECISIONS.md, 2026-11-16).
+ */
+function SlimFooter() {
+  const linkClass =
+    "inline-flex min-h-11 items-center text-stone underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-6";
+  return (
+    <footer className="border-t border-line">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-x-6 gap-y-1 px-6 py-6 text-sm sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="font-seeded font-semibold text-ink sm:mr-auto">Seeded</span>
+        <Link href="/methodology" className={linkClass}>
+          How we calculate fit
+        </Link>
+        <Link href="/privacy" className={linkClass}>
+          Privacy
+        </Link>
+        <Link href="/terms" className={linkClass}>
+          Terms
+        </Link>
+        <a href={`mailto:${SUPPORT_EMAIL}`} className={cn(linkClass, "break-all")}>
+          {SUPPORT_EMAIL}
+        </a>
       </div>
     </footer>
   );

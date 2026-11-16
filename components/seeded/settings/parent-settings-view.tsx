@@ -31,7 +31,7 @@ const TIER_LABEL: Record<SubscriptionTier, string> = {
 };
 
 const inputClass =
-  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+  "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
 
 // /settings for a PARENT account.
 //

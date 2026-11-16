@@ -70,7 +70,7 @@ export function ModalShell({
 }
 
 function fieldClass() {
-  return "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-grass/30";
+  return "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus";
 }
 
 export function EditBudgetModal({

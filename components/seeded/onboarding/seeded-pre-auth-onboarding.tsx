@@ -15,6 +15,7 @@ import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { parentConsentRequired } from "@/lib/config/consent";
 import { buildFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn } from "@/lib/utils";
 import {
   GROWTH_ESTIMATE_CAPTION,
@@ -276,9 +277,7 @@ function PreAuthOnboarding({
                   <span className="font-mono text-[28px] font-semibold leading-none tabular-nums text-ink">
                     {report.utr.value.toFixed(1)}
                   </span>
-                  <span className="rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
-                    {GROWTH_ESTIMATE_CHIP}
-                  </span>
+                  <EstimateChip label={GROWTH_ESTIMATE_CHIP} />
                 </div>
                 <p className="mt-1.5 text-sm text-stone">
                   Slower {report.utr.low.toFixed(1)} · faster {report.utr.high.toFixed(1)}
@@ -430,10 +429,7 @@ function PreAuthOnboarding({
             {/* P0-7: "Every range shows its source and verification date"
                 read as a description of what the product does. It doesn't —
                 no range has a source or a date. */}
-            <p className="m-0 px-5 py-3 text-[13px] text-stone">
-              These team ranges are unverified estimates, with no published source or
-              date behind them.
-            </p>
+            <DataNote className="px-5 py-3">Team UTR ranges are our estimates, not published rosters.</DataNote>
           </div>
         </section>
 
@@ -460,7 +456,7 @@ const BAND_LABEL: Record<FitBand, string> = {
   target: "Target",
   likely: "Likely",
   "out-of-range": "Out of range",
-  unverified: "Unverified",
+  unverified: "No UTR yet",
 };
 const GENDER_LABEL: Record<Gender, string> = { women: "Women's", men: "Men's" };
 

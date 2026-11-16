@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import useSWR from "swr";
-import { ArrowLeft, Building2, ExternalLink, GraduationCap, User } from "lucide-react";
+import { ArrowLeft, Building2, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { bandPositionLabel, explainSchoolFit, fitGaps, schoolUtrRange, utrToPct } from "@/lib/school-fit";
-import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { loadCoachOutreach } from "@/lib/db/outreach";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
@@ -16,14 +15,13 @@ import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { projectionTargetLabel } from "@/lib/fit";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
-import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
-import { Footer } from "@/components/layout/footer";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn } from "@/lib/utils";
@@ -138,13 +136,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         : "Log a UTR to see your pace.";
 
   const fitSkeleton = (
-    <div key="fit-skeleton" className="mt-6 grid gap-4 lg:grid-cols-2" aria-busy="true">
+    <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
       <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
       <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
     </div>
   );
   const fitCards = (
-  <div key="fit-cards" className="mt-6 grid gap-4 lg:grid-cols-2">
+  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
@@ -153,7 +151,6 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       <p className="mt-2 text-sm text-stone">
         {explanation.summary}
       </p>
-      <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
 
       {gaps && judging && explanation.band !== "unverified" && (
         <FitDriverRow
@@ -169,8 +166,8 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           }
         />
       )}
-      <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status !== "ready" ? "Needs data" : judging?.isProjected ? "Projected" : "Trend"} />
-      <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
+      <FitDriverRow label="Pace" description={paceDescription} />
+      <FitDriverRow label="Timing" description={explanation.timing} />
 
       {explanation.nextBand && (
         <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
@@ -187,9 +184,14 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         </div>
       )}
 
-      <p className="mt-3 text-xs text-stone-light">
-        {explanation.playersLeaving} {explanation.academics}
-      </p>
+      {/* Design system v2 rule 2: one calm data note per card. It used to
+          carry a projection paragraph, three driver chips ("Needs data",
+          "Projected", "General") and a closing two-caveat line. */}
+      {judging?.isProjected ? (
+        <ProjectionNote utr={judging} who={subjectFirst} className="mt-4" />
+      ) : (
+        <DataNote className="mt-4">Roster openings and academics don&apos;t change the band.</DataNote>
+      )}
     </div>
 
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
@@ -197,9 +199,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         <h2 className="text-lg font-semibold text-ink">
           {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
         </h2>
-        <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
-          {UTR_RANGE_SOURCE_LABEL}
-        </span>
+        <EstimateChip />
       </div>
       <div className="mt-4">
         <RangeBar
@@ -221,11 +221,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           youLabel={projectedYouLabel(judging, subjectFirst)}
         />
       </div>
-      <p className="mt-3 text-sm text-stone">
-        Individual roster data isn&apos;t tracked yet. This band is an unverified estimate of
-        the team&apos;s overall UTR range with no published source or date behind it — not
-        per-player positions, and not a number to make a decision on yet.
-      </p>
+      <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>
     </div>
   </div>
   );
@@ -299,7 +295,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
 
         {fitSection}
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-2">
           <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-grass" />
@@ -307,28 +303,25 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             </div>
             <p className="mt-2.5 text-sm text-stone">
               {academicRankSentence(school.usNewsRanking)} #{nationalRank} of the {school.division}{" "}
-              {programType.toLowerCase()} programs in Seeded&apos;s catalogue on Seeded&apos;s combined
-              score (half academic rank, half the unverified team-level estimate).
+              {programType.toLowerCase()} programs in Seeded on our combined score, which mixes
+              academics and team level.
             </p>
-            <EmptyState
-              className="mt-3"
-              title="Cost, aid and enrollment: not available yet."
-              description="Seeded holds no cost, financial-aid or enrollment figures for any program. Ask the school's financial aid office."
-            />
+            <p className="mt-3 text-sm text-stone">
+              Seeded has no cost or aid figures. Ask the school&apos;s financial aid office.
+            </p>
           </div>
 
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="flex min-w-0 flex-col rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-grass" />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
-            <p className="mt-2.5 text-sm text-stone">
-              Not tracked. Seeded doesn&apos;t store coaching-staff contacts — look the staff up
-              on the athletics site and you&apos;ll have the current, correct address.
-            </p>
-            <StaffDirectoryHint school={school} className="mt-3" />
+            <StaffDirectoryHint school={school} className="mt-2.5" />
+            {/* The one-sentence "Recruiting timeline" card that sat beside this
+                one is gone (design system v2 rule 5): the "Why this band"
+                card's Timing row already says the same thing. */}
             {!isParent && outreach && !alreadyContacted && (
-              <p className="mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
+              <p className="mb-3.5 mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
             )}
             {/* Outreach is the player's: a parent opening /outreach is
                 bounced to /family, and Seeded never writes to a coach on a
@@ -336,27 +329,15 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             {!isParent && (
               <Link
                 href={`/outreach?school=${school.slug}`}
-                className={cn(seededButtonVariants({ variant: "primary" }), "mt-3.5 w-full")}
+                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full")}
               >
                 Draft an email to the head coach
               </Link>
             )}
           </div>
 
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-grass" />
-              <h2 className="text-base font-semibold text-ink">Recruiting timeline</h2>
-            </div>
-            <p className="mt-2.5 text-sm text-stone">
-              {school.division === "D1"
-                ? "D1 programs often have informal boards years out — reaching out early, even as an underclassman, is normal."
-                : "D3 coaches can respond any time. Typical first contact: junior fall to junior spring."}
-            </p>
-          </div>
         </div>
       </div>
-      <Footer />
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
         {toast?.message ?? " "}
       </Toast>
@@ -371,7 +352,8 @@ function FitDriverRow({
 }: {
   label: string;
   description: string;
-  chip: string;
+  /** Only for a fact about THIS row (the band position) — never a caveat. */
+  chip?: string;
 }) {
   return (
     // Below sm the chip drops under the description: a long chip ("Between
@@ -380,9 +362,11 @@ function FitDriverRow({
     <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)_auto]">
       <span className="font-semibold text-ink">{label}</span>
       <span className="min-w-0 text-stone">{description}</span>
-      <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone sm:col-start-auto sm:whitespace-nowrap">
-        {chip}
-      </span>
+      {chip && (
+        <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone sm:col-start-auto sm:whitespace-nowrap">
+          {chip}
+        </span>
+      )}
     </div>
   );
 }
