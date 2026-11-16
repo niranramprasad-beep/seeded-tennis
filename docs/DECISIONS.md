@@ -729,3 +729,28 @@ the Today view was selected, which is the original conflation reintroduced
 by the toggle built to remove it. The consistency test now covers all five
 personas in both views, but it was written after the walkthrough found the
 problems, not before.
+
+---
+
+## 2026-11-15 — "What-if school planner" is free, because it already was
+
+The pricing compare table listed it as Player-only. Nothing gates it: it is
+client-side arithmetic over the public school catalogue, with no database
+write for RLS to refuse. The only way to withhold it would be a client-side
+check, and CLAUDE.md is explicit that `AuthGate`/`PaidGate` are cosmetic and
+the database is the real control.
+
+**Decided: correct the table rather than add a cosmetic paywall.** A
+paywall that cannot be enforced is a claim, not a feature, and this project
+has spent two rounds removing claims the code does not back.
+
+The alternative — actually withholding it — would mean either shipping a
+gate the project's own rules call decorative, or moving the computation
+server-side, which is a new feature on launch week. Neither is worth it for
+a slider.
+
+Everything else in the table was checked against `FEATURE_TIER` and the
+migrations behind it and is accurate: outreach and the plan at Player
+(migration 024/019), the parent dashboard, season budget and weekly report
+at Family, and the catalogue, estimates, school pages, tournament checker
+and three saved targets on Free.

@@ -206,3 +206,39 @@ with no marker and a prompt meant for a player.
 | g under-13 | /today, /plan, /settings, /onboarding | ✅ consent gate on all four |
 | g under-13 | /schools | ✅ browsable, no bands (matches /privacy) |
 
+---
+
+## D — truth & honesty sweep
+
+**Pricing checked feature by feature against `FEATURE_TIER` and the
+migrations behind it.** Outreach and the plan at Player (024/019), the
+parent dashboard, season budget and weekly report at Family, and the
+catalogue, estimates, school pages, tournament checker and three saved
+targets on Free — all accurate.
+
+**One row was not.** "What-if school planner" was sold as Player-only and is
+gated nowhere. It is client-side arithmetic over the public catalogue with
+no database write for RLS to refuse, so the only possible gate is a
+client-side one — and CLAUDE.md is explicit that `AuthGate`/`PaidGate` are
+cosmetic and the database is the real control. **A paywall that cannot be
+enforced is a claim, not a feature**, so the table now says free, which is
+what it is. Recorded in `docs/DECISIONS.md`; the alternative (moving the
+computation server-side) is a new feature on launch week.
+
+**Two new phrase families in `lib/copy-honesty.test.ts`**, both
+mutation-tested:
+
+- *Forecast promises* — "you'll be 11.7", "we predict", "guaranteed
+  results". UTR growth is a stated assumption with no data behind it
+  (`lib/config/growth.ts` says so at length), so no surface may state a
+  future rating as a prediction.
+- *Delivery promises* — "we'll email", "straight to your inbox",
+  "delivered every". Seeded sends nothing; the weekly family report is a
+  page computed when you open it.
+
+**A first draft of the forecast pattern fired on the honesty itself**:
+`/methodology` says "there's **no guaranteed** turnaround", and a bare
+`/guaranteed/` matched the denial of the thing it bans. A guard whose fix is
+to delete an honest sentence is worse than no guard. Narrowed to actual
+promises.
+

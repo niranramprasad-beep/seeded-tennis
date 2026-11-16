@@ -137,7 +137,14 @@ function matrixFor(c: CatalogCounts): { group: string; rows: Row[] }[] {
       // calendar you fill in yourself, so that is what it is called.
       // lib/copy-honesty.test.ts fails the build if the old phrase returns.
       { label: "Training calendar", free: false, player: true, family: true },
-      { label: "What-if school planner", free: false, player: true, family: true },
+      // Sold as Player-only and gated nowhere. It is client-side maths
+      // over the public catalogue — no database write, nothing RLS can
+      // refuse — so the only available "gate" would be a cosmetic one,
+      // and CLAUDE.md is explicit that AuthGate/PaidGate are cosmetic and
+      // the real control is the database. A paywall that cannot be
+      // enforced is a claim, not a feature. Marked free, which is what it
+      // actually is.
+      { label: "What-if school planner", free: true, player: true, family: true },
     ],
   },
   {

@@ -138,6 +138,29 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "no School record carries a source or a check date; the ranges are unverified estimates",
   },
   {
+    // WORKSTREAM D. A projected UTR is an assumption with no data behind
+    // it (lib/config/growth.ts says so at length), so no surface may state
+    // one as a prediction or a certainty. "You will be 11.7" and "your
+    // UTR will reach" are forecasts; "on track for", "projected" and "by
+    // junior year" paired with the Estimate chip are not.
+    pattern:
+      // A bare /guaranteed/ matched two innocents: /methodology saying
+      // "there's no guaranteed turnaround" — an honest NEGATION, the
+      // opposite of the claim — and an internal `withGuaranteedPlan()`
+      // helper. A guard that fires on the denial of the thing it bans is
+      // worse than no guard, because the fix is to delete the honesty.
+      /\b(?:you'?ll|you will|will be|is going to) (?:be|reach|hit) (?:a )?\d+(?:\.\d+)?\b|\bwe guarantee\b|\bguaranteed (?:results|placement|spot|improvement|offer)\b|\bwe predict\b|\bour prediction\b/i,
+    why: "UTR growth is a stated assumption, not a forecast; never promise a future rating",
+  },
+  {
+    // Seeded sends nothing. The weekly family report is a page you open,
+    // computed live when you open it — there is no sender, no schedule and
+    // no inbox anywhere in this product.
+    pattern:
+      /\b(?:we'?ll|we will) (?:email|send|text|notify)\b|sent to your inbox|straight to your inbox|delivered (?:every|each)\b/i,
+    why: "Seeded has no email or push; the only mail is Supabase Auth's own",
+  },
+  {
     // Found by the launch UI review: /pricing was selling "Weekly training
     // plan" as a paid feature. Seeded does not generate training plans and
     // is not going to — "No auto-generated training plans, manual calendar
