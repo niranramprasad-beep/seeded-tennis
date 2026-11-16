@@ -114,7 +114,7 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
           Add up training, tournaments, travel and equipment over the years remaining, from numbers you enter.
           Seeded holds no cost-of-attendance or athletic-aid figures, so it does not estimate them.
         </p>
-        <div className="-mx-6 mt-2">
+        <div className="-mx-5 mt-2 sm:-mx-8 lg:-mx-10">
           <CostCalculatorView schools={schools} embedded />
         </div>
       </div>

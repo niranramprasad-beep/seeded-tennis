@@ -161,7 +161,7 @@ export function RangeBar({
           <div
             role="tooltip"
             className={cn(
-              "pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max -translate-x-1/2 rounded-[8px] border border-line bg-card px-3 py-2 text-left text-xs leading-relaxed text-ink opacity-0 shadow-card transition-opacity",
+              "pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-max max-w-[min(20rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-[8px] border border-line bg-card px-3 py-2 text-left text-xs leading-relaxed text-ink opacity-0 shadow-card transition-opacity",
               "group-hover:opacity-100",
               tapOpen && "opacity-100"
             )}
