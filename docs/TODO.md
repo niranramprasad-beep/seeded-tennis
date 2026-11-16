@@ -133,6 +133,14 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
 
 ## Still open after the rollout
 
+- **An EMPTY family's code can be claimed by a new signup** (found on
+  production 2026-11-16, step 9). 032 blocks a code that any profile or
+  `parent_accounts` row holds; production has one `families` row with 0
+  holders and 0 links, and a profile INSERT with that code succeeds. It
+  exposes nothing — there is no one in it to read — so it is LOW. Fix:
+  delete member-less `families` rows (service role, by hand), or have
+  `family_code_is_taken()` also check `families`.
+
 6. **P0-8's other half — the privacy policy.** The mechanisms are built and
    tested: real deletion, a complete JSON export, under-13 consent, and
    nothing about a minor visible to any other user. What does not exist is
