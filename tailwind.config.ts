@@ -91,8 +91,12 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Starts at 0.01, not 0: Chrome does not count text painted at
+        // opacity 0 as contentful, and the route wrapper in AppShell uses
+        // this on every page — /sample-report (no header outside it)
+        // recorded no First Contentful Paint at all in Lighthouse.
         "fade-in": {
-          "0%": { opacity: "0" },
+          "0%": { opacity: "0.01" },
           "100%": { opacity: "1" },
         },
         "draw-in": {

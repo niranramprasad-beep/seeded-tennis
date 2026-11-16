@@ -84,6 +84,12 @@ Last updated 2026-11-15.
     the session (e.g. `seeded.role` in localStorage, cleared on sign-out),
     mark `html[data-role]` in the head script, and reserve the parent
     block's space the same way.
+15. **LCP on a simulated slow-4G phone is 5.1–6.1 s** on every public
+    route (Lighthouse mobile, local production build; performance 78–81,
+    CLS 0, TBT ≈ 0). Six web-font families load on every page; start there
+    (drop unused families, subset, `preload: false` on the decorative
+    ones), then check field data in Vercel Speed Insights after launch —
+    lab LCP on localhost is an estimate, not what users see.
 13. `isConsentPendingAllowedPath` lists `/family`, but players are blocked
     from `/family` first, so the entry does nothing. Remove it or document
     why it is there.
