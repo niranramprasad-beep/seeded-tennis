@@ -120,9 +120,14 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
   });
 
   it("the only rating in scope is nullable, and the raw player value is not reachable", () => {
+    // Two nullable ratings now, for two different jobs: `youUtr` is the
+    // VIEWER's own (or their what-if choice), `judgingUtr` is the rating
+    // the bands are judged against — the player's own, or their child's
+    // when a parent is viewing. Both nullable, neither a raw number.
     expect(source).toMatch(/const youUtr:\s*number \| null = hasUtr \? effectiveUtr : null/);
+    expect(source).toMatch(/const judgingUtr:\s*number \| null = report\?\.utr\.value \?\? null/);
     expect(source).toMatch(/const bandFor\s*=/);
-    expect(source).toMatch(/youUtr === null \? null :/);
+    expect(source).toMatch(/const hasFit = report != null/);
     // `player.currentUTR` belongs to the what-if hook's input and nowhere
     // else; every defeat so far has reached for it as a fallback.
     const uses = [...source.matchAll(/player\.currentUTR/g)];
@@ -168,8 +173,21 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
       expect(
         before,
         "a .toFixed() on something other than youUtr or a real team number"
-      ).toMatch(/youUtr|range\.(min|max)|avgRosterUTR|minCompetitiveUTR|gapTo\w+|\bexplanation\./);
+      ).toMatch(
+        /youUtr|judgingUtr|range\.(min|max)|avgRosterUTR|minCompetitiveUTR|gapTo\w+|\bexplanation\./
+      );
     }
+  });
+
+  it("a parent is shown their player's fit, not their own absent rating", () => {
+    // Persona (f): the parent's own nav links to /schools, and a parent
+    // has no UTR, so the page banded 37 programs against nothing while
+    // the Overview tab beside it said "Bailey's recruiting".
+    expect(source).toMatch(/viewingAsParent/);
+    expect(source).toMatch(/resolveFamilyPlayerFacts/);
+    expect(source, "the heading must say whose fit this is").toMatch(
+      /Sorted by fit for \$\{subjectName\}/
+    );
   });
 
   it("shows the visitor how to get a fit instead of a zero", () => {
@@ -183,7 +201,7 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     // accept "Gap (closest first)", persist it, and leave the catalogue in
     // default order.
     expect(source).toMatch(/const safeSort:\s*SeededSchoolSort\s*=/);
-    expect(source).toMatch(/hasUtr[\s\S]{0,80}?:\s*"default"/);
+    expect(source).toMatch(/hasFit[\s\S]{0,80}?:\s*"default"/);
     expect(source, "the list must sort by safeSort").toMatch(
       /sortSchoolsForSeeded\(\s*filtered,\s*safeSort/
     );

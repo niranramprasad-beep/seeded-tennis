@@ -12,9 +12,9 @@ Lighthouse a11y 100 / SEO 100.
 | Workstream | Status |
 |---|---|
 | A — fit report tells one true story | **DONE** (`00b972e`) |
-| B — real-user walkthroughs (7 personas) | IN PROGRESS |
-| C — premium design detail pass | not started |
-| D — truth & honesty sweep | not started |
+| B — real-user walkthroughs (7 personas) | **DONE** |
+| C — premium design detail pass | PARTLY (mobile targets done in B) |
+| D — truth & honesty sweep | IN PROGRESS |
 | E — regression safety | not started |
 | F — final independent verification | not started |
 
@@ -161,4 +161,48 @@ it, so the range bar is checked rather than excused.
 
 **Still to walk: personas (f) parent-of-(a) and (g) under-13.** Both need a
 session; see below.
+
+### Personas (f) and (g) — signed in on staging
+
+Staging passwords had been scrambled after the migration rehearsal, so I set
+disposable bcrypt passwords on three clearly-fake staging accounts
+(`fake-a-parent2@`, `fake-minor@`, `fake-a-player@`) to walk these. **They
+are scrambled again at the end of this pass** — see the close-out checklist.
+
+**(g) under-13, birth year 2016, `consent_status = 'pending'`.** `/today`,
+`/plan`, `/settings` and `/onboarding` all render "A parent needs to say yes
+first". `/schools` stays browsable with no bands, which matches what
+`/privacy` says (the catalogue is public; the gate is on writes). The one
+rough edge: the neutral-state prompt invites them to enter a UTR, and that
+path leads back to the consent screen. Honest, slightly circular, logged as
+P2 rather than fixed — the alternative is hiding a page they are allowed to
+read.
+
+**(f) parent of (a) — a real contradiction, now fixed.** `PARENT_NAV_LINKS`
+sends a parent to `/schools`, and a parent has no UTR, so the page banded 37
+programs against nothing: **"Not tracked" on every row**, the "Enter your
+UTR to see your fit" prompt addressed to the wrong person, and the Overview
+tab beside it saying "Bailey's recruiting". The one page a parent would open
+to understand their child's options told them nothing about their child.
+
+`/schools` now resolves the subject through the same
+`resolveFamilyPlayerFacts()` the family overview uses, so the two screens
+cannot disagree about who the player is:
+
+| before | after |
+|---|---|
+| "Sorted by fit for you." | **"Sorted by fit for Bailey."** |
+| Not tracked × 37 | Reach 0 · Target 2 · Likely 0 · Out of range 35 |
+| caption "Team 12.3–14.9" | **"Bailey 9.4 · 12.3–14.9"** |
+| "Enter your UTR to see your fit" | "Fit is shown for Bailey… this view is read-only" |
+
+`hasUtr` (does the VIEWER have a rating) had to split from `hasFit` (is
+there a fit to show) — gating on the viewer's rating gave a parent bands
+with no marker and a prompt meant for a player.
+
+| persona | screens | consistent? |
+|---|---|---|
+| f parent | /family, /family/budget, /family/weekly-reports, /schools, /events, /settings | ✅ all six about Bailey |
+| g under-13 | /today, /plan, /settings, /onboarding | ✅ consent gate on all four |
+| g under-13 | /schools | ✅ browsable, no bands (matches /privacy) |
 

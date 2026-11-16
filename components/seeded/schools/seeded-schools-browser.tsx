@@ -23,6 +23,8 @@ import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
@@ -180,6 +182,17 @@ export function SeededSchoolsBrowser({
   // compiler enforces it; the test only stops someone removing the seam.
   const youUtr: number | null = hasUtr ? effectiveUtr : null;
 
+  // The rating the BANDS are judged against, and the rating to plot. For a
+  // player that is their own (or their what-if choice); for a parent it is
+  // their child's, because the parent has none and the page is about the
+  // child. Null when there is no usable rating at all — then the page
+  // shows the catalogue and no fit, as before.
+  //
+  // `hasFit` replaces `hasUtr` as the gate for the chips, the sort and the
+  // prompt: a parent HAS a fit to show while having no rating of their
+  // own, and gating on the viewer's rating gave them bands with no marker
+  // and an "Enter your UTR" prompt addressed to the wrong person.
+
   // THE ONLY PLACE THIS FILE IS ALLOWED TO CLASSIFY A SCHOOL.
   //
   // The gate used to be repeated at each of three call sites, and an
@@ -199,11 +212,45 @@ export function SeededSchoolsBrowser({
   // (see buildFitReport). With the slider untouched it equals the player's
   // own rating, so the bands here are the same ones /today and the fit
   // report show.
+  // A PARENT's own nav links here ("Schools" in PARENT_NAV_LINKS), and a
+  // parent has no UTR of their own — so this page banded 37 programs
+  // against nothing and showed "Not tracked" all the way down, while the
+  // Overview tab beside it said "Bailey's recruiting". The one page a
+  // parent would open to understand their child's options told them
+  // nothing about their child. Found by walking persona (f).
+  //
+  // Same resolver the family overview uses, so the two screens cannot
+  // disagree about who the player is or what their rating is.
+  const { data: familyMembers = [] } = useSWR<FamilyMember[]>(
+    player.role === "parent" ? "family-members" : null,
+    () => loadFamilyMembers()
+  );
+  const playerFacts = useMemo(
+    () => resolveFamilyPlayerFacts(familyMembers.find((m) => m.role === "player"), player),
+    [familyMembers, player]
+  );
+  const viewingAsParent = player.role === "parent" && playerFacts.hasLinkedPlayer;
+  const subjectName = viewingAsParent
+    ? familyMembers.find((m) => m.role === "player")?.name?.split(" ")[0] ?? "your player"
+    : null;
+
   const report = useFitReport({
-    player,
+    player: viewingAsParent
+      ? {
+          currentUTR: playerFacts.currentUtr ?? 0,
+          graduationYear: playerFacts.graduationYear ?? player.graduationYear,
+          gender: playerFacts.gender ?? player.gender,
+        }
+      : player,
     schools: ranked,
-    overrideUtr: youUtr,
+    overrideUtr: viewingAsParent ? null : youUtr,
   });
+
+  const judgingUtr: number | null = report?.utr.value ?? null;
+  const subjectTodayUtr: number | null = viewingAsParent
+    ? (playerFacts.currentUtr ?? null)
+    : youUtr;
+  const hasFit = report != null;
 
   const bandFor = useCallback(
     (s: School): SchoolFitBand | null => report?.bandBySlug.get(s.slug) ?? null,
@@ -312,7 +359,7 @@ export function SeededSchoolsBrowser({
   // reads this same value, so the control can never claim an order the
   // list is not in (including one restored from localStorage).
   const safeSort: SeededSchoolSort =
-    hasUtr || sort === "academics" || sort === "default" ? sort : "default";
+    hasFit || sort === "academics" || sort === "default" ? sort : "default";
 
   const visible = useMemo(() => {
     const filtered = ranked.filter((s) => {
@@ -322,11 +369,11 @@ export function SeededSchoolsBrowser({
       // chips aren't rendered), but localStorage can still hand us one from
       // a previous signed-in session — so it is ignored rather than applied
       // against the sentinel, which would have hidden the whole catalogue.
-      else if (hasUtr && chip !== "all" && bandFor(s) !== chip) return false;
+      else if (hasFit && chip !== "all" && bandFor(s) !== chip) return false;
       return true;
     });
     return sortSchoolsForSeeded(filtered, safeSort, effectiveUtr, whatIf.whatIfProjection);
-  }, [ranked, region, chip, safeSort, hasUtr, effectiveUtr, bandFor, whatIf.whatIfProjection, savedSlugs]);
+  }, [ranked, region, chip, safeSort, hasFit, effectiveUtr, bandFor, whatIf.whatIfProjection, savedSlugs]);
 
   // A materially different list (a filter/sort change) invalidates
   // whatever row the keyboard highlight was pointing at.
@@ -425,7 +472,11 @@ export function SeededSchoolsBrowser({
           {/* "Sorted by fit for you" is only true once there is a rating to
               sort against — without one the order is the catalogue's own. */}
           <p className="mt-1.5 text-stone">
-            {hasUtr ? "Sorted by fit for you. " : ""}
+            {report
+              ? viewingAsParent
+                ? `Sorted by fit for ${subjectName}. `
+                : "Sorted by fit for you. "
+              : ""}
             {ranked.length} {genderLabel} programs.
           </p>
         </div>
@@ -446,8 +497,18 @@ export function SeededSchoolsBrowser({
       </div>
 
       <div className="mt-5">
-        {hasUtr ? (
+        {hasUtr && !viewingAsParent ? (
           <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} />
+        ) : viewingAsParent ? (
+          // A parent has no rating of their own and the slider is not for
+          // them. The prompt below is addressed to a player, so showing it
+          // here asked the wrong person for the wrong thing.
+          <div className="rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
+            <p className="m-0 text-[15px] text-stone">
+              Fit is shown for {subjectName}, using the rating on their profile. You
+              can&rsquo;t change it from here &mdash; this view is read-only.
+            </p>
+          </div>
         ) : (
           // The what-if slider is "what if my rating were X by June" — it
           // has nothing to move from without a rating, and rendering it
@@ -471,7 +532,7 @@ export function SeededSchoolsBrowser({
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <ChipButton active={chip === "all" || (!hasUtr && chip !== "saved")} onClick={() => setChip("all")} variant="dark">
+          <ChipButton active={chip === "all" || (!hasFit && chip !== "saved")} onClick={() => setChip("all")} variant="dark">
             All {ranked.length}
           </ChipButton>
           {counts && (
@@ -516,9 +577,9 @@ export function SeededSchoolsBrowser({
             {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => {
               const needsUtr = key === "gap" || key === "fit";
               return (
-                <option key={key} value={key} disabled={needsUtr && !hasUtr}>
+                <option key={key} value={key} disabled={needsUtr && !hasFit}>
                   {label}
-                  {needsUtr && !hasUtr ? " — needs your UTR" : ""}
+                  {needsUtr && !hasFit ? " — needs a UTR" : ""}
                 </option>
               );
             })}
@@ -704,17 +765,17 @@ export function SeededSchoolsBrowser({
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
-                      youPct={youUtr === null ? null : utrToPct(youUtr)}
+                      youPct={judgingUtr === null ? null : utrToPct(judgingUtr)}
                       // The team range is real data and shows either way.
                       caption={
-                        youUtr === null
+                        judgingUtr === null
                           ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `You ${youUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `${viewingAsParent ? subjectName : "You"} ${judgingUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
-                      you={youUtr}
+                      you={judgingUtr}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
