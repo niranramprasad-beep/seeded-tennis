@@ -12,6 +12,7 @@ import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { CommandPalette } from "@/components/seeded/shared/command-palette";
 import { CheckoutSync } from "@/components/shared/checkout-sync";
 import { cn } from "@/lib/utils";
+import { isPrivateRoute } from "@/lib/seo/private-routes";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
 // browser back/forward tries to RESTORE the scroll position you left a page
@@ -80,7 +81,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           : isSeeded
             ? hideSeededNav ? null : <SeededNav />
             : <Nav />
-        : null}
+        : // Before the session check resolves, a PUBLIC page renders the
+          // public nav straight away. It used to render nothing, so the
+          // server HTML had no <header> at all: on hydration a 73px nav
+          // appeared above <main> and pushed every public page down — CLS
+          // 0.09 at 375px on /, /contact, /methodology (0.05 at 1440), and a
+          // crawler that does not run JavaScript saw no site navigation.
+          // A signed-in visitor on a public page sees the public nav for
+          // the length of the session check before the sidebar replaces it;
+          // private routes keep rendering nothing (AuthGate shows its own
+          // loading state there).
+          !isPrivateRoute(pathname) && isSeeded && !hideSeededNav
+          ? <SeededNav />
+          : null}
       <main
         className={cn(
           showApp && [

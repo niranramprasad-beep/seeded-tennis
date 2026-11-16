@@ -85,8 +85,8 @@ function event(type: string, data: Record<string, unknown>) {
   return JSON.stringify({ type, data });
 }
 
-function sign(payload: string, id = "msg_test") {
-  const timestamp = Math.floor(Date.now() / 1000);
+function sign(payload: string, id = "msg_test", ageSeconds = 0) {
+  const timestamp = Math.floor(Date.now() / 1000) - ageSeconds;
   const signature = createHmac("sha256", Buffer.from(SECRET, "utf8"))
     .update(`${id}.${timestamp}.${payload}`)
     .digest("base64");
@@ -195,5 +195,28 @@ describe("the route uses these exact readers", () => {
     // And no local redefinition sneaking back in.
     expect(route).not.toMatch(/function\s+planIdOf/);
     expect(route).not.toMatch(/function\s+emailOf/);
+  });
+});
+
+describe("replay: a captured delivery cannot be re-sent later", () => {
+  // Standard Webhooks signs the timestamp into the MAC, and unwrapWebhook
+  // refuses one outside its tolerance window. A replayed delivery inside
+  // the window is harmless by construction: applyMembershipToProfile sets a
+  // tier from the membership's state (idempotent), and the GA4 purchase
+  // uses the membership id as transaction_id, which GA4 de-duplicates.
+  const payload = event("membership.activated", { id: "mem_replay", status: "active" });
+
+  it("accepts a fresh delivery", () => {
+    expect(() => unwrapWebhook(payload, { headers: sign(payload), key: SECRET })).not.toThrow();
+  });
+
+  it("rejects the same delivery signed ten minutes ago", () => {
+    expect(() => unwrapWebhook(payload, { headers: sign(payload, "msg_test", 600), key: SECRET })).toThrow();
+  });
+
+  it("rejects a delivery whose timestamp was moved after signing", () => {
+    const headers = sign(payload, "msg_test", 600);
+    const forged = { ...headers, "webhook-timestamp": String(Math.floor(Date.now() / 1000)) };
+    expect(() => unwrapWebhook(payload, { headers: forged, key: SECRET })).toThrow();
   });
 });

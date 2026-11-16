@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
@@ -59,10 +59,29 @@ function shortDate(d: Date): string {
 // inputs at all, so drawUtr/goalUtr are always passed as null here — that's
 // exactly the "estimate from level" path the engine already has, which is
 // what the "Typical field for this level" note under the Level pills shows.
+// useSearchParams() bails a static page out to client-only rendering, so
+// /tournament-fit (in the sitemap) served the nav, the footer and nothing in
+// between to a crawler. The URL-reading half sits inside a Suspense boundary
+// whose fallback is the same checker with no shared link applied — which the
+// server can render. Same pattern as /onboarding.
 export function SeededTournamentFitView() {
+  return (
+    <Suspense fallback={<TournamentFitView searchParams={NO_PARAMS} />}>
+      <TournamentFitViewFromUrl />
+    </Suspense>
+  );
+}
+
+const NO_PARAMS = new URLSearchParams();
+
+function TournamentFitViewFromUrl() {
+  const searchParams = useSearchParams();
+  return <TournamentFitView searchParams={searchParams} />;
+}
+
+function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) {
   const { player, isAuthed, hydrated } = usePlayer();
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
-  const searchParams = useSearchParams();
 
   // A /tournament-fit?... link is the entire "Share with my coach" feature
   // (see lib/tournament-fit-share.ts) — decode it once on mount so opening a
@@ -340,7 +359,13 @@ export function SeededTournamentFitView() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2.5">
-              <SeededButton onClick={handleAddClick}>Add to my events</SeededButton>
+              {/* A parent has no events of their own: /events is the
+                  player's planner and AuthGate keeps parents out of it.
+                  "Add to my events" would write a tournament entry under
+                  the parent's id that the player never sees. */}
+              {player.role !== "parent" && (
+                <SeededButton onClick={handleAddClick}>Add to my events</SeededButton>
+              )}
               <SeededButton variant="secondary" onClick={handleShare}>
                 Share with my coach
               </SeededButton>

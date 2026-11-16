@@ -13,6 +13,17 @@
 
 ## Executive status
 
+**2026-11-15 overnight "every pixel" pass (in progress — see
+`docs/FINAL_PASS_REPORT.md`).** A parent's Settings is now about the parent
+and five player-data routes refuse parents; every family-readable loader
+names its subject (the last pass's CRITICAL generalised: parent screens
+pooled siblings' and parents' rows); the cost calculator's per-school
+cost/aid guesses are gone; `/methodology` and the homepage stopped
+describing a roster/confidence/players-leaving model the code does not
+run; `/schools/[slug]` and `/plan` stopped banding pre-juniors on today's
+rating; every signed-in page load no longer burns the `user_settings`
+rate limit; public pages no longer shift 73px on load.
+
 Seeded has a polished-looking UI, a real typed data layer, zod-validated
 write routes, **660 passing unit tests in 51 files**, and a much more
 careful RLS setup than most student projects. That's the good news.

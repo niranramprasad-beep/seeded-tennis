@@ -128,7 +128,7 @@ export function SeededDashboardLayout({
           )}
           <button
             onClick={() => setUtrDrawerOpen(true)}
-            className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-grass"
+            className="ml-auto inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-grass sm:min-h-6"
           >
             <Plus className="h-3.5 w-3.5" />
             Update UTR
@@ -169,11 +169,11 @@ export function SeededDashboardLayout({
           <span className="flex-1">
             Done this week: logged {matchesThisWeek} match{matchesThisWeek === 1 ? "" : "es"}
           </span>
-          <button onClick={() => setCheckinDrawerOpen(true)} className="flex items-center gap-1.5 font-semibold text-grass">
+          <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
             <Sparkles className="h-3.5 w-3.5" />
             Log check-in
           </button>
-          <Link href="/events" className="font-semibold text-ink underline">
+          <Link href="/events" className="inline-flex min-h-11 items-center font-semibold text-ink underline sm:min-h-6">
             History
           </Link>
         </div>

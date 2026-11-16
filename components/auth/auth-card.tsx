@@ -217,7 +217,11 @@ function GoogleMark() {
 
 export function AuthFooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-grass underline-offset-4 hover:underline">
+    // min-h: was a 20px-tall target (WCAG 2.5.8 wants 24, touch wants 44).
+    <Link
+      href={href}
+      className="inline-flex min-h-11 items-center font-medium text-grass underline-offset-4 hover:underline sm:min-h-6"
+    >
       {children}
     </Link>
   );

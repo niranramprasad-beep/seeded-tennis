@@ -87,7 +87,7 @@ export function ResetPasswordForm() {
 
         {mode === "request" && (
           <>
-            <p className={cn("eyebrow mt-6 text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Reset password</p>
+            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Reset password</p>
             <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
               Forgot your password?
             </h1>
@@ -117,7 +117,7 @@ export function ResetPasswordForm() {
 
         {mode === "update" && (
           <>
-            <p className={cn("eyebrow mt-6 text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Almost there</p>
+            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Almost there</p>
             <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
               Choose a new password.
             </h1>

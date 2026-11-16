@@ -20,7 +20,13 @@ export function OnboardingPageSwitch({ schools }: { schools: SchoolLite[] }) {
   const { design } = useDesign();
   const { isAuthed, hydrated } = usePlayer();
 
-  if (design === "seeded" && hydrated && !isAuthed) {
+  // Render the free fit report BEFORE the session check too, not only once
+  // it has said "signed out". The server has no session, so it used to
+  // render the AuthGate branch — whose pre-hydration state is a spinner —
+  // and a crawler that does not run JavaScript saw a spinner on the top of
+  // the funnel (sitemap priority 0.9). A signed-in user sees the form for
+  // the length of the session check before the continuation replaces it.
+  if (design === "seeded" && (!hydrated || !isAuthed)) {
     return <SeededPreAuthOnboarding schools={schools} />;
   }
 

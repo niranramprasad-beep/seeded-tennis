@@ -7,6 +7,79 @@ Newest first.
 
 ---
 
+## 2026-11-15 (overnight) — the mobile tab bar keeps its 11px labels
+
+**Decision.** The brief says no text under 14px on anything a user acts on.
+The five-item mobile tab bar's labels are 11px, exactly as the mockup
+(MobileToday.dc.html) draws them. Kept. **Why:** each tab is a 52px-tall,
+75px-wide target whose icon carries it; the label is supplementary, and
+14px "Weekly reports" in a quarter of 375px wraps to two lines. CLAUDE.md
+makes the mockups the source of truth for UI, and this is the one place the
+two rules collide. The harness reports it rather than hiding it.
+**Undo:** `text-[11px]` → `text-sm` in `components/seeded/layout/sidebar.tsx`'s
+mobile tab bar and check the parent's four labels at 375.
+
+## 2026-11-15 (overnight) — no google.com/search links; a copyable phrase instead
+
+**Decision.** "Find the coaching staff" linked
+`https://www.google.com/search?q=…`. The brief bans google.com/search links.
+Replaced on the school page, the outreach composer and Legacy's coaches view
+by `StaffDirectoryHint`: the phrase to search ("Barry University men's tennis
+staff directory") and a Copy button, linking nowhere. **Why not another
+search engine:** same objection, different host. **Why not the athletics
+site:** Seeded has no verified URL for any program, and a guessed one is the
+`example.com` ×68 problem P0-3 removed. **Undo:** restore
+`staffDirectorySearchUrl()` in `lib/db/schools.ts` (git history) and the
+three `<a>`s.
+
+## 2026-11-15 (overnight) — parents get their own Settings; /api/profile writes only their name
+
+**Decision.** A parent account's `/settings` is `ParentSettingsView` in both
+designs; `/api/profile` reads the caller's role from their own row and, for
+a parent, updates `name` only. Five player-data write routes refuse a parent
+(403) before parsing. **Why:** the parent was shown the player's profile
+form under a "read-only" label, and every save wrote defaulted stats onto the
+parent's own row. **What it does NOT do:** RLS still lets any account write
+its OWN rows in the player tables, so a parent calling PostgREST directly can
+log a UTR under their own id. They can never touch the child's rows
+(attack-tested), and family screens read the child's rows by the child's id.
+Closing that needs a role check in those tables' INSERT policies — a
+migration, and tonight's ground rules allow one only for a HIGH that cannot
+be fixed otherwise. Logged as week 1. **Undo:** remove the
+`player.role === "parent"` branch in `components/settings/settings-view.tsx`
+and the parent branch in `app/api/profile/route.ts`.
+
+## 2026-11-15 (overnight) — every family-readable loader names its subject
+
+**Decision.** `loadMatches`, `loadTournamentEntries`, `loadCoachOutreach`,
+`loadCoachOutreachDated` and `loadDailyCheckins` take a `DataSubject`:
+`"self"` (default), `{ userId }`, or `"family-players"`. The old behaviour —
+a parent viewer got `.in("user_id", <every approved member>)` — is gone.
+**Why:** it pooled siblings and the parents' own rows into what each family
+screen presented as one player's: the last pass's CRITICAL, generalised. The
+family budget alone uses `"family-players"`, on purpose: it is the family's
+money across all its children; its fit verdicts judge only the shown
+player's own entries. **Undo:** not recommended; the old pooling is in git.
+
+## 2026-11-15 (overnight) — the cost calculator starts empty and has no scholarship card
+
+**Decision.** Removed `annualCost`/`scholarshipPercent` (and "Net: $…" under
+real school names) entirely, and the $115/$1,200/$550 default inputs. The
+calculator now totals only what the family types. **Why:** each was a
+Seeded guess presented next to a real school or as the family's own total.
+`/cost-calculator` is Legacy-only (Seeded redirects it to `/family`).
+**Undo:** git history; do not, without per-school sourced data.
+
+## 2026-11-15 (overnight) — Playwright WebKit and Firefox installed
+
+**Decision.** `npx playwright-core install webkit firefox` (Microsoft's
+Playwright CDN; `playwright-core` is already a devDependency). **Why:** the
+brief requires Safari and Firefox coverage and only Chromium was cached.
+Nothing in the repo changes; the browsers live in
+`~/Library/Caches/ms-playwright`. **Undo:** delete those two folders.
+
+---
+
 ## 2026-11-15 — the joined-member read gap: widen the predicate, not the column
 
 **Decision.** Migration **036**. An approved member of a family can read any

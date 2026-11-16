@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -32,8 +32,36 @@ import { SeededButton } from "@/components/seeded/ui/button";
 // app/onboarding/page.tsx). Under-13 handling and Google OAuth are real,
 // not fabricated — see the phase report for what's genuinely wired vs. what
 // needs external configuration (Google provider in Supabase) to finish.
+//
+// Server rendering: useSearchParams() in a statically rendered page bails
+// the whole subtree out to client-only rendering, so the server HTML of
+// /onboarding was the nav and an empty <main> — a crawler that does not run
+// JavaScript saw no fit report on the top of the funnel. The URL-reading
+// half is now its own component inside a Suspense boundary whose fallback
+// is this same form with no URL params (its defaults), which the server
+// CAN render. The client swaps in the URL-aware one on hydration.
 export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) {
+  return (
+    <Suspense fallback={<PreAuthOnboarding schools={schools} params={EMPTY_PARAMS} />}>
+      <PreAuthOnboardingFromUrl schools={schools} />
+    </Suspense>
+  );
+}
+
+const EMPTY_PARAMS = new URLSearchParams();
+
+function PreAuthOnboardingFromUrl({ schools }: { schools: SchoolLite[] }) {
   const params = useSearchParams();
+  return <PreAuthOnboarding schools={schools} params={params} />;
+}
+
+function PreAuthOnboarding({
+  schools,
+  params,
+}: {
+  schools: SchoolLite[];
+  params: Pick<URLSearchParams, "get">;
+}) {
   const router = useRouter();
   const { beginSession } = usePlayer();
 
@@ -394,8 +422,8 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                 read as a description of what the product does. It doesn't —
                 no range has a source or a date. */}
             <p className="m-0 px-5 py-3 text-[13px] text-stone">
-              These team ranges are unverified estimates. Sourced, dated rosters are
-              what we&apos;re building next.
+              These team ranges are unverified estimates, with no published source or
+              date behind them.
             </p>
           </div>
         </section>

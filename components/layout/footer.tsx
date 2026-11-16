@@ -140,7 +140,7 @@ export function Footer() {
           {isSeeded && (
             <button
               onClick={() => setDesign("legacy")}
-              className="inline-flex min-h-11 items-center font-seeded text-xs text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-0"
+              className="inline-flex min-h-11 items-center font-seeded text-sm text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-6"
             >
               Switch to Legacy
             </button>
