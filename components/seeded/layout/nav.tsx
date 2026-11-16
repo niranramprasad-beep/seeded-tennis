@@ -3,140 +3,143 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
-import { Menu, X, ChevronRight } from "lucide-react";
-import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
+import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavLink = { href: string; label: string };
 
+// Pixel-exact to Main.dc.html's nav: "Fit report"/"Tournament checker" both
+// point at the fit-report flow and the dedicated tournament checker —
+// Main.dc.html itself links every non-CTA nav item to "#" (a mockup
+// placeholder, not a real destination), so these are mapped to the closest
+// real route rather than copied literally.
 const MARKETING_LINKS: NavLink[] = [
+  { href: "/onboarding", label: "Fit report" },
+  { href: "/tournament-fit", label: "Tournament checker" },
   { href: "/schools", label: "Schools" },
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/parents", label: "For parents" },
+  { href: "/sample-report", label: "For parents" },
   { href: "/pricing", label: "Pricing" },
 ];
 
-// Same scroll-shrink/positioning/mobile-panel behavior as Legacy's Nav
-// (components/layout/nav.tsx) — only the visual language differs.
+// Plain static header (no fixed-over-hero/scroll-shrink/glass backdrop) —
+// every one of the 11 mockups shows a simple bordered top bar in normal
+// document flow, not the ambient floating nav the old Seeded design used.
+//
+// THE HEADER USED TO WRAP TO TWO ROWS AT EVERY DESKTOP WIDTH, and the cause
+// was not "not enough room". The nav had `flex-wrap`, and TWO `flex-1`
+// children: the links list and an empty `aria-hidden` spacer div. Two equal
+// flex-1 siblings split the free space 50/50, so the links were handed
+// exactly half of it — measured at 1440px: a 360px box holding ~480px of
+// links, next to a 360px box holding nothing. `flex-wrap` then did the
+// obvious thing and dropped "For parents" and "Pricing" onto a second row,
+// making the header 94px tall instead of 65px on six pages.
+//
+// So: the spacer is gone, `flex-wrap` is gone, every link is
+// `whitespace-nowrap`, and the end group is `shrink-0` so the links shrink
+// before the sign-in/CTA pair ever does. There is a measured regression test
+// for this — scripts/ui-audit.mjs records `distinctTops` and header height
+// per width, and docs/screenshots/polish/after.json is the record.
 export function SeededNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const isMarketingHome = pathname === "/";
-  const { scrollY } = useScroll();
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    setScrolled(latest > 12);
-  });
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <header
-      className={cn(
-        "top-0 z-50 transition-[background-color,box-shadow] duration-300",
-        isMarketingHome ? "fixed inset-x-0" : "sticky",
-        scrolled && "seeded-glass shadow-seeded-1"
-      )}
-    >
+    <header className="border-b border-line bg-cream">
       <nav
-        className={cn(
-          "mx-auto flex max-w-content items-center justify-between container-px transition-[height] duration-300",
-          scrolled ? "h-14" : "h-16"
-        )}
+        aria-label="Main"
+        className="mx-auto flex max-w-[1200px] flex-nowrap items-center gap-5 px-6 py-3.5 xl:gap-6"
       >
-        <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <span
-            className="h-2.5 w-2.5 rounded-full"
-            style={{ background: "var(--s-accent-gradient)" }}
-          />
-          <span className="font-seeded text-xl font-semibold tracking-tight text-ink">Seeded</span>
+        <Link
+          href="/"
+          className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
+          onClick={() => setOpen(false)}
+        >
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="10" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="1.5" />
+            <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" stroke="rgb(var(--c-ink))" strokeWidth="1.5" fill="none" />
+          </svg>
+          Seeded
         </Link>
 
-        <div className="seeded-glass hidden items-center gap-1 rounded-full p-1 lg:flex">
+        <div className="hidden min-w-0 flex-1 items-center gap-4 text-[15px] lg:flex xl:gap-5">
           {MARKETING_LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               className={cn(
-                "rounded-full px-3.5 py-2 font-seeded text-sm transition-all duration-200",
-                isActive(l.href) ? "text-on-primary" : "text-stone hover:text-ink"
+                "inline-flex min-h-6 items-center whitespace-nowrap text-ink hover:text-grass",
+                isActive(l.href) && "font-semibold text-grass"
               )}
-              style={isActive(l.href) ? { background: "var(--s-accent-gradient)" } : undefined}
             >
               {l.label}
             </Link>
           ))}
         </div>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <DarkModeToggle />
-          <Link href="/login" className="font-seeded text-sm text-stone transition-colors hover:text-ink">
+        <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-5">
+          <Link href="/login" className="inline-flex min-h-6 items-center whitespace-nowrap text-[15px] text-ink hover:text-grass">
             Sign in
           </Link>
           <Link
-            href="/signup"
-            className="group flex items-center gap-1.5 rounded-pill px-4 py-2 font-seeded text-sm font-medium text-on-primary shadow-seeded-1"
-            style={{ background: "var(--s-accent-gradient)" }}
+            href="/onboarding"
+            className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
           >
-            Request access
-            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            Get my free fit report
           </Link>
         </div>
 
-        {/* Mobile toggle */}
         <button
-          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-ink transition-colors hover:border-[rgb(var(--c-line))] lg:hidden"
+          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink hover:border-line lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
+          aria-expanded={open}
+          aria-controls="seeded-mobile-menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </nav>
 
-      {/* Mobile panel */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="seeded-glass shadow-seeded-2 lg:hidden"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            id="seeded-mobile-menu"
+            className="overflow-hidden border-t border-line lg:hidden"
           >
-            <div className="flex flex-col gap-1 container-px py-4">
-              <DarkModeToggle showLabel className="mb-2" />
+            <div className="flex flex-col gap-1 px-6 py-4">
               {MARKETING_LINKS.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "flex items-center justify-between rounded-2xl px-3 py-3 font-seeded text-sm transition-colors",
-                    isActive(l.href) ? "text-on-primary" : "text-stone hover:text-ink"
+                    "rounded-lg px-3 py-3 text-[15px]",
+                    isActive(l.href) ? "bg-grass-50 font-semibold text-grass" : "text-ink"
                   )}
-                  style={isActive(l.href) ? { background: "var(--s-accent-gradient)" } : undefined}
                 >
-                  <span>{l.label}</span>
-                  <ChevronRight className="h-4 w-4" />
+                  {l.label}
                 </Link>
               ))}
-              <div className="mt-3 flex flex-col gap-2 border-t border-[rgb(var(--c-line))] pt-4">
+              <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="rounded-pill border border-[rgb(var(--c-line))] py-3 text-center font-seeded text-sm font-medium text-ink"
+                  className="rounded-lg border border-input py-3 text-center text-[15px] font-semibold text-ink"
                 >
                   Sign in
                 </Link>
                 <Link
-                  href="/signup"
+                  href="/onboarding"
                   onClick={() => setOpen(false)}
-                  className="rounded-pill py-3 text-center font-seeded text-sm font-medium text-on-primary"
-                  style={{ background: "var(--s-accent-gradient)" }}
+                  className="rounded-lg bg-grass py-3 text-center text-[15px] font-semibold text-on-primary"
                 >
-                  Request access
+                  Get my free fit report
                 </Link>
               </div>
             </div>

@@ -39,8 +39,7 @@ import { SeededActionRail } from "@/components/seeded/training/action-rail";
 import { SeededWeekPlanner } from "@/components/seeded/training/week-planner";
 import { SeededDayPlanner } from "@/components/seeded/training/day-planner";
 import { SeededMonthPlanner } from "@/components/seeded/training/month-planner";
-import type { CopilotAction } from "@/components/training/training-copilot";
-import { cn } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 import {
   WEEK_ORDER,
@@ -65,18 +64,22 @@ import {
   type TrainingPlannerSession,
   type TrainingPlannerState,
   type TrainingSessionType,
-} from "@/lib/supabase/training";
+} from "@/lib/db/events";
 
-// recharts (the donut chart) and the AI copilot panel are both secondary to
-// the actual calendar — load them on the client only once they render,
-// instead of bundling either into /training's initial JS.
+// recharts (the donut chart) is secondary to the actual calendar — load it on
+// the client only once it renders, instead of bundling it into /training's
+// initial JS.
+//
+// The AI copilot panel used to load the same way. It was removed with its
+// route in P1-SEC-1: /api/training/copilot had no tier check, no rate limit
+// and no input cap on a paid Gemini call, returned raw provider errors to the
+// client, and its prompt told the model to "make a reasonable default choice"
+// and write training sessions — which is also the "no auto-generated training
+// plans" rule in CLAUDE.md. Training is POST-V1; this is not a feature to
+// restore without rebuilding all of that.
 const HoursDonutChart = dynamic(
   () => import("@/components/charts/hours-donut-chart").then((mod) => mod.HoursDonutChart),
   { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
-);
-const TrainingCopilot = dynamic(
-  () => import("@/components/training/training-copilot").then((mod) => mod.TrainingCopilot),
-  { ssr: false }
 );
 
 export type PlannerView = "day" | "week" | "month";
@@ -168,7 +171,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
       plans: [
         {
           id: createUuid(),
-          name: `${player.currentUTR.toFixed(1)} UTR build week`,
+          name: hasRealUtr(player.currentUTR)
+            ? `${player.currentUTR.toFixed(1)} UTR build week`
+            : "Build week",
           goal: `Close the gap toward ${player.targetSchoolSlugs.length ? "target-school" : "college"} roster pace without overloading recovery.`,
           sessionIds: sessions.map((s) => s.id),
         },
@@ -289,7 +294,12 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
   const totalMinutes = activeSessions.reduce((sum, s) => sum + s.duration, 0);
   const completedMinutes = activeSessions.filter((s) => s.completed).reduce((sum, s) => sum + s.duration, 0);
   const progress = totalMinutes ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
-  const recommendedHours = Math.max(basePlan.weeklyHours, player.currentUTR + 2);
+  // Without a real UTR this was max(weeklyHours, 0 + 2) — a recommendation
+  // derived from the "not tracked" sentinel. Fall back to the plan's own
+  // weekly hours instead of pretending the rating informed it.
+  const recommendedHours = hasRealUtr(player.currentUTR)
+    ? Math.max(basePlan.weeklyHours, player.currentUTR + 2)
+    : basePlan.weeklyHours;
 
   const donutData = useMemo(() => {
     const totals = new Map<string, number>();
@@ -452,87 +462,38 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
     });
   };
 
-  const resolveCopilotTypeId = (action: CopilotAction): string => {
-    const existingById = state.sessionTypes.find((t) => t.id === action.typeId);
-    if (existingById) return existingById.id;
-    const cleanLabel = action.typeLabel.trim();
-    const existingByLabel = state.sessionTypes.find(
-      (t) => t.label.toLowerCase() === cleanLabel.toLowerCase()
-    );
-    if (existingByLabel) return existingByLabel.id;
-    const slug = cleanLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "custom";
-    const newId = `custom-${slug}`;
-    setState((prev) => {
-      if (prev.sessionTypes.some((t) => t.id === newId)) return prev;
-      return {
-        ...prev,
-        sessionTypes: [
-          ...prev.sessionTypes,
-          { id: newId, label: cleanLabel || "Custom", color: "#4F6F52", bg: "bg-grass-50", text: "text-grass" },
-        ],
-      };
-    });
-    return newId;
-  };
+  // P1-SEC-1: resolveCopilotTypeId / applyCopilotActions were here. They
+  // turned a model's JSON straight into create/update/delete on the player's
+  // real sessions — the write half of the removed copilot.
 
-  const applyCopilotActions = (actions: CopilotAction[]) => {
-    actions.forEach((action) => {
-      if (action.action === "delete") {
-        if (action.sessionId) deleteSession(action.sessionId);
-        return;
-      }
-
-      const typeId = resolveCopilotTypeId(action);
-
-      if (action.action === "update" && action.sessionId) {
-        const existing = state.sessions.find((s) => s.id === action.sessionId);
-        if (!existing) return;
-        saveSession({
-          ...existing,
-          title: action.title || existing.title,
-          typeId,
-          day: action.day,
-          date: dateForWeekday(action.day),
-          startTime: action.startTime,
-          duration: action.duration || existing.duration,
-          intensity: action.intensity,
-          notes: action.notes,
-          goals: action.goals,
-        });
-        return;
-      }
-
-      saveSession({
-        id: createUuid(),
-        title: action.title || "Training session",
-        typeId,
-        day: action.day,
-        date: dateForWeekday(action.day),
-        startTime: action.startTime || "16:00",
-        duration: action.duration || 60,
-        intensity: action.intensity || "moderate",
-        notes: action.notes,
-        goals: action.goals,
-        drills: [],
-        completed: false,
-      });
-    });
-  };
-
+  // THIS USED TO CALL generatePersonalizedPlan() AND WRITE A WHOLE WEEK OF
+  // INVENTED SESSIONS — "Serve plus first-ball patterns", "Filmed set play"
+  // — none of which the player had asked for or logged. That is the exact
+  // thing CLAUDE.md's "No auto-generated training plans — manual calendar
+  // only" forbids, and it was the last place the rule was still broken
+  // after the Gemini copilot was deleted (P1-SEC-1).
+  //
+  // WHAT THE ANSWERS ACTUALLY DO, measured rather than assumed — an
+  // earlier version of this comment (and the commit message that shipped
+  // it) claimed they "drive the hours and constraints shown alongside the
+  // calendar". They do not. `weeklyHours`, `primaryGoal` and `constraints`
+  // are read in exactly two places: the generator below, now unreachable,
+  // and buildTemplateSessions(), which only runs when a player opens the
+  // Templates drawer and picks one. Nothing beside the calendar renders
+  // them.
+  //
+  // So this is honestly a three-question gate whose answers matter only if
+  // the player later chooses a template. That is a real product smell and
+  // it is docs/TODO.md week-1 item #2's companion question — either show
+  // the answers somewhere or stop asking for them. It is not a reason to
+  // put the generator back.
+  //
+  // generatePersonalizedPlan() itself is still in this file, deliberately —
+  // deleting it is docs/TODO.md week-1 item #2, done on its own so the
+  // diff is reviewable. lib/training-no-autogen.test.ts fails the build if
+  // any UI calls it again in the meantime.
   const applyPreferences = (preferences: TrainingPreferences) => {
-    const generated = generatePersonalizedPlan({
-      preferences,
-      playerUtr: player.currentUTR,
-      grade: currentGrade,
-      weaknesses: player.weaknesses,
-    });
-    setState((prev) => ({
-      ...prev,
-      preferences,
-      sessions: generated.sessions,
-      plans: [generated.plan],
-      activePlanId: generated.plan.id,
-    }));
+    setState((prev) => ({ ...prev, preferences }));
   };
 
   const applyTemplate = (key: TemplateKey) => {
@@ -857,11 +818,9 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         body={`Saved types: ${state.sessionTypes.map((t) => t.label).join(", ")}. Add new types inside any session form and Seeded will remember them for your next plan.`}
       />
 
-      <TrainingCopilot
-        sessions={activeSessions}
-        sessionTypes={state.sessionTypes}
-        onActions={applyCopilotActions}
-      />
+      {/* The floating <TrainingCopilot> panel was here — removed with its
+          route in P1-SEC-1. The calendar below it is unaffected; it was
+          always a manual planner, and the copilot only wrote into it. */}
     </div>
   );
 }
@@ -955,7 +914,7 @@ function TrainingQuestionnaire({
       <div className="bg-grass px-6 py-8 text-on-primary sm:px-9">
         <p className="font-serif text-lg italic text-leaf-accent">Training setup</p>
         <h1 className="mt-2 text-3xl font-light tracking-tight sm:text-5xl">
-          Build a real week for {playerName}.
+          Set up the calendar for {playerName}.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-on-primary/78">
           No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinalGrade(grade)} grade timeline,
@@ -1041,8 +1000,7 @@ function TrainingQuestionnaire({
             })
           }
         >
-          Generate my training week
-          <Sparkles className="h-4 w-4" />
+          Save and open my calendar
         </Button>
       </div>
     </motion.div>
@@ -1821,6 +1779,12 @@ function blankSession(day: WeekdayShort, typeId: string, startTime = "16:00"): T
   };
 }
 
+// NOT exported. A verifier imported the exported version into a new
+// lib/training-autofill.ts — a root the guard did not scan — and called it
+// from applyPreferences with the whole suite green. Keeping it unexported
+// means there is no way to reach it from another file at all, which is a
+// stronger statement than any scan: the module boundary enforces it.
+// eslint-disable-next-line no-unused-vars
 function generatePersonalizedPlan({
   preferences,
   playerUtr,

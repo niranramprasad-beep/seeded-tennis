@@ -1,318 +1,388 @@
-import Link from "next/link";
-import dynamic from "next/dynamic";
-import {
-  Award,
-  ArrowLeft,
-  Building2,
-  CalendarDays,
-  DollarSign,
-  GraduationCap,
-  Mail,
-  MapPin,
-  Trophy,
-  User,
-  Users,
-} from "lucide-react";
-import type { School } from "@/lib/types";
-import type { getSchoolProfile } from "@/lib/data";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SchoolBadge } from "@/components/shared/school-badge";
-import { CoachEmailCTA } from "@/components/schools/coach-email-cta";
-import { Footer } from "@/components/layout/footer";
+"use client";
 
-const RosterDistributionChart = dynamic(
-  () => import("@/components/charts/roster-distribution-chart").then((mod) => mod.RosterDistributionChart),
-  { loading: () => <Skeleton className="h-56 w-full" /> }
-);
+import Link from "next/link";
+import { useMemo } from "react";
+import useSWR from "swr";
+import { ArrowLeft, Building2, ExternalLink, GraduationCap, User } from "lucide-react";
+import type { School } from "@/lib/types";
+import { usePlayer } from "@/lib/context/player-context";
+import { bandPositionLabel, explainSchoolFit, fitGaps, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
+import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
+import { loadCoachOutreach } from "@/lib/db/outreach";
+import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { projectionTargetLabel } from "@/lib/fit";
+import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { formatDate } from "@/lib/time";
+import { FitBadge } from "@/components/seeded/ui/fit-badge";
+import { RangeBar } from "@/components/seeded/ui/range-bar";
+import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
+import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { StarButton } from "@/components/seeded/ui/star-button";
+import { Toast } from "@/components/seeded/ui/toast";
+import { Footer } from "@/components/layout/footer";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
+import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
+import { cn } from "@/lib/utils";
+import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
   school: School;
-  profile: ReturnType<typeof getSchoolProfile>;
+  nationalRank: number;
   stats: { label: string; value: string }[];
   programType: string;
   inState: boolean;
+  /** Full catalog (both genders) — the real candidate pool for "Why this
+   * band"'s alternative-school suggestion (lib/school-fit.ts's
+   * explainSchoolFit), only used when the gap here turns out unreachable. */
+  allSchools: School[];
 }
 
-// Server Component (no "use client") — same shape as Legacy's detail page,
-// just the surrounding cards/typography get the glass/gradient treatment.
-// The hero banner deliberately keeps the SCHOOL's own brand colors
-// unchanged in both designs — that's the program's identity, not Seeded's.
-export function SeededSchoolDetail({ school, profile, stats, programType, inState }: Props) {
+function signed(value: number): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
+// Client Component (promoted from Server Component — needs usePlayer() for
+// real personalization: fit band, UTR comparison, save-to-targets). Rebuilt
+// pixel-exact to SchoolProfile.dc.html, which has NO brand-colored hero
+// banner, avatar circle, rank badge, or stat-tiles grid — those were this
+// file's own earlier invention, before the real mockup existed. Removed to
+// match; the real ranking data they showed (US News, conference rank) now
+// lives inside the "Academics" card below instead of a dedicated tile row.
+export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
+  const { player, isAuthed, hydrated } = usePlayer();
+  const isParent = player.role === "parent";
+  const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
+
+  // WHO this page is about. For a player, themselves. For a parent, their
+  // player — resolved exactly as /schools resolves it (pickFamilyPlayer +
+  // resolveFamilyPlayerFacts), so the two pages cannot name different
+  // people. This page used to judge a parent's own empty profile: "add your
+  // UTR to compare", addressed to someone with no rating.
+  const { data: familyMembersData } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+    loadFamilyMembers()
+  );
+  const familyMembers = familyMembersData ?? [];
+  const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
+  const facts = resolveFamilyPlayerFacts(familyPlayer, player);
+  const subjectUtr = facts.currentUtr;
+  const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || "Your player" : null;
+  const subject = {
+    currentUTR: subjectUtr ?? 0,
+    graduationYear: facts.graduationYear ?? player.graduationYear,
+    gender: facts.gender ?? player.gender,
+  };
+  const historyUserId = isParent ? (familyPlayer?.id ?? null) : null;
+
+  // The SAME report /schools, /today and /family read, for this one school.
+  // It decides which rating judges fit (the estimate for the summer before
+  // senior year until then, today's rating after), so the band here is the
+  // band on the /schools row. explainSchoolFit() below only explains it.
+  const oneSchool = useMemo(() => [school], [school]);
+  const report = useFitReport({ player: subject, schools: oneSchool, historyUserId });
+  const reportBand = report?.bandBySlug.get(school.slug);
+  const judging = report?.utr ?? null;
+
+  const { data: utrEntries } = useSWR(
+    historyUserId ? ["utr-entries", historyUserId] : "utr-entries",
+    () => (historyUserId ? loadUtrEntriesFor(historyUserId) : loadUtrEntries())
+  );
+  const explanationInput = useMemo(
+    () => ({
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      graduationYear: subject.graduationYear,
+      gender: subject.gender,
+      catalog: allSchools,
+      subjectName: subjectFirst,
+    }),
+    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst]
+  );
+
+  // The fit card waits for WHO (a parent's family roster) and for the
+  // logged history that splits Reach from Out of range. Rendering before
+  // either arrived judged the parent's own empty profile, then the child;
+  // and banded Reach, then Out of range — visible as rows vanishing and
+  // reappearing (measured CLS 0.13 at 320 for persona f).
+  const fitReady = (!isParent || familyMembersData !== undefined) && utrEntries !== undefined;
+
+  const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
+  // The gaps, the chip and the range bar's marker all use the rating that
+  // judged the band — the same one the /schools row shows — so the two pages
+  // print the same "Gap to team average" for the same school.
+  const judgingValue = judging?.value ?? null;
+  const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
+  const range = schoolUtrRange(school);
+  const alreadyContacted = Boolean(outreach?.[school.slug]);
+
+  // Same shared star-to-target mechanism as the Schools browser and Plan —
+  // optimistic update, Undo toast, silent rollback on a real write
+  // failure. "Save to targets" below is this page's existing text-button
+  // affordance for the exact same action; the star icon next to the title
+  // is the new one, both wired to the same toggleStar call.
+  const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
+  const saved = isStarred(school.slug);
+
+  // Two projections can appear on this card, and they answer different
+  // questions: the rating that judges the band is an estimate at TYPICAL
+  // growth; this row extends the pace in the player's own logged ratings to
+  // the same date, which is what splits Reach from Out of range. Each says
+  // which it is.
+  const paceDescription =
+    explanation.pace.status === "ready"
+      ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} ${judging?.isProjected ? `by ${formatDate(explanation.pace.byDate)}` : "today"}`
+      : explanation.pace.status === "insufficient-history"
+        ? explanation.pace.message
+        : "Log a UTR to see your pace.";
+
+  const fitSkeleton = (
+    <div key="fit-skeleton" className="mt-6 grid gap-4 lg:grid-cols-2" aria-busy="true">
+      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
+      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
+    </div>
+  );
+  const fitCards = (
+  <div key="fit-cards" className="mt-6 grid gap-4 lg:grid-cols-2">
+    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-ink">Why this band</h2>
+        <FitBadge band={explanation.band} className="text-sm" />
+      </div>
+      <p className="mt-2 text-sm text-stone">
+        {explanation.summary}
+      </p>
+      <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
+
+      {gaps && judging && explanation.band !== "unverified" && (
+        <FitDriverRow
+          label="UTR"
+          description={
+            judging.isProjected
+              ? `${projectedYouLabel(judging, subjectFirst)} ${judging.value.toFixed(1)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${(subjectUtr as number).toFixed(1)}`
+              : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
+          }
+          chip={
+            bandPositionLabel(explanation.band) +
+            (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
+          }
+        />
+      )}
+      <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status !== "ready" ? "Needs data" : judging?.isProjected ? "Projected" : "Trend"} />
+      <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
+
+      {explanation.nextBand && (
+        <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
+          <strong>What would move it: </strong>
+          {explanation.nextBand.message}
+        </div>
+      )}
+
+      {explanation.unreachable && explanation.alternatives.length > 0 && (
+        <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
+          <strong>Consider instead: </strong>
+          {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or region, and
+          realistically in reach today.
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-stone-light">
+        {explanation.playersLeaving} {explanation.academics}
+      </p>
+    </div>
+
+    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-ink">
+          {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
+        </h2>
+        <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
+          {UTR_RANGE_SOURCE_LABEL}
+        </span>
+      </div>
+      <div className="mt-4">
+        <RangeBar
+          rangeStartPct={utrToPct(range.min)}
+          rangeEndPct={utrToPct(range.max)}
+          medianPct={utrToPct(school.avgRosterUTR)}
+          youPct={judgingValue != null ? utrToPct(judgingValue) : null}
+          caption={
+            judgingValue != null
+              ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+              : subjectFirst
+                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
+                : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
+          }
+          low={range.min}
+          median={school.avgRosterUTR}
+          high={range.max}
+          you={judgingValue}
+          youLabel={projectedYouLabel(judging, subjectFirst)}
+        />
+      </div>
+      <p className="mt-3 text-sm text-stone">
+        Individual roster data isn&apos;t tracked yet. This band is an unverified estimate of
+        the team&apos;s overall UTR range with no published source or date behind it — not
+        per-player positions, and not a number to make a decision on yet.
+      </p>
+    </div>
+  </div>
+  );
+  // Before the session check, a browser with a saved session gets the
+  // skeleton and an anonymous one gets the cards (CSS picks, via
+  // html[data-session]) — so neither swaps twice.
+  const fitSection = !hydrated ? (
+    <>
+      <div className="pre-session-block hidden">{fitSkeleton}</div>
+      <div className="pre-session-hide">{fitCards}</div>
+    </>
+  ) : isAuthed && !fitReady ? (
+    fitSkeleton
+  ) : (
+    fitCards
+  );
+
   return (
     <>
-      <section
-        className="relative overflow-hidden"
-        style={{ backgroundColor: school.primaryColor, color: school.textColor }}
-      >
-        <div className="relative mx-auto max-w-content container-px py-12">
-          <Link
-            href="/schools"
-            className="inline-flex items-center gap-1.5 font-seeded text-sm opacity-80 transition-opacity hover:opacity-100"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            All schools
-          </Link>
-
-          <div className="mt-8 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-            <div
-              className="flex h-20 w-20 items-center justify-center rounded-full font-seeded text-2xl font-semibold"
-              style={{
-                backgroundColor: school.textColor,
-                color: school.primaryColor,
-                boxShadow: `inset 0 0 0 4px ${school.secondaryColor}`,
-              }}
-            >
-              {school.shortName
-                .replace(/[^A-Za-z\s]/g, "")
-                .split(/\s+/)
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()}
-            </div>
-            <div className="flex-1">
-              <h1 className="font-seeded text-3xl font-semibold tracking-tight sm:text-4xl">{school.name}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm opacity-90">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  {school.city}, {school.state}
-                </span>
-                <span>{school.conference}</span>
-                <span>{programType} · {school.division}</span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <span
-                className="rounded-pill px-3 py-1.5 font-seeded text-sm font-medium"
-                style={{ backgroundColor: `${school.textColor}22` }}
-              >
-                #{profile.nationalRank} in {programType} {school.division}
-              </span>
-              <span
-                className="rounded-pill px-3 py-1.5 font-seeded text-sm font-medium"
-                style={{ backgroundColor: `${school.textColor}22` }}
-              >
-                {profile.record} season
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div className="mx-auto max-w-content container-px py-10">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {stats.map((s) => (
-            <div key={s.label} className="seeded-glass rounded-[18px] p-4 shadow-seeded-1">
-              <p className="text-xs text-stone-light">{s.label}</p>
-              <p className="mt-1 font-mono text-2xl text-ink">{s.value}</p>
-            </div>
-          ))}
-        </div>
+        <Link href="/schools" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink hover:underline sm:min-h-6">
+          <ArrowLeft className="h-4 w-4" />
+          Schools
+        </Link>
 
-        <p className="mt-3 text-xs leading-relaxed text-stone-light">
-          UTR benchmarks are Seeded estimates for planning. Roster names, results,
-          standings, and recruiting classes below are illustrative sample data — always
-          verify details with the program before making recruiting decisions.
-        </p>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="seeded-glass min-w-0 rounded-[24px] p-6 shadow-seeded-1 lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">
-                Current roster — {profile.roster.length} players
-              </h2>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5">
+              {canStar && (
+                <StarButton
+                  starred={saved}
+                  onToggle={() => toggleStar(school.slug, school.shortName)}
+                  label={school.shortName}
+                />
+              )}
+              <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
+                {school.name} · {programType} tennis
+              </h1>
             </div>
-            <div className="mt-3">
-              <RosterDistributionChart avgUTR={school.avgRosterUTR} minUTR={school.minCompetitiveUTR} height={160} />
-            </div>
-            <div className="mt-4 overflow-x-auto rounded-[18px] border border-[rgb(var(--c-line))]">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead>
-                  <tr className="border-b border-[rgb(var(--c-line))] text-left font-seeded text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Player</th>
-                    <th className="px-4 py-2.5 font-medium">Class</th>
-                    <th className="px-4 py-2.5 font-medium">Hometown</th>
-                    <th className="px-4 py-2.5 text-right font-medium">UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.roster.map((p, i) => (
-                    <tr key={p.name + i}>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{p.position}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{p.name}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">'{String(p.classYear).slice(2)}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{p.hometown}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono font-medium text-grass">
-                        {p.utr.toFixed(1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="seeded-glass flex flex-col rounded-[24px] p-6 shadow-seeded-1">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">Head coach</h2>
-            </div>
-            <div className="mt-4 flex items-center gap-3 rounded-[18px] border border-[rgb(var(--c-line))] p-3">
-              <SchoolBadge school={school} size={42} />
-              <div>
-                <p className="font-seeded font-medium text-ink">{school.coachName}</p>
-                <p className="text-xs text-stone-light">{programType} Tennis</p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-stone">{profile.coachBio}</p>
-            <p className="mt-3 flex items-center gap-2 text-sm text-stone">
-              <Mail className="h-4 w-4 text-stone-light" />
-              {school.coachEmail}
+            <p className="mt-1.5 text-stone">
+              {school.division} · {school.conference} · {school.city}, {school.state}
             </p>
-            <div className="mt-auto pt-5">
-              <CoachEmailCTA slug={school.slug} />
+            <div className="mt-2.5">
+              <a
+                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+                  `Wrong data on ${school.name}`
+                )}`}
+                className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-3 text-sm font-semibold text-stone hover:text-ink sm:min-h-8"
+              >
+                Report an error
+              </a>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/schools?compare=${school.slug}&gender=${school.gender}`}
+              className={seededButtonVariants({ variant: "secondary" })}
+            >
+              Compare
+            </Link>
+            {canStar && (
+              <SeededButton
+                variant={saved ? "secondary" : "primary"}
+                onClick={() => toggleStar(school.slug, school.shortName)}
+              >
+                {saved ? "Saved to targets" : "Save to targets"}
+              </SeededButton>
+            )}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">Recent results</h2>
-            </div>
-            <div className="mt-4 space-y-2">
-              {profile.recentMatches.map((m, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-[16px] border border-[rgb(var(--c-line))] px-3.5 py-2.5">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold ${
-                      m.result === "W" ? "bg-grass text-on-primary" : "bg-error-bg text-error"
-                    }`}
-                  >
-                    {m.result}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-seeded text-sm font-medium text-ink">vs {m.opponent}</p>
-                    <p className="text-xs text-stone-light">
-                      {m.date}
-                      {m.conference ? " · Conference" : ""}
-                    </p>
-                  </div>
-                  <span className="font-mono text-sm text-stone">{m.score}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="seeded-glass min-w-0 rounded-[24px] p-6 shadow-seeded-1">
-            <div className="flex items-center gap-2">
-              <Award className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">{school.conference} standings</h2>
-            </div>
-            <div className="mt-4 overflow-x-auto rounded-[18px] border border-[rgb(var(--c-line))]">
-              <table className="w-full min-w-[380px] text-sm">
-                <thead>
-                  <tr className="border-b border-[rgb(var(--c-line))] text-left font-seeded text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Team</th>
-                    <th className="px-4 py-2.5 font-medium">Conf.</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Avg UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.standings.map((row, i) => (
-                    <tr key={row.team} className={row.isThis ? "font-medium" : undefined} style={row.isThis ? { background: "rgb(var(--c-primary) / 0.08)" } : undefined}>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{i + 1}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-ink">{row.team}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{row.confRecord}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono text-grass">{row.avgUTR.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        {fitSection}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1 lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">Recruiting class history</h2>
-            </div>
-            <div className="mt-4 space-y-4">
-              {profile.recruitingClasses.map((cls) => (
-                <div key={cls.classYear}>
-                  <p className="mb-2 font-seeded text-sm font-medium text-ink">Class of {cls.classYear}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cls.recruits.map((r, i) => (
-                      <span
-                        key={r.name + i}
-                        className="flex items-center gap-2 rounded-pill border border-[rgb(var(--c-line))] px-3 py-1.5 text-xs"
-                      >
-                        <span className="font-medium text-ink">{r.name}</span>
-                        <span className="text-stone-light">{r.hometown}</span>
-                        <span className="font-mono font-medium text-grass">{r.utr.toFixed(1)}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">Campus & cost</h2>
+              <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
             </div>
-            <dl className="mt-4 space-y-3 text-sm">
-              <Row label="Type" value={profile.campus.isPublic ? "Public" : "Private"} />
-              <Row label="Setting" value={profile.campus.setting} />
-              <Row label="Enrollment" value={profile.campus.enrollment.toLocaleString()} />
-              <Row
-                label={profile.campus.isPublic ? "In-state cost" : "Tuition + fees"}
-                value={`$${profile.campus.costInState}k/yr`}
-                icon={DollarSign}
-              />
-              {profile.campus.isPublic && (
-                <Row label="Out-of-state cost" value={`$${profile.campus.costOutState}k/yr`} icon={DollarSign} />
-              )}
-              <Row label="For you" value={inState ? "In-state" : "Out-of-state"} />
-            </dl>
-            <div className="mt-4 rounded-[16px] border border-[rgb(var(--c-line))] p-3">
-              <p className="flex items-center gap-1.5 font-seeded text-xs font-medium text-ink">
-                <Award className="h-3.5 w-3.5 text-grass" />
-                Scholarships
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-stone">{profile.scholarships.detail}</p>
+            <p className="mt-2.5 text-sm text-stone">
+              {academicRankSentence(school.usNewsRanking)} #{nationalRank} of the {school.division}{" "}
+              {programType.toLowerCase()} programs in Seeded&apos;s catalogue on Seeded&apos;s combined
+              score (half academic rank, half the unverified team-level estimate).
+            </p>
+            <EmptyState
+              className="mt-3"
+              title="Cost, aid and enrollment: not available yet."
+              description="Seeded holds no cost, financial-aid or enrollment figures for any program. Ask the school's financial aid office."
+            />
+          </div>
+
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-grass" />
+              <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
-            <div className="mt-3 rounded-[16px] border border-[rgb(var(--c-line))] p-3">
-              <p className="flex items-center gap-1.5 font-seeded text-xs font-medium text-ink">
-                <CalendarDays className="h-3.5 w-3.5 text-grass" />
-                Application deadlines
-              </p>
-              <p className="mt-1 text-xs text-stone">{profile.deadlines.earlyAction}</p>
-              <p className="text-xs text-stone">{profile.deadlines.regularDecision}</p>
+            <p className="mt-2.5 text-sm text-stone">
+              Not tracked. Seeded doesn&apos;t store coaching-staff contacts — look the staff up
+              on the athletics site and you&apos;ll have the current, correct address.
+            </p>
+            <StaffDirectoryHint school={school} className="mt-3" />
+            {!isParent && outreach && !alreadyContacted && (
+              <p className="mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
+            )}
+            {/* Outreach is the player's: a parent opening /outreach is
+                bounced to /family, and Seeded never writes to a coach on a
+                player's behalf. */}
+            {!isParent && (
+              <Link
+                href={`/outreach?school=${school.slug}`}
+                className={cn(seededButtonVariants({ variant: "primary" }), "mt-3.5 w-full")}
+              >
+                Draft an email to the head coach
+              </Link>
+            )}
+          </div>
+
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-grass" />
+              <h2 className="text-base font-semibold text-ink">Recruiting timeline</h2>
             </div>
+            <p className="mt-2.5 text-sm text-stone">
+              {school.division === "D1"
+                ? "D1 programs often have informal boards years out — reaching out early, even as an underclassman, is normal."
+                : "D3 coaches can respond any time. Typical first contact: junior fall to junior spring."}
+            </p>
           </div>
         </div>
       </div>
       <Footer />
+      <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
+        {toast?.message ?? " "}
+      </Toast>
     </>
   );
 }
 
-function Row({ label, value, icon: Icon }: { label: string; value: string; icon?: typeof DollarSign }) {
+function FitDriverRow({
+  label,
+  description,
+  chip,
+}: {
+  label: string;
+  description: string;
+  chip: string;
+}) {
   return (
-    <div className="flex items-center justify-between border-b border-[rgb(var(--c-line))] pb-2.5 last:border-0">
-      <dt className="flex items-center gap-1.5 text-stone-light">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {label}
-      </dt>
-      <dd className="font-mono font-medium text-ink">{value}</dd>
+    // Below sm the chip drops under the description: a long chip ("Between
+    // floor and average by summer 2030 (est.)") in an `auto` column pushed
+    // the card to 609px on a 375px phone.
+    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)_auto]">
+      <span className="font-semibold text-ink">{label}</span>
+      <span className="min-w-0 text-stone">{description}</span>
+      <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone sm:col-start-auto sm:whitespace-nowrap">
+        {chip}
+      </span>
     </div>
   );
 }

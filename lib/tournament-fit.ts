@@ -43,7 +43,13 @@ export const LEVELS: LevelInfo[] = [
   { value: "L5", label: "L5 — Sectional / regional", scope: "sectional", description: "Regional draws inside your section.", typicalMatches: 3 },
   { value: "L6", label: "L6 — District", scope: "district", description: "District-level events for building match play.", typicalMatches: 3 },
   { value: "L7", label: "L7 — Entry level", scope: "district", description: "Entry tier — first tournaments and early match experience.", typicalMatches: 2 },
-  { value: "utr", label: "UTR event", scope: "utr", description: "UTR-verified event. Strength comes entirely from the draw, so the average entrant UTR matters most.", typicalMatches: 3 },
+  // "UTR" (not "UTR event") — every other label's pre-em-dash segment is a
+  // bare level code (L1..L7); the "level estimate" reason text below splits
+  // on "—" and appends " events" to that segment, so a label that already
+  // ended in the word "event" produced "UTR event events are typically
+  // competitive..." (caught live-testing the Tournament Fit screen's "UTR"
+  // level for the first time — see components/seeded/tournament-fit).
+  { value: "utr", label: "UTR", scope: "utr", description: "UTR-verified event. Strength comes entirely from the draw, so the average entrant UTR matters most.", typicalMatches: 3 },
 ];
 
 // Rough player-UTR windows where each USTA level is usually competitive for
@@ -60,6 +66,21 @@ const LEVEL_UTR_WINDOW: Record<FitLevel, [number, number]> = {
   L7: [1, 7],
   utr: [1, 16.5],
 };
+
+/**
+ * The same level-based field estimate evaluateTournamentFit() falls back to
+ * when no real draw average is entered (see competitionFromLevel below) —
+ * exposed so the Tournament Fit screen's "Typical field for this level" note
+ * shows the exact number the engine will actually score against, instead of
+ * a second, possibly-drifting copy of the same windows. "utr" has no
+ * meaningful typical field (draw strength there comes entirely from who
+ * enters, per LEVELS' own description) — callers should special-case it
+ * rather than display this midpoint as if it meant something.
+ */
+export function typicalFieldUtr(level: FitLevel): number {
+  const [lo, hi] = LEVEL_UTR_WINDOW[level];
+  return Math.round(((lo + hi) / 2) * 10) / 10;
+}
 
 export type Verdict = "good" | "decent" | "bad";
 

@@ -13,7 +13,7 @@ export default function TrainingError({
     <RouteError
       error={error}
       reset={reset}
-      title="Couldn't load your training plan."
+      title="Couldn't load your training calendar."
       description="Your plan and sessions didn't come through — try again."
     />
   );

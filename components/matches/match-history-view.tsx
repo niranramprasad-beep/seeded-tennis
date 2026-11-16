@@ -14,11 +14,10 @@ import {
   deleteMatch,
   generatePrepPlan,
   loadMatches,
-  localDateKey,
   saveMatch,
   type MatchRecord,
-} from "@/lib/supabase/features";
-import { formatDate } from "@/lib/time";
+} from "@/lib/db/events";
+import { formatDate, localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const filters = ["all", "last 30", "wins", "losses"] as const;
@@ -134,7 +133,7 @@ function MatchHistoryInner() {
     <div className="mx-auto max-w-content container-px py-12">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Match history</span>
+          <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Match history</span>
           <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             Turn matches into next-week work.
           </h1>

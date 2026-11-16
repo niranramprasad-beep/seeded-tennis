@@ -1,235 +1,393 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { SchoolBadge } from "@/components/shared/school-badge";
-import { Reveal } from "@/components/shared/reveal";
-import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
-import { AnimatedLineChart } from "@/components/seeded/shared/animated-line-chart";
-import { formatUTR, cn } from "@/lib/utils";
+import Link from "next/link";
+import useSWR from "swr";
+import { useMemo, useState } from "react";
+import { SeededButton } from "@/components/seeded/ui/button";
+import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { Toast } from "@/components/seeded/ui/toast";
+import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
+import { PlanTrajectoryChart } from "./plan-trajectory-chart";
+import { GoalPaceWarning } from "./goal-pace-warning";
+import { TargetSchoolsList } from "./target-schools-list";
+import { ClosestSchoolsCard } from "./closest-schools";
+import { RecruitingChecklistCard } from "./recruiting-checklist";
+import {
+  closestSchoolsByUtrGap,
+  computeGoalPace,
+  explainSchoolFit,
+  summerBeforeSeniorYear,
+  type SchoolFitProjectionInput,
+} from "@/lib/school-fit";
+import { loadUtrEntries } from "@/lib/db/plan";
+import { loadMatches } from "@/lib/db/events";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
+import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
+import { usePlayer } from "@/lib/context/player-context";
+import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
+import { utrProfileLinkHref } from "@/lib/utr-profile-link";
+import { formatUTR, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
-// Same data/handlers as Legacy (lib/data's buildRoadmap, the what-if picker
-// state) — only the composition differs: a real self-drawing UTR line
-// instead of the recharts line chart, and timeline cards that lift/scale
-// on hover ("hover a year to see targets, smooth zoom" per the brief).
-export function SeededRoadmapLayout({
-  player,
-  whatIf,
-  openStage,
-  setOpenStage,
-  targetSchools,
-  roadmap,
-  goalUTR,
-  chartData,
-  pickerSchools,
-  toggle,
-}: RoadmapLayoutProps) {
-  const MAX_SCHOOLS = 5;
+function initialOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+// Pixel-exact to PlayerProfile.dc.html — real profile stats, real UTR-plan
+// trajectory (lib/utr-projection.ts, wired into Plan for the first time —
+// previously only /today used it), a real recruiting-timeline checklist,
+// and real match history. The old "what if I targeted…" picker and
+// year-by-year tournament-volume timeline aren't part of this mockup at
+// all — dropped here rather than bolted on beside content the mockup
+// doesn't show; see the Phase 4b report for that call. (Redesign Phase 7
+// adds editable target schools, a goal-pace warning, a "closest schools"
+// section, and the real recruiting checklist, all around the existing
+// pixel-exact structure.)
+export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, pickerSchools }: RoadmapLayoutProps) {
+  const { updatePlayer } = usePlayer();
+  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  const { data: matches } = useSWR("matches", () => loadMatches());
+  const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
+
+  // Same anchoring rule as /today's chart (components/seeded/dashboard/
+  // utr-vs-plan-chart.tsx): every "actual" point traces back to a real
+  // entry, or — with no logged history yet — the player's own current UTR
+  // as the single "today" anchor, never a bare 0.
+  const actualPoints = useMemo(() => {
+    const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
+    // Day-granularity "today" anchor (not a full millisecond timestamp) —
+    // matches the day-only precision every real UTR entry already uses
+    // (localDateKey() elsewhere in this app), and avoids a real SSR/CSR
+    // hydration mismatch: the chart below renders several pixel positions
+    // and text labels derived from this date, and a raw `new Date()` reads
+    // a different millisecond on the server render pass than on the
+    // client's first paint, which the trajectory chart's new gridlines/
+    // tick labels are precise enough to visibly disagree about.
+    const todayAtMidnight = () => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    // No real entries AND no real current UTR means there is nothing to
+    // plot. A synthetic point at the 0 sentinel drew the trajectory from
+    // "UTR 0", which is a rating nobody has.
+    if (real.length > 0) return real;
+    return hasRealUtr(player.currentUTR)
+      ? [{ date: todayAtMidnight(), utr: player.currentUTR }]
+      : [];
+  }, [utrEntries, player.currentUTR]);
+  // The "what if my UTR is ___ by June {year}?" slider — same shared hook
+  // and math as the Schools browser (lib/hooks/use-what-if-utr.ts),
+  // defaulting to the player's real current UTR (identical to today's
+  // page until actually touched). `actualPoints` already fails
+  // computeUtrProjection's 3-point minimum whenever there's no real
+  // history (it's a single fallback anchor, same as the trajectory
+  // chart's), so handing it to "My pace" here is safe either way.
+  const whatIf = useWhatIfUtr({
+    currentUTR: player.currentUTR,
+    graduationYear: player.graduationYear,
+    gender: player.gender,
+    utrHistory: actualPoints,
+  });
+  const effectiveUtr = whatIf.hypotheticalUTR;
+
+  // The band on every target row comes from the SAME fit report /schools,
+  // /today and /family read. /plan used to classify each row itself on
+  // today's rating, so persona (a) — a 7th grader — saw Reach here and
+  // Target for the same school on /schools, which judges a pre-junior at
+  // their projected estimate. The slider is passed only once it has been
+  // moved, exactly as /schools does (an untouched slider equals the real
+  // rating, and buildFitReport treats any override as a deliberate choice).
+  const fitReport = useFitReport({
+    player,
+    schools: pickerSchools,
+    overrideUtr: whatIf.isAtRealCurrent ? null : effectiveUtr,
+  });
+  const reportBandBySlug = fitReport?.bandBySlug;
+
+  const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
+
+  // Same real grad-year context as the what-if hook, plus the full catalog
+  // — explainSchoolFit only needs the catalog for its point-7 alternative-
+  // school suggestion. Uses the SAME history choice as the what-if pass
+  // (real history only for "My pace"), so a target school's "why this
+  // band" never disagrees with the band badge right above it.
+  // `pickerSchools` (the full same-gender catalog roadmap-view.tsx already
+  // builds) is the real candidate pool for that suggestion.
+  const explanationInput = useMemo(
+    () => ({
+      // Always defined since P1-FIT-1 — "+1.5/yr" and "Custom" now carry a
+      // synthetic line instead of nothing, so the expanded "why this band"
+      // and the badge above it see the identical history.
+      utrHistory: whatIf.whatIfProjection.utrHistory,
+      graduationYear: player.graduationYear,
+      gender: player.gender,
+      catalog: pickerSchools,
+    }),
+    [whatIf.whatIfProjection, player.graduationYear, player.gender, pickerSchools]
+  );
+  // Separate from the what-if-aware input above: the "closest schools"
+  // section and the goal-pace warning both compare against the player's
+  // REAL current UTR and REAL logged history — they shouldn't move when
+  // someone's just dragging the what-if slider.
+  const realProjectionInput: SchoolFitProjectionInput = useMemo(
+    () => ({ utrHistory: actualPoints, graduationYear: player.graduationYear, gender: player.gender }),
+    [actualPoints, player.graduationYear, player.gender]
+  );
+
+  const sixMonthDelta = useMemo(
+    () => (utrEntries ? utrDeltaOverMonths(utrEntries, 6) : null),
+    [utrEntries]
+  );
+  const record = useMemo(() => (matches ? winLossRecord(matches) : null), [matches]);
+  // The most recent UTR the player typed in. P0-7: this was named
+  // `lastVerified` and rendered as "UTR · verified {date}". Nothing verifies
+  // it — Seeded never fetches or checks UTR, by design. It is simply the date
+  // they last told us a number.
+  const lastLoggedUtr = useMemo(() => {
+    if (!utrEntries || utrEntries.length === 0) return null;
+    return [...utrEntries].sort(
+      (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+    )[0];
+  }, [utrEntries]);
+  const contactedOrReplied = useMemo(() => {
+    if (!outreach) return 0;
+    return targetSchools.filter((s) => outreach[s.slug]).length;
+  }, [outreach, targetSchools]);
+  const recentMatches = useMemo(() => (matches ?? []).slice(0, 5), [matches]);
+
+  // The real display/reorder order for the target list: player.
+  // targetSchoolSlugs, resolved to school objects. `targetSchools` (the
+  // prop) is filtered from the full catalog so it's in CATALOG order, not
+  // the player's own saved order — resolving through the real slug array
+  // here is what makes drag-to-reorder meaningful at all.
+  const orderedTargetSchools = useMemo(() => {
+    const bySlug = new Map(targetSchools.map((s) => [s.slug, s]));
+    return player.targetSchoolSlugs
+      .map((slug) => bySlug.get(slug))
+      .filter((s): s is (typeof targetSchools)[number] => Boolean(s));
+  }, [targetSchools, player.targetSchoolSlugs]);
+
+  const addableSchools = useMemo(
+    () => pickerSchools.filter((s) => !player.targetSchoolSlugs.includes(s.slug)),
+    [pickerSchools, player.targetSchoolSlugs]
+  );
+
+  // Point 2: the real pace needed to close current -> goal by senior
+  // summer, against the real player UTR (not the what-if slider).
+  // Every number this produces is derived from the player's current UTR —
+  // the gap, the required pace per year, the "faster than realistic" read.
+  // Computed from the 0 sentinel it told a player with no rating that they
+  // need "about 7.1/year", which is a confident answer to a question we
+  // cannot answer.
+  const goalPace = useMemo(
+    () =>
+      hasRealUtr(player.currentUTR)
+        ? computeGoalPace(player.currentUTR, goalUTR, player.graduationYear)
+        : null,
+    [player.currentUTR, goalUTR, player.graduationYear]
+  );
+  const [showRealisticOnly, setShowRealisticOnly] = useState(false);
+  const visibleTargetSchools = useMemo(() => {
+    if (!showRealisticOnly) return orderedTargetSchools;
+    return orderedTargetSchools.filter((s) => {
+      const explanation = explainSchoolFit(effectiveUtr, s, {
+        ...explanationInput,
+        band: reportBandBySlug?.get(s.slug),
+      });
+      return explanation.band !== "out-of-range" && !explanation.unreachable;
+    });
+  }, [showRealisticOnly, orderedTargetSchools, effectiveUtr, explanationInput, reportBandBySlug]);
+
+  // Point 4: the 5 real catalog schools closest to the player's actual
+  // level, independent of what's currently targeted.
+  // "whose roster level is nearest your current UTR" — from the sentinel
+  // that is simply the five lowest-rated programs in the catalog, presented
+  // as a personalised shortlist.
+  const closestSchools = useMemo(
+    () =>
+      hasRealUtr(player.currentUTR)
+        ? closestSchoolsByUtrGap(player.currentUTR, pickerSchools, 5, realProjectionInput)
+        : [],
+    [player.currentUTR, pickerSchools, realProjectionInput]
+  );
+
+  // Point 5: the real recruiting-timeline checklist.
+  const checklist = useRecruitingChecklist({
+    graduationYear: player.graduationYear,
+    targetSchoolCount: player.targetSchoolSlugs.length,
+    utrProfileLink: player.utrProfileLink,
+    contactedOrRepliedCount: contactedOrReplied,
+  });
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <Reveal className="max-w-2xl">
-        <span className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-          Your roadmap
-        </span>
-        <h1 className="mt-3 font-seeded text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-          From {formatUTR(player.currentUTR)} to{" "}
-          <span className="seeded-gradient-text">{formatUTR(goalUTR)}</span>, year by year.
-        </h1>
-        <p className="mt-3 text-pretty leading-relaxed text-stone">
-          Every target is set for the{" "}
-          <span className="font-medium text-ink">summer before</span> that grade — the
-          window that actually matters for recruiting — and tuned so you clear the most
-          demanding school on your list. Adjust your what-if picks below and watch the
-          plan re-tune.
-        </p>
-      </Reveal>
+      <div className="flex flex-wrap items-center gap-6 rounded-xl border border-line bg-card p-6">
+        <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-grass-50 font-seeded text-[26px] font-bold text-grass">
+          {initialOf(player.name)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="font-seeded text-[28px] font-bold text-ink">{player.name || "Your profile"}</h1>
+          <p className="mt-1 text-stone">
+            Class of {player.graduationYear} · {player.gender === "female" ? "Women's" : "Men's"}
+            {player.utrProfileLink && (
+              <>
+                {" · "}
+                <a
+                  href={utrProfileLinkHref(player.utrProfileLink)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-grass hover:text-grass-700"
+                >
+                  UTR profile ↗
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-7">
+          <StatTile
+            value={formatUtrOrNotTracked(player.currentUTR)}
+            label={
+              lastLoggedUtr
+                ? `UTR · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
+                : "UTR"
+            }
+          />
+          <StatTile
+            value={sixMonthDelta === null ? "—" : `${sixMonthDelta >= 0 ? "+" : ""}${sixMonthDelta.toFixed(2)}`}
+            label="last 6 months"
+          />
+          <StatTile
+            value={record ? `${record.wins}–${record.losses}` : "—"}
+            label="logged record"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Link href="/settings">
+            <SeededButton variant="secondary">Edit profile</SeededButton>
+          </Link>
+        </div>
+      </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <Reveal index={1} className="lg:col-span-2">
-          <div className="seeded-glass h-full rounded-[24px] p-6 shadow-seeded-1">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-grass" />
-              <h2 className="font-seeded text-lg font-medium text-ink">UTR trajectory</h2>
-            </div>
-            <div className="mt-4">
-              <AnimatedLineChart key={whatIf.join("-")} data={chartData} height={280} />
-            </div>
-          </div>
-        </Reveal>
+      <div className="mt-5 rounded-xl border border-line bg-card p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold text-ink">Your plan to senior summer</h2>
+          <span className="text-[13px] text-stone">Goal: {formatUTR(goalUTR)} UTR</span>
+        </div>
+        <div className="mt-4">
+          <PlanTrajectoryChart
+            actualPoints={actualPoints}
+            roadmap={roadmap}
+            gender={player.gender}
+            targetSchools={orderedTargetSchools}
+            goalUTR={goalUTR}
+            isStarred={isStarred}
+            toggleStar={toggleStar}
+          />
+        </div>
+        <GoalPaceWarning
+          goalPace={goalPace}
+          goalUTR={goalUTR}
+          showingRealisticOnly={showRealisticOnly}
+          onShowRealistic={() => setShowRealisticOnly(true)}
+          onShowAll={() => setShowRealisticOnly(false)}
+        />
+      </div>
 
-        <Reveal index={2}>
-          <div
-            className="flex h-full flex-col justify-center rounded-[24px] p-6 text-white shadow-seeded-2"
-            style={{ background: "var(--s-accent-gradient)" }}
-          >
-            <p className="text-sm text-white/80">Goal UTR to be competitive</p>
-            <div className="mt-1 font-mono text-6xl">
-              <CountUpOnView value={goalUTR} decimals={1} className="font-mono text-6xl" />
+      <div className="mt-5 flex flex-wrap gap-5">
+        <div className="min-w-0 flex-1 rounded-xl border border-line bg-card p-5" style={{ flexBasis: "360px" }}>
+          <RecruitingChecklistCard
+            items={checklist.items}
+            onToggleCompleted={checklist.toggleCompleted}
+            onToggleHidden={checklist.toggleHidden}
+            onAddItem={checklist.addItem}
+            onRemoveItem={checklist.removeItem}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 rounded-xl border border-line bg-card p-5" style={{ flexBasis: "360px" }}>
+          <h2 className="text-base font-semibold text-ink">Recent results</h2>
+          {recentMatches.length === 0 ? (
+            <div className="mt-3">
+              <EmptyState title="No matches logged yet." description="Log a result to start tracking your record." />
             </div>
-            <p className="mt-3 text-sm text-white/80">
-              +{formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you are today
-            </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {targetSchools.map((s) => (
-                <Badge key={s.id} size="sm" className="bg-white/15 text-white">
-                  {s.shortName}
-                </Badge>
+          ) : (
+            <div className="mt-3.5 flex flex-col gap-2.5 text-sm">
+              {recentMatches.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-ink">
+                    {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} vs{" "}
+                    {m.opponentUtr != null ? `opponent ${formatUTR(m.opponentUtr)}` : m.opponent || "opponent"}
+                    {m.tournamentName ? ` · ${m.tournamentName}` : ""}
+                  </span>
+                  <span className="shrink-0 font-mono text-stone">{m.score || "—"}</span>
+                </div>
               ))}
             </div>
-          </div>
-        </Reveal>
-      </div>
-
-      <Reveal index={3} className="mt-4">
-        <div className="seeded-glass rounded-[24px] p-6 shadow-seeded-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-grass" />
-            <h2 className="font-seeded text-lg font-medium text-ink">What if I targeted…</h2>
-            <span className="ml-auto font-mono text-sm text-stone">
-              {whatIf.length}/{MAX_SCHOOLS}
-            </span>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {pickerSchools.map((s) => {
-              const active = whatIf.includes(s.slug);
-              const disabled = !active && whatIf.length >= MAX_SCHOOLS;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => toggle(s.slug)}
-                  disabled={disabled}
-                  className={cn(
-                    "flex min-h-11 items-center gap-2 rounded-pill border py-1.5 pl-1.5 pr-3 font-seeded text-sm transition-all",
-                    active
-                      ? "border-transparent text-white"
-                      : "border-[rgb(var(--c-line))] text-stone hover:text-ink",
-                    disabled && "opacity-40"
-                  )}
-                  style={active ? { background: "var(--s-accent-gradient)" } : undefined}
-                >
-                  <SchoolBadge school={s} size={28} />
-                  {s.shortName}
-                  {active && <Check className="h-3.5 w-3.5" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </Reveal>
-
-      <div className="mt-8">
-        <h2 className="font-seeded text-xl font-semibold tracking-tight text-ink">
-          Year-by-year plan
-        </h2>
-        <div className="mt-4 flex gap-4 overflow-x-auto pb-3">
-          {roadmap.map((year, i) => (
-            <Reveal key={`${year.calendarYear}-${i}`} index={i} step={0.07} className="w-[280px] shrink-0">
-              <motion.div whileHover={{ scale: 1.03, y: -4 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}>
-                <SpotlightCard className="seeded-glass flex h-full flex-col rounded-[24px] p-5 shadow-seeded-1">
-                  <div className="flex items-center justify-between">
-                    <Badge size="md" style={{ background: "var(--s-accent-gradient)", color: "white" }}>
-                      {year.shortLabel} Grade
-                    </Badge>
-                    <span className="text-sm text-stone">Summer {year.calendarYear}</span>
-                  </div>
-                  <p className="mt-3 font-seeded text-sm font-medium text-ink">{year.gradeLabel}</p>
-
-                  <div className="mt-4">
-                    <p className="text-xs text-stone-light">Target UTR by then</p>
-                    <div className="seeded-gradient-text font-mono text-4xl">
-                      <CountUpOnView
-                        value={year.utrTarget}
-                        decimals={1}
-                        className="seeded-gradient-text font-mono text-4xl"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-[rgb(var(--c-line))] px-3 py-2 text-sm text-ink">
-                    <Trophy className="h-4 w-4 text-leaf-accent" />
-                    {year.tournamentsNeeded} tournaments
-                  </div>
-
-                  <button
-                    onClick={() => setOpenStage(openStage === i ? null : i)}
-                    className="mt-3 w-full rounded-xl border border-[rgb(var(--c-line))] px-3 py-3 text-left transition-all hover:bg-[rgb(var(--c-primary)/0.06)]"
-                    aria-expanded={openStage === i}
-                  >
-                    <span className="flex items-center gap-2 font-seeded text-xs font-medium uppercase tracking-[0.1em] text-stone-light">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      Tournament volume
-                    </span>
-                    <span className="mt-3 flex flex-wrap items-center gap-1.5">
-                      {Array.from({ length: Math.min(12, year.tournamentsNeeded) }).map((_, dotIndex) => (
-                        <span
-                          key={dotIndex}
-                          title={`${tournamentMix(year.tournamentsNeeded)[dotIndex % tournamentMix(year.tournamentsNeeded).length]} recommendation`}
-                          className="rounded-full bg-leaf-accent/80"
-                          style={{
-                            width: 8 + Math.min(10, year.tournamentsNeeded) * 0.55,
-                            height: 8 + Math.min(10, year.tournamentsNeeded) * 0.55,
-                          }}
-                        />
-                      ))}
-                    </span>
-                  </button>
-
-                  {openStage === i && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="mt-3 overflow-hidden rounded-xl p-3"
-                      style={{ background: "rgb(var(--c-primary) / 0.08)" }}
-                    >
-                      <p className="font-seeded text-xs font-medium text-ink">Recommended mix</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {tournamentMix(year.tournamentsNeeded).map((level) => (
-                          <span
-                            key={level}
-                            className="rounded-pill bg-card px-2.5 py-1 font-seeded text-xs font-medium text-stone"
-                          >
-                            {level}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-2 text-xs leading-relaxed text-stone">
-                        Play enough volume to generate coach-relevant results, but keep the
-                        highest-level events near your peak training windows.
-                      </p>
-                    </motion.div>
-                  )}
-
-                  <div className="mt-4 flex-1">
-                    <p className="mb-2 flex items-center gap-1.5 font-seeded text-xs font-medium uppercase tracking-[0.1em] text-stone-light">
-                      <Flag className="h-3 w-3" />
-                      Milestones
-                    </p>
-                    <ul className="space-y-2">
-                      {year.milestones.map((m) => (
-                        <li key={m} className="flex items-start gap-2 text-sm leading-snug text-stone">
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-leaf-accent" />
-                          {m}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </SpotlightCard>
-              </motion.div>
-            </Reveal>
-          ))}
+          )}
+          <Link href="/events?tab=matches" className="mt-3.5 inline-block">
+            <SeededButton variant="secondary">Log a result</SeededButton>
+          </Link>
         </div>
       </div>
+
+      <div className="mt-5 rounded-xl border border-line bg-card p-5">
+        <h2 className="text-base font-semibold text-ink">Your target schools</h2>
+        <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
+        <div className="mt-3.5">
+          <WhatIfPanel
+            {...whatIf}
+            seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
+            bandUtr={fitReport?.utr.value ?? null}
+            historyLoaded={utrEntries !== undefined}
+          />
+        </div>
+        <div className="mt-3.5">
+          {orderedTargetSchools.length === 0 ? (
+            <EmptyState title="No target schools yet." description="Search below to add your first one." />
+          ) : showRealisticOnly && visibleTargetSchools.length === 0 ? (
+            <p className="text-sm text-stone">None of your current targets are at a realistic pace right now.</p>
+          ) : null}
+          <TargetSchoolsList
+            targetSchools={visibleTargetSchools}
+            addableSchools={addableSchools}
+            effectiveUtr={effectiveUtr}
+            explanationInput={explanationInput}
+            reportBandBySlug={reportBandBySlug}
+            isStarred={isStarred}
+            toggleStar={toggleStar}
+            onReorder={(newOrder) => void updatePlayer({ targetSchoolSlugs: newOrder })}
+            reorderable={!showRealisticOnly}
+          />
+        </div>
+      </div>
+
+      <ClosestSchoolsCard results={closestSchools} isStarred={isStarred} onToggleStar={toggleStar} />
+
+      <p className="mt-4 text-xs text-stone">Live data, your own account.</p>
+      <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
+        {toast?.message ?? " "}
+      </Toast>
     </div>
   );
 }
 
-function tournamentMix(count: number): string[] {
-  if (count >= 12) return ["USTA L2", "USTA L3", "USTA L4", "ITF J30", "showcase"];
-  if (count >= 9) return ["USTA L3", "USTA L4", "USTA L5", "regional showcase"];
-  if (count >= 6) return ["USTA L4", "USTA L5", "USTA L6"];
-  return ["USTA L5", "USTA L6", "local match play"];
+function StatTile({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="font-mono text-[26px] font-semibold text-ink">{value}</span>
+      <span className="text-[13px] text-stone">{label}</span>
+    </div>
+  );
+}
+
+function shortDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

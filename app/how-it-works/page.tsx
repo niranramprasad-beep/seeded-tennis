@@ -18,12 +18,12 @@ const steps = [
   {
     icon: ClipboardList,
     title: "Build the player profile",
-    body: "Seeded starts with grade, gender, UTR, goals, target schools, weaknesses, and training availability.",
+    body: "Seeded starts with your UTR, grad year and team (men's or women's). Everything else — GPA, target schools, the things you're working on — you add when you want to.",
   },
   {
     icon: School,
     title: "Match schools honestly",
-    body: "Programs are compared by roster level, minimum competitive UTR, academics, conference, and location.",
+    body: "Each program is banded by your UTR against its estimated range — Likely, Target, Reach or Out of range. Academics, division and region are filters you choose; they don't change the band.",
   },
   {
     icon: Route,
@@ -53,7 +53,7 @@ function LegacyHowItWorks() {
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
             Seeded connects the pieces families usually manage separately: schools,
-            UTR targets, training weeks, tournaments, and outreach.
+            UTR targets, a training calendar you fill in, tournaments, and outreach.
           </p>
         </FadeIn>
         <div className="mt-12 grid gap-4 md:grid-cols-2">
@@ -97,7 +97,7 @@ function SeededHowItWorks() {
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
             Seeded connects the pieces families usually manage separately: schools,
-            UTR targets, training weeks, tournaments, and outreach.
+            UTR targets, a training calendar you fill in, tournaments, and outreach.
           </p>
         </Reveal>
         <BentoGrid className="mt-14">

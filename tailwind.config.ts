@@ -17,6 +17,10 @@ const config: Config = {
           DEFAULT: "rgb(var(--c-primary) / <alpha-value>)",
           50: "rgb(var(--c-primary-50) / <alpha-value>)",
           100: "rgb(var(--c-primary-100) / <alpha-value>)",
+          // Seeded-only (Legacy themes never define --c-primary-300): range-bar
+          // "team range" fill + the budget chart's "travel" segment — see
+          // app/globals.css's dark-mode block comment for why this exists.
+          300: "rgb(var(--c-primary-300) / <alpha-value>)",
           600: "rgb(var(--c-primary-600) / <alpha-value>)",
           700: "rgb(var(--c-primary-700) / <alpha-value>)",
           800: "rgb(var(--c-primary-800) / <alpha-value>)",
@@ -25,6 +29,9 @@ const config: Config = {
         lime: {
           accent: "rgb(var(--c-lime) / <alpha-value>)",
         },
+        // Fixed in both modes — see app/globals.css: text/borders sitting
+        // directly on a solid bg-lime-accent fill (bright in both modes).
+        "on-lime": "rgb(var(--c-on-lime) / <alpha-value>)",
         leaf: {
           accent: "rgb(var(--c-leaf) / <alpha-value>)",
         },
@@ -40,6 +47,18 @@ const config: Config = {
         "error-bg": "rgb(var(--c-error-bg) / <alpha-value>)",
         error: "rgb(var(--c-error) / <alpha-value>)",
         "error-strong": "rgb(var(--c-error-strong) / <alpha-value>)",
+        // Fixed in both modes — see app/globals.css: the one solid
+        // destructive-button fill that always pairs with white text.
+        "error-solid": "rgb(var(--c-error-solid) / <alpha-value>)",
+        "error-solid-hover": "rgb(var(--c-error-solid-hover) / <alpha-value>)",
+        // Seeded-only: the recurring input/secondary-button border + hover
+        // tint, formerly hardcoded as border-[#D6D3C8]/hover:bg-[#F1EFE8]
+        // across components/seeded/* — see app/globals.css for why.
+        input: "rgb(var(--c-input-border) / <alpha-value>)",
+        "subtle-hover": "rgb(var(--c-subtle-hover) / <alpha-value>)",
+        // Seeded-only: the sidebar/mobile-header/inset-row quiet surface,
+        // formerly hardcoded as bg-[#FBFAF7] — see app/globals.css.
+        panel: "rgb(var(--c-panel-bg) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -48,11 +67,14 @@ const config: Config = {
         // the "Seeded" wordmark, italic accent words, and numbered section
         // markers all render in across the site.
         serif: ["var(--font-cormorant)", "Georgia", "serif"],
-        // Seeded design system only (components/seeded/*) — Legacy never
-        // references these. --font-geist-sans comes from the `geist`
-        // package (GeistSans), not a next/font/google call — see layout.tsx.
-        seeded: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-plex-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        // Seeded design system's display/headline face only
+        // (components/seeded/*) — Legacy never references this. Inter Tight,
+        // per the pixel-exact mockups.
+        seeded: ["var(--font-inter-tight)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Resolves to JetBrains Mono under Seeded, IBM Plex Mono under
+        // Legacy's "Night Rally" concept theme — see --font-mono-active in
+        // globals.css.
+        mono: ["var(--font-mono-active)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
         card: "14px",
@@ -69,8 +91,12 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Starts at 0.01, not 0: Chrome does not count text painted at
+        // opacity 0 as contentful, and the route wrapper in AppShell uses
+        // this on every page — /sample-report (no header outside it)
+        // recorded no First Contentful Paint at all in Lighthouse.
         "fade-in": {
-          "0%": { opacity: "0" },
+          "0%": { opacity: "0.01" },
           "100%": { opacity: "1" },
         },
         "draw-in": {
@@ -93,9 +119,15 @@ const config: Config = {
         glow: "0 10px 32px rgb(var(--c-primary) / 0.22), 0 2px 10px rgb(var(--c-primary) / 0.14)",
         // Seeded design system only — full shadow values live in --s-elevation-*
         // (app/globals.css) since dark/light need very different recipes.
+        // Transitional: slated for removal once every Seeded component is
+        // migrated to the pixel-exact mockups (see app/globals.css).
         "seeded-1": "var(--s-elevation-1)",
         "seeded-2": "var(--s-elevation-2)",
         "seeded-3": "var(--s-elevation-3)",
+        // Seeded's two recurring "elevated card" shadows, pixel-exact from
+        // DesignSystem.dc.html / Main.dc.html.
+        card: "0 12px 32px rgba(20,24,26,.08)",
+        "card-lg": "0 24px 48px rgba(20,24,26,.10)",
       },
     },
   },

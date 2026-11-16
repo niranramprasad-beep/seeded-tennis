@@ -16,12 +16,17 @@ const items = [
   {
     icon: ShieldCheck,
     title: "Know what is realistic",
-    body: "See which programs fit the player's current UTR, academic goals, gender, and timeline before spending another weekend chasing the wrong event.",
+    body: "See which programs fit the player's UTR and timeline — Likely, Target, Reach or Out of range — and filter by academics, division and region before spending another weekend chasing the wrong event.",
   },
   {
     icon: CalendarCheck,
-    title: "Plan the week",
-    body: "Turn recruiting goals into a training schedule that balances court work, match play, strength, recovery, and school.",
+    // Was "Turn recruiting goals into a training schedule that balances
+    // court work, match play, strength, recovery, and school" — a generated
+    // plan. Seeded does not generate training plans (CLAUDE.md: manual
+    // calendar only), and a parent cannot see the player's calendar (the
+    // training tables are own-row only).
+    title: "See what's coming up",
+    body: "The player keeps their own calendar of sessions and tournaments; you see the tournaments they've entered and what each one costs.",
   },
   {
     icon: TrendingUp,
@@ -51,8 +56,8 @@ function LegacyParents() {
             <span className="serif-accent text-grass">college tennis</span> recruiting.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
-            Seeded gives families a shared recruiting plan: school fit, UTR targets,
-            training load, tournaments, and coach outreach without the spreadsheet spiral.
+            Seeded gives families one place for school fit, UTR progress, tournaments,
+            spending and coach outreach &mdash; without the spreadsheet spiral.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/signup" className={buttonVariants({ variant: "primary", size: "lg" })}>
@@ -99,8 +104,8 @@ function SeededParents() {
             A calmer way to manage college tennis recruiting.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
-            Seeded gives families a shared recruiting plan: school fit, UTR targets,
-            training load, tournaments, and coach outreach without the spreadsheet spiral.
+            Seeded gives families one place for school fit, UTR progress, tournaments,
+            spending and coach outreach &mdash; without the spreadsheet spiral.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link

@@ -55,7 +55,15 @@ export function ResetPasswordForm() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+        {/* While it checks for a recovery session the card held only a
+            spinner, centred, then grew into the form and jumped 174px up
+            (CLS 0.155 at 375). Hold the form's height while loading. */}
+        <div
+          className={cn(
+            isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2",
+            mode === "loading" && "min-h-[36.75rem]"
+          )}
+        >
         <span
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold",
@@ -79,7 +87,7 @@ export function ResetPasswordForm() {
             <p className="mt-3 text-pretty leading-relaxed text-stone">
               We sent a reset link to {email}. Open it to choose a new password.
             </p>
-            <Link href="/login" className="mt-6 text-sm font-medium text-grass hover:underline">
+            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-medium text-grass hover:underline sm:min-h-6">
               Back to sign in
             </Link>
           </>
@@ -87,7 +95,7 @@ export function ResetPasswordForm() {
 
         {mode === "request" && (
           <>
-            <p className={cn("eyebrow mt-6 text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Reset password</p>
+            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Reset password</p>
             <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
               Forgot your password?
             </h1>
@@ -109,7 +117,7 @@ export function ResetPasswordForm() {
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send reset link<ArrowRight className="h-4 w-4" /></>}
               </Button>
             </form>
-            <Link href="/login" className="mt-6 text-center text-sm font-medium text-grass hover:underline">
+            <Link href="/login" className="mt-6 inline-flex min-h-11 items-center justify-center text-center text-sm font-medium text-grass hover:underline sm:min-h-6">
               Back to sign in
             </Link>
           </>
@@ -117,7 +125,7 @@ export function ResetPasswordForm() {
 
         {mode === "update" && (
           <>
-            <p className={cn("eyebrow mt-6 text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Almost there</p>
+            <p className={cn("eyebrow mt-6", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Almost there</p>
             <h1 className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-seeded font-semibold tracking-tight" : "display-serif")}>
               Choose a new password.
             </h1>

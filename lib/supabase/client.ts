@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/database.types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishableKey =
@@ -9,13 +10,27 @@ const publishableKey =
 // flows keep a local fallback so the UI remains demoable without secrets.
 export const isSupabaseConfigured = Boolean(url && publishableKey);
 
-let browserClient: SupabaseClient | null = null;
+// Typed with the real (hand-written, see lib/db/database.types.ts) schema —
+// every `.from("table")` call site now gets real column types/autocomplete
+// instead of falling back to `any`.
+export type TypedSupabaseClient = SupabaseClient<Database>;
 
-export function getSupabase(): SupabaseClient | null {
+let browserClient: TypedSupabaseClient | null = null;
+
+export function getSupabase(): TypedSupabaseClient | null {
   if (!isSupabaseConfigured) return null;
   if (!browserClient) {
-    browserClient = createClient(url as string, publishableKey as string, {
-      auth: { persistSession: true, autoRefreshToken: true },
+    browserClient = createClient<Database>(url as string, publishableKey as string, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        // PKCE, explicitly. The OAuth callback (app/auth/callback) exchanges
+        // the `?code=` itself rather than relying on whichever flow the
+        // library defaults to this major version — an auth flow that changes
+        // shape under a patch bump is not one to leave implicit.
+        flowType: "pkce",
+        detectSessionInUrl: true,
+      },
     });
   }
   return browserClient;
@@ -41,7 +56,7 @@ function isStaleRefreshTokenError(error: { message?: string } | null): boolean {
 // instead of calling supa.auth.getUser() directly — centralizes the
 // cross-tab-race retry so the fix lives in one place, not duplicated (and
 // easy to miss) across every file that loads user-scoped data.
-export async function getAuthedUser(supa: SupabaseClient) {
+export async function getAuthedUser(supa: SupabaseClient<Database>) {
   let result = await supa.auth.getUser();
   if (result.error && isStaleRefreshTokenError(result.error)) {
     await new Promise((resolve) => setTimeout(resolve, 400));

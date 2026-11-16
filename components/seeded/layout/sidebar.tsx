@@ -2,133 +2,128 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BarChart3,
   CalendarDays,
+  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  Clock,
   Compass,
+  DollarSign,
+  FileText,
   LayoutDashboard,
+  LogOut,
   Mail,
-  Menu,
-  Route,
   School,
   Search,
   Settings,
-  Trophy,
-  Users,
-  X,
-  LogOut,
+  TrendingUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
-import { TierSwitcher } from "@/components/layout/tier-switcher";
 import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
-import { GlowOrb } from "@/components/shared/glow-orb";
+import { getSchoolsLite } from "@/lib/db/schools";
+import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
+import { PARENT_NAV_LINKS, PLAYER_NAV_LINKS } from "./nav-links";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { pickFamilyPlayer } from "@/lib/family-view";
 
-type NavLink = { href: string; label: string; icon: LucideIcon };
+// NavLink, PLAYER_NAV_LINKS and PARENT_NAV_LINKS live in ./nav-links — the
+// one list the ⌘K palette also reads.
 
-const APP_LINKS: NavLink[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/roadmap", label: "Roadmap", icon: Route },
-  { href: "/training", label: "Training", icon: CalendarDays },
-  { href: "/match-mode", label: "Match mode", icon: Trophy },
-  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
-  { href: "/schools", label: "Schools", icon: School },
-  { href: "/coaches", label: "Coaches", icon: Mail },
-  { href: "/friends", label: "Friends", icon: Users },
-];
-
-const PARENT_LINKS: NavLink[] = [
-  { href: "/family", label: "Family", icon: Users },
-  { href: "/cost-calculator", label: "Costs", icon: BarChart3 },
-  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
-  { href: "/schools", label: "Schools", icon: School },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+// Real count of /today's action list, computed the same way
+// seeded-dashboard-layout.tsx does — so the sidebar badge never disagrees
+// with what /today actually shows. Cheap: getSchoolsLite() is in-memory, and
+// SWR dedupes the "coach-outreach-dated"/"schools-lite" keys against any
+// other component requesting the same data (e.g. /today itself, when both
+// are mounted together).
+function useTodayActionCount(targetSchoolSlugs: string[], playerUtr: number): number {
+  const { data: schools } = useSWR("schools-lite", () => getSchoolsLite());
+  const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
+  return useMemo(() => {
+    if (!schools) return 0;
+    const targetSchools = schools.filter((s) => targetSchoolSlugs.includes(s.slug));
+    return buildTodayActions(playerUtr, targetSchools, outreach ?? {}).length;
+  }, [schools, outreach, targetSchoolSlugs, playerUtr]);
+}
 
 function initialOf(name: string) {
   return (name.trim()[0] || "S").toUpperCase();
 }
 
-// Same collapse/mobile-drawer/active-route behavior as Legacy's Sidebar
-// (components/layout/sidebar.tsx) — only the visual language differs: a
-// glass panel instead of a flat card, and the active pill is the Seeded
-// accent gradient instead of a flat fill.
+// Pixel-exact to Today.dc.html's sidebar: fixed 232px flat panel (not
+// glass), active item = solid grass-50 pill + grass text (.nav-on), plus a
+// bottom tab bar on mobile (MobileToday.dc.html) replacing the old slide-in
+// drawer. Settings/Family/Tournament fit/Sign out live behind the profile
+// block's avatar menu — the mockup shows that block as static text, but the
+// phase spec explicitly needs those reachable from somewhere, and a static
+// screenshot can't depict an interactive menu.
 export function SeededSidebar() {
   const { player, signOut } = usePlayer();
   const pathname = usePathname();
   const router = useRouter();
   const { collapsed, toggleCollapsed, hydrated } = useSidebar();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   const isParent = player.role === "parent";
-  const links = isParent ? PARENT_LINKS : APP_LINKS;
-  const showTierSwitcher = process.env.NODE_ENV === "development";
-
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  // The logo goes home — and a parent's home is /family: /today is a
+  // player page AuthGate bounces them from.
+  const homeHref = isParent ? PARENT_NAV_LINKS[0].href : PLAYER_NAV_LINKS[0].href;
+  // "Parent of Bailey · read-only": the same subject every parent screen's
+  // ParentScopeLine names, from the same pickFamilyPlayer(). The mockup's
+  // static "Parent view · read-only" is the fallback while it loads.
+  const { data: familyMembers } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+    loadFamilyMembers()
+  );
+  const subjectFirst = (pickFamilyPlayer(familyMembers ?? [])?.name ?? "").trim().split(/\s+/)[0];
+  const parentSubtitle = subjectFirst ? `Parent of ${subjectFirst} · read-only` : "Parent view · read-only";
+  const todayCount = useTodayActionCount(player.targetSchoolSlugs, player.currentUTR);
+  const navLinks = useMemo(() => {
+    const base = isParent ? PARENT_NAV_LINKS : PLAYER_NAV_LINKS;
+    if (isParent || todayCount === 0) return base;
+    return base.map((l) => (l.href === "/today" ? { ...l, badge: todayCount } : l));
+  }, [isParent, todayCount]);
+  // "/family" (Overview) needs an exact match, not startsWith — otherwise
+  // it would also light up on its own sub-routes /family/budget and
+  // /family/weekly-reports, double-highlighting two nav items at once.
+  // Every other link (including those two sub-routes themselves) keeps the
+  // normal startsWith behavior for their own nested pages (e.g. /schools/
+  // [slug]).
+  const isActive = (href: string) =>
+    href === "/family" ? pathname === "/family" : pathname === href || pathname.startsWith(href + "/");
 
   const handleSignOut = () => {
     signOut();
     router.push("/");
-    setMobileOpen(false);
+    setMobileMenuOpen(false);
+    setDesktopMenuOpen(false);
   };
-
-  const profileBody = (
-    <>
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-seeded text-xs font-semibold text-white"
-        style={{ background: "var(--s-accent-gradient)" }}
-      >
-        {initialOf(player.name)}
-      </span>
-      {!collapsed && (
-        <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate font-seeded text-sm font-medium text-ink">
-            {player.name || "Your account"}
-          </span>
-          <span className="block truncate font-seeded text-xs text-stone-light">
-            {isParent ? "Parent" : "Player"}
-          </span>
-        </span>
-      )}
-    </>
-  );
 
   return (
     <>
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "seeded-glass fixed inset-y-0 left-0 z-40 hidden flex-col transition-[width,background-color,border-color,box-shadow] duration-300 ease-out lg:flex",
-          collapsed ? "w-[76px]" : "w-[248px]",
+          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[rgb(var(--c-line))] bg-panel transition-[width] duration-300 ease-out lg:flex",
+          collapsed ? "w-[76px]" : "w-[232px]",
           !hydrated && "duration-0"
         )}
-        style={{ boxShadow: "var(--s-elevation-1)" }}
       >
-        <div className="relative shrink-0 overflow-hidden">
-          <GlowOrb className="-left-10 -top-16 h-32 w-32 opacity-70" />
-          <div
-            className={cn(
-              "group/header relative flex h-16 items-center gap-2 border-b border-[rgb(var(--c-line))] px-4",
-              collapsed && "justify-center px-0"
-            )}
-          >
-          <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-              <span
-                className="absolute inset-0 rounded-full opacity-40 blur-[6px]"
-                style={{ background: "var(--s-accent-gradient)" }}
-              />
-              <span
-                className="relative h-2.5 w-2.5 rounded-full"
-                style={{ background: "var(--s-accent-gradient)" }}
-              />
-            </span>
+        <div
+          className={cn(
+            "group/header flex h-16 shrink-0 items-center gap-2 border-b border-[rgb(var(--c-line))] px-4",
+            collapsed && "justify-center px-0"
+          )}
+        >
+          <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-on-lime" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
                 Seeded
@@ -138,20 +133,29 @@ export function SeededSidebar() {
           {!collapsed && (
             <button
               onClick={toggleCollapsed}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light opacity-0 transition-opacity duration-150 hover:border-[rgb(var(--c-line))] hover:bg-[rgb(var(--c-primary)/0.08)] hover:text-ink group-hover/header:opacity-100"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light opacity-0 transition-opacity duration-150 hover:border-[rgb(var(--c-line))] hover:text-ink group-hover/header:opacity-100"
               aria-label="Collapse sidebar"
             >
               <ChevronsLeft className="h-4 w-4" />
             </button>
           )}
-          </div>
         </div>
+
+        {/* Pixel-exact to "18 Parent view + budget.png": a small
+            "Parent view · read-only" subtitle directly under the
+            wordmark, parent-only — this is the one real visual cue (the
+            actual access boundary is enforced in Supabase RLS + every
+            parent-facing write path, not by this label) that the account
+            can't edit the player's own data from here. */}
+        {!collapsed && isParent && (
+          <p className="shrink-0 px-4 pt-2.5 font-sans text-xs text-stone-light">{parentSubtitle}</p>
+        )}
 
         {collapsed && (
           <div className="flex shrink-0 justify-center pt-3">
             <button
               onClick={toggleCollapsed}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light transition-colors hover:border-[rgb(var(--c-line))] hover:bg-[rgb(var(--c-primary)/0.08)] hover:text-ink"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light transition-colors hover:border-[rgb(var(--c-line))] hover:text-ink"
               aria-label="Expand sidebar"
             >
               <ChevronsRight className="h-4 w-4" />
@@ -163,7 +167,7 @@ export function SeededSidebar() {
           <button
             onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-xl border border-[rgb(var(--c-line))] bg-[rgb(var(--c-primary)/0.03)] px-3 py-2 font-seeded text-sm text-stone-light transition-colors hover:border-[rgb(var(--c-primary)/0.3)] hover:text-ink",
+              "flex w-full items-center gap-2.5 rounded-lg border border-[rgb(var(--c-line))] bg-card px-3 py-2 font-sans text-sm text-stone-light transition-colors hover:border-grass/40 hover:text-ink",
               collapsed && "justify-center px-0"
             )}
             aria-label="Open command palette"
@@ -180,8 +184,8 @@ export function SeededSidebar() {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {links.map((l) => {
+        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="App">
+          {navLinks.map((l) => {
             const Icon = l.icon;
             const active = isActive(l.href);
             return (
@@ -189,38 +193,20 @@ export function SeededSidebar() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "group relative flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-3 font-seeded text-sm font-medium transition-colors duration-150",
-                  active ? "text-on-primary" : "text-stone hover:text-ink",
-                  collapsed && "justify-center pl-0 pr-0"
+                  "flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans text-[15px] transition-colors",
+                  active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
+                  collapsed && "justify-center px-0"
                 )}
               >
-                {active && (
-                  <motion.span
-                    layoutId="seeded-sidebar-active-pill"
-                    className="absolute inset-0 rounded-xl shadow-seeded-1"
-                    style={{ background: "var(--s-accent-gradient)" }}
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  />
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                {!collapsed && <span className="truncate">{l.label}</span>}
+                {!collapsed && !!l.badge && (
+                  <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-on-lime">
+                    {l.badge}
+                  </span>
                 )}
-                {!active && (
-                  <span className="absolute inset-0 rounded-xl bg-[rgb(var(--c-primary)/0.08)] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-                )}
-                <span
-                  className={cn(
-                    "relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150",
-                    active ? "bg-white/15" : "bg-[rgb(var(--c-primary)/0.07)] group-hover:bg-[rgb(var(--c-primary)/0.12)]"
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-[16px] w-[16px] shrink-0 transition-transform duration-200",
-                      !active && "group-hover:scale-110"
-                    )}
-                  />
-                </span>
-                {!collapsed && <span className="relative z-10 truncate">{l.label}</span>}
                 {collapsed && (
-                  <span className="seeded-glass pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 font-seeded text-xs font-medium text-ink opacity-0 shadow-seeded-1 transition-opacity duration-150 group-hover:opacity-100">
+                  <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg border border-[rgb(var(--c-line))] bg-card px-2.5 py-1.5 font-sans text-xs font-medium text-ink opacity-0 shadow-card transition-opacity duration-150 hover:opacity-100">
                     {l.label}
                   </span>
                 )}
@@ -229,139 +215,298 @@ export function SeededSidebar() {
           })}
         </nav>
 
-        <div className={cn("shrink-0 space-y-1 border-t border-[rgb(var(--c-line))] p-3", collapsed && "px-2")}>
-          {showTierSwitcher && !collapsed && <TierSwitcher className="px-0 pb-1" />}
-          <DarkModeToggle showLabel={!collapsed} className={collapsed ? "mx-auto" : undefined} />
-
-          <div className="pt-1" />
-
-          {isParent ? (
-            <div className={cn("flex items-center gap-2.5 rounded-xl p-1.5", collapsed && "justify-center px-0")}>
-              {profileBody}
-            </div>
-          ) : (
-            <Link
-              href="/settings"
-              className={cn(
-                "flex items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-[rgb(var(--c-primary)/0.08)]",
-                collapsed && "justify-center px-0"
-              )}
-            >
-              {profileBody}
-            </Link>
-          )}
-
-          <button
-            onClick={handleSignOut}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-xl border-[1.5px] border-transparent px-1.5 py-1.5 font-seeded text-xs text-stone-light transition-colors hover:border-[rgb(var(--c-line))] hover:text-ink",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            <LogOut className="h-3.5 w-3.5 shrink-0" />
-            {!collapsed && "Sign out"}
-          </button>
+        <div className={cn("relative shrink-0 border-t border-[rgb(var(--c-line))] p-3", collapsed && "px-2")}>
+          <DarkModeToggle showLabel={!collapsed} className={collapsed ? "mx-auto mb-1" : "mb-1"} />
+          <SeededAvatarMenu
+            player={player}
+            isParent={isParent}
+            collapsed={collapsed}
+            open={desktopMenuOpen}
+            onOpenChange={setDesktopMenuOpen}
+            onSignOut={handleSignOut}
+          />
         </div>
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="seeded-glass sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--s-accent-gradient)" }} />
+      {/* Mobile top bar — avatar menu only, nav itself is the bottom tab bar */}
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
+        <Link href={homeHref} className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-ink transition-colors hover:border-[rgb(var(--c-line))]"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <SeededAvatarTrigger
+          player={player}
+          open={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((v) => !v)}
+        />
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <SeededAvatarPanel
+              align="right"
+              onClose={() => setMobileMenuOpen(false)}
+              onSignOut={handleSignOut}
+            />
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-ink/40 lg:hidden"
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 340, damping: 36 }}
-              className="seeded-glass fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col shadow-seeded-2 lg:hidden"
+      {/* Mobile bottom tab bar — pixel-exact to MobileToday.dc.html */}
+      <nav
+        aria-label="App"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[rgb(var(--c-line))] bg-card px-1 pt-1 lg:hidden"
+        style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}
+      >
+        {navLinks.map((l) => {
+          const active = isActive(l.href);
+          const Icon = l.icon;
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={cn(
+                "flex min-h-[52px] flex-1 flex-col items-center justify-center gap-[3px] text-[11px]",
+                active ? "font-semibold text-grass" : "text-stone"
+              )}
             >
-              <div className="flex h-16 items-center justify-between border-b border-[rgb(var(--c-line))] px-4">
-                <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-transparent text-stone transition-colors hover:border-[rgb(var(--c-line))] hover:text-ink"
-                  aria-label="Close menu"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-                {links.map((l) => {
-                  const Icon = l.icon;
-                  const active = isActive(l.href);
-                  return (
-                    <Link
-                      key={l.href}
-                      href={l.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-xl py-2 pl-1.5 pr-3 font-seeded text-sm font-medium transition-colors",
-                        active ? "text-on-primary" : "text-stone hover:text-ink"
-                      )}
-                      style={active ? { background: "var(--s-accent-gradient)" } : undefined}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                          active ? "bg-white/15" : "bg-[rgb(var(--c-primary)/0.07)]"
-                        )}
-                      >
-                        <Icon className="h-[16px] w-[16px] shrink-0" />
-                      </span>
-                      {l.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-              <div className="shrink-0 space-y-1 border-t border-[rgb(var(--c-line))] p-3">
-                {showTierSwitcher && <TierSwitcher />}
-                <DarkModeToggle showLabel />
-                <div className="pt-1" />
-                {isParent ? (
-                  <div className="flex items-center gap-2.5 rounded-xl p-1.5">{profileBody}</div>
-                ) : (
-                  <Link
-                    href="/settings"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-[rgb(var(--c-primary)/0.08)]"
-                  >
-                    {profileBody}
-                  </Link>
+              {/* Pixel-exact hand-drawn icons for the player's mockup-defined
+                  5 items; parent mode has no mockup, so it falls back to the
+                  same lucide icon used in the desktop nav. */}
+              <span className="relative">
+                {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
+                {!!l.badge && (
+                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-on-lime">
+                    {l.badge}
+                  </span>
                 )}
-                <button
-                  onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-xl border-[1.5px] border-transparent px-1.5 py-1.5 font-seeded text-xs text-stone-light transition-colors hover:border-[rgb(var(--c-line))] hover:text-ink"
-                >
-                  <LogOut className="h-3.5 w-3.5 shrink-0" />
-                  Sign out
-                </button>
-              </div>
-            </motion.div>
+              </span>
+              {l.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
+  );
+}
+
+// Inline SVGs copied exactly from MobileToday.dc.html — the mockup draws
+// each tab icon by hand rather than using a stock icon set, so these match
+// pixel-for-pixel instead of substituting the nearest lucide equivalent.
+function TabIcon({ href }: { href: string }) {
+  const common = {
+    width: 22,
+    height: 22,
+    viewBox: "0 0 22 22",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    "aria-hidden": true,
+  } as const;
+
+  switch (href) {
+    case "/today":
+      return (
+        <svg {...common}>
+          <circle cx="11" cy="11" r="8" />
+          <path d="M11 6v5l3 2" />
+        </svg>
+      );
+    case "/plan":
+      return (
+        <svg {...common}>
+          <path d="M3 18l5-6 4 3 7-9" />
+        </svg>
+      );
+    case "/schools":
+      return (
+        <svg {...common}>
+          <path d="M3 9l8-5 8 5M5 9v8h12V9" />
+        </svg>
+      );
+    case "/outreach":
+      return (
+        <svg {...common}>
+          <rect x="3" y="5" width="16" height="12" rx="2" />
+          <path d="M3 7l8 5 8-5" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...common}>
+          <rect x="3" y="5" width="16" height="14" rx="2" />
+          <path d="M3 9h16M8 3v4M14 3v4" />
+        </svg>
+      );
+  }
+}
+
+interface AvatarPlayer {
+  name: string;
+}
+
+function SeededAvatarTrigger({
+  player,
+  open,
+  onClick,
+}: {
+  player: AvatarPlayer;
+  open: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label="Account menu"
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 font-sans text-xs font-semibold text-grass"
+    >
+      {initialOf(player.name)}
+    </button>
+  );
+}
+
+// Desktop: the full profile row (avatar + name/role) is itself the trigger,
+// expanding a menu above it so it never runs off the bottom of the
+// viewport.
+function SeededAvatarMenu({
+  player,
+  isParent,
+  collapsed,
+  open,
+  onOpenChange,
+  onSignOut,
+}: {
+  player: AvatarPlayer & { role?: string };
+  isParent: boolean;
+  collapsed: boolean;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSignOut: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOpenChange(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onOpenChange(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => onOpenChange(!open)}
+        aria-expanded={open}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-[rgb(var(--c-primary)/0.06)]",
+          collapsed && "justify-center px-0"
+        )}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-grass-50 font-sans text-xs font-semibold text-grass">
+          {initialOf(player.name)}
+        </span>
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate font-sans text-sm font-medium text-ink">
+                {player.name || "Your account"}
+              </span>
+              {/* Pixel-exact to "18 Parent view + budget.png"'s footer: a
+                  parent sees "Parent · Billing" (a real link straight to
+                  /settings/billing — parents are typically the ones
+                  actually billed, same "Billed to" framing billing-
+                  content.tsx already uses) instead of a static role
+                  label. Rendered just below, outside this <button> — an
+                  <a> can't nest inside a <button> (invalid HTML) — so the
+                  plain "Player" label is all this row shows for a player. */}
+              {!isParent && (
+                <span className="block truncate font-sans text-xs text-stone-light">Player</span>
+              )}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", open && "rotate-180")} />
           </>
         )}
+      </button>
+      {!collapsed && isParent && (
+        <Link
+          href="/settings/billing"
+          className="flex min-h-6 items-center px-1.5 pb-1 font-sans text-xs text-stone-light"
+        >
+          Parent ·{" "}
+          <span className="font-semibold text-grass underline underline-offset-2">Billing</span>
+        </Link>
+      )}
+      <AnimatePresence>
+        {open && <SeededAvatarPanel align="left" onClose={() => onOpenChange(false)} onSignOut={onSignOut} />}
       </AnimatePresence>
-    </>
+    </div>
+  );
+}
+
+function SeededAvatarPanel({
+  align,
+  onClose,
+  onSignOut,
+}: {
+  align: "left" | "right";
+  onClose: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+      transition={{ duration: 0.12 }}
+      className={cn(
+        "absolute bottom-full z-50 mb-2 w-52 overflow-hidden rounded-lg border border-[rgb(var(--c-line))] bg-card p-1.5 shadow-card",
+        align === "left" ? "left-0" : "right-0 top-full bottom-auto mb-0 mt-2"
+      )}
+    >
+      <PanelLink href="/tournament-fit" icon={Compass} onClick={onClose}>
+        Tournament fit
+      </PanelLink>
+      <PanelLink href="/settings" icon={Settings} onClick={onClose}>
+        Settings
+      </PanelLink>
+      <button
+        onClick={onSignOut}
+        className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 font-sans text-sm text-stone transition-colors hover:bg-[rgb(var(--c-primary)/0.06)] hover:text-ink"
+      >
+        <LogOut className="h-4 w-4 shrink-0" />
+        Sign out
+      </button>
+    </motion.div>
+  );
+}
+
+function PanelLink({
+  href,
+  icon: Icon,
+  onClick,
+  children,
+}: {
+  href: string;
+  icon: LucideIcon;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 font-sans text-sm text-ink transition-colors hover:bg-[rgb(var(--c-primary)/0.06)]"
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {children}
+    </Link>
   );
 }

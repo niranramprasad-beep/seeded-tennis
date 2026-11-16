@@ -1,8 +1,10 @@
 "use client";
 
+import { formatUtrOrNotTracked } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, LogOut, Palette, Users, User2 } from "lucide-react";
+import type { SchoolLite } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { useDesign } from "@/lib/context/design-context";
@@ -11,25 +13,39 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SeededSettingsView } from "@/components/seeded/settings/seeded-settings-view";
+import { ParentSettingsView } from "@/components/seeded/settings/parent-settings-view";
 import { ThemeSwitcher } from "./theme-switcher";
 import { DesignSwitcher } from "./design-switcher";
-import { cn } from "@/lib/utils";
 
 const TIER_LABEL = { free: "Free", player: "Player", family: "Family" } as const;
 
-export function SettingsView() {
+export function SettingsView({ schools = [] }: { schools?: SchoolLite[] }) {
   return (
     <AuthGate>
-      <SettingsInner />
+      <SettingsInner schools={schools} />
     </AuthGate>
   );
 }
 
-function SettingsInner() {
+function SettingsInner({ schools }: { schools: SchoolLite[] }) {
+  const { design } = useDesign();
+  const { player } = usePlayer();
+  // A parent's Settings is about the parent, in either design. Both player
+  // views below render the PLAYER's facts (UTR, grade, class year, gender)
+  // and the Seeded one an editable player-profile form — on an account whose
+  // sidebar says read-only. See parent-settings-view.tsx.
+  if (player.role === "parent") return <ParentSettingsView />;
+  return design === "seeded" ? <SeededSettingsView schools={schools} /> : <LegacySettingsView />;
+}
+
+// The pre-redesign /settings content — unchanged, and still what Legacy
+// users see. The pixel-exact-to-mockup tabbed layout above
+// (SeededSettingsView) is Seeded-only; Legacy never had tabs, so there's
+// nothing in this branch to share with it.
+function LegacySettingsView() {
   const { player, signOut } = usePlayer();
   const { tier } = useTier();
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
@@ -42,16 +58,14 @@ function SettingsInner() {
 
   return (
     <div className="mx-auto max-w-3xl container-px py-10">
-      <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Settings</span>
-      <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
-        Make Seeded yours.
-      </h1>
+      <span className="eyebrow text-gold">Settings</span>
+      <h1 className="mt-3 display-serif text-4xl text-ink sm:text-5xl">Make Seeded yours.</h1>
 
       {/* Appearance */}
-      <Card className={cn("mt-8 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+      <Card className="mt-8 p-6">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-grass" />
-          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Appearance</h2>
+          <h2 className="text-lg font-medium text-ink">Appearance</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
           Legacy or Seeded design, saved across sessions.
@@ -59,19 +73,17 @@ function SettingsInner() {
         <div className="mt-5">
           <DesignSwitcher />
         </div>
-        {design === "legacy" && (
-          <div className="mt-6 border-t-[0.5px] border-line pt-5">
-            <p className="mb-3 text-sm text-stone">Pick a court mood for Legacy.</p>
-            <ThemeSwitcher />
-          </div>
-        )}
+        <div className="mt-6 border-t-[0.5px] border-line pt-5">
+          <p className="mb-3 text-sm text-stone">Pick a court mood for Legacy.</p>
+          <ThemeSwitcher />
+        </div>
       </Card>
 
       {/* Family */}
-      <Card className={cn("mt-4 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+      <Card className="mt-4 p-6">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-grass" />
-          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Family</h2>
+          <h2 className="text-lg font-medium text-ink">Family</h2>
         </div>
         <p className="mt-1 text-sm text-stone">
           Share this code so parents and siblings can follow the same player.
@@ -98,14 +110,14 @@ function SettingsInner() {
       </Card>
 
       {/* Account */}
-      <Card className={cn("mt-4 p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+      <Card className="mt-4 p-6">
         <div className="flex items-center gap-2">
           <User2 className="h-4 w-4 text-grass" />
-          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Account</h2>
+          <h2 className="text-lg font-medium text-ink">Account</h2>
         </div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name} />
-          <Field label="Current UTR" value={player.currentUTR.toFixed(1)} />
+          <Field label="Current UTR" value={formatUtrOrNotTracked(player.currentUTR)} />
           <Field label="Grade" value={`${getCurrentGrade(player.graduationYear)}th grade`} />
           <Field label="Class of" value={String(player.graduationYear)} />
           <Field label="Gender" value={player.gender === "female" ? "Female" : "Male"} />

@@ -1,0 +1,66 @@
+-- Security audit (this task's item 4): every SECURITY DEFINER function in
+-- this project, found by grepping supabase/migrations/*.sql for
+-- "security definer":
+--
+--   1. public.set_updated_at()                      — 001/002 (trigger utility)
+--   2. public.current_family_code()                 — 004
+--   3. public.is_family_member(target_family_code)   — 005
+--   4. public.are_friends(a uuid, b uuid)            — 005
+--   5. public.has_tier(required_tier text)           — 010
+--
+-- None of the 17 migrations before this one ever issued a GRANT/REVOKE
+-- EXECUTE or ALTER DEFAULT PRIVILEGES statement for any of them (confirmed
+-- by grep) — so every one of these still has Postgres's DEFAULT privilege:
+-- EXECUTE granted to PUBLIC, which includes the `anon` role Supabase's
+-- publishable/anon key authenticates as. A SECURITY DEFINER function runs
+-- with the DEFINER's privileges (here, the migration-running role, which
+-- can read/write bypassing RLS) — so "callable by anon" matters even when
+-- a function LOOKS read-only, because an unauthenticated caller can invoke
+-- it directly via PostgREST's `/rpc/<function_name>` endpoint (what
+-- supabase-js's `.rpc()` calls), not just indirectly through a policy.
+--
+-- What each one actually exposes to an anon caller today, and why each is
+-- being revoked:
+--
+--   - are_friends(a, b): THE REAL FINDING. Both args are arbitrary uuids,
+--     not derived from auth.uid() — an anon caller who already knows (or
+--     guesses/enumerates) two user ids can call
+--     `rpc('are_friends', { a, b })` and learn whether they're mutual
+--     friends, with ZERO authentication. That's a genuine, exploitable
+--     social-graph information leak, not a theoretical one.
+--
+--   - current_family_code() / is_family_member(target_family_code): both
+--     key off auth.uid(), which is NULL for anon — so today anon gets back
+--     null/false no matter what, not a live leak. Still revoking: an
+--     internal-only helper having zero legitimate reason to be anon-
+--     callable is exactly the "shouldn't have it" case this task's item 4
+--     asks to fix, and relying on "auth.uid() happens to be null" is
+--     incidental protection, not a declared boundary.
+--
+--   - has_tier(required_tier): keys off auth.uid() the same way — only
+--     ever returns true for anon when required_tier = 'free' (true for
+--     everyone by design). Not a leak, but same "no legitimate reason for
+--     anon to call this directly" reasoning applies.
+--
+--   - set_updated_at(): a BEFORE UPDATE trigger function (reads/writes the
+--     implicit `NEW` record). Calling it directly as a plain function
+--     outside trigger context is a runtime error in Postgres, not a data
+--     exposure — but it's also never meant to be called directly by any
+--     role, so it's included for the same completeness/defense-in-depth
+--     reasoning as the two helpers above.
+--
+-- Every one of these is still used from inside RLS policies evaluated for
+-- the `authenticated` role (or, for set_updated_at, from triggers, which
+-- run as the table owner regardless of grants) — EXECUTE is intentionally
+-- kept for `authenticated` below so no existing policy breaks. Only `anon`
+-- loses access.
+--
+-- NOT applied automatically — tracked in git for review and must be run by
+-- hand against the real Supabase project, same discipline as every
+-- migration in this project since 009.
+
+revoke execute on function public.set_updated_at() from anon;
+revoke execute on function public.current_family_code() from anon;
+revoke execute on function public.is_family_member(text) from anon;
+revoke execute on function public.are_friends(uuid, uuid) from anon;
+revoke execute on function public.has_tier(text) from anon;

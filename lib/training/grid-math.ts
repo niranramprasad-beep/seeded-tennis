@@ -1,4 +1,4 @@
-import type { TrainingPlannerSession } from "@/lib/supabase/training";
+import type { TrainingPlannerSession } from "@/lib/db/events";
 import type { WeekdayShort } from "@/lib/types";
 import { localDateKey } from "@/lib/time";
 

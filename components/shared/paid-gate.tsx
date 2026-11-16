@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Lock, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import type { SubscriptionTier } from "@/lib/types";
+import { formatTierPrice, type SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
+import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -17,11 +18,12 @@ const TIER_LABEL: Record<SubscriptionTier, string> = {
   family: "Family",
 };
 
-const TIER_PRICE: Record<SubscriptionTier, string> = {
-  free: "$0",
-  player: "$19/mo",
-  family: "$39/mo",
-};
+// Derived from the one price table (lib/types), never retyped. This used to
+// be a third hand-kept copy; when Player moved to $12 the paywall would have
+// gone on quoting $19 to the one audience most likely to click it.
+function tierPriceLabel(tier: SubscriptionTier): string {
+  return tier === "free" ? "$0" : `${formatTierPrice(tier, "monthly")}/mo`;
+}
 
 interface PaidGateProps {
   required: SubscriptionTier;
@@ -39,6 +41,9 @@ export function PaidGate({
   children,
 }: PaidGateProps) {
   const { canAccess, hydrated } = useTier();
+  const { design } = useDesign();
+  const dashboardHref = design === "seeded" ? "/today" : "/dashboard";
+  const dashboardLabel = design === "seeded" ? "Back to Today" : "Back to dashboard";
 
   if (!hydrated) {
     return (
@@ -61,7 +66,7 @@ export function PaidGate({
           <Lock className="h-6 w-6" />
         </span>
         <Badge variant="leaf" size="md" className="mt-5">
-          {TIER_LABEL[required]} tier · {TIER_PRICE[required]}
+          {TIER_LABEL[required]} tier · {tierPriceLabel(required)}
         </Badge>
         <h1 className="mt-4 text-balance text-3xl font-light tracking-tight text-ink sm:text-4xl">
           {feature} is a{" "}
@@ -94,10 +99,10 @@ export function PaidGate({
             See plans
           </Link>
           <Link
-            href="/dashboard"
+            href={dashboardHref}
             className={buttonVariants({ variant: "outline", size: "lg" })}
           >
-            Back to dashboard
+            {dashboardLabel}
           </Link>
         </div>
 

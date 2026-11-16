@@ -51,6 +51,10 @@ function utrBand(utr: number): string {
 }
 
 const STEPS = ["Current UTR", "Grade", "Target schools", "Focus areas"];
+// Where the UTR slider's thumb sits before the player touches it: the middle
+// of the 1–16.5 scale, matching the middle tick label. A position, never a
+// value — nothing is recorded until the thumb moves.
+const SLIDER_REST_POSITION = 8.75;
 
 export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
   const router = useRouter();
@@ -62,7 +66,13 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
   const [direction, setDirection] = useState(1);
 
   // Seed from the session player when arriving from sign-up.
-  const [utr, setUtr] = useState(player.currentUTR || 7);
+  // No rating is not a rating of 7. This defaulted to 7, and pressing
+  // Continue without touching the slider saved 7.0 as the player's real UTR
+  // (plus a "Starting UTR" history entry) — which then banded every school
+  // and went into the coach email as "My UTR is 7.0 (self-reported)". The
+  // player now either moves the slider or says they don't have one yet.
+  const [utr, setUtr] = useState<number | null>(player.currentUTR > 0 ? player.currentUTR : null);
+  const [noUtrYet, setNoUtrYet] = useState(false);
   const [grade, setGrade] = useState(
     Math.min(12, Math.max(8, getCurrentGrade(player.graduationYear))) || 10
   );
@@ -77,7 +87,11 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
   const progress = ((step + 1) / STEPS.length) * 100;
 
   const canContinue =
-    step === 2 ? selected.length > 0 : true; // schools required, others optional
+    step === 0
+      ? utr != null || noUtrYet // an explicit rating, or an explicit "none yet"
+      : step === 2
+        ? selected.length > 0
+        : true; // schools required, others optional
 
   const go = (dir: number) => {
     setDirection(dir);
@@ -104,7 +118,9 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
     const graduationYear = getGradYearFromGrade(grade);
     const next: Player = {
       ...player,
-      currentUTR: utr,
+      // 0 is the in-memory "not tracked" sentinel; writeCurrentPlayerProfile
+      // stores it as NULL, and completeOnboarding writes no UTR entry for it.
+      currentUTR: noUtrYet || utr == null ? 0 : utr,
       graduationYear,
       commitmentDate: getDefaultCommitDate(graduationYear),
       gender,
@@ -163,30 +179,57 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
                 >
                   <div className="mt-10 text-center">
                     <div className={cn("tracking-tight", isSeeded ? "font-mono seeded-gradient-text" : "font-light text-grass")}>
-                      <span className="text-7xl">{formatUTR(utr)}</span>
+                      <span className="text-7xl">{utr != null && !noUtrYet ? formatUTR(utr) : "—"}</span>
                     </div>
-                    <Badge
-                      size="md"
-                      variant={isSeeded ? undefined : "leaf"}
-                      className="mt-3"
-                      style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
-                    >
-                      {utrBand(utr)}
-                    </Badge>
+                    {utr != null && !noUtrYet ? (
+                      <Badge
+                        size="md"
+                        variant={isSeeded ? undefined : "leaf"}
+                        className="mt-3"
+                        style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+                      >
+                        {utrBand(utr)}
+                      </Badge>
+                    ) : (
+                      <p className="mt-3 text-sm text-stone">
+                        {noUtrYet ? "No rating yet — you can add one any time from Today." : "Drag the slider to your rating."}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-10 px-1">
                     <Slider
-                      value={utr}
+                      // The thumb has to sit somewhere before a choice is made;
+                      // nothing is recorded until it moves.
+                      value={utr ?? SLIDER_REST_POSITION}
                       min={1}
                       max={16.5}
                       step={0.25}
-                      onChange={setUtr}
+                      onChange={(v: number) => {
+                        setUtr(v);
+                        setNoUtrYet(false);
+                      }}
                       aria-label="Current UTR"
                     />
                     <div className="mt-2 flex justify-between text-xs text-stone-light">
                       <span>1.0</span>
                       <span>8.75</span>
                       <span>16.5</span>
+                    </div>
+                    <div className="mt-6 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNoUtrYet(true);
+                          setUtr(null);
+                        }}
+                        aria-pressed={noUtrYet}
+                        className={cn(
+                          "inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-semibold transition-colors",
+                          noUtrYet ? "border-grass bg-grass-50 text-grass" : "border-input bg-card text-ink hover:bg-subtle-hover"
+                        )}
+                      >
+                        I don&apos;t have a UTR yet
+                      </button>
                     </div>
                   </div>
                 </StepShell>
@@ -300,7 +343,7 @@ export function OnboardingFlow({ schools }: { schools: SchoolLite[] }) {
                 <StepShell
                   eyebrow="Your game"
                   title="What do you want to improve?"
-                  subtitle="We'll weight your training plan toward these. Choose as many as you like."
+                  subtitle="Seeded highlights these when you plan your week. Choose as many as you like."
                 >
                   <div className="mt-8 grid gap-3 sm:grid-cols-2">
                     {WEAKNESS_OPTIONS.map((w) => {

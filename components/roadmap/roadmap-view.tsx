@@ -7,7 +7,7 @@ import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-
 import type { SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildRoadmap } from "@/lib/data";
+import { buildRoadmap } from "@/lib/db/plan";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededRoadmapLayout } from "@/components/seeded/roadmap/seeded-roadmap-layout";
-import { formatUTR, cn } from "@/lib/utils";
+import { formatUTR, cn, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 
 // recharts only loads once this chart actually renders, on the client.
 const UTRLineChart = dynamic(
@@ -35,12 +35,17 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
       <PaidGate
         required="player"
         feature="Your roadmap"
-        blurb="A year-by-year plan with realistic UTR targets, the tournaments that get you there, and a what-if planner to compare schools."
+        // Sold only what /plan contains. It listed "Tournament counts that
+        // match each level" and "An animated trajectory" (Legacy-only, or
+        // not there at all) and "What-if planning across up to five
+        // programs" — while /pricing, correctly, lists the what-if school
+        // planner as FREE (it is on /schools for everyone).
+        blurb="Your plan to the summer before senior year: UTR checkpoints, your target schools in order, and your results beside them."
         perks={[
-          "Year-by-year UTR targets tuned to your schools",
-          "Tournament counts that match each level",
-          "What-if planning across up to five programs",
-          "An animated trajectory you can actually follow",
+          "Year-by-year UTR checkpoints toward your target schools",
+          "Your targets in order, with why each sits in its band",
+          "Recent results beside the plan",
+          "The NCAA contact-date checklist, as general guidance",
         ]}
       >
         <RoadmapInner schools={schools} />
@@ -145,7 +150,7 @@ function LegacyRoadmapLayout({
       <Reveal className="max-w-2xl">
         <span className="eyebrow text-gold">Your roadmap</span>
         <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-          From {formatUTR(player.currentUTR)} to{" "}
+          From {formatUtrOrNotTracked(player.currentUTR)} to{" "}
           <span className="serif-accent text-grass">{formatUTR(goalUTR)}</span>,
           year by year.
         </h1>
@@ -184,8 +189,9 @@ function LegacyRoadmapLayout({
             <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
           </div>
           <p className="mt-3 text-sm text-on-primary/80">
-            +{formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you
-            are today
+            {hasRealUtr(player.currentUTR)
+              ? `+${formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
+              : "Log a UTR to see the gap from where you are today"}
           </p>
           <div className="mt-4 flex flex-wrap gap-1.5">
             {targetSchools.map((s) => (

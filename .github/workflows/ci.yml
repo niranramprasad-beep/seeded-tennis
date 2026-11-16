@@ -1,0 +1,75 @@
+name: CI
+
+# P1-OPS-1. Four build-failing honesty guards now live in the test suite
+# (schools-catalog-honesty, copy-honesty, the coach-email assertions, and
+# fit-band-consistency). They only protect the product if something runs them
+# on every change — until this workflow existed, nothing did.
+#
+# Required check for merging into main: the `verify` job below.
+# Branch protection is a repo setting, not a file; see docs/DEPLOYMENT_CHECKLIST.md
+# for the exact settings to enable.
+
+on:
+  pull_request:
+    branches: [main, v1]
+  push:
+    branches: [main, v1]
+
+# A new push to the same branch/PR makes the in-flight run obsolete.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Vercel project's runtime (nodeVersion "24.x", checked
+          # 2026-11-11). CI passing on a different major than production
+          # builds on is a gap worth not having.
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Includes the honesty guards. Each was confirmed to actually fail when
+      # its bug is reintroduced — see the notes in MASTER_ROADMAP.
+      - name: Tests
+        run: npm test
+
+      # One attempt. The retry that used to live here existed for the
+      # `next/font` Google Fonts flake ("Cannot read properties of null
+      # (reading '1')"), which took down a real production redeploy on
+      # 2026-11-14. The fonts are self-hosted now (app/fonts/, next/font/local
+      # in app/layout.tsx) so the build makes no third-party network call and
+      # the flake is gone — verified with three consecutive clean builds.
+      #
+      # Do not reintroduce a retry. A build that needs retrying is telling you
+      # something, and a CI that passes on the second try is one people learn
+      # to force-merge past.
+      - name: Build
+        run: npm run build
+
+      # No deploy step on purpose. main auto-deploys to seededtennis.com via
+      # Vercel's own Git integration, and that gate is deliberately a person
+      # (CLAUDE.md: "only merge to main after CI passes and Niran says go").

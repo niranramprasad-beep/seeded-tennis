@@ -7,6 +7,19 @@ import {
   CONTACT_PERIOD_OPEN_DAY,
   CONTACT_PERIOD_OPEN_MONTH,
   CONTACT_PERIOD_OPENS_BEFORE_GRADE,
+  D1_OFFCAMPUS_CONTACT_BEFORE_GRADE,
+  D1_OFFCAMPUS_CONTACT_DAY,
+  D1_OFFCAMPUS_CONTACT_MONTH,
+  D1_WRITTEN_OFFER_BEFORE_GRADE,
+  D1_WRITTEN_OFFER_DAY,
+  D1_WRITTEN_OFFER_MONTH,
+  D3_OFFCAMPUS_CONTACT_BEFORE_GRADE,
+  D3_OFFCAMPUS_CONTACT_DAY,
+  D3_OFFCAMPUS_CONTACT_MONTH,
+  D3_OFFICIAL_VISIT_BEFORE_GRADE,
+  D3_OFFICIAL_VISIT_DAY,
+  D3_OFFICIAL_VISIT_MONTH,
+  D3_OFFICIAL_VISIT_YEAR_OFFSET,
   DEFAULT_COMMIT_BEFORE_GRADE,
   DEFAULT_COMMIT_DAY,
   DEFAULT_COMMIT_MONTH,
@@ -74,9 +87,41 @@ export function getDefaultCommitDate(gradYear: number): string {
 
 export type RecruitingPhase = "foundation" | "active-contact" | "commitment" | "graduated";
 
-function getContactOpenDate(gradYear: number): Date {
+/** D1: when coaches may first correspond/call (June 15 after sophomore
+ * year) — see lib/config/recruiting.ts's NCAA-calendar banner for the
+ * "general rule, not permanently fixed" caveat every caller must repeat. */
+export function getD1ContactOpenDate(gradYear: number): Date {
   const openYear = getSummerBeforeGradeYear(gradYear, CONTACT_PERIOD_OPENS_BEFORE_GRADE);
   return new Date(openYear, CONTACT_PERIOD_OPEN_MONTH - 1, CONTACT_PERIOD_OPEN_DAY);
+}
+
+/** D1: when off-campus contact, official visits, and unofficial visits
+ * with athletics-staff involvement may begin (Aug 1 of junior year). */
+export function getD1OffCampusContactDate(gradYear: number): Date {
+  const year = getSummerBeforeGradeYear(gradYear, D1_OFFCAMPUS_CONTACT_BEFORE_GRADE);
+  return new Date(year, D1_OFFCAMPUS_CONTACT_MONTH - 1, D1_OFFCAMPUS_CONTACT_DAY);
+}
+
+/** D1: when written offers of athletic aid may first be provided (Aug 1 of
+ * senior year). */
+export function getD1WrittenOfferDate(gradYear: number): Date {
+  const year = getSummerBeforeGradeYear(gradYear, D1_WRITTEN_OFFER_BEFORE_GRADE);
+  return new Date(year, D1_WRITTEN_OFFER_MONTH - 1, D1_WRITTEN_OFFER_DAY);
+}
+
+/** D3: when in-person off-campus contact may begin (once sophomore year is
+ * complete). */
+export function getD3OffCampusContactDate(gradYear: number): Date {
+  const year = getSummerBeforeGradeYear(gradYear, D3_OFFCAMPUS_CONTACT_BEFORE_GRADE);
+  return new Date(year, D3_OFFCAMPUS_CONTACT_MONTH - 1, D3_OFFCAMPUS_CONTACT_DAY);
+}
+
+/** D3: when official visits may begin (Jan 1 of junior year — one calendar
+ * year after the "summer before 11th grade" window). */
+export function getD3OfficialVisitDate(gradYear: number): Date {
+  const year =
+    getSummerBeforeGradeYear(gradYear, D3_OFFICIAL_VISIT_BEFORE_GRADE) + D3_OFFICIAL_VISIT_YEAR_OFFSET;
+  return new Date(year, D3_OFFICIAL_VISIT_MONTH - 1, D3_OFFICIAL_VISIT_DAY);
 }
 
 /** Where a player stands in the recruiting calendar right now. */
@@ -84,7 +129,7 @@ export function getRecruitingPhase(gradYear: number, date: Date = new Date()): R
   const grade = getCurrentGrade(gradYear, date);
   if (grade >= GRADUATED_GRADE) return "graduated";
   if (grade >= SENIOR_GRADE) return "commitment";
-  if (date >= getContactOpenDate(gradYear)) return "active-contact";
+  if (date >= getD1ContactOpenDate(gradYear)) return "active-contact";
   return "foundation";
 }
 
@@ -92,6 +137,18 @@ export function getRecruitingPhase(gradYear: number, date: Date = new Date()): R
 export function ordinalGrade(grade: number): string {
   const map: Record<number, string> = { 9: "9th", 10: "10th", 11: "11th", 12: "12th" };
   return map[grade] ?? `${grade}th`;
+}
+
+export type Season = "fall" | "winter" | "spring" | "summer";
+
+/** Which of the 4 US school-calendar seasons `date` falls in — hoisted here
+ * (the one place date math lives) from a copy that used to live only inside
+ * seeded-dashboard-layout.tsx's local `seasonLabel()`, so /family's own
+ * "Junior fall"-style label and /today's "Junior fall" badge can never
+ * drift apart. */
+export function currentSeason(date: Date = new Date()): Season {
+  const month = date.getMonth();
+  return month >= 7 && month <= 10 ? "fall" : month >= 11 || month <= 1 ? "winter" : month <= 4 ? "spring" : "summer";
 }
 
 /** Parses a plain "YYYY-MM-DD" string as local midnight. `new Date(isoDate)`

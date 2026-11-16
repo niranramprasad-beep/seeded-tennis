@@ -5,10 +5,16 @@ import { useDesign } from "@/lib/context/design-context";
 import { LegacyHomeView } from "./legacy-home-view";
 import { SeededHomeView } from "@/components/seeded/home/seeded-home-view";
 
-export function HomeDesignSwitch({ marqueeSchools }: { marqueeSchools: SchoolLite[] }) {
+export function HomeDesignSwitch({
+  schools,
+  marqueeSchools,
+}: {
+  schools: SchoolLite[];
+  marqueeSchools: SchoolLite[];
+}) {
   const { design } = useDesign();
   return design === "seeded" ? (
-    <SeededHomeView marqueeSchools={marqueeSchools} />
+    <SeededHomeView schools={schools} />
   ) : (
     <LegacyHomeView marqueeSchools={marqueeSchools} />
   );

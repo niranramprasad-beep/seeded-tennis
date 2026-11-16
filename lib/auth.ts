@@ -1,7 +1,11 @@
 import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
 import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
+import { validateUtrProfileLink } from "@/lib/utr-profile-link";
+import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
+import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 
 export { isSupabaseConfigured };
 
@@ -13,6 +17,12 @@ export interface AccountInput {
   gender: PlayerGender;
   grade: number;
   role: "player" | "parent";
+  /** P0-8. Collected at signup so the product knows who is under 13 instead
+   * of inferring it from `grade`. The database decides what it means:
+   * profiles.consent_status is derived from this by the 022/030 trigger and
+   * is never read from the request body. Optional only so the pre-030 call
+   * sites and tests keep compiling — the signup form always sends it. */
+  birthYear?: number | null;
 }
 
 export type FamilyChoice =
@@ -24,20 +34,37 @@ export interface AuthResult {
   error?: string;
   familyCode?: string;
   confirmationRequired?: boolean;
+  /** Set when signing up with `familyMode: "join"`. A bad code is not a
+   * failed signup — the account is real and usable, the person just isn't
+   * in a family yet, so the UI sends them to the pending screen with a
+   * "Wrong code? Re-enter" option rather than stranding them. */
+  joinStatus?: JoinFamilyStatus;
 }
 
-export function generateFamilyCode(name: string): string {
-  const prefix =
-    (name.split(/\s+/)[0] || "TEAM").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) ||
-    "TEAM";
-  const rand = Math.random()
-    .toString(36)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 4)
-    .padEnd(4, "X");
-  return `${prefix}-${rand}`;
+// Unguessable family codes.
+//
+// This used to be `FIRSTNAME-XXXX` from Math.random(): the prefix leaked the
+// player's first name to anyone holding a code, and four base-36 characters
+// of a non-cryptographic PRNG is not a secret. Both halves of that were part
+// of why P0-2 was exploitable.
+//
+// Matches generate_family_code() in migration 023 (same alphabet, same
+// length) so a code minted here and one minted in the database are
+// indistinguishable. The alphabet omits I/O/0/1 — these get read aloud and
+// typed by parents.
+const FAMILY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FAMILY_CODE_LENGTH = 12;
+
+export function generateFamilyCode(_name?: string): string {
+  const bytes = new Uint8Array(FAMILY_CODE_LENGTH);
+  globalThis.crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < FAMILY_CODE_LENGTH; i++) {
+    out += FAMILY_CODE_ALPHABET[bytes[i] % FAMILY_CODE_ALPHABET.length];
+  }
+  return out;
 }
+
 
 // Thrown when Supabase isn't configured. Auth has exactly one backend — there
 // is no local/offline fallback that fabricates accounts. In development this
@@ -75,8 +102,25 @@ function friendlyAuthError(message: string): string {
   if (isNetworkFailureMessage(message)) {
     return "Can't reach the server right now. Check your connection, or the Seeded backend may be temporarily unavailable. Please try again in a moment.";
   }
-  if (message.toLowerCase().includes("not confirmed")) {
+  const m = message.toLowerCase();
+  if (m.includes("not confirmed")) {
     return "Check your inbox to confirm your email.";
+  }
+  // Supabase Auth's own wording, which the login form used to show
+  // verbatim ("Invalid login credentials").
+  if (m.includes("invalid login credentials")) {
+    return "That email and password don't match an account. Check both, or reset your password.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "There's already an account with that email. Sign in instead.";
+  }
+  if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
+    return "Too many attempts in a short time. Wait a few minutes and try again.";
+  }
+  // Supabase Auth's 500 text — "Unexpected failure, please check server
+  // logs for more information" — was shown verbatim on the login form.
+  if (m.includes("unexpected failure") || m.includes("server logs") || m.includes("internal server error")) {
+    return "Something went wrong on our side. Try again in a moment, or reset your password.";
   }
   return message;
 }
@@ -115,6 +159,7 @@ export async function signUp(
           gender: input.gender,
           grade: input.grade,
           role: input.role,
+          birth_year: input.birthYear ?? null,
           family_code: familyCode,
           family_mode: family.mode,
         },
@@ -147,12 +192,117 @@ export async function signUp(
     gender: input.gender,
     grade: input.grade,
     role: input.role,
+    birthYear: input.birthYear ?? null,
     familyCode,
     familyMode: family.mode,
   });
   if (!profileResult.ok) return profileResult;
 
   return { ok: true, familyCode };
+}
+
+// Starts Google OAuth via Supabase. This calls the real Supabase API — it's
+// not a fabricated button. Whether it actually completes depends on the
+// Google provider being enabled (with a client ID/secret) in this project's
+// Supabase dashboard under Authentication → Providers, which can't be
+// verified or configured from application code; if it isn't enabled yet,
+// Supabase returns a clear provider error here rather than silently failing.
+export async function signInWithGoogle(next?: string): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return notConfiguredResult();
+
+  // Always our own callback route, never `window.location.href`. The old
+  // behaviour sent Google back to whatever page the button was on, which
+  // meant no single place exchanged the code, no single place decided where
+  // a brand-new user goes, and a redirect URL that changed per page — so the
+  // Supabase allowlist had to be wide. One path, allowlisted once.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const safeNext = safeRedirectPath(next ?? null);
+  const redirectTo = `${origin}${OAUTH_CALLBACK_PATH}${
+    safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""
+  }`;
+
+  try {
+    const { error } = await supa.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+    if (error) return { ok: false, error: friendlyAuthError(error.message) };
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: friendlyAuthError(e instanceof Error ? e.message : String(e)),
+    };
+  }
+}
+
+/**
+ * Finishes a Google signup.
+ *
+ * Google gives us an authenticated user and an email. It does not give us a
+ * birth year, a role, or a family — the three things the product is built
+ * around and the first of which decides whether the account is allowed to be
+ * active at all (P0-8). So a Google user with no profile row is NOT a
+ * finished signup, and app/auth/complete collects the rest before this runs.
+ *
+ * Deliberately the same `ensureSupabaseProfile` the email path uses, with
+ * the same arguments. There is no second profile-creation path to drift:
+ * the under-13 consent trigger, the family-join RPC and the 022 column lock
+ * all apply identically, because it is the same code.
+ */
+export async function completeOAuthProfile(input: {
+  name: string;
+  country: string;
+  gender: PlayerGender;
+  grade: number;
+  birthYear: number | null;
+  role: FamilyRole;
+  family: FamilyChoice;
+}): Promise<AuthResult> {
+  const supa = getSupabase();
+  if (!supa) return notConfiguredResult();
+
+  const { data, error } = await supa.auth.getUser();
+  if (error || !data.user) {
+    return { ok: false, error: "Your sign-in expired. Try signing in again." };
+  }
+
+  const familyCode =
+    input.family.mode === "create"
+      ? generateFamilyCode()
+      : input.family.code.trim().toUpperCase();
+  if (input.family.mode === "join" && !familyCode) {
+    return { ok: false, error: "Enter a family code to join." };
+  }
+
+  return ensureSupabaseProfile({
+    userId: data.user.id,
+    email: data.user.email ?? "",
+    name: input.name,
+    country: input.country,
+    gender: input.gender,
+    grade: input.grade,
+    birthYear: input.birthYear,
+    role: input.role,
+    familyCode,
+    familyMode: input.family.mode,
+  });
+}
+
+/** Whether the signed-in user has finished signing up. A Google user exists
+ * in auth with no profile row until app/auth/complete runs. */
+export async function hasSeededProfile(): Promise<boolean> {
+  const supa = getSupabase();
+  if (!supa) return false;
+  const { data } = await supa.auth.getUser();
+  if (!data.user) return false;
+  const { data: profile } = await supa
+    .from("profiles")
+    .select("id")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  return Boolean(profile);
 }
 
 export async function signIn(
@@ -243,7 +393,9 @@ function buildPlayerFromAuthProfile(input: {
   return {
     ...emptyPlayer,
     name: input.name || input.email,
-    currentUTR: 7,
+    // Not 7 — see lib/data/user.ts. A brand-new account has no UTR until the
+    // person enters one, and `<= 0` is how the rest of the code says so.
+    currentUTR: 0,
     graduationYear,
     commitmentDate: getDefaultCommitDate(graduationYear),
     gender: input.gender,
@@ -319,12 +471,27 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
   return {
     ...emptyPlayer,
     name: profile.name || fallbackEmail || emptyPlayer.name,
+    // A null current_utr becomes 0 ("not tracked"), never a plausible number.
     currentUTR: Number(profile.current_utr ?? emptyPlayer.currentUTR),
     graduationYear,
     commitmentDate: profile.commitment_date ?? getDefaultCommitDate(graduationYear),
     gender: (profile.gender ?? emptyPlayer.gender) as PlayerGender,
     country: profile.country ?? emptyPlayer.country,
     role: (profile.role ?? emptyPlayer.role) as FamilyRole,
+    // DELIBERATELY the raw profile column, NOT my_family_code().
+    //
+    // This value is round-tripped straight back into the profile by
+    // writeCurrentPlayerProfile() below, and 022/030/035's trigger REJECTS
+    // any client change to family_code with 42501. A joiner's profile
+    // carries NULL on purpose; substituting their real family code here
+    // would turn every ordinary profile save — renaming yourself in
+    // Settings — into "This profile field can only be changed by Seeded."
+    // for every member who joined with a code.
+    //
+    // Nothing displays this. /family reads the shareable code from
+    // loadMyFamilyCode() (the my_family_code() RPC), which answers for both
+    // membership shapes. If you need "which family is this user in",
+    // that is the function you want — see lib/db/family-scope.ts.
     familyCode: profile.family_code ?? undefined,
     targetSchoolSlugs:
       (profile.target_school_slugs as string[] | null) ??
@@ -335,6 +502,15 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
     ),
     tournamentsGoal: Number(profile.tournaments_goal ?? emptyPlayer.tournamentsGoal),
     onboarded: Boolean(profile.onboarded),
+    // home_area/utr_profile_link/gpa/deletion_requested_at (migration
+    // 014_profile_fields_and_deletion.sql) are read safely even before that
+    // migration is applied: `select("*")` only ever returns columns that
+    // actually exist, so these just come back undefined (not an error) on
+    // an unmigrated database.
+    homeArea: profile.home_area ?? emptyPlayer.homeArea,
+    utrProfileLink: profile.utr_profile_link ?? emptyPlayer.utrProfileLink,
+    gpa: profile.gpa != null ? Number(profile.gpa) : null,
+    deletionRequestedAt: profile.deletion_requested_at ?? null,
   };
 }
 
@@ -416,22 +592,87 @@ export async function getSessionState(): Promise<SessionState> {
   }
 }
 
-export async function saveCurrentPlayer(player: Player): Promise<void> {
+// Returns whether the write actually succeeded — real signal the
+// star-to-target optimistic update (lib/hooks/use-star-schools.ts) awaits
+// to decide whether to silently roll back. "Nothing to fail against" (no
+// backend configured, or signed out) counts as success: that's the same
+// no-op this function has always been in those cases, not a new failure
+// mode. A thrown exception (e.g. a genuine network error, OR the real
+// write failing server-side with a specific message) is the one real
+// failure case — this never propagates it, same as before; only the
+// boolean changes.
+export async function saveCurrentPlayer(player: Player): Promise<boolean> {
+  try {
+    return await saveCurrentPlayerOrThrow(player);
+  } catch {
+    return false;
+  }
+}
+
+// The browser-side half of the generic profile-patch every settings/
+// onboarding/profile-edit flow funnels through (updatePlayer() in
+// lib/context/player-context.tsx). The actual Supabase upsert no longer
+// happens here: this posts the full merged player to app/api/profile, the
+// zod-validated route handler that supplies a request-scoped client and
+// calls writeCurrentPlayerProfile (below) to perform the real write
+// server-side — same "no browser-direct write" shape as every other
+// migrated write path in lib/db/*. Preserves the exact pre-existing
+// early-exit behavior (no backend configured, or signed out, both count
+// as a no-op success) so this is a pure plumbing change, not a behavior
+// change, for any of this function's many existing callers.
+async function saveCurrentPlayerOrThrow(player: Player): Promise<boolean> {
   const supa = getSupabase();
-  if (!supa) return;
+  if (!supa) return true;
 
   const { data } = await getAuthedUser(supa);
-  if (!data.user) return;
+  if (!data.user) return true;
 
-  await supa.from("profiles").upsert({
-    id: data.user.id,
-    email: data.user.email,
+  const { postJson } = await import("@/lib/api-client");
+  await postJson("/api/profile", player);
+  return true;
+}
+
+/** Used ONLY by app/api/profile's route handler, which passes its own
+ * request-scoped, RLS-respecting client + already-authenticated user id/
+ * email. writeCurrentPlayerProfile below uses this to do the real
+ * Supabase write server-side — there's no browser-direct write path left
+ * (see saveCurrentPlayerOrThrow's doc comment above). */
+export interface PlayerWriteContext {
+  supabase: TypedSupabaseClient;
+  userId: string;
+  userEmail: string | null;
+}
+
+/**
+ * Performs the real profile upsert — moved verbatim out of
+ * saveCurrentPlayerOrThrow, just re-targeted from the browser's own
+ * Supabase client to the request-scoped one the route handler supplies.
+ * Throws a specific Error on a real write failure (the route surfaces
+ * `err.message` in its JSON response, same convention as every other
+ * lib/db/* write function); resolves on success.
+ */
+export async function writeCurrentPlayerProfile(
+  player: Player,
+  ctx: PlayerWriteContext
+): Promise<void> {
+  const base = {
+    id: ctx.userId,
+    email: ctx.userEmail,
     name: player.name,
     country: player.country,
     gender: player.gender,
     role: player.role,
     family_code: player.familyCode ?? null,
-    current_utr: player.currentUTR,
+    // NULL, not 0. `profiles_current_utr_check` (migration 006, live on
+    // production) is `current_utr is null or current_utr between 1 and 16.5`,
+    // so writing the 0 sentinel raises 23514 and every profile write fails
+    // for anyone who has not entered a UTR — found by a verification pass
+    // after the sentinel landed, reproduced on staging.
+    //
+    // This is also the more honest shape: "not tracked" is NULL in the
+    // database, 0 only in memory, and the two round-trip
+    // (NULL -> 0 via mapProfileToPlayer, 0 -> NULL here).
+    current_utr: player.currentUTR > 0 ? player.currentUTR : null,
     graduation_year: player.graduationYear,
     commitment_date: player.commitmentDate,
     target_school_slugs: player.targetSchoolSlugs,
@@ -439,7 +680,41 @@ export async function saveCurrentPlayer(player: Player): Promise<void> {
     tournaments_played: player.tournamentsPlayed,
     tournaments_goal: player.tournamentsGoal,
     onboarded: player.onboarded,
+  };
+
+  // home_area/utr_profile_link/gpa/deletion_requested_at (migration
+  // 014_profile_fields_and_deletion.sql) may not be applied to the live
+  // database yet — same "011/013 discipline" as remind_at/
+  // tournament_entries: the migration file is tracked in git but not run
+  // against the shared dev/prod Supabase project automatically. Try the
+  // full row first; if Postgres rejects it for an undefined column
+  // (42703), fall back to the base columns so every OTHER updatePlayer()
+  // call across the app (onboarding, weaknesses, target schools,
+  // tournament counts, ...) keeps working exactly as before instead of
+  // silently failing because of these unrelated new fields.
+  // Defensive second check right before the real write: every real UI path
+  // (Settings' ProfileCard, pre-auth onboarding's save step) already
+  // validates and normalizes this with the same lib/utr-profile-link.ts
+  // rule, but updatePlayer() is a generic merge-patch any caller can hit —
+  // this makes sure a malformed value never actually lands in Postgres
+  // even if some future caller skips the form-level check, rather than
+  // silently failing the whole profile write over one bad field.
+  const linkCheck = validateUtrProfileLink(player.utrProfileLink ?? "");
+  const { error } = await ctx.supabase.from("profiles").upsert({
+    ...base,
+    home_area: player.homeArea ?? null,
+    utr_profile_link: linkCheck.valid ? linkCheck.normalized || null : null,
+    gpa: player.gpa ?? null,
+    deletion_requested_at: player.deletionRequestedAt ?? null,
   });
+
+  if (error?.code === "42703") {
+    const { error: fallbackError } = await ctx.supabase.from("profiles").upsert(base);
+    if (fallbackError) throw new Error(fallbackError.message);
+    return;
+  }
+
+  if (error) throw new Error(error.message);
 }
 
 async function ensureSupabaseProfile(input: {
@@ -450,61 +725,100 @@ async function ensureSupabaseProfile(input: {
   gender: PlayerGender;
   grade: number;
   role: FamilyRole;
+  /** P0-8: written on INSERT only. The trigger turns it into
+   * consent_status, and makes it write-once afterwards. */
+  birthYear?: number | null;
   familyCode: string;
   familyMode: "create" | "join";
 }): Promise<AuthResult> {
   const supa = getSupabase();
   if (!supa) return { ok: true, familyCode: input.familyCode };
 
-  if (input.familyMode === "join") {
-    const { data: fam, error: familyLookupError } = await supa
-      .from("families")
-      .select("code")
-      .eq("code", input.familyCode)
-      .maybeSingle();
-    if (familyLookupError) return { ok: false, error: familyLookupError.message };
-    if (!fam) return { ok: false, error: "That family code wasn't found." };
-  } else {
+  const graduationYear = getGradYearFromGrade(input.grade);
+
+  // --------------------------------------------------------------------
+  // CREATE: this person is the first in the family, so they own the code.
+  // Their membership is `profiles.family_code` — the one path migration 022
+  // still allows, because it happens on INSERT.
+  // --------------------------------------------------------------------
+  if (input.familyMode === "create") {
     const { error: familyInsertError } = await supa
       .from("families")
       .insert({ code: input.familyCode, name: `${input.name}'s family` });
-    if (familyInsertError && familyInsertError.code !== "23505") {
-      return { ok: false, error: familyInsertError.message };
+    // 23505 = someone already holds this code; the generator retries, so
+    // treat it as fatal rather than silently joining a stranger's family.
+    if (familyInsertError) {
+      return familyInsertError.code === "23505"
+        ? { ok: false, error: "Could not create your family. Try again." }
+        : { ok: false, error: "Could not create your family. Try again." };
     }
+
     await supa
       .from("family_codes")
       .upsert({ code: input.familyCode, player_id: input.userId }, { onConflict: "code" });
+
+    const { error: profileError } = await supa.from("profiles").insert({
+      id: input.userId,
+      name: input.name,
+      email: input.email,
+      country: input.country,
+      gender: input.gender,
+      role: input.role,
+      birth_year: input.birthYear ?? null,
+      family_code: input.familyCode,
+      graduation_year: graduationYear,
+      commitment_date: getDefaultCommitDate(graduationYear),
+      tournaments_goal: 12,
+      onboarded: input.role === "parent",
+    });
+    if (profileError) return { ok: false, error: "Could not save your profile. Try again." };
+
+    return { ok: true, familyCode: input.familyCode };
   }
 
-  const graduationYear = getGradYearFromGrade(input.grade);
-  const { error: profileError } = await supa.from("profiles").upsert({
+  // --------------------------------------------------------------------
+  // JOIN: everything about the family goes through join_family().
+  //
+  // Three things this deliberately does NOT do any more (P0-2, migration
+  // 023 — each one used to be a hole, and each is now actively rejected by
+  // the database):
+  //   1. No `families` lookup to validate the code. `families` is readable
+  //      by members only now, so a prospective member reads nothing and a
+  //      perfectly good code would look invalid.
+  //   2. No direct `parent_accounts` insert. There is no client INSERT
+  //      policy; join_family() creates the row, as PENDING.
+  //   3. No `family_code` on the profile. The joiner is linked through
+  //      parent_accounts and stays pending until a member approves. Writing
+  //      it here would both be rejected by 022 on the update path and
+  //      silently grant the access the approval step exists to withhold.
+  // --------------------------------------------------------------------
+  const { error: profileError } = await supa.from("profiles").insert({
     id: input.userId,
     name: input.name,
     email: input.email,
     country: input.country,
     gender: input.gender,
     role: input.role,
-    family_code: input.familyCode,
+    birth_year: input.birthYear ?? null,
     graduation_year: graduationYear,
     commitment_date: getDefaultCommitDate(graduationYear),
-    current_utr: 7,
     tournaments_goal: 12,
     onboarded: input.role === "parent",
   });
+  if (profileError) return { ok: false, error: "Could not save your profile. Try again." };
 
-  if (profileError) return { ok: false, error: profileError.message };
+  const join = await joinFamily(input.familyCode);
 
-  if (input.role === "parent") {
-    const { error: parentError } = await supa.from("parent_accounts").upsert(
-      {
-        user_id: input.userId,
-        family_code: input.familyCode,
-        relationship: "parent",
-      },
-      { onConflict: "user_id,family_code" }
-    );
-    if (parentError) return { ok: false, error: parentError.message };
+  // A wrong code is NOT a failed signup. The account exists and is usable;
+  // the UI drops them on the pending screen, which offers "Wrong code?
+  // Re-enter". Failing here would strand someone with an account they
+  // cannot get back into.
+  if (join.status === "invalid" || join.status === "own_family" || join.status === "rate_limited") {
+    return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
+  }
+  if (join.status === "error") {
+    return { ok: true, familyCode: input.familyCode, joinStatus: "error" };
   }
 
-  return { ok: true, familyCode: input.familyCode };
+  return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
 }

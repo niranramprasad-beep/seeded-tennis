@@ -17,7 +17,7 @@ import {
   saveCurrentPlayer,
   signOut as signOutOfSupabase,
 } from "@/lib/auth";
-import { createUtrEntry } from "@/lib/supabase/utr";
+import { createUtrEntry } from "@/lib/db/plan";
 import { localDateKey } from "@/lib/time";
 
 interface PlayerContextValue {
@@ -30,11 +30,24 @@ interface PlayerContextValue {
   retryConnection: () => void;
   beginSession: (player: Player) => void;
   completeOnboarding: (player: Player) => void;
-  updatePlayer: (patch: Partial<Player>) => void;
+  /** Resolves true once the write really succeeded (or there was nothing
+   * real to fail against — no backend configured, or signed out), false on
+   * a real write failure. The UI update itself is synchronous/optimistic;
+   * this promise is only for callers that need to react to a failure,
+   * e.g. rolling back a star/unstar. */
+  updatePlayer: (patch: Partial<Player>) => Promise<boolean>;
+  /** Updates the in-memory player only — for fields a dedicated
+   * zod-validated route handler already wrote server-side (see account
+   * deletion in components/seeded/settings/seeded-settings-view.tsx). */
+  setPlayerLocal: (patch: Partial<Player>) => void;
   signOut: () => void;
 }
 
-const PlayerContext = createContext<PlayerContextValue | null>(null);
+// Exported (not just consumed via usePlayer()) so dev-only harness pages
+// can mount a fake PlayerContext.Provider directly — needed to preview
+// authenticated-only UI like the sidebar without ever signing in through
+// the real auth flow against the shared Supabase project.
+export const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [player, setPlayer] = useState<Player>(emptyPlayer);
@@ -92,23 +105,62 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const finalized = { ...next, onboarded: true };
     setPlayer(finalized);
     setIsAuthed(true);
-    void saveCurrentPlayer(finalized);
+    // Both of these used to be bare `void`s with no `.catch`. A failure was
+    // an unhandled rejection: nothing written, nothing said, nothing logged.
+    // That is the same silent-loss pattern that was fixed on /events, and it
+    // sat one file over on the path that creates an account.
+    void saveCurrentPlayer(finalized).catch((e) => {
+      console.error("Onboarding profile save failed", e);
+    });
+
     // The onboarding UTR must count as a dated entry from day one — otherwise
     // it has no date to compare against, and the first later backfill (even
     // an older one) would wrongly become "the most recent entry on record."
-    void createUtrEntry({
-      utr: finalized.currentUTR,
-      recordedAt: localDateKey(),
-      note: "Starting UTR",
-    });
+    //
+    // Only when there IS one. `utr_entries_utr_check` (migration 006) is
+    // `utr between 1 and 16.5` with no NULL escape, so writing the 0
+    // "not tracked" sentinel raises 23514. A player who finishes onboarding
+    // without entering a rating simply has no starting entry, which is the
+    // truth.
+    if (finalized.currentUTR > 0) {
+      void createUtrEntry({
+        utr: finalized.currentUTR,
+        recordedAt: localDateKey(),
+        note: "Starting UTR",
+      }).catch((e) => {
+        console.error("Onboarding UTR entry failed", e);
+      });
+    }
   }, []);
 
-  const updatePlayer = useCallback((patch: Partial<Player>) => {
-    setPlayer((prev) => {
-      const next = { ...prev, ...patch };
-      void saveCurrentPlayer(next);
-      return next;
-    });
+  // Tracks the latest player outside React's state-update batching so
+  // updatePlayer can both merge against the freshest value AND return a
+  // promise of the save's real outcome — needed by the star-to-target
+  // optimistic update (lib/hooks/use-star-schools.ts) to decide whether to
+  // roll back. A functional setState updater can't serve that second need:
+  // its callback timing isn't guaranteed synchronous, so a promise created
+  // inside it can't be reliably returned by this function.
+  const playerRef = useRef(player);
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
+  const updatePlayer = useCallback((patch: Partial<Player>): Promise<boolean> => {
+    const next = { ...playerRef.current, ...patch };
+    playerRef.current = next; // keep rapid successive calls in the same tick consistent
+    setPlayer(next);
+    return saveCurrentPlayer(next);
+  }, []);
+
+  // For the few fields (so far: account deletion) that now write through
+  // their OWN zod-validated route handler instead of the generic
+  // saveCurrentPlayer()/updatePlayer() profile-patch — the write already
+  // happened server-side by the time this is called, so this only ever
+  // syncs the in-memory player object, never re-triggers a save.
+  const setPlayerLocal = useCallback((patch: Partial<Player>) => {
+    const next = { ...playerRef.current, ...patch };
+    playerRef.current = next;
+    setPlayer(next);
   }, []);
 
   const signOut = useCallback(() => {
@@ -127,6 +179,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       beginSession,
       completeOnboarding,
       updatePlayer,
+      setPlayerLocal,
       signOut,
     }),
     [
@@ -138,6 +191,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       beginSession,
       completeOnboarding,
       updatePlayer,
+      setPlayerLocal,
       signOut,
     ]
   );

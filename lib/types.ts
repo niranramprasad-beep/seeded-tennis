@@ -1,6 +1,6 @@
 // Shared domain types for Seeded.
 // These intentionally mirror what a future Supabase schema would return,
-// so swapping the data layer means changing /lib/data/index.ts only.
+// so swapping the data layer means changing lib/db/schools.ts (or lib/db/plan.ts) only.
 
 export type Division = "D1" | "D2" | "D3";
 
@@ -18,6 +18,104 @@ export const TIER_RANK: Record<SubscriptionTier, number> = {
   player: 1,
   family: 2,
 };
+
+// How many schools a Free account may track. Paid tiers are uncapped.
+//
+// The REAL enforcement is the trigger in migration 024 — `target_school_slugs`
+// lives on `profiles`, which `authenticated` can PATCH directly through
+// PostgREST, so a limit that exists only in /api/profile or in the UI is one
+// a user can route straight around (the same mistake as P0-1). This constant
+// exists so the route's error message, the star button's disabled state and
+// the pricing table all quote the number the database actually enforces.
+// Change it here and in migration 024 together, or they will disagree.
+export const FREE_TIER_TARGET_SCHOOL_LIMIT = 3;
+
+// The tier each gated feature requires. These mirror the `has_tier(...)`
+// calls in the RLS policies — the two must agree, or the UI offers something
+// the database then refuses.
+//
+// P1-PRICE-1 (2026-11-11): outreach moved from "family" to "player".
+// Outreach is the core recruiting loop; gating it at the top tier put the
+// product's whole point behind the most expensive plan, while the tournament
+// fit checker (already free and public) was advertised as a Family feature.
+export const FEATURE_TIER = {
+  /** /outreach, /coaches — draft and track coach emails. Migration 024. */
+  outreach: "player",
+  /** /plan, /training, /events — the personal plan. Migration 019. */
+  plan: "player",
+  /** /family — parent dashboard and season budget. Migration 019. */
+  family: "family",
+} as const satisfies Record<string, SubscriptionTier>;
+
+// How often a paid plan bills. Whop models monthly and yearly as two
+// separate plans (variants) on the same product, so this is the second half
+// of the key into the plan registry in lib/whop.ts.
+export type BillingInterval = "monthly" | "yearly";
+
+export const BILLING_INTERVALS: readonly BillingInterval[] = ["monthly", "yearly"] as const;
+
+// The current list prices, in one place.
+//
+// Display AND reporting: the pricing page, the paywall copy, the billing tab
+// and the GA4 purchase event all read from here, so a price change is one
+// edit rather than a grep. They must match what the Whop plans actually
+// charge — a unit test cannot check that (Whop is the source of truth and is
+// not reachable from one), so when these change, change them with a plan id
+// in hand.
+//
+// 2026-11-14: Player moved $19 -> $12/mo and gained $99/yr; Family moved
+// $39 -> $19/mo and gained $159/yr. **The new Family monthly price is the
+// same number as the OLD Player monthly price** — a grep for "19" finds both
+// and they mean different things. That is exactly why nothing should carry a
+// bare price string any more.
+export const TIER_PRICE_USD: Record<SubscriptionTier, Record<BillingInterval, number>> = {
+  free: { monthly: 0, yearly: 0 },
+  player: { monthly: 12, yearly: 99 },
+  family: { monthly: 19, yearly: 159 },
+};
+
+/** "$12" / "$99" — no cents, because none of the prices have any. */
+export function formatTierPrice(tier: SubscriptionTier, interval: BillingInterval): string {
+  return `$${TIER_PRICE_USD[tier][interval]}`;
+}
+
+/** What a yearly plan saves against twelve months of the monthly one, as a
+ * whole-number percentage. Derived, never written down: a hand-typed
+ * "save 30%" is a claim that goes stale the moment a price moves. */
+export function yearlySavingsPercent(tier: SubscriptionTier): number {
+  const monthlyYear = TIER_PRICE_USD[tier].monthly * 12;
+  if (monthlyYear === 0) return 0;
+  return Math.round(((monthlyYear - TIER_PRICE_USD[tier].yearly) / monthlyYear) * 100);
+}
+
+/**
+ * How many months of the monthly price a year's subscription saves — floored,
+ * and minimised across every paid tier, so the number is true for whichever
+ * plan the visitor picks.
+ *
+ * The mockup's toggle reads "Yearly · 2 months free". At today's prices that
+ * is wrong in the customer's favour (Player saves 3.75 months, Family 3.6),
+ * and a promise that understates is still a promise nobody checked. Computed
+ * like this it holds for both tiers and moves on its own when a price does.
+ */
+export function yearlyMonthsFree(): number {
+  const paid: SubscriptionTier[] = ["player", "family"];
+  return Math.min(
+    ...paid.map((tier) => {
+      const { monthly, yearly } = TIER_PRICE_USD[tier];
+      if (monthly === 0) return 0;
+      return Math.floor((monthly * 12 - yearly) / monthly);
+    })
+  );
+}
+
+/** "About $8.25 a month" — the yearly price expressed monthly, for the
+ * spec's price note. Two decimals only when they are not .00. */
+export function yearlyAsMonthlyLabel(tier: SubscriptionTier): string {
+  const perMonth = TIER_PRICE_USD[tier].yearly / 12;
+  const rounded = Math.round(perMonth * 100) / 100;
+  return Number.isInteger(rounded) ? `$${rounded}` : `$${rounded.toFixed(2)}`;
+}
 
 export type Weakness =
   | "forehand"
@@ -53,13 +151,19 @@ export type TournamentLevel =
   | "L6"
   | "L7";
 
-export interface Recruit {
-  name: string;
-  hometown: string;
-  classYear: number;
-  utr: number;
-}
-
+// A school program in the catalog.
+//
+// Every field here must be a real, checkable fact about the program. P0-3
+// removed `coachName`, `coachEmail`, `recruitingPageUrl`, `recentRecruits`,
+// `programNote` and `conferenceRank`, which were invented placeholder values
+// rendered to users as facts (and, via the coach-email draft, asserted to
+// real college coaches). Coach contact is now typed by the user per message;
+// see buildCoachEmail in lib/db/schools.ts.
+//
+// `avgRosterUTR` and `minCompetitiveUTR` are the two exceptions still in
+// flight: they are unverified estimates, so anything that renders them must
+// also render UTR_RANGE_SOURCE_LABEL. P1-DATA-1 replaces them with sourced,
+// dated roster data.
 export interface School {
   id: string;
   slug: string;
@@ -76,22 +180,15 @@ export interface School {
   avgRosterUTR: number;
   minCompetitiveUTR: number;
   usNewsRanking: number;
-  conferenceRank: number;
-  coachName: string;
-  coachEmail: string;
-  recruitingPageUrl: string;
-  recentRecruits: Recruit[];
-  // Optional richer program detail used by the (rewritten) coach email generator.
-  programNote?: string;
 }
 
-// `recentRecruits` (an array per school) and `programNote` are the heaviest
-// fields in the catalog and are only ever read by the coach-email generator
-// (/coaches). Pages that just list/compare/filter schools — dashboard,
-// roadmap, cost calculator — never touch either, so they use this lighter
-// shape instead of shipping the full catalog (with every school's recruit
-// history) down to the browser on every load.
-export type SchoolLite = Omit<School, "recentRecruits" | "programNote">;
+// Kept as a distinct name because ~30 components and lib/school-fit.ts type
+// their props against it. It used to drop the per-school recruit history and
+// program blurb from the payload shipped to the browser; both fields are gone
+// from `School` entirely now (P0-3), so the two shapes are identical. The
+// alias stays as the seam for P1-DATA-1, when the full `School` grows sourced
+// roster rows and list pages will again want a narrower row.
+export type SchoolLite = School;
 
 export interface Activity {
   id: string;
@@ -136,6 +233,19 @@ export interface Player {
   tournamentsPlayed: number;
   tournamentsGoal: number;
   onboarded: boolean;
+  // Profile tab fields on /settings (migration 014_profile_fields_and_
+  // deletion.sql: profiles.home_area/utr_profile_link/gpa). Optional so
+  // older in-memory Player values built before this migration (and rows
+  // read from a database that hasn't had it applied yet) stay valid.
+  homeArea?: string;
+  utrProfileLink?: string;
+  gpa?: number | null;
+  // Set by /settings' "Delete account" flow (migration 014's
+  // profiles.deletion_requested_at). Null/undefined means no deletion is
+  // pending. This is ONLY ever a timestamp marker — nothing in the app
+  // reads this to actually delete data; the real 30-day purge is a
+  // separate operational job outside the app's scope.
+  deletionRequestedAt?: string | null;
 }
 
 // Maps a player's gender to the school program gender they recruit into.

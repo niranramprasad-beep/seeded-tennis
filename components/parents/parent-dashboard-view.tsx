@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { subjectKey } from "@/lib/db/family-scope";
 import {
   CalendarDays,
   GraduationCap,
@@ -12,49 +13,70 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import type { SchoolLite } from "@/lib/types";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePlayer } from "@/lib/context/player-context";
+import { loadDailyCheckins, type DailyCheckin } from "@/lib/db/plan";
 import {
-  loadDailyCheckins,
   loadEncouragementNotes,
   loadFamilyMembers,
-  loadMatches,
   saveEncouragementNote,
-  type DailyCheckin,
   type EncouragementNote,
   type FamilyMember,
-  type MatchRecord,
-} from "@/lib/supabase/features";
+} from "@/lib/db/family";
+import { loadMatches, type MatchRecord } from "@/lib/db/events";
 import { useDesign } from "@/lib/context/design-context";
-import { cn, formatUTR } from "@/lib/utils";
 import { getCurrentGrade } from "@/lib/time";
+import { formatUTR } from "@/lib/utils";
+import { SeededFamilyOverview } from "@/components/seeded/family/seeded-family-overview";
 
-export function ParentDashboardView() {
+export function ParentDashboardView({ schools }: { schools: SchoolLite[] }) {
   return (
     <AuthGate>
-      <ParentDashboardInner />
+      <ParentDashboardInner schools={schools} />
     </AuthGate>
   );
 }
 
-function ParentDashboardInner() {
+// Seeded's real parent nav (sidebar's PARENT_NAV_LINKS) now routes Budget
+// and Weekly reports to their own /family/budget and /family/weekly-reports
+// pages, so /family itself is just the Overview — no more in-page tab
+// state here. Legacy has no equivalent mockup for any of this; its branch
+// below is untouched from before this rebuild.
+function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
   const { design } = useDesign();
-  const isSeeded = design === "seeded";
+  if (design === "seeded") {
+    return <SeededFamilyOverview schools={schools} />;
+  }
+  return <LegacyParentDashboard />;
+}
+
+function LegacyParentDashboard() {
   const { player } = usePlayer();
   // Same keys as /dashboard's check-in card, the matches views, and the
   // family hub card — each resource loads once and is shared across every
   // page that shows it, instead of every page fetching its own copy.
-  const { data: checkins = [] } = useSWR<DailyCheckin[]>("daily-checkins", () => loadDailyCheckins());
-  const { data: matches = [] } = useSWR<MatchRecord[]>("matches", () => loadMatches());
+  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  // The PLAYER's check-ins and matches, by id. These used the parent-pooling
+  // default, which counted every approved member's rows as the player's.
+  const subjectId = pickFamilyPlayer(members)?.id ?? null;
+  const { data: checkins = [] } = useSWR<DailyCheckin[]>(
+    subjectId ? ["daily-checkins", subjectKey({ userId: subjectId })] : null,
+    () => loadDailyCheckins({ userId: subjectId! })
+  );
+  const { data: matches = [] } = useSWR<MatchRecord[]>(
+    subjectId ? ["matches", subjectKey({ userId: subjectId })] : null,
+    () => loadMatches({ userId: subjectId! })
+  );
   const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
     "encouragement-notes",
     () => loadEncouragementNotes()
   );
-  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
 
@@ -66,12 +88,22 @@ function ParentDashboardInner() {
     await mutateNotes();
   };
 
-  const playerMember = members.find((m) => m.role === "player");
-  const playerName = playerMember?.name ?? player.name ?? "your player";
+  const playerMember = pickFamilyPlayer(members);
+  const playerName = playerMember?.name ?? "your player";
   const firstName = playerName.split(" ")[0];
-  const currentUTR = playerMember?.currentUtr ?? player.currentUTR;
-  const graduationYear = playerMember?.graduationYear ?? player.graduationYear;
-  const grade = getCurrentGrade(graduationYear);
+  // See seeded-family-overview.tsx for the full note: the `??` fell through
+  // to the signed-in parent's own placeholder UTR. The legacy design is
+  // still reachable (footer + Settings → Appearance), so it gets the same
+  // honest "Not tracked".
+  // A verification pass caught this file half-fixed: the UTR used the shared
+  // rule while the line below still fell through to the signed-in PARENT's
+  // own graduation_year — the exact symptom the original bug report named.
+  // Five further fields in the "Player snapshot" card below read `player.`
+  // directly for the player's data and were the parent's own row too.
+  const playerFacts = resolveFamilyPlayerFacts(playerMember, player);
+  const currentUTR = playerFacts.currentUtr;
+  const graduationYear = playerFacts.graduationYear;
+  const grade = graduationYear == null ? null : getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
   const tournamentPct = Math.round(
@@ -83,8 +115,8 @@ function ParentDashboardInner() {
       {/* header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Family dashboard</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <span className="eyebrow text-gold">Family dashboard</span>
+          <h1 className="mt-3 text-4xl sm:text-5xl display-serif text-ink">
             Follow {firstName}&rsquo;s climb.
           </h1>
           <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
@@ -101,8 +133,12 @@ function ParentDashboardInner() {
 
       {/* stat tiles */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="Current UTR" value={formatUTR(currentUTR)} />
-        <StatTile icon={GraduationCap} label="Grade" value={`${grade}th`} />
+        <StatTile
+          icon={TrendingUp}
+          label="Current UTR"
+          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
+        />
+        <StatTile icon={GraduationCap} label="Grade" value={grade == null ? "Not tracked" : `${grade}th`} />
         <StatTile icon={CalendarDays} label="Check-ins" value={String(checkins.length)} />
         <StatTile icon={Trophy} label="Matches logged" value={String(completedMatches)} />
       </div>
@@ -115,17 +151,37 @@ function ParentDashboardInner() {
               <Target className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Player snapshot</h2>
             </div>
-            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-              <Field label="Class of" value={String(player.graduationYear)} />
-              <Field label="Target schools" value={String(player.targetSchoolSlugs.length)} />
-              <Field label="Country" value={player.country} />
-            </dl>
+            {playerFacts.hasLinkedPlayer ? (
+              <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+                <Field
+                  label="Class of"
+                  value={graduationYear == null ? "Not tracked" : String(graduationYear)}
+                />
+                <Field
+                  label="Target schools"
+                  value={String(playerMember?.targetSchoolSlugs?.length ?? player.targetSchoolSlugs.length)}
+                />
+                <Field label="Country" value={playerMember ? "Not tracked" : player.country} />
+              </dl>
+            ) : (
+              <p className="mt-5 text-sm text-stone">
+                No player has been linked to this family yet, so there is
+                nothing to show here. Seeded won&rsquo;t fill these in from
+                your own account.
+              </p>
+            )}
             <div className="mt-5 border-t-hairline border-line pt-5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone">Tournament season</span>
                 <span className="font-medium text-ink">
-                  {player.tournamentsPlayed}
-                  <span className="text-stone-light">/{player.tournamentsGoal}</span>
+                  {playerMember ? (
+                    "Not tracked"
+                  ) : (
+                    <>
+                      {player.tournamentsPlayed}
+                      <span className="text-stone-light">/{player.tournamentsGoal}</span>
+                    </>
+                  )}
                 </span>
               </div>
               <Progress value={tournamentPct} className="mt-3" />
@@ -268,15 +324,13 @@ function StatTile({
   label: string;
   value: string;
 }) {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   return (
-    <Card interactive className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+    <Card interactive className="p-5">
       <div className="flex items-center justify-between">
-        <span className={cn("eyebrow", isSeeded && "font-seeded")}>{label}</span>
+        <span className="eyebrow">{label}</span>
         <Icon className="h-4 w-4 text-gold" />
       </div>
-      <p className={cn("mt-3 text-4xl text-ink", isSeeded ? "font-mono" : "font-serif")}>{value}</p>
+      <p className="mt-3 text-4xl text-ink font-serif">{value}</p>
     </Card>
   );
 }

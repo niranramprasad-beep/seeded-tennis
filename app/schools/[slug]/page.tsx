@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
@@ -6,9 +7,7 @@ import {
   Award,
   Building2,
   CalendarDays,
-  DollarSign,
   GraduationCap,
-  Mail,
   MapPin,
   Trophy,
   User,
@@ -18,13 +17,11 @@ import {
   combinedScore,
   getSchool,
   getSchools,
-  getSchoolProfile,
-} from "@/lib/data";
+  UTR_RANGE_SOURCE_LABEL,
+} from "@/lib/db/schools";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CoachEmailCTA } from "@/components/schools/coach-email-cta";
 import { Footer } from "@/components/layout/footer";
 import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
 import { SchoolDetailSwitch } from "@/components/seeded/schools/school-detail-switch";
@@ -38,30 +35,77 @@ const RosterDistributionChart = dynamic(
   { loading: () => <Skeleton className="h-56 w-full" /> }
 );
 
+// Every school page shared the site-wide default title and had no
+// canonical, so 37 programs competed as one page in search. Named from the
+// school's own real fields — nothing invented. UTR numbers stay out of the
+// description deliberately: they are unsourced estimates (P0-3), and a
+// search snippet is the last place to present one as fact.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const school = await getSchool(slug);
+  if (!school) return { title: "School not found — Seeded" };
+  const programType = school.gender === "women" ? "Women's" : "Men's";
+  return {
+    title: `${school.name} ${programType.toLowerCase()} tennis — Seeded`,
+    description: `${school.name} ${programType.toLowerCase()} tennis: ${school.division}, ${school.conference}, ${school.city}, ${school.state}. See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.`,
+    alternates: { canonical: `/schools/${school.slug}` },
+  };
+}
+
+// Every real school is prerendered by generateStaticParams below, so any
+// other slug is not a school. Without this, /schools/<anything> streamed a
+// 200 (loading.tsx commits the status before notFound() runs) with a "School
+// not found" page — a soft 404 a crawler can index. Now a real 404.
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   const schools = await getSchools();
   return schools.map((s) => ({ slug: s.slug }));
 }
 
+// Next 15: `params` is a Promise. Dynamic APIs (params, searchParams,
+// cookies, headers) became async so a page can start streaming before the
+// router has finished resolving them. Awaited once here rather than threaded
+// through — nothing below needs it lazily.
 export default async function SchoolDetailPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
   const [school, allSchools] = await Promise.all([
-    getSchool(params.slug),
+    getSchool(slug),
     getSchools(),
   ]);
   if (!school) notFound();
 
-  const profile = getSchoolProfile(school, allSchools);
   const inState = school.state === "MD";
   const programType = school.gender === "women" ? "Women's" : "Men's";
 
+  // Real ranking: school's own combinedScore (US News + avg roster UTR,
+  // both real fields) against its real same-gender, same-division peers.
+  // Not fabricated — same formula the "Seeded score" stat tile uses.
+  const peers = allSchools
+    .filter((s) => s.gender === school.gender && s.division === school.division)
+    .sort((a, b) => combinedScore(b) - combinedScore(a));
+  const nationalRank = peers.findIndex((s) => s.slug === school.slug) + 1;
+
+  // No "Conference rank" tile: that field was an invented number and was
+  // removed from the catalog (P0-3). The two UTR tiles are unverified
+  // estimates, so they say so on the tile itself.
   const stats = [
-    { label: "Avg roster UTR", value: school.avgRosterUTR.toFixed(1) },
-    { label: "Min competitive", value: school.minCompetitiveUTR.toFixed(1) },
-    { label: "Conference rank", value: `#${school.conferenceRank}` },
+    {
+      label: `Avg roster UTR (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      value: school.avgRosterUTR.toFixed(1),
+    },
+    {
+      label: `Min competitive (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      value: school.minCompetitiveUTR.toFixed(1),
+    },
     { label: "US News", value: `#${school.usNewsRanking}` },
     { label: "Seeded score", value: String(combinedScore(school)) },
   ];
@@ -71,10 +115,11 @@ export default async function SchoolDetailPage({
       seeded={
         <SeededSchoolDetail
           school={school}
-          profile={profile}
+          nationalRank={nationalRank}
           stats={stats}
           programType={programType}
           inState={inState}
+          allSchools={allSchools}
         />
       }
       legacy={
@@ -130,13 +175,7 @@ export default async function SchoolDetailPage({
                 className="rounded-pill px-3 py-1.5 text-sm font-medium"
                 style={{ backgroundColor: `${school.textColor}22` }}
               >
-                #{profile.nationalRank} in {programType} {school.division}
-              </span>
-              <span
-                className="rounded-pill px-3 py-1.5 text-sm font-medium"
-                style={{ backgroundColor: `${school.textColor}22` }}
-              >
-                {profile.record} season
+                #{nationalRank} in {programType} {school.division}
               </span>
             </div>
           </div>
@@ -145,7 +184,7 @@ export default async function SchoolDetailPage({
 
       <div className="mx-auto max-w-content container-px py-10">
         {/* stat tiles */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (
             <Card key={s.label} className="p-4">
               <p className="text-xs text-stone-light">{s.label}</p>
@@ -154,21 +193,12 @@ export default async function SchoolDetailPage({
           ))}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-stone-light">
-          UTR benchmarks are Seeded estimates for planning. Roster names,
-          results, standings, and recruiting classes below are illustrative
-          sample data — always verify details with the program before making
-          recruiting decisions.
-        </p>
-
         {/* roster + coach */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <Card className="min-w-0 lg:col-span-2 p-6">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-grass" />
-              <h2 className="text-lg font-medium text-ink">
-                Current roster — {profile.roster.length} players
-              </h2>
+              <h2 className="text-lg font-medium text-ink">Roster</h2>
             </div>
             <div className="mt-3">
               <RosterDistributionChart
@@ -177,32 +207,7 @@ export default async function SchoolDetailPage({
                 height={160}
               />
             </div>
-            <div className="mt-4 overflow-x-auto rounded-card border-[0.5px] border-line">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead>
-                  <tr className="border-b-[0.5px] border-line bg-cream/50 text-left text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Player</th>
-                    <th className="px-4 py-2.5 font-medium">Class</th>
-                    <th className="px-4 py-2.5 font-medium">Hometown</th>
-                    <th className="px-4 py-2.5 text-right font-medium">UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.roster.map((p, i) => (
-                    <tr key={p.name + i} className={i % 2 ? "bg-cream/30" : undefined}>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{p.position}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-ink">{p.name}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">'{String(p.classYear).slice(2)}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{p.hometown}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium text-grass">
-                        {p.utr.toFixed(1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <MissingData className="mt-4" title="Verified roster data: not available yet." />
           </Card>
 
           {/* coach */}
@@ -213,21 +218,9 @@ export default async function SchoolDetailPage({
             </div>
             <div className="mt-4 flex items-center gap-3 rounded-card border-[0.5px] border-line bg-cream/50 p-3">
               <SchoolBadge school={school} size={42} />
-              <div>
-                <p className="font-medium text-ink">{school.coachName}</p>
-                <p className="text-xs text-stone-light">{programType} Tennis</p>
-              </div>
+              <p className="text-xs text-stone-light">{programType} Tennis</p>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-stone">
-              {profile.coachBio}
-            </p>
-            <p className="mt-3 flex items-center gap-2 text-sm text-stone">
-              <Mail className="h-4 w-4 text-stone-light" />
-              {school.coachEmail}
-            </p>
-            <div className="mt-auto pt-5">
-              <CoachEmailCTA slug={school.slug} />
-            </div>
+            <MissingData className="mt-4 flex-1" title="Coach contact: not stored by Seeded." />
           </Card>
         </div>
 
@@ -238,34 +231,7 @@ export default async function SchoolDetailPage({
               <Trophy className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Recent results</h2>
             </div>
-            <div className="mt-4 space-y-2">
-              {profile.recentMatches.map((m, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-card px-3.5 py-2.5"
-                >
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                      m.result === "W"
-                        ? "bg-grass text-on-primary"
-                        : "bg-error-bg text-error"
-                    }`}
-                  >
-                    {m.result}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink">
-                      vs {m.opponent}
-                    </p>
-                    <p className="text-xs text-stone-light">
-                      {m.date}
-                      {m.conference ? " · Conference" : ""}
-                    </p>
-                  </div>
-                  <span className="font-mono text-sm text-stone">{m.score}</span>
-                </div>
-              ))}
-            </div>
+            <MissingData className="mt-4" title="Match results: not available yet." />
           </Card>
 
           <Card className="min-w-0 p-6">
@@ -275,35 +241,7 @@ export default async function SchoolDetailPage({
                 {school.conference} standings
               </h2>
             </div>
-            <div className="mt-4 overflow-x-auto rounded-card border-[0.5px] border-line">
-              <table className="w-full min-w-[380px] text-sm">
-                <thead>
-                  <tr className="border-b-[0.5px] border-line bg-cream/50 text-left text-xs text-stone-light">
-                    <th className="px-4 py-2.5 font-medium">#</th>
-                    <th className="px-4 py-2.5 font-medium">Team</th>
-                    <th className="px-4 py-2.5 font-medium">Conf.</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Avg UTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profile.standings.map((row, i) => (
-                    <tr
-                      key={row.team}
-                      className={
-                        row.isThis ? "bg-grass-50 font-medium" : i % 2 ? "bg-cream/30" : undefined
-                      }
-                    >
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone-light">{i + 1}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-ink">{row.team}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-stone">{row.confRecord}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-right text-grass">
-                        {row.avgUTR.toFixed(1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <MissingData className="mt-4" title="Conference standings: not available yet." />
           </Card>
         </div>
 
@@ -316,29 +254,7 @@ export default async function SchoolDetailPage({
                 Recruiting class history
               </h2>
             </div>
-            <div className="mt-4 space-y-4">
-              {profile.recruitingClasses.map((cls) => (
-                <div key={cls.classYear}>
-                  <p className="mb-2 text-sm font-medium text-ink">
-                    Class of {cls.classYear}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {cls.recruits.map((r, i) => (
-                      <span
-                        key={r.name + i}
-                        className="flex items-center gap-2 rounded-pill border-[0.5px] border-line bg-card px-3 py-1.5 text-xs"
-                      >
-                        <span className="font-medium text-ink">{r.name}</span>
-                        <span className="text-stone-light">{r.hometown}</span>
-                        <span className="font-medium text-grass">
-                          {r.utr.toFixed(1)}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MissingData className="mt-4" title="Recruiting class data: not available yet." />
           </Card>
 
           {/* campus & cost */}
@@ -347,51 +263,7 @@ export default async function SchoolDetailPage({
               <Building2 className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Campus & cost</h2>
             </div>
-            <dl className="mt-4 space-y-3 text-sm">
-              <Row label="Type" value={profile.campus.isPublic ? "Public" : "Private"} />
-              <Row label="Setting" value={profile.campus.setting} />
-              <Row
-                label="Enrollment"
-                value={profile.campus.enrollment.toLocaleString()}
-              />
-              <Row
-                label={profile.campus.isPublic ? "In-state cost" : "Tuition + fees"}
-                value={`$${profile.campus.costInState}k/yr`}
-                icon={DollarSign}
-              />
-              {profile.campus.isPublic && (
-                <Row
-                  label="Out-of-state cost"
-                  value={`$${profile.campus.costOutState}k/yr`}
-                  icon={DollarSign}
-                />
-              )}
-              <Row
-                label="For you"
-                value={inState ? "In-state" : "Out-of-state"}
-              />
-            </dl>
-            <div className="mt-4 rounded-card border-[0.5px] border-line bg-cream/50 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-ink">
-                <Award className="h-3.5 w-3.5 text-grass" />
-                Scholarships
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-stone">
-                {profile.scholarships.detail}
-              </p>
-            </div>
-            <div className="mt-3 rounded-card border-[0.5px] border-line bg-cream/50 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-ink">
-                <CalendarDays className="h-3.5 w-3.5 text-grass" />
-                Application deadlines
-              </p>
-              <p className="mt-1 text-xs text-stone">
-                {profile.deadlines.earlyAction}
-              </p>
-              <p className="text-xs text-stone">
-                {profile.deadlines.regularDecision}
-              </p>
-            </div>
+            <MissingData className="mt-4" title="Campus and cost data: not available yet." />
           </Card>
         </div>
       </div>
@@ -402,22 +274,14 @@ export default async function SchoolDetailPage({
   );
 }
 
-function Row({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon?: typeof DollarSign;
-}) {
+// Local, Legacy-styled placeholder for a data section we don't have a real
+// source for yet (see Phase 4's SchoolProfile rebuild) — reuses Legacy's own
+// existing tokens rather than a Seeded-specific primitive.
+function MissingData({ title, className }: { title: string; className?: string }) {
   return (
-    <div className="flex items-center justify-between border-b-[0.5px] border-line pb-2.5 last:border-0">
-      <dt className="flex items-center gap-1.5 text-stone-light">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {label}
-      </dt>
-      <dd className="font-medium text-ink">{value}</dd>
+    <div className={`rounded-card border border-dashed border-line p-4 text-sm text-stone ${className ?? ""}`}>
+      <strong className="text-ink">{title}</strong>{" "}
+      <span className="text-stone-light">We&apos;ll add this once we have a verified source.</span>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
@@ -11,21 +12,37 @@ const TERMS = [
   },
   {
     title: "Data and recommendations",
-    body: "Roster UTRs, rankings, costs, deadlines, and program details should be reviewed before making recruiting decisions. The platform is designed to guide planning, not replace direct school research.",
+    body: "Team UTR estimates and rankings should be checked against the school directly before making recruiting decisions — and costs, deadlines and detailed program information aren't in Seeded at all, so they have to come from the school. The platform is designed to guide planning, not replace direct school research.",
   },
   {
     title: "Accounts and family access",
     body: "Family members may share player progress and planning data. Each user is responsible for keeping login credentials and family codes private.",
   },
   {
-    title: "Training plans",
+    title: "Training calendar",
     body: "Training content is not medical advice. Players should adapt workloads with coaches, trainers, parents, and healthcare professionals as needed.",
   },
   {
     title: "Privacy",
-    body: "Seeded stores your account details, tennis profile, and activity (check-ins, matches, UTR history) to power your dashboard and family features. Your data is never sold, and family members only see data shared through your family code. You can request deletion of your account and data at any time via the contact page. We also use Google Analytics to see which pages get visited and how often — this tracks page views, not who you are, and never includes your name, email, or tennis data.",
+    body: "Seeded stores your account details, tennis profile and activity to run your dashboard and family features. Your data is never sold, and only approved members of your own family can see it. Accounts for players under 13 cannot record anything about tennis — no saved schools, results, plans or tournaments — until a parent or guardian approves them. They can still edit their own profile details, download their data, and delete the account. You can download everything we hold, or delete your account and all of it immediately, from Settings. The full privacy policy — what we collect, who else touches it, and how long we keep it — is linked below.",
   },
 ];
+
+// A clickable link, not the literal text "/privacy". The Privacy section
+// above used to end with "…is at /privacy." — a URL rendered as prose, which
+// nobody can click and which an independent verifier flagged as the kind of
+// thing that reads as a link in review and is not one.
+function PrivacyLink() {
+  return (
+    <p className="mt-6 text-sm text-stone">
+      The full privacy policy is here:{" "}
+      <Link href="/privacy" className="text-grass underline underline-offset-2">
+        seededtennis.com/privacy
+      </Link>
+      .
+    </p>
+  );
+}
 
 export default function TermsPage() {
   const { design } = useDesign();
@@ -39,7 +56,7 @@ function LegacyTerms() {
         <p className="font-serif text-lg italic text-leaf-accent">Seeded terms</p>
         <h1 className="mt-2 text-4xl font-light tracking-tight text-ink">Terms, kept simple.</h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
-          These are the current terms for using Seeded. We'll post an update here if anything changes.
+          These are the current terms for using Seeded, effective 2026-11-15. We'll post an update here if anything changes.
         </p>
       </div>
       <Card className="divide-y-[0.5px] divide-line">
@@ -54,6 +71,7 @@ function LegacyTerms() {
           </section>
         ))}
       </Card>
+      <PrivacyLink />
     </div>
   );
 }
@@ -69,7 +87,7 @@ function SeededTerms() {
           Terms, kept simple.
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
-          These are the current terms for using Seeded. We'll post an update here if anything changes.
+          These are the current terms for using Seeded, effective 2026-11-15. We'll post an update here if anything changes.
         </p>
       </Reveal>
       <Reveal index={1}>
@@ -86,6 +104,7 @@ function SeededTerms() {
           ))}
         </div>
       </Reveal>
+      <PrivacyLink />
     </div>
   );
 }

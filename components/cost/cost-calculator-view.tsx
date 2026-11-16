@@ -9,28 +9,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
-import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import {
   calculateCost,
   loadCostCalculations,
   saveCostCalculation,
   type CostCalculation,
   type CostInputs,
-} from "@/lib/supabase/features";
+} from "@/lib/db/family";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDesign } from "@/lib/context/design-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-export function CostCalculatorView({ schools }: { schools: SchoolLite[] }) {
+/** `embedded`: rendered inside another page (the family budget) that owns
+ *  the page's one <h1> — the calculator's title drops to an <h3>. */
+export function CostCalculatorView({ schools, embedded = false }: { schools: SchoolLite[]; embedded?: boolean }) {
   return (
     <AuthGate>
-      <CostCalculatorInner schools={schools} />
+      <CostCalculatorInner schools={schools} embedded={embedded} />
     </AuthGate>
   );
 }
 
-function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
+function CostCalculatorInner({ schools, embedded }: { schools: SchoolLite[]; embedded: boolean }) {
+  const Heading = embedded ? "h3" : "h1";
   const { design } = useDesign();
   const isSeeded = design === "seeded";
   const { player } = usePlayer();
@@ -39,17 +41,19 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
     () => loadCostCalculations()
   );
   const [status, setStatus] = useState("");
-  const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)).slice(0, 5);
+  // Every cost input starts EMPTY. They used to start at a $115 lesson
+  // rate, $1,200 of equipment and $550 a tournament — Seeded's guesses —
+  // and the page's headline total was computed from them before the family
+  // had typed anything. A total made of our numbers is not their cost.
+  // Years remaining and tournaments per year come from the player's own
+  // profile (class year, tournament goal) when those exist.
   const [inputs, setInputs] = useState<CostInputs>({
     yearsRemaining: Math.max(1, 12 - getCurrentGrade(player.graduationYear) + 1),
-    tournamentsPerYear: player.tournamentsGoal || 12,
-    coachingHoursPerWeek: 3,
-    lessonRate: 115,
-    equipmentBudgetPerYear: 1200,
-    travelCostPerTournament: 550,
-    targetSchools: targetSchools.length
-      ? targetSchools.map(toScholarshipSchool)
-      : schools.slice(0, 3).map(toScholarshipSchool),
+    tournamentsPerYear: player.tournamentsGoal || 0,
+    coachingHoursPerWeek: 0,
+    lessonRate: 0,
+    equipmentBudgetPerYear: 0,
+    travelCostPerTournament: 0,
   });
 
   const results = useMemo(() => calculateCost(inputs), [inputs]);
@@ -77,12 +81,12 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
     <div className="mx-auto max-w-content container-px py-10">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Cost calculator</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Cost calculator</span>
+          <Heading className={cn("mt-3", embedded ? "text-2xl" : "text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             See the real cost of the pursuit.
-          </h1>
+          </Heading>
           <p className="mt-2 max-w-2xl text-sm text-stone">
-            Estimate training, tournaments, travel, equipment, and compare against realistic scholarship ranges.
+            Add up what training, tournaments, travel and equipment will cost your family, from your own numbers.
           </p>
         </div>
         <Badge
@@ -91,11 +95,11 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
         >
           <DollarSign className="h-4 w-4" />
-          <CountUpOnView value={Math.round(results.total)} prefix="$" />
+          {results.total > 0 ? Math.round(results.total).toLocaleString() : "Enter your costs"}
         </Badge>
       </Reveal>
 
-      <div className="mt-7 grid gap-5 lg:grid-cols-[390px_1fr]">
+      <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
         <Reveal index={1}>
         <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
           <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Inputs</h2>
@@ -130,22 +134,17 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           <Reveal index={3}>
           <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
             <div className="flex items-center gap-2">
-              <Calculator className="h-5 w-5 text-grass" />
-              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarship comparison</h2>
+              <Calculator className="h-5 w-5 text-grass" aria-hidden />
+              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarships and cost of attendance</h2>
             </div>
-            <div className="mt-5 space-y-3">
-              {results.scholarships.map((school) => (
-                <div key={school.name} className={cn("rounded-[18px] border p-4", isSeeded ? "border-[rgb(var(--c-line))]" : "border-[0.5px] border-line bg-card")}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-medium text-ink">{school.name}</p>
-                      <p className="text-xs text-stone">Estimated scholarship value: {money(school.scholarshipValue)}</p>
-                    </div>
-                    <Badge variant="outline">Net: {money(school.netCost)}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* This card used to print "Rough scholarship value" and "Net"
+                under real school names, from one generic number per
+                division. Seeded holds no cost or aid data for any program. */}
+            <p className="mt-4 text-sm text-stone">
+              Not available yet. Seeded holds no cost-of-attendance or athletic-aid figures for any
+              program, so it does not estimate them. Each school&rsquo;s financial aid office has the
+              real numbers.
+            </p>
           </Card>
           </Reveal>
           <Reveal index={4}>
@@ -166,28 +165,6 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
       </div>
     </div>
   );
-}
-
-function toScholarshipSchool(s: SchoolLite) {
-  // Tennis is an "equivalency" sport — a roster splits a handful of
-  // scholarships across ~9-10 players, so no individual recruit gets
-  // anywhere near "35% of cost of attendance." Using the team-wide max as
-  // one player's personal award (the old numbers) made the assumed
-  // scholarship bigger than most families' actual training spend for
-  // EVERY school, so "Net" always clamped to $0 regardless of inputs.
-  // These are realistic individual-recruit averages instead.
-  // The Ivy League gives no athletic scholarships at all (NCAA rule) —
-  // any non-zero number here was simply wrong for a school like Cornell.
-  const scholarshipPercent =
-    s.conference === "Ivy League"
-      ? 0
-      : s.division === "D1"
-        ? 18
-        : s.division === "D2"
-          ? 12
-          : 0;
-  const annualCost = s.usNewsRanking <= 30 ? 86000 : s.division === "D3" ? 79000 : 62000;
-  return { name: s.name, division: s.division, annualCost, scholarshipPercent };
 }
 
 function money(value: number) {
@@ -244,7 +221,7 @@ function CostCard({ label, value }: { label: string; value: number }) {
     <Card interactive className={cn("h-full p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
       <p className="text-xs text-stone-light">{label}</p>
       <p className={cn("mt-2 text-2xl text-ink", isSeeded ? "font-mono" : "font-light")}>
-        <CountUpOnView value={Math.round(value)} prefix="$" />
+        ${Math.round(value).toLocaleString()}
       </p>
     </Card>
   );

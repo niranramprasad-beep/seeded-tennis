@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
-const COLUMNS = [
+const COLUMNS: {
+  title: string;
+  links: { href: string; label: string; external?: boolean }[];
+}[] = [
   {
     title: "Platform",
     links: [
       { href: "/schools", label: "Browse schools" },
       { href: "/roadmap", label: "Roadmap" },
-      { href: "/training", label: "Training plans" },
+      { href: "/training", label: "Training calendar" },
       { href: "/tournament-fit", label: "Tournament fit" },
       { href: "/coaches", label: "Coach outreach" },
     ],
@@ -28,8 +32,15 @@ const COLUMNS = [
     title: "Support",
     links: [
       { href: "/contact", label: "Contact" },
-      { href: "/terms#privacy", label: "Privacy" },
+      // "Methodology" was missing here while the homepage footer had it,
+      // and this is the footer that actually renders on /pricing,
+      // /schools, every school page, /tournament-fit, /how-it-works and
+      // /parents. Two footers disagreeing about what the site contains.
+      { href: "/methodology", label: "Methodology" },
+      { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
+      // The support address existed on exactly one page — the homepage.
+      { href: `mailto:${SUPPORT_EMAIL}`, label: SUPPORT_EMAIL, external: true },
     ],
   },
 ];
@@ -75,29 +86,41 @@ export function Footer() {
           </div>
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <h4
+              {/* h2, not h4. These are the footer's own top-level sections,
+                  and every page that ends with the footer jumped h1 -> h4
+                  (or h2 -> h4), which Lighthouse flags as heading-order on
+                  /pricing, /schools and every school page. The visual size
+                  comes from the classes, not the tag. */}
+              <h2
                 className={cn(
                   "text-xs font-medium uppercase tracking-[0.12em] text-stone-light",
                   isSeeded && "font-seeded"
                 )}
               >
                 {col.title}
-              </h4>
+              </h2>
               <ul className="mt-4 space-y-2.5">
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className={cn(
-                        "group inline-flex items-center gap-1 text-sm text-stone transition-colors hover:text-ink",
-                        isSeeded && "font-seeded"
+                {col.links.map((l) => {
+                  const className = cn(
+                    "group inline-flex min-h-11 items-center gap-1 break-all text-sm text-stone transition-colors hover:text-ink sm:min-h-6",
+                    isSeeded && "font-seeded"
+                  );
+                  // next/link would try to route a mailto: internally.
+                  return (
+                    <li key={l.label}>
+                      {l.external ? (
+                        <a href={l.href} className={className}>
+                          {l.label}
+                        </a>
+                      ) : (
+                        <Link href={l.href} className={className}>
+                          {l.label}
+                          <ArrowUpRight className="h-3 w-3 -translate-x-1 opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+                        </Link>
                       )}
-                    >
-                      {l.label}
-                      <ArrowUpRight className="h-3 w-3 -translate-x-1 opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
-                    </Link>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -117,7 +140,7 @@ export function Footer() {
           {isSeeded && (
             <button
               onClick={() => setDesign("legacy")}
-              className="font-seeded text-xs text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline"
+              className="inline-flex min-h-11 items-center font-seeded text-sm text-stone-light underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-6"
             >
               Switch to Legacy
             </button>

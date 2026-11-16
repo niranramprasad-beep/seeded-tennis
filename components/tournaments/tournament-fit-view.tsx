@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SeededTournamentFitView } from "@/components/seeded/tournament-fit/seeded-tournament-fit-view";
 import {
   evaluateTournamentFit,
   LEVELS,
@@ -59,10 +60,20 @@ const VERDICT_META = {
   },
 } as const;
 
+// Dual-design entry point, same split as RoadmapView/SeededEventsView: the
+// real rebuild (pixel-exact to "14 Tournament fit finder.png", a genuinely
+// live calculator) lives in SeededTournamentFitView; Legacy keeps this
+// file's original submit-gated form below, unchanged.
 export function TournamentFitView() {
-  const { player, isAuthed, hydrated } = usePlayer();
   const { design } = useDesign();
-  const isSeeded = design === "seeded";
+  if (design === "seeded") {
+    return <SeededTournamentFitView />;
+  }
+  return <LegacyTournamentFitView />;
+}
+
+function LegacyTournamentFitView() {
+  const { player, isAuthed, hydrated } = usePlayer();
 
   const [name, setName] = useState("");
   const [level, setLevel] = useState<FitLevel>("L4");
@@ -128,17 +139,9 @@ export function TournamentFitView() {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="max-w-2xl">
-        <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>
-          Tournament fit finder
-        </span>
-        <h1
-          className={cn(
-            "mt-3 text-4xl sm:text-5xl",
-            isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink"
-          )}
-        >
-          Is this tournament{" "}
-          <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>worth it</span>?
+        <span className="eyebrow text-gold">Tournament fit finder</span>
+        <h1 className="mt-3 display-serif text-4xl text-ink sm:text-5xl">
+          Is this tournament <span className="serif-accent text-grass">worth it</span>?
         </h1>
         <p className="mt-3 text-pretty leading-relaxed text-stone">
           Weigh the draw, the cost, and the drive before you enter. UTR moves on
@@ -149,7 +152,7 @@ export function TournamentFitView() {
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[440px_1fr]">
         {/* ------------------------------------------------------------ form */}
-        <Card className={cn("h-fit p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+        <Card className="h-fit p-6">
           <div className="flex items-center gap-2">
             <Compass className="h-4 w-4 text-grass" />
             <h2 className="text-lg font-medium text-ink">The tournament</h2>
@@ -398,18 +401,12 @@ export function TournamentFitView() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <Card className={cn("flex min-h-[420px] items-center justify-center p-10 text-center", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+                <Card className="flex min-h-[420px] items-center justify-center p-10 text-center">
                   <div className="max-w-sm">
-                    <span
-                      className={cn(
-                        "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
-                        isSeeded ? "text-white" : "bg-grass-50 text-grass"
-                      )}
-                      style={isSeeded ? { background: "var(--s-accent-gradient)" } : undefined}
-                    >
+                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-grass-50 text-grass">
                       <Swords className="h-6 w-6" />
                     </span>
-                    <h2 className={cn("mt-4 text-xl font-medium text-ink", isSeeded && "font-seeded")}>
+                    <h2 className="mt-4 text-xl font-medium text-ink">
                       Size up an event before you enter
                     </h2>
                     <p className="mt-2 text-sm leading-relaxed text-stone">
@@ -435,8 +432,6 @@ function VerdictCard({
   result: FitResult & { name: string };
   location: string;
 }) {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const meta = VERDICT_META[result.verdict];
   const Icon = meta.icon;
 
@@ -513,8 +508,8 @@ function VerdictCard({
       </Card>
 
       {/* reasons */}
-      <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-        <h3 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Why</h3>
+      <Card className="p-6">
+        <h3 className="text-lg font-medium text-ink">Why</h3>
         <ul className="mt-3 space-y-2.5">
           {result.reasons.map((reason, i) => (
             <motion.li
@@ -540,10 +535,10 @@ function VerdictCard({
 
       {/* suggestions */}
       {result.suggestions.length > 0 && (
-        <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+        <Card className="p-6">
           <div className="flex items-center gap-2">
             <Lightbulb className="h-4 w-4 text-gold" />
-            <h3 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Make it a better call</h3>
+            <h3 className="text-lg font-medium text-ink">Make it a better call</h3>
           </div>
           <ul className="mt-3 space-y-2">
             {result.suggestions.map((tip, i) => (

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
 import type { Division, School } from "@/lib/types";
 import { useGender } from "@/lib/context/gender-context";
-import { combinedScore } from "@/lib/data";
+import { combinedScore } from "@/lib/db/schools";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -39,7 +39,7 @@ export const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
 ];
 
 export function SchoolsBrowser({ schools, conferences, states, divisions }: Props) {
-  const { gender, setGender } = useGender();
+  const { gender, setGender, isExplicit: genderIsExplicit } = useGender();
   const [query, setQuery] = useState("");
   const [conference, setConference] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
@@ -103,26 +103,17 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
       <SeededSchoolsBrowser
         gender={gender}
         setGender={setGender}
+        genderIsExplicit={genderIsExplicit}
         query={query}
         setQuery={setQuery}
-        conference={conference}
-        setConference={setConference}
-        stateFilter={stateFilter}
-        setStateFilter={setStateFilter}
         division={division}
         setDivision={setDivision}
-        maxMinUTR={maxMinUTR}
-        setMaxMinUTR={setMaxMinUTR}
         maxRank={maxRank}
         setMaxRank={setMaxRank}
-        sort={sort}
-        setSort={setSort}
-        filtersActive={filtersActive}
         ranked={ranked}
-        conferences={conferences}
-        states={states}
         divisions={divisions}
         reset={reset}
+        allSchools={schools}
       />
     );
   }
