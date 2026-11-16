@@ -164,6 +164,15 @@ const PASSES = {
     axe: false,
     shots: true,
   },
+  // Every route, every persona, at phone widths only: catches content
+  // clipped past the right edge (the `clipped` field).
+  narrow: {
+    browsers: ["chromium"],
+    viewports: [W(320, 700), W(375, 812)],
+    themes: ["light"],
+    axe: false,
+    shots: true,
+  },
   extras: {
     browsers: ["chromium"],
     personas: ["h", "a", "f"],
@@ -182,7 +191,12 @@ if (!cfg) throw new Error(`unknown pass ${PASS}`);
 const LAUNCH = {
   chromium: () => chromium.launch({ executablePath: CHROME }),
   webkit: () => webkit.launch(),
-  firefox: () => firefox.launch(),
+  // Firefox lives in its own browsers path: installing it into the shared
+  // one kept evicting WebKit (see scripts/README.md).
+  firefox: () =>
+    firefox.launch({
+      executablePath: join(HOME, "Library/Caches/ms-playwright-ff/firefox-1466/firefox/Nightly.app/Contents/MacOS/firefox"),
+    }),
 };
 
 function themeInit(theme) {
@@ -291,6 +305,26 @@ async function measure(page) {
     window.scrollTo(5000, y);
     const hScroll = window.scrollX > 0 ? window.scrollX : 0;
     window.scrollTo(0, y);
+    // Content past the right edge that NO scroll container owns. The page
+    // clips sideways rather than scrolling, so hScroll alone reads 0 for a
+    // card pushed to 609px on a 375px phone (verifier H3/H4, 2026-11-16).
+    const vw = document.documentElement.clientWidth;
+    const clipped = [];
+    for (const el of document.querySelectorAll("body *")) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0 || r.right <= vw + 1) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.position === "fixed") continue;
+      let owned = false;
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const ox = getComputedStyle(a).overflowX;
+        if (ox !== "visible") { owned = true; break; }
+      }
+      if (owned) continue;
+      if (el.closest(".sr-only")) continue;
+      clipped.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.split(" ").slice(0, 2).join(".") : ""} right=${Math.round(r.right)}`);
+      if (clipped.length >= 5) break;
+    }
     return {
       // What actually rendered. A signed-in user's stored theme overrides the
       // one this harness puts in localStorage (DesignPreferenceSync), and the
@@ -315,6 +349,7 @@ async function measure(page) {
       internalLinks: [...new Set(links.map((l) => l.href).filter((h) => h?.startsWith("/")))],
       imgsNoAlt,
       hScroll,
+      clipped,
       cls: Math.round((window.__cls ?? 0) * 1000) / 1000,
       lcp: Math.round(window.__lcp ?? 0),
       textLength: text.length,

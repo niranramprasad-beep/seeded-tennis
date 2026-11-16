@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFitReport,
   compareSchoolBands,
   countBands,
   projectUtrAtRecruiting,
@@ -259,6 +260,45 @@ describe("the numbers are deterministic", () => {
     const p = project(7.33, 2030)!;
     for (const v of [p.slow, p.normal, p.fast]) {
       expect(Math.round(v * 10) / 10).toBe(v);
+    }
+  });
+});
+
+describe("one rating on one date gets one band (verifier H1, 2026-11-16)", () => {
+  // Floors spread from just above to far above the projected rating.
+  const schools = [9, 10, 11, 12, 12.5, 13, 13.5, 14, 15].map((floor, i) =>
+    school({ slug: `s${i}`, minCompetitiveUTR: floor, avgRosterUTR: floor + 1.2 })
+  );
+  // A logged trend of about 0.8/yr: slower than the 1.0/yr assumption.
+  const history = [
+    { date: new Date("2025-11-14T12:00:00"), utr: 7.9 },
+    { date: new Date("2026-05-14T12:00:00"), utr: 8.3 },
+    { date: new Date("2026-11-14T12:00:00"), utr: 8.7 },
+  ];
+  const base = {
+    currentUtr: 8.7,
+    graduationYear: 2031,
+    gender: "male" as const,
+    schools,
+    projectionInput: { utrHistory: history, graduationYear: 2031, gender: "male" as const, now: NOW },
+    now: NOW,
+  };
+
+  it("the default projected view and the what-if at the same rating agree school by school", () => {
+    const projected = buildFitReport({ ...base, view: "recruiting" })!;
+    expect(projected.utr.isProjected).toBe(true);
+    const chosen = buildFitReport({ ...base, overrideUtr: projected.utr.value })!;
+    for (const s of schools) {
+      expect(chosen.bandBySlug.get(s.slug)).toBe(projected.bandBySlug.get(s.slug));
+    }
+  });
+
+  it("does not grow the rating past the summer before senior year to manufacture Reaches", () => {
+    const projected = buildFitReport({ ...base, view: "recruiting" })!;
+    // Every floor above the projected rating is above the logged pace too,
+    // so none of them is a closeable Reach.
+    for (const s of schools.filter((x) => x.minCompetitiveUTR > projected.utr.value)) {
+      expect(projected.bandBySlug.get(s.slug)).toBe("out-of-range");
     }
   });
 });

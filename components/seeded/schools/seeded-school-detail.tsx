@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { ArrowLeft, Building2, ExternalLink, GraduationCap, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { explainSchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { bandPositionLabel, explainSchoolFit, fitGaps, schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { loadCoachOutreach } from "@/lib/db/outreach";
@@ -15,7 +15,7 @@ import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { projectionTargetLabel } from "@/lib/fit";
-import { ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { formatDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -26,7 +26,7 @@ import { Toast } from "@/components/seeded/ui/toast";
 import { Footer } from "@/components/layout/footer";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -77,9 +77,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const historyUserId = isParent ? (familyPlayer?.id ?? null) : null;
 
   // The SAME report /schools, /today and /family read, for this one school.
-  // It decides which rating judges fit (junior-year estimate before junior
-  // year, today's rating after), so the band here is the band on the
-  // /schools row. explainSchoolFit() below only explains it.
+  // It decides which rating judges fit (the estimate for the summer before
+  // senior year until then, today's rating after), so the band here is the
+  // band on the /schools row. explainSchoolFit() below only explains it.
   const oneSchool = useMemo(() => [school], [school]);
   const report = useFitReport({ player: subject, schools: oneSchool, historyUserId });
   const reportBand = report?.bandBySlug.get(school.slug);
@@ -101,6 +101,11 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   );
 
   const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
+  // The gaps, the chip and the range bar's marker all use the rating that
+  // judged the band — the same one the /schools row shows — so the two pages
+  // print the same "Gap to team average" for the same school.
+  const judgingValue = judging?.value ?? null;
+  const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
 
@@ -113,12 +118,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const saved = isStarred(school.slug);
 
   // Two projections can appear on this card, and they answer different
-  // questions: the band uses a junior-year estimate at TYPICAL growth; this
-  // row extends the pace in the player's own logged ratings to the summer
-  // before senior year. Each says which it is.
+  // questions: the rating that judges the band is an estimate at TYPICAL
+  // growth; this row extends the pace in the player's own logged ratings to
+  // the same date, which is what splits Reach from Out of range. Each says
+  // which it is.
   const paceDescription =
     explanation.pace.status === "ready"
-      ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} by ${formatDate(explanation.pace.byDate)}`
+      ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} ${judging?.isProjected ? `by ${formatDate(explanation.pace.byDate)}` : "today"}`
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
         : "Log a UTR to see your pace.";
@@ -178,7 +184,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-ink">Why this band</h2>
               <FitBadge band={explanation.band} className="text-sm" />
@@ -188,27 +194,21 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             </p>
             <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
 
-            {explanation.gapToFloor != null && explanation.gapToMedian != null && (
+            {gaps && judging && explanation.band !== "unverified" && (
               <FitDriverRow
                 label="UTR"
-                description={`Gap to floor ${signed(explanation.gapToFloor)} · gap to team average ${signed(explanation.gapToMedian)}`}
-                // The chip describes the BAND, which before junior year is
-                // judged at the estimate — while the gaps beside it are
-                // today's. "In range" next to "+2.5 to the floor" read as a
-                // contradiction, so a projected judgement says so.
+                description={
+                  judging.isProjected
+                    ? `${projectedYouLabel(judging, subjectFirst)} ${judging.value.toFixed(1)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${(subjectUtr as number).toFixed(1)}`
+                    : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
+                }
                 chip={
-                  (explanation.band === "likely"
-                    ? "Above range"
-                    : explanation.band === "target"
-                      ? "In range"
-                      : explanation.band === "unverified"
-                        ? "No UTR logged"
-                        : "Below range") + // reach and out-of-range are both below the team floor
-                  (judging?.isProjected && explanation.band !== "unverified" ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
+                  bandPositionLabel(explanation.band) +
+                  (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
                 }
               />
             )}
-            <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status === "ready" ? "Projected" : "Needs data"} />
+            <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status !== "ready" ? "Needs data" : judging?.isProjected ? "Projected" : "Trend"} />
             <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
 
             {explanation.nextBand && (
@@ -231,7 +231,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             </p>
           </div>
 
-          <div className="rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-ink">
                 {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
@@ -245,10 +245,10 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(school.avgRosterUTR)}
-                youPct={hasRealUtr(subjectUtr) ? utrToPct(subjectUtr as number) : null}
+                youPct={judgingValue != null ? utrToPct(judgingValue) : null}
                 caption={
-                  hasRealUtr(subjectUtr)
-                    ? `${subjectFirst ?? "You"} ${(subjectUtr as number).toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                  judgingValue != null
+                    ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                     : subjectFirst
                       ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
                       : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
@@ -256,8 +256,8 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 low={range.min}
                 median={school.avgRosterUTR}
                 high={range.max}
-                you={hasRealUtr(subjectUtr) ? (subjectUtr as number) : null}
-                youLabel={subjectFirst ?? "You"}
+                you={judgingValue}
+                youLabel={projectedYouLabel(judging, subjectFirst)}
               />
             </div>
             <p className="mt-3 text-sm text-stone">
@@ -269,7 +269,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-grass" />
               <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
@@ -286,7 +286,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             />
           </div>
 
-          <div className="rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-grass" />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
@@ -312,7 +312,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             )}
           </div>
 
-          <div className="rounded-[10px] border border-line bg-card p-[22px]">
+          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-grass" />
               <h2 className="text-base font-semibold text-ink">Recruiting timeline</h2>
@@ -343,10 +343,13 @@ function FitDriverRow({
   chip: string;
 }) {
   return (
-    <div className="grid grid-cols-[100px_minmax(0,1fr)_auto] items-center gap-3 border-t border-line py-3 text-sm">
+    // Below sm the chip drops under the description: a long chip ("Between
+    // floor and average by summer 2030 (est.)") in an `auto` column pushed
+    // the card to 609px on a 375px phone.
+    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)_auto]">
       <span className="font-semibold text-ink">{label}</span>
-      <span className="text-stone">{description}</span>
-      <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
+      <span className="min-w-0 text-stone">{description}</span>
+      <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone sm:col-start-auto sm:whitespace-nowrap">
         {chip}
       </span>
     </div>

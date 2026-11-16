@@ -6,7 +6,9 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
-import { loadUtrEntries } from "@/lib/db/plan";
+import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { saveTournamentEntry, type TournamentEntry } from "@/lib/db/events";
 import {
   evaluateTournamentFit,
@@ -81,7 +83,21 @@ function TournamentFitViewFromUrl() {
 
 function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) {
   const { player, isAuthed, hydrated } = usePlayer();
-  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  // A parent checks a tournament for their PLAYER: the prefilled rating, its
+  // label and its date are the child's, never the parent's own (empty) one.
+  const isParent = player.role === "parent";
+  const { data: familyMembers = [] } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+    loadFamilyMembers()
+  );
+  const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
+  const subjectFacts = resolveFamilyPlayerFacts(familyPlayer, player);
+  const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || null : null;
+  const subjectUtr = isParent ? (subjectFacts.currentUtr ?? 0) : player.currentUTR;
+  const whoseUtr = isParent ? `${subjectFirst ?? "Your player"}'s UTR` : "Your UTR";
+  const { data: utrEntries } = useSWR(
+    isParent ? (familyPlayer?.id ? ["utr-entries", familyPlayer.id] : null) : "utr-entries",
+    () => (isParent && familyPlayer?.id ? loadUtrEntriesFor(familyPlayer.id) : loadUtrEntries())
+  );
 
   // A /tournament-fit?... link is the entire "Share with my coach" feature
   // (see lib/tournament-fit-share.ts) — decode it once on mount so opening a
@@ -114,12 +130,19 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   // session is known, an untouched field shows the player's real current
   // UTR; a manual edit (or a shared link's snapshot) always wins.
   const effectiveUtr =
-    utrTouched || !hydrated || !isAuthed || player.currentUTR <= 0
+    utrTouched || !hydrated || !isAuthed || subjectUtr <= 0
       ? utr
-      : utr || player.currentUTR.toFixed(1);
-  const playerUtr = Number(effectiveUtr) || 8;
+      : utr || subjectUtr.toFixed(1);
+  // No rating → no verdict. This used to fall back to 8.0 and print "Your
+  // UTR 8.0 … you're at 8.0" to anyone without one — a parent included.
+  const parsedUtr = Number(effectiveUtr);
+  const playerUtr: number | null =
+    effectiveUtr !== "" && Number.isFinite(parsedUtr) && parsedUtr >= UTR_MIN && parsedUtr <= UTR_MAX
+      ? parsedUtr
+      : null;
 
   const nudgeUtr = (delta: number) => {
+    if (playerUtr == null) return;
     const next = Math.min(UTR_MAX, Math.max(UTR_MIN, Math.round((playerUtr + delta) * 10) / 10));
     setUtrTouched(true);
     setUtr(next.toFixed(1));
@@ -132,7 +155,9 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
   const result = useMemo(
     () =>
-      evaluateTournamentFit({
+      playerUtr == null
+        ? null
+        : evaluateTournamentFit({
         name: tournamentName,
         level,
         playerUtr,
@@ -146,8 +171,8 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
     [tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum]
   );
 
-  const meta = VERDICT_META[result.verdict];
-  const blurb = result.reasons[0]?.text ?? "";
+  const meta = result ? VERDICT_META[result.verdict] : null;
+  const blurb = result?.reasons[0]?.text ?? "";
 
   const handleShare = async () => {
     const params = encodeTournamentFitShareParams({
@@ -240,30 +265,41 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
           </div>
 
           <div className="mt-5">
-            <span className="mb-2 block text-sm font-semibold text-ink">Your UTR</span>
+            <label htmlFor="tf-utr" className="mb-2 block text-sm font-semibold text-ink">{whoseUtr}</label>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => nudgeUtr(-0.1)}
+                disabled={playerUtr == null}
                 aria-label="Decrease UTR"
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="min-w-[64px] text-center font-mono text-3xl font-semibold tabular-nums text-ink">
-                {playerUtr.toFixed(1)}
-              </span>
+              <input
+                id="tf-utr"
+                type="text"
+                inputMode="decimal"
+                value={effectiveUtr}
+                placeholder="—"
+                onChange={(e) => {
+                  setUtrTouched(true);
+                  setUtr(e.target.value);
+                }}
+                className="w-[88px] rounded-lg border border-input bg-card py-1 text-center font-mono text-3xl font-semibold tabular-nums text-ink placeholder:text-stone-light"
+              />
               <button
                 type="button"
                 onClick={() => nudgeUtr(0.1)}
+                disabled={playerUtr == null}
                 aria-label="Increase UTR"
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-ink hover:bg-subtle-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent"
               >
                 <Plus className="h-4 w-4" />
               </button>
-              {!utrTouched && hydrated && isAuthed && player.currentUTR > 0 && (
+              {!utrTouched && hydrated && isAuthed && subjectUtr > 0 && (
                 <span className="text-[13px] leading-snug text-stone">
-                  From your profile
+                  {isParent ? `From ${subjectFirst ?? "your player"}'s profile` : "From your profile"}
                   {lastLoggedUtr
                     ? ` · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
                     : ""}
@@ -334,29 +370,42 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
         {/* ------------------------------------------------- live verdict */}
         <div className="min-w-0 lg:sticky lg:top-8">
           <div className="rounded-xl border border-line bg-card p-6">
+            {result && meta ? (
+              <>
             <div className={cn("rounded-lg border p-5", meta.card)}>
-              <span className={cn("text-xs font-bold uppercase tracking-[0.1em]", meta.eyebrow)}>
-                Verdict
-              </span>
-              <h2 className="mt-1.5 font-seeded text-[32px] font-bold leading-[1.05] tracking-tight">
-                {meta.headline}
-              </h2>
-              {blurb && <p className="mt-2 text-[15px] leading-relaxed">{blurb}</p>}
-            </div>
+                <span className={cn("text-xs font-bold uppercase tracking-[0.1em]", meta.eyebrow)}>
+                  Verdict
+                </span>
+                <h2 className="mt-1.5 font-seeded text-[32px] font-bold leading-[1.05] tracking-tight">
+                  {meta.headline}
+                </h2>
+                {blurb && <p className="mt-2 text-[15px] leading-relaxed">{blurb}</p>}
+              </div>
 
-            <div className="mt-5 space-y-4">
-              <Meter
-                label="Competition"
-                value={`${result.competitionScore}/100`}
-                pct={result.competitionScore}
-              />
-              <Meter
-                label="Cost per match"
-                value={`$${Math.round(result.costPerMatch)} / match`}
-                pct={result.costScore}
-              />
-              <Meter label="Travel" value={`${result.travelScore}/100`} pct={result.travelScore} />
-            </div>
+              <div className="mt-5 space-y-4">
+                <Meter
+                  label="Competition"
+                  value={`${result.competitionScore}/100`}
+                  pct={result.competitionScore}
+                />
+                <Meter
+                  label="Cost per match"
+                  value={`$${Math.round(result.costPerMatch)} / match`}
+                  pct={result.costScore}
+                />
+                <Meter label="Travel" value={`${result.travelScore}/100`} pct={result.travelScore} />
+              </div>
+
+              </>
+            ) : (
+              <div className="rounded-lg border border-line bg-cream p-5">
+                <span className="text-xs font-bold uppercase tracking-[0.1em] text-stone">Verdict</span>
+                <p className="mt-1.5 text-[15px] leading-relaxed text-ink">
+                  Enter {isParent ? `${subjectFirst ?? "your player"}'s` : "your"} UTR to check this tournament.
+                  {playerUtr == null && effectiveUtr !== "" ? ` UTR runs from ${UTR_MIN} to ${UTR_MAX}.` : ""}
+                </p>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-wrap gap-2.5">
               {/* A parent has no events of their own: /events is the
@@ -367,7 +416,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 <SeededButton onClick={handleAddClick}>Add to my events</SeededButton>
               )}
               <SeededButton variant="secondary" onClick={handleShare}>
-                Share with my coach
+                {isParent ? "Copy a link to this check" : "Share with my coach"}
               </SeededButton>
             </div>
 

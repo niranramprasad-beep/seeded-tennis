@@ -196,9 +196,36 @@ export function profilesChains(source: string): string[] {
     if (!/profile/i.test(m[1])) continue;
     const window = clean.slice(m.index, m.index + 900);
     const end = window.indexOf(";");
-    chains.push(end === -1 ? window : window.slice(0, end));
+    let chain = end === -1 ? window : window.slice(0, end);
+    // A query assigned to a variable and filtered in a LATER statement —
+    //   let q = supabase.from("profiles").select("*");
+    //   q = q.in("id", ids);
+    // — stopped at the first `;` and read as one harmless chain
+    // (verifier, 2026-11-16). Every later `q.<filter>(` in the file is
+    // appended to the chain it belongs to.
+    const assigned = clean.slice(Math.max(0, m.index - 120), m.index).match(/(?:const|let|var)\s+(\w+)\s*=\s*[\w!.?\s]*$/)?.[1];
+    if (assigned) {
+      const later = new RegExp(String.raw`\b${assigned}\s*(?:=\s*${assigned}\s*)?((?:\.\s*\w+\([^;]*)+)`, "g");
+      const rest = clean.slice(m.index + chain.length);
+      for (const l of rest.matchAll(later)) chain += l[1];
+    }
+    chains.push(chain);
   }
   return chains;
+}
+
+/** The profiles table named anywhere but a direct `.from(...)` (or a
+ *  generated row type): a helper like `table(supabase, "profiles")` hides
+ *  the whole chain from the lint above (verifier, 2026-11-16). */
+export function profilesNameOutsideFrom(source: string): boolean {
+  const clean = stripComments(source);
+  for (const m of clean.matchAll(/["'`]profiles["'`]/g)) {
+    const before = clean.slice(Math.max(0, m.index! - 30), m.index!);
+    if (/\.\s*from\(\s*$/.test(before)) continue;
+    if (/\b(?:Tables|TablesInsert|TablesUpdate)<\s*$/.test(before)) continue;
+    return true;
+  }
+  return false;
 }
 
 /** Why this source reads another user's profiles row, or [] if it does not. */
@@ -216,7 +243,7 @@ export function profileReadProblems(source: string): string[] {
 }
 
 export function readsOtherProfiles(source: string): boolean {
-  return profileReadProblems(source).length > 0;
+  return profileReadProblems(source).length > 0 || profilesNameOutsideFrom(source);
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -280,6 +307,19 @@ describe("the detector itself is not vacuous", () => {
     expect(
       readsOtherProfiles('supabase.from(profilesTable).select("*").eq("family_code", code)')
     ).toBe(true);
+  });
+
+  it("flags the two a 2026-11-16 review used to defeat the current version", () => {
+    expect(
+      readsOtherProfiles('const table = (s: any, n: string) => s.from(n);\nawait table(supabase, "profiles").select("*").in("id", ids);')
+    ).toBe(true);
+    expect(
+      readsOtherProfiles('let q = supabase.from("profiles").select("*");\nq = q.in("id", ids);\nawait q;')
+    ).toBe(true);
+    // ...and still not the own-row read with a follow-up on another variable.
+    expect(
+      readsOtherProfiles('const { data } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();\nconst x = rows.in;')
+    ).toBe(false);
   });
 
   it("flags the six an independent review used to defeat the first version", () => {

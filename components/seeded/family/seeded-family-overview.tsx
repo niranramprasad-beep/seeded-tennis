@@ -327,7 +327,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
           label={
@@ -351,7 +351,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
         <StatTile value={money(budgetSummary.remaining)} label="left in season budget" />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
           <SeasonBudgetCard
             seasonLabel={seasonLabel}
@@ -400,7 +400,7 @@ function FamilyAwaitingPlayer({ familyCode }: { familyCode: string }) {
         show up here.
       </p>
 
-      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="rounded-xl border border-line bg-card p-5">
           <p className="font-medium text-ink">Nothing to show yet</p>
           <p className="mt-1.5 text-sm text-stone">

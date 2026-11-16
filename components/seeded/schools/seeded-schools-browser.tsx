@@ -531,7 +531,7 @@ export function SeededSchoolsBrowser({
 
       <div className="mt-5">
         {hasUtr && !viewingAsParent ? (
-          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} />
+          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} />
         ) : viewingAsParent ? (
           // A parent has no rating of their own and the slider is not for
           // them. The prompt below is addressed to a player, so showing it

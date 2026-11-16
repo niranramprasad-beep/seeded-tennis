@@ -199,7 +199,8 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               </p>
               <p className="mt-1 text-sm text-stone">
                 They&rsquo;re under 13, so a parent or guardian has to consent to Seeded
-                storing their information. Until then their account reads nothing.
+                storing their information. Until then their account can&rsquo;t save anything, and Seeded
+                shows them this request instead of the app.
               </p>
               {viewerIsParent ? (
                 <>

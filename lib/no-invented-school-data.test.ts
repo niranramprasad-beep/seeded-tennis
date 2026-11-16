@@ -32,7 +32,7 @@ const FILES = ["app", "components", "lib"].flatMap((d) => walk(join(ROOT, d)));
 /** Per-school quantities Seeded has no source for. As code identifiers they
  * mean someone is computing or carrying one. */
 const GUESSED_FIELDS =
-  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|acceptanceRate|admitRate|avgScholarship)\b/;
+  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|acceptanceRate|admitRate|avgScholarship|tuition\w*|rosterCount|aidPercent\w*|athleticAid\w*|scholarshipAmount)\b/;
 
 /** The same quantities as words on a screen. Patterns are written against
  * readable text: entities, \u escapes and JSX joins are decoded first, and
@@ -46,6 +46,9 @@ const GUESSED_COPY: { pattern: RegExp; why: string }[] = [
   { pattern: /\b(?:acceptance|admit|response|reply) rate\b/i, why: "a rate Seeded has no data for" },
   { pattern: /coach(?:es)? (?:usually |typically )?(?:reply|respond|answer)s? within\b/i, why: "a response-time claim" },
   { pattern: /(?:cost|aid|enrollment)[^.]{0,40}coming soon/i, why: "a promise of data nobody is collecting" },
+  { pattern: /\btuition\b[^.]{0,30}\$\s?\d|\$\s?\d[\d,.]*\s?k?\s*(?:\/\s?yr\b|a year\b|per year\b)/i, why: "a tuition or per-year price for a program" },
+  { pattern: /\b(?:average|avg\.?|typical)\s+(?:athletic\s+)?(?:aid|scholarship)\b/i, why: "an average aid figure" },
+  { pattern: /% of a full scholarship|\b\d+\s+players?\s+(?:graduating|leaving)\s+in\b/i, why: "a scholarship share or a per-year departures count" },
 ];
 
 describe("no guessed per-school number reaches a user", () => {
@@ -74,6 +77,12 @@ describe("the guard reads what the screen shows, not how the source spells it", 
     ["numeric entity", "<p>Coaches usually reply within 48 hours</p>"],
     ["JSX join", '<p>Net:{" "}${"$"}{amount}</p>'],
     ["percent", "`${pct}% athletic scholarship`"],
+    // Each of these got past the guard on 2026-11-16 (independent verifier).
+    ["template price", "{`$${x}k/yr`}"],
+    ["entity before tuition", "<p>tuition: &#36;58,000 a year</p>"],
+    ["average aid", "<p>Average athletic aid: {money(a)}</p>"],
+    ["graduating count", "`${n} players graduating in 2027`"],
+    ["split scholarship share", "<p>{pct}% of a full\n            scholarship</p>"],
   ];
   for (const [label, sample] of spellings) {
     it(`catches a ${label}`, () => {

@@ -42,7 +42,7 @@ const SCHOOLS: SchoolLite[] = [
 const PERSONAS = [
   { name: "a — Men's 8.7, Class of 2031 (7th grade)", currentUtr: 8.7, graduationYear: 2031, gender: "male" as const },
   { name: "b — Women's 6.0, Class of 2029 (sophomore)", currentUtr: 6.0, graduationYear: 2029, gender: "female" as const },
-  { name: "c — Men's 11.0, Class of 2027 (junior)", currentUtr: 11.0, graduationYear: 2027, gender: "male" as const },
+  { name: "c — Men's 11.0, Class of 2027 (senior)", currentUtr: 11.0, graduationYear: 2027, gender: "male" as const },
   { name: "d — Women's 9.4, Class of 2026 (senior)", currentUtr: 9.4, graduationYear: 2026, gender: "female" as const },
   { name: "e — Men's 4.0, Class of 2030 (beginner)", currentUtr: 4.0, graduationYear: 2030, gender: "male" as const },
 ];
@@ -225,9 +225,13 @@ describe("(b) band classification is reachable only through lib/fit.ts", () => {
     const offenders: string[] = [];
     for (const f of files) {
       const src = stripComments(f === null ? "" : readFileSync(f, "utf8"));
-      for (const banned of ["classifySchoolFit", "countSchoolFits", "fitBasis"]) {
-        if (new RegExp(`\\b${banned}\\s*\\(`).test(src)) offenders.push(`${f} → ${banned}()`);
+      // Any reference, not just a direct call: `(classifySchoolFit as any)(…)`
+      // and the exported countBands/compareSchoolBands (which take a raw
+      // number) both got past a call-shaped pattern (verifier, 2026-11-16).
+      for (const banned of ["classifySchoolFit", "countSchoolFits", "countBands", "compareSchoolBands"]) {
+        if (new RegExp(`\\b${banned}\\b`).test(src)) offenders.push(`${f} → ${banned}`);
       }
+      if (/\bfitBasis\s*\(/.test(src)) offenders.push(`${f} → fitBasis()`);
     }
     expect(
       offenders,
@@ -260,7 +264,7 @@ describe("(b) band classification is reachable only through lib/fit.ts", () => {
 describe("(d) the school page explains the report's band, never its own", () => {
   // /schools/[slug] used to call explainSchoolFit(player.currentUTR, …)
   // with no band, so it classified on TODAY's rating while the /schools row
-  // for the same school judged a pre-junior at their junior-year estimate.
+  // for the same school judged a pre-junior at their projected estimate.
   // Persona (a): Reach on one page, Target on the other.
   it("every component call to explainSchoolFit passes the fit report's band", () => {
     const callers = ROOTS.flatMap((r) => sourceFiles(r)).filter((f) =>

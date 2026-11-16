@@ -203,7 +203,7 @@ describe("explainSchoolFit — summary sentence, real numbers only", () => {
 
   it("matches the spec's own example almost verbatim for a below-floor player", () => {
     const explanation = explainSchoolFit(5.8, school, { graduationYear: 2028 });
-    // "today": the band may be judged at a junior-year estimate (the fit
+    // "today": the band may be judged at a projected estimate (the fit
     // report's choice), so the sentence says which rating it is quoting.
     expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.3. You're 5.8 today.");
     expect(explanation.gapToFloor).toBeCloseTo(6.5, 2);
@@ -603,7 +603,7 @@ describe("explainSchoolFit — the school page agrees with the /schools row", ()
   } as unknown as SchoolLite;
 
   it("uses the fit report's band when given one, instead of re-judging on today's rating", () => {
-    // 8.7 today is below the 12.3 floor; at junior year the report may say Target.
+    // 8.7 today is below the 12.3 floor; by the summer before senior year the report may say Target.
     const own = explainSchoolFit(8.7, school, { graduationYear: 2031 });
     const fromReport = explainSchoolFit(8.7, school, { graduationYear: 2031, band: "target" });
     expect(own.band).not.toBe("target");

@@ -56,21 +56,41 @@ describe("navigation: one list, and every link reaches its page", () => {
       expect(src, f).toMatch(/from "(\.\/|@\/components\/seeded\/layout\/)nav-links"/);
       // A hand-written route entry, e.g. `{ label: "Events", href: "/events"`
       // or `{ href: "/family", label: ...`, is a second list.
-      expect(src, `${f} defines its own nav entries`).not.toMatch(
-        /\{\s*(label:\s*"[^"]+",\s*)?href:\s*"\/[a-z-]*"/
-      );
+      // Any key order: `{ label, icon, href: "/matches" }` got past a
+      // label-then-href pattern (verifier, 2026-11-16).
+      expect(src, `${f} defines its own nav entries`).not.toMatch(/\bhref\s*:\s*["'`]\//);
+      // Literal JSX links are limited to the account menu's fixed entries;
+      // a `<Link href="/matches">` dropped into the sidebar is a second list.
+      const literal = [...src.matchAll(/\bhref=["'`](\/[^"'`]*)["'`]/g)].map((m) => m[1]);
+      for (const h of literal) {
+        expect(["/settings", "/settings/billing", "/tournament-fit"], `${f}: literal link ${h}`).toContain(h);
+      }
     }
   });
 });
 
 describe("one answer to 'which player is this family screen about'", () => {
+  it("the picker detector catches the spellings that slipped past", () => {
+    const find = /\.(?:find|findLast)\(\s*\(?[^)]{0,40}\)?\s*=>[^;]{0,60}\brole\s*===?\s*["'`]player["'`]/;
+    const first = /\.filter\(\s*\(?[^)]{0,40}\)?\s*=>[^;]{0,60}\brole\s*===?\s*["'`]player["'`][^;]{0,20}?\)\s*(?:\??\.?\[0\]|\.at\(0\)|\.shift\(\))/;
+    expect(find.test('members.find(({ role }) => role === "player")')).toBe(true);
+    expect(first.test('members.filter((m) => m.role === "player")[0]')).toBe(true);
+    expect(first.test('members.filter((m) => m.role === "player").length')).toBe(false);
+  });
+
   it("no component picks the player for itself", () => {
     const offenders: string[] = [];
     for (const f of SOURCES) {
       if (f.endsWith(join("lib", "family-view.ts"))) continue;
       const src = read(f);
       // .find(m => m.role === "player"), .find((x) => x.role == 'player'), etc.
-      if (/\.find\(\s*\(?\s*(\w+)\s*\)?\s*=>\s*\1\.role\s*===?\s*["']player["']/.test(src)) {
+      // Any find/filter callback testing role === "player" — destructured
+      // `({ role }) =>` and `.filter(…)[0]` both got past the first,
+      // narrower pattern (verifier, 2026-11-16).
+      const picks =
+        /\.(?:find|findLast)\(\s*\(?[^)]{0,40}\)?\s*=>[^;]{0,60}\brole\s*===?\s*["'`]player["'`]/.test(src) ||
+        /\.filter\(\s*\(?[^)]{0,40}\)?\s*=>[^;]{0,60}\brole\s*===?\s*["'`]player["'`][^;]{0,20}?\)\s*(?:\??\.?\[0\]|\.at\(0\)|\.shift\(\))/.test(src);
+      if (picks) {
         offenders.push(relative(ROOT, f));
       }
     }

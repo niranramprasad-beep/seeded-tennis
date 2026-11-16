@@ -316,7 +316,7 @@ const BANNED: { pattern: RegExp; why: string }[] = [
   },
   {
     // 2026-11-16: the projection target is the summer before senior year.
-    pattern: /by junior year|junior[- ]year (?:estimate|UTR|rating|view)|Junior year:/i,
+    pattern: /by junior year|junior[- ]year (?:estimate|UTR|rating|view|projection)|Junior year:/i,
     why: "the projection is to the summer before senior year — say 'by summer 2030', not 'by junior year'",
   },
 ];
@@ -334,6 +334,23 @@ describe("no user-facing copy promises something the code can't do", () => {
         .filter((f) => pattern.test(strippedSource(f)))
         .map((f) => f);
       expect(offenders).toEqual([]);
+    });
+  }
+});
+
+describe("copy guard reads sentences the way the screen shows them", () => {
+  // Each got past the "by junior year" ban on 2026-11-16 (independent
+  // verifier): the source split the phrase across lines or wrapped part of
+  // it in markup, and the screen still read "by junior year".
+  const spellings: [string, string][] = [
+    ["split across lines", "<p>\n  Projected by junior\n  year, at typical growth\n</p>"],
+    ["markup inside", '<p>Projected by{" "}<b>junior year</b></p>'],
+    ["projection noun", "<p>Your junior-year projection</p>"],
+  ];
+  for (const [label, sample] of spellings) {
+    it(`catches ${label}`, () => {
+      const text = decodeSourceText(sample);
+      expect(BANNED.some(({ pattern }) => pattern.test(text)), text).toBe(true);
     });
   }
 });

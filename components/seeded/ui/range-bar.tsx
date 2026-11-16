@@ -33,7 +33,7 @@ interface RangeBarProps {
   youLabel?: string;
   /**
    * A second, muted dot for the player's rating TODAY, shown when the bar's
-   * primary dot is a projection to junior year and the two differ. Without
+   * primary dot is a projection to the summer before senior year and the two differ. Without
    * it the bar silently presents a projected position as the player's
    * current one — the same conflation that made the fit report tell four
    * stories at once. Omit (or pass null) when there is nothing to compare.

@@ -19,6 +19,7 @@ for (const r of rows) {
   for (const e of r.failedRequests ?? []) add("failed request", r, e);
   for (const v of r.axe ?? []) add(`axe ${v.id}`, r, `${v.impact} x${v.nodes} ${v.sample}`);
   if (r.hScroll) add("horizontal scroll", r, r.hScroll);
+  if (r.clipped?.length) add("content clipped past right edge", r, r.clipped.slice(0, 2).join(" | "));
   for (const j of r.junk ?? []) add("rendered junk", r, j);
   if (r.smallTargetCount) add("target < 24px", r, `${r.smallTargetCount}: ${r.smallTargets.slice(0, 3).join(" | ")}`);
   if (r.smallTextCount) add("actionable text < 14px", r, `${r.smallTextCount}: ${r.smallText.slice(0, 3).join(" | ")}`);

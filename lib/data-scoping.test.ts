@@ -39,7 +39,9 @@ const OWNER_TABLES = [
   "workout_sessions", "exercises", "session_exercises", "saved_templates",
 ];
 const FAMILY_TABLES = ["season_budgets", "budget_expenses", "encouragement_notes", "parent_reports"];
-const TABLE_RE = new RegExp(`\\.from\\("(${[...OWNER_TABLES, ...FAMILY_TABLES].join("|")})"\\)`, "g");
+// Any quote style: `.from('matches')` in a component got past a
+// double-quote-only pattern (verifier, 2026-11-16).
+const TABLE_RE = new RegExp(`\\.from\\(\\s*["'\`](${[...OWNER_TABLES, ...FAMILY_TABLES].join("|")})["'\`]\\s*\\)`, "g");
 
 /** The enclosing function of an index, roughly: from the nearest preceding
  *  `function` keyword to the next line that is a lone `}` at column 0. */
@@ -66,7 +68,7 @@ describe("every read of user-owned data says whose rows it wants", () => {
       for (const m of src.matchAll(TABLE_RE)) {
         const table = m[1];
         const chain = src.slice(m.index!, m.index! + 400);
-        const isRead = /^\.from\("[a-z_]+"\)\s*\.select\(/.test(chain);
+        const isRead = /^\.from\(\s*["'`][a-z_]+["'`]\s*\)\s*\.select\(/.test(chain);
         if (!isRead) continue;
         const fn = enclosingFunction(src, m.index!);
         const scope = FAMILY_TABLES.includes(table)
@@ -86,6 +88,15 @@ describe("every read of user-owned data says whose rows it wants", () => {
           (assigned != null &&
             new RegExp(String.raw`\b${assigned}\s*=\s*${assigned}\s*\.(?:` + scope.replace(/\\\./g, "") + ")").test(fn));
         if (!ok) offenders.push(`${relative(ROOT, f)}: ${table}`);
+        // `.in("user_id", subjectIds)` only counts when subjectIds really is
+        // subjectUserIds(…)'s answer: `const subjectIds = roster.map(r =>
+        // r.user_id)` satisfied the name check and pooled every member's
+        // rows (verifier, 2026-11-16).
+        if (/subjectIds/.test(ownChain) || /\.in\("user_id", subjectIds\)/.test(fn)) {
+          if (!/\bsubjectIds\s*=\s*await\s+subjectUserIds\(/.test(fn)) {
+            offenders.push(`${relative(ROOT, f)}: ${table} (subjectIds not from subjectUserIds)`);
+          }
+        }
       }
     }
     expect(offenders).toEqual([]);
@@ -116,6 +127,24 @@ describe("every read of user-owned data says whose rows it wants", () => {
       const src = read(f);
       const bare = src.match(/load(Matches|TournamentEntries|CoachOutreachDated|CoachOutreach|DailyCheckins)\(\s*\)/);
       if (bare) offenders.push(`${relative(ROOT, f)}: ${bare[0]}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("a family table is scoped by the RESOLVED family code", () => {
+  // profiles.family_code is NULL for every member who joined with the code
+  // (it is the creator's shape only) — scoping by it silently returns
+  // nothing for joiners, and the app's player.familyCode is that raw
+  // column. The code must come from resolveMyFamilyCode() / my_family_code(),
+  // held in a plain local. `.eq("family_code", player.familyCode)` passed
+  // both scoping guards on 2026-11-16 (verifier).
+  it("no .eq('family_code', …) reads a property of a profile or player", () => {
+    const offenders: string[] = [];
+    for (const f of [...LIB, ...UI]) {
+      for (const m of read(f).matchAll(/\.eq\(\s*["'`]family_code["'`]\s*,\s*([^)]+)\)/g)) {
+        if (/[.[]/.test(m[1].trim())) offenders.push(`${relative(ROOT, f)}: ${m[0]}`);
+      }
     }
     expect(offenders).toEqual([]);
   });

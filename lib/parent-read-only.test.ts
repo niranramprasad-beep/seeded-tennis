@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // "Parent view · read-only" must be true, not a label.
@@ -38,34 +38,26 @@ describe("server: no player-data write route accepts a parent", () => {
   }
 
   it("every API route that writes a player table is in the list above", () => {
-    // A new route writing one of these tables must join the list.
-    const tables = /from\("(utr_entries|matches|coach_outreach|tournament_entries|training_plans|workout_sessions|saved_templates|session_exercises|exercises|daily_checkins|recruiting_checklist_items)"\)/;
-    const libWriters = [
-      "lib/db/events.ts",
-      "lib/db/outreach.ts",
-      "lib/db/plan.ts",
-    ].filter((f) => tables.test(read(f)));
-    expect(libWriters.length).toBeGreaterThan(0);
-    // Each API route importing a lib writer must refuse parents.
-    for (const route of [
-      "app/api/utr-entries/route.ts",
-      "app/api/matches/route.ts",
-      "app/api/outreach/route.ts",
-      "app/api/training/planner/route.ts",
-      "app/api/training/templates/route.ts",
-      "app/api/profile/route.ts",
-      "app/api/family/budget/route.ts",
-      "app/api/family/budget/expenses/route.ts",
-      "app/api/account/deletion/route.ts",
-      "app/api/account/export/route.ts",
-      "app/api/whop/checkout/route.ts",
-      "app/api/whop/membership/route.ts",
-      "app/api/whop/sync/route.ts",
-      "app/api/whop/webhook/route.ts",
-    ]) {
+    // Enumerated from app/api, not listed by hand: a NEW route importing a
+    // player-data writer passed the old hand-written list because the list
+    // never mentioned it (verifier, 2026-11-16).
+    const PLAYER_TABLES =
+      /from\(\s*["'](utr_entries|matches|coach_outreach|tournament_entries|training_plans|workout_sessions|saved_templates|session_exercises|exercises|daily_checkins|recruiting_checklist_items|cost_calculations)["']\s*\)/;
+    const PLAYER_WRITER_IMPORT = /from\s+["']@\/lib\/db\/(events|outreach|plan|plan-data-training-plans|training|checkins|checklist|cost)["']/;
+    const routes: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(join(ROOT, dir))) {
+        const rel = `${dir}/${name}`;
+        if (statSync(join(ROOT, rel)).isDirectory()) walk(rel);
+        else if (name === "route.ts") routes.push(rel);
+      }
+    };
+    walk("app/api");
+    expect(routes.length).toBeGreaterThan(10);
+    for (const route of routes) {
       const src = read(route);
-      const importsPlayerWriter = /from "@\/lib\/db\/(events|outreach|plan)"/.test(src);
-      if (importsPlayerWriter) {
+      const writes = /export async function (POST|PUT|PATCH|DELETE)\b/.test(src);
+      if (writes && (PLAYER_WRITER_IMPORT.test(src) || PLAYER_TABLES.test(src))) {
         expect(PLAYER_DATA_WRITE_ROUTES, `${route} writes player data`).toContain(route);
       }
     }
@@ -100,8 +92,16 @@ describe("client: a parent's screens offer no player edit", () => {
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
     expect(src).not.toMatch(/(?<![A-Za-z])(ProfileCard|AccountCard)\b|<NotificationsCard/);
+    // Every card it renders is one of these. A blocklist of names was
+    // beaten by <PlayerProfileCard /> (verifier, 2026-11-16).
+    const cards = new Set([...src.matchAll(/<([A-Z]\w*Card)\b/g)].map((m) => m[1]));
+    for (const card of cards) {
+      expect(["ParentAccountCard", "LinkedPlayersCard", "AppearanceCard", "PrivacyCard", "FamilyMembersCard"]).toContain(card);
+    }
+    // One editable field: the parent's own name.
+    expect(src.match(/<(input|Input|select|textarea|Select|Textarea)\b/g)?.length ?? 0).toBeLessThanOrEqual(1);
     // labels and fields a parent must never see as their own
-    for (const banned of [/UTR profile link/i, /\bGPA\b/, /grad year/i, /Current UTR/i, /"Team"/, /utrProfileLink|currentUTR|\.gpa\b/]) {
+    for (const banned of [/UTR profile link/i, /\bGPA\b/, /grad(?:uation)? year/i, /\bUTR\b/, /"Team"/, /utrProfileLink|currentUTR|\.gpa\b/]) {
       expect(src).not.toMatch(banned);
     }
   });

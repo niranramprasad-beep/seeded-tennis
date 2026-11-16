@@ -73,6 +73,9 @@ export function SeededSidebar() {
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   const isParent = player.role === "parent";
+  // The logo goes home — and a parent's home is /family: /today is a
+  // player page AuthGate bounces them from.
+  const homeHref = isParent ? PARENT_NAV_LINKS[0].href : PLAYER_NAV_LINKS[0].href;
   // "Parent of Bailey · read-only": the same subject every parent screen's
   // ParentScopeLine names, from the same pickFamilyPlayer(). The mockup's
   // static "Parent view · read-only" is the fallback while it loads.
@@ -119,7 +122,7 @@ export function SeededSidebar() {
             collapsed && "justify-center px-0"
           )}
         >
-          <Link href="/today" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+          <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-on-lime" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
@@ -227,7 +230,7 @@ export function SeededSidebar() {
 
       {/* Mobile top bar — avatar menu only, nav itself is the bottom tab bar */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
-        <Link href="/today" className="flex items-center gap-2">
+        <Link href={homeHref} className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>

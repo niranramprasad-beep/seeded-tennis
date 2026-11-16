@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { emptyPlayer } from "./data/user";
+import { codeOnly } from "./testing/source-text";
 
 // The 0 sentinel is an IN-MEMORY convention. The database rejects it.
 //
@@ -46,9 +47,40 @@ describe("the 0 sentinel never reaches Postgres", () => {
   });
 
   it("the profile write converts it to NULL", () => {
-    const auth = read("lib/auth.ts");
+    // Comments stripped: the verifier changed the live line to `?? null`
+    // and the guard still passed, because the old line survived in a
+    // comment and `toContain` read it there.
+    const auth = codeOnly(join(REPO, "lib/auth.ts"));
     expect(auth).toContain("current_utr: player.currentUTR > 0 ? player.currentUTR : null");
     expect(auth).not.toMatch(/current_utr:\s*player\.currentUTR,/);
+  });
+
+  it("no file anywhere writes a raw in-memory rating to Postgres", () => {
+    // The check above covered one file. A raw `current_utr: x.currentUTR`
+    // or `utr: x.currentUTR` written anywhere else raised 23514 for every
+    // player without a rating, and nothing caught it (verifier, 2026-11-16).
+    const RAW = /\bcurrent_utr\s*:\s*[\w.?!]*\bcurrentUTR\b(?!\s*(?:>|\?|&&|\|\|))|from\(\s*["']utr_entries["']\s*\)[\s\S]{0,300}?\.(?:insert|upsert|update)\([\s\S]{0,300}?\butr\s*:\s*[\w.?!]*\bcurrentUTR\b(?!\s*(?:>|\?|&&|\|\|))/;
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) {
+          if (name !== "node_modules" && !name.startsWith(".")) walk(full);
+        } else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+          const m = codeOnly(full).match(RAW);
+          if (m) hits.push(`${full.slice(REPO.length + 1)}: ${m[0]}`);
+        }
+      }
+    };
+    for (const d of ["lib", "app", "components"]) walk(join(REPO, d));
+    expect(hits).toEqual([]);
+  });
+
+  it("the raw-write detector catches the spellings that slipped past", () => {
+    const RAW = /\bcurrent_utr\s*:\s*[\w.?!]*\bcurrentUTR\b(?!\s*(?:>|\?|&&|\|\|))|from\(\s*["']utr_entries["']\s*\)[\s\S]{0,300}?\.(?:insert|upsert|update)\([\s\S]{0,300}?\butr\s*:\s*[\w.?!]*\bcurrentUTR\b(?!\s*(?:>|\?|&&|\|\|))/;
+    expect(RAW.test("update({ current_utr: player.currentUTR })")).toBe(true);
+    expect(RAW.test('from("utr_entries").insert({ utr: player.currentUTR, user_id })')).toBe(true);
+    expect(RAW.test("current_utr: player.currentUTR > 0 ? player.currentUTR : null")).toBe(false);
   });
 
   it("onboarding does not log a starting UTR entry when there is none", () => {

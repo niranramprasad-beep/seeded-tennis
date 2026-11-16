@@ -21,10 +21,25 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"
 describe("modal overlays share one accessible behaviour", () => {
   const files = [...walk(join(ROOT, "components")), ...walk(join(ROOT, "app"))];
 
-  it("every component rendering aria-modal calls useDialog", () => {
+  // Keyed off role="dialog" as well as aria-modal: keyed off aria-modal
+  // alone, the guard REWARDED dropping it — a role="dialog" overlay with no
+  // aria-modal and no useDialog passed (verifier, 2026-11-16). Spread props
+  // ({...dialogProps}) are covered by the same rule, since the role or the
+  // attribute still has to be written somewhere in the file.
+  const DIALOG = /role=["'{]+(?:alert)?dialog|aria-modal|["']aria-modal["']|ariaModal/;
+
+  it("every component that renders a dialog calls useDialog", () => {
     const offenders = files
-      .filter((f) => /aria-modal=/.test(strip(readFileSync(f, "utf8"))))
+      .filter((f) => DIALOG.test(strip(readFileSync(f, "utf8"))))
       .filter((f) => !/\buseDialog\(/.test(strip(readFileSync(f, "utf8"))))
+      .map((f) => relative(ROOT, f));
+    expect(offenders).toEqual([]);
+  });
+
+  it("every dialog says it is modal", () => {
+    const offenders = files
+      .filter((f) => /role=["'{]+(?:alert)?dialog/.test(strip(readFileSync(f, "utf8"))))
+      .filter((f) => !/aria-modal/.test(strip(readFileSync(f, "utf8"))))
       .map((f) => relative(ROOT, f));
     expect(offenders).toEqual([]);
   });

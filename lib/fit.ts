@@ -5,7 +5,6 @@ import {
   growthAssumptionLabel,
   type GrowthPace,
 } from "@/lib/config/growth";
-import { syntheticUtrHistoryFor } from "@/lib/what-if-utr";
 import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import {
   classifySchoolFit,
@@ -364,9 +363,9 @@ function sameCounts(a: BandCounts, b: BandCounts): boolean {
  * honest prompt for that case and shows no bands at all.
  *
  * `projectionInput` is the player's REAL logged history, used only to tell
- * a closeable Reach from a genuine Out-of-range. It is deliberately NOT
- * applied to the recruiting-time view: that rating has already moved, and
- * feeding the trend in again would apply growth twice.
+ * a closeable Reach from a genuine Out-of-range — in the today view, the
+ * recruiting view and the what-if alike, so one rating on one date always
+ * gets one band. It never moves the rating itself.
  */
 export function buildFitReport(input: {
   currentUtr: number | null | undefined;
@@ -407,42 +406,22 @@ export function buildFitReport(input: {
   const current = override ?? (input.currentUtr as number);
   const todayBasis = fitBasis(current, input.projectionInput);
 
-  // The recruiting basis gets a FLAT projection at the projected rating,
-  // not no projection at all.
+  // ONE rule for Reach vs Out of range, in every view and in the what-if:
+  // the pace in the player's REAL logged ratings, evaluated at the summer
+  // before senior year (classifySchoolFit), exactly as /methodology states
+  // it. Fewer than three logged ratings → Reach, because a gap cannot be
+  // shown to be too big. The rating decides Likely/Target/below-floor; the
+  // history only splits below-floor, at the same date — so nothing grows
+  // twice.
   //
-  // Passing nothing meant "below the team floor" fell through to Reach for
-  // every school, so a Class of 2029 player's Reach count jumped from 2 in
-  // the Today view to 31 in the junior-year view — reading as "29 more
-  // programs come within reach", when what actually happened is that the
-  // view stopped being able to tell Reach from Out-of-range. Found by
-  // walking persona (b), not by a test.
-  //
-  // The curve continues at the SLOW end of the realistic band from junior
-  // year to the summer before senior year, which is the window
-  // classifySchoolFit measures a Reach against.
-  //
-  // Flat was the first attempt and it was too blunt: it made Reach
-  // impossible in the junior-year view, so toggling persona (a) showed
-  // Reach going 37 → 0, which reads as "I lost all my reaches" rather than
-  // "those became targets". The residual window is real — players do keep
-  // improving through junior year — and taking the conservative end of the
-  // band keeps it a floor rather than a promise.
-  const residualYears = Math.max(
-    0,
-    (summerBeforeSeniorYear(input.graduationYear).getTime() - (input.now ?? new Date()).getTime()) /
-      (365.25 * 24 * 60 * 60 * 1000)
-  );
-  const recruitingBasis = fitBasis(utr.value, {
-    utrHistory: syntheticUtrHistoryFor({
-      currentUTR: utr.value,
-      targetUTR: utr.value + UTR_GROWTH_PER_YEAR.slow * Math.min(residualYears, 1.5),
-      graduationYear: input.graduationYear,
-      now: input.now,
-    }),
-    graduationYear: input.graduationYear,
-    gender: input.gender,
-    now: input.now,
-  });
+  // Until 2026-11-16 the recruiting view instead grew the projected rating
+  // a further 1.5 years at slow pace — a leftover from when the projection
+  // stopped at junior year. With the target at the summer before senior
+  // year that was growth past the point coaches decide, and it banded the
+  // same rating on the same date two ways: persona (a)'s default view said
+  // Reach 10 · Out of range 3, and typing the identical 12.2 into the
+  // what-if said Reach 0 · Out of range 13 (independent verifier, H1).
+  const recruitingBasis = fitBasis(utr.value, input.projectionInput);
 
   const todayCounts: BandCounts = { likely: 0, target: 0, reach: 0, outOfRange: 0 };
   const recruitingCounts: BandCounts = { likely: 0, target: 0, reach: 0, outOfRange: 0 };

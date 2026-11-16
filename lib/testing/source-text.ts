@@ -36,6 +36,11 @@ export function decodeSourceText(src: string): string {
       // curly quotes -> straight, so one pattern covers both
       .replace(/[‘’]/g, "'")
       .replace(/[“”]/g, '"')
+      // JSX markup inside a sentence reads as nothing: `by{" "}<b>junior
+      // year</b>` is "by junior year" on screen (verifier, 2026-11-16).
+      .replace(/<\/?[A-Za-z][\w.]*(?:\s[^<>]*)?\/?>/g, " ")
+      // A sentence split across source lines is one line on screen.
+      .replace(/\s+/g, " ")
   );
 }
 

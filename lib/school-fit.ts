@@ -102,7 +102,7 @@ export function summerBeforeSeniorYear(graduationYear: number): Date {
  * rating judges fit — does not compile any more. The only way to obtain a
  * basis is `fitBasis()`, and the only caller of that is lib/fit.ts, which
  * owns the question of WHICH rating applies (today's, or the projection to
- * junior year).
+ * the summer before senior year).
  *
  * Why it needed enforcing in the type system rather than a lint: the fit
  * report, the tab counts, the row bands and the trajectory panel each
@@ -502,13 +502,17 @@ export function explainSchoolFit(
     history,
     input.gender ? { ceiling: REALISTIC_UTR_CEILING[input.gender] } : undefined
   );
+  // Same evaluation date classifySchoolFit uses: past the summer before
+  // senior year the trend is read as of today, not "by" a date that has
+  // gone (a senior's page said "10.8 by Jun 1, 2026", chipped Projected).
+  const paceDate = milestone.getTime() > now.getTime() ? milestone : now;
   const pace: SchoolFitPace =
     computed == null
       ? { status: "insufficient-history", message: "Log more results to see your pace." }
       : {
           status: "ready",
-          projectedUTR: Math.round(computed.predict(milestone) * 10) / 10,
-          byDate: localDateKey(milestone),
+          projectedUTR: Math.round(computed.predict(paceDate) * 10) / 10,
+          byDate: localDateKey(paceDate),
         };
 
   const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone, who);
@@ -625,4 +629,38 @@ export function closestSchoolsByUtrGap(
         Math.abs(a.school.minCompetitiveUTR - playerUtr) - Math.abs(b.school.minCompetitiveUTR - playerUtr)
     )
     .slice(0, limit);
+}
+
+/**
+ * Gap from a rating to a team's floor and average, positive = below.
+ * Every screen that prints "Gap to team average" computes it here, against
+ * the rating that judged the band (the projected one before the summer
+ * before senior year) — the school page used today's rating while /schools
+ * used the projection, so Penn read −0.5 on one and +3.0 on the other
+ * (independent verifier, 2026-11-16).
+ */
+export function fitGaps(
+  utr: number,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">
+): { gapToFloor: number; gapToMedian: number } {
+  return {
+    gapToFloor: Math.round((school.minCompetitiveUTR - utr) * 100) / 100,
+    gapToMedian: Math.round((school.avgRosterUTR - utr) * 100) / 100,
+  };
+}
+
+/** Where a band puts the rating relative to the team — what the band
+ *  means, not a synonym for it. "Likely" is at or above the team average,
+ *  which is inside the drawn range, so it is never "above range". */
+export function bandPositionLabel(band: FitBand): string {
+  switch (band) {
+    case "likely":
+      return "At or above team average";
+    case "target":
+      return "Between floor and average";
+    case "unverified":
+      return "No UTR logged";
+    default:
+      return "Below the floor";
+  }
 }

@@ -101,7 +101,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
   // /today and /family read. /plan used to classify each row itself on
   // today's rating, so persona (a) — a 7th grader — saw Reach here and
   // Target for the same school on /schools, which judges a pre-junior at
-  // their junior-year estimate. The slider is passed only once it has been
+  // their projected estimate. The slider is passed only once it has been
   // moved, exactly as /schools does (an untouched slider equals the real
   // rating, and buildFitReport treats any override as a deliberate choice).
   const fitReport = useFitReport({
@@ -345,6 +345,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
           <WhatIfPanel
             {...whatIf}
             seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
+            bandUtr={fitReport?.utr.value ?? null}
           />
         </div>
         <div className="mt-3.5">

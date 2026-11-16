@@ -8,6 +8,14 @@ import { cn } from "@/lib/utils";
 interface WhatIfPanelProps extends UseWhatIfUtrResult {
   /** The calendar year of the senior-summer milestone, for the headline copy. */
   seniorSummerYear: number;
+  /**
+   * The rating the bands on screen use while the slider is untouched — the
+   * fit report's (projected, before the summer before senior year). The
+   * panel used to show today's rating there, so "What if my UTR is 8.7 by
+   * June 2030?" sat directly above "Bands use your projected UTR for summer
+   * 2030: 12.2" (independent verifier, M5).
+   */
+  bandUtr?: number | null;
 }
 
 // Shared "what if my UTR is ___ by June {year}?" slider + pace toggle +
@@ -31,9 +39,15 @@ export function WhatIfPanel({
   setCustom,
   reset,
   seniorSummerYear,
+  bandUtr,
 }: WhatIfPanelProps) {
   const reduceMotion = useReducedMotion();
-  const fillPct = Math.min(100, Math.max(0, ((hypotheticalUTR - minUTR) / (maxUTR - minUTR)) * 100));
+  const shownUtr = isAtRealCurrent && bandUtr != null ? bandUtr : hypotheticalUTR;
+  // Past the summer before senior year there is no "by June" left: a
+  // senior's what-if is about now, not a date that has gone.
+  const milestonePassed = new Date() >= new Date(seniorSummerYear, 5, 1);
+  const when = milestonePassed ? "now" : `by June ${seniorSummerYear}`;
+  const fillPct = Math.min(100, Math.max(0, ((shownUtr - minUTR) / (maxUTR - minUTR)) * 100));
 
   return (
     <div className="rounded-xl border border-line bg-card p-[18px]">
@@ -41,9 +55,9 @@ export function WhatIfPanel({
         <p className="text-[15px] font-semibold text-ink">
           What if my UTR is{" "}
           <span className="font-mono text-grass">
-            <AnimatedNumber value={hypotheticalUTR} decimals={1} duration={reduceMotion ? 0 : 500} />
+            <AnimatedNumber value={shownUtr} decimals={1} duration={reduceMotion ? 0 : 500} />
           </span>{" "}
-          by June {seniorSummerYear}?
+          {when}?
         </p>
         {!isAtRealCurrent && (
           <button onClick={reset} className="text-xs font-semibold text-grass">
@@ -69,9 +83,9 @@ export function WhatIfPanel({
         min={minUTR}
         max={maxUTR}
         step={0.1}
-        value={hypotheticalUTR}
+        value={shownUtr}
         onChange={(e) => setCustom(parseFloat(e.target.value))}
-        aria-label={`Hypothetical UTR by June ${seniorSummerYear}`}
+        aria-label={`Hypothetical UTR ${when}`}
         className="mt-1.5 h-6 w-full cursor-pointer accent-grass"
       />
 
