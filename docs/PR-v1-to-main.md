@@ -36,7 +36,10 @@ the 503 and still deployed READY.
   described a roster model the code does not run, and a UTR of 7.0 that
   onboarding recorded for players who never entered one.
 - **One fit story.** Every screen bands schools from one report
-  (`lib/fit.ts`): pre-juniors at their labelled junior-year estimate.
+  (`lib/fit.ts`), projected to the summer before senior year (e.g. "By
+  summer 2030" for the Class of 2031), labelled as an estimate with its
+  growth assumption, and with the line "Top D1 programs often decide
+  earlier, during junior year." Seniors past that summer use today's UTR.
 - **Real deletion and a complete export**, from Settings, reachable before
   onboarding.
 - **Billing:** the Whop webhook path and a `?checkout=success` sync safety

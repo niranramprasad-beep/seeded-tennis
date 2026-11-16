@@ -774,84 +774,36 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-Everything in 1–4 is blocked on Niran — one word for the rollout, and a few
-minutes in the Whop dashboard for billing. Nothing below can be worked on
-usefully first.
+Rewritten 2026-11-16 by the overnight "every pixel" pass. 1–4 are Niran's
+(they need production or a dashboard); 5 onward are code, and are the
+ranked week-1 list in `docs/TODO.md`.
 
-0. **BILLING IS BROKEN IN PRODUCTION AND HAS BEEN SINCE THE FIRST SALE.**
-   Two real payments (2026-10-03, 2026-11-02) produced nothing: the webhook
-   endpoint is on a legacy payload version while its three events are v1
-   names, so Whop has never delivered to it at all. The buyer is still on
-   the free tier. The code side is fixed on `v1` (plan registry, post-
-   checkout sync, email fallback); the dashboard side is Niran's and is
-   written out step by step in **HANDOFF §K**. Also in §K: the local Whop
-   API key cannot read this account's own memberships, which would make the
-   new safety net useless if production shares it. Nothing else on this list
-   matters as much as a customer paying and getting nothing.
-
-1. **Run the production rollout** (HANDOFF §J). **Eighteen** migrations in
-   order: 025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031 → 032
-   → 033 → 034 → 035 → 036 → 037 → 038 → 039, then merge `v1` (the maintenance
-   page is already deleted on `v1` — **do not try to revert `d059006`, it
-   is not an ancestor of `v1` and the plain merge keeps `middleware.ts`**;
-   §J step 15). Every step has its own verify and rollback. The gates that
-   used to block this — branch protection, Preview/Development on staging,
-   credentials — are all done.
-   **The sequence was rehearsed three times on 2026-11-15.** The third one
-   is the one to trust: it started from a staging database matching
-   production's schema fingerprint **9 of 9** and seeded in production's
-   real data shape, ran every rollback in reverse clean, then every forward
-   step with its pre-flight. **Ten** plan defects have been found and fixed
-   across the three, every one by running the plan rather than reading it,
-   plus one product bug (038) that only the realistic seed could expose.
-   **Highest-risk step is 8** (030 + 031): a restrictive policy on 21
-   tables. Do not skip its pre-flight check that every existing row is
-   `consent_status = 'not_required'`. **Step 11 (034) is the only step that
-   can refuse an ordinary user's write** — watch it after deploying.
-   **Before running any verify step, read §J's note on `set local role
-   authenticated`**: in the SQL editor you are `postgres`, `postgres`
-   bypasses RLS, and a verify run without the role switch passes no matter
-   what the policies say.
-2. **The people who asked to be deleted under the old flow.** Query in
-   HANDOFF §J step 7. 029 does not action them; they are owed a real
-   deletion by hand, with their confirmation. Do this deliberately and
-   soon — some of them have been waiting since before deletion worked.
-3. **Supabase Auth settings** (Niran): leaked-password protection, a
-   minimum password length, **and an SMTP provider.** Login, signup and
-   password reset cannot be rate-limited from app code — the browser talks
-   to Supabase directly — so Supabase's own per-IP limits are the only
-   control that exists. **SMTP is a launch blocker, not a nicety:** a real
-   signup against the preview returned `429 over_email_send_rate_limit`
-   because the built-in sender's quota is a few messages an hour. With
-   "Confirm email" on and no custom SMTP, the second or third person to
-   sign up on launch day cannot confirm. Niran is wiring Resend
-   (2026-11-15). Re-test one real signup end to end afterwards.
-4. **P0-8's other half: the privacy policy.** Deletion, export, consent and
-   minor-visibility are all built and tested. The document that explains
-   them to a parent, names the processors and states retention is not, and
-   needs an adult or a lawyer. This is the last thing standing between the
-   product and being honest with the people whose children use it.
-4b. **A parent cannot read a joined player's data** (found Night 2). The
-   ordinary family flow produces a `/family` page with none of the player's
-   real numbers. Not a leak — the opposite — but it makes the parent view
-   hollow for most families. Three candidate fixes, cheapest first, in
-   `docs/TODO.md`; all of them widen cross-user reads for minors, so each
-   needs the 027/030 attack-test treatment before it ships.
-5. **P1-DATA-1 — real roster import** (migration 012, reserved). Now the
-   single highest-value task, and P1-FIT-4 made the case sharper rather
-   than softer: a 3.0 visitor correctly sees zero programs in range, which
-   is the honest answer and a bad product. 68 programs is not a catalog.
-6. P1-FIT-3 — projections are still nonsense on noisy data ("Projected 4.3"
-   for a 5.81 player). Needs outlier rejection and a floor.
-7. P1-UX-2 — delete Legacy. Last place with its own copy and its own coach
-   view; every honesty guard has to cover it twice.
-8. P1-UX-1 — theme flips between pages. Visible on every session.
-9. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
-   middleware, so it waits until the maintenance middleware is reverted.
-10. Observability: there is still no error tracking and no alerting. 1/10
-    is the lowest score on the board, and the billing finding is what it
-    looks like in practice — a customer paid twice and nothing, anywhere,
-    said so.
+1. **GO: the production rollout** — `docs/GO-SEQUENCE.md` (backup →
+   snapshot → 18 migrations in the rehearsed order with their stops → PR
+   merge → prove 200, not 503). Long-form verify/rollback per step is
+   HANDOFF §J. Highest-risk step is 030 + 031 (pre-flight: every profile
+   `consent_status = 'not_required'`). The PR text is
+   `docs/PR-v1-to-main.md`.
+2. **Billing: the Whop webhook has never delivered** (two real payments,
+   buyer still on `free`). Code side fixed on `v1`; dashboard steps are
+   HANDOFF §K. After the merge: send a test webhook (expect 200) and
+   reconcile the paid bullis.org membership.
+3. **Supabase Auth settings**: custom SMTP (Google Workspace,
+   support@seededtennis.com, 80/hour), leaked-password protection, minimum
+   password length. Re-test one real signup end to end.
+4. **The people who asked to be deleted under the old flow** (HANDOFF §J
+   step 7) — a real deletion by hand, with their confirmation. And the
+   privacy policy that names processors and retention, reviewed by an adult
+   or a lawyer.
+5. **Parent dashboard upgrade** (TODO week 1 #1).
+6. **Premium diagnostic onboarding** (TODO week 1 #2).
+7. **Role-gate the player tables' INSERT policies** + make
+   `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
+8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the
+   highest-value data task: every band rests on unsourced team ranges.
+9. **Delete Legacy (P1-UX-2) and `generatePersonalizedPlan()`.**
+10. **Observability** — no error tracking or alerting exists; the billing
+    failure is what that looks like in practice.
 
 **Production is in maintenance mode** (`main` @ `d059006`, verified live
-503). Low-risk window for the rollout, but the clock is running.
+503) until step 1.
