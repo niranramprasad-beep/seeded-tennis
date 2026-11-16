@@ -16,6 +16,10 @@ interface WhatIfPanelProps extends UseWhatIfUtrResult {
    * 2030: 12.2" (independent verifier, M5).
    */
   bandUtr?: number | null;
+  /** False while the logged ratings are still loading. The pace note below
+   *  keeps its one line either way, so nothing under the panel moves when
+   *  they arrive (it used to appear, then vanish: CLS 0.11 on /schools). */
+  historyLoaded?: boolean;
 }
 
 // Shared "what if my UTR is ___ by June {year}?" slider + pace toggle +
@@ -40,6 +44,7 @@ export function WhatIfPanel({
   reset,
   seniorSummerYear,
   bandUtr,
+  historyLoaded = true,
 }: WhatIfPanelProps) {
   const reduceMotion = useReducedMotion();
   const shownUtr = isAtRealCurrent && bandUtr != null ? bandUtr : hypotheticalUTR;
@@ -109,7 +114,7 @@ export function WhatIfPanel({
             step={0.1}
             min={minUTR}
             max={maxUTR}
-            value={hypotheticalUTR.toFixed(1)}
+            value={shownUtr.toFixed(1)}
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               if (!Number.isNaN(v)) setCustom(v);
@@ -122,11 +127,11 @@ export function WhatIfPanel({
         </label>
       </div>
 
-      {myPaceValue == null && (
-        <p className="mt-2 text-xs text-stone-light">
-          Log 3+ UTR results to unlock your real regression-derived pace.
-        </p>
-      )}
+      <p className={cn("mt-2 truncate text-xs text-stone-light", !historyLoaded && "invisible")}>
+        {myPaceValue == null
+          ? "Log 3+ UTR results to unlock My pace."
+          : "My pace extends the trend in your logged ratings."}
+      </p>
     </div>
   );
 }

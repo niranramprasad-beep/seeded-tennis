@@ -7,6 +7,46 @@ Newest first.
 
 ---
 
+## 2026-11-16 — Reach vs Out of range: one rule, the player's logged pace
+
+**Decision.** In every view (today, the summer-before-senior-year estimate,
+and the what-if), a school below the team floor is **Reach** when the pace
+in the player's real logged ratings reaches the floor by the summer before
+senior year, and **Out of range** when it does not — exactly the sentence
+`/methodology` already printed. Fewer than three logged ratings → Reach,
+also as `/methodology` says. The rating decides Likely / Target / below the
+floor; the history only splits below-the-floor, at the same date.
+
+**Why.** The projected view was growing the estimate a further 1.5 years
+past the summer before senior year (a leftover from the old junior-year
+target) to decide Reach. The independent verifier showed the same 12.2 on
+the same date banded **Reach 10 · Out of range 3** by default and **Reach
+0 · Out of range 13** when typed into the what-if. Growth past the point
+coaches decide is not a forecast.
+
+**What a family will notice.** Persona (a) (Class of 2031, logged pace
+11.4 by June 2030, typical-growth estimate 12.2) now shows Reach 0 in the
+summer-2030 view: every program above 12.2 is above the pace too. A player
+whose logged pace is *faster* than the typical-growth estimate still gets
+Reaches. A player with fewer than three ratings sees Reach for every
+program above the estimate, as before and as `/methodology` says.
+
+**Undo.** Restore the `residualYears` / `syntheticUtrHistoryFor` block in
+`buildFitReport` (`lib/fit.ts`, removed in `6ac824e`). The regression test
+in `lib/fit.test.ts` ("one rating on one date gets one band") will fail —
+delete it in the same commit, and change `/methodology`'s Reach sentence.
+
+## 2026-11-16 — Browsers for the harness installed by hand
+
+**Decision.** WebKit and Firefox were unpacked from Playwright's own CDN
+archives (`playwright.azureedge.net`, the URLs `playwright-core` 1.49.1's
+registry names) into `~/Library/Caches/ms-playwright/webkit-2104` and
+`~/Library/Caches/ms-playwright-ff/firefox-1466`. **Why:** `playwright-core
+install` downloaded to 100% and then hung at 0% CPU while unpacking, three
+times, leaving WebKit with one file in it — which is why the verifier could
+not run WebKit at all. Firefox lives in its own folder because installing it
+into the shared one evicted WebKit. **Undo:** delete either folder.
+
 ## 2026-11-15 (overnight) — onboarding asks for a rating; it never assumes one
 
 **Decision.** The signed-in onboarding's UTR step starts empty ("—") and

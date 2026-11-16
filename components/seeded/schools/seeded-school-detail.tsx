@@ -53,7 +53,7 @@ function signed(value: number): string {
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
 export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
-  const { player } = usePlayer();
+  const { player, isAuthed, hydrated } = usePlayer();
   const isParent = player.role === "parent";
   const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
 
@@ -62,9 +62,10 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // resolveFamilyPlayerFacts), so the two pages cannot name different
   // people. This page used to judge a parent's own empty profile: "add your
   // UTR to compare", addressed to someone with no rating.
-  const { data: familyMembers = [] } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+  const { data: familyMembersData } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
     loadFamilyMembers()
   );
+  const familyMembers = familyMembersData ?? [];
   const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
   const facts = resolveFamilyPlayerFacts(familyPlayer, player);
   const subjectUtr = facts.currentUtr;
@@ -100,6 +101,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
     [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst]
   );
 
+  // The fit card waits for WHO (a parent's family roster) and for the
+  // logged history that splits Reach from Out of range. Rendering before
+  // either arrived judged the parent's own empty profile, then the child;
+  // and banded Reach, then Out of range — visible as rows vanishing and
+  // reappearing (measured CLS 0.13 at 320 for persona f).
+  const fitReady = (!isParent || familyMembersData !== undefined) && utrEntries !== undefined;
+
   const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
   // The gaps, the chip and the range bar's marker all use the rating that
   // judged the band — the same one the /schools row shows — so the two pages
@@ -128,6 +136,112 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
         : "Log a UTR to see your pace.";
+
+  const fitSkeleton = (
+    <div key="fit-skeleton" className="mt-6 grid gap-4 lg:grid-cols-2" aria-busy="true">
+      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
+      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
+    </div>
+  );
+  const fitCards = (
+  <div key="fit-cards" className="mt-6 grid gap-4 lg:grid-cols-2">
+    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-ink">Why this band</h2>
+        <FitBadge band={explanation.band} className="text-sm" />
+      </div>
+      <p className="mt-2 text-sm text-stone">
+        {explanation.summary}
+      </p>
+      <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
+
+      {gaps && judging && explanation.band !== "unverified" && (
+        <FitDriverRow
+          label="UTR"
+          description={
+            judging.isProjected
+              ? `${projectedYouLabel(judging, subjectFirst)} ${judging.value.toFixed(1)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${(subjectUtr as number).toFixed(1)}`
+              : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
+          }
+          chip={
+            bandPositionLabel(explanation.band) +
+            (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
+          }
+        />
+      )}
+      <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status !== "ready" ? "Needs data" : judging?.isProjected ? "Projected" : "Trend"} />
+      <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
+
+      {explanation.nextBand && (
+        <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
+          <strong>What would move it: </strong>
+          {explanation.nextBand.message}
+        </div>
+      )}
+
+      {explanation.unreachable && explanation.alternatives.length > 0 && (
+        <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
+          <strong>Consider instead: </strong>
+          {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or region, and
+          realistically in reach today.
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-stone-light">
+        {explanation.playersLeaving} {explanation.academics}
+      </p>
+    </div>
+
+    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-ink">
+          {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
+        </h2>
+        <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
+          {UTR_RANGE_SOURCE_LABEL}
+        </span>
+      </div>
+      <div className="mt-4">
+        <RangeBar
+          rangeStartPct={utrToPct(range.min)}
+          rangeEndPct={utrToPct(range.max)}
+          medianPct={utrToPct(school.avgRosterUTR)}
+          youPct={judgingValue != null ? utrToPct(judgingValue) : null}
+          caption={
+            judgingValue != null
+              ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+              : subjectFirst
+                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
+                : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
+          }
+          low={range.min}
+          median={school.avgRosterUTR}
+          high={range.max}
+          you={judgingValue}
+          youLabel={projectedYouLabel(judging, subjectFirst)}
+        />
+      </div>
+      <p className="mt-3 text-sm text-stone">
+        Individual roster data isn&apos;t tracked yet. This band is an unverified estimate of
+        the team&apos;s overall UTR range with no published source or date behind it — not
+        per-player positions, and not a number to make a decision on yet.
+      </p>
+    </div>
+  </div>
+  );
+  // Before the session check, a browser with a saved session gets the
+  // skeleton and an anonymous one gets the cards (CSS picks, via
+  // html[data-session]) — so neither swaps twice.
+  const fitSection = !hydrated ? (
+    <>
+      <div className="pre-session-block hidden">{fitSkeleton}</div>
+      <div className="pre-session-hide">{fitCards}</div>
+    </>
+  ) : isAuthed && !fitReady ? (
+    fitSkeleton
+  ) : (
+    fitCards
+  );
 
   return (
     <>
@@ -183,90 +297,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-ink">Why this band</h2>
-              <FitBadge band={explanation.band} className="text-sm" />
-            </div>
-            <p className="mt-2 text-sm text-stone">
-              {explanation.summary}
-            </p>
-            <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
-
-            {gaps && judging && explanation.band !== "unverified" && (
-              <FitDriverRow
-                label="UTR"
-                description={
-                  judging.isProjected
-                    ? `${projectedYouLabel(judging, subjectFirst)} ${judging.value.toFixed(1)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${(subjectUtr as number).toFixed(1)}`
-                    : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
-                }
-                chip={
-                  bandPositionLabel(explanation.band) +
-                  (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
-                }
-              />
-            )}
-            <FitDriverRow label="Pace" description={paceDescription} chip={explanation.pace.status !== "ready" ? "Needs data" : judging?.isProjected ? "Projected" : "Trend"} />
-            <FitDriverRow label="Timing" description={explanation.timing} chip="General" />
-
-            {explanation.nextBand && (
-              <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
-                <strong>What would move it: </strong>
-                {explanation.nextBand.message}
-              </div>
-            )}
-
-            {explanation.unreachable && explanation.alternatives.length > 0 && (
-              <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
-                <strong>Consider instead: </strong>
-                {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or region, and
-                realistically in reach today.
-              </div>
-            )}
-
-            <p className="mt-3 text-xs text-stone-light">
-              {explanation.playersLeaving} {explanation.academics}
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-ink">
-                {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
-              </h2>
-              <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
-                {UTR_RANGE_SOURCE_LABEL}
-              </span>
-            </div>
-            <div className="mt-4">
-              <RangeBar
-                rangeStartPct={utrToPct(range.min)}
-                rangeEndPct={utrToPct(range.max)}
-                medianPct={utrToPct(school.avgRosterUTR)}
-                youPct={judgingValue != null ? utrToPct(judgingValue) : null}
-                caption={
-                  judgingValue != null
-                    ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                    : subjectFirst
-                      ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
-                      : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
-                }
-                low={range.min}
-                median={school.avgRosterUTR}
-                high={range.max}
-                you={judgingValue}
-                youLabel={projectedYouLabel(judging, subjectFirst)}
-              />
-            </div>
-            <p className="mt-3 text-sm text-stone">
-              Individual roster data isn&apos;t tracked yet. This band is an unverified estimate of
-              the team&apos;s overall UTR range with no published source or date behind it — not
-              per-player positions, and not a number to make a decision on yet.
-            </p>
-          </div>
-        </div>
+        {fitSection}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">

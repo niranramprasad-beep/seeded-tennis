@@ -174,7 +174,7 @@ export function TargetSchoolsList({
                     label={s.shortName}
                     className="h-7 w-7"
                   />
-                  <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
+                  <Link href={`/schools/${s.slug}`} className="block min-h-6 truncate leading-6 text-ink hover:text-grass">
                     {s.shortName}
                   </Link>
                 </div>

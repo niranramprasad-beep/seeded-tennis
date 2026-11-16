@@ -807,3 +807,15 @@ html[data-session] .pre-session-public-nav {
     margin-left: 76px;
   }
 }
+.pre-session-only {
+  display: none;
+}
+html[data-session] .pre-session-only {
+  display: inline-flex;
+}
+html[data-session] .pre-session-block {
+  display: block;
+}
+html[data-session] .pre-session-hide {
+  display: none;
+}

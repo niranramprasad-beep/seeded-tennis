@@ -163,7 +163,7 @@ export function SeasonBudgetCard({
             </tbody>
           </table>
           {compact && summary.lineItems.length > rows.length && (
-            <Link href="/family/budget" className="mt-3 inline-block text-sm font-semibold text-grass">
+            <Link href="/family/budget" className="mt-3 inline-flex min-h-6 items-center text-sm font-semibold text-grass">
               See full budget →
             </Link>
           )}

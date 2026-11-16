@@ -38,7 +38,7 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar }: Closest
                 label={school.shortName}
                 className="h-7 w-7"
               />
-              <Link href={`/schools/${school.slug}`} className="truncate text-ink hover:text-grass">
+              <Link href={`/schools/${school.slug}`} className="block min-h-6 truncate leading-6 text-ink hover:text-grass">
                 {school.shortName}
               </Link>
             </div>

@@ -92,7 +92,7 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
                   type="button"
                   onClick={() => remove(m.userId)}
                   disabled={busyId === m.userId}
-                  className="whitespace-nowrap text-xs font-semibold text-stone underline underline-offset-2 hover:text-error disabled:opacity-50"
+                  className="inline-flex min-h-6 items-center whitespace-nowrap text-xs font-semibold text-stone underline underline-offset-2 hover:text-error disabled:opacity-50"
                 >
                   {busyId === m.userId ? "…" : "Remove"}
                 </button>

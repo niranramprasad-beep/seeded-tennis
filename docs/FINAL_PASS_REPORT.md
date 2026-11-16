@@ -383,6 +383,90 @@ juniors projected to their coming summer, no growth once it has begun);
 summerBeforeSeniorYear` for six classes and a junior projected only to
 June 2027; `copy-honesty` bans "by junior year" / "junior-year estimate".
 
+## WS8 — independent verifier, and what it changed
+
+A fresh agent, given the brief and none of this log, walked personas a, c,
+e, f, g against the production build of `dc14ff0` (Chromium only — WebKit
+was not usable, see below), attacked the parent read-only rule through
+every API route and PostgREST inside `begin … rollback`, and tried to
+defeat every guard with one realistic scratch edit each. It left git clean
+and staging unchanged (checked). It found **4 HIGH, 7 MEDIUM, 4 LOW** and
+**nine guards** a plausible edit got past.
+
+### HIGH — all fixed in `6ac824e` / `e3632bd`, each re-measured on a fresh build
+
+| # | finding | fix | re-measured |
+|---|---|---|---|
+| H1 | Same rating, same date, two bandings: persona (a)'s default view **Reach 10 · Out 3**; typing the identical 12.2 into the what-if **Reach 0 · Out 13**. `buildFitReport` grew the estimate another 1.5 years past the summer before senior year to decide Reach — a leftover of the junior-year target. | One rule in every view: the player's real logged pace at the summer before senior year, which is what `/methodology` already said (DECISIONS 2026-11-16). Regression test fails on the old code. | default and typed 12.2 both **R0 T12 L12 OOR13**; My pace 11.4 R0 T14 L5 OOR18; +1.5/yr 14.0 R0 T6 L31 |
+| H2 | School page and `/schools` printed different gaps for the same school (Penn: −0.5 vs +3.0) — one used today's rating, one the projection, under the same label. | `fitGaps()` in lib; the school page's gaps, chip and range-bar marker use the band's rating, labelled "You (est. summer 2030) 12.2 … today 8.7". | Penn reads the same gap on both |
+| H3 | `/schools/[slug]` at 375px laid out at 609px; the "Why this band" chip clipped everything right of it. | Chip drops under the description below `sm`; cards `min-w-0`; the range-bar tooltip (always laid out, `w-max`) capped to the viewport. | 375 / 375 for a and f |
+| H4 | Parent `/family` at 375px laid out at 550px; **Remove** buttons off-screen. Grid tracks grew to the budget table's min-content. | `grid-cols-1` / `minmax(0,1fr)` tracks; budget page's calculator margin matched to the 20px mobile gutter. | /family 375, /family/budget 375 |
+
+**Why the harness missed H3/H4:** it measured sideways overflow by trying
+to scroll, and these pages clip instead of scrolling, so it read 0. It now
+records every element past the right edge that no scroll container owns
+(`clipped`), and a new `narrow` pass runs every route × persona at 320 and
+375.
+
+### MEDIUM / LOW
+
+- **M1** the PR text claimed WebKit/Firefox coverage that had not run — true
+  at the time. WebKit and Firefox are now installed (DECISIONS) and the
+  `browsers` pass has run; the PR text states what actually ran.
+- **M2** `/tournament-fit` invented **UTR 8.0** ("Your UTR 8.0 … you're at
+  8.0") for anyone without a rating — shown to a parent as theirs. No
+  rating → no verdict now; a parent sees their player's rating under the
+  player's name, and "Copy a link to this check" instead of "Share with my
+  coach".
+- **M3** "Likely" was chipped "Above range" while the rating sat inside the
+  drawn range → "At or above team average".
+- **M4/M5** the what-if headline read "What if my UTR is **8.7** by June
+  2030?" above "Bands use … **12.2**"; it now starts at the band's rating.
+  A senior's read "by June 2026" (past) → "now"; the school page's pace row
+  says "today" for a senior.
+- **M6** parents can still INSERT player-table rows under their **own** id
+  through PostgREST (never the child's — every write to the child's rows
+  returned 0 rows / 42501). Already TODO week 1 #3; the PR says so.
+- **M7** under-13 consent copy said the account "reads nothing" — it can
+  read the catalog and `family_members()` (names, emails, ratings). Copy
+  corrected; whether `family_members()` should return less while consent is
+  pending is TODO week 1 #10 (a migration). The pending screen sent the
+  parent to "Today"; parents land on Overview.
+- **L1/L2** silent ceiling cap, last-hours "Estimate" chip → TODO #11–12.
+- **L3** stale "junior-year" comments → updated.
+- **L4** `/privacy` said a parent's export holds "the budget expenses you
+  entered"; it holds the whole family budget → corrected.
+
+### The nine guards — each slip reproduced as a probe file, now caught
+
+`copy-honesty` + `no-invented-school-data` (the shared normaliser now reads
+sentences across source lines and through JSX markup; tuition, average-aid,
+per-year price and departures-count patterns added), `utr-sentinel` (any
+file's raw `current_utr:`/`utr_entries` write; comments no longer satisfy
+it), `dialog-a11y` (keys off `role="dialog"` too — keyed off `aria-modal`
+alone it rewarded dropping it), `parent-read-only` (routes enumerated from
+`app/api`; parent Settings cards allow-listed; one input), `fit-single-source`
+(any component reference to `classifySchoolFit`/`countBands`/
+`compareSchoolBands`, casts included), `data-scoping` (any quote style;
+`subjectIds` must come from `subjectUserIds()`; `family_code` never from a
+profile property), `nav-single-source` (any key order, literal links,
+`.filter(…)[0]` and destructured pickers), `family-scope` (follows a query
+across statements and through helpers). `scratchpad/probes.sh` wrote the
+eight code probes, all eight failed the build, and the probes were deleted.
+
+### What the verifier checked and found correct
+
+Projection target edge cases (grad 2025–2031, July of junior summer); the
+early-decision line on every projected screen and hidden for a senior; no
+surviving "by junior year" copy; /today, /family and /schools agreeing for
+(a); a parent sees no star or Save to targets, Settings has no player
+field, every parent screen names Avery; all 5 player-data API routes 403 a
+parent token; notes and expenses allowed, role change 42501, parent_reports
+insert refused; every member reads exactly 1 own `profiles` row; no
+privileged-column client write or cross-user profiles read in tonight's
+diff; prices $99/$159 and the Free limit of 3 match the code; no console
+errors but local `/_vercel/insights` 404s.
+
 ---
 
 # Previous pass

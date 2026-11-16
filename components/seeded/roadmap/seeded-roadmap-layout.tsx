@@ -346,6 +346,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
             {...whatIf}
             seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
             bandUtr={fitReport?.utr.value ?? null}
+            historyLoaded={utrEntries !== undefined}
           />
         </div>
         <div className="mt-3.5">

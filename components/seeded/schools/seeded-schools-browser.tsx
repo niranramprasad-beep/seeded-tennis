@@ -120,7 +120,7 @@ export function SeededSchoolsBrowser({
   reset,
   allSchools,
 }: Props) {
-  const { player } = usePlayer();
+  const { player, hydrated: sessionChecked } = usePlayer();
   const [region, setRegion] = useState<"all" | SchoolRegion>("all");
   const [chip, setChip] = useState<ChipFilter>("all");
   const [sort, setSort] = useState<SeededSchoolSort>("default");
@@ -531,7 +531,7 @@ export function SeededSchoolsBrowser({
 
       <div className="mt-5">
         {hasUtr && !viewingAsParent ? (
-          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} />
+          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} historyLoaded={utrEntries !== undefined} />
         ) : viewingAsParent ? (
           // A parent has no rating of their own and the slider is not for
           // them. The prompt below is addressed to a player, so showing it
@@ -568,6 +568,21 @@ export function SeededSchoolsBrowser({
           <ChipButton active={chip === "all" || (!hasFit && chip !== "saved")} onClick={() => setChip("all")} variant="dark">
             All {ranked.length}
           </ChipButton>
+          {/* Before the session check, a browser with a saved session holds
+              the band chips' space (globals.css shows .pre-session-only
+              only under html[data-session]); otherwise four chips arriving
+              after hydration re-wrapped this row and shifted the whole list
+              (measured CLS 0.11 at 375 for a signed-in player). */}
+          {!sessionChecked &&
+            ["Reach 00", "Target 00", "Likely 00", "Out of range 00"].map((label) => (
+              <span
+                key={label}
+                aria-hidden
+                className="pre-session-only invisible min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-sm font-semibold sm:min-h-6 sm:py-1.5"
+              >
+                {label}
+              </span>
+            ))}
           {counts && (
             <>
               <ChipButton active={chip === "reach"} onClick={() => setChip("reach")} variant="reach">

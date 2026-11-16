@@ -99,7 +99,7 @@ function CostCalculatorInner({ schools, embedded }: { schools: SchoolLite[]; emb
         </Badge>
       </Reveal>
 
-      <div className="mt-7 grid gap-5 lg:grid-cols-[390px_1fr]">
+      <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
         <Reveal index={1}>
         <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
           <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Inputs</h2>

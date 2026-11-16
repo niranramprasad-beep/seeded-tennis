@@ -230,7 +230,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
 
   return (
     <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <strong className="text-[15px]">Your fit, in 60 seconds</strong>
         {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
             verified and no verification date is stored anywhere. */}

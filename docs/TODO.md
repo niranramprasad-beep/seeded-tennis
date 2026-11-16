@@ -61,6 +61,32 @@ Last updated 2026-11-15.
    stored theme overrides the browser's on every load (DesignPreferenceSync
    pulls it). Tonight stopped the per-page-view WRITE; whether a phone and a
    laptop should share a theme is a product call.
+10. **What an under-13 awaiting consent can read** (independent verifier,
+    2026-11-16). RLS keeps a pending account out of 21 tables, but
+    `family_members()` is SECURITY DEFINER and returns the family's members
+    — names, emails, ratings, targets — to any approved member, consent
+    pending or not. It is inside their own family, so not a leak, but it is
+    more than "inert". Decide whether `family_members()` should return
+    nothing (or names only) while the caller's `consent_status = 'pending'`;
+    that is a migration. The copy no longer claims "reads nothing".
+11. **The projection's ceiling is silent.** `cappedByCeiling` (lib/fit.ts)
+    is computed and never shown: a Class of 2034 player at 8.7 projects to
+    14.0, the realistic ceiling, with typical and fast growth equal. Say so
+    on the screen when it happens. Small.
+12. **In the last hours before June 1 of the target summer** the projection
+    rounds to today's rating but is still chipped "Estimate". Cosmetic; flip
+    `isProjected` when the remaining time is under a day.
+14. **A parent's /schools shifts on a phone (CLS 0.07 at 375, 0.10 at
+    320).** Before the session resolves the page cannot know the viewer is
+    a parent, so it lays out the signed-out "Enter your UTR" prompt; the
+    parent's scope note that replaces it is taller. Players are fixed
+    (0.00–0.04) by the pre-session frame. Fix: remember the role next to
+    the session (e.g. `seeded.role` in localStorage, cleared on sign-out),
+    mark `html[data-role]` in the head script, and reserve the parent
+    block's space the same way.
+13. `isConsentPendingAllowedPath` lists `/family`, but players are blocked
+    from `/family` first, so the entry does nothing. Remove it or document
+    why it is there.
 
 ## Blocking the production rollout
 

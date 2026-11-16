@@ -215,7 +215,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
         checks the field, the cost per match and the travel.
       </p>
 
-      <div className="mt-7 grid gap-5 lg:grid-cols-[440px_1fr] lg:items-start">
+      <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[440px_minmax(0,1fr)] lg:items-start">
         {/* ------------------------------------------------------- inputs */}
         <div className="rounded-xl border border-line bg-card p-6">
           <label className="block">
@@ -266,7 +266,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
           <div className="mt-5">
             <label htmlFor="tf-utr" className="mb-2 block text-sm font-semibold text-ink">{whoseUtr}</label>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => nudgeUtr(-0.1)}
