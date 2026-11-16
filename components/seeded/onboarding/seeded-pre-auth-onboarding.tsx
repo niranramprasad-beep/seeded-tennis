@@ -13,12 +13,14 @@ import { GoogleButton, GoogleDivider, authInputClass } from "@/components/auth/a
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { parentConsentRequired } from "@/lib/config/consent";
-import { buildFitReport, type FitView } from "@/lib/fit";
+import { buildFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
+import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { cn } from "@/lib/utils";
 import {
   GROWTH_ESTIMATE_CAPTION,
   GROWTH_ESTIMATE_CHIP,
   RECRUITING_TIMING_NOTE,
+  EARLY_DECISION_NOTE,
   growthAssumptionLabel,
 } from "@/lib/config/growth";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
@@ -194,7 +196,7 @@ function PreAuthOnboarding({
                 that was meant to separate them. Caught by walking the
                 persona rather than by a test. */}
             {report?.utr.isProjected && report.view === "recruiting"
-              ? `By junior year, you're on track for ${counts.target} Target and ${counts.likely} Likely programs.`
+              ? `By ${projectionTargetLabel(report.utr.year)}, you're on track for ${counts.target} Target and ${counts.likely} Likely programs.`
               : `You're in range for ${total} programs — ${counts.target} Target and ${counts.likely} Likely.`}
           </h1>
           {/* The other view's number, always — whichever view is showing.
@@ -205,12 +207,15 @@ function PreAuthOnboarding({
             <p className="mt-2 text-base text-stone">
               {report.view === "recruiting"
                 ? `Today: ${report.todayInRange} in range — that's normal for the Class of ${gradYear}.`
-                : `By junior year: ${report.recruitingCounts.target} Target and ${report.recruitingCounts.likely} Likely.`}
+                : `By ${projectionTargetLabel(report.utr.year)}: ${report.recruitingCounts.target} Target and ${report.recruitingCounts.likely} Likely.`}
             </p>
           )}
+          {/* Was "Sorted by how well your rating, graduating seniors and
+              academics line up" — neither seniors nor academics is part of
+              a band (lib/school-fit.ts). */}
           <p className="mt-2 text-base text-stone">
-            Sorted by how well your rating, graduating seniors and academics
-            line up. Bands update every time you log a result.
+            Bands come from your rating against each team&rsquo;s estimated range. They change
+            when your UTR does.
           </p>
 
           {/* The toggle only appears when the two views genuinely differ.
@@ -222,7 +227,7 @@ function PreAuthOnboarding({
               className="mt-4 inline-flex rounded-lg border border-line bg-card p-1"
             >
               {([
-                ["recruiting", `By junior year (${report.utr.year})`],
+                ["recruiting", `By ${projectionTargetLabel(report.utr.year)}`],
                 ["today", "Today"],
               ] as const).map(([v, label]) => (
                 <button
@@ -250,8 +255,8 @@ function PreAuthOnboarding({
               <>
                 <p className="font-semibold text-ink">No rating yet</p>
                 <p className="mt-1 text-sm text-stone">
-                  Add your UTR above and we&rsquo;ll show where you&rsquo;re headed by junior
-                  year. We won&rsquo;t guess one for you.
+                  Add your UTR above and we&rsquo;ll show where you&rsquo;re headed by the summer
+                  before senior year. We won&rsquo;t guess one for you.
                 </p>
               </>
             ) : !report.utr.isProjected ? (
@@ -261,13 +266,13 @@ function PreAuthOnboarding({
                 </p>
                 <p className="mt-1 text-sm text-stone">
                   The bands below use your rating today — no projected growth, because
-                  coaches are looking at this season.
+                  the summer before senior year has already begun.
                 </p>
               </>
             ) : (
               <>
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                  <span className="text-sm text-stone">By junior year ({report.utr.year})</span>
+                  <span className="text-sm text-stone">By {projectionTargetLabel(report.utr.year)}</span>
                   <span className="font-mono text-[28px] font-semibold leading-none tabular-nums text-ink">
                     {report.utr.value.toFixed(1)}
                   </span>
@@ -285,7 +290,7 @@ function PreAuthOnboarding({
                   Programs in range:{" "}
                   <strong className="font-mono tabular-nums">{report.todayInRange}</strong> today
                   → <strong className="font-mono tabular-nums">{report.recruitingInRange}</strong>{" "}
-                  by junior year.
+                  by {projectionTargetLabel(report.utr.year)}.
                 </p>
                 <p className="mt-2.5 text-xs text-stone">
                   {growthAssumptionLabel("normal")} {GROWTH_ESTIMATE_CAPTION}
@@ -293,7 +298,7 @@ function PreAuthOnboarding({
               </>
             )}
             <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
-              {RECRUITING_TIMING_NOTE}
+              {RECRUITING_TIMING_NOTE} {EARLY_DECISION_NOTE}
             </p>
           </section>
 
@@ -311,7 +316,7 @@ function PreAuthOnboarding({
                 Seeded only covers {filtered.length} {GENDER_LABEL[gender].toLowerCase()} college
                 programs, and the lowest team range here starts well above a{" "}
                 {utrNum.toFixed(1)} UTR
-                {report.utr.isProjected ? ` — even at ${report.utr.value.toFixed(1)} by junior year` : ""}.
+                {report.utr.isProjected ? ` — even at ${report.utr.value.toFixed(1)} by ${projectionTargetLabel(report.utr.year)}` : ""}.
                 That is a fact about our catalogue, not a verdict on the player.
               </p>
               <p className="mt-2.5 text-sm text-stone">
@@ -364,7 +369,7 @@ function PreAuthOnboarding({
               <span>Program</span>
               <span>
                 {report?.utr.isProjected && report.view === "recruiting"
-                  ? `Your junior-year UTR vs team range`
+                  ? `Your ${projectionTargetLabel(report.utr.year)} UTR (estimate) vs team range`
                   : "Your UTR vs team range"}
               </span>
             </div>
@@ -392,7 +397,8 @@ function PreAuthOnboarding({
                           rating the band came from. */}
                       {row?.differs && (
                         <div className="mt-1 text-[13px] text-stone">
-                          Today: {BAND_LABEL[row.todayBand] ?? row.todayBand} &rarr; Junior year:{" "}
+                          Today: {BAND_LABEL[row.todayBand] ?? row.todayBand} &rarr; By{" "}
+                          {report ? projectionTargetLabel(report.utr.year) : "then"}:{" "}
                           <strong className="font-semibold text-ink">
                             {BAND_LABEL[row.recruitingBand] ?? row.recruitingBand}
                           </strong>
@@ -406,13 +412,14 @@ function PreAuthOnboarding({
                       youPct={utrToPct(judging)}
                       caption={
                         report?.utr.isProjected && report.view === "recruiting"
-                          ? `Junior year ${judging.toFixed(1)} (estimate) · today ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          ? `${report ? projectionTargetLabel(report.utr.year).replace(/^s/, "S") : "Projected"} ${judging.toFixed(1)} (estimate) · today ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                           : `You ${judging.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={(range.min + range.max) / 2}
                       high={range.max}
                       you={judging}
+                      youLabel={report?.utr.isProjected && report.view === "recruiting" ? projectedYouLabel(report.utr) : "You"}
                       todayPct={report?.utr.isProjected ? utrToPct(utrNum) : null}
                       today={report?.utr.isProjected ? utrNum : null}
                     />

@@ -22,6 +22,7 @@ import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
@@ -510,6 +511,7 @@ export function SeededSchoolsBrowser({
               : ""}
             {ranked.length} {genderLabel} programs.
           </p>
+          <ProjectionNote utr={report?.utr} who={viewingAsParent ? subjectName : null} className="mt-1.5 max-w-2xl" />
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
           Search
@@ -807,13 +809,13 @@ export function SeededSchoolsBrowser({
                       caption={
                         judgingUtr === null
                           ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `${viewingAsParent ? subjectName : "You"} ${judgingUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${judgingUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
                       you={judgingUtr}
-                      youLabel={viewingAsParent ? (subjectName ?? "Player") : "You"}
+                      youLabel={projectedYouLabel(report?.utr, viewingAsParent ? (subjectName ?? "Player") : null)}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>

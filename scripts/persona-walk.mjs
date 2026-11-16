@@ -34,7 +34,7 @@ export const PERSONAS = [
     q: "utr=8.7&gradYear=2031&gender=men&gpa=3.5" },
   { id: "b", label: "Women's UTR 6.0, Class of 2029, GPA 3.9 — average sophomore, strong academics",
     q: "utr=6.0&gradYear=2029&gender=women&gpa=3.9" },
-  { id: "c", label: "Men's UTR 11.0, Class of 2027 — current junior, recruiting now",
+  { id: "c", label: "Men's UTR 11.0, Class of 2027 — a senior in 2026-27, recruiting now",
     q: "utr=11.0&gradYear=2027&gender=men&gpa=3.5" },
   { id: "d", label: "Women's UTR 9.4, Class of 2026 — senior, late in the process",
     q: "utr=9.4&gradYear=2026&gender=women&gpa=3.5" },
@@ -227,7 +227,7 @@ for (const persona of chosen) {
     const inRange = (fr.target ?? 0) + (fr.likely ?? 0);
     if (fr.headlineCount !== inRange)
       entry.problems.push(`fit-report: headline ${fr.headlineCount} != tabs ${inRange}`);
-    const panel = fr.view?.startsWith("By junior") ? fr.panelJunior : fr.panelToday;
+    const panel = fr.view?.startsWith("By summer") ? fr.panelJunior : fr.panelToday;
     if (panel != null && panel !== inRange)
       entry.problems.push(`fit-report: panel ${panel} != tabs ${inRange}`);
   }

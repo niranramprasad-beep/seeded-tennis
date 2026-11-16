@@ -34,6 +34,7 @@ import { loadMyPendingFamilyRequest, type PendingFamilyRequest } from "@/lib/db/
 import { SendNoteModal } from "./send-note-modal";
 import { Toast } from "@/components/seeded/ui/toast";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 
 function seasonTitle(now: Date): string {
   const s = currentSeason(now);
@@ -312,6 +313,9 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
               .filter(Boolean)
               .join(" · ") || "No player details to show yet."}
           </p>
+          {targetSchools.length > 0 && (
+            <ProjectionNote utr={fitReport?.utr} who={firstName} className="mt-1.5 max-w-2xl" />
+          )}
         </div>
         <div className="flex flex-wrap gap-2.5">
           <SeededButton variant="secondary" onClick={() => setNoteOpen(true)}>

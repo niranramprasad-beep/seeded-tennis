@@ -314,6 +314,11 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern: /read-only view of the plan/i,
     why: "a parent cannot see /plan; the parent dashboard shows the player's progress",
   },
+  {
+    // 2026-11-16: the projection target is the summer before senior year.
+    pattern: /by junior year|junior[- ]year (?:estimate|UTR|rating|view)|Junior year:/i,
+    why: "the projection is to the summer before senior year — say 'by summer 2030', not 'by junior year'",
+  },
 ];
 
 describe("no user-facing copy promises something the code can't do", () => {

@@ -55,7 +55,15 @@ export function ResetPasswordForm() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center container-px py-10">
-        <div className={cn(isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2")}>
+        {/* While it checks for a recovery session the card held only a
+            spinner, centred, then grew into the form and jumped 174px up
+            (CLS 0.155 at 375). Hold the form's height while loading. */}
+        <div
+          className={cn(
+            isSeeded && "seeded-glass rounded-card border-0 p-8 shadow-seeded-2",
+            mode === "loading" && "min-h-[36.75rem]"
+          )}
+        >
         <span
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full border-hairline border-gold/30 bg-gold/10 text-gold",

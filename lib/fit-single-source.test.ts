@@ -92,7 +92,7 @@ describe("(a) every number on the fit report comes from the same arithmetic", ()
     }
   }
 
-  it("a pre-junior player is judged on junior year by default, a junior on today", () => {
+  it("before the summer before senior year a player is judged on the projection to it; after, on today", () => {
     const young = buildFitReport({ ...PERSONAS[0], schools: SCHOOLS, now: NOW })!;
     expect(young.utr.isProjected).toBe(true);
     expect(young.view).toBe("recruiting");
@@ -116,7 +116,7 @@ describe("(a) every number on the fit report comes from the same arithmetic", ()
     expect(r.counts.target + r.counts.likely).toBeGreaterThan(0);
     // ...and the two views genuinely differ, which is why a toggle exists.
     expect(r.canToggle).toBe(true);
-    // The point of the junior-year view: programs that are merely a Reach
+    // The point of the projected view: programs that are merely a Reach
     // for a 13-year-old become realistic by the time coaches look.
     expect(r.recruitingInRange).toBeGreaterThan(r.todayInRange);
     expect(r.recruitingCounts.reach).toBeLessThan(r.todayCounts.reach);
@@ -277,5 +277,25 @@ describe("(d) the school page explains the report's band, never its own", () => 
         expect(call, `${f}: explainSchoolFit called without band:`).toMatch(/\bband:\s*\S/);
       }
     }
+  });
+});
+
+
+describe("(e) the projection target is the summer before senior year — one place", () => {
+  it("a junior is projected only to their coming summer; the label names that summer", () => {
+    const junior = buildFitReport({ currentUtr: 9, graduationYear: 2028, gender: "female", schools: SCHOOLS, now: NOW })!;
+    expect(junior.utr.isProjected).toBe(true);
+    expect(junior.utr.year).toBe(2027); // June 2027, after junior year
+    expect(junior.utr.value).toBeLessThan(9 + 1); // months, not years, of growth
+  });
+
+  it("projectionTargetDate is summerBeforeSeniorYear, and nothing else decides it", async () => {
+    const { projectionTargetDate } = await import("./fit");
+    const { summerBeforeSeniorYear } = await import("./school-fit");
+    for (const y of [2027, 2028, 2029, 2030, 2031, 2032]) {
+      expect(projectionTargetDate(y).getTime()).toBe(summerBeforeSeniorYear(y).getTime());
+    }
+    const src = readFileSync("lib/fit.ts", "utf8");
+    expect(src).not.toMatch(/RECRUITING_GRADE/);
   });
 });

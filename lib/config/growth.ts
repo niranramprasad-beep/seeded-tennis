@@ -51,12 +51,10 @@ export const UTR_GROWTH_PER_YEAR: Record<GrowthPace, number> = {
   fast: REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max,
 };
 
-/** The grade recruiting is modelled as happening in. Junior year = the grade
- * before senior, i.e. graduation year − 2. The NCAA's D1 contact period opens
- * June 15 after sophomore year and off-campus contact August 1 of junior
- * year (lib/config/recruiting.ts), so junior year is when a player's rating
- * is the one coaches are actually looking at. */
-export const RECRUITING_GRADE = 11;
+// The projection target used to be RECRUITING_GRADE = 11 (junior year).
+// It is now the summer before senior year — see projectionTargetDate() in
+// lib/fit.ts — so the fit report agrees with the homepage, the what-if
+// slider and every pace read, which already used that milestone.
 
 /** Shown wherever a projected number appears. Short enough to sit in a chip. */
 export const GROWTH_ESTIMATE_CHIP = "Estimate";
@@ -71,7 +69,11 @@ export function growthAssumptionLabel(pace: GrowthPace): string {
 /** The sentence the brief asks for, verbatim, in one place so every screen
  * says it the same way. */
 export const RECRUITING_TIMING_NOTE =
-  "Recruiting usually happens junior year — this shows where you're headed, not just where you are.";
+  "Projected to the summer before senior year — where you're headed, not just where you are.";
+
+/** Said wherever the projection is shown: the target is the summer before
+ * senior year, and the strongest programs do not wait for it. */
+export const EARLY_DECISION_NOTE = "Top D1 programs often decide earlier, during junior year.";
 
 /** Why the number is an estimate, said plainly. Used under the projection on
  * the fit report. */

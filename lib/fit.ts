@@ -1,12 +1,10 @@
 import type { PlayerGender, SchoolLite } from "@/lib/types";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import {
-  RECRUITING_GRADE,
   UTR_GROWTH_PER_YEAR,
   growthAssumptionLabel,
   type GrowthPace,
 } from "@/lib/config/growth";
-import { getCurrentGrade } from "@/lib/time";
 import { syntheticUtrHistoryFor } from "@/lib/what-if-utr";
 import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import {
@@ -32,7 +30,13 @@ import {
 // nearly every program came back "Reach" — which is true today and useless,
 // because nobody recruits a 13-year-old on their 13-year-old rating. The
 // question a family is actually asking is "where will I be when coaches
-// look?", and junior year is when they look.
+// look?". The projection target is THE SUMMER BEFORE SENIOR YEAR (June 1
+// after junior year) — the same milestone the homepage, the what-if slider
+// and every pace calculation already use. It was junior year until
+// 2026-11-16, which made the fit report contradict the homepage's "by the
+// summer before senior year". Top D1 programs often decide earlier, during
+// junior year, and every screen that shows the projection says so
+// (EARLY_DECISION_NOTE).
 //
 // WHY IT IS SEPARATE FROM lib/school-fit.ts. That module answers "given a
 // UTR, what band is this school?" — it is the classifier, and it is already
@@ -41,14 +45,15 @@ import {
 // the banding rules stay the single thing every screen agrees on.
 
 export interface UtrProjection {
-  /** Projected UTR at recruiting time, by pace. Equal to `currentUtr` for a
-   * player already at or past junior year. */
+  /** Projected UTR at the summer before senior year, by pace. Equal to
+   * `currentUtr` once that summer has begun. */
   slow: number;
   normal: number;
   fast: number;
-  /** Calendar year junior year falls in. */
+  /** Calendar year of the summer before senior year — "summer 2030". */
   recruitingYear: number;
-  /** Years of growth applied. 0 once the player is a junior or older. */
+  /** Years of growth applied (fractional): from now to June 1 of the summer
+   * before senior year. 0 once that summer has begun. */
   yearsOfGrowth: number;
   /** True when there is no growth window left — the projection IS today's
    * rating, and the UI must not dress it up as a forecast. */
@@ -72,24 +77,38 @@ export interface SchoolBandComparison {
   improves: boolean;
 }
 
-/** Years between now and junior year, floored at zero. */
+const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+/** The projection target: June 1 of the summer before senior year. */
+export function projectionTargetDate(graduationYear: number): Date {
+  return summerBeforeSeniorYear(graduationYear);
+}
+
+/** "summer 2030" — how every screen names the projection target. */
+export function projectionTargetLabel(year: number): string {
+  return `summer ${year}`;
+}
+
+/** Years (fractional) from now to the summer before senior year, floored at
+ * zero. A junior in November gets about seven months of growth; a senior
+ * whose summer has begun gets none. */
 export function yearsUntilRecruiting(graduationYear: number, now: Date = new Date()): number {
-  const grade = getCurrentGrade(graduationYear, now);
-  return Math.max(0, RECRUITING_GRADE - grade);
+  const ms = projectionTargetDate(graduationYear).getTime() - now.getTime();
+  return Math.max(0, ms / MS_PER_YEAR);
 }
 
 /**
- * Projects a UTR forward to junior year at each pace.
+ * Projects a UTR forward to the summer before senior year at each pace.
  *
  * Returns `null` when there is no current UTR. Deliberately null rather than
  * a default: there is no honest projection from a number we do not have, and
  * a caller that forgets to handle it should break loudly rather than render
  * a guess. The fit report shows an empty state for this case.
  *
- * **A junior or senior gets their current rating back, at every pace.** They
- * are being recruited now; projecting growth onto them would invent a better
- * player than the one coaches are looking at, in the exact months when that
- * matters most.
+ * **Once the summer before senior year has begun, the current rating comes
+ * back at every pace.** Projecting growth past the point coaches are
+ * deciding would invent a better player than the one they are looking at.
+ * A junior still gets the months up to that summer.
  */
 export function projectUtrAtRecruiting(input: {
   currentUtr: number | null | undefined;
@@ -102,7 +121,7 @@ export function projectUtrAtRecruiting(input: {
 
   const now = input.now ?? new Date();
   const years = yearsUntilRecruiting(graduationYear, now);
-  const recruitingYear = graduationYear - (13 - RECRUITING_GRADE);
+  const recruitingYear = projectionTargetDate(graduationYear).getFullYear();
   const ceiling = REALISTIC_UTR_CEILING[gender];
 
   const at = (pace: GrowthPace) => {
@@ -240,14 +259,11 @@ export interface RecruitingTimeUtr {
 /**
  * THE ONLY PLACE THAT DECIDES WHICH UTR JUDGES FIT.
  *
- *  - Before junior year → the normal-pace projection to junior year, with
- *    slow/fast as the range. A 13-year-old's rating is not the rating
- *    coaches will look at, and banding against it is the bug this exists
- *    to fix.
- *  - Junior or senior → today's rating, unchanged, at every pace. They are
- *    being recruited now; projecting growth onto them invents a better
- *    player than the one coaches are watching, in the months when that
- *    matters most.
+ *  - Before the summer before senior year → the normal-pace projection to
+ *    that summer, with slow/fast as the range. A 13-year-old's rating is
+ *    not the rating coaches will look at, and banding against it is the bug
+ *    this exists to fix.
+ *  - Once that summer has begun → today's rating, unchanged, at every pace.
  *  - No usable rating → null. Not a default, not a zero: callers must
  *    render an honest prompt, and one that forgets should break loudly.
  */
@@ -317,7 +333,7 @@ export interface FitReport {
   inRange: number;
   rows: FitRow[];
   bandBySlug: ReadonlyMap<string, SchoolFitBand>;
-  /** Counts in each view, so a screen can show "today vs junior year"
+  /** Counts in each view, so a screen can show "today vs summer 2030"
    * without computing anything itself. */
   todayCounts: BandCounts;
   recruitingCounts: BandCounts;

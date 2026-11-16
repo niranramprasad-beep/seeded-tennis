@@ -23,31 +23,41 @@ Last updated 2026-11-15.
    switcher** belongs here too: a family with two players sees one of them
    (deterministically the first to join), and Settings says "Reports show
    one player for now".
-2. **Role-gate the player tables' INSERT policies** (migration). A parent
+2. **PREMIUM DIAGNOSTIC ONBOARDING** (Niran, 2026-11-16) — one question per
+   screen, progress bar, under 90 seconds: current UTR; UTR about 6 months
+   ago (optional, "not sure"); UTR about a year ago (optional); team; grad
+   year; planned college enrollment term (gap year / reclassify); birth
+   MONTH + YEAR (not a full date of birth — data minimisation for minors);
+   GPA (optional). Use the player's real growth rate from the past ratings
+   when given, and fall back to the labelled assumption otherwise. Honest
+   "Estimate" labels throughout. (Builds on tonight's change: the
+   projection already targets the summer before senior year in one place,
+   `projectionTargetDate()` in `lib/fit.ts`.)
+3. **Role-gate the player tables' INSERT policies** (migration). A parent
    can still log a UTR/match/event under their OWN id by calling PostgREST
    directly; the app's routes refuse it (403) and no family screen reads a
    parent's rows as the player's, but RLS allows it. Mirror 033: require
    `profiles.role = 'player'` in the WITH CHECK of utr_entries, matches,
    tournament_entries, coach_outreach, the training tables, daily_checkins.
    Attack-test a parent refused and a player allowed, on staging first.
-3. **`is_parent_member()` role-aware** (already item #1 under Billing below
+4. **`is_parent_member()` role-aware** (already item #1 under Billing below
    — unchanged; a joined sibling player can write the budget).
-4. **Delete `generatePersonalizedPlan()`** (already listed below).
-5. **Onboarding's Grade and gender defaults.** Tonight made the UTR an
+5. **Delete `generatePersonalizedPlan()`** (already listed below).
+6. **Onboarding's Grade and gender defaults.** Tonight made the UTR an
    explicit choice; the same signed-in onboarding still preselects 10th
    grade and men's. They are visible choices the player confirms, not silent
    defaults, but they produce a graduation year and a growth curve the
    player never chose if they click through.
-6. **Delete Legacy (P1-UX-2).** Tonight found Legacy-only raw hex colours
+7. **Delete Legacy (P1-UX-2).** Tonight found Legacy-only raw hex colours
    (`components/tournaments/tournament-fit-view.tsx`,
    `components/home/fit-finder-teaser.tsx`), a Legacy match-mode "8pm
    reminder" (browser notifications while open), and Legacy school-page
    copy; every honesty guard covers Legacy twice.
-7. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
+8. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
    `http://localhost` return URL, so the four checkout starts could only be
    checked to the request. `/api/whop/checkout` now pins the return URL to
    the production domain or the preview's own `https://$VERCEL_URL`.
-8. **Players' theme follows the account, not the device.** Signed in, the
+9. **Players' theme follows the account, not the device.** Signed in, the
    stored theme overrides the browser's on every load (DesignPreferenceSync
    pulls it). Tonight stopped the per-page-view WRITE; whether a phone and a
    laptop should share a theme is a product call.

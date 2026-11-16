@@ -94,7 +94,8 @@ export function SeededMethodologyView() {
         </h1>
         <p className="mt-4 max-w-[720px] text-lg leading-[1.55] text-stone">
           Short version: we compare your UTR to an estimated range for each team and put every program in one of
-          four bands. Before junior year we judge you at a projected junior-year rating, labelled as an estimate.
+          four bands. Until the summer before senior year we judge you at your projected rating for that summer,
+          labelled as an estimate &mdash; and top D1 programs often decide earlier, during junior year.
           The team ranges themselves are unverified estimates, and they&apos;re labelled that way everywhere. We
           never show a percent chance, because nobody can know that.
         </p>
@@ -104,7 +105,7 @@ export function SeededMethodologyView() {
             <ol className="flex flex-col gap-3.5 text-[15px] text-ink">
               {TOC.map((item, i) => (
                 <li key={item.id}>
-                  <a href={`#${item.id}`} className="inline-flex min-h-6 items-center hover:text-grass">
+                  <a href={`#${item.id}`} className="inline-flex min-h-11 items-center hover:text-grass sm:min-h-6">
                     {i + 1}. {item.label}
                   </a>
                 </li>
@@ -144,10 +145,12 @@ export function SeededMethodologyView() {
                 the coach emails Seeded drafts say so.
               </p>
               <p className="text-stone">
-                Before junior year, the rating that decides your band is a projection: today&apos;s rating grown to
-                junior year at a typical pace for your team&apos;s gender. It is labelled &ldquo;Estimate&rdquo; with
-                its assumption wherever it&apos;s used, and you can switch to today&apos;s rating instead. From junior
-                year on, it is simply today&apos;s rating.
+                Until the summer before senior year, the rating that decides your band is a projection: today&apos;s
+                rating grown to June 1 of that summer at a typical pace (the same assumption for everyone). It is
+                labelled &ldquo;Estimate&rdquo; with its assumption wherever it&apos;s used, and on your fit report you
+                can switch to today&apos;s rating instead. Once that summer has begun, it is simply today&apos;s rating.
+                Top D1 programs often decide earlier, during junior year, so treat the projection as a ceiling on
+                what the summer can show, not a promise.
               </p>
             </Section>
 

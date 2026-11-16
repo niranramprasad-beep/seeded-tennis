@@ -52,13 +52,22 @@ function school(over: Partial<SchoolLite> & { slug: string }): SchoolLite {
 const project = (currentUtr: number | null, graduationYear: number, gender: "male" | "female" = "female") =>
   projectUtrAtRecruiting({ currentUtr, graduationYear, gender, now: NOW });
 
-describe("how far away recruiting is", () => {
-  it("counts years to junior year and never goes negative", () => {
-    expect(yearsUntilRecruiting(2031, NOW)).toBe(3); // grade 8 -> 11
-    expect(yearsUntilRecruiting(2030, NOW)).toBe(2); // grade 9
-    expect(yearsUntilRecruiting(2029, NOW)).toBe(1); // grade 10
-    expect(yearsUntilRecruiting(2028, NOW)).toBe(0); // already a junior
-    expect(yearsUntilRecruiting(2027, NOW)).toBe(0); // senior
+// The target is June 1 of the summer before senior year (2026-11-16
+// decision: the homepage already promised "by the summer before senior
+// year"; the projection used to stop at junior year). From NOW that is:
+//   2031 -> June 2030 (~3.55 yr)  2030 -> June 2029 (~2.55)
+//   2029 -> June 2028 (~1.55)     2028 -> June 2027 (~0.55, a junior)
+//   2027 -> June 2026 (passed: 0) 2026 -> passed: 0
+const Y = (target: string) => (new Date(target).getTime() - NOW.getTime()) / (365.25 * 24 * 3600 * 1000);
+
+describe("how far away the summer before senior year is", () => {
+  it("counts fractional years to June 1 of that summer and never goes negative", () => {
+    expect(yearsUntilRecruiting(2031, NOW)).toBeCloseTo(Y("2030-06-01T00:00:00"), 6);
+    expect(yearsUntilRecruiting(2030, NOW)).toBeCloseTo(Y("2029-06-01T00:00:00"), 6);
+    expect(yearsUntilRecruiting(2029, NOW)).toBeCloseTo(Y("2028-06-01T00:00:00"), 6);
+    expect(yearsUntilRecruiting(2028, NOW)).toBeCloseTo(Y("2027-06-01T00:00:00"), 6); // a junior still has months
+    expect(yearsUntilRecruiting(2028, NOW)).toBeGreaterThan(0.5);
+    expect(yearsUntilRecruiting(2027, NOW)).toBe(0); // that summer has passed
     expect(yearsUntilRecruiting(2026, NOW)).toBe(0); // graduated
   });
 });
@@ -66,15 +75,17 @@ describe("how far away recruiting is", () => {
 describe("Class of 2031, UTR 9 — the case that read as 'all reaches'", () => {
   const p = project(9, 2031)!;
 
-  it("projects three years of growth", () => {
-    expect(p.yearsOfGrowth).toBe(3);
+  it("projects to the summer before senior year (June 2030)", () => {
+    expect(p.yearsOfGrowth).toBeCloseTo(Y("2030-06-01T00:00:00"), 6);
     expect(p.isAtOrPastRecruiting).toBe(false);
-    expect(p.recruitingYear).toBe(2029);
+    expect(p.recruitingYear).toBe(2030);
   });
 
   it("uses the stated assumptions and nothing else", () => {
-    expect(p.slow).toBeCloseTo(9 + UTR_GROWTH_PER_YEAR.slow * 3, 5); // 10.5
-    expect(p.normal).toBeCloseTo(9 + UTR_GROWTH_PER_YEAR.normal * 3, 5); // 12.0
+    const yrs = Y("2030-06-01T00:00:00");
+    const r = (v: number) => Math.round(v * 10) / 10;
+    expect(p.slow).toBe(r(9 + UTR_GROWTH_PER_YEAR.slow * yrs)); // ~10.8
+    expect(p.normal).toBe(r(Math.min(REALISTIC_UTR_CEILING.female, 9 + UTR_GROWTH_PER_YEAR.normal * yrs))); // 12.5 (ceiling)
     // 9 + 1.5*3 = 13.5, above the 12.5 female ceiling.
     expect(p.fast).toBe(REALISTIC_UTR_CEILING.female);
   });
@@ -92,7 +103,7 @@ describe("Class of 2031, UTR 9 — the case that read as 'all reaches'", () => {
 
     // Today: one likely, the rest out of reach in some form.
     expect(today.likely + today.target).toBe(1);
-    // By junior year every one of them is in play.
+    // By the summer before senior year every one of them is in play.
     expect(atRecruiting.likely + atRecruiting.target).toBe(4);
     expect(atRecruiting.reach + atRecruiting.outOfRange).toBe(0);
   });
@@ -127,12 +138,12 @@ describe("Class of 2027, UTR 11 — a senior", () => {
 describe("Class of 2028, UTR 6 — a junior at this date", () => {
   const p = project(6, 2028)!;
 
-  it("gets no growth, because they are being recruited now", () => {
-    expect(p.yearsOfGrowth).toBe(0);
-    expect(p.isAtOrPastRecruiting).toBe(true);
-    expect(p.slow).toBe(6);
-    expect(p.normal).toBe(6);
-    expect(p.fast).toBe(6);
+  it("projects only to the coming summer (June 2027), not past it", () => {
+    const yrs = Y("2027-06-01T00:00:00");
+    expect(p.isAtOrPastRecruiting).toBe(false);
+    expect(p.recruitingYear).toBe(2027);
+    expect(p.yearsOfGrowth).toBeCloseTo(yrs, 6);
+    expect(p.normal).toBe(Math.round((6 + UTR_GROWTH_PER_YEAR.normal * yrs) * 10) / 10); // 6.5
   });
 
   it("does not pretend a 5-point gap closes", () => {
@@ -143,14 +154,16 @@ describe("Class of 2028, UTR 6 — a junior at this date", () => {
   });
 });
 
-describe("Class of 2029, UTR 6 — one year out", () => {
+describe("Class of 2029, UTR 6 — a sophomore", () => {
   const p = project(6, 2029)!;
 
-  it("projects exactly one year at each pace", () => {
-    expect(p.yearsOfGrowth).toBe(1);
-    expect(p.slow).toBe(6.5);
-    expect(p.normal).toBe(7);
-    expect(p.fast).toBe(7.5);
+  it("projects about a year and a half, to June 2028, at each pace", () => {
+    const yrs = Y("2028-06-01T00:00:00");
+    const r = (v: number) => Math.round(v * 10) / 10;
+    expect(p.yearsOfGrowth).toBeCloseTo(yrs, 6);
+    expect(p.slow).toBe(r(6 + UTR_GROWTH_PER_YEAR.slow * yrs)); // 6.8
+    expect(p.normal).toBe(r(6 + UTR_GROWTH_PER_YEAR.normal * yrs)); // 7.5
+    expect(p.fast).toBe(r(6 + UTR_GROWTH_PER_YEAR.fast * yrs)); // 8.3
   });
 
   it("does not pretend one year closes a five-point gap", () => {
@@ -161,13 +174,12 @@ describe("Class of 2029, UTR 6 — one year out", () => {
   });
 });
 
-describe("a current junior", () => {
-  it("gets no growth once they reach junior year", () => {
-    // Class of 2029 is grade 10 at NOW and grade 11 a year later — so the
-    // same player goes from one year of projected growth to none, which is
-    // the transition worth pinning.
-    expect(project(8.4, 2029)!.yearsOfGrowth).toBe(1);
-    const juniorNow = new Date("2027-11-14T12:00:00");
+describe("the summer before senior year", () => {
+  it("gets no growth once that summer has begun", () => {
+    // Class of 2029: about a year and a half of growth at NOW, and none on
+    // or after June 1 2028 — the transition worth pinning.
+    expect(project(8.4, 2029)!.yearsOfGrowth).toBeGreaterThan(1.5);
+    const juniorNow = new Date("2028-06-02T12:00:00");
     const p = projectUtrAtRecruiting({
       currentUtr: 8.4,
       graduationYear: 2029,
@@ -215,7 +227,7 @@ describe("out-of-range UTR", () => {
 
 describe("the comparison a school row renders", () => {
   it("marks the schools the trajectory actually moves", () => {
-    const p = project(8, 2031)!; // +3 at normal pace -> 11.0
+    const p = project(8, 2031)!; // ~3.55 yr at normal pace -> 11.5
     const catalog = [
       school({ slug: "moves", minCompetitiveUTR: 10, avgRosterUTR: 11 }),
       school({ slug: "already", minCompetitiveUTR: 6, avgRosterUTR: 7 }),

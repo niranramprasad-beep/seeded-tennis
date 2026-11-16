@@ -597,8 +597,9 @@ function MethodAndFounder() {
               — see the note at the top of seeded-methodology-view.tsx. */}
           <li>Each team has an estimated UTR range, labelled as an estimate wherever it appears.</li>
           <li>
-            We place you on that range &mdash; at your projected junior-year
-            rating if you&apos;re younger than that, labelled as an estimate.
+            We place you on that range &mdash; at your projected rating for the
+            summer before senior year, labelled as an estimate (top D1 programs
+            often decide earlier, during junior year).
           </li>
           <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
           <li>You get one of four bands. We never show a percent chance.</li>

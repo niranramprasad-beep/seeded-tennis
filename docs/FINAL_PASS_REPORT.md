@@ -338,6 +338,51 @@ rolled back. `~/seeded-evidence/overnight/ws4/rls-suite.json`.
 Plus the 14 parent read-only probes (WS1). Staging security advisors:
 nothing new — no migration was written tonight.
 
+
+---
+
+## Queued decision (Niran, 2026-11-16): projection target = the summer before senior year
+
+**Changed in one place.** `projectionTargetDate()` in `lib/fit.ts` is now
+`summerBeforeSeniorYear()` (June 1 after junior year) — the milestone the
+homepage, the what-if slider and every pace read already used, so the fit
+report no longer contradicts the homepage's "by the summer before senior
+year". Growth is applied over the real (fractional) time to that date:
+a junior in November gets ~7 months, not zero; once that summer has begun,
+today's rating is used. `RECRUITING_GRADE = 11` is gone (a guard fails the
+build if `lib/fit.ts` names it again).
+
+**Every label:** the toggle, headline, secondary line, panel, column
+header, per-row "Today → By summer 2030", range-bar caption and tooltip,
+the school page's chip ("by summer 2030 (est.)"), `/methodology` (twice),
+the homepage's "How fit works". One shared `ProjectionNote` now appears
+wherever bands come from the projection — the fit report, `/schools`,
+`/schools/[slug]`, `/today`, `/plan`, a parent's `/family` — with the
+assumption and the line **"Top D1 programs often decide earlier, during
+junior year."** This also fixed a labelling gap: `/schools` printed the
+projected rating as plain "You 11.7" for a player whose UTR is 8.7; it now
+reads "You (est. summer 2030) 12.2".
+
+**Persona table, re-measured on a production build** (`scripts/persona-walk.mjs`,
+1440 + 375, light + dark — headline = tabs = rows = panel for every one):
+
+| persona | projected view | today view |
+|---|---|---|
+| a Men's 8.7 C/2031 | **By summer 2030: 12.2** — R10 T12 L12 (OOR 3); panel 0 → 24 | R37 T0 L0 |
+| b Women's 6.0 C/2029 | By summer 2028 — R2 T0 L0 | same (no toggle: the views do not differ) |
+| c Men's 11.0 C/2027 | — (senior in 2026-27: that summer has passed; today's rating) | R0 T10 L2 |
+| d Women's 9.4 C/2026 | — (graduating; today's rating) | R0 T8 L2 |
+| e Men's 4.0 C/2030 | By summer 2029 — R0 T0 L0 + the honest empty state | same |
+
+(Was, at junior year: a R7 T12 L8, judged at 11.7.) The brief's "(c) a
+junior" is a senior by `getCurrentGrade()` for the 2026-27 school year.
+
+**Guards:** `lib/fit.test.ts` rewritten to the new target (fractional years,
+juniors projected to their coming summer, no growth once it has begun);
+`lib/fit-single-source.test.ts` (e) pins `projectionTargetDate ===
+summerBeforeSeniorYear` for six classes and a junior projected only to
+June 2027; `copy-honesty` bans "by junior year" / "junior-year estimate".
+
 ---
 
 # Previous pass

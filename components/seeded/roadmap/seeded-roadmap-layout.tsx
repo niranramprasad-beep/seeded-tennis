@@ -24,6 +24,7 @@ import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
@@ -339,6 +340,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
 
       <div className="mt-5 rounded-xl border border-line bg-card p-5">
         <h2 className="text-base font-semibold text-ink">Your target schools</h2>
+        <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
         <div className="mt-3.5">
           <WhatIfPanel
             {...whatIf}

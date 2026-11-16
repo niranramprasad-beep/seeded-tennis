@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { UtrVsPlanChart } from "./utr-vs-plan-chart";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
@@ -214,6 +215,7 @@ export function SeededDashboardLayout({
 
         <div className="rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Your targets</h2>
+          <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
           {targetSchools.length > 0 ? (
             <ul className="mt-3 flex flex-col gap-2.5 text-sm">
               {targetSchools.slice(0, 6).map((s) => (

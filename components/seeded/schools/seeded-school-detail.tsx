@@ -14,6 +14,8 @@ import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { projectionTargetLabel } from "@/lib/fit";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { formatDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -184,16 +186,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             <p className="mt-2 text-sm text-stone">
               {explanation.summary}
             </p>
-            {judging?.isProjected && (
-              <p className="mt-2 text-sm text-stone">
-                <span className="mr-1.5 inline-flex items-center rounded-pill border border-line bg-cream px-2 py-0.5 text-xs font-semibold text-stone">
-                  Estimate
-                </span>
-                The band is judged at {subjectFirst ? `${subjectFirst}'s` : "your"} junior-year estimate of{" "}
-                <span className="font-mono tabular-nums text-ink">{judging.value.toFixed(1)}</span>, the same
-                rating the Schools list uses. {judging.assumption}
-              </p>
-            )}
+            <ProjectionNote utr={judging} who={subjectFirst} className="mt-2" />
 
             {explanation.gapToFloor != null && explanation.gapToMedian != null && (
               <FitDriverRow
@@ -211,7 +204,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                       : explanation.band === "unverified"
                         ? "No UTR logged"
                         : "Below range") + // reach and out-of-range are both below the team floor
-                  (judging?.isProjected && explanation.band !== "unverified" ? " by junior yr (est.)" : "")
+                  (judging?.isProjected && explanation.band !== "unverified" ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
                 }
               />
             )}
