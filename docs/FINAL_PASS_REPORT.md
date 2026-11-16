@@ -14,9 +14,9 @@ Lighthouse a11y 100 / SEO 100.
 | A — fit report tells one true story | **DONE** (`00b972e`) |
 | B — real-user walkthroughs (7 personas) | **DONE** |
 | C — premium design detail pass | PARTLY (mobile targets done in B) |
-| D — truth & honesty sweep | IN PROGRESS |
-| E — regression safety | not started |
-| F — final independent verification | not started |
+| D — truth & honesty sweep | **DONE** (`0ed348c`) |
+| E — regression safety | **DONE** |
+| F — final independent verification | IN PROGRESS |
 
 ---
 
@@ -241,4 +241,57 @@ mutation-tested:
 `/guaranteed/` matched the denial of the thing it bans. A guard whose fix is
 to delete an honest sentence is worse than no guard. Narrowed to actual
 promises.
+
+---
+
+## E — regression safety
+
+### Guard mutations from every previous round — all 8 still fail the build
+
+| # | mutation | result |
+|---|---|---|
+| 1 | `judgingUtr` falls back to the raw `currentUTR` sentinel | 1 test fails |
+| 2 | a component classifies bands for itself | 4 tests fail |
+| 3 | hardcoded catalogue count written as "teams" | 1 test fails |
+| 4 | "Weekly training plan" back on /pricing | 1 test fails |
+| 5 | generator reached via an unscanned `lib/` helper | 1 test fails |
+| 6 | banned copy planted in `/privacy`'s body | 2 tests fail |
+| 7 | rows banded from a different view than the counts | 3 tests fail |
+| 8 | pre-junior player judged on today's rating | 1 test fails |
+
+Restored: 691/691.
+
+### RLS attack suite, re-run on staging as real `authenticated` identities
+
+Every probe ran inside a transaction that was rolled back; staging is
+unchanged.
+
+| attack | expected | result |
+|---|---|---|
+| Sibling **player** writes an encouragement note (033) | refuse | `42501` |
+| Client writes `subscription_tier` (022/030/035) | refuse | `42501` "can only be changed by Seeded" |
+| Under-13, consent pending, writes a UTR entry (030/031) | refuse | `42501` `account_active_required` |
+| Stranger reads other families' data (027/037) | own row only | 1 profile, 0 utr, 0 matches, 0 notes, 0 budgets, 0 reports, 0 roster, NULL code |
+| Family takeover via `profiles.family_code` (032) | refuse | `42501` |
+| Account holder removed by a member (037/039) | refuse | `22023` |
+| `parent_reports` client INSERT (039) | refuse | `42501` |
+
+Structural: `delete_my_account` has exactly **one** overload taking **zero
+arguments** (so it can only ever delete its caller), **20** rate-limit
+triggers, **9** `stamp_family_code` triggers, **0** INSERT policies on
+`parent_reports`, **21** RESTRICTIVE policies, and `family_account_holder`
+is correctly **not** granted to `authenticated`. An approved member reads
+exactly **1** `profiles` row; the roster returns **7 rows / 7 distinct / 1
+holder**.
+
+### Lighthouse (mobile), axe, console
+
+**All ten pages a11y 100 / SEO 100 on the mobile form factor** — `/`,
+`/pricing`, `/schools`, a school page, `/login`, `/signup`, `/onboarding`,
+`/methodology`, `/privacy`, `/terms`.
+
+**0 axe violations and 0 console errors** across 9 pages × 4 widths × 2
+modes. The only filtered noise is Vercel Analytics and Speed Insights, whose
+scripts are served by Vercel's edge and 404 against a local `next start` —
+named explicitly in `scripts/ui-audit.mjs`, not silently dropped.
 
