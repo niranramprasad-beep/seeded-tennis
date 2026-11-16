@@ -45,10 +45,36 @@ function sourceFiles(dir: string, acc: string[] = []): string[] {
 // someone reintroducing it. So only live code is checked. Block comments are
 // stripped as blocks (a `{/* … */}` JSX note spans lines and its middle lines
 // start with ordinary prose, so a line-by-line prefix filter misses them).
+/**
+ * HTML entities are decoded before any pattern runs.
+ *
+ * This is the single biggest hole these guards have had. JSX escapes
+ * apostrophes — the codebase writes `We&apos;ll` and `men&apos;s`
+ * everywhere — and every pattern here that contained an apostrophe was
+ * therefore blind to the exact spelling the source uses. A verifier
+ * shipped "37 men&apos;s programs." (a hardcoded catalogue count) and
+ * "We&apos;ll send your weekly report every Sunday." (an email promise)
+ * straight past guards written and widened specifically to catch both.
+ *
+ * Decode first, then match. Otherwise every apostrophe in every pattern
+ * below is a hole.
+ */
+function decodeEntities(src: string): string {
+  return src
+    .replace(/&apos;|&#39;|&rsquo;|&lsquo;/g, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+}
+
 function strippedSource(file: string): string {
-  return readFileSync(file, "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "");
+  return decodeEntities(
+    readFileSync(file, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^[ \t]*\/\/.*$/gm, "")
+  );
 }
 
 const BANNED: { pattern: RegExp; why: string }[] = [
@@ -134,7 +160,14 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // sitting inside the fix for a reword around the guard. Also catches
     // "mark the date", which was the same claim on the homepage.
     pattern:
-      /date we (?:last )?check(?:ed)?|(?:last|we) checked (?:it|on)|mark(?:s|ed)? the date|checked on \d|as of [A-Z][a-z]{2} \d/i,
+      // "confirmed with each program in October 2026" matched none of the
+      // earlier spellings. Any claim that a human checked or confirmed the
+      // data, in any tense, is the P0-7 claim.
+      // Requires a FIRST-PERSON subject. A bare
+      // /checked against the (school)/ fired on /terms telling the USER to
+      // "check against the school directly" — advice to go and verify,
+      // which is the opposite of claiming we did.
+      /date we (?:last )?check(?:ed)?|(?:last|we) checked (?:it|on)|mark(?:s|ed)? the date|checked on \d|as of [A-Z][a-z]+ \d|\bwe (?:confirm|confirmed|verify|verified|validate|validated)\b|rosters? (?:confirmed|verified) (?:with|in)\b/i,
     why: "no School record carries a source or a check date; the ranges are unverified estimates",
   },
   {
@@ -149,7 +182,10 @@ const BANNED: { pattern: RegExp; why: string }[] = [
       // opposite of the claim — and an internal `withGuaranteedPlan()`
       // helper. A guard that fires on the denial of the thing it bans is
       // worse than no guard, because the fix is to delete the honesty.
-      /\b(?:you'?ll|you will|will be|is going to) (?:be|reach|hit) (?:a )?\d+(?:\.\d+)?\b|\bwe guarantee\b|\bguaranteed (?:results|placement|spot|improvement|offer)\b|\bwe predict\b|\bour prediction\b/i,
+      // The first version required a SECOND verb after "will", so "Your
+      // rating will be 11.7 by junior year" slipped through: "will be" then
+      // a number, with no "be|reach|hit" to follow.
+      /\b(?:you'?ll|you will|will|is going to)\s+(?:be|reach|hit|get to)\s+(?:a |around |about )?\d+(?:\.\d+)?\b|\bwe guarantee\b|\bguaranteed (?:results|placement|spot|improvement|offer)\b|\bwe predict\b|\bour prediction\b/i,
     why: "UTR growth is a stated assumption, not a forecast; never promise a future rating",
   },
   {
@@ -157,7 +193,14 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // computed live when you open it — there is no sender, no schedule and
     // no inbox anywhere in this product.
     pattern:
-      /\b(?:we'?ll|we will) (?:email|send|text|notify)\b|sent to your inbox|straight to your inbox|delivered (?:every|each)\b/i,
+      // "tell" was not in the verb list, so "We'll tell you when a school
+      // changes band" shipped — the same P0-7 notification promise the
+      // Notifications card was deleted for.
+      // Names WHAT is sent, not just the verb. Seeded does send exactly
+      // one kind of mail — Supabase Auth's own confirmation and password
+      // reset — and "we'll send a secure reset link" on
+      // reset-password-form.tsx is true. A bare verb list banned it.
+      /\b(?:we'?ll|we will|seeded will) (?:email|e-mail|send|text|notify|tell|alert|ping|message)\s+(?:you\s+)?(?:a |an |the |your )?(?:report|update|digest|summary|alert|reminder|notification|weekly|newsletter|when|if|as soon as)\b|\bwe'?ll let you know\b|sent to your inbox|straight to your inbox|delivered (?:every|each)\b/i,
     why: "Seeded has no email or push; the only mail is Supabase Auth's own",
   },
   {

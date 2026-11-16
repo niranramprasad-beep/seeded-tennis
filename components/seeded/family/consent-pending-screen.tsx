@@ -47,10 +47,15 @@ export function ConsentPendingScreen({ firstName }: { firstName?: string }) {
           </p>
         </div>
 
+        {/* Pointed at /family, which AuthGate blocks for every player
+            account (isPlayerBlockedPath) — so this link bounced an under-13
+            to /today and then straight back to this screen. /settings is
+            where their own profile lives and is reachable for a pending
+            account by design. */}
         <p className="mt-4 text-sm text-stone">
           Entered the wrong family code?{" "}
-          <Link href="/family" className="text-grass underline underline-offset-2">
-            Check or change it
+          <Link href="/settings" className="text-grass underline underline-offset-2">
+            Check it in Settings
           </Link>
           .
         </p>

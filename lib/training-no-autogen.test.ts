@@ -87,6 +87,40 @@ describe("no UI path auto-generates a training plan", () => {
     ).toEqual([]);
   });
 
+  it("no control offers to fill a week on the player's behalf", () => {
+    // M7 from the final verification: a sidebar item relabelled "Fill my
+    // week for me", wired to applyTemplate("build"), wrote seven
+    // Seeded-authored sessions in one click with the suite green. The
+    // guard only knew the identifier `generatePersonalizedPlan` and the
+    // word "generate".
+    //
+    // Templates themselves STAY — Niran's call: a player choosing a
+    // template is choosing, which is what "manual" means. What must not
+    // exist is a control that does it FOR them.
+    const offenders: string[] = [];
+    for (const f of FILES) {
+      const src = strippedSource(f);
+      // First draft used /for me|for you|automatically|ready-made week/
+      // and flagged nine innocents ("Sorted by fit for you", "How Seeded
+      // decides which teams are realistic for you"). It also flagged the
+      // Templates drawer's "Replaces your active plan with a ready-made
+      // week" — which STAYS, because a player picking a template is
+      // choosing, and that is what manual means.
+      //
+      // The banned shape is narrower: a control offering to fill the
+      // calendar on the player's behalf.
+      for (const m of src.matchAll(
+        /["'`>]([^"'`<>{}]{0,50}?(?:fill (?:my|your|in your) (?:week|calendar|plan|schedule)|(?:build|make|create|plan|write) (?:my|your) (?:week|plan|schedule)[^"'`<>{}]{0,12}for me|do it for me|auto-?fill|automatically (?:build|create|fill|plan|generate|add))[^"'`<>{}]{0,30})/gi
+      )) {
+        offenders.push(`${f}: "${m[1].trim().slice(0, 60)}"`);
+      }
+    }
+    expect(
+      offenders,
+      "a control that fills the calendar FOR the player is the banned thing, whatever it is called"
+    ).toEqual([]);
+  });
+
   it("no button offers to generate a week", () => {
     const offenders = FILES.filter((f) =>
       /generate (?:my |your |a )?(?:training )?(?:week|plan|schedule)/i.test(strippedSource(f))

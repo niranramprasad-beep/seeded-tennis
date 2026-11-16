@@ -76,7 +76,20 @@ async function facts(page) {
       ctas: [...document.querySelectorAll("a,button")]
         .map((e) => e.textContent.trim())
         .filter((x) => x && x.length < 40).slice(0, 40),
-      horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+      // Actually try to scroll. `documentElement.scrollWidth` is not a
+      // reliable signal: on /pricing it reads 591 against a 375 viewport
+      // while `body.scrollWidth` is 375, nothing's right edge exceeds the
+      // viewport, and the page does not move — the number is inflated by
+      // the comparison table's own `overflow-x-auto` container, which is
+      // SUPPOSED to scroll inside itself. Reported a regression that did
+      // not exist. What a user experiences is whether the page moves.
+      horizontalScroll: (() => {
+        const before = window.scrollX;
+        window.scrollTo(500, window.scrollY);
+        const moved = window.scrollX > 0;
+        window.scrollTo(before, window.scrollY);
+        return moved;
+      })(),
       // Tap targets below 44px on mobile.
       //
       // Counting every <a> was useless: it reported 169 on /schools,

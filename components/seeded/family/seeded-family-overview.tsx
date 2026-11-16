@@ -9,7 +9,7 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadFamilyMembers, saveEncouragementNote, type FamilyMember } from "@/lib/db/family";
-import { loadUtrEntries } from "@/lib/db/plan";
+import { loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
@@ -56,7 +56,12 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   const now = useMemo(() => new Date(), []);
 
   const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
-  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  // The PLAYER's history, explicitly — same reason as the weekly report.
+  const playerUserId = members.find((m) => m.role === "player")?.id ?? null;
+  const { data: utrEntries } = useSWR(
+    playerUserId ? ["utr-entries", playerUserId] : null,
+    () => loadUtrEntriesFor(playerUserId!)
+  );
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
   const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
   const { data: seasonBudget, mutate: mutateSeasonBudget } = useSWR("season-budget", () => loadSeasonBudget());

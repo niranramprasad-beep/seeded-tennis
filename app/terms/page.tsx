@@ -24,7 +24,7 @@ const TERMS = [
   },
   {
     title: "Privacy",
-    body: "Seeded stores your account details, tennis profile and activity to run your dashboard and family features. Your data is never sold, and only approved members of your own family can see it. Accounts for players under 13 do nothing until a parent or guardian approves them. You can download everything we hold, or delete your account and all of it immediately, from Settings. The full privacy policy — what we collect, who else touches it, and how long we keep it — is linked below.",
+    body: "Seeded stores your account details, tennis profile and activity to run your dashboard and family features. Your data is never sold, and only approved members of your own family can see it. Accounts for players under 13 cannot record anything about tennis — no saved schools, results, plans or tournaments — until a parent or guardian approves them. They can still edit their own profile details, download their data, and delete the account. You can download everything we hold, or delete your account and all of it immediately, from Settings. The full privacy policy — what we collect, who else touches it, and how long we keep it — is linked below.",
   },
 ];
 

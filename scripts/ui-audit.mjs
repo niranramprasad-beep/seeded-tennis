@@ -168,8 +168,15 @@ for (const p of PAGES) {
           rows,
           tallestChild: tallest,
           // The real pass/fail: nothing may overflow the viewport sideways.
-          horizontalOverflow:
-            document.documentElement.scrollWidth > window.innerWidth + 1,
+          // See scripts/persona-walk.mjs: scrollWidth is inflated by inner
+          // scroll containers. Test whether the page actually moves.
+          horizontalOverflow: (() => {
+            const before = window.scrollX;
+            window.scrollTo(500, window.scrollY);
+            const moved = window.scrollX > 0;
+            window.scrollTo(before, window.scrollY);
+            return moved;
+          })(),
         };
       });
     }

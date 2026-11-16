@@ -73,7 +73,13 @@ const PARENT_NAV_LINKS: NavLink[] = [
   { href: "/family", label: "Overview", icon: LayoutDashboard },
   { href: "/family/budget", label: "Budget", icon: DollarSign },
   { href: "/schools", label: "Schools", icon: School },
-  { href: "/events", label: "Events", icon: CalendarDays },
+  // "/events" was here and is NOT in isParentAllowedPath() (auth-gate.tsx),
+  // so a parent clicking their own Events tab was silently bounced to
+  // /family. A nav item that cannot reach its destination is worse than no
+  // nav item: it reads as the app losing their click. Removed rather than
+  // allowed, because /events is the player's tournament planner — a write
+  // surface a parent is deliberately kept out of. Upcoming events already
+  // appear on the parent's Overview and weekly report.
   { href: "/family/weekly-reports", label: "Weekly reports", icon: FileText },
 ];
 

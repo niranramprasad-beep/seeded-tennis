@@ -13,10 +13,10 @@ Lighthouse a11y 100 / SEO 100.
 |---|---|
 | A — fit report tells one true story | **DONE** (`00b972e`) |
 | B — real-user walkthroughs (7 personas) | **DONE** |
-| C — premium design detail pass | PARTLY (mobile targets done in B) |
+| C — premium design detail pass | **DONE** (mobile targets in B; states/copy in D/F) |
 | D — truth & honesty sweep | **DONE** (`0ed348c`) |
 | E — regression safety | **DONE** |
-| F — final independent verification | IN PROGRESS |
+| F — final independent verification | **DONE** — 1 CRITICAL + 6 HIGH found and fixed |
 
 ---
 
@@ -294,4 +294,104 @@ holder**.
 modes. The only filtered noise is Vercel Analytics and Speed Insights, whose
 scripts are served by Vercel's edge and 404 against a local `next start` —
 named explicitly in `scripts/ui-audit.mjs`, not silently dropped.
+
+---
+
+## F — final independent verification
+
+**It found 1 CRITICAL and 6 HIGHs, and defeated 6 of 6 guard families.** Per
+the outcome rules this means fix + re-verify + report, and **no PR**.
+
+### C1 — a wrong number about a child, on the parent's weekly report
+
+`/family/weekly-reports` told a parent their child's UTR had fallen **4.40
+points this week**. The tile's value was the child's (9.40); its delta was
+the newest row in a pooled list (the **parent's** own 5.00) minus the oldest
+(the child's 9.40). Two different people, subtracted.
+
+`loadUtrEntries()` was a bare `select` with no user filter, on reasoning
+stated in a comment: *"utr_entries' RLS policy is exactly
+`auth.uid() = user_id`, so there's nothing to gain from filtering
+client-side"*. That was true when written and **migration 036 made it
+false** — `utr_entries_select_family` lets approved members read each
+other's rows, so the query silently began returning the whole family's
+ratings. The same pooled list fed `useFitReport`'s projection input, so the
+Reach/Out-of-range split on every row of a family member's `/schools` was
+regressed over a mix of the family's ratings.
+
+**RLS is a ceiling on what you MAY read, never a statement of what you MEANT
+to read.** `loadUtrEntries()` now resolves the user and scopes the query;
+reading someone else's history is a separate, named `loadUtrEntriesFor()`
+that a caller must choose on purpose. Re-measured: **+0.20 this week**,
+Bailey's own.
+
+### The six HIGHs
+
+| # | finding | fix |
+|---|---|---|
+| H2 | `/schools` judged every signed-in player on **today's** rating while `/today`, `/outreach` and `/family` projected to junior year — Workstream A's bug, one line below a comment denying it. `overrideUtr` was the slider's value, which equals the player's own rating when untouched, and `buildFitReport` treats any override as an explicit choice | pass the override only when `isAtRealCurrent` is false |
+| H3 | A consent-pending under-13 was promised export and deletion and **could reach neither**. `AuthGate` redirected before the consent fetch landed; then `blockedForOnboarding` held them on a spinner for ever, because an account that can never finish onboarding was treated as mid-onboarding | wait for consent state; exempt the allowed paths from the onboarding block; point the consent screen's links at `/settings` (`/family` is blocked for every player by design) |
+| H4 | The parent's own sidebar had an **Events** item that silently bounced to `/family` | removed — `/events` is the player's write surface |
+| H5 | `/training` Templates still writes an invented week | **not changed — your decision stands** (see below) |
+| H6 | `/onboarding` promised *"We'll tell you when a school changes band"*. Seeded has no email or push and nothing watches for band changes | copy corrected; guard widened |
+| H7 | six guard families defeated | all nine mutations now fail the build |
+
+### The guards: one systemic hole and five specific ones
+
+**JSX escapes apostrophes.** The codebase writes `men&apos;s` and
+`We&apos;ll` everywhere, and every pattern containing an apostrophe was
+blind to the exact spelling the source uses. A hardcoded catalogue count and
+an email promise both shipped past guards *written and widened specifically
+to catch them*. `copy-honesty` now decodes entities before matching — one
+change that closes two of the nine.
+
+The rest: "will be 11.7" had no second verb; "confirmed with each program in
+October 2026" matched no date spelling; the single-source guard asserted
+`lib/fit.ts` but never the component wiring, so the headline could read one
+view while the tabs read another; the training guard knew one identifier and
+not the template path; the `profiles` detector keyed on a string literal and
+missed a `const`; the band guard scanned one file, so a new component could
+render a band and the old placeholder 7.
+
+### H5 — your decision, left alone
+
+You decided `buildTemplateSessions` stays: a player choosing a template is
+choosing, and that is what manual means. The verifier is right that
+Templates writes 5–7 Seeded-authored sessions in one click, and I have not
+overridden you. What changed is the guard: a control that offers to fill the
+calendar **for** the player now fails the build whatever it is called, so
+the exemption cannot quietly widen.
+
+### MEDIUMs fixed
+
+Fit report showed 3 of 4 bands (tabs summed to 27 of 37; a junior saw 12 of
+37) → Out-of-range tab added. A GPA of 3.5 was **invented** for a persona
+who gives none → no default. `/schools` opened the men's catalogue for a
+women's player and for her parent → browse side follows the profile, and a
+parent's follows their child. "Gap to median" had opposite signs on the same
+row. The parent's `/schools` still said "YOUR FIT" and "You 9.4". The
+pricing comparison table said **nothing to a screen reader** — 12 rows of
+unlabelled icons, at Lighthouse 100 and 0 axe violations, which is exactly
+why those are a floor. The cost calculator attached **invented dollar
+figures** to real school names.
+
+`/privacy` and `/terms` claimed an under-13 "cannot change a setting" and
+their account "does nothing". Measured on staging: they **can** edit name,
+UTR, grad year, GPA and gender. Corrected — and the ability is right, since
+locking a child out of their own data while they wait would be the wrong way
+round.
+
+### A fourth harness bug
+
+`/pricing` reported horizontal scroll at 375. It does not scroll:
+`documentElement.scrollWidth` reads 591 while `body.scrollWidth` is 375 and
+`window.scrollTo(500,0)` leaves `scrollX` at 0 — inflated by the comparison
+table's own `overflow-x-auto`, which is supposed to scroll inside itself.
+Both harnesses now **try to scroll** instead of reading a number.
+
+### After the fixes
+
+**0 problems across 5 personas**, 0 axe violations and 0 console errors in
+both modes, Lighthouse **mobile a11y 100 / SEO 100 on all ten pages**, **697
+tests in 53 files**, nine mutations failing the build.
 

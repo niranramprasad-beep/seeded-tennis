@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { classifySchoolFit, countSchoolFits, fitBasis } from "@/lib/school-fit";
 import { hasRealUtr } from "@/lib/utils";
 import { emptyPlayer } from "@/lib/data/user";
@@ -74,6 +75,74 @@ function stripComments(src: string): string {
     .filter((l) => !l.trim().startsWith("//"))
     .join("\n");
 }
+
+// M9 from the final verification: a NEW file
+// `components/seeded/schools/compare-fit-card.tsx` rendering
+// `<FitBadge band={explainSchoolFit(playerUtr > 0 ? playerUtr : 7, …).band}/>`
+// and a "You 7.0" caption passed the whole suite, because this file scans
+// exactly one path. The old placeholder 7 and a full band set, for a
+// visitor with no rating.
+//
+// So: NO component anywhere may render a FitBadge from anything but a
+// checked, nullable band, and the 7 placeholder is banned outright.
+describe("no component anywhere renders a band it decided itself", () => {
+  const ROOTS = ["components", "app"];
+  const files: string[] = [];
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules" || entry.startsWith(".")) continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (full.endsWith(".tsx") && !full.includes(".test.")) files.push(full);
+    }
+  })("components");
+  for (const r of ROOTS.slice(1)) {
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        if (entry === "node_modules" || entry.startsWith(".")) continue;
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (full.endsWith(".tsx") && !full.includes(".test.")) files.push(full);
+      }
+    })(r);
+  }
+
+  it("finds the component tree", () => {
+    expect(files.length).toBeGreaterThan(40);
+  });
+
+  it("every FitBadge band comes from a checked variable, never an inline call", () => {
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = stripComments(readFileSync(f, "utf8"));
+      for (const m of src.matchAll(/<FitBadge[^>]*band=\{([^}]*)\}/g)) {
+        const expr = m[1].trim();
+        // `bandBySlug.get(slug)` IS the report and is the intended shape —
+        // banning every call flagged it, which would have taught the next
+        // person that the guard is noise. What must never appear is a
+        // component deciding the band itself, or a numeric rating inline.
+        const decidesItself =
+          /\b(?:classifySchoolFit|countSchoolFits|fitBasis)\s*\(/.test(expr) ||
+          /\b\d+(?:\.\d+)?\b/.test(expr);
+        if (decidesItself) offenders.push(`${f}: band={${expr.slice(0, 60)}}`);
+      }
+    }
+    expect(offenders, "bands come from useFitReport, not from an inline call").toEqual([]);
+  });
+
+  it("the old placeholder rating of 7 never backs a band or a caption", () => {
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = stripComments(readFileSync(f, "utf8"));
+      // `x > 0 ? x : 7` and friends — the exact shape of the placeholder
+      // that lib/family-utr-honesty.test.ts was written about.
+      if (/>\s*0\s*\?[^:]{0,40}:\s*7\b/.test(src) || /\?\?\s*7\b/.test(src)) {
+        offenders.push(f);
+      }
+    }
+    expect(offenders, "no rating falls back to the placeholder 7").toEqual([]);
+  });
+});
 
 describe("the schools browser gates every derived output on hasRealUtr", () => {
   const source = stripComments(readFileSync(BROWSER, "utf8"));

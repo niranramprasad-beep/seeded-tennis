@@ -179,9 +179,21 @@ const PROFILE_CHAIN_BANNED: { re: RegExp; why: string }[] = [
 export function profilesChains(source: string): string[] {
   const clean = stripComments(source);
   const chains: string[] = [];
-  const re = /\.\s*from\(\s*["'`]profiles["'`]\s*\)/g;
+  // The table name may be a CONST, not a literal. A verifier defeated
+  // this detector with
+  //   const PROFILES_TABLE = "profiles";
+  //   supabase.from(PROFILES_TABLE).select(...).in("id", ids)
+  // which reads every listed row and matched nothing, because the regex
+  // keyed on the literal. Any identifier whose name mentions "profile" is
+  // now treated as the profiles table too — indirection is not an escape.
+  // Match the ARGUMENT, then decide — rather than trying to guess every
+  // identifier spelling. The first attempt at this used
+  // `[Pp]rofiles?(_?[Tt]able)?` and missed `PROFILES_TABLE`, which is
+  // precisely the constant the verifier used.
+  const re = /\.\s*from\(\s*([^)]{1,60}?)\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(clean)) !== null) {
+    if (!/profile/i.test(m[1])) continue;
     const window = clean.slice(m.index, m.index + 900);
     const end = window.indexOf(";");
     chains.push(end === -1 ? window : window.slice(0, end));
@@ -260,6 +272,14 @@ describe("the detector itself is not vacuous", () => {
     expect(readsOtherProfiles('supabase.from("profiles").select("id,name").in("id", ids)')).toBe(true);
     expect(readsOtherProfiles('supabase.from("profiles").select("*").eq("id", id)')).toBe(false);
     expect(readsOtherProfiles('supabase.from("matches").select("*").in("id", ids)')).toBe(false);
+    // Indirection through a constant must not help.
+    expect(
+      readsOtherProfiles('supabase.from(PROFILES_TABLE).select("id,name,gpa").in("id", ids)'),
+      "a const table name is still the profiles table"
+    ).toBe(true);
+    expect(
+      readsOtherProfiles('supabase.from(profilesTable).select("*").eq("family_code", code)')
+    ).toBe(true);
   });
 
   it("flags the six an independent review used to defeat the first version", () => {

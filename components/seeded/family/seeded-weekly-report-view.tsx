@@ -8,7 +8,7 @@ import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
-import { loadUtrEntries } from "@/lib/db/plan";
+import { loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
@@ -53,7 +53,14 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   const schoolBySlug = useMemo(() => new Map(schools.map((s) => [s.slug, s])), [schools]);
 
   const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
-  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  // The PLAYER's history, explicitly. This read the pooled family list and
+  // computed "−4.40 this week" by subtracting one person's rating from
+  // another's — see loadUtrEntries() for the whole story.
+  const playerId = members.find((m) => m.role === "player")?.id ?? null;
+  const { data: utrEntries } = useSWR(
+    playerId ? ["utr-entries", playerId] : null,
+    () => loadUtrEntriesFor(playerId!)
+  );
   const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
   const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
   const { data: seasonBudget } = useSWR("season-budget", () => loadSeasonBudget());

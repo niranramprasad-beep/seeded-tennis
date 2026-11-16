@@ -465,10 +465,15 @@ export function explainSchoolFit(
   const gapToFloor = Math.round((school.minCompetitiveUTR - playerUtr) * 100) / 100;
   const gapToMedian = Math.round((school.avgRosterUTR - playerUtr) * 100) / 100;
 
+  // `gapToFloor <= 0` covers equality too, and "already above ... floor of
+  // 9.4" when the player IS 9.4 is simply wrong — it showed on the Johns
+  // Hopkins row next to "Gap to team floor: 0.0".
   const summary =
-    gapToFloor <= 0
+    gapToFloor < 0
       ? `You're ${playerUtr.toFixed(1)}, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
-      : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. You're ${playerUtr.toFixed(1)}.`;
+      : gapToFloor === 0
+        ? `You're ${playerUtr.toFixed(1)}, exactly at ${school.shortName}'s competitive floor.`
+        : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. You're ${playerUtr.toFixed(1)}.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
   const computed = computeUtrProjection(

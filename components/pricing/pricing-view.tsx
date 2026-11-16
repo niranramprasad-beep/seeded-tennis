@@ -519,12 +519,20 @@ function FeatureSection({ group, rows }: { group: string; rows: Row[] }) {
 }
 
 function Cell({ on }: { on: boolean }) {
+  // The whole comparison table said nothing to a screen reader: every cell
+  // was a bare decorative <svg> with no label, no title and no text, so the
+  // table read as 12 rows of blank cells. Lighthouse scored it 100 and axe
+  // found 0 violations — neither tool tests whether an icon conveys its
+  // meaning, which is exactly why "0 violations" is a floor and not a
+  // finish line. The icon is now explicitly decorative and the meaning is
+  // in text.
   return (
     <td className="px-4 py-3 text-center">
+      <span className="sr-only">{on ? "Included" : "Not included"}</span>
       {on ? (
-        <Check className="mx-auto h-4 w-4 text-grass" />
+        <Check aria-hidden className="mx-auto h-4 w-4 text-grass" />
       ) : (
-        <Minus className="mx-auto h-4 w-4 text-stone-light/50" />
+        <Minus aria-hidden className="mx-auto h-4 w-4 text-stone-light/50" />
       )}
     </td>
   );

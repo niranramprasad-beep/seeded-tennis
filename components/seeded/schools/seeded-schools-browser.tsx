@@ -7,8 +7,6 @@ import { ChevronDown, Search } from "lucide-react";
 import type { Division, Gender, School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import {
-  classifySchoolFit,
-  countSchoolFits,
   explainSchoolFit,
   schoolUtrRange,
   summerBeforeSeniorYear,
@@ -79,6 +77,8 @@ interface StoredSchoolsFilters {
 interface Props {
   gender: Gender;
   setGender: (g: Gender) => void;
+  /** Whether the visitor picked the side themselves (gender-context). */
+  genderIsExplicit: boolean;
   query: string;
   setQuery: (v: string) => void;
   division: "all" | Division;
@@ -106,6 +106,7 @@ interface Props {
 export function SeededSchoolsBrowser({
   gender,
   setGender,
+  genderIsExplicit,
   query,
   setQuery,
   division,
@@ -230,8 +231,37 @@ export function SeededSchoolsBrowser({
     [familyMembers, player]
   );
   const viewingAsParent = player.role === "parent" && playerFacts.hasLinkedPlayer;
+
+  // A parent browsing their child's fit must be looking at their child's
+  // side of the catalogue. GenderProvider seeds from the SIGNED-IN user's
+  // profile, which for a parent is the parent — so after the parent-view
+  // fix this page said "Sorted by fit for Bailey · 37 men's programs" and
+  // banded her 9.40 against men's rosters. Only overrides a side the
+  // visitor has not picked themselves.
+  useEffect(() => {
+    if (!viewingAsParent || genderIsExplicit) return;
+    const want: Gender | null =
+      playerFacts.gender === "female" ? "women" : playerFacts.gender === "male" ? "men" : null;
+    if (want && want !== gender) setGender(want);
+  }, [viewingAsParent, genderIsExplicit, playerFacts.gender, gender, setGender]);
   const subjectName = viewingAsParent
     ? familyMembers.find((m) => m.role === "player")?.name?.split(" ")[0] ?? "your player"
+    : null;
+
+  // `overrideUtr` is for an EXPLICIT what-if choice only.
+  //
+  // It used to be `viewingAsParent ? null : youUtr`, and `youUtr` is the
+  // slider's value, which `resolveWhatIfDisplay` returns as the player's
+  // own rating when the slider has never been touched. buildFitReport
+  // treats any non-null override as a deliberate choice — basis "current",
+  // no projection — so EVERY signed-in player was judged on today's rating
+  // here while /today, /outreach and /family projected to junior year.
+  // That is Workstream A's bug, reintroduced one line below a comment
+  // claiming the opposite. `isAtRealCurrent` is the hook's own signal that
+  // nobody has moved the slider.
+  const explicitWhatIf = whatIf.isAtRealCurrent ? null : youUtr;
+  const playerUserId = viewingAsParent
+    ? (familyMembers.find((m) => m.role === "player")?.id ?? null)
     : null;
 
   const report = useFitReport({
@@ -243,7 +273,10 @@ export function SeededSchoolsBrowser({
         }
       : player,
     schools: ranked,
-    overrideUtr: viewingAsParent ? null : youUtr,
+    overrideUtr: viewingAsParent ? null : explicitWhatIf,
+    // A parent's Reach/Out-of-range split must come from the CHILD's
+    // logged history, not their own.
+    historyUserId: playerUserId,
   });
 
   const judgingUtr: number | null = report?.utr.value ?? null;
@@ -657,12 +690,14 @@ export function SeededSchoolsBrowser({
               <span aria-hidden />
               <span aria-hidden />
               <span>Program</span>
-              <span>Your fit</span>
+              <span>{viewingAsParent ? `${subjectName}\u2019s fit` : "Your fit"}</span>
               {/* The team side of this comparison is an unverified estimate
                   with no source or date (P0-3) — say so in the header rather
                   than repeat it on all ~37 rows. */}
               <span className="normal-case">
-                <span className="uppercase">You vs team UTR</span>
+                <span className="uppercase">
+                  {viewingAsParent ? `${subjectName} vs team UTR` : "You vs team UTR"}
+                </span>
                 <span className="block font-normal tracking-normal text-stone-light">
                   {UTR_RANGE_SOURCE_LABEL}
                 </span>
@@ -776,6 +811,7 @@ export function SeededSchoolsBrowser({
                       median={s.avgRosterUTR}
                       high={range.max}
                       you={judgingUtr}
+                      youLabel={viewingAsParent ? (subjectName ?? "Player") : "You"}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>

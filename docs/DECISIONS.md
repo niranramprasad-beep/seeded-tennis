@@ -754,3 +754,43 @@ migrations behind it and is accurate: outreach and the plan at Player
 (migration 024/019), the parent dashboard, season budget and weekly report
 at Family, and the catalogue, estimates, school pages, tournament checker
 and three saved targets on Free.
+
+---
+
+## 2026-11-15 — RLS is a ceiling, not a scope
+
+`/family/weekly-reports` told a parent their child's UTR had fallen 4.40
+points in a week. The tile's number was the child's; its delta was the
+parent's own rating minus the child's. Two people, subtracted.
+
+`loadUtrEntries()` was a bare `select` with no user filter, and the comment
+above it explained why: *"utr_entries' RLS policy is exactly
+`auth.uid() = user_id`, so there's nothing to gain from filtering
+client-side."* True when written. **Migration 036 made it false** —
+`utr_entries_select_family` lets approved family members read each other's
+rows — and nothing failed, because a query that returns too much still
+returns.
+
+**Decided: every query states its own scope, regardless of RLS.** RLS is a
+ceiling on what a caller MAY read; it is never a statement of what the
+caller MEANT to read. Widening a policy must not silently widen every query
+that relied on it.
+
+**Decided: reading another user's data gets its own named function.**
+`loadUtrEntriesFor(userId)` exists so that a caller has to choose it. The
+failure mode here was not a wrong filter — it was no filter at all, inherited
+by forgetting.
+
+**Also decided: a guard pattern containing an apostrophe is broken by
+default.** JSX escapes them, and this codebase writes `men&apos;s` and
+`We&apos;ll` everywhere. Two separate verifier mutations — a hardcoded
+catalogue count and an email promise — shipped past guards written and
+widened specifically to catch them, purely on the escaping. `copy-honesty`
+now decodes entities before matching.
+
+**And: four of this pass's findings were bugs in the harness, not the
+product** — a 400 on every page from rebuilding without restarting the
+server, 169 phantom tap targets, blank screenshots from never scrolling, and
+a horizontal-scroll report on a page that does not scroll. Every one would
+have been reported as a product defect. Measure the thing a user
+experiences: try to scroll, rather than reading `scrollWidth`.

@@ -27,6 +27,10 @@ interface RangeBarProps {
   median?: number;
   high?: number;
   you?: number | null;
+  /** Whose rating the dot is. Defaults to "You"; a parent viewing their
+   *  child's fit must pass the child's name, or the tooltip tells them
+   *  their own rating is 9.4 when they have none. */
+  youLabel?: string;
   /**
    * A second, muted dot for the player's rating TODAY, shown when the bar's
    * primary dot is a projection to junior year and the two differ. Without
@@ -60,6 +64,7 @@ export function RangeBar({
   median,
   high,
   you,
+  youLabel = "You",
   todayPct,
   today,
 }: RangeBarProps) {
@@ -162,7 +167,7 @@ export function RangeBar({
               Low {low!.toFixed(1)} · Median {median!.toFixed(1)} · High {high!.toFixed(1)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
-              You {you!.toFixed(1)} · Gap to median {signed(you! - median!)}
+              {youLabel} {you!.toFixed(1)} · Gap to median {signed(median! - you!)}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

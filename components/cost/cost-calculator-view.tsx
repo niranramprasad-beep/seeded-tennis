@@ -131,13 +131,25 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
               <Calculator className="h-5 w-5 text-grass" />
               <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarship comparison</h2>
             </div>
+            {/* Said "Estimated scholarship value: $30,960" under a real
+                school's name, which reads as Seeded's figure FOR that
+                school. We hold no cost or aid data at all. */}
+            <p className="mt-4 rounded-lg border border-dashed border-line bg-cream/60 px-3 py-2.5 text-xs text-stone">
+              Seeded holds no cost or aid data for any program. These figures come from
+              one generic assumption per division &mdash; not from the school, and not
+              from anything we have checked. Use them to compare orders of magnitude,
+              then get real numbers from each school&rsquo;s financial aid office.
+            </p>
             <div className="mt-5 space-y-3">
               {results.scholarships.map((school) => (
                 <div key={school.name} className={cn("rounded-[18px] border p-4", isSeeded ? "border-[rgb(var(--c-line))]" : "border-[0.5px] border-line bg-card")}>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-medium text-ink">{school.name}</p>
-                      <p className="text-xs text-stone">Estimated scholarship value: {money(school.scholarshipValue)}</p>
+                      <p className="text-xs text-stone">
+                        Rough scholarship value on our assumptions:{" "}
+                        {money(school.scholarshipValue)}
+                      </p>
                     </div>
                     <Badge variant="outline">Net: {money(school.netCost)}</Badge>
                   </div>
@@ -184,6 +196,18 @@ function toScholarshipSchool(s: SchoolLite) {
         : s.division === "D2"
           ? 12
           : 0;
+  // THESE ARE GENERIC ASSUMPTIONS, NOT DATA ABOUT THIS SCHOOL.
+  //
+  // `annualCost` is three hardcoded numbers chosen by rank and division,
+  // and `scholarshipPercent` three more by division — no source, no date,
+  // no per-school figure anywhere in the catalogue (`School` carries
+  // avgRosterUTR, minCompetitiveUTR and usNewsRanking, nothing financial).
+  // Attached to a real school name and rendered as "Stanford University —
+  // Estimated scholarship value: $30,960", they read as Seeded's figure
+  // for Stanford. They are not.
+  //
+  // The real fix is per-school cost data (docs/TODO.md). Until then the UI
+  // must say whose assumption this is — see the disclosure on the card.
   const annualCost = s.usNewsRanking <= 30 ? 86000 : s.division === "D3" ? 79000 : 62000;
   return { name: s.name, division: s.division, annualCost, scholarshipPercent };
 }

@@ -39,7 +39,7 @@ export const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
 ];
 
 export function SchoolsBrowser({ schools, conferences, states, divisions }: Props) {
-  const { gender, setGender } = useGender();
+  const { gender, setGender, isExplicit: genderIsExplicit } = useGender();
   const [query, setQuery] = useState("");
   const [conference, setConference] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
@@ -103,6 +103,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
       <SeededSchoolsBrowser
         gender={gender}
         setGender={setGender}
+        genderIsExplicit={genderIsExplicit}
         query={query}
         setQuery={setQuery}
         division={division}

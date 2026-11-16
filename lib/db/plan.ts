@@ -113,19 +113,51 @@ async function getUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-// Plain read — utr_entries' RLS policy is exactly "auth.uid() = user_id",
-// identical to what this query wants, so there's nothing to gain from
-// resolving the user id first and filtering by it client-side: skipping
-// straight to the query (RLS does the scoping) saves one whole network
-// round-trip per load, and an unauthenticated/signed-out call just comes
-// back empty instead of needing a separate check.
+/**
+ * One player's UTR history. **Always scoped to a user id, explicitly.**
+ *
+ * This used to be a bare `select` with no filter, on the reasoning — stated
+ * in a comment here — that "utr_entries' RLS policy is exactly
+ * `auth.uid() = user_id`, so there's nothing to gain from filtering
+ * client-side". That was true when it was written and **migration 036 made
+ * it false**: `utr_entries_select_family` lets approved family members read
+ * each other's entries, so the query silently started returning the whole
+ * family's ratings pooled into one list.
+ *
+ * What that cost: `/family/weekly-reports` told a parent their child's UTR
+ * had fallen **4.40 points this week**. The tile's value was the child's
+ * (9.40) and its delta was the newest row in the pooled list (the parent's
+ * own 5.00) minus the oldest in range (the child's 9.40). Two different
+ * people, subtracted. The same pooled list fed `useFitReport`'s projection
+ * input, so the Reach/Out-of-range split on every row of a family member's
+ * /schools was regressed over a mix of the family's ratings.
+ *
+ * RLS is a ceiling on what you MAY read, never a statement of what you
+ * MEANT to read. Scope the query.
+ */
 export async function loadUtrEntries(signal?: AbortSignal): Promise<UtrEntry[]> {
+  const userId = await getUserId();
+  if (!userId) return [];
+  return loadUtrEntriesFor(userId, signal);
+}
+
+/**
+ * Another family member's UTR history — the parent-facing screens.
+ * Deliberately a separate, named function: reading someone else's rating is
+ * a decision a caller should have to make on purpose, not something it
+ * inherits by forgetting a filter.
+ */
+export async function loadUtrEntriesFor(
+  userId: string,
+  signal?: AbortSignal
+): Promise<UtrEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
   let query = supabase
     .from("utr_entries")
     .select("id, utr, recorded_at, note")
+    .eq("user_id", userId)
     .order("recorded_at", { ascending: true })
     .order("created_at", { ascending: true });
   if (signal) query = query.abortSignal(signal);

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import type { Player, SchoolLite } from "@/lib/types";
 import { buildFitReport, type FitReport, type FitView } from "@/lib/fit";
-import { loadUtrEntries } from "@/lib/db/plan";
+import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 
 /**
  * The one way an app screen gets fit bands.
@@ -26,14 +26,24 @@ export function useFitReport(input: {
   view?: FitView;
   /** The what-if slider's explicit choice, when one has been made. */
   overrideUtr?: number | null;
+  /**
+   * Whose history backs the Reach / Out-of-range split. Defaults to the
+   * signed-in user. A parent viewing their child's fit must pass the
+   * CHILD's id — before loadUtrEntries() was scoped, this silently used a
+   * pool of every family member's ratings.
+   */
+  historyUserId?: string | null;
   /** Skip the history fetch on pre-auth surfaces that have none. */
   withHistory?: boolean;
 }): FitReport | null {
-  const { player, schools, view, overrideUtr, withHistory = true } = input;
+  const { player, schools, view, overrideUtr, historyUserId, withHistory = true } = input;
 
   // Shares SWR's "utr-entries" cache key with every other screen, so this
   // costs nothing extra on a page that already loaded the player's history.
-  const { data: entries } = useSWR(withHistory ? "utr-entries" : null, () => loadUtrEntries());
+  const { data: entries } = useSWR(
+    withHistory ? (historyUserId ? ["utr-entries", historyUserId] : "utr-entries") : null,
+    () => (historyUserId ? loadUtrEntriesFor(historyUserId) : loadUtrEntries())
+  );
 
   const projectionInput = useMemo(
     () =>

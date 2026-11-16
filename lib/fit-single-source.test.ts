@@ -169,6 +169,51 @@ function stripComments(src: string): string {
     .join("\n");
 }
 
+/* ------------------------------------------- (a2) THE COMPONENT WIRING */
+
+// The (a) block proves lib/fit.ts is internally consistent. It cannot see
+// whether the SCREEN reads it consistently, and a verifier used exactly
+// that gap twice with the full suite green:
+//
+//   M5: headline reads report.todayCounts while the tabs read counts
+//       → "0 Target and 0 Likely" over tabs reading "Target 12 · Likely 8"
+//   M6: tabRows filters on row.todayBand while the tabs count the
+//       selected view → Target tab reads 12 and renders 0 rows
+//
+// Both reproduce the original P0. So the wiring is asserted too: one
+// `counts`, one `bandBySlug`, and nothing on the page allowed to read a
+// view-specific count directly.
+describe("(a2) the fit report screen reads one view, not two", () => {
+  const FILE = "components/seeded/onboarding/seeded-pre-auth-onboarding.tsx";
+  const src = stripComments(readFileSync(FILE, "utf8"));
+
+  it("the headline and the tabs read the same counts object", () => {
+    expect(src).toMatch(/const counts = report\?\.counts/);
+    // todayCounts / recruitingCounts describe the OTHER view and may only
+    // appear in the explicit comparison line, never in the headline or a
+    // tab count.
+    const headline = src.slice(src.indexOf("<h1"), src.indexOf("</h1>"));
+    expect(headline, "the headline must not read a view-specific count").not.toMatch(
+      /todayCounts|recruitingCounts|todayInRange/
+    );
+    const tablist = src.slice(src.indexOf('role="tablist"'), src.indexOf('role="tablist"') + 1400);
+    expect(tablist, "tab counts must come from `counts`").not.toMatch(
+      /todayCounts|recruitingCounts/
+    );
+    expect(tablist).toMatch(/counts\[band\]/);
+  });
+
+  it("the rows rendered under a tab are the rows the report put in it", () => {
+    // Must filter on the report's own selected-view map, never on a
+    // view-specific band field.
+    expect(src).toMatch(/report\?\.bandBySlug\.get\(s\.slug\) === tab/);
+    const tabRows = src.slice(src.indexOf("const tabRows"), src.indexOf("const tabRows") + 400);
+    expect(tabRows, "rows must not be filtered on a view-specific band").not.toMatch(
+      /todayBand|recruitingBand/
+    );
+  });
+});
+
 describe("(b) band classification is reachable only through lib/fit.ts", () => {
   const files = ROOTS.flatMap((r) => sourceFiles(r));
 

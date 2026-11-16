@@ -45,7 +45,10 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
   const [utr, setUtr] = useState(() => params.get("utr") ?? "7");
   const [gradYear, setGradYear] = useState(() => Number(params.get("gradYear")) || gradYearOptions()[1]);
   const [gender, setGender] = useState<Gender>(() => (params.get("gender") as Gender) || "women");
-  const [gpa, setGpa] = useState(() => params.get("gpa") ?? "3.5");
+  // No default. `?? "3.5"` printed "GPA 3.5" for persona (e), who gives
+  // no GPA — a number they never typed, rendered as their own fact.
+  // "No generated or made-up data, anywhere."
+  const [gpa, setGpa] = useState(() => params.get("gpa") ?? "");
   // Was `!params.get("utr")`, which only caught a MISSING param. "0" is a
   // non-empty string and therefore truthy, so `/onboarding?utr=0` — and
   // `?utr=abc`, via `parseFloat(...) || 0` below — skipped the form and
@@ -146,7 +149,8 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
       <main className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-6 px-6 pb-16 pt-4">
         <section className="min-w-0 flex-[999_1_640px]">
           <p className="m-0 text-sm text-stone">
-            {GENDER_LABEL[gender]} · UTR {utrNum.toFixed(1)} · Class of {gradYear} · GPA {gpa}{" "}
+            {GENDER_LABEL[gender]} · UTR {utrNum.toFixed(1)} · Class of {gradYear}
+            {gpa.trim() ? ` · GPA ${gpa}` : ""}{" "}
             <button onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
               Edit
             </button>
@@ -294,7 +298,14 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
           )}
 
           <div role="tablist" aria-label="Fit bands" className="mt-6 flex flex-wrap gap-2">
-            {(["reach", "target", "likely"] as const).map((band) => (
+            {/* Out-of-range was missing, so the tabs summed to 27 of 37
+                for persona (a) and 12 of 37 for a junior — 25 programs the
+                same page names in its footer and cannot show. /methodology
+                documents four bands and /schools shows four; this showed
+                three and said nothing. Toggling to the junior-year view
+                also moved programs into a band that did not exist here, so
+                they vanished with no explanation. */}
+            {(["reach", "target", "likely", "out-of-range"] as const).map((band) => (
               <button
                 key={band}
                 role="tab"
@@ -306,7 +317,7 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                     : "min-h-11 rounded-lg border border-line bg-card px-4 font-sans text-[15px] font-semibold text-ink"
                 }
               >
-                {BAND_LABEL[band]}  {counts[band]}
+                {BAND_LABEL[band]}  {band === "out-of-range" ? counts.outOfRange : counts[band]}
               </button>
             ))}
           </div>
@@ -612,8 +623,12 @@ function SaveReportAside({
     <aside className="min-w-0 flex-[1_1_340px] rounded-xl border border-line bg-card p-6">
       <h2 className="m-0 text-xl text-ink">Save your report</h2>
       <p className="mt-2 text-[15px] leading-[1.5] text-stone">
-        Free account. We&apos;ll tell you when a school changes band, and
-        turn this into a plan.
+        {/* Was "We&apos;ll tell you when a school changes band" — Seeded
+            has no email and no push, and nothing anywhere watches for a
+            band change. The same P0-7 promise the Notifications card was
+            deleted for, in a verb the copy guard did not cover. */}
+        Free account. Your bands update every time you log a result, and you
+        can turn this into a plan.
       </p>
 
       {underAge ? (

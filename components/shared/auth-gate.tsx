@@ -62,6 +62,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     () => loadMyConsentState()
   );
   const awaitingParentConsent = consent?.status === "pending";
+  // `undefined` means the fetch has not landed yet — distinct from a
+  // resolved "no consent needed". The redirect below MUST wait for this,
+  // because on the first effect pass `awaitingParentConsent` is false for
+  // everyone, including an account that is in fact waiting.
+  const consentResolved = consent !== undefined;
   const { design } = useDesign();
   const router = useRouter();
   const pathname = usePathname();
@@ -86,6 +91,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
       // A pending-consent account cannot complete onboarding — every write
       // it would make is refused by RLS — so sending it there would be a
       // loop of failing saves. It gets ConsentPendingScreen instead.
+      //
+      // WAIT FOR THE CONSENT FETCH. This guard was
+      // `!awaitingParentConsent` alone, which is false on the first pass
+      // for everyone because the SWR data is still undefined — so an
+      // under-13 was redirected to /onboarding before anyone knew they
+      // were waiting, and isConsentPendingAllowedPath() below could never
+      // fire. The consent screen's own two links ("download or delete your
+      // account", "check or change the family code") were dead loops back
+      // to itself, while the screen promised both were available.
+      consentResolved &&
       !awaitingParentConsent
     ) {
       router.replace("/onboarding");
@@ -100,6 +115,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     router,
     playerHome,
     awaitingParentConsent,
+    consentResolved,
   ]);
 
   if (hydrated && connectionError) {
@@ -124,8 +140,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <ConsentPendingScreen firstName={player.name?.split(" ")[0]} />;
   }
 
+  // A consent-pending account can never finish onboarding — every write it
+  // would make is refused by RLS — so treating "not onboarded" as a reason
+  // to block left an under-13 staring at a spinner on /settings for ever.
+  // Reaching the page was only half the fix: the consent screen promises
+  // "you can still download or delete your account at any time, with or
+  // without their approval", and that promise is about a child's data.
+  const consentPendingAllowed =
+    awaitingParentConsent && isConsentPendingAllowedPath(pathname);
   const blockedForOnboarding =
-    player.role !== "parent" && !player.onboarded && pathname !== "/onboarding";
+    player.role !== "parent" &&
+    !player.onboarded &&
+    pathname !== "/onboarding" &&
+    !consentPendingAllowed;
   const blockedForParent =
     player.role === "parent" && !isParentAllowedPath(pathname);
   const blockedForPlayer =
