@@ -10,7 +10,7 @@ do not exist on production until then.
 
 ## What this is
 
-89 commits from `v1` (433 files) that have been running on staging and on
+96 commits from `v1` (440 files) that have been running on staging and on
 Vercel Preview (which reads staging). Merging removes the maintenance page:
 `main` was merged into `v1` (`0cea97e`) and `middleware.ts` deleted on `v1`
 in the commit after it — a plain merge of `v1` without that deletion kept
@@ -40,6 +40,9 @@ the 503 and still deployed READY.
   summer 2030" for the Class of 2031), labelled as an estimate with its
   growth assumption, and with the line "Top D1 programs often decide
   earlier, during junior year." Seniors past that summer use today's UTR.
+  Reach vs Out of range is decided one way everywhere — the pace in the
+  player's own logged ratings — so the same rating on the same date always
+  gets the same band.
 - **Real deletion and a complete export**, from Settings, reachable before
   onboarding.
 - **Billing:** the Whop webhook path and a `?checkout=success` sync safety
@@ -50,24 +53,35 @@ the 503 and still deployed READY.
 
 ## Verification (measured, not asserted)
 
-- `npx tsc --noEmit`, `npx next lint`, `npx vitest run` (**764 tests**),
+- `npx tsc --noEmit`, `npx next lint`, `npx vitest run` (**786 tests**),
   `next build` — green at the head of this PR.
-- Overnight harness on a production build against staging: every route
-  enumerated from `app/`, 9 personas, 375 and 1440, light and dark (+
-  widths, WebKit/Firefox, legacy theme, reduced motion, 200% zoom passes) —
-  results in `docs/FINAL_PASS_REPORT.md`.
-- RLS attack suite re-run on staging after tonight's changes: 18 + 14
-  probes, all refused/allowed as designed.
+- Overnight harness on a production build against staging
+  (`scripts/README.md`): every route enumerated from `app/`, 9 personas;
+  Chromium at 375 and 1440, light and dark (1,020 loads); every route ×
+  persona at 320 and 375 recording anything clipped past the screen edge
+  (510 loads); **WebKit 18.2 and Firefox 132** on the key routes for three
+  personas, 375 and 1440, light and dark; legacy theme, OS dark mode, 200%
+  zoom and reduced motion; Lighthouse on every public route. Results in
+  `docs/FINAL_PASS_REPORT.md`.
+- RLS attack suite re-run on staging after the night's changes: 18 + 14
+  probes, all refused/allowed as designed; re-attacked independently by
+  the verifier from persona (f).
 - An independent verifier re-walked the personas and tried to defeat every
-  guard — results and fixes in `docs/FINAL_PASS_REPORT.md` §WS8.
+  guard: 4 HIGH, 7 MEDIUM, 4 LOW and nine guard bypasses, all HIGH fixed
+  and re-measured, every bypass now caught (`docs/FINAL_PASS_REPORT.md`
+  §WS8).
+- Dry-run merge of `v1` into `origin/main` (`d059006`) in a throwaway
+  worktree: clean, `middleware.ts` absent, migrations 022–039 present.
 
 ## Not in this PR (known, logged in `docs/TODO.md` week 1)
 
-Parent dashboard upgrade; role-gating the player tables' INSERT policies
-(a parent can still write rows under their own id via PostgREST — never the
-child's); `is_parent_member()` role-aware; deleting the plan generator and
-the Legacy design; checkout start must be re-checked on the HTTPS preview
-(Whop rejects a localhost return URL).
+Parent dashboard upgrade; premium diagnostic onboarding; role-gating the
+player tables' INSERT policies (a parent can still write rows under their
+OWN id via PostgREST — never the child's) and `is_parent_member()`
+role-aware; what `family_members()` returns to an under-13 whose consent is
+pending; a parent's `/schools` still shifts on a phone (CLS 0.07–0.10);
+deleting the plan generator and the Legacy design; checkout start must be
+re-checked on the HTTPS preview (Whop rejects a localhost return URL).
 
 ## Rollback
 

@@ -184,6 +184,7 @@ const PASSES = {
   },
 };
 const cfg = PASSES[PASS];
+if (process.env.AUDIT_BROWSERS) cfg.browsers = process.env.AUDIT_BROWSERS.split(",");
 if (!cfg) throw new Error(`unknown pass ${PASS}`);
 
 /* --------------------------------------------------------------- helpers */

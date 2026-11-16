@@ -67,7 +67,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showApp = hydrated && isAuthed;
   // Before the session check, an app route lays out as the app (sidebar
   // margin on desktop) so the page does not slide sideways when it resolves.
-  const layoutAsApp = showApp || (!hydrated && isSeeded && !rendersPublicNavBeforeSession(pathname));
+  // Before the check, only a browser that holds a saved session lays out as
+  // the app — via CSS (html[data-session], see globals.css), since React
+  // cannot know yet. A signed-out visitor who opened /today is about to be
+  // sent to /login; reserving the sidebar for them shifted the page 0.16.
+  const layoutAsApp = showApp;
+  const preSessionAppRoute = !hydrated && isSeeded && !rendersPublicNavBeforeSession(pathname);
   // /onboarding and /methodology used to be listed here too, each rendering
   // its own cut-down header instead. That was the mockups' structure, and on
   // a real site it meant the two pages a visitor is most likely to land on
@@ -130,19 +135,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="pre-session-app-bar hidden h-14 border-b border-[rgb(var(--c-line))] bg-panel" aria-hidden />
             </>
           )
-          : isSeeded && !rendersPublicNavBeforeSession(pathname)
-            // An app route (behind AuthGate) will get the sidebar's 56px
-            // mobile top bar once the session resolves. Hold its space now,
-            // or every signed-in page drops 56px on load (measured CLS
-            // 0.069 on /today and /outreach at 375).
-            ? <div className="h-14 border-b border-[rgb(var(--c-line))] bg-panel lg:hidden" aria-hidden />
+          : preSessionAppRoute
+            // An app route: a browser with a saved session gets the
+            // sidebar's 56px mobile bar (or the desktop margin) — measured
+            // CLS 0.069 on /today at 375 without it. One without is about to
+            // be sent to /login, so it gets /login's public header instead
+            // (reserving the app frame for it shifted the page 0.09–0.16).
+            ? (
+              <>
+                <div className="pre-session-public-nav"><SeededNav /></div>
+                <div className="pre-session-app-bar hidden h-14 border-b border-[rgb(var(--c-line))] bg-panel" aria-hidden />
+              </>
+            )
             : null}
       <main
         id="main-content"
         tabIndex={-1}
         className={cn(
           "focus:outline-none",
-          !hydrated && isSeeded && rendersPublicNavBeforeSession(pathname) && "pre-session-main",
+          ((!hydrated && isSeeded && rendersPublicNavBeforeSession(pathname)) || preSessionAppRoute) && "pre-session-main",
+          preSessionAppRoute && "min-h-screen",
           layoutAsApp && [
             "min-h-screen transition-[margin-left] duration-300 ease-out",
             collapsed ? "lg:ml-[76px]" : "lg:ml-[248px]",

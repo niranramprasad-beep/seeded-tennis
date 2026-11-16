@@ -68,7 +68,12 @@ const csp = [
   "object-src 'none'",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
+  // SEEDED_LOCAL_HTTP_AUDIT=1 is for one thing: auditing a production build
+  // over plain http://localhost in WebKit, which (unlike Chromium and
+  // Firefox) applies upgrade-insecure-requests to localhost and rewrites
+  // every script and font to an https://localhost that does not exist.
+  // Never set on Vercel; the deployed header is unchanged.
+  ...(isDev || process.env.SEEDED_LOCAL_HTTP_AUDIT === "1" ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [
