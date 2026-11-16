@@ -10,7 +10,7 @@ do not exist on production until then.
 
 ## What this is
 
-96 commits from `v1` (440 files) that have been running on staging and on
+99 commits from `v1` (440 files) that have been running on staging and on
 Vercel Preview (which reads staging). Merging removes the maintenance page:
 `main` was merged into `v1` (`0cea97e`) and `middleware.ts` deleted on `v1`
 in the commit after it — a plain merge of `v1` without that deletion kept
@@ -53,7 +53,7 @@ the 503 and still deployed READY.
 
 ## Verification (measured, not asserted)
 
-- `npx tsc --noEmit`, `npx next lint`, `npx vitest run` (**786 tests**),
+- `npx tsc --noEmit`, `npx next lint`, `npx vitest run` (**788 tests**),
   `next build` — green at the head of this PR.
 - Overnight harness on a production build against staging
   (`scripts/README.md`): every route enumerated from `app/`, 9 personas;

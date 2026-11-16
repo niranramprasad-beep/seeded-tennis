@@ -1,5 +1,140 @@
 # Seeded — overnight "every pixel" final pass (2026-11-15 → 16)
 
+## HANDOFF — read this first
+
+**`v1` @ `b3cf221`, pushed. Production untouched** (23 migrations, `main`
+@ `d059006`, maintenance 503). Nothing was applied to production, nothing
+merged to `main`; the only production contact was one read-only
+`select 1` (OK).
+
+### Five lines
+
+1. A parent's Settings is about the parent, and "read-only" is enforced by
+   every player-data API route (403) and attack-tested in the database.
+2. Every screen bands schools from one report, projected to the summer
+   before senior year, with one Reach rule (the player's logged pace) — the
+   verifier's "same rating, two bands" is gone and pinned by a test.
+3. No invented numbers: per-school cost/aid guesses, an onboarding UTR of
+   7.0, and a tournament checker UTR of 8.0 are removed and guarded.
+4. Walked on Chromium, **WebKit and Firefox**, 320 → 1920px, light/dark/OS
+   sync/200% zoom/reduced motion: nothing clipped, layout shift 0 on every
+   re-measured page but one (a parent's /schools on a phone, TODO #14).
+5. An independent verifier found 4 HIGH + 9 guard bypasses; all HIGH are
+   fixed and re-measured, every bypass now fails the build. 697 → 788 tests.
+
+### Coverage
+
+| pass | browsers | personas | viewports | themes | loads | result |
+|---|---|---|---|---|---|---|
+| tier 1 (every route from `app/`) | Chromium | a b c d e f g j + signed out | 375, 1440 | light, dark | 1,020 | 6 findings → fixed (`ff6b263`) |
+| narrow (every route) | Chromium | all | 320, 375 | light | 510 | 2 clipped + 4 small targets → fixed (`75a4e95`) |
+| browsers | **WebKit 18.2**, **Firefox 132** | a, f, signed out | 375, 1440 | light, dark | 168 + 168 | clean (after the localhost CSP note in `bf5bdd8`) |
+| extras | Chromium | a, f, signed out | 1440 | Legacy, OS dark, 200% zoom, reduced motion | 108 | Seeded clean; Legacy fails (TODO #7) |
+| flows | Chromium | a, f, g, j, new signup | 375 | light | — | pass incl. consent, budget, export, deletion 3/3; checkout START only to the request (Whop rejects an http return URL — TODO #8) |
+| keyboard | Chromium | signed out, a | 1440 | light | — | skip link first, visible focus, dialogs trap/return |
+| persona walk | Chromium | a–e | 375, 1440 | light, dark | — | 0 contradictions |
+| Lighthouse | Chrome | signed out | mobile | — | 16 routes | below |
+| RLS attack suite | staging SQL | 9 identities | — | — | 18 + 14 | as designed |
+
+### Persona consistency (signed out, the fit report; headline = tabs = rows = panel)
+
+| persona | view | Reach | Target | Likely | Out | note |
+|---|---|---|---|---|---|---|
+| a Men's 8.7, C/2031 | **By summer 2030: 12.2** | 13 | 12 | 12 | 0 | one typed number → the realistic-max pace splits Reach (P1-FIT-4) |
+| a, signed in (5 logged ratings) | By summer 2030: 12.2 | 0 | 12 | 12 | 13 | logged pace 11.4 by June 2030; default = what-if 12.2, identical |
+| b Women's 6.0, C/2029 | By summer 2028 | 2 | 0 | 0 | — | |
+| c Men's 11.0, C/2027 | today (senior) | 0 | 10 | 2 | 25 | headline "in range for 12" |
+| d Women's 9.4, C/2026 | today (senior) | 0 | 8 | 2 | — | |
+| e Men's 4.0, C/2030 | By summer 2029 | 0 | 0 | 0 | — | honest empty state |
+
+### Lighthouse (mobile, local production build), axe, CWV
+
+| route | perf | a11y | BP | SEO | LCP (sim. slow 4G) | CLS | TBT |
+|---|---|---|---|---|---|---|---|
+| / | 80 | 100 | 96 | 100 | 5.3 s | 0 | 0 |
+| /onboarding | 80 | 100 | 96 | 100 | 5.6 s | 0 | 0 |
+| /pricing | 81 | 100 | 96 | 100 | 5.1 s | 0 | 0 |
+| /schools | 79 | 100 | 96 | 100 | 5.6 s | 0 | 0 |
+| /schools/stanford-m | 78 | 100 | 96 | 100 | 6.0 s | 0 | 1 ms |
+| /tournament-fit | 81 | 100 | 96 | 100 | 5.3 s | 0 | 43 ms |
+| /sample-report | 81 | 100 | 96 | 100 | 5.1 s | 0 | 0 |
+| /how-it-works, /parents, /methodology, /contact, /privacy, /terms, /login, /signup, /schools/tcu-w | 78–81 | 100 | 96 | 100 | 5.1–6.1 s | 0 | 0 |
+
+BP 96 is local `/_vercel/insights` 404s only. **axe:** tier 1 found two
+(a 16px link target on /family, an unfocusable budget scroll region), both
+fixed; the extras pass on the final code found **0 on the Seeded design**
+(Legacy: contrast + 3 unlabelled selects, TODO #7). **CLS re-measured
+after the fixes, ≤ 0.04 everywhere checked**: signed out on /, /today,
+/outreach, /schools (0.000); a on /today, /outreach, /schools, /plan at
+375 and 1440 (0.000); c on /schools and /plan at 320/375 (≤ 0.037); f on
+/family (0.000) and /family/budget (0.019); every persona on
+/schools/[slug] (0.000). Was 0.21 for a signed-in desktop user on public
+routes and 0.16 for a signed-out visitor on app routes. Not fixed: a
+parent's /schools on a phone (0.07–0.10, TODO #14). LCP is TODO #15.
+
+### The PR
+
+`docs/PR-v1-to-main.md` — **"Seeded V1: honest data, family privacy
+enforced in the database, and the maintenance page removed"**. 99 commits,
+440 files. Merge only after the 18 migrations are on production.
+
+### GO sequence — `docs/GO-SEQUENCE.md` (pasteable), in short
+
+`chmod 600 ~/seeded-backup.env` first (it is world-readable). Then:
+1. **Backup** — `pg_dump --format=custom` to `~/seeded-backups/`, then
+   `pg_restore --list` must show table data for profiles, utr_entries,
+   parent_accounts, families. Stop otherwise. (5 min)
+2. **JSON snapshot** of profiles' privileged columns, parent_accounts,
+   families. (2 min)
+3. **Migrations in the rehearsed order** 025 → 022 → 023+026 → 024 → 027 →
+   028 → 029 → **030 (stop: every profile `not_required`, 0 pending)** →
+   031 → 032 → 033 → 034 → **035 (never skip)** → 036 → 037 (verify with
+   `set local role authenticated`: exactly 1 profiles row) → 038 → 039.
+   Each row has its verify, its STOP condition and its §J rollback block.
+   218 ms of DB time in rehearsal; budget 45–60 min for reading results.
+4. **Merge the PR** (green `verify`). Dry-run tonight: clean, no
+   `middleware.ts`, 022–039 present. Re-dry-run if `main` moved.
+5. **Vercel READY is not proof** — `curl` must return 200, not 503.
+   Rollback: Vercel → previous deployment → Promote; DB changes do not roll
+   back with it (§J step 15).
+
+### Live checks after the deploy (20 min)
+
+Public routes 200 · security headers present (CSP with
+`upgrade-insecure-requests`, HSTS, frame-ancestors) · `/robots.txt` and
+`/sitemap.xml` · a persona-(a)-shaped fit report reads "By summer 2030" and
+headline = tabs = rows · a real signup's confirmation email arrives (Google
+Workspace SMTP, support@seededtennis.com, 80/hour — set in Supabase Auth) ·
+Whop test webhook → 200 · reconcile the paid bullis.org membership and see
+`profiles.subscription_tier` = player · the $0 promo-code purchase end to
+end · a parent's view is read-only (no star, no edit, 403 on a write).
+
+### Week 1, ranked (`docs/TODO.md`)
+
+1. **Parent dashboard upgrade.** 2. **Premium diagnostic onboarding.**
+3. Role-gate the player tables' INSERT policies + `is_parent_member()`
+role-aware (one migration). 4. (see 3). 5. Delete `generatePersonalizedPlan()`.
+6. Onboarding's Grade/gender defaults. 7. Delete Legacy (it fails the
+extras pass). 8. Verify checkout on the HTTPS preview. 9. Theme: account
+vs device. 10. What `family_members()` returns while consent is pending.
+11. Show the projection's ceiling. 12. Last-hours "Estimate" chip.
+13. Dead `/family` entry in the consent allow-list. 14. A parent's
+/schools shift on a phone. 15. LCP on slow 4G.
+
+### Close-out done
+
+All 11 staging accounts that still had a usable password (8 tonight's
+personas + the previous pass's `fake-a-parent2@`, `fake-a-player@`,
+`fake-minor@`) scrambled to a non-bcrypt string; **sign-in refused for all
+11 through the real login form**. Persona (j) was deleted by the deletion
+flow test. The password file, the scratch scripts and any saved session
+are deleted; no JWT exists anywhere in the evidence folder. Typecheck,
+lint, 788 tests, production build ×2 green at `b3cf221`; staging advisors
+unchanged (21 intentional SECURITY DEFINER RPCs, 4 deny-all tables,
+leaked-password protection off — a dashboard setting).
+
+---
+
 Live log. Updated after every workstream so this is resumable: on resume,
 read this plus `git log --oneline` and continue from the first unfinished
 item. Never redo finished work. The previous pass's log is kept below,
@@ -33,311 +168,14 @@ along with tonight's.
 
 | Workstream | Status |
 |---|---|
-| 1 — parent profile fix + read-only made true | **DONE** (code + RLS attack suite); browser walk in WS3 |
-| 2 — no invented data | **DONE** |
-| 3 — every page, every pixel | in progress (harness built; tier 1 re-running on the fixed build) |
-| 4 — data scoping audit | **DONE** (code + guard, 7 mutations fail the build) |
-| 5 — truth & claims sweep | **largely DONE** — 4 HIGH false claims fixed; pricing/legal re-check in progress |
-| 6 — a11y, performance, SEO | in progress (CLS, SSR, icons fixed) |
-| 7 — security + privacy check | in progress (redirects, webhook replay done) |
-| 8 — independent verifier | pending |
-
----
-
-## WS1 — a parent's Settings is about the parent, and "read-only" is true
-
-### Reproduced first
-
-Signed in as persona (f) on a production build: `/settings` rendered the
-PLAYER's Settings — a "Player profile" card (Full name, High school grad
-year, Team, Home area, UTR profile link, Unweighted GPA, **Save changes**),
-an Account tab listing "Current UTR / Grade / Class of / Gender", and the
-sidebar saying "Parent view · read-only" beside it. The fields were the
-parent's OWN profile columns, which nothing reads; and because the client
-posts the whole merged Player on every save, saving them wrote a defaulted
-gender and graduation year onto the parent's row.
-
-### What changed
-
-- **`ParentSettingsView`** (both designs route a parent to it): *Your
-  account* (name — the only editable field; email from the auth user;
-  sign-in method read from the auth identities, so a Google account is told
-  there is no Seeded password rather than offered a reset; plan; Billing;
-  Sign out), *Your players* (first name + last initial, class year, "View
-  Avery's report"), Appearance, a **Family** tab (code from
-  `my_family_code()` — the old card read `profiles.family_code`, which is
-  NULL for every joiner and showed "—"; plus the member list), Billing, and
-  **Privacy + data** with parent-specific copy. No Notifications tab:
-  Seeded sends none.
-- **Server:** `/api/profile` reads the caller's `role` from their own row
-  and, for a parent, writes `name` and nothing else.
-  `refuseParentPlayerDataWrite()` now runs first in all five player-data
-  write routes (`utr-entries`, `matches`, `outreach`, `training/planner`,
-  `training/templates`) and returns 403.
-- **Every parent-reachable edit control removed:** the star and "Save to
-  targets" on `/schools` and `/schools/[slug]` (a parent's "targets" were
-  their own row, not their child's — wrong row AND wrong state shown),
-  "Draft an email to the head coach" on the school page (it led to a
-  redirect), "Add to my events" on `/tournament-fit`.
-- **One story on every parent screen** — `parentScopeSentence()`:
-  *"Jordan · parent of Avery · Avery's profile, results, plan and outreach
-  are read-only for you. You can edit the season budget and send Avery
-  notes."* on `/family`, `/family/budget`, `/family/weekly-reports`,
-  `/schools`, `/settings`; the sidebar reads "Parent of Avery · read-only".
-  The budget's sharing caveat (any approved joiner, including a player, can
-  edit it — `is_parent_member()`, week-1 item) stays on `/privacy`.
-- **The ⌘K palette still offered parents "Events"** — the dead end the last
-  pass removed from the sidebar. Both now build from one
-  `nav-links.ts`; `lib/nav-single-source.test.ts` fails if either grows its
-  own list or a parent link points somewhere AuthGate bounces.
-- **Which child?** Nine call sites each did
-  `members.find((m) => m.role === "player")` — whichever row the RPC
-  returned first. Persona (f)'s family has two players. One deterministic
-  `pickFamilyPlayer()` (earliest joined, then id); a component picking for
-  itself fails the build.
-- **Export/delete told the truth for a parent.** The JSON export left out
-  the notes a parent WROTE (listed as "written by another family member" —
-  true from the child's side, backwards from the author's), while deletion
-  deletes them. Now exported. `/privacy` and the Privacy card say what a
-  parent's deletion takes with it (their profile, notes they wrote,
-  expenses they entered) and what it leaves (the player, the family).
-- Bonus bug: the compare tray's bulk "Save to targets" skipped the Free
-  3-school check, so the UI showed three saved and the server refused them.
-
-### RLS attack suite as persona (f) — staging, rolled back
-
-Evidence: `~/seeded-evidence/overnight/ws1/rls-parent-attacks.json`.
-
-| attack on the child's data | result |
-|---|---|
-| UPDATE child profile (name, UTR, GPA, targets) | 0 rows |
-| UPDATE / DELETE child UTR entries | 0 rows / 0 rows |
-| UPDATE child match, UPDATE / DELETE child events | 0 rows each |
-| INSERT UTR, outreach, event, match, training plan, workout session as the child | `42501` × 6 |
-| control: parent edits season budget | allowed (1 row) |
-| control: parent writes a note | allowed |
-| parent can still READ the child's UTR history | 5 rows |
-| `profiles` rows visible to the parent | 1 (their own) |
-
-**Stated scope, not glossed:** RLS lets any account write ITS OWN rows in
-the player tables, and a parent going around the app straight to PostgREST
-could still log a UTR under their own id. They cannot touch the child's
-rows (above), no route of the app accepts it (403), and every family screen
-reads the player's rows by the player's id. Closing the direct path is a
-role check in the tables' INSERT policies — a migration, so not tonight
-(ground rule 2: only for a HIGH that cannot be fixed otherwise); logged as
-week 1 in `docs/TODO.md`.
-
----
-
-## WS2 — no invented data
-
-| what | where | now |
-|---|---|---|
-| `annualCost` (3 numbers by rank/division) and `scholarshipPercent` (3 by division), printed as "Rough scholarship value" / "Net: $…" under real school names | cost calculator + `calculateCost()` | **deleted** from the type, the math and the screen; card reads "Not available yet" |
-| $115 lesson rate, $1,200 equipment, $550/tournament defaults, and a headline total computed from them before the family typed anything | cost calculator | inputs start empty; headline reads "Enter your costs" |
-| "Cost, aid, and enrollment data coming soon." | `/schools/[slug]` | "not available yet", with why |
-| six "Verified … coming soon." | Legacy school page | "not available yet" / "not stored by Seeded" |
-| **"/methodology — Players leaving": "We turn every class label into a graduation year, then count players who finish before you'd arrive"** | `/methodology` | **HIGH — describes a computation that does not exist** (no roster rows). Now says it is not tracked and why |
-| "#18 national academic ranking" with no source | school page, compare drawer | "U.S. News academic rank #18 (as entered in our catalogue; edition year not recorded)" — DATA_QUALITY rates the field "no year recorded" |
-| Academic tier label "150+" for any rank over 100 | `/schools` | "Over 100" — a school ranked 120 read as 150+ |
-
-**Two HIGH contradictions found while tracing numbers** (persona a, a
-pre-junior): `/schools/[slug]` and `/plan`'s target rows each banded schools
-**on today's rating** through their own `explainSchoolFit()` call, while
-`/schools`, `/today` and `/family` judge a pre-junior at their junior-year
-estimate. Same school, Reach on one page and Target on the other. Both now
-take the band from the shared fit report (`useFitReport().bandBySlug`); the
-school page also says which rating judged it ("Estimate … junior-year
-estimate of X, the same rating the Schools list uses"), and for a parent it
-is about the child, by name. `lib/fit-single-source.test.ts` (d) fails the
-build if any `explainSchoolFit` call omits the report's band.
-
-**Guard:** `lib/no-invented-school-data.test.ts` — 19 guessed field names
-as code identifiers, 8 phrase families as rendered copy, scanned across
-`app/`, `components/`, `lib/` after a new shared normaliser
-(`lib/testing/source-text.ts`) decodes what earlier guards were blind to:
-`&apos;`, `&#39;`/`&#x27;`, `\u2019`, `{" "}`/`{"'"}` JSX joins, and `${…}`
-template slots (read as a digit, so `${n} spots open` matches "3 spots
-open"). The test carries six spellings that defeated earlier guards as
-cases it must catch, and the honest replacement sentence as one it must not.
-
-
----
-
-## WS4 — every read names its subject
-
-The previous pass fixed one loader (`loadUtrEntries`). The audit of every
-read of a user-owned table found the same mistake in two more shapes:
-
-1. **Family pooling on parent screens.** `loadMatches`,
-   `loadTournamentEntries`, `loadCoachOutreach`, `loadCoachOutreachDated`,
-   `loadDailyCheckins` and `loadCostCalculations` all did
-   `.in("user_id", <every approved member>)` when the viewer was a parent.
-   Persona (f)'s family has two players and two parents, so "coaches
-   emailed / replied" on the overview and the weekly report counted both
-   children (and any parent's own rows) as Avery's. Every one of them now
-   takes a `DataSubject` — `"self"`, `{ userId }`, or (for the family
-   budget only, which is the family's money) `"family-players"` — and the
-   parent screens pass the child's id from `pickFamilyPlayer()`.
-   Budget fit verdicts now judge only the shown child's own entries; a
-   sibling's entry counts toward spend with a plain category chip.
-2. **"RLS already does it."** The training loader read `training_plans`,
-   `workout_sessions`, `saved_templates` and `user_settings` with no user
-   filter, under a comment arguing RLS made it unnecessary — the exact
-   reasoning behind last pass's CRITICAL. Today those policies are
-   own-row, so nothing leaked; a future family policy would have put a
-   sibling's sessions on the calendar silently. Filtered explicitly now,
-   as is `lib/db/settings.ts`'s `user_settings` read.
-
-Two smaller ones: the weekly report and the overview fell back to the
-PARENT's own name as "the player" when no player had joined
-(`playerMember?.name || player.name`).
-
-**Guard — `lib/data-scoping.test.ts`:** user-owned tables are read only in
-`lib/`; every SELECT carries `.eq("user_id", …)` / `.in("user_id",
-subjectIds)` (or `.eq("family_code", …)` on a family table) **on that
-query** — in its own chain or on the variable it was assigned to;
-`approvedFamilyMemberIds()` is no longer allowed as a read scope; the five
-family-readable loaders must take a `subject`; a parent screen calling one
-without a subject fails. **Mutation-tested 7 ways**, all failing: drop the
-filter from `training_plans` / `user_settings` / `utr_entries`; neutralise
-the `.in` in `loadMatches` and the outreach `runSelect`; re-introduce
-member pooling; call a loader bare from the weekly report; query `matches`
-from a component. The first version of this test let mutation 1 through —
-it accepted any filter anywhere in the function — and was tightened.
-
----
-
-## WS5 — truth & claims (rendered text read against the code)
-
-Read from the RENDERED text of every public page
-(`~/seeded-evidence/overnight/text/`), each sentence checked against
-`lib/school-fit.ts`, `lib/fit.ts`, the schema and RLS.
-
-**HIGH — `/methodology`'s opening sentence was four false claims:** *"we
-compare your UTR to real, dated rosters, count who's graduating, add
-academics, and give you a band with a confidence level."* No roster is
-stored, no date exists, nothing counts graduates, academics are a filter,
-no confidence is computed. The page also said team ranges are "built from
-public UTR profiles" (no source exists — DATA_QUALITY: UNVERIFIED), listed
-per-player "Ratings" and "Academics: public admissions ranges" (neither is
-stored), described a "Which ratings count" reliability filter over player
-ratings that do not exist, and said "players leaving, academics and your
-preferences can move a school up or down one band". Rewritten from the
-code: two hand-entered estimates per team, four bands defined exactly as
-`classifySchoolFit` computes them, the junior-year projection explained,
-and — new — **the top of every range bar is drawn, not data**
-(`schoolUtrRange` mirrors the floor around the average). The tooltip now
-says "Top (drawn)".
-
-**HIGH — the homepage repeated them** ("How fit works": "from public
-profiles", "count seniors who graduate before you arrive", "we add
-academics and your preferences", "a band and a confidence level"; "Bands
-and confidence"; the FAQ's "Public team rosters and UTR profiles").
-
-**HIGH — "the real Today screen" showed an action /today cannot
-produce** ("Skip the L5 on Nov 22 — 2 better events within 3 hours").
-`lib/today-actions.ts` produces three kinds: email, follow-up, check-in.
-The mock now shows exactly those, worded as the code words them.
-
-**HIGH — "on a calendar your parents can see"** (homepage hero, OG and
-Twitter descriptions). The training tables are own-row under RLS; a parent
-cannot see the calendar. Now "with a family view your parents can follow".
-
-**MEDIUM:** `/parents` "Plan the week — turn recruiting goals into a
-training schedule that balances court work, match play, strength…"
-(Seeded generates no plans); `/how-it-works` "Programs are compared by …
-academics, conference and location" (only UTR bands; the rest are
-filters); pricing's "Follow-up reminders" (reads as a notification —
-Seeded sends none) → "Follow-up check-in dates (in the app)"; "Seeded
-reminds you" → "flags on Today"; onboarding's "Sourced, dated rosters are
-what we're building next" (a promise) removed; the dead
-`NotificationsCard` (a Sunday digest and "come right away" alerts)
-deleted rather than left one import away.
-
-**Guards:** nine new phrase families in `lib/copy-honesty.test.ts`, and the
-test's decoder now uses the shared normaliser, so `\u2019`, numeric
-entities and `{" "}` joins are decoded too. Mutation-tested with three
-disguised spellings of the removed claims; all fail the build.
-
----
-
-## Found while building the harness (WS3, so far)
-
-| sev | finding | fix |
-|---|---|---|
-| HIGH | Every signed-in page load upserted `user_settings` (DesignPreferenceSync's write-through started with an empty "last written" marker). 034 rate-limits that table, so after a busy hour a real theme change or training-preference save was refused "Too many changes at once" — the harness hit HTTP 500 / `53400` on every signed-in page | writes only when the person changes the theme, after the stored value is known |
-| HIGH (SEO) | Public pages rendered no `<header>` until the session check: CLS **0.09** at 375 on `/`, `/contact`, `/methodology` (0.05 at 1440), and no nav links for a non-JS crawler | public nav rendered before hydration on public routes — CLS **0.000** re-measured |
-| HIGH (SEO) | `/onboarding` and `/tournament-fit` server HTML was the nav and an empty main (`useSearchParams()` bail-out) | server-renderable Suspense fallback — 362 / 2,037 chars of real content now |
-| MEDIUM | No favicon (`/favicon.ico` 404, no `<link rel="icon">`), no apple-touch-icon, no manifest | `app/icon.tsx`, `app/apple-icon.tsx`, `app/manifest.ts`, same mark as the OG image |
-| MEDIUM | "Find the coaching staff" linked google.com/search (banned by the brief) on 3 surfaces | copyable search phrase, no link (`StaffDirectoryHint`) |
-| MEDIUM | 20px "Forgot password?"; 16–20px "Update UTR", "Log check-in", "History" on /today; 12–13px "Switch to Legacy", "Report an error", school chips/selects | ≥24px targets (44 on mobile), 14px text |
-| MEDIUM | `.eyebrow text-gold` failed AA contrast on /reset-password, /matches, /cost-calculator in Seeded | grass in Seeded |
-| LOW | Academic tier "150+" shown for any rank over 100 | "Over 100" |
-
-**Harness bugs, recorded so they are not repeated:** (1) sample school URLs
-used raw slugs (`stanford`) — the catalogue appends `-m`, so every sample
-404'd and looked like a broken site; slugs now come from the build's
-prerendered list. (2) A signed-in persona's stored theme overrides
-localStorage, so the first run's signed-in "dark" captures rendered light;
-the harness now records the rendered `data-seeded-mode` and flags a
-mismatch. (3) `/dev/*` correctly 404s in production; its own 404 document
-was being counted as a console error. (4) A "server HTML is empty" check
-that only looked inside `<main>` missed streamed Suspense content on
-`/schools` and the school pages, which DO server-render.
-
-
----
-
-## WS3 flows (3.5) — real journeys, production build, staging auth
-
-`scripts/flows.mjs`; evidence in `~/seeded-evidence/overnight/flows/`.
-
-| flow | result |
-|---|---|
-| wrong password | stays on /login with a sentence — was Supabase's raw "Invalid login credentials"; now "That email and password don't match an account…" |
-| already signed in → /login | **was shown the sign-in form again**; now sent to /today (or /family for a parent) |
-| under-13 (g): pending gate on /today; Settings reachable | ✅ |
-| sibling PLAYER (a) offered "I'm their parent — give consent" for (g) | **❌ → fixed**: the button (which the server refuses) and "Approve and consent" now show only to a parent; a player is told to ask a parent |
-| parent (f) grants consent through the UI → card disappears → (g) no longer gated | ✅ (DB: `consent_status` granted, `consent_granted_by` set) — (g) reset to pending afterwards for the harness |
-| parent adds a $42 expense | ✅ listed; total $1,280 → $1,322 |
-| JSON export as (a) | ✅ only (a)'s own user-keyed rows; 5 UTR entries; the family budget, as documented. CSV has no sibling/parent rows |
-| 4th export in an hour (b) | ✅ friendly sentence (reworded from "a lot of changes" — it was a download) |
-| `?checkout=success` | **❌ → fixed**: every failure said "Payment received … usually catches up within a few minutes" — including an account Whop has no membership for. Now three honest states |
-| checkout start, 4 plans | ❌ locally, **by design of Whop**: it rejects an `http://localhost` return URL. The route took that URL from the request's Origin header (S-11) and turned Whop's 400 into an empty 500. Fixed: return URL pinned (production domain / preview's own https URL), Whop errors caught as a 502 sentence. **Must be re-checked on the HTTPS preview** — not verifiable locally |
-| new signup (j) opens Settings to delete | **❌ → fixed**: an un-onboarded player was bounced from /settings to /onboarding, so export/delete required onboarding first |
-
-**HIGH found on the way — the onboarding slider invented a UTR.** For a
-player with no rating, the signed-in onboarding preselected **7.0**;
-pressing Continue untouched saved 7.0 as their rating, wrote a "Starting
-UTR" history entry, banded every school against it and put "My UTR is 7.0"
-in the coach email — the exact placeholder CLAUDE.md warns about. The
-rating is now an explicit choice (move the slider, or "I don't have a UTR
-yet"); the pre-auth fit report's UTR box no longer pre-fills "7" and says
-why when the button is pressed without a valid rating.
-
-## RLS attack suite, re-run after tonight's changes (WS4)
-
-Staging, every probe as `authenticated` with JWT claims, one transaction,
-rolled back. `~/seeded-evidence/overnight/ws4/rls-suite.json`.
-
-| # | attack | expected | result |
-|---|---|---|---|
-| 1–3 | player sets own `subscription_tier` / `role=parent` / `family_code` | 42501 | 42501 ×3 |
-| 4 | player inserts a `parent_reports` row | 42501 | 42501 |
-| 5 | player writes a "parent" note | 42501 | 42501 |
-| 6 | player removes the account holder | 22023 | 22023 |
-| 7 | `profiles` rows a member can read | 1 | 1 |
-| 8–11 | stranger reads (a)'s UTR / matches / any budget / roster | 0 | 0 ×4 |
-| 12–13 | stranger joins with a valid code; reads (a)'s UTR while pending | pending; 0 | pending; 0 |
-| 14–15 | under-13 pending logs a UTR / rewrites birth_year | 42501 | 42501 ×2 |
-| 16–17 | minor consents for self / sibling player consents | refused | `not_allowed` (self / not_a_parent_account) |
-| 18 | direct `utr_entries` writes in an hour | 20 then refused | 20 then 53400 |
-
-Plus the 14 parent read-only probes (WS1). Staging security advisors:
-nothing new — no migration was written tonight.
-
+| 1 — parent profile fix + read-only made true | **DONE** — code, RLS attack suite, browser walk, verifier re-attack |
+| 2 — no invented data | **DONE** (+ /tournament-fit's invented 8.0, found by WS8) |
+| 3 — every page, every pixel | **DONE** — tier 1, narrow, WebKit, Firefox, extras, flows, keyboard |
+| 4 — data scoping audit | **DONE** — guard now also checks where `subjectIds` and `family_code` come from |
+| 5 — truth & claims sweep | **DONE** |
+| 6 — a11y, performance, SEO | **DONE** — axe 0 and Lighthouse a11y 100 on Seeded; LCP logged (TODO #15) |
+| 7 — security + privacy check | **DONE** |
+| 8 — independent verifier | **DONE** — 4 HIGH fixed and re-measured, 9 guard bypasses closed |
 
 ---
 
