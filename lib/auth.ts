@@ -117,6 +117,11 @@ function friendlyAuthError(message: string): string {
   if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
     return "Too many attempts in a short time. Wait a few minutes and try again.";
   }
+  // Supabase Auth's 500 text — "Unexpected failure, please check server
+  // logs for more information" — was shown verbatim on the login form.
+  if (m.includes("unexpected failure") || m.includes("server logs") || m.includes("internal server error")) {
+    return "Something went wrong on our side. Try again in a moment, or reset your password.";
+  }
   return message;
 }
 
