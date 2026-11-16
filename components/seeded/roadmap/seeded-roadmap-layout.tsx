@@ -23,6 +23,7 @@ import { loadUtrEntries } from "@/lib/db/plan";
 import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
@@ -94,6 +95,20 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
     utrHistory: actualPoints,
   });
   const effectiveUtr = whatIf.hypotheticalUTR;
+
+  // The band on every target row comes from the SAME fit report /schools,
+  // /today and /family read. /plan used to classify each row itself on
+  // today's rating, so persona (a) — a 7th grader — saw Reach here and
+  // Target for the same school on /schools, which judges a pre-junior at
+  // their junior-year estimate. The slider is passed only once it has been
+  // moved, exactly as /schools does (an untouched slider equals the real
+  // rating, and buildFitReport treats any override as a deliberate choice).
+  const fitReport = useFitReport({
+    player,
+    schools: pickerSchools,
+    overrideUtr: whatIf.isAtRealCurrent ? null : effectiveUtr,
+  });
+  const reportBandBySlug = fitReport?.bandBySlug;
 
   const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
 
@@ -181,10 +196,13 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
   const visibleTargetSchools = useMemo(() => {
     if (!showRealisticOnly) return orderedTargetSchools;
     return orderedTargetSchools.filter((s) => {
-      const explanation = explainSchoolFit(effectiveUtr, s, explanationInput);
+      const explanation = explainSchoolFit(effectiveUtr, s, {
+        ...explanationInput,
+        band: reportBandBySlug?.get(s.slug),
+      });
       return explanation.band !== "out-of-range" && !explanation.unreachable;
     });
-  }, [showRealisticOnly, orderedTargetSchools, effectiveUtr, explanationInput]);
+  }, [showRealisticOnly, orderedTargetSchools, effectiveUtr, explanationInput, reportBandBySlug]);
 
   // Point 4: the 5 real catalog schools closest to the player's actual
   // level, independent of what's currently targeted.
@@ -338,6 +356,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
             addableSchools={addableSchools}
             effectiveUtr={effectiveUtr}
             explanationInput={explanationInput}
+            reportBandBySlug={reportBandBySlug}
             isStarred={isStarred}
             toggleStar={toggleStar}
             onReorder={(newOrder) => void updatePlayer({ targetSchoolSlugs: newOrder })}

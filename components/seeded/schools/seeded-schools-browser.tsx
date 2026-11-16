@@ -1,5 +1,6 @@
 "use client";
 
+import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
@@ -16,12 +17,12 @@ import {
 import { loadUtrEntries } from "@/lib/db/plan";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
-import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
+import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
@@ -118,7 +119,7 @@ export function SeededSchoolsBrowser({
   reset,
   allSchools,
 }: Props) {
-  const { player, updatePlayer } = usePlayer();
+  const { player } = usePlayer();
   const [region, setRegion] = useState<"all" | SchoolRegion>("all");
   const [chip, setChip] = useState<ChipFilter>("all");
   const [sort, setSort] = useState<SeededSchoolSort>("default");
@@ -128,7 +129,7 @@ export function SeededSchoolsBrowser({
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
+  const { isStarred, toggleStar, toast, dismissToast, canStar, addManyToTargets } = useStarSchools();
 
   // Same "utr-entries" SWR key /today and /plan already fetch under — a
   // real cache hit here, not a second network round-trip, whenever one of
@@ -227,7 +228,7 @@ export function SeededSchoolsBrowser({
     () => loadFamilyMembers()
   );
   const playerFacts = useMemo(
-    () => resolveFamilyPlayerFacts(familyMembers.find((m) => m.role === "player"), player),
+    () => resolveFamilyPlayerFacts(pickFamilyPlayer(familyMembers), player),
     [familyMembers, player]
   );
   const viewingAsParent = player.role === "parent" && playerFacts.hasLinkedPlayer;
@@ -245,7 +246,7 @@ export function SeededSchoolsBrowser({
     if (want && want !== gender) setGender(want);
   }, [viewingAsParent, genderIsExplicit, playerFacts.gender, gender, setGender]);
   const subjectName = viewingAsParent
-    ? familyMembers.find((m) => m.role === "player")?.name?.split(" ")[0] ?? "your player"
+    ? pickFamilyPlayer(familyMembers)?.name?.split(" ")[0] ?? "your player"
     : null;
 
   // `overrideUtr` is for an EXPLICIT what-if choice only.
@@ -261,7 +262,7 @@ export function SeededSchoolsBrowser({
   // nobody has moved the slider.
   const explicitWhatIf = whatIf.isAtRealCurrent ? null : youUtr;
   const playerUserId = viewingAsParent
-    ? (familyMembers.find((m) => m.role === "player")?.id ?? null)
+    ? (pickFamilyPlayer(familyMembers)?.id ?? null)
     : null;
 
   const report = useFitReport({
@@ -458,10 +459,7 @@ export function SeededSchoolsBrowser({
   // pre-loop membership snapshot). Still the exact same real
   // targetSchoolSlugs/updatePlayer() mechanism; a bulk add reasonably gets
   // one bulk write, not N stacked per-item undo toasts.
-  const saveSelectedToTargets = () => {
-    const merged = Array.from(new Set([...player.targetSchoolSlugs, ...compareSlugs]));
-    updatePlayer({ targetSchoolSlugs: merged });
-  };
+  const saveSelectedToTargets = () => addManyToTargets(compareSlugs);
 
   const compareSchools = ranked.filter((s) => compareSlugs.includes(s.slug));
 
@@ -536,10 +534,10 @@ export function SeededSchoolsBrowser({
           // A parent has no rating of their own and the slider is not for
           // them. The prompt below is addressed to a player, so showing it
           // here asked the wrong person for the wrong thing.
-          <div className="rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
-            <p className="m-0 text-[15px] text-stone">
-              Fit is shown for {subjectName}, using the rating on their profile. You
-              can&rsquo;t change it from here &mdash; this view is read-only.
+          <div className="space-y-2">
+            <ParentScopeLine />
+            <p className="px-1 text-sm text-stone">
+              Fit below uses the rating on {subjectName}&rsquo;s profile.
             </p>
           </div>
         ) : (
@@ -605,7 +603,7 @@ export function SeededSchoolsBrowser({
           <select
             value={safeSort}
             onChange={(e) => setSort(e.target.value as SeededSchoolSort)}
-            className="h-11 rounded-lg border border-input bg-card px-2 font-sans text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-8"
+            className="h-11 rounded-lg border border-input bg-card px-2 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-8"
           >
             {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => {
               const needsUtr = key === "gap" || key === "fit";
@@ -703,7 +701,7 @@ export function SeededSchoolsBrowser({
                 </span>
               </span>
               {showOpenings && <span>Openings</span>}
-              <span>Acad.</span>
+              <span title={ACADEMIC_RANK_SOURCE_LABEL}>Acad.</span>
               {showDataCol && <span>Data</span>}
             </div>
             {visible.map((s, index) => {
@@ -717,7 +715,9 @@ export function SeededSchoolsBrowser({
               // and a "closest schools" list that was just the catalogue's
               // five weakest programs — both measured against the sentinel.
               const explanation =
-                expanded && hasUtr ? explainSchoolFit(effectiveUtr, s, explanationInput) : null;
+                expanded && hasUtr
+                  ? explainSchoolFit(effectiveUtr, s, { ...explanationInput, band: fit ?? undefined })
+                  : null;
               return (
                 <div key={s.id}>
                   {/* The row was `role="button" tabIndex={0}` wrapping a
@@ -774,12 +774,14 @@ export function SeededSchoolsBrowser({
                       />
                     </label>
                     <div className="flex min-w-0 items-center gap-1">
-                      <StarButton
-                        starred={isStarred(s.slug)}
-                        onToggle={() => toggleStar(s.slug, s.shortName)}
-                        label={s.shortName}
-                        className="h-11 w-11 sm:h-7 sm:w-7"
-                      />
+                      {canStar && (
+                        <StarButton
+                          starred={isStarred(s.slug)}
+                          onToggle={() => toggleStar(s.slug, s.shortName)}
+                          label={s.shortName}
+                          className="h-11 w-11 sm:h-7 sm:w-7"
+                        />
+                      )}
                       <Link
                         href={`/schools/${s.slug}`}
                         onClick={(e) => e.stopPropagation()}
@@ -882,15 +884,19 @@ export function SeededSchoolsBrowser({
             <strong>{compareSlugs.length} selected</strong> · {compareSchools.map((s) => s.shortName).join(", ")}
           </span>
           <span className="flex-1" />
+          {canStar && (
+            <button
+              type="button"
+              onClick={saveSelectedToTargets}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-ink"
+            >
+              Save to targets
+            </button>
+          )}
           <button
-            onClick={saveSelectedToTargets}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-ink"
-          >
-            Save to targets
-          </button>
-          <button
+            type="button"
             onClick={() => setCompareOpen(true)}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-grass px-4 text-sm font-semibold text-on-primary hover:bg-grass-600"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-grass px-4 text-sm font-semibold text-on-primary hover:bg-grass-600"
           >
             Compare side by side
           </button>
@@ -931,7 +937,10 @@ export function SeededSchoolsBrowser({
                     <span className="block text-xs">{UTR_RANGE_SOURCE_LABEL}</span>
                   </dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{s.minCompetitiveUTR.toFixed(1)}</dd>
-                  <dt className="text-stone-light">US News ranking</dt>
+                  <dt className="text-stone-light">
+                    U.S. News academic rank
+                    <span className="block text-xs">Edition year not recorded</span>
+                  </dt>
                   <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>
                 </dl>
               </div>
@@ -973,7 +982,7 @@ function ChipButton({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-[13px] font-semibold transition-colors sm:min-h-0 sm:py-1.5",
+        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-sm font-semibold transition-colors sm:min-h-0 sm:py-1.5",
         active ? v.on : v.off
       )}
     >

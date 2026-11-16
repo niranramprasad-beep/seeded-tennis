@@ -201,7 +201,7 @@ export default async function SchoolDetailPage({
                 height={160}
               />
             </div>
-            <MissingData className="mt-4" title="Verified roster data coming soon." />
+            <MissingData className="mt-4" title="Verified roster data: not available yet." />
           </Card>
 
           {/* coach */}
@@ -214,7 +214,7 @@ export default async function SchoolDetailPage({
               <SchoolBadge school={school} size={42} />
               <p className="text-xs text-stone-light">{programType} Tennis</p>
             </div>
-            <MissingData className="mt-4 flex-1" title="Verified coach contact coming soon." />
+            <MissingData className="mt-4 flex-1" title="Coach contact: not stored by Seeded." />
           </Card>
         </div>
 
@@ -225,7 +225,7 @@ export default async function SchoolDetailPage({
               <Trophy className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Recent results</h2>
             </div>
-            <MissingData className="mt-4" title="Verified match results coming soon." />
+            <MissingData className="mt-4" title="Match results: not available yet." />
           </Card>
 
           <Card className="min-w-0 p-6">
@@ -235,7 +235,7 @@ export default async function SchoolDetailPage({
                 {school.conference} standings
               </h2>
             </div>
-            <MissingData className="mt-4" title="Verified conference standings coming soon." />
+            <MissingData className="mt-4" title="Conference standings: not available yet." />
           </Card>
         </div>
 
@@ -248,7 +248,7 @@ export default async function SchoolDetailPage({
                 Recruiting class history
               </h2>
             </div>
-            <MissingData className="mt-4" title="Verified recruiting class data coming soon." />
+            <MissingData className="mt-4" title="Recruiting class data: not available yet." />
           </Card>
 
           {/* campus & cost */}
@@ -257,7 +257,7 @@ export default async function SchoolDetailPage({
               <Building2 className="h-4 w-4 text-grass" />
               <h2 className="text-lg font-medium text-ink">Campus & cost</h2>
             </div>
-            <MissingData className="mt-4" title="Verified campus and cost data coming soon." />
+            <MissingData className="mt-4" title="Campus and cost data: not available yet." />
           </Card>
         </div>
       </div>

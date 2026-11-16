@@ -203,14 +203,16 @@ describe("explainSchoolFit — summary sentence, real numbers only", () => {
 
   it("matches the spec's own example almost verbatim for a below-floor player", () => {
     const explanation = explainSchoolFit(5.8, school, { graduationYear: 2028 });
-    expect(explanation.summary).toBe("Stanford's lowest reliable player is 12.3. You're 5.8.");
+    // "today": the band may be judged at a junior-year estimate (the fit
+    // report's choice), so the sentence says which rating it is quoting.
+    expect(explanation.summary).toBe("Stanford's lowest reliable player is 12.3. You're 5.8 today.");
     expect(explanation.gapToFloor).toBeCloseTo(6.5, 2);
     expect(explanation.gapToMedian).toBeCloseTo(7.8, 2);
   });
 
   it("switches to an 'already above' sentence once the player clears the floor", () => {
     const explanation = explainSchoolFit(14, school, { graduationYear: 2028 });
-    expect(explanation.summary).toBe("You're 14.0, already above Stanford's competitive floor of 12.3.");
+    expect(explanation.summary).toBe("You're 14.0 today, already above Stanford's competitive floor of 12.3.");
     expect(explanation.gapToFloor).toBeCloseTo(-1.7, 2);
   });
 });
@@ -590,5 +592,29 @@ describe("closestSchoolsByUtrGap — 'closest schools to you' (point 4)", () => 
 
   it("returns an empty list against an empty catalog", () => {
     expect(closestSchoolsByUtrGap(9, [])).toEqual([]);
+  });
+});
+
+describe("explainSchoolFit — the school page agrees with the /schools row", () => {
+  const school = {
+    slug: "stanford", name: "Stanford University", shortName: "Stanford", gender: "male",
+    division: "D1", conference: "ACC", state: "CA", city: "Stanford",
+    minCompetitiveUTR: 12.3, avgRosterUTR: 13.6, usNewsRanking: 6,
+  } as unknown as SchoolLite;
+
+  it("uses the fit report's band when given one, instead of re-judging on today's rating", () => {
+    // 8.7 today is below the 12.3 floor; at junior year the report may say Target.
+    const own = explainSchoolFit(8.7, school, { graduationYear: 2031 });
+    const fromReport = explainSchoolFit(8.7, school, { graduationYear: 2031, band: "target" });
+    expect(own.band).not.toBe("target");
+    expect(fromReport.band).toBe("target");
+  });
+
+  it("names the player for a parent instead of addressing the parent as 'you'", () => {
+    const e = explainSchoolFit(8.7, school, { graduationYear: 2031, subjectName: "Avery" });
+    expect(e.summary).toMatch(/Avery is 8\.7 today/);
+    expect(e.summary).not.toMatch(/\bYou\b/);
+    const none = explainSchoolFit(null, school, { graduationYear: 2031, subjectName: "Avery" });
+    expect(none.summary).toMatch(/^Avery hasn't logged a UTR/);
   });
 });

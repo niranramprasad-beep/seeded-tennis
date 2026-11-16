@@ -67,7 +67,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
           {/* P0-7: was "Rosters show source and date". No source or date field
               exists on a school — the team ranges are unverified estimates. */}
           <li>✓ Estimates are labelled as estimates</li>
-          <li>✓ Bands and confidence, never a % chance</li>
+          <li>✓ Bands, never a % chance</li>
           <li>✓ Built by a junior player</li>
         </ul>
       </div>
@@ -91,7 +91,7 @@ function HeroCopy() {
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
         Enter your UTR and grad year. Seeded compares you to real programs,
         sorts schools into Reach, Target and Likely, and turns the gap into
-        season targets you plan against, on a calendar your parents can see.
+        season targets you plan against, with a family view your parents can follow.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
         <Link
@@ -333,12 +333,12 @@ function TrustStrip() {
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
         <span>
-          <strong className="text-ink">Honest about the data.</strong> Team
-          ratings that are estimates are labelled as estimates.
+          <strong className="text-ink">Honest about the data.</strong> Every
+          team rating is an estimate, and labelled as one.
         </span>
         <span>
-          <strong className="text-ink">Bands, not promises.</strong> Reach,
-          Target, Likely, with a confidence level.
+          <strong className="text-ink">Bands, not promises.</strong> Likely,
+          Target, Reach or Out of range &mdash; never a percent chance.
         </span>
         <span>
           <strong className="text-ink">Built by a junior player</strong>{" "}
@@ -366,7 +366,7 @@ const CAPABILITY_CARDS = [
   },
   {
     title: "Reach out on time",
-    body: "A pipeline for every coach: draft, sent, replied, call, visit. Seeded reminds you when a follow-up is due.",
+    body: "A pipeline for every coach: draft, sent, replied, call, visit. Seeded flags a follow-up on Today when one is due.",
   },
 ] as const;
 
@@ -444,33 +444,38 @@ function ProductShot() {
               <span className="px-2.5 py-2 text-ink">Events</span>
             </div>
             <div className="min-w-0 flex-[999_1_560px] p-7">
-              <p className="m-0 text-sm text-stone">Junior fall · UTR 9.4 · on track for 6 of 12 targets</p>
-              <h3 className="mb-5 mt-1.5 text-2xl text-ink">3 things to do this week</h3>
+              {/* Mirrors what /today renders: its heading and the three real
+                  action kinds in lib/today-actions.ts (email, follow-up,
+                  check-in), worded as the code words them. It used to show
+                  "Skip the L5 on Nov 22 — 2 better events within 3 hours",
+                  an action /today has never produced, under a caption
+                  calling this "the real Today screen". */}
+              <h3 className="mb-5 mt-1.5 text-2xl text-ink">Good evening, Maya. 3 things move your recruiting this week.</h3>
               <div className="flex flex-col gap-2.5">
                 <ProductShotAction
                   title="Email the Emory coach"
-                  body="You're inside their range now. Send with your last 3 results."
+                  body="Your UTR (9.40) is inside Emory's competitive range."
                   time="10 min"
                   cta="Open draft"
                   primary
                 />
                 <ProductShotAction
                   title="Follow up with Middlebury"
-                  body="No reply in 14 days."
+                  body="Sent 14 days ago, no reply yet."
                   time="5 min"
                   cta="Follow up"
                 />
                 <ProductShotAction
-                  title="Skip the L5 on Nov 22"
-                  body="Field average 6.8 won't move your rating. 2 better events within 3 hours."
-                  time="2 min"
-                  cta="See events"
+                  title="Check in on Wake Forest"
+                  body="You set a reminder to follow up with Wake Forest."
+                  time="5 min"
+                  cta="Open"
                 />
               </div>
             </div>
           </div>
         </div>
-        <p className="mt-3 text-center text-[13px] text-stone">The real Today screen. Example player.</p>
+        <p className="mt-3 text-center text-[13px] text-stone">What Today shows, for an example player.</p>
       </Reveal>
     </section>
   );
@@ -586,16 +591,17 @@ function MethodAndFounder() {
       <Reveal className="rounded-xl border border-line bg-card p-7">
         <h2 className={cn(seededCardHeading, "m-0")}>How fit works</h2>
         <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
-          <li>We estimate each team&apos;s UTR range from public profiles, and label it an estimate.</li>
+          {/* Was: "from public profiles", "count seniors who graduate
+              before you arrive", "we add academics and your preferences",
+              "a confidence level". None of the four is what the code does
+              — see the note at the top of seeded-methodology-view.tsx. */}
+          <li>Each team has an estimated UTR range, labelled as an estimate wherever it appears.</li>
           <li>
-            We place you on that range and count seniors who graduate before
-            you arrive.
+            We place you on that range &mdash; at your projected junior-year
+            rating if you&apos;re younger than that, labelled as an estimate.
           </li>
-          <li>We add academics and your preferences.</li>
-          <li>
-            You get a band and a confidence level. We never show a percent
-            chance.
-          </li>
+          <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
+          <li>You get one of four bands. We never show a percent chance.</li>
         </ol>
         <Link href="/methodology" className="mt-4 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-0">
           Read the full methodology
@@ -672,7 +678,7 @@ const FAQ_ITEMS: { q: string; a: string; href?: string; hrefLabel?: string }[] =
   },
   {
     q: "Where does the roster data come from?",
-    a: "Public team rosters and UTR profiles. The team ranges you see are unverified estimates with no published source or check date behind them, and they are labelled that way everywhere they appear — we never show a percent chance.",
+    a: "Each team's range is two estimates entered by hand into our catalogue — a competitive floor and an average UTR. There is no published source or check date behind either, so they are labelled unverified estimates everywhere they appear. We store no rosters and no individual player's rating.",
     href: "/methodology",
     hrefLabel: "How we calculate fit",
   },

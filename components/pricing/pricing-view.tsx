@@ -155,7 +155,10 @@ function matrixFor(c: CatalogCounts): { group: string; rows: Row[] }[] {
     rows: [
       { label: "Coach email drafts from your results", free: false, player: true, family: true },
       { label: "Outreach pipeline (researching → committed)", free: false, player: true, family: true },
-      { label: "Follow-up reminders", free: false, player: true, family: true },
+      // Was "Follow-up reminders", which reads as a notification. Seeded
+      // sends nothing: "Remind me in 14 days" stores a date, and the school
+      // shows as due on Today and Outreach once it passes.
+      { label: "Follow-up check-in dates (in the app)", free: false, player: true, family: true },
     ],
   },
   {

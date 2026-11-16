@@ -256,3 +256,26 @@ describe("(b) band classification is reachable only through lib/fit.ts", () => {
     expect(src).toMatch(/export function classifySchoolFit\(\s*\n?\s*basis: FitBasis/);
   });
 });
+
+describe("(d) the school page explains the report's band, never its own", () => {
+  // /schools/[slug] used to call explainSchoolFit(player.currentUTR, …)
+  // with no band, so it classified on TODAY's rating while the /schools row
+  // for the same school judged a pre-junior at their junior-year estimate.
+  // Persona (a): Reach on one page, Target on the other.
+  it("every component call to explainSchoolFit passes the fit report's band", () => {
+    const callers = ROOTS.flatMap((r) => sourceFiles(r)).filter((f) =>
+      /\bexplainSchoolFit\s*\(/.test(stripComments(readFileSync(f, "utf8")))
+    );
+    expect(callers.length).toBeGreaterThanOrEqual(4);
+    for (const f of callers) {
+      const src = stripComments(readFileSync(f, "utf8"));
+      // The band must come from the report: the file reads bandBySlug or a
+      // prop carrying it, or the browser's report-backed bandFor().
+      expect(src, `${f} must take bands from the fit report`).toMatch(/bandBySlug|reportBandBySlug|bandFor\(/);
+      for (const m of src.matchAll(/\bexplainSchoolFit\s*\(/g)) {
+        const call = src.slice(m.index!, m.index! + 260);
+        expect(call, `${f}: explainSchoolFit called without band:`).toMatch(/\bband:\s*\S/);
+      }
+    }
+  });
+});

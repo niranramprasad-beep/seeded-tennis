@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSchools, staffDirectorySearchQuery, staffDirectorySearchUrl } from "./schools";
+import { getSchools, staffDirectorySearchQuery } from "./schools";
 
 // Regression guard for P0-3. The static catalog used to carry, per school, an
 // invented head-coach name, an invented coach email at the real university's
@@ -92,11 +92,10 @@ describe("staff directory link", () => {
     expect(mens).toBe("Test University men's tennis staff directory");
   });
 
-  it("builds a URL-encoded search, never a per-school stored link", () => {
-    const url = staffDirectorySearchUrl({ name: "Test University", gender: "men" });
-    expect(url.startsWith("https://www.google.com/search?q=")).toBe(true);
-    expect(url).not.toContain(" ");
-    // The whole point: nothing here claims to be the school's own site.
-    expect(url).not.toContain("example.com");
+  it("links nowhere: no URL builder for a school's staff exists", async () => {
+    // It used to build a google.com/search URL. The launch brief bans
+    // links to google.com/search; Seeded now shows the phrase to search.
+    const mod = (await import("./schools")) as Record<string, unknown>;
+    expect(mod.staffDirectorySearchUrl).toBeUndefined();
   });
 });

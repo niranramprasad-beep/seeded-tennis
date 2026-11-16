@@ -1,5 +1,6 @@
 "use client";
 
+import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
@@ -19,7 +20,6 @@ import { FEATURE_TIER, type School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   buildCoachEmail,
-  staffDirectorySearchUrl,
   type CoachEmailResult,
 } from "@/lib/db/schools";
 import { loadUtrEntries } from "@/lib/db/plan";
@@ -442,17 +442,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
                     <p className="font-medium text-ink">
                       {selectedSchool.shortName}
                     </p>
-                    <p className="text-xs text-stone">
-                      <a
-                        href={staffDirectorySearchUrl(selectedSchool)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-grass hover:underline"
-                      >
-                        Find the coaching staff
-                      </a>{" "}
-                      — Seeded doesn&apos;t store coach contacts.
-                    </p>
+                    <StaffDirectoryHint school={selectedSchool} className="mt-1" />
                   </div>
                 </div>
                 <button

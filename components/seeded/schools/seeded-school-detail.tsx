@@ -7,9 +7,13 @@ import { ArrowLeft, Building2, ExternalLink, GraduationCap, User } from "lucide-
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { explainSchoolFit, schoolUtrRange, utrToPct } from "@/lib/school-fit";
-import { staffDirectorySearchUrl, UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
+import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
+import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { loadCoachOutreach } from "@/lib/db/outreach";
-import { loadUtrEntries } from "@/lib/db/plan";
+import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { formatDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -21,6 +25,7 @@ import { Footer } from "@/components/layout/footer";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn, hasRealUtr } from "@/lib/utils";
+import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
   school: School;
@@ -47,21 +52,53 @@ function signed(value: number): string {
 // lives inside the "Academics" card below instead of a dedicated tile row.
 export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
   const { player } = usePlayer();
-  const { data: outreach } = useSWR("coach-outreach", () => loadCoachOutreach());
-  // Same "utr-entries" SWR key /today, /plan and the Schools browser already
-  // fetch under — shares their cache instead of a fresh round-trip.
-  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
+  const isParent = player.role === "parent";
+  const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
+
+  // WHO this page is about. For a player, themselves. For a parent, their
+  // player — resolved exactly as /schools resolves it (pickFamilyPlayer +
+  // resolveFamilyPlayerFacts), so the two pages cannot name different
+  // people. This page used to judge a parent's own empty profile: "add your
+  // UTR to compare", addressed to someone with no rating.
+  const { data: familyMembers = [] } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+    loadFamilyMembers()
+  );
+  const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
+  const facts = resolveFamilyPlayerFacts(familyPlayer, player);
+  const subjectUtr = facts.currentUtr;
+  const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || "Your player" : null;
+  const subject = {
+    currentUTR: subjectUtr ?? 0,
+    graduationYear: facts.graduationYear ?? player.graduationYear,
+    gender: facts.gender ?? player.gender,
+  };
+  const historyUserId = isParent ? (familyPlayer?.id ?? null) : null;
+
+  // The SAME report /schools, /today and /family read, for this one school.
+  // It decides which rating judges fit (junior-year estimate before junior
+  // year, today's rating after), so the band here is the band on the
+  // /schools row. explainSchoolFit() below only explains it.
+  const oneSchool = useMemo(() => [school], [school]);
+  const report = useFitReport({ player: subject, schools: oneSchool, historyUserId });
+  const reportBand = report?.bandBySlug.get(school.slug);
+  const judging = report?.utr ?? null;
+
+  const { data: utrEntries } = useSWR(
+    historyUserId ? ["utr-entries", historyUserId] : "utr-entries",
+    () => (historyUserId ? loadUtrEntriesFor(historyUserId) : loadUtrEntries())
+  );
   const explanationInput = useMemo(
     () => ({
       utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
-      graduationYear: player.graduationYear,
-      gender: player.gender,
+      graduationYear: subject.graduationYear,
+      gender: subject.gender,
       catalog: allSchools,
+      subjectName: subjectFirst,
     }),
-    [utrEntries, player.graduationYear, player.gender, allSchools]
+    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst]
   );
 
-  const explanation = explainSchoolFit(player.currentUTR, school, explanationInput);
+  const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
   const range = schoolUtrRange(school);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
 
@@ -70,7 +107,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // failure. "Save to targets" below is this page's existing text-button
   // affordance for the exact same action; the star icon next to the title
   // is the new one, both wired to the same toggleStar call.
-  const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
+  const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
   const saved = isStarred(school.slug);
 
   const paceDescription =
@@ -91,11 +128,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-1.5">
-              <StarButton
-                starred={saved}
-                onToggle={() => toggleStar(school.slug, school.shortName)}
-                label={school.shortName}
-              />
+              {canStar && (
+                <StarButton
+                  starred={saved}
+                  onToggle={() => toggleStar(school.slug, school.shortName)}
+                  label={school.shortName}
+                />
+              )}
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
                 {school.name} · {programType} tennis
               </h1>
@@ -108,7 +147,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
                   `Wrong data on ${school.name}`
                 )}`}
-                className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 text-xs font-semibold text-stone hover:text-ink sm:min-h-0 sm:py-1"
+                className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-3 text-sm font-semibold text-stone hover:text-ink sm:min-h-8"
               >
                 Report an error
               </a>
@@ -121,12 +160,14 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             >
               Compare
             </Link>
-            <SeededButton
-              variant={saved ? "secondary" : "primary"}
-              onClick={() => toggleStar(school.slug, school.shortName)}
-            >
-              {saved ? "Saved to targets" : "Save to targets"}
-            </SeededButton>
+            {canStar && (
+              <SeededButton
+                variant={saved ? "secondary" : "primary"}
+                onClick={() => toggleStar(school.slug, school.shortName)}
+              >
+                {saved ? "Saved to targets" : "Save to targets"}
+              </SeededButton>
+            )}
           </div>
         </div>
 
@@ -136,12 +177,24 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <h2 className="text-lg font-semibold text-ink">Why this band</h2>
               <FitBadge band={explanation.band} className="text-sm" />
             </div>
-            <p className="mt-2 text-sm text-stone">{explanation.summary}</p>
+            <p className="mt-2 text-sm text-stone">
+              {explanation.summary}
+            </p>
+            {judging?.isProjected && (
+              <p className="mt-2 text-sm text-stone">
+                <span className="mr-1.5 inline-flex items-center rounded-pill border border-line bg-cream px-2 py-0.5 text-xs font-semibold text-stone">
+                  Estimate
+                </span>
+                The band is judged at {subjectFirst ? `${subjectFirst}'s` : "your"} junior-year estimate of{" "}
+                <span className="font-mono tabular-nums text-ink">{judging.value.toFixed(1)}</span>, the same
+                rating the Schools list uses. {judging.assumption}
+              </p>
+            )}
 
             {explanation.gapToFloor != null && explanation.gapToMedian != null && (
               <FitDriverRow
                 label="UTR"
-                description={`Gap to floor ${signed(explanation.gapToFloor)} · gap to median ${signed(explanation.gapToMedian)}`}
+                description={`Gap to floor ${signed(explanation.gapToFloor)} · gap to team average ${signed(explanation.gapToMedian)}`}
                 chip={
                   explanation.band === "likely"
                     ? "Above range"
@@ -178,7 +231,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
 
           <div className="rounded-[10px] border border-line bg-card p-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-ink">Where you sit on this roster</h2>
+              <h2 className="text-lg font-semibold text-ink">
+                {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
+              </h2>
               <span className="inline-flex items-center whitespace-nowrap rounded-pill border border-line bg-cream px-2.5 py-1 text-xs font-semibold text-stone">
                 {UTR_RANGE_SOURCE_LABEL}
               </span>
@@ -188,16 +243,19 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(school.avgRosterUTR)}
-                youPct={hasRealUtr(player.currentUTR) ? utrToPct(player.currentUTR) : null}
+                youPct={hasRealUtr(subjectUtr) ? utrToPct(subjectUtr as number) : null}
                 caption={
-                  hasRealUtr(player.currentUTR)
-                    ? `You ${player.currentUTR.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                    : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
+                  hasRealUtr(subjectUtr)
+                    ? `${subjectFirst ?? "You"} ${(subjectUtr as number).toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                    : subjectFirst
+                      ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
+                      : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
                 }
                 low={range.min}
                 median={school.avgRosterUTR}
                 high={range.max}
-                you={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
+                you={hasRealUtr(subjectUtr) ? (subjectUtr as number) : null}
+                youLabel={subjectFirst ?? "You"}
               />
             </div>
             <p className="mt-3 text-sm text-stone">
@@ -215,10 +273,15 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
             </div>
             <p className="mt-2.5 text-sm text-stone">
-              #{school.usNewsRanking} national academic ranking · #{nationalRank} among{" "}
-              {school.division} {programType.toLowerCase()} programs in this catalogue, by academic rank and team level.
+              {academicRankSentence(school.usNewsRanking)} #{nationalRank} of the {school.division}{" "}
+              {programType.toLowerCase()} programs in Seeded&apos;s catalogue on Seeded&apos;s combined
+              score (half academic rank, half the unverified team-level estimate).
             </p>
-            <EmptyState className="mt-3" title="Cost, aid, and enrollment data coming soon." />
+            <EmptyState
+              className="mt-3"
+              title="Cost, aid and enrollment: not available yet."
+              description="Seeded holds no cost, financial-aid or enrollment figures for any program. Ask the school's financial aid office."
+            />
           </div>
 
           <div className="rounded-[10px] border border-line bg-card p-[22px]">
@@ -230,24 +293,21 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               Not tracked. Seeded doesn&apos;t store coaching-staff contacts — look the staff up
               on the athletics site and you&apos;ll have the current, correct address.
             </p>
-            <a
-              href={staffDirectorySearchUrl(school)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-0"
-            >
-              Find the coaching staff
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-            </a>
-            {outreach && !alreadyContacted && (
+            <StaffDirectoryHint school={school} className="mt-3" />
+            {!isParent && outreach && !alreadyContacted && (
               <p className="mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
             )}
-            <Link
-              href={`/outreach?school=${school.slug}`}
-              className={cn(seededButtonVariants({ variant: "primary" }), "mt-3.5 w-full")}
-            >
-              Draft an email to the head coach
-            </Link>
+            {/* Outreach is the player's: a parent opening /outreach is
+                bounced to /family, and Seeded never writes to a coach on a
+                player's behalf. */}
+            {!isParent && (
+              <Link
+                href={`/outreach?school=${school.slug}`}
+                className={cn(seededButtonVariants({ variant: "primary" }), "mt-3.5 w-full")}
+              >
+                Draft an email to the head coach
+              </Link>
+            )}
           </div>
 
           <div className="rounded-[10px] border border-line bg-card p-[22px]">

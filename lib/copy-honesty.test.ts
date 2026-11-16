@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { decodeSourceText } from "./testing/source-text";
 
 // Regression guard for P0-7. The site promised a set of things the code
 // cannot do: rosters that had been "verified Oct 2026", a per-rating "source
@@ -60,13 +61,12 @@ function sourceFiles(dir: string, acc: string[] = []): string[] {
  * below is a hole.
  */
 function decodeEntities(src: string): string {
-  return src
-    .replace(/&apos;|&#39;|&rsquo;|&lsquo;/g, "'")
-    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
-    .replace(/&mdash;/g, "—")
-    .replace(/&ndash;/g, "–")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&");
+  // Delegates to the shared normaliser, which also decodes what this local
+  // version missed: \u2019 / \x27 escapes, numeric entities (&#39;,
+  // &#x27;) and JSX joins ({" "}, {"'"}). Template slots are NOT replaced
+  // here — several patterns below ban hardcoded counts, and a `${n}` is
+  // the opposite of hardcoded.
+  return decodeSourceText(src);
 }
 
 function strippedSource(file: string): string {
@@ -261,6 +261,46 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern:
       /\b\d{2,}\s+(?:(?:D[123]|Division\s+[IV]+|men's|women's|college|tennis)[,/]?\s*(?:and\s+)?)*(?:programs?|schools?|teams?)\b/i,
     why: "program counts are derived from the catalogue (getCatalogCounts), never typed into copy",
+  },
+  // ---- 2026-11-15 overnight pass: a methodology the code does not run ----
+  // /methodology's opening sentence, the homepage's "How fit works" list
+  // and a FAQ answer each described the mockup's target-state model in the
+  // present tense. None of these is computed anywhere.
+  {
+    pattern: /\bdated rosters?\b|real,? dated roster/i,
+    why: "no roster is stored and no date exists on any team range",
+  },
+  {
+    pattern: /count(?:s|ing)? (?:who'?s|seniors who|players who) (?:graduat|leav|finish)/i,
+    why: "no players-leaving count exists: Seeded stores no per-player rosters",
+  },
+  {
+    pattern: /(?:with|and|gives? you) a confidence (?:level|score)|bands and confidence/i,
+    why: "no confidence level is computed or shown for any band",
+  },
+  {
+    pattern: /(?:from|built from|based on) (?:public )?(?:UTR )?profiles|public team rosters/i,
+    why: "the team ranges have no published source; DATA_QUALITY rates them UNVERIFIED",
+  },
+  {
+    pattern: /we add academics|academics and your preferences (?:can )?move/i,
+    why: "academics and preferences are filters; nothing but UTR moves a band",
+  },
+  {
+    pattern: /calendar (?:your )?parents? can see/i,
+    why: "training tables are own-row only under RLS; a parent cannot see the player's calendar",
+  },
+  {
+    pattern: /turn (?:recruiting )?goals into a (?:training )?schedule|balances court work, match play/i,
+    why: "Seeded generates no training plan (CLAUDE.md: manual calendar only)",
+  },
+  {
+    pattern: /the real Today screen/i,
+    why: "the homepage mock is an example; it must only show actions /today can produce",
+  },
+  {
+    pattern: /Follow-up reminders/i,
+    why: "reads as a notification; Seeded sends none — follow-ups are flagged in the app",
   },
 ];
 

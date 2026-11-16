@@ -413,6 +413,19 @@ export interface SchoolFitExplanationInput {
    * `school`'s own gender). Omit to skip alternatives entirely (empty
    * array) rather than searching a partial/wrong catalog. */
   catalog?: SchoolLite[];
+  /**
+   * The band the fit report (lib/fit.ts buildFitReport) already gave this
+   * school. Pass it. Without it this function classifies on TODAY's rating,
+   * which is a different question from the one /schools answers for a
+   * player before junior year — /schools/[slug] said Reach while the
+   * /schools row for the same school said Target. The report is the one
+   * place that decides which rating judges fit.
+   */
+  band?: SchoolFitBand;
+  /** Whose fit this is, when the reader is not the player (a parent). The
+   * summary then says "Bailey is 8.7" instead of addressing the parent as
+   * "You're 8.7". */
+  subjectName?: string | null;
 }
 
 /**
@@ -436,10 +449,13 @@ export function explainSchoolFit(
 ): SchoolFitExplanation {
   const timing = timingNote(school.division);
 
+  const who = input.subjectName?.trim() || null;
   if (playerUtr == null || playerUtr <= 0) {
     return {
       band: "unverified",
-      summary: `You haven't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`,
+      summary: who
+        ? `${who} hasn't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`
+        : `You haven't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`,
       gapToFloor: null,
       gapToMedian: null,
       pace: { status: "no-player-utr" },
@@ -460,7 +476,7 @@ export function explainSchoolFit(
     gender: input.gender,
     now,
   };
-  const band = classifySchoolFit(fitBasis(playerUtr, projection), school);
+  const band = input.band ?? classifySchoolFit(fitBasis(playerUtr, projection), school);
 
   const gapToFloor = Math.round((school.minCompetitiveUTR - playerUtr) * 100) / 100;
   const gapToMedian = Math.round((school.avgRosterUTR - playerUtr) * 100) / 100;
@@ -468,12 +484,13 @@ export function explainSchoolFit(
   // `gapToFloor <= 0` covers equality too, and "already above ... floor of
   // 9.4" when the player IS 9.4 is simply wrong — it showed on the Johns
   // Hopkins row next to "Gap to team floor: 0.0".
+  const youAre = who ? `${who} is` : "You're";
   const summary =
     gapToFloor < 0
-      ? `You're ${playerUtr.toFixed(1)}, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
+      ? `${youAre} ${playerUtr.toFixed(1)} today, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
       : gapToFloor === 0
-        ? `You're ${playerUtr.toFixed(1)}, exactly at ${school.shortName}'s competitive floor.`
-        : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. You're ${playerUtr.toFixed(1)}.`;
+        ? `${youAre} ${playerUtr.toFixed(1)} today, exactly at ${school.shortName}'s competitive floor.`
+        : `${school.shortName}'s lowest reliable player is ${school.minCompetitiveUTR.toFixed(1)}. ${youAre} ${playerUtr.toFixed(1)} today.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
   const computed = computeUtrProjection(

@@ -155,13 +155,6 @@ export function staffDirectorySearchQuery(
   return `${school.name} ${programType} tennis staff directory`;
 }
 
-export function staffDirectorySearchUrl(
-  school: Pick<School, "name" | "gender">
-): string {
-  return `https://www.google.com/search?q=${encodeURIComponent(
-    staffDirectorySearchQuery(school)
-  )}`;
-}
 
 /* ------------------------------------------------------------- coach email */
 

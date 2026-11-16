@@ -6,7 +6,7 @@ import type { School } from "@/lib/types";
 import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
-import { staffDirectorySearchUrl } from "@/lib/db/schools";
+import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -301,18 +301,11 @@ export function SeededOutreachLayout({
                   </span>
                 ) : (
                   <>
-                    Seeded doesn&rsquo;t store coach contacts — look it up and paste it here.{" "}
-                    <a
-                      href={staffDirectorySearchUrl(selectedSchool)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-grass hover:text-grass-600"
-                    >
-                      Find {selectedSchool.shortName}&rsquo;s staff directory
-                    </a>
+                    Seeded doesn&rsquo;t store coach contacts — look it up and paste it here.
                   </>
                 )}
               </p>
+              {!recipientInvalid && <StaffDirectoryHint school={selectedSchool} className="mt-2" />}
             </div>
             <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
               Subject

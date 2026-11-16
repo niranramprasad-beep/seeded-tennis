@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GripVertical, Search } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
-import { explainSchoolFit, schoolUtrRange, utrToPct, type SchoolFitExplanationInput } from "@/lib/school-fit";
+import { explainSchoolFit, schoolUtrRange, utrToPct, type SchoolFitBand, type SchoolFitExplanationInput } from "@/lib/school-fit";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -21,6 +21,9 @@ interface TargetSchoolsListProps {
   addableSchools: SchoolLite[];
   effectiveUtr: number;
   explanationInput: SchoolFitExplanationInput;
+  /** Bands from the shared fit report (lib/fit.ts). Every row's badge reads
+   * these, so /plan and /schools cannot band the same school differently. */
+  reportBandBySlug: ReadonlyMap<string, SchoolFitBand> | undefined;
   isStarred: (slug: string) => boolean;
   toggleStar: (slug: string, label: string) => void;
   /** Writes the real new slug order via updatePlayer(). */
@@ -54,6 +57,7 @@ export function TargetSchoolsList({
   addableSchools,
   effectiveUtr,
   explanationInput,
+  reportBandBySlug,
   isStarred,
   toggleStar,
   onReorder,
@@ -124,7 +128,10 @@ export function TargetSchoolsList({
 
       <ul className="mt-3.5 flex flex-col gap-3 text-sm">
         {targetSchools.map((s) => {
-          const explanation = explainSchoolFit(effectiveUtr, s, explanationInput);
+          const explanation = explainSchoolFit(effectiveUtr, s, {
+            ...explanationInput,
+            band: reportBandBySlug?.get(s.slug),
+          });
           const range = schoolUtrRange(s);
           const gapLabel =
             explanation.band === "unverified"

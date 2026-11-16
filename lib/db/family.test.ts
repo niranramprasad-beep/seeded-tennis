@@ -51,7 +51,6 @@ const costInputs: CostInputs = {
   lessonRate: 50,
   equipmentBudgetPerYear: 500,
   travelCostPerTournament: 200,
-  targetSchools: [{ name: "Duke", division: "D1", annualCost: 80000, scholarshipPercent: 50 }],
 };
 
 describe("calculateCost", () => {
@@ -75,18 +74,8 @@ describe("calculateCost", () => {
     expect(result.total).toBe(result.coaching + result.tournaments + result.equipment);
   });
 
-  it("computes each target school's scholarship value and net cost", () => {
+  it("returns only the family's own three buckets — no per-school cost or aid", () => {
     const result = calculateCost(costInputs);
-    const duke = result.scholarships[0];
-    expect(duke.scholarshipValue).toBe(80000 * 2 * 0.5);
-    expect(duke.netCost).toBe(Math.max(0, result.total - duke.scholarshipValue));
-  });
-
-  it("never lets a net cost go negative, even with a scholarship bigger than the total", () => {
-    const result = calculateCost({
-      ...costInputs,
-      targetSchools: [{ name: "Full ride U", division: "D1", annualCost: 1_000_000, scholarshipPercent: 100 }],
-    });
-    expect(result.scholarships[0].netCost).toBe(0);
+    expect(Object.keys(result).sort()).toEqual(["coaching", "equipment", "total", "tournaments"]);
   });
 });

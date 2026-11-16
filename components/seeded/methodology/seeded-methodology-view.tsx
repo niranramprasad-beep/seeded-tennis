@@ -12,21 +12,25 @@ import { cn } from "@/lib/utils";
 // consistent with every other RangeBar in the app (not hand-picked percents).
 const RANGE_EXAMPLE = { low: 8.8, median: 9.7, high: 10.6, you: 9.5 };
 
-// Pixel-exact to Methodology.dc.html. Real policy copy, transcribed from the
-// mockup — see the honesty-constraint comment at the top of
-// lib/school-fit.ts for exactly which parts of this page describe behavior
-// that's fully live today (the fit-band math) vs. the target-state system
-// this page documents in full (per-player roster reliability, a real
-// Confidence level, a real roster-verified date, a real players-leaving
-// count) that the rest of the product doesn't fabricate yet — those show
-// "Not tracked" on live school pages instead of a guess.
+// Layout from Methodology.dc.html. The COPY is not the mockup's any more.
+//
+// The mockup documented a target-state system — per-player roster
+// reliability, dated rosters, a players-leaving count, academics and
+// preferences moving a band, a confidence level — and this page presented
+// it in the present tense. Its opening sentence read "we compare your UTR to
+// real, dated rosters, count who's graduating, add academics, and give you a
+// band with a confidence level": four claims, none true of the code. Found
+// in the 2026-11-15 overnight pass by reading the page against
+// lib/school-fit.ts. Every sentence below now describes classifySchoolFit(),
+// schoolUtrRange() and lib/fit.ts as they are. lib/copy-honesty.test.ts
+// holds the phrasings that were removed.
 const REPORT_ERROR_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
   "Error on Seeded's methodology page"
 )}`;
 
 const TOC: { id: string; label: string }[] = [
   { id: "data-source", label: "Where the data comes from" },
-  { id: "ratings-count", label: "Which ratings count" },
+  { id: "ratings-count", label: "Your rating" },
   { id: "team-ranges", label: "Team ranges" },
   { id: "players-leaving", label: "Players leaving" },
   { id: "fit-bands", label: "Fit bands" },
@@ -49,11 +53,11 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   },
   {
     label: "Coaches",
-    // staffDirectorySearchUrl() builds a google.com/search URL. It is not
-    // a link to the official staff page, and saying so was the difference
-    // between "we looked it up" and "we hand you a search".
+    // Each team page used to link a google.com/search URL. It now shows the
+    // phrase to search for and links nowhere; saying so is still the
+    // difference between "we looked it up" and "we hand you a search".
     body:
-      "Not stored. Each team page opens a web search for that school's staff directory rather than listing any coach or email, because we have none on file.",
+      "Not stored. Each team page gives you the exact phrase to search for to find that school's staff directory, rather than listing any coach or email, because we have none on file.",
   },
   // Was "...with the date we checked it." There is no check date: no
   // source field and no date field exists on `School`, every team range
@@ -62,21 +66,15 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   // them. The page was contradicting itself, and a visitor reads this row
   // as a statement of fact rather than of intent. Caught by widening
   // lib/copy-honesty.test.ts to scan for check-date claims.
-  { label: "Ratings", body: "Singles and doubles UTR from each player's public profile. We don't record when we last checked — treat every rating here as undated." },
-  { label: "Academics", body: `Public admissions ranges. Marked "Estimated" when exact numbers aren't published.` },
-];
-
-const RATING_CHIPS: { label: string; className: string }[] = [
-  { label: "Counted: reliable rating", className: "bg-grass-50 text-grass border-grass-100" },
-  { label: "Shown, not counted: stale or low reliability", className: "bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))] border-[rgb(var(--c-gold-tint-border))]" },
-  { label: "Left out: on UTR but not on the official roster", className: "bg-card text-stone border-line border-dashed" },
+  { label: "Ratings", body: "Not stored. No individual player's rating is held — only the two team-level estimates described above." },
+  { label: "Academics", body: "A U.S. News academic rank per school, as entered in our catalogue with no edition year recorded. It is a filter and a sort on the Schools list; it is not part of your fit band." },
 ];
 
 const FIT_BAND_ROWS: { band: FitBand; body: string }[] = [
-  { band: "likely", body: "Your UTR is at or above the team median." },
-  { band: "target", body: "Your UTR is inside the team range, below the median." },
-  { band: "reach", body: "Your UTR is below the range, but within reach by the summer before senior year at your current pace." },
-  { band: "out-of-range", body: "The gap is bigger than your plan can close in time." },
+  { band: "likely", body: "Your rating is at or above the team's estimated average." },
+  { band: "target", body: "Your rating is at or above the team's estimated floor, but below its average." },
+  { band: "reach", body: "Below the floor, but the pace in your logged ratings carries you past it by the summer before senior year — or you haven't logged three ratings yet, so we can't show the gap is too big." },
+  { band: "out-of-range", body: "Below the floor, and the pace in your logged ratings doesn't reach it by the summer before senior year." },
 ];
 
 export function SeededMethodologyView() {
@@ -95,8 +93,10 @@ export function SeededMethodologyView() {
           How Seeded decides which teams are realistic for you.
         </h1>
         <p className="mt-4 max-w-[720px] text-lg leading-[1.55] text-stone">
-          Short version: we compare your UTR to real, dated rosters, count who&apos;s graduating, add academics, and
-          give you a band with a confidence level. We never show a percent chance, because nobody can know that.
+          Short version: we compare your UTR to an estimated range for each team and put every program in one of
+          four bands. Before junior year we judge you at a projected junior-year rating, labelled as an estimate.
+          The team ranges themselves are unverified estimates, and they&apos;re labelled that way everywhere. We
+          never show a percent chance, because nobody can know that.
         </p>
 
         <div className="mt-10 flex flex-wrap items-start gap-10 lg:flex-nowrap">
@@ -115,9 +115,10 @@ export function SeededMethodologyView() {
           <div className="min-w-0 max-w-[760px] flex-1">
             <Section id="data-source" number={1} title="Where the data comes from">
               <p className="text-stone">
-                Team UTR ranges are our own estimates, built from public UTR profiles. We do not store rosters,
-                individual player ratings, coach records, or the date any of it was last checked &mdash; so no team
-                page can show you one. Every range is labelled an unverified estimate wherever it appears.
+                Each team has two numbers in Seeded&apos;s catalogue: an estimated competitive floor and an estimated
+                average UTR, entered by hand. There is no published source or check date behind either. We do not
+                store rosters, individual player ratings or coach records &mdash; so no team page can show you one.
+                Every range is labelled an unverified estimate wherever it appears.
               </p>
               <div className="mt-4 rounded-xl border border-line bg-card">
                 {DATA_SOURCE_ROWS.map((row, i) => (
@@ -136,30 +137,25 @@ export function SeededMethodologyView() {
               <p className="mt-3 text-[13px] text-stone-light">Seeded is independent and not affiliated with UTR Sports.</p>
             </Section>
 
-            <Section id="ratings-count" number={2} title="Which ratings count">
+            <Section id="ratings-count" number={2} title="Your rating">
               <p className="text-stone">
-                Some ratings are shaky: too few recent matches, or not updated in months. We still show them, but
-                leave them out of team averages.
+                Your band uses the UTR you enter yourself, and the ratings you log over time. Seeded never fetches,
+                checks or scrapes a rating from anywhere, so everything about you here is self-reported &mdash; and
+                the coach emails Seeded drafts say so.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {RATING_CHIPS.map((chip) => (
-                  <span
-                    key={chip.label}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1 text-xs font-semibold",
-                      chip.className
-                    )}
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
+              <p className="text-stone">
+                Before junior year, the rating that decides your band is a projection: today&apos;s rating grown to
+                junior year at a typical pace for your team&apos;s gender. It is labelled &ldquo;Estimate&rdquo; with
+                its assumption wherever it&apos;s used, and you can switch to today&apos;s rating instead. From junior
+                year on, it is simply today&apos;s rating.
+              </p>
             </Section>
 
             <Section id="team-ranges" number={3} title="Team ranges">
               <p className="text-stone">
-                A team&apos;s range runs from its lowest to highest reliable rating. The tick in the middle is the
-                median. Your yellow dot shows where you&apos;d land.
+                The bar starts at the team&apos;s estimated floor, and the tick is its estimated average. The top of
+                the bar is not a number we have: it is drawn as far above the average as the floor is below it, so
+                there is somewhere to show you landing. Your yellow dot is your rating.
               </p>
               <div className="mt-4 rounded-xl border border-line bg-card p-[22px]">
                 <RangeBar
@@ -174,7 +170,7 @@ export function SeededMethodologyView() {
                 />
                 <div className="mt-2 flex items-center justify-between font-mono text-[13px] tabular-nums text-stone">
                   <span>low {RANGE_EXAMPLE.low.toFixed(1)}</span>
-                  <span>median {RANGE_EXAMPLE.median.toFixed(1)}</span>
+                  <span>average {RANGE_EXAMPLE.median.toFixed(1)}</span>
                   <span>high {RANGE_EXAMPLE.high.toFixed(1)}</span>
                 </div>
               </div>
@@ -182,10 +178,11 @@ export function SeededMethodologyView() {
 
             <Section id="players-leaving" number={4} title="Players leaving">
               <p className="text-stone">
-                We turn every class label into a graduation year, then count players who finish before you&apos;d
-                arrive. We say &quot;2 seniors leave before you&apos;d arrive,&quot; not &quot;2 open spots.&quot;
-                Coaches also fill spots with transfers and international players, and some spots are already
-                promised to committed recruits.
+                Not tracked yet. Counting who graduates before you&apos;d arrive needs a player-by-player roster
+                with class years, and Seeded doesn&apos;t have one for any program &mdash; so no Seeded screen
+                shows a players-leaving number, and none of it feeds your fit band. Even with rosters, seniors
+                leaving would not equal places available: coaches also fill them with transfers and international
+                players, and some are already promised to committed recruits.
               </p>
             </Section>
 
@@ -205,8 +202,8 @@ export function SeededMethodologyView() {
                 ))}
               </div>
               <p className="mt-3 text-stone">
-                Players leaving, academics and your preferences can move a school up or down one band. Every school
-                page lists exactly which factors did it.
+                Nothing else moves a band. Players leaving, academics and your preferences are not tracked, so they
+                don&apos;t factor in &mdash; each school page says so under &ldquo;Why this band&rdquo;.
               </p>
             </Section>
 

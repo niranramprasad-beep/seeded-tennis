@@ -164,10 +164,10 @@ export function RangeBar({
             )}
           >
             <p className="font-mono tabular-nums">
-              Low {low!.toFixed(1)} · Median {median!.toFixed(1)} · High {high!.toFixed(1)}
+              Floor {low!.toFixed(1)} · Average {median!.toFixed(1)} · Top (drawn) {high!.toFixed(1)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
-              {youLabel} {you!.toFixed(1)} · Gap to median {signed(median! - you!)}
+              {youLabel} {you!.toFixed(1)} · Gap to team average {signed(median! - you!)}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

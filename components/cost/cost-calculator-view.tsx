@@ -38,17 +38,19 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
     () => loadCostCalculations()
   );
   const [status, setStatus] = useState("");
-  const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)).slice(0, 5);
+  // Every cost input starts EMPTY. They used to start at a $115 lesson
+  // rate, $1,200 of equipment and $550 a tournament — Seeded's guesses —
+  // and the page's headline total was computed from them before the family
+  // had typed anything. A total made of our numbers is not their cost.
+  // Years remaining and tournaments per year come from the player's own
+  // profile (class year, tournament goal) when those exist.
   const [inputs, setInputs] = useState<CostInputs>({
     yearsRemaining: Math.max(1, 12 - getCurrentGrade(player.graduationYear) + 1),
-    tournamentsPerYear: player.tournamentsGoal || 12,
-    coachingHoursPerWeek: 3,
-    lessonRate: 115,
-    equipmentBudgetPerYear: 1200,
-    travelCostPerTournament: 550,
-    targetSchools: targetSchools.length
-      ? targetSchools.map(toScholarshipSchool)
-      : schools.slice(0, 3).map(toScholarshipSchool),
+    tournamentsPerYear: player.tournamentsGoal || 0,
+    coachingHoursPerWeek: 0,
+    lessonRate: 0,
+    equipmentBudgetPerYear: 0,
+    travelCostPerTournament: 0,
   });
 
   const results = useMemo(() => calculateCost(inputs), [inputs]);
@@ -76,12 +78,12 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
     <div className="mx-auto max-w-content container-px py-10">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow text-gold", isSeeded && "font-seeded uppercase tracking-[0.2em]")}>Cost calculator</span>
+          <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Cost calculator</span>
           <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             See the real cost of the pursuit.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-stone">
-            Estimate training, tournaments, travel, equipment, and compare against realistic scholarship ranges.
+            Add up what training, tournaments, travel and equipment will cost your family, from your own numbers.
           </p>
         </div>
         <Badge
@@ -89,7 +91,8 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           variant={isSeeded ? undefined : "leaf"}
           style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
         >
-          <DollarSign className="h-4 w-4" />${Math.round(results.total).toLocaleString()}
+          <DollarSign className="h-4 w-4" />
+          {results.total > 0 ? Math.round(results.total).toLocaleString() : "Enter your costs"}
         </Badge>
       </Reveal>
 
@@ -128,34 +131,17 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
           <Reveal index={3}>
           <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
             <div className="flex items-center gap-2">
-              <Calculator className="h-5 w-5 text-grass" />
-              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarship comparison</h2>
+              <Calculator className="h-5 w-5 text-grass" aria-hidden />
+              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarships and cost of attendance</h2>
             </div>
-            {/* Said "Estimated scholarship value: $30,960" under a real
-                school's name, which reads as Seeded's figure FOR that
-                school. We hold no cost or aid data at all. */}
-            <p className="mt-4 rounded-lg border border-dashed border-line bg-cream/60 px-3 py-2.5 text-xs text-stone">
-              Seeded holds no cost or aid data for any program. These figures come from
-              one generic assumption per division &mdash; not from the school, and not
-              from anything we have checked. Use them to compare orders of magnitude,
-              then get real numbers from each school&rsquo;s financial aid office.
+            {/* This card used to print "Rough scholarship value" and "Net"
+                under real school names, from one generic number per
+                division. Seeded holds no cost or aid data for any program. */}
+            <p className="mt-4 text-sm text-stone">
+              Not available yet. Seeded holds no cost-of-attendance or athletic-aid figures for any
+              program, so it does not estimate them. Each school&rsquo;s financial aid office has the
+              real numbers.
             </p>
-            <div className="mt-5 space-y-3">
-              {results.scholarships.map((school) => (
-                <div key={school.name} className={cn("rounded-[18px] border p-4", isSeeded ? "border-[rgb(var(--c-line))]" : "border-[0.5px] border-line bg-card")}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-medium text-ink">{school.name}</p>
-                      <p className="text-xs text-stone">
-                        Rough scholarship value on our assumptions:{" "}
-                        {money(school.scholarshipValue)}
-                      </p>
-                    </div>
-                    <Badge variant="outline">Net: {money(school.netCost)}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
           </Card>
           </Reveal>
           <Reveal index={4}>
@@ -176,40 +162,6 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
       </div>
     </div>
   );
-}
-
-function toScholarshipSchool(s: SchoolLite) {
-  // Tennis is an "equivalency" sport — a roster splits a handful of
-  // scholarships across ~9-10 players, so no individual recruit gets
-  // anywhere near "35% of cost of attendance." Using the team-wide max as
-  // one player's personal award (the old numbers) made the assumed
-  // scholarship bigger than most families' actual training spend for
-  // EVERY school, so "Net" always clamped to $0 regardless of inputs.
-  // These are realistic individual-recruit averages instead.
-  // The Ivy League gives no athletic scholarships at all (NCAA rule) —
-  // any non-zero number here was simply wrong for a school like Cornell.
-  const scholarshipPercent =
-    s.conference === "Ivy League"
-      ? 0
-      : s.division === "D1"
-        ? 18
-        : s.division === "D2"
-          ? 12
-          : 0;
-  // THESE ARE GENERIC ASSUMPTIONS, NOT DATA ABOUT THIS SCHOOL.
-  //
-  // `annualCost` is three hardcoded numbers chosen by rank and division,
-  // and `scholarshipPercent` three more by division — no source, no date,
-  // no per-school figure anywhere in the catalogue (`School` carries
-  // avgRosterUTR, minCompetitiveUTR and usNewsRanking, nothing financial).
-  // Attached to a real school name and rendered as "Stanford University —
-  // Estimated scholarship value: $30,960", they read as Seeded's figure
-  // for Stanford. They are not.
-  //
-  // The real fix is per-school cost data (docs/TODO.md). Until then the UI
-  // must say whose assumption this is — see the disclosure on the card.
-  const annualCost = s.usNewsRanking <= 30 ? 86000 : s.division === "D3" ? 79000 : 62000;
-  return { name: s.name, division: s.division, annualCost, scholarshipPercent };
 }
 
 function money(value: number) {
