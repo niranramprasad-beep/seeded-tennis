@@ -74,8 +74,14 @@ export function buildSeasonBudgetSummary(args: {
   playerUtr: number | null;
   entries: TournamentEntry[];
   expenses: BudgetExpense[];
+  /** Whose rating `playerUtr` is. The budget's entries span every player in
+   * the family; only this player's are judged against this rating. A
+   * sibling's entry still counts toward spend and shows its plain category
+   * chip — judging it against someone else's UTR would be a verdict about
+   * the wrong child. Omitted = judge every entry (single-player callers). */
+  judgedUserId?: string | null;
 }): SeasonBudgetSummary {
-  const { totalBudget, playerUtr, entries, expenses } = args;
+  const { totalBudget, playerUtr, entries, expenses, judgedUserId } = args;
 
   let entriesSpent = 0;
   let travelSpent = 0;
@@ -84,8 +90,9 @@ export function buildSeasonBudgetSummary(args: {
 
   for (const entry of entries) {
     if (entry.status !== "entered") continue;
+    const judged = judgedUserId == null || entry.userId === judgedUserId;
     const fit =
-      playerUtr == null
+      playerUtr == null || !judged
         ? null
         : evaluateTournamentFit({
             name: entry.name,
@@ -132,6 +139,7 @@ export function buildSeasonBudgetSummary(args: {
   for (const entry of entries) {
     if (entry.status === "entered") continue;
     if (playerUtr == null) continue;
+    if (judgedUserId != null && entry.userId !== judgedUserId) continue;
     const fit = evaluateTournamentFit({
       name: entry.name,
       level: entry.level,
@@ -177,11 +185,14 @@ export interface PendingSkipDecision {
  * this is the only real decision type that card shows. */
 export function pendingSkipDecisions(
   entries: TournamentEntry[],
-  playerUtr: number | null
+  playerUtr: number | null,
+  /** Only this player's saved entries are judged against `playerUtr`. */
+  judgedUserId?: string | null
 ): PendingSkipDecision[] {
   if (playerUtr == null) return [];
   return entries
     .filter((e) => e.status !== "entered")
+    .filter((e) => judgedUserId == null || e.userId === judgedUserId)
     .map((entry) => {
       const fit = evaluateTournamentFit({
         name: entry.name,

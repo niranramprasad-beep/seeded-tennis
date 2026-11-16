@@ -88,3 +88,47 @@ export async function approvedFamilyMemberIds(
   const rows = await loadFamilyRosterRows(supabase, signal);
   return [...new Set(rows.filter((r) => r.status === "approved").map((r) => r.user_id))];
 }
+
+/**
+ * WHOSE rows a read is about. Every loader of a family-readable table takes
+ * one, and resolves it to user ids with `subjectUserIds()` — never by
+ * leaning on RLS.
+ *
+ *   "self"             the signed-in user (the default)
+ *   { userId }         one named person — a parent passes their player's id
+ *   "family-players"   every approved PLAYER in the caller's family; for the
+ *                      family's season budget only, which is the family's
+ *                      money across all its players
+ *
+ * Why this exists: these loaders used to pass `.in("user_id", <every
+ * approved member>)` whenever the caller was a parent. That pooled siblings
+ * AND the parents' own rows into what each screen presented as "the
+ * player's": a two-player family's "coaches emailed" counted both children,
+ * and a parent's own test UTR of 5.00 was subtracted from their child's
+ * 9.40 on the weekly report (the previous pass's CRITICAL). RLS allowing
+ * the read is a ceiling, not an intent. lib/data-scoping.test.ts fails the
+ * build if a loader goes back to scoping by "whoever RLS lets me see".
+ */
+export type DataSubject = "self" | { userId: string } | "family-players";
+
+export async function subjectUserIds(
+  supabase: TypedSupabaseClient,
+  ownId: string,
+  subject: DataSubject,
+  signal?: AbortSignal
+): Promise<string[]> {
+  if (subject === "self") return [ownId];
+  if (subject === "family-players") {
+    const rows = await loadFamilyRosterRows(supabase, signal);
+    return [...new Set(rows.filter((r) => r.status === "approved" && r.role === "player").map((r) => r.user_id))];
+  }
+  return [subject.userId];
+}
+
+/** A stable SWR key segment for a subject, so a parent's view of their
+ *  player never shares a cache entry with anyone's own data. */
+export function subjectKey(subject: DataSubject): string {
+  if (subject === "self") return "self";
+  if (subject === "family-players") return "family-players";
+  return `user:${subject.userId}`;
+}

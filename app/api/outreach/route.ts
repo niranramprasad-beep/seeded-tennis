@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getProfileRoleAndFamily, getRequestScopedSupabase } from "@/lib/api-auth";
+import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import {
   saveCoachOutreachReminder,
@@ -35,6 +35,9 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  const parentRefusal = await refuseParentPlayerDataWrite(ctx);
+  if (parentRefusal) return parentRefusal;
 
   // S-6: one shared, Postgres-backed limiter for every write route. Fails
   // closed — see lib/rate-limit.ts.

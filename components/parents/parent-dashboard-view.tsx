@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { subjectKey } from "@/lib/db/family-scope";
 import {
   CalendarDays,
   GraduationCap,
@@ -13,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
-import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,13 +61,22 @@ function LegacyParentDashboard() {
   // Same keys as /dashboard's check-in card, the matches views, and the
   // family hub card — each resource loads once and is shared across every
   // page that shows it, instead of every page fetching its own copy.
-  const { data: checkins = [] } = useSWR<DailyCheckin[]>("daily-checkins", () => loadDailyCheckins());
-  const { data: matches = [] } = useSWR<MatchRecord[]>("matches", () => loadMatches());
+  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  // The PLAYER's check-ins and matches, by id. These used the parent-pooling
+  // default, which counted every approved member's rows as the player's.
+  const subjectId = pickFamilyPlayer(members)?.id ?? null;
+  const { data: checkins = [] } = useSWR<DailyCheckin[]>(
+    subjectId ? ["daily-checkins", subjectKey({ userId: subjectId })] : null,
+    () => loadDailyCheckins({ userId: subjectId! })
+  );
+  const { data: matches = [] } = useSWR<MatchRecord[]>(
+    subjectId ? ["matches", subjectKey({ userId: subjectId })] : null,
+    () => loadMatches({ userId: subjectId! })
+  );
   const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
     "encouragement-notes",
     () => loadEncouragementNotes()
   );
-  const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
   const [note, setNote] = useState("");
   const [status, setStatus] = useState("");
 
@@ -78,8 +88,8 @@ function LegacyParentDashboard() {
     await mutateNotes();
   };
 
-  const playerMember = members.find((m) => m.role === "player");
-  const playerName = playerMember?.name ?? player.name ?? "your player";
+  const playerMember = pickFamilyPlayer(members);
+  const playerName = playerMember?.name ?? "your player";
   const firstName = playerName.split(" ")[0];
   // See seeded-family-overview.tsx for the full note: the `??` fell through
   // to the signed-in parent's own placeholder UTR. The legacy design is

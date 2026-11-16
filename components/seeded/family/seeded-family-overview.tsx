@@ -1,5 +1,6 @@
 "use client";
 
+import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRef } from "react";
@@ -8,12 +9,13 @@ import type { SchoolLite } from "@/lib/types";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { subjectKey } from "@/lib/db/family-scope";
 import { loadFamilyMembers, saveEncouragementNote, type FamilyMember } from "@/lib/db/family";
 import { loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
-import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
@@ -57,13 +59,21 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
 
   const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
   // The PLAYER's history, explicitly — same reason as the weekly report.
-  const playerUserId = members.find((m) => m.role === "player")?.id ?? null;
+  const playerUserId = pickFamilyPlayer(members)?.id ?? null;
   const { data: utrEntries } = useSWR(
     playerUserId ? ["utr-entries", playerUserId] : null,
     () => loadUtrEntriesFor(playerUserId!)
   );
-  const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
-  const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
+  // The player's outreach, by id; the budget's spend across the family's
+  // players, explicitly. See lib/db/family-scope.ts DataSubject.
+  const { data: outreach } = useSWR(
+    playerUserId ? ["coach-outreach-dated", subjectKey({ userId: playerUserId })] : null,
+    () => loadCoachOutreachDated({ userId: playerUserId! })
+  );
+  const { data: tournamentEntries = [] } = useSWR(
+    ["tournament-entries", subjectKey("family-players")],
+    () => loadTournamentEntries("family-players")
+  );
   const { data: seasonBudget, mutate: mutateSeasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
   const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
   // A pending joiner can read nothing, so /family would otherwise render as
@@ -90,8 +100,9 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
     await Promise.all([mutatePending(), mutateFamilyCode(), mutateRoster()]);
   };
 
-  const playerMember = members.find((m) => m.role === "player");
-  const playerName = playerMember?.name || player.name || "your player";
+  const playerMember = pickFamilyPlayer(members);
+  // Never the viewer's own name — see the weekly report.
+  const playerName = playerMember?.name || "your player";
   const firstName = playerName.split(" ")[0];
   // `playerMember?.currentUtr ?? player.currentUTR` looked harmless and was
   // not: when the family has no approved PLAYER, `player` is the signed-in
@@ -194,13 +205,14 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
         playerUtr: currentUTR,
         entries: tournamentEntries,
         expenses,
+        judgedUserId: playerUserId,
       }),
-    [totalBudget, currentUTR, tournamentEntries, expenses]
+    [totalBudget, currentUTR, tournamentEntries, expenses, playerUserId]
   );
 
   const decisions = useMemo(
-    () => pendingSkipDecisions(tournamentEntries, currentUTR).slice(0, 3),
-    [tournamentEntries, currentUTR]
+    () => pendingSkipDecisions(tournamentEntries, currentUTR, playerUserId).slice(0, 3),
+    [tournamentEntries, currentUTR, playerUserId]
   );
 
   const [noteOpen, setNoteOpen] = useState(false);
@@ -260,6 +272,8 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      <ParentScopeLine />
+      <div className="h-6" aria-hidden />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">

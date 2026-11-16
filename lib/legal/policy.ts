@@ -155,9 +155,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "Getting your data out, and deleting it",
     source: "app/api/account/export/route.ts; app/api/account/deletion/route.ts; delete_my_account()",
     body: [
-      "Settings → Privacy + data has two downloads. \"Download everything\" is a JSON file of every row we store about your account. \"Download as a spreadsheet\" is a readable CSV of your schools, results, notes and outreach.",
+      "Settings → Privacy + data has two downloads for a player. \"Download everything\" is a JSON file of every row we store about your account. \"Download as a spreadsheet\" is a readable CSV of your schools, results, notes and outreach. A parent's account has only the first: it holds your profile, the notes you wrote, the budget expenses you entered and your family's season budget — your player's results are in their account, not yours.",
       "\"Delete account\" deletes your account and everything in it immediately, and it cannot be undone. Your profile, UTR history, results, check-ins, saved schools and outreach records all go, and so does your sign-in itself.",
-      "If other people are still in your family, the family and their accounts stay. If you were the last one in it, the family is removed too.",
+      "If other people are still in your family, the family and their accounts stay. If you were the last one in it, the family is removed too, with its season budget.",
+      "If you are a parent, deleting your account deletes the notes you wrote and the budget expenses you entered. Your player's account and everything in it are not touched.",
       "You do not need to ask us to do either of these, and you do not need a reason.",
     ],
   },

@@ -10,7 +10,7 @@ import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/rec
 import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
-import { approvedFamilyMemberIds, resolveMyFamilyCode } from "./family-scope";
+import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import { getSchoolsBySlugs } from "./schools";
@@ -320,9 +320,9 @@ function mapCheckin(row: Tables<"daily_checkins">): DailyCheckin {
   };
 }
 
-export async function loadDailyCheckins(signal?: AbortSignal): Promise<DailyCheckin[]> {
+export async function loadDailyCheckins(subject: DataSubject = "self", signal?: AbortSignal): Promise<DailyCheckin[]> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const id = await getUserId();
   if (!supabase || !id) return [];
   let query = supabase
     .from("daily_checkins")
@@ -337,8 +337,9 @@ export async function loadDailyCheckins(signal?: AbortSignal): Promise<DailyChec
   // (036's trigger freezes the column on UPDATE), so a family_code filter
   // hides it from their family permanently. The read policy keys off the
   // owner for the same reason — this makes the query match the policy.
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
-  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
+  const subjectIds = await subjectUserIds(supabase, id, subject, signal);
+  if (subjectIds.length === 0) return [];
+  query = query.in("user_id", subjectIds);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];

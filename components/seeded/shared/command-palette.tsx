@@ -19,6 +19,13 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { cn } from "@/lib/utils";
+import {
+  PARENT_NAV_LINKS,
+  PLAYER_NAV_LINKS,
+  SETTINGS_LINK,
+  SHARED_SECONDARY_LINKS,
+  type NavLink,
+} from "@/components/seeded/layout/nav-links";
 
 interface Command {
   label: string;
@@ -27,29 +34,14 @@ interface Command {
   keywords?: string;
 }
 
-// Mirrors the Phase 3 sidebar's PLAYER_NAV_LINKS/PARENT_NAV_LINKS exactly —
-// keep both in sync.
-const PLAYER_COMMANDS: Command[] = [
-  { label: "Today", href: "/today", icon: Clock },
-  { label: "Plan", href: "/plan", icon: TrendingUp, keywords: "roadmap checkpoints" },
-  { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
-  { label: "Outreach", href: "/outreach", icon: Mail, keywords: "coaches email" },
-  { label: "Events", href: "/events", icon: CalendarDays, keywords: "calendar training matches" },
-  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
-];
+// Built from the same lists the sidebar renders (nav-links.ts). These were
+// two hand-kept copies "kept in sync" by a comment, and they were not: the
+// parent copy still offered Events after the sidebar dropped it.
+const toCommand = (l: NavLink): Command => ({ label: l.label, href: l.href, icon: l.icon, keywords: l.keywords });
+const PLAYER_COMMANDS: Command[] = [...PLAYER_NAV_LINKS, ...SHARED_SECONDARY_LINKS].map(toCommand);
+const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...SHARED_SECONDARY_LINKS].map(toCommand);
 
-// Mirrors the Phase 3 sidebar's PARENT_NAV_LINKS exactly — keep both in
-// sync.
-const PARENT_COMMANDS: Command[] = [
-  { label: "Overview", href: "/family", icon: LayoutDashboard, keywords: "family dashboard" },
-  { label: "Budget", href: "/family/budget", icon: DollarSign, keywords: "season spend expenses" },
-  { label: "Schools", href: "/schools", icon: School, keywords: "browse programs" },
-  { label: "Events", href: "/events", icon: CalendarDays, keywords: "calendar tournaments" },
-  { label: "Weekly reports", href: "/family/weekly-reports", icon: FileText, keywords: "summary report" },
-  { label: "Tournament fit", href: "/tournament-fit", icon: Compass },
-];
-
-const SHARED_COMMANDS: Command[] = [{ label: "Settings", href: "/settings", icon: Settings }];
+const SHARED_COMMANDS: Command[] = [toCommand(SETTINGS_LINK)];
 
 // Signed-in only — mounted once by AppShell alongside SeededSidebar. Opens
 // on Cmd/Ctrl+K from anywhere, fuzzy-filters the same route list the

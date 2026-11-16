@@ -1,12 +1,14 @@
 "use client";
 
+import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
-import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadTournamentEntries } from "@/lib/db/events";
+import { subjectKey } from "@/lib/db/family-scope";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary, canEditBudget } from "@/lib/family-budget";
 import { currentSeason } from "@/lib/time";
@@ -30,11 +32,16 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   const now = useMemo(() => new Date(), []);
 
   const { data: members = [] } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
-  const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
+  // The family's money: every approved player's entered tournaments,
+  // chosen explicitly (lib/db/family-scope.ts DataSubject).
+  const { data: tournamentEntries = [] } = useSWR(
+    ["tournament-entries", subjectKey("family-players")],
+    () => loadTournamentEntries("family-players")
+  );
   const { data: seasonBudget, mutate: mutateSeasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
   const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
 
-  const playerMember = members.find((m) => m.role === "player");
+  const playerMember = pickFamilyPlayer(members);
   // See seeded-family-overview.tsx. The `??` borrowed the signed-in
   // parent's placeholder UTR, which here decided each entered tournament's
   // fit chip — "bad fit" verdicts computed from a rating nobody entered.
@@ -50,8 +57,9 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
         playerUtr: currentUTR,
         entries: tournamentEntries,
         expenses,
+        judgedUserId: playerMember?.id ?? null,
       }),
-    [totalBudget, currentUTR, tournamentEntries, expenses]
+    [totalBudget, currentUTR, tournamentEntries, expenses, playerMember]
   );
 
   const saveBudget = async (input: { seasonLabel: string; totalBudget: number }) => {
@@ -66,6 +74,8 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      <ParentScopeLine />
+      <div className="h-6" aria-hidden />
       <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">Season budget</h1>
       <p className="mt-1.5 max-w-2xl text-stone">
         Real spend for {playerMember?.name?.split(" ")[0] ?? "your player"}&rsquo;s season, plus a longer-range cost

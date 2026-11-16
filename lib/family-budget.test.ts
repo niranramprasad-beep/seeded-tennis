@@ -5,6 +5,7 @@ import type { BudgetExpense } from "./db/family";
 import { evaluateTournamentFit } from "./tournament-fit";
 
 const entry = (overrides: Partial<TournamentEntry> & { id: string }): TournamentEntry => ({
+  userId: "player-1",
   name: "Test tournament",
   level: "L3",
   eventDate: "2026-10-30",
@@ -170,5 +171,29 @@ describe("shortBadFitReason", () => {
       travelCost: 10,
     });
     expect(shortBadFitReason(fit)).toMatch(/field too weak/i);
+  });
+});
+
+describe("a sibling's tournament is never judged against this player's rating", () => {
+  it("counts the sibling's spend but gives it no fit verdict", () => {
+    const mine = entry({ id: "m", status: "entered", userId: "avery", entryCost: 100, travelCost: 0 });
+    const theirs = entry({ id: "s", status: "entered", userId: "riley", entryCost: 50, travelCost: 0 });
+    const summary = buildSeasonBudgetSummary({
+      totalBudget: 1000,
+      playerUtr: 9,
+      entries: [mine, theirs],
+      expenses: [],
+      judgedUserId: "avery",
+    });
+    expect(summary.spent).toBe(150);
+    const sib = summary.lineItems.find((l) => l.id === "s")!;
+    expect(sib.chip).toBe("entries");
+    const own = summary.lineItems.find((l) => l.id === "m")!;
+    expect(["good", "decent", "bad"]).toContain(own.chip);
+  });
+
+  it("only offers skip decisions for the judged player's saved entries", () => {
+    const sib = entry({ id: "s", status: "saved", userId: "riley", entryCost: 900, travelCost: 900 });
+    expect(pendingSkipDecisions([sib], 9, "avery")).toEqual([]);
   });
 });

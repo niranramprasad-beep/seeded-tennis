@@ -43,6 +43,14 @@ const OWN_ROW_TABLES = [
   ["session_exercises", "user_id"],
   ["saved_templates", "user_id"],
   ["parent_accounts", "user_id"],
+  // Notes this account WROTE (a parent's notes to their player). This was
+  // listed as an omission — "written by another family member" — which is
+  // true from the player's side and backwards from the parent's: the parent
+  // is the author, the notes are their writing, and delete_my_account()
+  // deletes them with the account. An export that skips what the deletion
+  // removes is not complete. Notes written TO this account stay out: they
+  // are someone else's writing.
+  ["encouragement_notes", "parent_id"],
 ] as const;
 
 /** Rows the account shares with its family rather than owns alone. Included
@@ -79,10 +87,9 @@ export const ACCOUNT_EXPORT_OMISSIONS: Record<string, string> = {
   // Removed features, locked in 027. No rows the product reads or writes.
   badges: "removed feature, table locked (S-13)",
   friendships: "removed feature, table locked (S-13)",
-  // Family-authored content ABOUT the user by someone else. A parent's note
-  // to their child is the parent's writing; nothing generates parent_reports
-  // at all. Both are readable in the app; neither is this account's record.
-  encouragement_notes: "written by another family member, not this account's data",
+  // Nothing generates parent_reports at all, and after 039 no signed-in
+  // account can insert one. (encouragement_notes moved to OWN_ROW_TABLES,
+  // keyed on the author.)
   parent_reports: "nothing generates these; family-scoped, not account-scoped",
   // Just the family's own code, already included via the `families` row.
   family_codes: "duplicate of families.code, already exported",
@@ -111,7 +118,12 @@ export async function buildAccountExport(
   data.profiles = profile ?? null;
 
   for (const [table, column] of OWN_ROW_TABLES) {
-    const { data: rows } = await supabase.from(table).select("*").eq(column, userId);
+    // The owner column differs per table (user_id, parent_id), which the
+    // generated union type cannot express across the loop.
+    const query = supabase.from(table).select("*") as unknown as {
+      eq: (col: string, value: string) => PromiseLike<{ data: unknown[] | null }>;
+    };
+    const { data: rows } = await query.eq(column, userId);
     data[table] = rows ?? [];
   }
 

@@ -8,7 +8,7 @@
 import type { Weakness, Intensity, WeekdayShort } from "@/lib/types";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
-import { approvedFamilyMemberIds, resolveMyFamilyCode } from "./family-scope";
+import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { narrowLiteral, narrowNullableLiteral } from "./narrow";
 import type { Json, Tables } from "./database.types";
@@ -180,9 +180,9 @@ function mapMatch(row: Tables<"matches">): MatchRecord {
   };
 }
 
-export async function loadMatches(signal?: AbortSignal): Promise<MatchRecord[]> {
+export async function loadMatches(subject: DataSubject = "self", signal?: AbortSignal): Promise<MatchRecord[]> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const id = await userId();
   if (!supabase || !id) return [];
   let query = supabase
     .from("matches")
@@ -197,8 +197,9 @@ export async function loadMatches(signal?: AbortSignal): Promise<MatchRecord[]> 
   // (036's trigger freezes the column on UPDATE), so a family_code filter
   // hides it from their family permanently. The read policy keys off the
   // owner for the same reason — this makes the query match the policy.
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
-  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
+  const subjectIds = await subjectUserIds(supabase, id, subject, signal);
+  if (subjectIds.length === 0) return [];
+  query = query.in("user_id", subjectIds);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
@@ -313,6 +314,9 @@ export type TournamentEntryStatus = "saved" | "entered";
 
 export interface TournamentEntry {
   id: string;
+  /** Whose entry this is. The family budget pools every player's entries,
+   *  so a fit verdict must know whose rating to judge it against. */
+  userId: string;
   name: string;
   level: FitLevel;
   eventDate: string; // ISO date (yyyy-mm-dd)
@@ -387,6 +391,7 @@ export function validateTournamentEntryInput(input: NewTournamentEntryInput): st
 function mapTournamentEntry(row: Tables<"tournament_entries">): TournamentEntry {
   return {
     id: row.id,
+    userId: row.user_id,
     name: row.name,
     // "utr" is the one FitLevel value that doesn't assert a specific USTA
     // tier, making it the honest fallback for a row whose stored level
@@ -410,9 +415,12 @@ function mapTournamentEntry(row: Tables<"tournament_entries">): TournamentEntry 
  * Loads the signed-in player's (or their family's) saved/entered
  * tournaments, soonest first, for /events' "Upcoming tournaments" list.
  */
-export async function loadTournamentEntries(signal?: AbortSignal): Promise<TournamentEntry[]> {
+export async function loadTournamentEntries(
+  subject: DataSubject = "self",
+  signal?: AbortSignal
+): Promise<TournamentEntry[]> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const id = await userId();
   if (!supabase || !id) return [];
   let query = supabase
     .from("tournament_entries")
@@ -426,8 +434,9 @@ export async function loadTournamentEntries(signal?: AbortSignal): Promise<Tourn
   // (036's trigger freezes the column on UPDATE), so a family_code filter
   // hides it from their family permanently. The read policy keys off the
   // owner for the same reason — this makes the query match the policy.
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
-  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
+  const subjectIds = await subjectUserIds(supabase, id, subject, signal);
+  if (subjectIds.length === 0) return [];
+  query = query.in("user_id", subjectIds);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return [];
@@ -582,11 +591,16 @@ export interface TrainingPlannerState {
   preferences?: TrainingPreferences;
 }
 
-// Plain read across 4 tables that are all "auth.uid() = user_id" RLS, no
-// family/role sharing — identical to what these queries want, so there's
-// nothing gained by resolving the user id first and filtering by it
-// ourselves; RLS already does it, and skipping straight to the queries
-// saves a whole network round-trip. (workout_sessions/training_plans don't
+// Reads across 4 tables, each filtered to the signed-in user EXPLICITLY.
+//
+// This comment used to argue the opposite: the tables are all
+// "auth.uid() = user_id" RLS, "so there's nothing gained by resolving the
+// user id first and filtering by it ourselves". That is the exact reasoning
+// loadUtrEntries() used before migration 036 widened utr_entries' policy and
+// it began returning a whole family's ratings (the previous pass's
+// CRITICAL). RLS is a ceiling on what may be read; the query must say what
+// it means to read, so a future family policy on these tables cannot
+// silently put a sibling's sessions on this calendar. (workout_sessions/training_plans don't
 // get date-range-limited here: this planner is a recurring weekly
 // template, not a dated log — a user's current sessions stay bounded to
 // roughly "however many are in their active plan(s)," not an ever-growing
@@ -606,15 +620,17 @@ export async function loadTrainingPlannerState(
   // resolves the filter builder into a different (non-chainable) response
   // type that no longer exposes `.abortSignal()`, so the signal has to be
   // attached to the query BEFORE `.maybeSingle()` runs, not after.
-  let settingsQuery = supabase.from("user_settings").select("*");
+  const ownerId = await userId();
+  if (!ownerId) return null;
+  let settingsQuery = supabase.from("user_settings").select("*").eq("user_id", ownerId);
   if (signal) settingsQuery = settingsQuery.abortSignal(signal);
 
   const [{ data: plans, error: plansError }, { data: sessions, error: sessionsError }, { data: settings }, { data: templates }] =
     await Promise.all([
-      withSignal(supabase.from("training_plans").select("*").order("created_at", { ascending: true })),
-      withSignal(supabase.from("workout_sessions").select("*").order("order_index", { ascending: true })),
+      withSignal(supabase.from("training_plans").select("*").eq("user_id", ownerId).order("created_at", { ascending: true })),
+      withSignal(supabase.from("workout_sessions").select("*").eq("user_id", ownerId).order("order_index", { ascending: true })),
       settingsQuery.maybeSingle(),
-      withSignal(supabase.from("saved_templates").select("*").order("created_at", { ascending: false })),
+      withSignal(supabase.from("saved_templates").select("*").eq("user_id", ownerId).order("created_at", { ascending: false })),
     ]);
 
   if (plansError || sessionsError) {

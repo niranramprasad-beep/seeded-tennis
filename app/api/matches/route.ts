@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProfileRoleAndFamily, getRequestScopedSupabase } from "@/lib/api-auth";
+import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { deleteMatch, saveMatch } from "@/lib/db/events";
 import { MatchesBodySchema } from "@/lib/api-schemas/matches";
@@ -13,6 +13,9 @@ export async function POST(req: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+
+  const parentRefusal = await refuseParentPlayerDataWrite(ctx);
+  if (parentRefusal) return parentRefusal;
 
   // S-6: one shared, Postgres-backed limiter for every write route. Fails
   // closed — see lib/rate-limit.ts.

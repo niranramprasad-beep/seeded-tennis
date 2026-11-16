@@ -93,6 +93,7 @@ describe("no fabricated UTR reaches a family screen", () => {
 
 const entry: TournamentEntry = {
   id: "t1",
+  userId: "player-1",
   name: "Fall Open",
   level: "L4",
   eventDate: "2026-12-01",

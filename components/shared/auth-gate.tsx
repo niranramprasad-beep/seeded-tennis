@@ -11,40 +11,14 @@ import { loadMyConsentState } from "@/lib/db/family-join";
 import { ConsentPendingScreen } from "@/components/seeded/family/consent-pending-screen";
 import { useDesign } from "@/lib/context/design-context";
 import { Button } from "@/components/ui/button";
+import {
+  isConsentPendingAllowedPath,
+  isParentAllowedPath,
+  isPlayerBlockedPath,
+} from "@/lib/route-access";
 
-// Pages a parent account can use. Everything else redirects to /family so
-// parents never land in player-only tools like the roadmap or match mode.
-// /family IS the parent dashboard — there is no separate /parent-dashboard route.
-function isParentAllowedPath(pathname: string): boolean {
-  return (
-    pathname.startsWith("/family") ||
-    // startsWith, not ===, so /settings/billing (parents are typically the
-    // ones actually billed — see billing-content.tsx's "Billed to" line)
-    // stays reachable alongside /settings itself.
-    pathname.startsWith("/settings") ||
-    pathname === "/cost-calculator" ||
-    pathname === "/tournament-fit"
-  );
-}
-
-// P0-8. Pages an under-13 account still reaches while it waits for a
-// parent's consent. Both are about the account itself rather than about
-// tennis, and the database allows both for a pending account by design:
-// /settings so they can download or delete their own data (their own
-// profile row is the one thing a pending account can read), and /family so
-// they can see who they are waiting on and fix a mistyped family code.
-function isConsentPendingAllowedPath(pathname: string): boolean {
-  return pathname.startsWith("/settings") || pathname.startsWith("/family");
-}
-
-// /family is parent-only content (it's framed as "Follow [player]'s climb" —
-// wrong framing for the player themselves). Everything else a player can
-// reach is either player-only or shared (schools, settings, etc.), so this
-// is the one path that needs an explicit block in the other direction.
-function isPlayerBlockedPath(pathname: string): boolean {
-  return pathname.startsWith("/family");
-}
-
+// Which role may open which path lives in lib/route-access.ts, so the nav
+// lists can be tested against it (lib/nav-single-source.test.ts).
 // Client-side guard for app pages. Redirects to login when there's no session,
 // and to onboarding when the session exists but the tennis profile is unfinished.
 // When Supabase itself is unreachable, this never redirects to /login — an

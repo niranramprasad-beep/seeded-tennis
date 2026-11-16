@@ -28,6 +28,17 @@ export interface UseStarSchoolsResult {
   toggleStar: (slug: string, label: string) => void;
   toast: StarToast | null;
   dismissToast: () => void;
+  /** False for a parent account. A parent's "targets" would be their OWN
+   * profile's list — not their player's — so a star on a parent's screen
+   * both edits the wrong row and shows the wrong state. Callers hide the
+   * control when this is false; toggleStar is also a no-op, so a keyboard
+   * shortcut cannot reach it either. */
+  canStar: boolean;
+  /** One write for several schools (the compare tray). Applies the same
+   * Free limit as toggleStar — it used to skip it, so a Free account adding
+   * three from the tray saw them saved and then lost them when /api/profile
+   * refused the write. */
+  addManyToTargets: (slugs: string[]) => void;
 }
 
 export const STAR_TOAST_DURATION_MS = 5000;
@@ -55,8 +66,11 @@ export function useStarSchools(): UseStarSchoolsResult {
 
   const dismissToast = useCallback(() => setToast(null), []);
 
+  const canStar = player.role !== "parent";
+
   const toggleStar = useCallback(
     (slug: string, label: string) => {
+      if (!canStar) return;
       const wasStarred = slugsRef.current.includes(slug);
       const next = toggleTargetSchoolSlug(slugsRef.current, slug);
 
@@ -111,8 +125,40 @@ export function useStarSchools(): UseStarSchoolsResult {
         action: { label: "Undo", onClick: undo },
       });
     },
-    [updatePlayer, canAccess, router]
+    [updatePlayer, canAccess, router, canStar]
   );
 
-  return { isStarred, toggleStar, toast, dismissToast };
+  const addManyToTargets = useCallback(
+    (slugs: string[]) => {
+      if (!canStar) return;
+      const before = slugsRef.current;
+      const merged = Array.from(new Set([...before, ...slugs]));
+      const added = merged.length - before.length;
+      if (added === 0) return;
+      if (!canAccess("player") && merged.length > FREE_TIER_TARGET_SCHOOL_LIMIT) {
+        setToast({
+          message: `Free tracks ${FREE_TIER_TARGET_SCHOOL_LIMIT} schools. Upgrade to Player to track more.`,
+          variant: "default",
+          action: { label: "See plans", onClick: () => router.push("/pricing") },
+        });
+        return;
+      }
+      void updatePlayer({ targetSchoolSlugs: merged }).then((ok) => {
+        if (ok) return;
+        void updatePlayer({ targetSchoolSlugs: slugsRef.current.filter((s) => before.includes(s)) });
+        setToast(null);
+      });
+      setToast({
+        message: `Added ${added} ${added === 1 ? "school" : "schools"} to targets.`,
+        variant: "default",
+        action: {
+          label: "Undo",
+          onClick: () => void updatePlayer({ targetSchoolSlugs: slugsRef.current.filter((s) => before.includes(s)) }),
+        },
+      });
+    },
+    [canStar, canAccess, router, updatePlayer]
+  );
+
+  return { isStarred, toggleStar, toast, dismissToast, canStar, addManyToTargets };
 }

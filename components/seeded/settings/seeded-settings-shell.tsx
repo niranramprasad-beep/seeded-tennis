@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { usePlayer } from "@/lib/context/player-context";
 
 // Pixel-exact to "17 Settings + account.png": a left tab nav (Profile /
 // Account / Family / Billing / Privacy + data) next to a content column.
@@ -27,6 +28,17 @@ export const SETTINGS_TABS: { id: SettingsTabId; label: string; href?: string }[
   { id: "privacy", label: "Privacy + data" },
 ];
 
+// A parent's Settings has no "Account" tab of player facts (UTR, grade,
+// class year, gender) — those are the PLAYER's, and a parent's own row has
+// none worth showing. Their account details live on the Profile tab, which
+// for a parent is about the parent (parent-settings-view.tsx).
+export const PARENT_SETTINGS_TABS: { id: SettingsTabId; label: string; href?: string }[] = [
+  { id: "profile", label: "Profile" },
+  { id: "family", label: "Family" },
+  { id: "billing", label: "Billing", href: "/settings/billing" },
+  { id: "privacy", label: "Privacy + data" },
+];
+
 export function SeededSettingsShell({
   active,
   onTabChange,
@@ -36,13 +48,15 @@ export function SeededSettingsShell({
   onTabChange: (id: SettingsTabId) => void;
   children: ReactNode;
 }) {
+  const { player } = usePlayer();
+  const tabs = player.role === "parent" ? PARENT_SETTINGS_TABS : SETTINGS_TABS;
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <h1 className="font-seeded text-[30px] font-bold tracking-[-0.02em] text-ink">Settings</h1>
       <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
         <nav aria-label="Settings sections" className="w-full shrink-0 lg:w-[208px]">
           <ul className="flex flex-col gap-1">
-            {SETTINGS_TABS.map((tab) => {
+            {tabs.map((tab) => {
               const isActive = tab.id === active;
               const itemClass = cn(
                 "block w-full rounded-xl px-4 py-2.5 text-left text-[15px] text-ink transition-colors",

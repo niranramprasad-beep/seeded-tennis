@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SeededSettingsView } from "@/components/seeded/settings/seeded-settings-view";
+import { ParentSettingsView } from "@/components/seeded/settings/parent-settings-view";
 import { ThemeSwitcher } from "./theme-switcher";
 import { DesignSwitcher } from "./design-switcher";
 
@@ -29,6 +30,12 @@ export function SettingsView({ schools = [] }: { schools?: SchoolLite[] }) {
 
 function SettingsInner({ schools }: { schools: SchoolLite[] }) {
   const { design } = useDesign();
+  const { player } = usePlayer();
+  // A parent's Settings is about the parent, in either design. Both player
+  // views below render the PLAYER's facts (UTR, grade, class year, gender)
+  // and the Seeded one an editable player-profile form — on an account whose
+  // sidebar says read-only. See parent-settings-view.tsx.
+  if (player.role === "parent") return <ParentSettingsView />;
   return design === "seeded" ? <SeededSettingsView schools={schools} /> : <LegacySettingsView />;
 }
 

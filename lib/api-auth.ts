@@ -80,3 +80,39 @@ export async function getProfileRoleAndFamily(
     familyCode: (code as string | null) ?? null,
   };
 }
+
+/**
+ * Refuse a write to the caller's PLAYER data when the caller is a parent.
+ *
+ * Parents follow a player; they do not log results, ratings, plans or
+ * outreach. The UI keeps them off those screens (AuthGate), but a route is
+ * an API, and an API that accepts the write is a parent writing tennis data
+ * onto their own row — which is how persona (f) came to hold a UTR entry of
+ * 5.00 that /family/weekly-reports once subtracted from the child's.
+ *
+ * Reads `role` from the caller's own profile row. Returns a 403 response to
+ * send, or null to continue. Used by every player-data write route;
+ * `lib/parent-read-only.test.ts` fails the build if one of them stops
+ * calling it.
+ *
+ * Not a substitute for RLS: a parent can never touch the PLAYER's rows on
+ * any of these tables (each checks `user_id = auth.uid()`). This closes the
+ * app's own path to writing tennis data under the parent's id.
+ */
+export async function refuseParentPlayerDataWrite(ctx: {
+  user: User;
+  supabase: SupabaseClient<Database>;
+}): Promise<Response | null> {
+  const { data } = await ctx.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", ctx.user.id)
+    .maybeSingle();
+  if (data?.role !== "parent") return null;
+  return new Response(
+    JSON.stringify({
+      error: "Parent accounts can't change a player's results, ratings, plan or outreach.",
+    }),
+    { status: 403, headers: { "content-type": "application/json" } }
+  );
+}

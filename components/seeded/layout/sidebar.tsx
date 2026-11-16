@@ -30,8 +30,12 @@ import { getSchoolsLite } from "@/lib/db/schools";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
+import { PARENT_NAV_LINKS, PLAYER_NAV_LINKS } from "./nav-links";
+import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
+import { pickFamilyPlayer } from "@/lib/family-view";
 
-type NavLink = { href: string; label: string; icon: LucideIcon; badge?: number };
+// NavLink, PLAYER_NAV_LINKS and PARENT_NAV_LINKS live in ./nav-links — the
+// one list the ⌘K palette also reads.
 
 // Real count of /today's action list, computed the same way
 // seeded-dashboard-layout.tsx does — so the sidebar badge never disagrees
@@ -48,40 +52,6 @@ function useTodayActionCount(targetSchoolSlugs: string[], playerUtr: number): nu
     return buildTodayActions(playerUtr, targetSchools, outreach ?? {}).length;
   }, [schools, outreach, targetSchoolSlugs, playerUtr]);
 }
-
-// The redesign's 5-item IA (Today.dc.html / MobileToday.dc.html) is
-// player-only — every one of the 11 mockups shows the player's view.
-// Settings moves to the avatar menu below, and Tournament fit (which the
-// mockups don't give a nav slot) lives there too rather than being dropped
-// with no way to reach it.
-const PLAYER_NAV_LINKS: NavLink[] = [
-  { href: "/today", label: "Today", icon: Clock },
-  { href: "/plan", label: "Plan", icon: TrendingUp },
-  { href: "/schools", label: "Schools", icon: School },
-  { href: "/outreach", label: "Outreach", icon: Mail },
-  { href: "/events", label: "Events", icon: CalendarDays },
-];
-
-// Pixel-exact to "18 Parent view + budget.png" — the real parent nav,
-// replacing the 2-item guess above that was built before any parent
-// mockup existed. Overview is /family itself; Budget and Weekly reports
-// are real sub-routes (AuthGate's isParentAllowedPath already permits
-// anything starting with "/family"). Schools/Events are the same shared,
-// already-real routes the player nav uses. Settings/Tournament fit stay in
-// the avatar menu for both roles, same as before.
-const PARENT_NAV_LINKS: NavLink[] = [
-  { href: "/family", label: "Overview", icon: LayoutDashboard },
-  { href: "/family/budget", label: "Budget", icon: DollarSign },
-  { href: "/schools", label: "Schools", icon: School },
-  // "/events" was here and is NOT in isParentAllowedPath() (auth-gate.tsx),
-  // so a parent clicking their own Events tab was silently bounced to
-  // /family. A nav item that cannot reach its destination is worse than no
-  // nav item: it reads as the app losing their click. Removed rather than
-  // allowed, because /events is the player's tournament planner — a write
-  // surface a parent is deliberately kept out of. Upcoming events already
-  // appear on the parent's Overview and weekly report.
-  { href: "/family/weekly-reports", label: "Weekly reports", icon: FileText },
-];
 
 function initialOf(name: string) {
   return (name.trim()[0] || "S").toUpperCase();
@@ -103,6 +73,14 @@ export function SeededSidebar() {
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   const isParent = player.role === "parent";
+  // "Parent of Bailey · read-only": the same subject every parent screen's
+  // ParentScopeLine names, from the same pickFamilyPlayer(). The mockup's
+  // static "Parent view · read-only" is the fallback while it loads.
+  const { data: familyMembers } = useSWR<FamilyMember[]>(isParent ? "family-members" : null, () =>
+    loadFamilyMembers()
+  );
+  const subjectFirst = (pickFamilyPlayer(familyMembers ?? [])?.name ?? "").trim().split(/\s+/)[0];
+  const parentSubtitle = subjectFirst ? `Parent of ${subjectFirst} · read-only` : "Parent view · read-only";
   const todayCount = useTodayActionCount(player.targetSchoolSlugs, player.currentUTR);
   const navLinks = useMemo(() => {
     const base = isParent ? PARENT_NAV_LINKS : PLAYER_NAV_LINKS;
@@ -167,7 +145,7 @@ export function SeededSidebar() {
             parent-facing write path, not by this label) that the account
             can't edit the player's own data from here. */}
         {!collapsed && isParent && (
-          <p className="shrink-0 px-4 pt-2.5 font-sans text-xs text-stone-light">Parent view · read-only</p>
+          <p className="shrink-0 px-4 pt-2.5 font-sans text-xs text-stone-light">{parentSubtitle}</p>
         )}
 
         {collapsed && (

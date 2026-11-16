@@ -47,7 +47,14 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 async function loadBag(): Promise<Record<string, unknown> | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data } = await supabase.from("user_settings").select("notification_preferences").maybeSingle();
+  const userId = await getUserId();
+  if (!userId) return null;
+  // Own row, explicitly — see loadTrainingPlannerState in events.ts.
+  const { data } = await supabase
+    .from("user_settings")
+    .select("notification_preferences")
+    .eq("user_id", userId)
+    .maybeSingle();
   return (data?.notification_preferences as Record<string, unknown> | undefined) ?? null;
 }
 

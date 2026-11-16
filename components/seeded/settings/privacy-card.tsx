@@ -12,13 +12,14 @@ export function PrivacyCard({
   deleting,
   deleteError,
   exportError,
+  audience = "player",
 }: {
   /** The complete record — every table, server-side. /api/account/export. */
   onDownloadEverything: () => void;
   /** The partial, human-readable spreadsheet (schools, results, notes,
    * outreach) built in the browser. Kept because it is the one people
    * actually open. */
-  onDownloadSpreadsheet: () => void;
+  onDownloadSpreadsheet?: () => void;
   downloading: "everything" | "spreadsheet" | null;
   onDelete: () => void;
   deleting: boolean;
@@ -29,6 +30,12 @@ export function PrivacyCard({
    * server error. Shown next to the download rows, since that is where the
    * person just clicked. */
   exportError?: string | null;
+  /** A parent's copy differs in substance, not tone: their export holds
+   * their own account (not the player's results), there is no spreadsheet
+   * of tennis data to offer them, and deleting a parent account leaves the
+   * family and the player in place. Each sentence below was checked
+   * against delete_my_account() (029/035) and the export route. */
+  audience?: "player" | "parent";
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -52,8 +59,9 @@ export function PrivacyCard({
           <div className="min-w-0">
             <p className="font-semibold text-ink">Download everything</p>
             <p className="mt-0.5 text-sm text-stone">
-              Every row Seeded stores about your account, as a JSON file. Includes your
-              family&apos;s season budget; does not include other people&apos;s results.
+              {audience === "parent"
+                ? "Every row Seeded stores about your own account, as a JSON file — your profile, the notes you wrote, the expenses you entered and your family's season budget. It does not include your player's results; those belong to their account."
+                : "Every row Seeded stores about your account, as a JSON file. Includes your family's season budget; does not include other people's results."}
             </p>
           </div>
           <button
@@ -66,6 +74,7 @@ export function PrivacyCard({
           </button>
         </div>
 
+        {onDownloadSpreadsheet && (
         <div className="flex items-start justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">Download as a spreadsheet</p>
@@ -83,6 +92,7 @@ export function PrivacyCard({
             {downloading === "spreadsheet" ? "Preparing…" : "Download CSV"}
           </button>
         </div>
+        )}
 
         {exportError && <p className="py-3 text-sm text-error">{exportError}</p>}
 
@@ -97,6 +107,14 @@ export function PrivacyCard({
               Permanently deletes your account and all of your data straight away. This
               cannot be undone.
             </p>
+            {audience === "parent" && (
+              <p className="mt-2 text-sm text-stone">
+                Your player&apos;s account and everything in it stay exactly as they are, and so
+                does the family if anyone else is still in it. What goes with you: your
+                profile, the notes you wrote and the budget expenses you entered. If you are
+                the last member, the family and its season budget are deleted too.
+              </p>
+            )}
           </div>
           <button
             type="button"

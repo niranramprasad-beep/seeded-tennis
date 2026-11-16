@@ -216,7 +216,11 @@ export interface CostInputs {
   lessonRate: number;
   equipmentBudgetPerYear: number;
   travelCostPerTournament: number;
-  targetSchools: { name: string; division: string; annualCost: number; scholarshipPercent: number }[];
+  // `targetSchools` (with an `annualCost` and a `scholarshipPercent` per
+  // school) is gone. Both were generic numbers chosen by rank and division
+  // and printed under real school names as "Net: $…". Seeded holds no cost
+  // or aid data for any program, so the calculator now covers only what the
+  // family itself types in. lib/no-invented-school-data.test.ts guards it.
 }
 
 export interface CostResults {
@@ -224,7 +228,6 @@ export interface CostResults {
   tournaments: number;
   equipment: number;
   total: number;
-  scholarships: { name: string; scholarshipValue: number; netCost: number }[];
 }
 
 export interface CostCalculation {
@@ -250,11 +253,7 @@ export function calculateCost(input: CostInputs): CostResults {
   const tournaments = input.tournamentsPerYear * input.travelCostPerTournament * input.yearsRemaining;
   const equipment = input.equipmentBudgetPerYear * input.yearsRemaining;
   const total = coaching + tournaments + equipment;
-  const scholarships = input.targetSchools.map((s) => {
-    const scholarshipValue = s.annualCost * input.yearsRemaining * (s.scholarshipPercent / 100);
-    return { name: s.name, scholarshipValue, netCost: Math.max(0, total - scholarshipValue) };
-  });
-  return { coaching, tournaments, equipment, total, scholarships };
+  return { coaching, tournaments, equipment, total };
 }
 
 export async function saveCostCalculation(input: CostInputs, name = "College tennis pursuit"): Promise<CostCalculation | null> {
@@ -283,7 +282,7 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
 // has ever saved.
 export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCalculation[]> {
   const supabase = getSupabase();
-  const { id, profile: p, familyCode } = await familyScope(signal);
+  const { id } = await familyScope(signal);
   if (!supabase || !id) return [];
   let query = supabase.from("cost_calculations").select("*").order("created_at", { ascending: false }).limit(4);
   // Scope by OWNER, not by the row's stamped family_code. A row a joiner
@@ -291,8 +290,9 @@ export async function loadCostCalculations(signal?: AbortSignal): Promise<CostCa
   // (036's trigger freezes the column on UPDATE), so a family_code filter
   // hides it from their family permanently. The read policy keys off the
   // owner for the same reason — this makes the query match the policy.
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
-  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
+  // A cost projection is its author's own working; nobody else's belongs
+  // in their list.
+  query = query.eq("user_id", id);
   if (signal) query = query.abortSignal(signal);
   const { data } = await query;
   return (data ?? []).map(mapCost);

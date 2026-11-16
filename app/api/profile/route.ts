@@ -36,6 +36,43 @@ export async function POST(req: Request) {
     );
   }
 
+  // The caller's own row, read server-side: role and tier both come from the
+  // database, never from the body (which is the client's merged Player and
+  // carries a `role` the client could set to anything).
+  const { data: own } = await ctx.supabase
+    .from("profiles")
+    .select("role, subscription_tier")
+    .eq("id", ctx.user.id)
+    .maybeSingle();
+
+  // A PARENT account writes its name and nothing else through this route.
+  //
+  // The client posts the whole merged Player on every save, so a parent
+  // saving their name used to write a defaulted gender, graduation_year,
+  // target list and UTR fields onto their own row — invented stats about
+  // the parent that nothing should read. And Settings used to show a parent
+  // the player-profile form outright. Parents follow a player; they do not
+  // have tennis data of their own. Settings no longer offers the fields, and
+  // this makes the route refuse them regardless of what the screen sends.
+  //
+  // Scope, stated plainly: RLS lets any account update ITS OWN profile row,
+  // so a parent going around this route straight to PostgREST could still
+  // write those columns on their own row. They can never write the
+  // player's row (profiles_update_own is `id = auth.uid()`), and family
+  // screens never read the parent's row for player facts
+  // (resolveFamilyPlayerFacts).
+  if (own?.role === "parent") {
+    const name = parsed.data.name.trim();
+    if (!name) {
+      return NextResponse.json({ error: "Enter your name." }, { status: 400 });
+    }
+    const { error } = await ctx.supabase.from("profiles").update({ name }).eq("id", ctx.user.id);
+    if (error) {
+      return NextResponse.json({ error: "Could not save your name. Try again." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // Free accounts may track FREE_TIER_TARGET_SCHOOL_LIMIT schools. This check
   // is NOT the gate — migration 024's trigger is, because `profiles` is
   // directly PATCHable through PostgREST and anything enforced only here can
@@ -45,13 +82,7 @@ export async function POST(req: Request) {
   // Read the tier server-side from the caller's own row; never trust a tier
   // sent in the body.
   if (parsed.data.targetSchoolSlugs.length > FREE_TIER_TARGET_SCHOOL_LIMIT) {
-    const { data: profile } = await ctx.supabase
-      .from("profiles")
-      .select("subscription_tier")
-      .eq("id", ctx.user.id)
-      .maybeSingle();
-
-    const tier = (profile?.subscription_tier ?? "free") as SubscriptionTier;
+    const tier = (own?.subscription_tier ?? "free") as SubscriptionTier;
     if (TIER_RANK[tier] < TIER_RANK.player) {
       return NextResponse.json(
         {

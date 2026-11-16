@@ -1,12 +1,14 @@
 "use client";
 
+import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 import { useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
-import { resolveFamilyPlayerFacts } from "@/lib/family-view";
+import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
+import { subjectKey } from "@/lib/db/family-scope";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadTournamentEntries } from "@/lib/db/events";
@@ -56,18 +58,35 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   // The PLAYER's history, explicitly. This read the pooled family list and
   // computed "−4.40 this week" by subtracting one person's rating from
   // another's — see loadUtrEntries() for the whole story.
-  const playerId = members.find((m) => m.role === "player")?.id ?? null;
+  const playerId = pickFamilyPlayer(members)?.id ?? null;
   const { data: utrEntries } = useSWR(
     playerId ? ["utr-entries", playerId] : null,
     () => loadUtrEntriesFor(playerId!)
   );
-  const { data: outreach } = useSWR("coach-outreach-dated", () => loadCoachOutreachDated());
-  const { data: tournamentEntries = [] } = useSWR("tournament-entries", () => loadTournamentEntries());
+  // Scoped to the player by id (lib/db/family-scope.ts DataSubject). These
+  // used to load every approved member's rows whenever the viewer was a
+  // parent, so a sibling's emails and events were counted as this player's.
+  const { data: outreach } = useSWR(
+    playerId ? ["coach-outreach-dated", subjectKey({ userId: playerId })] : null,
+    () => loadCoachOutreachDated({ userId: playerId! })
+  );
+  const { data: tournamentEntries = [] } = useSWR(
+    playerId ? ["tournament-entries", subjectKey({ userId: playerId })] : null,
+    () => loadTournamentEntries({ userId: playerId! })
+  );
+  // The season budget is the FAMILY's money, so its spend counts every
+  // player's entered tournaments — explicitly, not by default.
+  const { data: familyTournamentEntries = [] } = useSWR(
+    ["tournament-entries", subjectKey("family-players")],
+    () => loadTournamentEntries("family-players")
+  );
   const { data: seasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
   const { data: expenses = [] } = useSWR("budget-expenses", () => loadBudgetExpenses());
 
-  const playerMember = members.find((m) => m.role === "player");
-  const playerName = playerMember?.name || player.name || "your player";
+  const playerMember = pickFamilyPlayer(members);
+  // Never the viewer's own name: with no player in the family this printed
+  // the PARENT's name as the player's ("Jordan's week").
+  const playerName = playerMember?.name || "your player";
   const firstName = playerName.split(" ")[0];
   // Same correction as seeded-family-overview.tsx: a `??` here let a player
   // row with no UTR, or a family with no approved player at all, fall
@@ -105,10 +124,11 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
       buildSeasonBudgetSummary({
         totalBudget,
         playerUtr: currentUTR,
-        entries: tournamentEntries,
+        entries: familyTournamentEntries,
         expenses,
+        judgedUserId: playerId,
       }),
-    [totalBudget, currentUTR, tournamentEntries, expenses]
+    [totalBudget, currentUTR, familyTournamentEntries, expenses, playerId]
   );
 
   const weekRange = useMemo(() => {
@@ -119,6 +139,8 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      <ParentScopeLine />
+      <div className="h-6" aria-hidden />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">

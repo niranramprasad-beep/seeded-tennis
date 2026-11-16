@@ -46,6 +46,7 @@ function daysAgo(n: number): string {
 const MOCK_TOURNAMENTS: TournamentEntry[] = [
   {
     id: "t-1",
+    userId: "preview-player",
     name: "L3 Richmond Winter",
     level: "L3",
     eventDate: daysFromNow(6),
@@ -62,6 +63,7 @@ const MOCK_TOURNAMENTS: TournamentEntry[] = [
   },
   {
     id: "t-2",
+    userId: "preview-player",
     name: "L5 Bethesda Open",
     level: "L5",
     eventDate: daysFromNow(7),
@@ -78,6 +80,7 @@ const MOCK_TOURNAMENTS: TournamentEntry[] = [
   },
   {
     id: "t-3",
+    userId: "preview-player",
     name: "L3 Norfolk Open",
     level: "L3",
     eventDate: daysFromNow(21),

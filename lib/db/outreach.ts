@@ -4,7 +4,7 @@
 // former lib/supabase/features.ts's coach_outreach section.
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
-import { approvedFamilyMemberIds } from "./family-scope";
+import { subjectUserIds, type DataSubject } from "./family-scope";
 import type { Tables } from "./database.types";
 
 async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<"profiles"> | null }> {
@@ -30,9 +30,12 @@ export type OutreachStatus =
   | "committed";
 export type OutreachStatusMap = Record<string, OutreachStatus>;
 
-export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachStatusMap> {
+export async function loadCoachOutreach(
+  subject: DataSubject = "self",
+  signal?: AbortSignal
+): Promise<OutreachStatusMap> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const { id } = await userIdAndProfile();
   if (!supabase || !id) return {};
   // `my_family_code()`, not `p.family_code` — the latter is NULL for a
   // parent who joined with a code, which silently turned a family-wide
@@ -42,9 +45,10 @@ export async function loadCoachOutreach(signal?: AbortSignal): Promise<OutreachS
   // (036's trigger freezes the column on UPDATE), so a family_code filter
   // hides it from their family permanently. The read policy keys off the
   // owner for the same reason — this makes the query match the policy.
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
+  const subjectIds = await subjectUserIds(supabase, id, subject, signal);
+  if (subjectIds.length === 0) return {};
   let query = supabase.from("coach_outreach").select("school_slug, status");
-  query = memberIds.length ? query.in("user_id", memberIds) : query.eq("user_id", id);
+  query = query.in("user_id", subjectIds);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
   if (error) return {};
@@ -77,12 +81,15 @@ interface OutreachDatedRow {
   reply_note?: string | null;
 }
 
-export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<OutreachStatusMapDated> {
+export async function loadCoachOutreachDated(
+  subject: DataSubject = "self",
+  signal?: AbortSignal
+): Promise<OutreachStatusMapDated> {
   const supabase = getSupabase();
-  const { id, profile: p } = await userIdAndProfile();
+  const { id } = await userIdAndProfile();
   if (!supabase || !id) return {};
-  const memberIds = p?.role === "parent" ? await approvedFamilyMemberIds(supabase, signal) : [];
-  const isParentFamily = memberIds.length > 0;
+  const subjectIds = await subjectUserIds(supabase, id, subject, signal);
+  if (subjectIds.length === 0) return {};
 
   // Selects widen in three steps, from "everything this task adds" down to
   // the original 009 columns, because remind_at (011) and reply_note (017)
@@ -93,7 +100,7 @@ export async function loadCoachOutreachDated(signal?: AbortSignal): Promise<Outr
   // either) has actually landed; the newer field(s) just stay absent.
   async function runSelect(columns: string): Promise<{ data: OutreachDatedRow[] | null; error: { message: string } | null }> {
     let q = supabase!.from("coach_outreach").select(columns);
-    q = isParentFamily ? q.in("user_id", memberIds) : q.eq("user_id", id as string);
+    q = q.in("user_id", subjectIds);
     if (signal) q = q.abortSignal(signal);
     const result = await q;
     return { data: (result.data as unknown as OutreachDatedRow[] | null), error: result.error };
