@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { classifySchoolFit, countSchoolFits } from "@/lib/school-fit";
+import { classifySchoolFit, countSchoolFits, fitBasis } from "@/lib/school-fit";
 import { hasRealUtr } from "@/lib/utils";
 import { emptyPlayer } from "@/lib/data/user";
 import { syntheticUtrHistoryFor } from "@/lib/what-if-utr";
@@ -42,7 +42,7 @@ describe("the UTR sentinel is detectably wrong, which is why the guard exists", 
       utrHistory: syntheticUtrHistoryFor({ currentUTR: 0, targetUTR: 0, graduationYear: 2028 }),
       graduationYear: 2028,
     };
-    const counts = countSchoolFits(0, SAMPLE, projection);
+    const counts = countSchoolFits(fitBasis(0, projection), SAMPLE);
     // This is the bug, asserted: 0 is below every team floor, so the
     // honest classifier honestly reports the whole catalogue as a Reach.
     // That is a true answer to a meaningless question, and showing it to a
@@ -57,7 +57,7 @@ describe("the UTR sentinel is detectably wrong, which is why the guard exists", 
       utrHistory: syntheticUtrHistoryFor({ currentUTR: 10.5, targetUTR: 10.5, graduationYear: 2028 }),
       graduationYear: 2028,
     };
-    const bands = new Set(SAMPLE.map((s) => classifySchoolFit(10.5, s, projection)));
+    const bands = new Set(SAMPLE.map((s) => classifySchoolFit(fitBasis(10.5, projection), s)));
     expect(bands.size).toBeGreaterThan(1);
   });
 });
@@ -82,12 +82,19 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     expect(source).toMatch(/const hasUtr = hasRealUtr\(effectiveUtr\)/);
   });
 
-  it("does not count fit bands without a rating", () => {
-    // countSchoolFits must be reached only through the hasUtr branch.
-    const call = source.match(/countSchoolFits\([^)]*\)/)?.[0] ?? "";
-    expect(call).not.toBe("");
-    const before = source.slice(Math.max(0, source.indexOf(call) - 220), source.indexOf(call));
-    expect(before).toMatch(/hasUtr\s*$|hasUtr[\s\S]*\?\s*$/);
+  it("does not classify or count anything itself", () => {
+    // Stronger than the assertion this replaces. The browser used to call
+    // countSchoolFits and classifySchoolFit behind its own hasUtr gate. It
+    // now reads bands from the single report (lib/fit.ts) and classifies
+    // nothing — so the gate it used to need is gone, along with the
+    // opportunity to get that gate wrong, which is what happened twice.
+    for (const banned of ["classifySchoolFit", "countSchoolFits", "fitBasis"]) {
+      expect(
+        source,
+        `the browser must not call ${banned} — read bands from useFitReport`
+      ).not.toMatch(new RegExp(`\\b${banned}\\s*\\(`));
+    }
+    expect(source, "bands must come from the shared report").toMatch(/useFitReport\(/);
   });
 
   // THE IMPORTANT ONE. The previous version of this file checked the
@@ -104,27 +111,12 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
   // which returns null without a rating. A band that can be null cannot be
   // handed to FitBadge without the typechecker objecting, so a fourth
   // caller added later is gated by construction rather than by vigilance.
-  it("classifies in exactly one place, and that place is gated", () => {
-    const calls = [...source.matchAll(/classifySchoolFit\s*\(/g)];
+  it("gets every band from the shared report", () => {
     expect(
-      calls.length,
-      "classifySchoolFit must be called only inside bandFor — add a caller there, not here"
-    ).toBe(1);
-
-    // Not "is there a hasUtr nearby" — a verifier satisfied that with the
-    // de-gated line itself, and satisfied the `| null` return-type check
-    // with an annotation on a function that never returned null. Both
-    // checks were positional dressed up as structural.
-    //
-    // The ARGUMENT is what matters: the classifier may only ever be handed
-    // `youUtr`. That value is `number | null`, so the fallback that broke
-    // this last time (`hasUtr ? effectiveUtr : player.currentUTR`) does not
-    // typecheck — tsc is the real enforcement and this stops the seam
-    // being removed.
-    expect(
-      source.slice(calls[0].index!, calls[0].index! + 40),
-      "classifySchoolFit must be called with youUtr, never a raw number"
-    ).toMatch(/classifySchoolFit\(\s*youUtr\b/);
+      [...source.matchAll(/classifySchoolFit\s*\(/g)].length,
+      "bands come from the report, not from a local classify"
+    ).toBe(0);
+    expect(source).toMatch(/const bandFor\s*=[\s\S]{0,200}?report\?\.bandBySlug\.get/);
   });
 
   it("the only rating in scope is nullable, and the raw player value is not reachable", () => {

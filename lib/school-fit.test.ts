@@ -7,8 +7,7 @@ import {
   explainSchoolFit,
   findAlternativeSchools,
   REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
-  type SchoolFitProjectionInput,
-} from "./school-fit";
+  type SchoolFitProjectionInput, fitBasis } from "./school-fit";
 import { computeUtrProjection, type UtrDataPoint } from "./utr-projection";
 import type { SchoolLite } from "./types";
 
@@ -40,25 +39,25 @@ function schoolLite(overrides: Partial<SchoolLite> & { slug: string }): SchoolLi
 
 describe("classifySchoolFit — Likely/Target boundaries (no projection needed)", () => {
   it("classifies a UTR above the team median as Likely", () => {
-    expect(classifySchoolFit(11.5, SCHOOL)).toBe("likely");
+    expect(classifySchoolFit(fitBasis(11.5), SCHOOL)).toBe("likely");
   });
 
   it("classifies a UTR exactly at the team median as Likely", () => {
-    expect(classifySchoolFit(11, SCHOOL)).toBe("likely");
+    expect(classifySchoolFit(fitBasis(11), SCHOOL)).toBe("likely");
   });
 
   it("classifies a UTR inside the range, below the median, as Target", () => {
-    expect(classifySchoolFit(10.5, SCHOOL)).toBe("target");
+    expect(classifySchoolFit(fitBasis(10.5), SCHOOL)).toBe("target");
   });
 
   it("classifies a UTR exactly at the team floor as Target", () => {
-    expect(classifySchoolFit(10, SCHOOL)).toBe("target");
+    expect(classifySchoolFit(fitBasis(10), SCHOOL)).toBe("target");
   });
 });
 
 describe("classifySchoolFit — below the floor, no projection supplied", () => {
   it("falls back to Reach, never fabricating Out-of-range without real pace data", () => {
-    expect(classifySchoolFit(9, SCHOOL)).toBe("reach");
+    expect(classifySchoolFit(fitBasis(9), SCHOOL)).toBe("reach");
   });
 });
 
@@ -84,7 +83,7 @@ describe("classifySchoolFit — below the floor, with a real projection", () => 
       graduationYear: GRAD_YEAR_2027,
       now: NOW,
     };
-    expect(classifySchoolFit(9, SCHOOL, projection)).toBe("reach");
+    expect(classifySchoolFit(fitBasis(9, projection), SCHOOL)).toBe("reach");
   });
 
   it("classifies as Reach when the real pace projects to close the gap by the summer before senior year", () => {
@@ -93,7 +92,7 @@ describe("classifySchoolFit — below the floor, with a real projection", () => 
       graduationYear: GRAD_YEAR_2027,
       now: NOW,
     };
-    expect(classifySchoolFit(9, SCHOOL, projection)).toBe("reach");
+    expect(classifySchoolFit(fitBasis(9, projection), SCHOOL)).toBe("reach");
   });
 
   it("classifies as Out-of-range when the real pace does NOT project to close the gap in time", () => {
@@ -102,7 +101,7 @@ describe("classifySchoolFit — below the floor, with a real projection", () => 
       graduationYear: GRAD_YEAR_2027,
       now: NOW,
     };
-    expect(classifySchoolFit(9, SCHOOL, projection)).toBe("out-of-range");
+    expect(classifySchoolFit(fitBasis(9, projection), SCHOOL)).toBe("out-of-range");
   });
 
   it("evaluates at today's pace (not a date that's already gone) once the milestone has passed", () => {
@@ -115,7 +114,7 @@ describe("classifySchoolFit — below the floor, with a real projection", () => 
       graduationYear: 2025,
       now: NOW,
     };
-    expect(classifySchoolFit(9, SCHOOL, projection)).toBe("out-of-range");
+    expect(classifySchoolFit(fitBasis(9, projection), SCHOOL)).toBe("out-of-range");
   });
 
   it("tightens the ceiling to the player's real gender cap when supplied", () => {
@@ -128,17 +127,17 @@ describe("classifySchoolFit — below the floor, with a real projection", () => 
       { date: d("2025-06-01"), utr: 8.0 },
       { date: d("2025-11-01"), utr: 10.0 },
     ];
-    const withGender = classifySchoolFit(9, SCHOOL, {
+    const withGender = classifySchoolFit(fitBasis(9, {
       utrHistory: steepClimb,
       graduationYear: GRAD_YEAR_2027,
       gender: "female",
       now: NOW,
-    });
-    const withoutGender = classifySchoolFit(9, SCHOOL, {
+    }), SCHOOL);
+    const withoutGender = classifySchoolFit(fitBasis(9, {
       utrHistory: steepClimb,
       graduationYear: GRAD_YEAR_2027,
       now: NOW,
-    });
+    }), SCHOOL);
     expect(withGender).toBe("reach");
     expect(withoutGender).toBe("reach");
   });
@@ -152,7 +151,7 @@ describe("countSchoolFits", () => {
   ];
 
   it("buckets reach/target/likely and leaves outOfRange at 0 with no projection", () => {
-    const counts = countSchoolFits(9, schools);
+    const counts = countSchoolFits(fitBasis(9), schools);
     expect(counts).toEqual({ reach: 1, target: 1, likely: 1, outOfRange: 0 });
   });
 
@@ -162,11 +161,11 @@ describe("countSchoolFits", () => {
       { date: d("2025-08-01"), utr: 8.95 },
       { date: d("2025-11-01"), utr: 9.0 },
     ];
-    const counts = countSchoolFits(9, schools, {
+    const counts = countSchoolFits(fitBasis(9, {
       utrHistory: flatPace,
       graduationYear: 2027,
       now: d("2025-11-08"),
-    });
+    }), schools);
     expect(counts).toEqual({ reach: 0, target: 1, likely: 1, outOfRange: 1 });
   });
 });
@@ -581,7 +580,7 @@ describe("closestSchoolsByUtrGap — 'closest schools to you' (point 4)", () => 
   it("includes the real signed gap and the same band classifySchoolFit would return", () => {
     const [result] = closestSchoolsByUtrGap(9, [slightlyOff]);
     expect(result.gap).toBe(0.5);
-    expect(result.band).toBe(classifySchoolFit(9, slightlyOff));
+    expect(result.band).toBe(classifySchoolFit(fitBasis(9), slightlyOff));
   });
 
   it("respects the limit", () => {

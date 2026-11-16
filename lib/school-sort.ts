@@ -8,6 +8,7 @@
 import type { SchoolLite } from "@/lib/types";
 import {
   classifySchoolFit,
+  fitBasis,
   type SchoolFitBand,
   type SchoolFitProjectionInput,
 } from "@/lib/school-fit";
@@ -61,7 +62,7 @@ export function sortSchoolsForSeeded<T extends SchoolLite>(
   const withMeta = schools.map((school) => ({
     school,
     gap: gapToRelevantBoundary(utr, school),
-    band: classifySchoolFit(utr, school, projection),
+    band: classifySchoolFit(fitBasis(utr, projection), school),
   }));
 
   if (sort === "gap") {

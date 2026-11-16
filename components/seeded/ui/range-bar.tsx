@@ -27,6 +27,15 @@ interface RangeBarProps {
   median?: number;
   high?: number;
   you?: number | null;
+  /**
+   * A second, muted dot for the player's rating TODAY, shown when the bar's
+   * primary dot is a projection to junior year and the two differ. Without
+   * it the bar silently presents a projected position as the player's
+   * current one — the same conflation that made the fit report tell four
+   * stories at once. Omit (or pass null) when there is nothing to compare.
+   */
+  todayPct?: number | null;
+  today?: number | null;
 }
 
 function signed(value: number): string {
@@ -51,6 +60,8 @@ export function RangeBar({
   median,
   high,
   you,
+  todayPct,
+  today,
 }: RangeBarProps) {
   const reduceMotion = useReducedMotion();
   const [tapOpen, setTapOpen] = useState(false);
@@ -117,6 +128,16 @@ export function RangeBar({
           className={cn("absolute inset-y-0 w-0.5 bg-grass", transitionClass)}
           style={{ left: `${medianPct}%` }}
         />
+        {todayPct != null && today != null && today > 0 && youPct != null && Math.abs(todayPct - youPct) > 0.5 && (
+          <div
+            aria-hidden
+            className={cn(
+              "absolute h-[14px] w-[14px] rounded-full border-2 border-dashed border-stone bg-cream",
+              transitionClass
+            )}
+            style={{ left: `calc(${todayPct}% - 7px)`, top: "-2px" }}
+          />
+        )}
         {youPct != null && hasRealYou && (
           <div
             className={cn(
@@ -142,6 +163,11 @@ export function RangeBar({
             <p className="mt-0.5 font-mono tabular-nums">
               You {you!.toFixed(1)} · Gap to median {signed(you! - median!)}
             </p>
+            {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
+              <p className="mt-0.5 font-mono tabular-nums text-stone">
+                Today {today.toFixed(1)} (hollow marker)
+              </p>
+            )}
           </div>
         )}
       </div>

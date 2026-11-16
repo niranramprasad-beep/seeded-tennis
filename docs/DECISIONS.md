@@ -683,3 +683,49 @@ genuine 7-day window. The claim on /pricing was accurate; the one that was
 false was in `/privacy`, which described the unused table as something
 Seeded writes. Taking the finding at face value would have removed true copy
 and left false copy in place.
+
+---
+
+## 2026-11-15 — The fit report had two band systems; now it has one
+
+`/onboarding` for Men's UTR 8.7 Class of 2031 showed a trajectory panel
+saying "0 today → 20 by junior year", a headline saying "0 programs", tabs
+saying "Reach 37 · Target 0 · Likely 0", and rows comparing 8.7 to each
+team's range — all on one screen. Every number was correct about a
+different question and nothing said they were different questions.
+
+**Cause:** two parallel band systems — `countBands` in lib/fit.ts and
+`countSchoolFits` in lib/school-fit.ts — each callable from any component
+with whatever rating that component happened to hold.
+
+**Decided: the rating is a decision, not a parameter.** `recruitingTimeUtr()`
+is the only place that chooses which UTR judges fit. Before junior year it
+projects; for a junior or senior it returns today's rating unchanged, at
+every pace, because projecting growth onto someone being recruited now
+invents a better player than the one coaches are watching.
+
+**Decided: enforce it in the type system.** `classifySchoolFit` takes a
+branded `FitBasis` whose brand is a `unique symbol` private to its module,
+so a component cannot build one and `classifySchoolFit(8.7, school)` does
+not compile. The previous two rounds showed what lint-level guards are
+worth here: six were defeated by plausible edits. Making the change
+surfaced 50 compile errors across 13 files — every one a place that had
+been quietly choosing its own rating.
+
+**Decided: "in range" means target + likely.** It was the trajectory
+panel's existing meaning, and it is the honest one: a Reach is by
+definition a program you are not yet competitive for.
+
+**Decided: the junior-year view keeps a residual slow-pace curve to senior
+summer.** A flat curve was the first attempt and made Reach impossible in
+that view — toggling showed Reach going 37 → 0, reading as "I lost all my
+reaches" rather than "those became targets". The window between junior year
+and senior summer is real; taking the slow end of the band keeps it a floor
+rather than a promise.
+
+**Four of the five bugs fixed here were found by walking a persona, not by
+a test** — including the headline still announcing "By junior year…" while
+the Today view was selected, which is the original conflation reintroduced
+by the toggle built to remove it. The consistency test now covers all five
+personas in both views, but it was written after the walkthrough found the
+problems, not before.

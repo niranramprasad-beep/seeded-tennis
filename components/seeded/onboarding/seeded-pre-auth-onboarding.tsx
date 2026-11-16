@@ -6,14 +6,15 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { FamilyRole, Gender, Player, SchoolLite } from "@/lib/types";
 import { getCurrentGrade, getCurrentSchoolYear, getDefaultCommitDate } from "@/lib/time";
-import { classifySchoolFit, countSchoolFits, schoolUtrRange, utrToPct, type FitCounts } from "@/lib/school-fit";
+import { schoolUtrRange, utrToPct, type FitCounts } from "@/lib/school-fit";
 import { usePlayer } from "@/lib/context/player-context";
 import { signUp } from "@/lib/auth";
-import { GoogleButton, GoogleDivider } from "@/components/auth/auth-card";
+import { GoogleButton, GoogleDivider, authInputClass } from "@/components/auth/auth-card";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { parentConsentRequired } from "@/lib/config/consent";
-import { countBands, projectUtrAtRecruiting } from "@/lib/fit";
+import { buildFitReport, type FitView } from "@/lib/fit";
+import { cn } from "@/lib/utils";
 import {
   GROWTH_ESTIMATE_CAPTION,
   GROWTH_ESTIMATE_CHIP,
@@ -76,45 +77,36 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
     [utrNum, gradYear, gender]
   );
 
-  const counts = useMemo(
-    () => countSchoolFits(utrNum, filtered, projection),
-    [utrNum, filtered, projection]
-  );
-
-  // TASK 3. Where this player is headed by the time coaches actually look.
-  // Deterministic — lib/fit.ts, three constants, no model. Null when the
-  // visitor has not given a UTR, which the panel below renders as an empty
-  // state rather than a guess.
-  const trajectory = useMemo(
+  // ONE report. Headline, toggle, tab counts, every row band and the
+  // trajectory line all read it, so they cannot disagree — which they did,
+  // loudly: for Men's 8.7 Class of 2031 this screen used to say "0 programs"
+  // in the headline, "Reach 37 · Target 0 · Likely 0" in the tabs, and
+  // "0 today → 20 by junior year" in the panel, all at once. Each number was
+  // right about a different question and nothing said so.
+  const [view, setView] = useState<FitView | null>(null);
+  const report = useMemo(
     () =>
-      projectUtrAtRecruiting({
+      buildFitReport({
         currentUtr: utrNum > 0 ? utrNum : null,
         graduationYear: gradYear,
         gender: gender === "women" ? "female" : "male",
+        schools: filtered,
+        view: view ?? undefined,
+        projectionInput: projection,
       }),
-    [utrNum, gradYear, gender]
+    [utrNum, gradYear, gender, filtered, view, projection]
   );
 
-  const bandsToday = useMemo(() => countBands(filtered, utrNum), [filtered, utrNum]);
-  const bandsAtRecruiting = useMemo(
-    () => (trajectory ? countBands(filtered, trajectory.normal) : null),
-    [filtered, trajectory]
-  );
-  // Programs in at least one of the three in-range bands. NOT the catalog
-  // size: before P1-FIT-4 every below-floor school counted as Reach, so the
-  // two numbers happened to be equal and the footnote below could use this
-  // one for both. With out-of-range working, a 3.0 visitor has 0 in-band
-  // programs and the footnote would have read "0 programs in the catalog",
-  // which is false — the catalog has 68. They are different questions now.
-  const total = counts.reach + counts.target + counts.likely;
+  const counts = report?.counts ?? { reach: 0, target: 0, likely: 0, outOfRange: 0 };
+  const total = report?.inRange ?? 0;
 
   const [tab, setTab] = useState<FitBand>("target");
   const tabRows = useMemo(
     () =>
       filtered
-        .filter((s) => classifySchoolFit(utrNum, s, projection) === tab)
+        .filter((s) => report?.bandBySlug.get(s.slug) === tab)
         .sort((a, b) => a.minCompetitiveUTR - b.minCompetitiveUTR),
-    [filtered, utrNum, tab, projection]
+    [filtered, report, tab]
   );
 
   if (editing) {
@@ -159,20 +151,68 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
               Edit
             </button>
           </p>
-          <h1 className="mt-2 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-ink">
-            You&apos;re a realistic target for {counts.target} programs.
+          <h1 className="mt-2 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-balance text-ink">
+            {/* Keyed off the SELECTED VIEW, not merely whether a
+                projection exists. Keying it off `isProjected` meant the
+                Today view still announced "By junior year…" above today's
+                numbers — the same conflation of two questions this
+                workstream exists to remove, reintroduced by the toggle
+                that was meant to separate them. Caught by walking the
+                persona rather than by a test. */}
+            {report?.utr.isProjected && report.view === "recruiting"
+              ? `By junior year, you're on track for ${counts.target} Target and ${counts.likely} Likely programs.`
+              : `You're in range for ${total} programs — ${counts.target} Target and ${counts.likely} Likely.`}
           </h1>
+          {/* The other view's number, always — whichever view is showing.
+              A 7th grader looking at "0 programs" needs the junior-year
+              number beside it, and a family looking at the junior-year
+              number needs to know it is not today's. */}
+          {report?.canToggle && (
+            <p className="mt-2 text-base text-stone">
+              {report.view === "recruiting"
+                ? `Today: ${report.todayInRange} in range — that's normal for the Class of ${gradYear}.`
+                : `By junior year: ${report.recruitingCounts.target} Target and ${report.recruitingCounts.likely} Likely.`}
+            </p>
+          )}
           <p className="mt-2 text-base text-stone">
             Sorted by how well your rating, graduating seniors and academics
             line up. Bands update every time you log a result.
           </p>
+
+          {/* The toggle only appears when the two views genuinely differ.
+              A control that changes nothing is worse than no control. */}
+          {report?.canToggle && (
+            <div
+              role="group"
+              aria-label="Which rating to judge fit by"
+              className="mt-4 inline-flex rounded-lg border border-line bg-card p-1"
+            >
+              {([
+                ["recruiting", `By junior year (${report.utr.year})`],
+                ["today", "Today"],
+              ] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  aria-pressed={report.view === v}
+                  className={cn(
+                    "min-h-11 rounded-md px-4 font-sans text-[15px] font-semibold transition-colors",
+                    report.view === v ? "bg-ink text-cream" : "text-ink hover:bg-subtle-hover"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* TASK 3: where you're headed, not just where you are. */}
           <section
             aria-label="Projected rating at recruiting time"
             className="mt-5 rounded-xl border border-line bg-card p-5"
           >
-            {!trajectory ? (
+            {!report ? (
               <>
                 <p className="font-semibold text-ink">No rating yet</p>
                 <p className="mt-1 text-sm text-stone">
@@ -180,10 +220,10 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
                   year. We won&rsquo;t guess one for you.
                 </p>
               </>
-            ) : trajectory.isAtOrPastRecruiting ? (
+            ) : !report.utr.isProjected ? (
               <>
                 <p className="font-semibold text-ink">
-                  You&rsquo;re being recruited now, at {utrNum.toFixed(1)}.
+                  You&rsquo;re being recruited now, at {report.utr.value.toFixed(1)}.
                 </p>
                 <p className="mt-1 text-sm text-stone">
                   The bands below use your rating today — no projected growth, because
@@ -193,31 +233,26 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
             ) : (
               <>
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                  <span className="text-sm text-stone">By junior year ({trajectory.recruitingYear})</span>
+                  <span className="text-sm text-stone">By junior year ({report.utr.year})</span>
                   <span className="font-mono text-[28px] font-semibold leading-none tabular-nums text-ink">
-                    {trajectory.normal.toFixed(1)}
+                    {report.utr.value.toFixed(1)}
                   </span>
                   <span className="rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
                     {GROWTH_ESTIMATE_CHIP}
                   </span>
                 </div>
                 <p className="mt-1.5 text-sm text-stone">
-                  Slower {trajectory.slow.toFixed(1)} · faster {trajectory.fast.toFixed(1)}
-                  {trajectory.cappedByCeiling ? " (capped at the top of college tennis)" : ""}
+                  Slower {report.utr.low.toFixed(1)} · faster {report.utr.high.toFixed(1)}
                 </p>
-                {bandsAtRecruiting && (
-                  <p className="mt-2.5 text-sm text-ink">
-                    Programs in range:{" "}
-                    <strong className="font-mono tabular-nums">
-                      {bandsToday.likely + bandsToday.target}
-                    </strong>{" "}
-                    today →{" "}
-                    <strong className="font-mono tabular-nums">
-                      {bandsAtRecruiting.likely + bandsAtRecruiting.target}
-                    </strong>{" "}
-                    by junior year.
-                  </p>
-                )}
+                {/* The SAME numbers the tabs and rows use — these come
+                    from the one report, so "in range" here and the tab
+                    totals below are the same arithmetic, not two. */}
+                <p className="mt-2.5 text-sm text-ink">
+                  Programs in range:{" "}
+                  <strong className="font-mono tabular-nums">{report.todayInRange}</strong> today
+                  → <strong className="font-mono tabular-nums">{report.recruitingInRange}</strong>{" "}
+                  by junior year.
+                </p>
                 <p className="mt-2.5 text-xs text-stone">
                   {growthAssumptionLabel("normal")} {GROWTH_ESTIMATE_CAPTION}
                 </p>
@@ -227,6 +262,36 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
               {RECRUITING_TIMING_NOTE}
             </p>
           </section>
+
+          {/* Persona (e) — a beginner at 4.0 — had every band empty in
+              both views: three tabs reading 0 and a table saying "no
+              programs yet", with nothing to do next. Honest, and a dead
+              end. This says what the catalogue actually covers and where
+              to go instead, without inventing a program that fits. */}
+          {report && report.counts.reach + total === 0 && (
+            <div className="mt-6 rounded-xl border border-line bg-card p-5">
+              <p className="m-0 font-semibold text-ink">
+                No program in this catalogue is a realistic fit yet.
+              </p>
+              <p className="mt-1.5 text-sm text-stone">
+                Seeded only covers {filtered.length} {GENDER_LABEL[gender].toLowerCase()} college
+                programs, and the lowest team range here starts well above a{" "}
+                {utrNum.toFixed(1)} UTR
+                {report.utr.isProjected ? ` — even at ${report.utr.value.toFixed(1)} by junior year` : ""}.
+                That is a fact about our catalogue, not a verdict on the player.
+              </p>
+              <p className="mt-2.5 text-sm text-stone">
+                Log results as you play and this report updates every time your rating moves.
+                The tournament checker works at any level.
+              </p>
+              <Link
+                href="/tournament-fit"
+                className="mt-3.5 inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+              >
+                Check a tournament instead
+              </Link>
+            </div>
+          )}
 
           <div role="tablist" aria-label="Fit bands" className="mt-6 flex flex-wrap gap-2">
             {(["reach", "target", "likely"] as const).map((band) => (
@@ -247,11 +312,20 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-line bg-card">
-            <div className="grid grid-cols-[2.2fr_2fr_90px_90px] gap-4 border-b border-line px-5 py-3 text-[13px] font-medium text-stone">
+            {/* A6: "Openings" and "Academics" were hardcoded
+                `<DataChip status="missing">Not tracked</DataChip>` on every
+                row. A table whose last two columns read "Not tracked" all
+                the way down doesn't read as honest, it reads as broken.
+                Neither field exists on `School`, so the columns are gone
+                until they do — and the note under the table already says
+                what we have and don't. */}
+            <div className="grid grid-cols-[2.2fr_2fr] gap-4 border-b border-line px-5 py-3 text-[13px] font-medium text-stone">
               <span>Program</span>
-              <span>Your UTR vs team range</span>
-              <span>Openings</span>
-              <span>Academics</span>
+              <span>
+                {report?.utr.isProjected && report.view === "recruiting"
+                  ? `Your junior-year UTR vs team range`
+                  : "Your UTR vs team range"}
+              </span>
             </div>
             {tabRows.length === 0 ? (
               <p className="px-5 py-6 text-sm text-stone">
@@ -260,30 +334,47 @@ export function SeededPreAuthOnboarding({ schools }: { schools: SchoolLite[] }) 
             ) : (
               tabRows.map((s) => {
                 const range = schoolUtrRange(s);
+                const row = report?.rows.find((r) => r.slug === s.slug);
+                const judging = report?.utr.value ?? utrNum;
                 return (
                   <div
                     key={s.id}
-                    className="grid grid-cols-[2.2fr_2fr_90px_90px] items-center gap-4 border-b border-line px-5 py-3.5 last:border-0"
+                    className="grid grid-cols-[2.2fr_2fr] items-center gap-4 border-b border-line px-5 py-3.5 last:border-0"
                   >
                     <div>
                       <strong className="text-[15px] text-ink">{s.shortName}</strong>
                       <div className="text-[13px] text-stone">
                         {s.division} · {s.conference} · {s.state}
                       </div>
+                      {/* A4: when the two views disagree for this school,
+                          say both rather than making the reader guess which
+                          rating the band came from. */}
+                      {row?.differs && (
+                        <div className="mt-1 text-[13px] text-stone">
+                          Today: {BAND_LABEL[row.todayBand] ?? row.todayBand} &rarr; Junior year:{" "}
+                          <strong className="font-semibold text-ink">
+                            {BAND_LABEL[row.recruitingBand] ?? row.recruitingBand}
+                          </strong>
+                        </div>
+                      )}
                     </div>
                     <RangeBar
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct((range.min + range.max) / 2)}
-                      youPct={utrToPct(utrNum)}
-                      caption={`You ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`}
+                      youPct={utrToPct(judging)}
+                      caption={
+                        report?.utr.isProjected && report.view === "recruiting"
+                          ? `Junior year ${judging.toFixed(1)} (estimate) · today ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `You ${judging.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                      }
                       low={range.min}
                       median={(range.min + range.max) / 2}
                       high={range.max}
-                      you={utrNum}
+                      you={judging}
+                      todayPct={report?.utr.isProjected ? utrToPct(utrNum) : null}
+                      today={report?.utr.isProjected ? utrNum : null}
                     />
-                    <DataChip status="missing">Not tracked</DataChip>
-                    <DataChip status="missing">Not tracked</DataChip>
                   </div>
                 );
               })
@@ -447,6 +538,12 @@ function SaveReportAside({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+
+  // Same rule as /signup (components/auth/signup-flow.tsx): nudge, never
+  // block. A last word of one letter plus an optional dot is an initial.
+  const lastNameWord = name.trim().split(/\s+/).slice(-1)[0] ?? "";
+  const looksLikeFullSurname =
+    name.trim().split(/\s+/).length > 1 && !/^[A-Za-z]\.?$/.test(lastNameWord);
   const [role, setRole] = useState<FamilyRole>("player");
   const [birthYear, setBirthYear] = useState(() => new Date().getFullYear() - 16);
   const [utrProfileLink, setUtrProfileLink] = useState("");
@@ -547,13 +644,24 @@ function SaveReportAside({
             <GoogleButton />
           </div>
           <GoogleDivider />
+          {/* A7: asked for a full name while /signup asks a player for a
+              first name and last initial. Two front doors to the same
+              `profiles.name`, disagreeing about how much of a child's name
+              Seeded needs. Same ask and the same nudge as signup. */}
           <label className="flex flex-col gap-1.5 text-[13px] font-medium text-stone">
-            Full name
+            Player&rsquo;s name
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-11 rounded-md border border-input px-3 text-base text-ink"
+              autoComplete="name"
+              placeholder="Niran R."
+              className={authInputClass}
             />
+            <span className="text-xs font-normal text-stone">
+              {looksLikeFullSurname
+                ? "A last initial is enough — you can shorten it if you'd rather we didn't store the full surname."
+                : "First name and last initial is enough — e.g. Niran R."}
+            </span>
           </label>
           <label className="mt-3 flex flex-col gap-1.5 text-[13px] font-medium text-stone">
             Email

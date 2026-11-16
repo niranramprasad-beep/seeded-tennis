@@ -8,8 +8,8 @@ import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { UtrVsPlanChart } from "./utr-vs-plan-chart";
-import { classifySchoolFit } from "@/lib/school-fit";
 import { buildTodayActions, buildThisWeekItems, type TodayAction } from "@/lib/today-actions";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
@@ -68,13 +68,16 @@ export function SeededDashboardLayout({
     () => buildThisWeekItems(targetSchools, outreach ?? {}, now),
     [targetSchools, outreach, now]
   );
+  // Bands come from the one report (lib/fit.ts) like every other screen,
+  // so Today and Schools cannot disagree about what a school is.
+  const fitReport = useFitReport({ player, schools: targetSchools });
   const onTrackCount = useMemo(
     () =>
       targetSchools.filter((s) => {
-        const fit = classifySchoolFit(player.currentUTR, s, projection);
-        return fit !== "reach" && fit !== "out-of-range";
+        const fit = fitReport?.bandBySlug.get(s.slug);
+        return fit != null && fit !== "reach" && fit !== "out-of-range";
       }).length,
-    [targetSchools, player.currentUTR, projection]
+    [targetSchools, fitReport]
   );
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
@@ -195,7 +198,11 @@ export function SeededDashboardLayout({
                   <Link href={`/schools/${s.slug}`} className="truncate text-ink hover:text-grass">
                     {s.shortName}
                   </Link>
-                  <FitBadge band={classifySchoolFit(player.currentUTR, s, projection)} />
+                  {fitReport?.bandBySlug.get(s.slug) ? (
+                    <FitBadge band={fitReport.bandBySlug.get(s.slug)!} />
+                  ) : (
+                    <span className="text-[13px] text-stone-light">Not tracked</span>
+                  )}
                 </li>
               ))}
             </ul>

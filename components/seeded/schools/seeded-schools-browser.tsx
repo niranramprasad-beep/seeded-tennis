@@ -22,6 +22,7 @@ import { academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/scho
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
@@ -192,10 +193,21 @@ export function SeededSchoolsBrowser({
   // `FitBadge` cannot render a null band. A fourth caller added later gets
   // the gate for free. lib/schools-neutral-without-utr.test.ts fails the
   // build if `classifySchoolFit` is ever called anywhere else in this file.
+  // The report is the authority now; this file no longer classifies at
+  // all. `overrideUtr` carries the what-if slider's explicit choice, which
+  // is already a future rating and must not be projected a second time
+  // (see buildFitReport). With the slider untouched it equals the player's
+  // own rating, so the bands here are the same ones /today and the fit
+  // report show.
+  const report = useFitReport({
+    player,
+    schools: ranked,
+    overrideUtr: youUtr,
+  });
+
   const bandFor = useCallback(
-    (s: School): SchoolFitBand | null =>
-      youUtr === null ? null : classifySchoolFit(youUtr, s, whatIf.whatIfProjection),
-    [youUtr, whatIf.whatIfProjection]
+    (s: School): SchoolFitBand | null => report?.bandBySlug.get(s.slug) ?? null,
+    [report]
   );
 
   // Same real grad-year context as the what-if hook, plus the full catalog
@@ -291,13 +303,7 @@ export function SeededSchoolsBrowser({
 
   // Not computed at all without a rating — a count derived from the
   // sentinel is a number nobody can defend.
-  const counts = useMemo(
-    () =>
-      hasUtr
-        ? countSchoolFits(effectiveUtr, ranked, whatIf.whatIfProjection)
-        : null,
-    [hasUtr, effectiveUtr, ranked, whatIf.whatIfProjection]
-  );
+  const counts = report?.counts ?? null;
   const savedSlugs = useMemo(() => new Set(player.targetSchoolSlugs), [player.targetSchoolSlugs]);
 
   // "gap" and "fit" are both distance-from-your-rating orders. Without a

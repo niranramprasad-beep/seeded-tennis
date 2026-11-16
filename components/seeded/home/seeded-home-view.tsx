@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
-import { countSchoolFits } from "@/lib/school-fit";
+import { buildFitReport } from "@/lib/fit";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
@@ -154,11 +154,22 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       }),
     [utrNum, gradYear, gender]
   );
-  const counts = useMemo(
-    () => countSchoolFits(utrNum, filtered, projection),
-    [utrNum, filtered, projection]
+  // Same report the fit report itself uses, so the number this widget
+  // promises on the homepage is the number /onboarding then shows. They
+  // used to be computed two different ways from the same inputs.
+  const report = useMemo(
+    () =>
+      buildFitReport({
+        currentUtr: utrNum > 0 ? utrNum : null,
+        graduationYear: gradYear,
+        gender: gender === "women" ? "female" : "male",
+        schools: filtered,
+        projectionInput: projection,
+      }),
+    [utrNum, gradYear, gender, filtered, projection]
   );
-  const total = counts.reach + counts.target + counts.likely;
+  const counts = report?.counts ?? { reach: 0, target: 0, likely: 0, outOfRange: 0 };
+  const total = report?.inRange ?? 0;
 
   const query = new URLSearchParams({
     utr,

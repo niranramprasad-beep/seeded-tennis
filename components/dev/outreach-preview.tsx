@@ -74,7 +74,7 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
         setStatus={setStatus}
         setReminder={setReminder}
         outreachError=""
-        playerUtr={9.42}
+        bandBySlug={null}
         replyNote={replyNote}
         setReplyNote={setReplyNote}
         saveReplyNote={() => {}}

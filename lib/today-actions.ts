@@ -5,7 +5,8 @@
 // of upcoming tournament dates yet — see lib/tournament-fit.ts, which only
 // scores a tournament a family types in by hand, not a live calendar.
 import type { SchoolLite } from "@/lib/types";
-import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
+import { classifySchoolFit,
+  fitBasis, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import type { OutreachStatusMapDated } from "@/lib/db/outreach";
 import { localDateKey } from "@/lib/time";
 
@@ -46,7 +47,7 @@ export function buildTodayActions(
 
   for (const school of targetSchools) {
     const entry = outreach[school.slug];
-    const fit = classifySchoolFit(playerUtr, school, projection);
+    const fit = classifySchoolFit(fitBasis(playerUtr, projection), school);
 
     if (!entry) {
       // Neither "reach" (not yet competitive) nor "out-of-range" (the gap

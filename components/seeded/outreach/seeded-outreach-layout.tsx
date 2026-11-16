@@ -6,12 +6,12 @@ import type { School } from "@/lib/types";
 import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
-import { classifySchoolFit, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import { staffDirectorySearchUrl } from "@/lib/db/schools";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn, isValidEmailAddress } from "@/lib/utils";
+import type { SchoolFitBand } from "@/lib/school-fit";
 
 // Same plain "Oct 25" (no year) format the board already used inline for
 // "Reminder set for {date}" — reused here for last-contact/follow-up-by too
@@ -61,15 +61,14 @@ export interface SeededOutreachLayoutProps {
   setStatus: (slug: string, status: OutreachStatus | null) => void;
   setReminder: (slug: string) => void;
   outreachError: string;
-  /** The player's real current UTR — drives each card's real fit band via
-   * classifySchoolFit, the same function /today, /plan, and the Schools
-   * browser already use. */
-  playerUtr: number;
-  /** Real UTR history + grad-year context, same shape every other
-   * classifySchoolFit caller passes — optional because a brand-new account
-   * with <3 logged entries genuinely has none yet (classifySchoolFit falls
-   * back to "reach" honestly in that case, not a fabricated band). */
-  projection?: SchoolFitProjectionInput;
+  /**
+   * Bands, already decided. This used to take the player's raw UTR and a
+   * projection and classify each card itself, which is how six screens
+   * ended up each choosing their own rating. lib/fit.ts owns that decision
+   * now; this component renders what it is handed. Null means "no usable
+   * rating" — show no band at all rather than inventing one.
+   */
+  bandBySlug: ReadonlyMap<string, SchoolFitBand> | null;
   /** Draft text for the optional note a player can attach when marking a
    * school "replied" (migration 017_coach_outreach_reply_note.sql). */
   replyNote: string;
@@ -96,8 +95,7 @@ export function SeededOutreachLayout({
   setStatus,
   setReminder,
   outreachError,
-  playerUtr,
-  projection,
+  bandBySlug,
   replyNote,
   setReplyNote,
   saveReplyNote,
@@ -175,7 +173,7 @@ export function SeededOutreachLayout({
               ) : (
                 schools.map((s) => {
                   const entry = statuses[s.slug];
-                  const band = classifySchoolFit(playerUtr, s, projection);
+                  const band = bandBySlug?.get(s.slug) ?? null;
                   const due =
                     stage.key === "emailed" &&
                     entry &&
@@ -206,7 +204,11 @@ export function SeededOutreachLayout({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <strong className="text-ink">{s.shortName}</strong>
-                        <FitBadge band={band} className="shrink-0" />
+                        {band ? (
+                          <FitBadge band={band} className="shrink-0" />
+                        ) : (
+                          <span className="shrink-0 text-xs text-stone-light">Not tracked</span>
+                        )}
                       </div>
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}

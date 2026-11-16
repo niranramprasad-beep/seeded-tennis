@@ -92,11 +92,48 @@ export function summerBeforeSeniorYear(graduationYear: number): Date {
   return new Date(year, 5, 1);
 }
 
+/**
+ * The rating a band is judged against, plus the history that separates a
+ * closeable Reach from Out-of-range.
+ *
+ * THIS IS A BRANDED TYPE AND THAT IS THE POINT. The brand symbol is private
+ * to this module, so no other file can build one with an object literal.
+ * `classifySchoolFit(8.7, school)` — a component deciding for itself which
+ * rating judges fit — does not compile any more. The only way to obtain a
+ * basis is `fitBasis()`, and the only caller of that is lib/fit.ts, which
+ * owns the question of WHICH rating applies (today's, or the projection to
+ * junior year).
+ *
+ * Why it needed enforcing in the type system rather than a lint: the fit
+ * report, the tab counts, the row bands and the trajectory panel each
+ * picked their own answer, and the screen told a family four different
+ * stories at once — "0 programs in range", "Reach 37", "20 by junior year".
+ * Every one of those numbers was individually correct.
+ */
+declare const FIT_BASIS_BRAND: unique symbol;
+
+export interface FitBasis {
+  readonly [FIT_BASIS_BRAND]: true;
+  readonly utr: number;
+  readonly projection?: SchoolFitProjectionInput;
+}
+
+/**
+ * Mints a basis. **lib/fit.ts only** — it is the module that decides which
+ * rating is the right one. Guarded by lib/fit-single-source.test.ts, which
+ * fails the build if anything else calls it. (The brand stops an accidental
+ * direct call from compiling; the test stops a deliberate one.)
+ */
+export function fitBasis(utr: number, projection?: SchoolFitProjectionInput): FitBasis {
+  return { utr, projection } as unknown as FitBasis;
+}
+
 export function classifySchoolFit(
-  playerUtr: number,
-  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
-  projection?: SchoolFitProjectionInput
+  basis: FitBasis,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">
 ): SchoolFitBand {
+  const playerUtr = basis.utr;
+  const projection = basis.projection;
   if (playerUtr >= school.avgRosterUTR) return "likely";
   if (playerUtr >= school.minCompetitiveUTR) return "target";
 
@@ -128,13 +165,12 @@ export interface FitCounts {
 }
 
 export function countSchoolFits(
-  playerUtr: number,
-  schools: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">[],
-  projection?: SchoolFitProjectionInput
+  basis: FitBasis,
+  schools: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">[]
 ): FitCounts {
   const counts: FitCounts = { reach: 0, target: 0, likely: 0, outOfRange: 0 };
   for (const school of schools) {
-    const fit = classifySchoolFit(playerUtr, school, projection);
+    const fit = classifySchoolFit(basis, school);
     if (fit === "out-of-range") counts.outOfRange++;
     else counts[fit]++;
   }
@@ -350,7 +386,7 @@ export function findAlternativeSchools(
   return catalog
     .filter((s) => s.slug !== school.slug && s.gender === school.gender)
     .filter((s) => {
-      const band = classifySchoolFit(playerUtr, s, projection);
+      const band = classifySchoolFit(fitBasis(playerUtr, projection), s);
       return band === "likely" || band === "target";
     })
     .map((s) => {
@@ -424,7 +460,7 @@ export function explainSchoolFit(
     gender: input.gender,
     now,
   };
-  const band = classifySchoolFit(playerUtr, school, projection);
+  const band = classifySchoolFit(fitBasis(playerUtr, projection), school);
 
   const gapToFloor = Math.round((school.minCompetitiveUTR - playerUtr) * 100) / 100;
   const gapToMedian = Math.round((school.avgRosterUTR - playerUtr) * 100) / 100;
@@ -554,7 +590,7 @@ export function closestSchoolsByUtrGap(
     .map((school) => ({
       school,
       gap: Math.round((school.avgRosterUTR - playerUtr) * 100) / 100,
-      band: classifySchoolFit(playerUtr, school, projection),
+      band: classifySchoolFit(fitBasis(playerUtr, projection), school),
     }))
     .sort(
       (a, b) =>

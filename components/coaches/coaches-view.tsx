@@ -42,6 +42,7 @@ import { SchoolBadge } from "@/components/shared/school-badge";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 import { cn, hasRealUtr } from "@/lib/utils";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 
 // Legacy key from before outreach status was synced to Supabase — still read
 // once on load so no one's existing tracking silently disappears when this
@@ -94,6 +95,9 @@ function CoachesInner({ schools }: { schools: School[] }) {
     () => schools.filter((s) => player.targetSchoolSlugs.includes(s.slug)),
     [schools, player.targetSchoolSlugs]
   );
+
+  // One report, shared with /today, /schools and the parent view.
+  const fitReport = useFitReport({ player, schools: targetSchools });
 
   // Same "matches" key as /match-mode and /matches — reuses that cached
   // fetch instead of loading the player's whole match history a third time.
@@ -324,8 +328,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           setStatus={setStatus}
           setReminder={setReminder}
           outreachError={outreachError}
-          playerUtr={player.currentUTR}
-          projection={projection}
+          bandBySlug={fitReport?.bandBySlug ?? null}
           replyNote={replyNote}
           setReplyNote={setReplyNote}
           saveReplyNote={saveReplyNote}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySchoolFit, countSchoolFits, explainSchoolFit } from "./school-fit";
+import { classifySchoolFit, countSchoolFits, explainSchoolFit, fitBasis } from "./school-fit";
 import { realisticPaceProjectionFor, whatIfProjectionFor } from "./what-if-utr";
 import type { SchoolLite } from "./types";
 
@@ -71,13 +71,13 @@ describe("one player + one school = one band, on every screen", () => {
   const askers = {
     // Schools browser rows, Outreach cards, Today, Family
     classify: (p: number, s: SchoolLite, proj: typeof REAL_PROJECTION) =>
-      classifySchoolFit(p, s, proj),
+      classifySchoolFit(fitBasis(p, proj), s),
     // School detail "Why this band", Plan target list, expanded Schools row
     explain: (p: number, s: SchoolLite, proj: typeof REAL_PROJECTION) =>
       explainSchoolFit(p, s, { ...proj, catalog: [ELITE, MID, BELOW] }).band,
     // The Schools browser's filter-chip counters
     count: (p: number, s: SchoolLite, proj: typeof REAL_PROJECTION) => {
-      const c = countSchoolFits(p, [s], proj);
+      const c = countSchoolFits(fitBasis(p, proj), [s]);
       if (c.outOfRange) return "out-of-range";
       if (c.reach) return "reach";
       if (c.target) return "target";
@@ -97,7 +97,7 @@ describe("one player + one school = one band, on every screen", () => {
   it("calls an unreachable program out of range, not a reach", () => {
     // 5.81 now, trending ~+0.7/yr, against a 12.3 floor. No honest reading of
     // that history closes a 6.5 gap by senior summer.
-    expect(classifySchoolFit(PLAYER.currentUTR, ELITE, REAL_PROJECTION)).toBe("out-of-range");
+    expect(classifySchoolFit(fitBasis(PLAYER.currentUTR, REAL_PROJECTION), ELITE)).toBe("out-of-range");
   });
 });
 
@@ -123,7 +123,7 @@ describe("what-if modes agree with the screens they drive", () => {
         hypotheticalUTR: 9,
       });
       // At a hypothetical 9.0, a 12.3 floor is still unreachable.
-      expect(classifySchoolFit(9, ELITE, projection)).toBe("out-of-range");
+      expect(classifySchoolFit(fitBasis(9, projection), ELITE)).toBe("out-of-range");
     }
   });
 
@@ -132,7 +132,7 @@ describe("what-if modes agree with the screens they drive", () => {
       currentUTR: PLAYER.currentUTR,
       hypotheticalUTR: 7.3,
     });
-    const counts = countSchoolFits(7.3, [ELITE, MID, BELOW], projection);
+    const counts = countSchoolFits(fitBasis(7.3, projection), [ELITE, MID, BELOW]);
     expect(counts.outOfRange).toBeGreaterThan(0);
     expect(counts.reach + counts.target + counts.likely + counts.outOfRange).toBe(3);
   });
@@ -143,8 +143,8 @@ describe("what-if modes agree with the screens they drive", () => {
       currentUTR: PLAYER.currentUTR,
       hypotheticalUTR: 6.2,
     });
-    const counts = countSchoolFits(6.2, catalog, projection);
-    const rows = catalog.map((s) => classifySchoolFit(6.2, s, projection));
+    const counts = countSchoolFits(fitBasis(6.2, projection), catalog);
+    const rows = catalog.map((s) => classifySchoolFit(fitBasis(6.2, projection), s));
 
     expect(rows.filter((b) => b === "out-of-range").length).toBe(counts.outOfRange);
     expect(rows.filter((b) => b === "reach").length).toBe(counts.reach);
@@ -162,7 +162,7 @@ describe("what-if modes agree with the screens they drive", () => {
           currentUTR: PLAYER.currentUTR,
           hypotheticalUTR: utr,
         });
-        const rank = RANK[classifySchoolFit(utr, s, projection)];
+        const rank = RANK[classifySchoolFit(fitBasis(utr, projection), s)];
         expect(rank).toBeGreaterThanOrEqual(previous);
         previous = rank;
       }
@@ -189,17 +189,17 @@ describe("P1-FIT-4 pre-auth fit uses a realistic-pace projection", () => {
     realisticPaceProjectionFor({ currentUTR, graduationYear, gender: "male", now: NOW });
 
   it("marks a gap no realistic pace can close as out-of-range, not reach", () => {
-    expect(classifySchoolFit(3.0, elite, preAuth(3.0, 2028))).toBe("out-of-range");
+    expect(classifySchoolFit(fitBasis(3.0, preAuth(3.0, 2028)), elite)).toBe("out-of-range");
   });
 
   it("still allows reach where the realistic pace does close the gap", () => {
     const closeable = school({ slug: "closeable", minCompetitiveUTR: 8.0, avgRosterUTR: 9.0 });
-    expect(classifySchoolFit(6.0, closeable, preAuth(6.0, 2028))).toBe("reach");
+    expect(classifySchoolFit(fitBasis(6.0, preAuth(6.0, 2028)), closeable)).toBe("reach");
   });
 
   it("does not downgrade a school the visitor already qualifies for", () => {
-    expect(classifySchoolFit(13.9, elite, preAuth(13.9, 2028))).toBe("likely");
-    expect(classifySchoolFit(12.5, elite, preAuth(12.5, 2028))).toBe("target");
+    expect(classifySchoolFit(fitBasis(13.9, preAuth(13.9, 2028)), elite)).toBe("likely");
+    expect(classifySchoolFit(fitBasis(12.5, preAuth(12.5, 2028)), elite)).toBe("target");
   });
 
   it("stops reporting zero out-of-range for a low-UTR visitor", () => {
@@ -208,7 +208,7 @@ describe("P1-FIT-4 pre-auth fit uses a realistic-pace projection", () => {
       school({ slug: "mid", minCompetitiveUTR: 9.0, avgRosterUTR: 10.0 }),
       school({ slug: "low", minCompetitiveUTR: 4.0, avgRosterUTR: 5.0 }),
     ];
-    const counts = countSchoolFits(3.0, catalog, preAuth(3.0, 2028));
+    const counts = countSchoolFits(fitBasis(3.0, preAuth(3.0, 2028)), catalog);
     expect(counts.outOfRange).toBeGreaterThan(0);
   });
 
@@ -228,7 +228,7 @@ describe("P1-FIT-4 pre-auth fit uses a realistic-pace projection", () => {
       now: NOW,
     });
     for (const s of [elite, school({ slug: "b", minCompetitiveUTR: 7, avgRosterUTR: 8 })]) {
-      expect(classifySchoolFit(5.81, s, fromHome)).toBe(classifySchoolFit(5.81, s, fromReport));
+      expect(classifySchoolFit(fitBasis(5.81, fromHome), s)).toBe(classifySchoolFit(fitBasis(5.81, fromReport), s));
     }
   });
 });

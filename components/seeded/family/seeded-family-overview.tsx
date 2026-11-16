@@ -12,7 +12,6 @@ import { loadFamilyMembers, saveEncouragementNote, type FamilyMember } from "@/l
 import { loadUtrEntries } from "@/lib/db/plan";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
-import { classifySchoolFit } from "@/lib/school-fit";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
@@ -32,6 +31,7 @@ import { loadMyFamilyCode, loadFamilyRoster } from "@/lib/db/family-join";
 import { loadMyPendingFamilyRequest, type PendingFamilyRequest } from "@/lib/db/family-join";
 import { SendNoteModal } from "./send-note-modal";
 import { Toast } from "@/components/seeded/ui/toast";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 
 function seasonTitle(now: Date): string {
   const s = currentSeason(now);
@@ -140,15 +140,30 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   // null, not 0. "on track for 0 of 5 targets" is a claim — and a
   // discouraging one to show a parent — when the truth is that we cannot
   // tell yet.
+  // Same report as every other screen. A parent reading "on track for 3 of
+  // 5" here and the player seeing different bands on /schools was exactly
+  // the kind of contradiction this consolidation exists to remove.
+  // currentUTR/graduationYear/gender are all nullable here: this screen
+  // renders for a PARENT, reading facts about someone else's profile that
+  // may not be filled in. Zeroes would be a claim; the hook returns null
+  // for an unusable rating and the UI says "not tracked yet".
+  const fitReport = useFitReport({
+    player: {
+      currentUTR: currentUTR ?? 0,
+      graduationYear: graduationYear ?? new Date().getFullYear(),
+      gender: gender ?? "male",
+    },
+    schools: targetSchools,
+  });
   const onTrackCount = useMemo(
     () =>
-      currentUTR == null || fitProjection == null
+      fitReport == null
         ? null
         : targetSchools.filter((s) => {
-            const fit = classifySchoolFit(currentUTR, s, fitProjection);
-            return fit !== "reach" && fit !== "out-of-range";
+            const fit = fitReport.bandBySlug.get(s.slug);
+            return fit != null && fit !== "reach" && fit !== "out-of-range";
           }).length,
-    [targetSchools, currentUTR, fitProjection]
+    [targetSchools, fitReport]
   );
 
   const utrDelta = useMemo(
