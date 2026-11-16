@@ -267,7 +267,7 @@ export function PricingView({ counts }: { counts: CatalogCounts }) {
           <button
             onClick={manageBilling}
             disabled={loadingTier !== null}
-            className="mt-4 text-sm text-stone underline decoration-stone-light underline-offset-4 transition-colors hover:text-ink"
+            className="mt-4 inline-flex min-h-6 items-center text-sm text-stone underline decoration-stone-light underline-offset-4 transition-colors hover:text-ink"
           >
             Manage billing / cancel plan
           </button>

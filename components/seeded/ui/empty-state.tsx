@@ -24,7 +24,7 @@ export function EmptyState({ title, description, action, className }: EmptyState
       {action && (
         <>
           {" "}
-          <Link href={action.href} className="font-semibold text-grass">
+          <Link href={action.href} className="inline-flex min-h-6 items-center font-semibold text-grass">
             {action.label}
           </Link>
         </>

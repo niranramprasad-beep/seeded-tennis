@@ -21,15 +21,18 @@ import { useDesign } from "@/lib/context/design-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-export function CostCalculatorView({ schools }: { schools: SchoolLite[] }) {
+/** `embedded`: rendered inside another page (the family budget) that owns
+ *  the page's one <h1> — the calculator's title drops to an <h3>. */
+export function CostCalculatorView({ schools, embedded = false }: { schools: SchoolLite[]; embedded?: boolean }) {
   return (
     <AuthGate>
-      <CostCalculatorInner schools={schools} />
+      <CostCalculatorInner schools={schools} embedded={embedded} />
     </AuthGate>
   );
 }
 
-function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
+function CostCalculatorInner({ schools, embedded }: { schools: SchoolLite[]; embedded: boolean }) {
+  const Heading = embedded ? "h3" : "h1";
   const { design } = useDesign();
   const isSeeded = design === "seeded";
   const { player } = usePlayer();
@@ -79,9 +82,9 @@ function CostCalculatorInner({ schools }: { schools: SchoolLite[] }) {
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Cost calculator</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <Heading className={cn("mt-3", embedded ? "text-2xl" : "text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
             See the real cost of the pursuit.
-          </h1>
+          </Heading>
           <p className="mt-2 max-w-2xl text-sm text-stone">
             Add up what training, tournaments, travel and equipment will cost your family, from your own numbers.
           </p>

@@ -435,7 +435,7 @@ function SeededAvatarMenu({
       {!collapsed && isParent && (
         <Link
           href="/settings/billing"
-          className="-mt-1 block px-1.5 pb-1 font-sans text-xs text-stone-light"
+          className="flex min-h-6 items-center px-1.5 pb-1 font-sans text-xs text-stone-light"
         >
           Parent ·{" "}
           <span className="font-semibold text-grass underline underline-offset-2">Billing</span>

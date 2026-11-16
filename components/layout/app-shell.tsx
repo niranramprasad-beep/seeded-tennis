@@ -117,8 +117,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           // the length of the session check before the sidebar replaces it;
           // private routes keep rendering nothing (AuthGate shows its own
           // loading state there).
+          // A visitor whose browser holds a saved session (the head script
+          // in app/layout.tsx sets html[data-session]) gets the app's frame
+          // instead: globals.css hides this nav, shows the 56px mobile bar
+          // and gives <main> the sidebar margin. Without that, a signed-in
+          // player opening /schools at desktop width watched the page slide
+          // 248px sideways when the sidebar arrived (measured CLS 0.21).
           rendersPublicNavBeforeSession(pathname) && isSeeded && !hideSeededNav
-          ? <SeededNav />
+          ? (
+            <>
+              <div className="pre-session-public-nav"><SeededNav /></div>
+              <div className="pre-session-app-bar hidden h-14 border-b border-[rgb(var(--c-line))] bg-panel" aria-hidden />
+            </>
+          )
           : isSeeded && !rendersPublicNavBeforeSession(pathname)
             // An app route (behind AuthGate) will get the sidebar's 56px
             // mobile top bar once the session resolves. Hold its space now,
@@ -131,6 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         tabIndex={-1}
         className={cn(
           "focus:outline-none",
+          !hydrated && isSeeded && rendersPublicNavBeforeSession(pathname) && "pre-session-main",
           layoutAsApp && [
             "min-h-screen transition-[margin-left] duration-300 ease-out",
             collapsed ? "lg:ml-[76px]" : "lg:ml-[248px]",

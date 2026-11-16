@@ -125,7 +125,7 @@ export function SeasonBudgetCard({
       )}
 
       {rows.length > 0 || summary.skippedBadFitCount > 0 ? (
-        <div className="mt-5 overflow-x-auto">
+        <div className="mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label="Season expenses">
           <table className="w-full min-w-[480px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-stone">

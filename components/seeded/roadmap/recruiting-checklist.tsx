@@ -139,14 +139,17 @@ function ChecklistRow({
   return (
     <li className="flex flex-col gap-1 border-b border-line pb-2.5 last:border-b-0 last:pb-0">
       <div className="flex items-start gap-2.5">
-        <input
-          type="checkbox"
-          checked={item.completed}
-          disabled={!item.editable}
-          onChange={() => item.editable && onToggleCompleted(item.id)}
-          aria-label={item.completed ? "Done" : "Not done"}
-          className="mt-0.5"
-        />
+        {/* 24px hit area around the native box (WCAG 2.5.8). Named by the
+            item itself; checked/unchecked is announced by the checkbox. */}
+        <label className="-my-0.5 -ml-1 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            checked={item.completed}
+            disabled={!item.editable}
+            onChange={() => item.editable && onToggleCompleted(item.id)}
+            aria-label={item.label}
+          />
+        </label>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className={item.completed ? "text-ink" : "text-stone"}>{item.label}</span>
@@ -172,7 +175,7 @@ function ChecklistRow({
           type="button"
           onClick={() => (item.isCustom ? onRemoveItem(item.id) : onToggleHidden(item.id))}
           aria-label={item.isCustom ? `Remove ${item.label}` : item.hidden ? `Unhide ${item.label}` : `Hide ${item.label}`}
-          className="shrink-0 text-stone-light transition-colors hover:text-ink"
+          className="-my-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center text-stone-light transition-colors hover:text-ink"
         >
           {item.isCustom ? (
             <X className="h-3.5 w-3.5" />

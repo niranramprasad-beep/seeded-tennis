@@ -115,7 +115,7 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
           Seeded holds no cost-of-attendance or athletic-aid figures, so it does not estimate them.
         </p>
         <div className="-mx-6 mt-2">
-          <CostCalculatorView schools={schools} />
+          <CostCalculatorView schools={schools} embedded />
         </div>
       </div>
     </div>

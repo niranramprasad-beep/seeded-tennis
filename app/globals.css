@@ -784,3 +784,26 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Pre-hydration app frame for a browser that holds a saved session.
+   app/layout.tsx's head script sets html[data-session] (and
+   data-sidebar-collapsed) before first paint; AppShell renders these classes
+   only until the session check resolves. A signed-in player opening a public
+   route (/schools, /pricing) gets the sidebar's footprint immediately instead
+   of the public header, so nothing slides when the sidebar arrives. */
+html[data-session] .pre-session-public-nav {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  html[data-session] .pre-session-app-bar {
+    display: block;
+  }
+}
+@media (min-width: 1024px) {
+  html[data-session] main.pre-session-main {
+    margin-left: 248px;
+  }
+  html[data-session][data-sidebar-collapsed] main.pre-session-main {
+    margin-left: 76px;
+  }
+}
