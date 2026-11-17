@@ -219,7 +219,7 @@ export function BillingContent({
                   href={portalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-semibold text-grass"
+                  className="inline-flex min-h-6 items-center font-semibold text-grass underline underline-offset-2"
                 >
                   Open billing portal
                 </a>

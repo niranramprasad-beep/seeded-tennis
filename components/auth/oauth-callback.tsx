@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { hasSeededProfile } from "@/lib/auth";
 import { OAUTH_COMPLETE_PATH, safeRedirectPath } from "@/lib/config/auth";
+import type { OAuthErrorCode } from "./oauth-errors";
 
 // Where Google sends the browser back to. The only place in the app that
 // exchanges an OAuth code, and the only place that decides where a user goes
@@ -13,7 +14,8 @@ import { OAUTH_COMPLETE_PATH, safeRedirectPath } from "@/lib/config/auth";
 //
 // Three outcomes, and the middle one is the one that matters:
 //
-//   Google returned an error  -> /login with a readable message. Never a
+//   Google returned an error  -> /login with an error CODE that /login turns
+//                                into a sentence it owns. Never a
 //                                blank page, and never the raw provider
 //                                string, which says things like
 //                                "invalid_grant" at a 15-year-old.
@@ -41,23 +43,20 @@ export function OAuthCallback() {
     if (ran.current) return;
     ran.current = true;
 
-    const fail = (message: string) =>
-      router.replace(`/login?authError=${encodeURIComponent(message)}`);
+    // A code, never a sentence: /login renders only text it owns
+    // (components/auth/oauth-errors.ts).
+    const fail = (code: OAuthErrorCode) => router.replace(`/login?authError=${code}`);
 
     (async () => {
       // Google reports a refusal in the query string, not as a failed
       // exchange: the user cancelled, or the app is not configured.
       const providerError = params.get("error_description") ?? params.get("error");
       if (providerError) {
-        return fail(
-          params.get("error") === "access_denied"
-            ? "Google sign-in was cancelled."
-            : "Google sign-in didn't work. Try again, or use your email and password."
-        );
+        return fail(params.get("error") === "access_denied" ? "cancelled" : "google_failed");
       }
 
       const supabase = getSupabase();
-      if (!supabase) return fail("Sign-in isn't available right now. Try again shortly.");
+      if (!supabase) return fail("unavailable");
 
       const code = params.get("code");
       if (code) {
@@ -68,14 +67,14 @@ export function OAuthCallback() {
         if (error) {
           const { data } = await supabase.auth.getSession();
           if (!data.session) {
-            return fail("That sign-in link has expired. Try signing in again.");
+            return fail("link_expired");
           }
         }
       }
 
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
-        return fail("Google sign-in didn't complete. Try again, or use your email and password.");
+        return fail("incomplete");
       }
 
       if (!(await hasSeededProfile())) {
@@ -87,9 +86,7 @@ export function OAuthCallback() {
       }
 
       router.replace(safeRedirectPath(params.get("next")) ?? "/today");
-    })().catch(() =>
-      fail("Something went wrong signing you in. Try again, or use your email and password.")
-    );
+    })().catch(() => fail("unknown"));
   }, [params, router]);
 
   // If a redirect somehow does not happen, say so rather than spinning
@@ -106,7 +103,10 @@ export function OAuthCallback() {
         {stuck ? "Still working…" : "Signing you in…"}
       </p>
       {stuck && (
-        <a href="/login" className="text-sm text-grass underline underline-offset-2">
+        <a
+          href="/login"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-grass underline underline-offset-2 sm:min-h-6"
+        >
           Go to sign in
         </a>
       )}

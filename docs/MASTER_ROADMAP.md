@@ -13,14 +13,34 @@
 
 ## Executive status
 
-**2026-11-16, production rollout started on Niran's "go".** Backup taken
-(`~/seeded-backups/`). Applied and verified on production in order: 025,
-022, 023 + 026, 024. Step 4's pre-check found 2 real Free players over the
-3-school cap, and 024 would have refused every profile save they made under
-the v1 code — **migration 040** fixes it (cap blocks only growth), rehearsed
-on staging before/after, and runs after 039. PR v1 → main is
-niranramprasad-beep/seeded-tennis#4. See `docs/GO-SEQUENCE.md` for the
-remaining steps; this paragraph is updated as they land.
+**2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
+Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
+banned badge copy, raw hex, lime button fills, focus ring, primary-button
+caps); one slim footer from AppShell on every route and Legacy only in
+Settings → Appearance; one calm data note per card instead of chip stacks;
+/pricing rebuilt to board 19 (table generated from FEATURE_TIER, cards gated
+and tested); auth screens to board 21 with every error mapped (and a
+`?authError=` text-injection closed); /schools hides the fit column until a
+UTR exists and its CLS is fixed for players and parents (TODO #14 closed via a
+remembered role); /today's nested buttons; pre-redesign styling on four
+marketing pages. **Found, not fixed (Niran's call): the Family plan unlocks
+nothing the code enforces** — see docs/TODO.md "Billing honesty". Evidence:
+`~/seeded-evidence/ui-polish-1/` (before/after, BOARD-DIFFS.md).
+
+**2026-11-16 — V1 IS LIVE.** On Niran's "go": backup to disk, then all 19
+migrations applied to production in the rehearsed order (025, 022, 023,
+026, 024, 027–039, then 040), each verified as a real user in rolled-back
+transactions; production now has 42 migrations and matches staging 9/9
+(function bodies differ only in comments). PR
+niranramprasad-beep/seeded-tennis#4 merged (`main` @ `b16d85b`); the
+maintenance page is gone, all 16 public routes + robots + sitemap return
+200, security headers intact, the client reads production's Supabase.
+**Found mid-run and fixed:** 024 refused every profile save for Free
+accounts already over 3 schools (production had 2) — migration 040.
+**Still Niran's (live checks needing real accounts/dashboards):** signup
+confirmation email, Whop test webhook → 200, reconcile the paid bullis.org
+membership, the $0 promo purchase, a parent's read-only view, and a
+persona-(a) fit report signed in.
 
 **2026-11-15 overnight "every pixel" pass (in progress — see
 `docs/FINAL_PASS_REPORT.md`).** A parent's Settings is now about the parent

@@ -66,7 +66,7 @@ export function SendNoteModal({
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="After a tough week or a big result…"
-        className="mt-4 min-h-[110px] w-full rounded-card border-hairline border-line bg-cream/50 px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/25"
+        className="mt-4 min-h-[110px] w-full rounded-card border-hairline border-line bg-cream/50 px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus"
       />
       {error && <p className="mt-2 text-sm text-error">{error}</p>}
       <div className="mt-5 flex items-center justify-end gap-3">

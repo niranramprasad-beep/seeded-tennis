@@ -40,11 +40,42 @@ const MARKETING_LINKS: NavLink[] = [
 // before the sign-in/CTA pair ever does. There is a measured regression test
 // for this — scripts/ui-audit.mjs records `distinctTops` and header height
 // per width, and docs/screenshots/polish/after.json is the record.
+// Board 21: the sign-in / sign-up / reset screens get a slim header with the
+// logo only — the marketing links and the green CTA would compete with the
+// one primary button on the card.
+const LOGO_ONLY_ROUTES = ["/login", "/signup", "/reset-password", "/parent-login", "/parent-signup", "/auth/complete", "/auth/callback"];
+
+function SeededLogo({ onClick }: { onClick?: () => void }) {
+  return (
+    <Link
+      href="/"
+      className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
+      onClick={onClick}
+    >
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">
+        <circle cx="11" cy="11" r="10" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="1.5" />
+        <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" stroke="rgb(var(--c-ink))" strokeWidth="1.5" fill="none" />
+      </svg>
+      Seeded
+    </Link>
+  );
+}
+
 export function SeededNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  if (LOGO_ONLY_ROUTES.includes(pathname)) {
+    return (
+      <header className="border-b border-line bg-cream">
+        <div className="mx-auto flex max-w-[1200px] items-center px-6 py-3.5">
+          <SeededLogo />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="border-b border-line bg-cream">
@@ -52,23 +83,14 @@ export function SeededNav() {
         aria-label="Main"
         className="mx-auto flex max-w-[1200px] flex-nowrap items-center gap-5 px-6 py-3.5 xl:gap-6"
       >
-        <Link
-          href="/"
-          className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
-          onClick={() => setOpen(false)}
-        >
-          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">
-            <circle cx="11" cy="11" r="10" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="1.5" />
-            <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" stroke="rgb(var(--c-ink))" strokeWidth="1.5" fill="none" />
-          </svg>
-          Seeded
-        </Link>
+        <SeededLogo onClick={() => setOpen(false)} />
 
         <div className="hidden min-w-0 flex-1 items-center gap-4 text-[15px] lg:flex xl:gap-5">
           {MARKETING_LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
+              aria-current={isActive(l.href) ? "page" : undefined}
               className={cn(
                 "inline-flex min-h-6 items-center whitespace-nowrap text-ink hover:text-grass",
                 isActive(l.href) && "font-semibold text-grass"
@@ -117,6 +139,7 @@ export function SeededNav() {
                 <Link
                   key={l.href}
                   href={l.href}
+                  aria-current={isActive(l.href) ? "page" : undefined}
                   onClick={() => setOpen(false)}
                   className={cn(
                     "rounded-lg px-3 py-3 text-[15px]",

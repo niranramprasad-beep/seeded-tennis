@@ -29,6 +29,9 @@ const config: Config = {
         lime: {
           accent: "rgb(var(--c-lime) / <alpha-value>)",
         },
+        // Design system v2 rule 8: green on light, lime on dark. Legacy
+        // themes never define --c-focus, so it falls back to their primary.
+        focus: "rgb(var(--c-focus, var(--c-primary)) / <alpha-value>)",
         // Fixed in both modes — see app/globals.css: text/borders sitting
         // directly on a solid bg-lime-accent fill (bright in both modes).
         "on-lime": "rgb(var(--c-on-lime) / <alpha-value>)",

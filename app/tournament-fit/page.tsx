@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { TournamentFitView } from "@/components/tournaments/tournament-fit-view";
-import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
   title: "Tournament Fit Finder — Seeded",
@@ -19,7 +18,6 @@ export default function TournamentFitPage() {
       <Suspense fallback={null}>
         <TournamentFitView />
       </Suspense>
-      <Footer />
     </>
   );
 }

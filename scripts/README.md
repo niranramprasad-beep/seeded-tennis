@@ -21,6 +21,13 @@ disposable ones set on staging first (see `docs/FINAL_PASS_REPORT.md`).
 | `keyboard-audit.mjs` | Tab order, visible focus, skip link, dialog focus traps. |
 | `persona-walk.mjs` | Walks each persona and records every number the app shows about the same player, to catch screens that disagree. |
 | `lighthouse-run.mjs` | Lighthouse (mobile) on every public route. Run with nothing else hitting the server. |
+| `cls-sources.mjs <email> <route> [width]` | One page, one signed-in persona: every layout shift with the elements that moved and their before/after boxes. Use it when site-audit reports CLS > 0.05. |
 | `ui-audit.mjs` | Older four-width screenshot/axe pass from the launch polish work. |
 
 Scratch probes live in `scripts/_scratch/`, which is git-ignored locally.
+
+`site-audit.mjs` takes `AUDIT_OUT` (absolute folder) and `AUDIT_PERSONAS`
+(comma list, `polish` pass) so a before/after pair can sit side by side; the
+`polish` pass is signed-out + persona a + persona f at 320/375/1440, light and
+dark. `audit-summary.mjs` reads the same `AUDIT_OUT`. `persona-walk.mjs` takes
+`WALK_OUT`, `lighthouse-run.mjs` takes `LH_OUT`.

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { writeCurrentPlayerProfile, type PlayerWriteContext } from "./auth";
+import {
+  AUTH_ERROR_MESSAGES,
+  friendlyAuthError,
+  writeCurrentPlayerProfile,
+  type PlayerWriteContext,
+} from "./auth";
 import { emptyPlayer } from "@/lib/data/user";
 import type { Player } from "@/lib/types";
 
@@ -112,5 +117,109 @@ describe("writeCurrentPlayerProfile", () => {
     await writeCurrentPlayerProfile({ ...player, utrProfileLink: "" }, ctx);
 
     expect(upsertCalls[0]).toMatchObject({ utr_profile_link: null });
+  });
+});
+
+// Every string an auth screen can show comes from friendlyAuthError or is
+// hand-written. These are the raw texts Supabase Auth and the browser really
+// produce (prose and codes, since the endpoint and the supabase-js version
+// decide which you get), each with the sentence it must become.
+describe("friendlyAuthError", () => {
+  const cases: Array<[string, string]> = [
+    ["Invalid login credentials", AUTH_ERROR_MESSAGES.invalidCredentials],
+    ["invalid_credentials", AUTH_ERROR_MESSAGES.invalidCredentials],
+    ["Email not confirmed", AUTH_ERROR_MESSAGES.emailNotConfirmed],
+    ["email_not_confirmed", AUTH_ERROR_MESSAGES.emailNotConfirmed],
+    ["User already registered", AUTH_ERROR_MESSAGES.alreadyRegistered],
+    ["user_already_exists", AUTH_ERROR_MESSAGES.alreadyRegistered],
+    ["A user with this email address has already been registered", AUTH_ERROR_MESSAGES.alreadyRegistered],
+    ["Password should be at least 6 characters.", AUTH_ERROR_MESSAGES.weakPassword],
+    ["weak_password", AUTH_ERROR_MESSAGES.weakPassword],
+    [
+      "Password is known to be weak and easy to guess, please choose a different one.",
+      AUTH_ERROR_MESSAGES.weakPassword,
+    ],
+    ["New password should be different from the old password.", AUTH_ERROR_MESSAGES.samePassword],
+    ["Email rate limit exceeded", AUTH_ERROR_MESSAGES.rateLimited],
+    ["over_email_send_rate_limit", AUTH_ERROR_MESSAGES.rateLimited],
+    ["Request rate limit reached", AUTH_ERROR_MESSAGES.rateLimited],
+    ["For security purposes, you can only request this after 42 seconds.", AUTH_ERROR_MESSAGES.rateLimited],
+    ["Failed to fetch", AUTH_ERROR_MESSAGES.network],
+    ["TypeError: NetworkError when attempting to fetch resource.", AUTH_ERROR_MESSAGES.network],
+    ["Load failed", AUTH_ERROR_MESSAGES.network],
+    ["Unable to validate email address: invalid format", AUTH_ERROR_MESSAGES.invalidEmail],
+    ["Email link is invalid or has expired", AUTH_ERROR_MESSAGES.linkExpired],
+    ["Auth session missing!", AUTH_ERROR_MESSAGES.linkExpired],
+    ["Signups not allowed for this instance", AUTH_ERROR_MESSAGES.signupsClosed],
+    ["Unsupported provider: provider is not enabled", AUTH_ERROR_MESSAGES.providerUnavailable],
+    ["Database error saving new user", AUTH_ERROR_MESSAGES.serverError],
+    ["unexpected_failure", AUTH_ERROR_MESSAGES.serverError],
+    ["Unexpected failure, please check server logs for more information", AUTH_ERROR_MESSAGES.serverError],
+    ["Internal Server Error", AUTH_ERROR_MESSAGES.serverError],
+    ["something nobody has seen before", AUTH_ERROR_MESSAGES.unknown],
+    ["", AUTH_ERROR_MESSAGES.unknown],
+  ];
+
+  it.each(cases)("maps %j to a sentence we wrote", (raw, expected) => {
+    expect(friendlyAuthError(raw)).toBe(expected);
+  });
+
+  it("uses the exact Board 21 sentence for wrong credentials", () => {
+    expect(friendlyAuthError("Invalid login credentials")).toBe(
+      "That email and password don't match. Try again, or reset your password."
+    );
+  });
+
+  it("never lets the raw Supabase text through, whatever arrives", () => {
+    const raws = [
+      "Invalid login credentials",
+      "Database error saving new user",
+      "unexpected_failure",
+      "Email rate limit exceeded",
+      "Unexpected failure, please check server logs for more information",
+      'AuthApiError: {"code":"unexpected_failure","message":"boom"}',
+      "permission denied for table profiles",
+      "duplicate key value violates unique constraint \"profiles_pkey\"",
+      "JWT expired",
+    ];
+    const allowed = new Set<string>(Object.values(AUTH_ERROR_MESSAGES));
+    for (const raw of raws) {
+      const out = friendlyAuthError(raw);
+      expect(allowed.has(out), `${raw} -> ${out}`).toBe(true);
+      expect(out.toLowerCase()).not.toContain(raw.toLowerCase());
+      for (const leak of ["supabase", "server logs", "database", "unexpected_failure", "rate limit exceeded", "invalid login credentials", "jwt", "constraint"]) {
+        expect(out.toLowerCase(), `${raw} leaked "${leak}"`).not.toContain(leak);
+      }
+    }
+  });
+
+  it("accepts an Error or a non-string without leaking it", () => {
+    expect(friendlyAuthError(new Error("Failed to fetch"))).toBe(AUTH_ERROR_MESSAGES.network);
+    expect(friendlyAuthError(new Error("Database error saving new user"))).toBe(
+      AUTH_ERROR_MESSAGES.serverError
+    );
+    expect(friendlyAuthError(undefined)).toBe(AUTH_ERROR_MESSAGES.unknown);
+    expect(friendlyAuthError({ weird: true })).toBe(AUTH_ERROR_MESSAGES.unknown);
+  });
+});
+
+describe("friendlyAuthError reads the AuthError's code, not only its prose", () => {
+  // Callers used to pass `error.message`, so the code branches never ran and
+  // newer Supabase prose fell through to "Something went wrong"
+  // (independent review, 2026-11-16).
+  it("maps by code when the prose is unfamiliar", () => {
+    expect(friendlyAuthError({ code: "weak_password", message: "Some new wording" })).toBe(AUTH_ERROR_MESSAGES.weakPassword);
+    expect(friendlyAuthError({ code: "user_already_exists", message: "?" })).toBe(AUTH_ERROR_MESSAGES.alreadyRegistered);
+    expect(friendlyAuthError({ code: "email_address_invalid", message: "?" })).toBe(AUTH_ERROR_MESSAGES.invalidEmail);
+  });
+  it("maps the current email prose", () => {
+    expect(friendlyAuthError('Email address "x@y.z" is invalid')).toBe(AUTH_ERROR_MESSAGES.invalidEmail);
+    expect(friendlyAuthError("Email address not authorized")).toBe(AUTH_ERROR_MESSAGES.emailNotAllowed);
+    expect(friendlyAuthError({ code: "email_address_not_authorized", message: "x" })).toBe(AUTH_ERROR_MESSAGES.emailNotAllowed);
+  });
+  it("still never leaks the raw text of an object error", () => {
+    const out = friendlyAuthError({ code: "unexpected_failure", message: "Database error saving new user" });
+    expect(Object.values(AUTH_ERROR_MESSAGES)).toContain(out);
+    expect(out).not.toMatch(/database|unexpected_failure/i);
   });
 });

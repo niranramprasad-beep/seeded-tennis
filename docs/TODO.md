@@ -3,11 +3,43 @@
 Short, ordered, and about *what happens next*. `docs/MASTER_ROADMAP.md`
 stays the full picture with acceptance criteria; this file is the queue.
 
-Last updated 2026-11-15.
+Last updated 2026-11-16.
 
 ---
 
 ## WEEK 1 — ranked (written by the 2026-11-15 overnight pass)
+
+**Billing honesty — needs Niran's call (found 2026-11-16 rebuilding /pricing):
+the Family plan unlocks nothing the code enforces.** `FEATURE_TIER`
+(lib/types.ts) marks the parent dashboard, season budget and weekly report as
+Family-tier, and /pricing's compare table is generated from it — but no RLS
+policy calls `has_tier('family')` for them, `/family*` is not behind
+`PaidGate`, `lib/route-access.ts` checks role only, and budget writes check
+`is_parent_member()` with no tier. A parent on Free gets all three today.
+Either gate them (PaidGate on /family* + `has_tier('family')` in the budget /
+report policies — a migration, and it takes access away from today's free
+parents) or change `FEATURE_TIER` and the Family card (the table follows
+automatically). Not changed in the UI polish PR because either fix changes a
+live flow or what people are paying for.
+
+**Do these two first — both are migrations, so neither ships in the UI
+polish PR (Niran, 2026-11-16):**
+
+- **A. An under-13 whose consent is PENDING must see no family names,
+  emails or ratings.** Today `family_members()` still returns the roster
+  (names, emails, ratings) to a pending under-13 who has joined a family —
+  030/031 make their account inert for writes and most reads, but this
+  SECURITY DEFINER function is the exception. Fix: have `family_members()`
+  return zero rows (or only the caller's own row) while
+  `my_consent_state()` is `pending`; rehearse on staging with a pending
+  under-13 joiner; guard test on the roster function. See item 10 below,
+  which this replaces.
+- **B. Parents cannot insert player-data rows under their own account.**
+  Role-gate the INSERT policies on utr_entries, matches, tournament_entries,
+  coach_outreach, daily_checkins and the other player tables
+  (`profiles.role = 'player'` in WITH CHECK, mirroring 033), and make
+  `is_parent_member()` role-aware. Today the app's routes refuse it (403),
+  but PostgREST allows it. Same item as 3 below, promoted.
 
 1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the
    hero — real results plus a dashed "Estimate" junior-year projection with
@@ -76,14 +108,14 @@ Last updated 2026-11-15.
 12. **In the last hours before June 1 of the target summer** the projection
     rounds to today's rating but is still chipped "Estimate". Cosmetic; flip
     `isProjected` when the remaining time is under a day.
-14. **A parent's /schools shifts on a phone (CLS 0.07 at 375, 0.10 at
-    320).** Before the session resolves the page cannot know the viewer is
-    a parent, so it lays out the signed-out "Enter your UTR" prompt; the
-    parent's scope note that replaces it is taller. Players are fixed
-    (0.00–0.04) by the pre-session frame. Fix: remember the role next to
-    the session (e.g. `seeded.role` in localStorage, cleared on sign-out),
-    mark `html[data-role]` in the head script, and reserve the parent
-    block's space the same way.
+14. ~~**A parent's /schools shifts on a phone.**~~ **DONE 2026-11-16
+    (PR A, `fix/ui-polish-1`)** exactly as proposed: `seeded.role` in
+    localStorage (set by one effect in player-context on every sign-in path,
+    cleared on sign-out), `html[data-role]` from the head script, and
+    role-sized placeholders — plus the band chips and fit column held while
+    a parent's roster loads. Measured with a layout-shift probe: persona f
+    0.0001 / 0.0004 / 0.0034 and persona a 0.0001 / 0.0004 / 0.0021 at
+    320 / 375 / 1440 (were up to 0.29 for f mid-PR, 0.13–0.20 for a before).
 15. **LCP on a simulated slow-4G phone is 5.1–6.1 s** on every public
     route (Lighthouse mobile, local production build; performance 78–81,
     CLS 0, TBT ≈ 0). Six web-font families load on every page; start there
@@ -132,6 +164,14 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
 ---
 
 ## Still open after the rollout
+
+- **An EMPTY family's code can be claimed by a new signup** (found on
+  production 2026-11-16, step 9). 032 blocks a code that any profile or
+  `parent_accounts` row holds; production has one `families` row with 0
+  holders and 0 links, and a profile INSERT with that code succeeds. It
+  exposes nothing — there is no one in it to read — so it is LOW. Fix:
+  delete member-less `families` rows (service role, by hand), or have
+  `family_code_is_taken()` also check `families`.
 
 6. **P0-8's other half — the privacy policy.** The mechanisms are built and
    tested: real deletion, a complete JSON export, under-13 consent, and

@@ -193,7 +193,7 @@ function NavButton({ label, onClick, icon: Icon }: { label: string; onClick: () 
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-lg border border-line text-stone transition-colors hover:text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+      className="flex h-7 w-7 items-center justify-center rounded-lg border border-line text-stone transition-colors hover:text-ink focus:outline-none focus:ring-2 focus:ring-focus"
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
@@ -311,7 +311,7 @@ function WeekGrid({
         {/* A scroll container must be reachable by keyboard (axe
             scrollable-region-focusable): tabIndex + a name. */}
         <div
-          className="col-span-8 max-h-[420px] overflow-y-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-accent"
+          className="col-span-8 max-h-[420px] overflow-y-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
           tabIndex={0}
           role="region"
           aria-label="Week schedule, scrollable"

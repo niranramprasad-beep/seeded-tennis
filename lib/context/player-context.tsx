@@ -49,6 +49,22 @@ interface PlayerContextValue {
 // the real auth flow against the shared Supabase project.
 export const PlayerContext = createContext<PlayerContextValue | null>(null);
 
+/**
+ * The signed-in account's role, kept for the NEXT page load only: the head
+ * script in app/layout.tsx reads it into html[data-role] before React runs,
+ * so a pre-session placeholder can be the right height for a parent or a
+ * player (a parent's /schools shifted 0.07-0.10 on phones because it got the
+ * player's). Only "parent"/"player" — no id, no name. Cleared on sign-out.
+ */
+function rememberRole(role: "parent" | "player" | null) {
+  try {
+    if (role) localStorage.setItem("seeded.role", role);
+    else localStorage.removeItem("seeded.role");
+  } catch {
+    /* private mode: placeholders fall back to the player's shape */
+  }
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [player, setPlayer] = useState<Player>(emptyPlayer);
   const [isAuthed, setIsAuthed] = useState(false);
@@ -76,10 +92,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setPlayer(state.player);
       setIsAuthed(true);
       setConnectionError(null);
+      rememberRole(state.player.role === "parent" ? "parent" : "player");
     } else if (state.status === "signed-out") {
       setPlayer(emptyPlayer);
       setIsAuthed(false);
       setConnectionError(null);
+      rememberRole(null);
     } else {
       setConnectionError(state.message);
     }
@@ -89,6 +107,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  // Every path that signs someone in (hydrate, sign-in's beginSession,
+  // onboarding) lands here, so the role is stored before the next full load
+  // whichever way the session started. Only once hydrated: before that,
+  // `isAuthed` is false for everyone and would wipe a good value.
+  useEffect(() => {
+    if (!hydrated && !isAuthed) return;
+    rememberRole(isAuthed ? (player.role === "parent" ? "parent" : "player") : null);
+  }, [hydrated, isAuthed, player.role]);
 
   const retryConnection = useCallback(() => {
     void hydrate();
@@ -166,6 +193,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     setIsAuthed(false);
     setPlayer(emptyPlayer);
+    rememberRole(null);
     void signOutOfSupabase();
   }, []);
 

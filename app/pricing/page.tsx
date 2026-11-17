@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { formatTierPrice } from "@/lib/types";
 import { getCatalogCounts } from "@/lib/db/schools";
 import { PricingView } from "@/components/pricing/pricing-view";
-import { Footer } from "@/components/layout/footer";
 
 // CLAUDE.md: "Prices live only in TIER_PRICE_USD (lib/types). Never retype a
 // price in a component." This is a server module, so it can interpolate —
@@ -27,7 +26,6 @@ export default async function PricingPage() {
   return (
     <>
       <PricingView counts={counts} />
-      <Footer />
     </>
   );
 }

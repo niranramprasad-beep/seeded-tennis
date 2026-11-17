@@ -1,133 +1,216 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
 import { signInWithGoogle } from "@/lib/auth";
 import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
+import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 
-// The shared shell for /login, /signup and /auth/complete, per
-// docs/DESIGN_MOCKUP_SPEC.md: same header and background as pricing, a
-// centred ~420px white card, H2 + subline, Google first, then an "or"
-// divider, then the form.
+// The shared shell for /login, /signup, /parent-signup, /reset-password and
+// /auth/complete — Board 21 of docs/DESIGN_MOCKUP_SPEC_V2.md: a centred card
+// at most 440px wide, radius 16, padding 36 (24 on small phones), white
+// surface with a hairline border, on the page background. H1 + one-line sub,
+// then Google (only with the flag on), an "or with email" divider, then the
+// form. The slim logo-only header is AppShell's job, not this file's.
 //
-// One component rather than three copies, because the three screens
-// disagreed before: different card widths, different error treatments, and a
-// Google button on none of them. The spec's measurements live here once.
+// One component rather than five copies, because the screens disagreed
+// before: different card widths, different error treatments, and a Google
+// button on none of them. The measurements live here once.
 
 /**
- * The one input style for every auth screen.
+ * The one input style for every auth screen (and the pre-auth onboarding
+ * signup, which imports it).
  *
- * /login and /signup disagreed on all four of height, radius, border and
- * text size — 44px/radius-6/1px/16px here, 48px/radius-12/0.5px/14px on
- * signup — so two screens one click apart looked like two products. This is
- * signup's rounder, taller shape (the one that reads better) at login's
- * 16px text, which is not a style choice: iOS Safari zooms the whole page
- * when you focus an input whose text is under 16px, and signup's 14px was
- * doing exactly that on a phone.
+ * 44px tall, radius 8, 1px input border, 16px text. 16px is not a style
+ * choice: iOS Safari zooms the whole page when you focus an input whose text
+ * is under 16px. The focus ring is design-system rule 8 — a 2px outline,
+ * offset 2, in the focus token (court green on light, lime on dark).
  */
 export const authInputClass =
-  "h-12 w-full rounded-xl border border-input bg-card px-4 text-base text-ink " +
-  "placeholder:text-stone-light focus:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-grass/40 focus-visible:ring-offset-1";
+  "h-11 w-full rounded-lg border border-input bg-card px-3.5 text-base text-ink " +
+  "placeholder:text-stone-light focus:outline-none focus-visible:outline " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus " +
+  "aria-[invalid=true]:border-error disabled:opacity-60";
 
+/** The id a field's hint or inline error is rendered under, so the input can
+ * point at it with aria-describedby. */
+export const fieldHintId = (htmlFor: string) => `${htmlFor}-hint`;
+
+/** aria-describedby for an input inside AuthField: its hint/error, plus any
+ * extra ids (the form's error banner, say). Undefined when there is none. */
+export function describedBy(
+  htmlFor: string,
+  opts: { hint?: boolean; extra?: Array<string | false | null | undefined> } = {}
+): string | undefined {
+  const ids = [opts.hint ? fieldHintId(htmlFor) : null, ...(opts.extra ?? [])].filter(
+    Boolean
+  ) as string[];
+  return ids.length ? ids.join(" ") : undefined;
+}
+
+/** Label above, 13px/500 in stone; an optional action (e.g. "Forgot it?") at
+ * the right of the label row; hint or error below, under fieldHintId(). */
 export function AuthField({
   label,
   htmlFor,
   help,
   error,
+  labelAction,
   children,
 }: {
   label: string;
   htmlFor: string;
-  help?: string;
+  help?: ReactNode;
   error?: string | null;
+  labelAction?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-medium text-stone">
-        {label}
-      </label>
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <label htmlFor={htmlFor} className="block text-[13px] font-medium text-stone">
+          {label}
+        </label>
+        {labelAction}
+      </div>
       {children}
       {error ? (
-        <p className="mt-1.5 text-sm text-error">{error}</p>
+        <p id={fieldHintId(htmlFor)} className="mt-1.5 text-sm text-error-strong">
+          {error}
+        </p>
       ) : help ? (
-        <p className="mt-1.5 text-xs text-stone">{help}</p>
+        <p id={fieldHintId(htmlFor)} className="mt-1.5 text-[13px] leading-snug text-stone">
+          {help}
+        </p>
       ) : null}
     </div>
   );
 }
 
-/** The spec's error banner: "always says what's safe + Try again". */
-export function AuthError({ message }: { message: string }) {
+/**
+ * The error banner. Its text must come from friendlyAuthError (lib/auth.ts)
+ * or be hand-written — never a raw Supabase message.
+ *
+ * Focus moves here whenever a NEW message appears, so a keyboard or
+ * screen-reader user who pressed "Sign in" lands on the reason it failed
+ * instead of being left on a button that seemed to do nothing.
+ */
+export function AuthError({ message, id = "auth-error" }: { message: string; id?: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, [message]);
   return (
     <p
+      ref={ref}
+      id={id}
       role="alert"
-      className="mb-4 rounded-lg border border-error/40 bg-error-bg px-4 py-3 text-sm text-error"
+      tabIndex={-1}
+      className="mb-5 rounded-lg border border-error/30 bg-error-bg px-4 py-3 text-sm leading-snug text-error-strong focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     >
       {message}
     </p>
   );
 }
 
+/** A calm success line (email confirmed, link sent again). */
+export function AuthNotice({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="status"
+      className="mb-5 rounded-lg border border-grass/30 bg-grass-50 px-4 py-3 text-sm leading-snug text-grass"
+    >
+      {children}
+    </p>
+  );
+}
+
+/** The card's H1 id, so a multi-step form can move focus to the new title
+ * when the step changes. */
+export const AUTH_TITLE_ID = "auth-title";
+
 export function AuthCard({
   title,
   subtitle,
   error,
+  errorId,
+  notice,
   google,
+  eyebrow,
   footer,
+  busy,
   children,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   error?: string | null;
-  /** Renders the Google button and the "or" divider above the form. Omit on
-   * screens where Google makes no sense (finishing a Google signup). */
+  errorId?: string;
+  notice?: ReactNode;
+  /** Renders the Google button and the "or with email" divider above the
+   * form. Omit on screens where Google makes no sense (finishing a Google
+   * signup, resetting a password). */
   google?: { next?: string; label?: string };
+  /** Small line above the title — the signup step counter. */
+  eyebrow?: ReactNode;
+  /** Below the card, centred: "New here? Create a free account". */
   footer?: ReactNode;
+  busy?: boolean;
   children: ReactNode;
 }) {
   return (
-    // Vertically centred in the space below the 73px header, matching
-    // /signup. /login used to sit at `py-12` from the top while /signup
-    // centred itself, so moving between them jumped the card up the screen.
-    <div className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-5 py-12 min-h-[calc(100vh-73px)]">
-      <div className="rounded-xl border border-line bg-card p-6 shadow-soft">
-        <h1 className="font-seeded text-xl font-semibold tracking-tight text-ink">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-[15px] leading-[1.5] text-stone">{subtitle}</p>}
+    // Vertically centred in the space below the slim header. bg-cream is
+    // the page background token, so the white card reads as a card in both
+    // light and dark mode.
+    <div className="flex min-h-[calc(100vh-73px)] w-full justify-center bg-cream px-4 py-10 sm:items-center sm:py-16">
+      <div className="w-full max-w-[440px]">
+        <div
+          className="rounded-2xl border border-line bg-card p-6 shadow-soft sm:p-9"
+          aria-busy={busy || undefined}
+        >
+          {eyebrow && <div className="mb-4">{eyebrow}</div>}
+          <h1
+            id={AUTH_TITLE_ID}
+            tabIndex={-1}
+            className="font-seeded text-[26px] font-semibold leading-tight tracking-tight text-ink focus:outline-none sm:text-[28px]"
+          >
+            {title}
+          </h1>
+          {subtitle && <p className="mt-2 text-[15px] leading-normal text-stone">{subtitle}</p>}
 
-        <div className="mt-5">
-          {error && <AuthError message={error} />}
-          {google && GOOGLE_AUTH_ENABLED && (
-            <>
-              <GoogleButton next={google.next} label={google.label} />
-              <GoogleDivider />
-            </>
-          )}
-          {children}
+          <div className="mt-6">
+            {google && GOOGLE_AUTH_ENABLED && (
+              <>
+                <GoogleButton next={google.next} label={google.label} />
+                <GoogleDivider label="or with email" />
+              </>
+            )}
+            {error && <AuthError message={error} id={errorId} />}
+            {notice}
+            {children}
+          </div>
         </div>
+        {footer && <div className="mt-6 text-center text-sm text-stone">{footer}</div>}
       </div>
-      {footer && <div className="mt-6 text-center text-sm text-stone">{footer}</div>}
     </div>
   );
 }
 
 /**
- * "Continue with Google".
+ * "Continue with Google" — a SECONDARY button (Board 21: one primary per
+ * screen, and that is the email form's submit).
  *
  * Renders only when NEXT_PUBLIC_GOOGLE_AUTH_ENABLED is exactly "true", and
- * the check is HERE rather than only in AuthCard — components/auth/
- * signup-flow.tsx renders this directly, and with the check one level up it
- * showed the button on /signup with the flag unset. Caught in a 375px
- * screenshot. A flag that only works through one caller is not a flag.
+ * the check is HERE rather than only in AuthCard — the pre-auth onboarding
+ * renders this directly, and with the check one level up it showed the
+ * button on /signup with the flag unset. Caught in a 375px screenshot. A
+ * flag that only works through one caller is not a flag.
  *
- * The
- * flag decides whether a button appears, not whether anything is permitted —
- * the real gate is the Google provider being enabled in Supabase Auth. With
- * the flag on and the provider off, this renders and Supabase refuses, which
- * is why turning the flag on is the LAST step of enabling Google sign-in.
+ * The flag decides whether a button appears, not whether anything is
+ * permitted — the real gate is the Google provider being enabled in Supabase
+ * Auth. With the flag on and the provider off, this renders and Supabase
+ * refuses, which is why turning the flag on is the LAST step of enabling
+ * Google sign-in.
  *
  * On failure it shows the message inline rather than navigating: the user is
  * still on the page they started from, and sending them somewhere else to
@@ -146,6 +229,7 @@ export function GoogleButton({ next, label }: { next?: string; label?: string })
     // On success the browser is already navigating to Google; leaving the
     // button in its loading state is correct, not a stuck spinner.
     if (!result.ok) {
+      // Already mapped by friendlyAuthError in lib/auth.ts.
       setError(result.error ?? "Couldn't start Google sign-in. Try again.");
       setLoading(false);
     }
@@ -153,37 +237,33 @@ export function GoogleButton({ next, label }: { next?: string; label?: string })
 
   return (
     <>
-      <button
+      <SeededButton
         type="button"
+        variant="secondary"
         onClick={start}
-        disabled={loading}
-        className={cn(
-          "flex min-h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-input",
-          "bg-card text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/40 focus-visible:ring-offset-2",
-          "disabled:cursor-not-allowed disabled:opacity-60"
-        )}
+        loading={loading}
+        className="w-full"
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden />
-        ) : (
-          <GoogleMark />
-        )}
+        {!loading && <GoogleMark />}
         {label ?? "Continue with Google"}
-      </button>
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      </SeededButton>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-error-strong">
+          {error}
+        </p>
+      )}
     </>
   );
 }
 
-/** The "or" between Google and the email form. Rendered only alongside the
- * button, so it cannot appear on its own with the flag off. */
-export function GoogleDivider() {
+/** The divider between Google and the email form. Rendered only alongside
+ * the button, so it cannot appear on its own with the flag off. */
+export function GoogleDivider({ label = "or" }: { label?: string } = {}) {
   if (!GOOGLE_AUTH_ENABLED) return null;
   return (
-    <div className="my-4 flex items-center gap-3" aria-hidden>
+    <div className="my-5 flex items-center gap-3" aria-hidden>
       <span className="h-px flex-1 bg-line" />
-      <span className="text-[13px] text-stone">or</span>
+      <span className="text-[13px] text-stone">{label}</span>
       <span className="h-px flex-1 bg-line" />
     </div>
   );
@@ -191,7 +271,9 @@ export function GoogleDivider() {
 
 /** Google's mark, inline. Not an <img> from a Google URL: that would be a
  * third-party request on a page we tell the CSP to keep to 'self', and it
- * would leak a page view to Google before anyone clicked anything. */
+ * would leak a page view to Google before anyone clicked anything. The four
+ * fills are Google's brand colours and are the one deliberate exception to
+ * "tokens only, never hex" — the mark must not change with the theme. */
 function GoogleMark() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden focusable="false">
@@ -215,14 +297,40 @@ function GoogleMark() {
   );
 }
 
+/** Text link in the auth palette. 44px tall on phones (touch), 24px from sm
+ * up (WCAG 2.5.8), so it is a real target without bloating desktop rows. */
+export const authLinkClass =
+  "inline-flex min-h-11 items-center rounded-sm font-medium text-grass underline-offset-4 " +
+  "hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 " +
+  "focus-visible:outline-focus sm:min-h-6";
+
 export function AuthFooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    // min-h: was a 20px-tall target (WCAG 2.5.8 wants 24, touch wants 44).
-    <Link
-      href={href}
-      className="inline-flex min-h-11 items-center font-medium text-grass underline-offset-4 hover:underline sm:min-h-6"
-    >
+    <Link href={href} className={authLinkClass}>
       {children}
     </Link>
+  );
+}
+
+/** "By creating an account you agree to the Terms and Privacy policy." */
+export function AuthLegalLine({ prefix }: { prefix: string }) {
+  return (
+    <p className="mt-4 text-center text-[13px] leading-normal text-stone">
+      {prefix}{" "}
+      <Link
+        href="/terms"
+        className="font-medium text-ink underline underline-offset-2 hover:text-grass"
+      >
+        Terms
+      </Link>{" "}
+      and{" "}
+      <Link
+        href="/privacy"
+        className="font-medium text-ink underline underline-offset-2 hover:text-grass"
+      >
+        Privacy policy
+      </Link>
+      .
+    </p>
   );
 }

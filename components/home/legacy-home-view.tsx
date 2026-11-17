@@ -20,7 +20,6 @@ import { SchoolMarquee } from "@/components/home/school-marquee";
 import { CinematicBand } from "@/components/home/cinematic-band";
 import { FitFinderTeaser } from "@/components/home/fit-finder-teaser";
 import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
-import { Footer } from "@/components/layout/footer";
 import { CAPABILITIES, METHODOLOGY, LOOP } from "./home-content";
 
 // Extracted verbatim out of app/page.tsx so Seeded (components/seeded/
@@ -343,7 +342,6 @@ export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
           </Reveal>
         </section>
       </div>
-      <Footer />
     </>
   );
 }

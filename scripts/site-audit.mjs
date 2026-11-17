@@ -45,7 +45,9 @@ const BASE = process.env.AUDIT_BASE ?? "http://localhost:3100";
 const EVIDENCE = join(HOME, "seeded-evidence/overnight");
 const PASS = process.argv[2] ?? "tier1";
 const ONLY = new Set(process.argv.slice(3));
-const OUT = join(EVIDENCE, "audit", PASS);
+// AUDIT_OUT (absolute) overrides where a pass writes, e.g.
+// ~/seeded-evidence/ui-polish-1/before — so before/after runs sit side by side.
+const OUT = process.env.AUDIT_OUT ?? join(EVIDENCE, "audit", PASS);
 mkdirSync(join(OUT, "shots"), { recursive: true });
 const RESULTS = join(OUT, "results.jsonl");
 writeFileSync(RESULTS, "");
@@ -171,6 +173,16 @@ const PASSES = {
     viewports: [W(320, 700), W(375, 812)],
     themes: ["light"],
     axe: false,
+    shots: true,
+  },
+  // Before/after evidence for a UI change: signed-out + a player + a parent,
+  // at the three widths the polish brief names, light and dark.
+  polish: {
+    browsers: ["chromium"],
+    personas: (process.env.AUDIT_PERSONAS ?? "h,a,f").split(","),
+    viewports: [W(320, 700), W(375, 812), W(1440, 900)],
+    themes: ["light", "dark"],
+    axe: true,
     shots: true,
   },
   extras: {

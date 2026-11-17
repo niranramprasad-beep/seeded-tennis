@@ -7,6 +7,68 @@ Newest first.
 
 ---
 
+## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
+
+Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`
+board 23 into the live site. Each is a deliberate change a reviewer might
+otherwise read as a regression.
+
+**One slim footer, rendered by AppShell on every route.** There were three:
+a four-column footer on six marketing pages, a homepage-only one, and none
+on /methodology, /privacy, /terms, /contact, the auth pages or the app.
+Pages no longer render a footer; `Footer` under Seeded is the slim one
+(Seeded · How we calculate fit · Privacy · Terms · support@), and Legacy
+keeps its old footer. *Undo:* render `<Footer />` per page again and drop it
+from `components/layout/app-shell.tsx`.
+
+**"Switch to Legacy" moved to Settings → Appearance only** (Niran's call,
+A4). It sat in the footer of every Seeded page, one click from a stranger
+flipping the whole site into a design that fails the extras pass and is
+slated for deletion. The Appearance card already had "Legacy theme"; a
+signed-out visitor can no longer reach Legacy at all, which is the point.
+*Undo:* restore the button removed from `components/layout/footer.tsx`.
+
+**One calm data note per card instead of chip stacks** (rule 2). The roster
+estimate is still labelled wherever a team number appears (CLAUDE.md), but
+as one sentence — "The team range is our estimate, not a published roster."
+— plus an "About our data" link, not a chip AND a three-line paragraph.
+`ProjectionNote` is now that note: the dashed Estimate chip, the estimated
+UTR for the summer before senior year, and "Top D1 programs often decide
+earlier, during junior year." (Niran, 2026-11-16, kept). The growth
+assumption sentence it also carried now lives only in /methodology and
+beside the what-if slider. *Undo:* `components/seeded/ui/projection-note.tsx`.
+
+**"edition year not recorded" removed** (rule 4: say nothing). The school
+page now reads "U.S. News academic rank #18." *Undo:* `lib/school-academics.ts`.
+
+**The "unverified" fit band reads "No UTR yet"**, and "Not tracked" is gone
+from fit cells (an empty cell instead) and UTR tiles ("No UTR yet"). That
+band only ever meant "this player has no rating to compare", which
+"Unverified" did not say.
+
+**/schools hides "Your fit" until a UTR exists** (A7) — a column of "Not
+tracked" on the page a first-time visitor sees most. The "columns reappear
+automatically" note about untracked openings/verification is gone too.
+
+**The homepage's final CTA band is an ordinary surface with the ordinary
+green button**, not a fixed-dark band with a lime button. Lime is never a
+button fill (rule 1); court green on that dark band measured ~2.7:1 in light
+mode, under the 3:1 a control boundary needs. The parents panel stays dark
+and its button is an outline in the panel's own text colour.
+
+**The account's role is kept in localStorage (`seeded.role`)** — only the
+word "parent" or "player", no id or name — so the head script can mark
+`html[data-role]` before React runs and a placeholder can be the right
+height for a parent or a player. Cleared on sign-out. It is a layout hint,
+never an access decision (RLS and route-access decide access). *Undo:*
+`rememberRole` in lib/context/player-context.tsx and the head script.
+
+**Focus ring:** court green on light, lime on dark, via one `--c-focus`
+token and one global `:focus-visible` rule (rule 8). Before, Seeded buttons
+had a lime ring (1.2:1 on cream) and every link had the browser default.
+
+---
+
 ## 2026-11-16 — Migration 040: the Free target cap blocks only growth
 
 **Decision (Niran's, on the options laid out mid-rollout).** Fix forward

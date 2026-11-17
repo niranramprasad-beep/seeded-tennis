@@ -86,7 +86,10 @@ describe("no fabricated UTR reaches a family screen", () => {
       "components/parents/parent-dashboard-view.tsx",
     ]) {
       const src = readFileSync(join(REPO, file), "utf8");
-      expect(src, file).toMatch(/currentUTR == null \? "Not tracked"/);
+      // The wording is "No UTR yet" on Seeded screens since design system v2
+      // (rule 4) and still "Not tracked" on Legacy's; the guard is the null
+      // branch, not the words.
+      expect(src, file).toMatch(/currentUTR == null \? "(?:Not tracked|No UTR yet)"/);
     }
   });
 });

@@ -23,10 +23,14 @@ export function academicTier(usNewsRanking: number): AcademicTier {
 
 /** Next to any printed academic rank. The catalogue records the number but
  * not which U.S. News edition (or list) it came from. */
-export const ACADEMIC_RANK_SOURCE_LABEL = "U.S. News rank as entered in our catalogue; edition year not recorded";
+export const ACADEMIC_RANK_SOURCE_LABEL = "U.S. News academic rank, as entered in our catalogue";
 
-/** "U.S. News academic rank #18 (as entered in our catalogue; edition year
- * not recorded)." — the one sentence for the school page. */
+/** "U.S. News academic rank #18." — the one sentence for the school page.
+ *
+ * It used to end "(as entered in our catalogue; edition year not
+ * recorded)". Design system v2, rule 4 (Niran, 2026-11-16): "edition year
+ * not recorded" -> say nothing. The number still says whose rank it is;
+ * /methodology carries the caveat about the catalogue. */
 export function academicRankSentence(usNewsRanking: number): string {
-  return `U.S. News academic rank #${usNewsRanking} (as entered in our catalogue; edition year not recorded).`;
+  return `U.S. News academic rank #${usNewsRanking}.`;
 }

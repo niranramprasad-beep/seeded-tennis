@@ -5,7 +5,7 @@ import Link from "next/link";
 import { GripVertical, Search } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
 import { explainSchoolFit, schoolUtrRange, utrToPct, type SchoolFitBand, type SchoolFitExplanationInput } from "@/lib/school-fit";
-import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
+import { DataNote } from "@/components/seeded/ui/data-note";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
@@ -86,7 +86,7 @@ export function TargetSchoolsList({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Add a target school…"
           aria-label="Search schools to add to your target list"
-          className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
+          className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus"
         />
         {matches.length > 0 && (
           <ul className="absolute z-10 mt-1 w-full rounded-md border border-line bg-card py-1 shadow-card">
@@ -120,10 +120,7 @@ export function TargetSchoolsList({
       {targetSchools.length > 0 && (
         // The team UTR band in every row below is an unverified estimate with
         // no source or date (P0-3). Stated once here rather than on each row.
-        <p className="mt-3.5 text-xs text-stone-light">
-          Team UTR ranges are an {UTR_RANGE_SOURCE_LABEL.toLowerCase()} — no published source or
-          date yet.
-        </p>
+        <DataNote className="mt-3.5">Team UTR ranges are our estimates, not published rosters.</DataNote>
       )}
 
       <ul className="mt-3.5 flex flex-col gap-3 text-sm">

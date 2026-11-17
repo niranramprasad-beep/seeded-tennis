@@ -16,7 +16,7 @@ import { join } from "node:path";
 
 const HOME = process.env.HOME ?? "";
 const BASE = process.env.AUDIT_BASE ?? "http://localhost:3100";
-const OUT = join(HOME, "seeded-evidence/overnight/lighthouse");
+const OUT = process.env.LH_OUT ?? join(HOME, "seeded-evidence/overnight/lighthouse");
 mkdirSync(OUT, { recursive: true });
 const CHROME = join(HOME, "Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing");
 

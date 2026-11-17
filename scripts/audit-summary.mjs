@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 const pass = process.argv[2] ?? "tier1";
 const only = process.argv[3];
-const rows = readFileSync(join(process.env.HOME, "seeded-evidence/overnight/audit", pass, "results.jsonl"), "utf8")
+const rows = readFileSync(process.env.AUDIT_OUT ? join(process.env.AUDIT_OUT, "results.jsonl") : join(process.env.HOME, "seeded-evidence/overnight/audit", pass, "results.jsonl"), "utf8")
   .split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((r) => !only || r.persona === only);
 const issues = {};
 const add = (k, r, detail) => ((issues[k] ??= []).push(`${r.browser}/${r.persona}/${r.theme}/${r.width} ${r.route}${r.finalPath && r.finalPath !== r.route ? ` -> ${r.finalPath}` : ""}  ${detail ?? ""}`));

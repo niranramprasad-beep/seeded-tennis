@@ -371,6 +371,9 @@
   /* Light — the 11 mockups' one shipped palette. Values unchanged from the
      original single light/dark-duplicate block. */
   [data-design="seeded"][data-seeded-mode="light"] {
+    /* Design system v2, rule 8: the focus ring on light is court green —
+       lime is too pale to see on cream (1.2:1). */
+    --c-focus: 31 107 74;
     --c-bg: 247 246 242;
     --c-card: 255 255 255;
     --c-primary: 31 107 74;
@@ -489,6 +492,8 @@
    asserting a deliberate exemption is exactly what would get the fix
    reverted by the next reader. */
   [data-design="seeded"][data-seeded-mode="dark"] {
+    /* Rule 8: lime is the focus ring on dark only. */
+    --c-focus: 222 242 120;
     --c-bg: 14 20 17;
     --c-card: 23 30 26;
     --c-primary: 86 199 142;
@@ -622,6 +627,45 @@
 }
 
 @layer components {
+  /* ---- Design system v2 (docs/DESIGN_MOCKUP_SPEC_V2.md, board 23) ----
+     Rule 8: one visible focus ring everywhere — 2px, offset 2, court green
+     on light and lime on dark (--c-focus). A component that draws its own
+     ring (focus-visible:outline-none + ring-*) still wins: utilities sit in a
+     later layer. */
+  [data-design="seeded"] :focus-visible {
+    outline: 2px solid rgb(var(--c-focus));
+    outline-offset: 2px;
+  }
+
+  /* Rule 7: one vertical rhythm. 96px between page sections (64 on phones),
+     40 heading -> content, 20 between cards, 12 eyebrow -> title. */
+  .seeded-stack > * + * {
+    margin-top: 64px;
+  }
+  @media (min-width: 768px) {
+    .seeded-stack > * + * {
+      margin-top: 96px;
+    }
+  }
+  .seeded-section-y {
+    padding-block: 64px;
+  }
+  @media (min-width: 768px) {
+    .seeded-section-y {
+      padding-block: 96px;
+    }
+  }
+  .seeded-section-head {
+    margin-bottom: 40px;
+  }
+  .seeded-eyebrow {
+    @apply mb-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-stone;
+  }
+  /* Rule 5: cards in a row share a height. */
+  .seeded-card-row {
+    @apply grid items-stretch gap-5;
+  }
+
   .serif-accent {
     @apply font-serif italic font-normal;
   }
@@ -817,5 +861,14 @@ html[data-session] .pre-session-block {
   display: block;
 }
 html[data-session] .pre-session-hide {
+  display: none;
+}
+/* The remembered role (lib/context/player-context.tsx rememberRole): a
+   placeholder sized for one role is hidden for the other. Without a
+   remembered role, the player's shape shows. */
+html[data-session][data-role="parent"] .pre-session-player-only {
+  display: none;
+}
+html[data-session]:not([data-role="parent"]) .pre-session-parent-only {
   display: none;
 }

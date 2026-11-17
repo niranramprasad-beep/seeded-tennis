@@ -78,12 +78,10 @@ function LegacyTerms() {
 
 function SeededTerms() {
   return (
-    <div className="mx-auto max-w-4xl container-px py-16">
-      <Reveal className="mb-8">
-        <p className="font-seeded text-xs font-semibold uppercase tracking-[0.2em] text-stone">
-          Seeded terms
-        </p>
-        <h1 className="mt-2 font-seeded text-4xl font-semibold tracking-tight text-ink">
+    <div className="seeded-section-y mx-auto max-w-4xl px-6">
+      <Reveal className="seeded-section-head">
+        <p className="seeded-eyebrow">Seeded terms</p>
+        <h1 className="font-seeded text-4xl font-bold tracking-[-0.02em] text-ink">
           Terms, kept simple.
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
@@ -91,7 +89,7 @@ function SeededTerms() {
         </p>
       </Reveal>
       <Reveal index={1}>
-        <div className="seeded-glass divide-y divide-[rgb(var(--c-line))] rounded-[24px] shadow-seeded-1">
+        <div className="divide-y divide-line rounded-xl border border-line bg-card">
           {TERMS.map((term) => (
             <section
               key={term.title}

@@ -171,7 +171,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ReportTile
-          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
+          value={currentUTR == null ? "No UTR yet" : formatUTR(currentUTR)}
           label={
             weekDelta
               ? `UTR · ${weekDelta.delta >= 0 ? "+" : ""}${weekDelta.delta.toFixed(2)} this week`

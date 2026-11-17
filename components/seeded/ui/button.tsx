@@ -27,8 +27,8 @@ export interface SeededButtonProps
   loading?: boolean;
 }
 
-// Focus ring matches the mockup's Focus state exactly: 2px solid ball-yellow
-// outline, 2px offset — done as a focus-visible outline (not a Tailwind ring
+// Focus ring per design system v2 rule 8: 2px, offset 2 — court green on
+// light, lime on dark (the --c-focus token) — done as a focus-visible outline (not a Tailwind ring
 // utility) so it never clips inside a scroll container.
 export const SeededButton = forwardRef<HTMLButtonElement, SeededButtonProps>(
   ({ className, variant, loading, disabled, children, ...props }, ref) => (
@@ -37,7 +37,7 @@ export const SeededButton = forwardRef<HTMLButtonElement, SeededButtonProps>(
       disabled={disabled || loading}
       className={cn(
         seededButtonVariants({ variant }),
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-accent",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         className
       )}
       {...props}

@@ -15,7 +15,6 @@ import {
   type SchoolFitBand,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
-import { UTR_RANGE_SOURCE_LABEL } from "@/lib/db/schools";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
@@ -29,6 +28,7 @@ import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-sch
 import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
+import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
@@ -37,7 +37,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { cn, hasRealUtr } from "@/lib/utils";
 
 const selectClass =
-  "h-11 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-10";
+  "h-11 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-10";
 
 type ChipFilter = "all" | FitBand | "saved";
 
@@ -224,10 +224,11 @@ export function SeededSchoolsBrowser({
   //
   // Same resolver the family overview uses, so the two screens cannot
   // disagree about who the player is or what their rating is.
-  const { data: familyMembers = [] } = useSWR<FamilyMember[]>(
+  const { data: familyMembersData } = useSWR<FamilyMember[]>(
     player.role === "parent" ? "family-members" : null,
     () => loadFamilyMembers()
   );
+  const familyMembers = useMemo(() => familyMembersData ?? [], [familyMembersData]);
   const playerFacts = useMemo(
     () => resolveFamilyPlayerFacts(pickFamilyPlayer(familyMembers), player),
     [familyMembers, player]
@@ -476,42 +477,39 @@ export function SeededSchoolsBrowser({
   // columns (and therefore the template) is only known at runtime, so a
   // dynamically-built `grid-cols-[...]` string wouldn't be visible to
   // Tailwind's build-time class scanner.
+  // A7 (2026-11-16): no rating, no "Your fit" column. Without one every
+  // row read "Not tracked" — a column of nothing on the page a first-time
+  // visitor sees most. It appears the moment a UTR exists.
+  // A parent's child rating arrives with the family roster, ~100ms after
+  // first paint. Holding the column while that loads keeps every row from
+  // sliding sideways when it lands (measured CLS 0.29 at 1440 for persona
+  // f before this); it is dropped only once we KNOW there is no rating.
+  const parentAwaitingFamily = player.role === "parent" && familyMembersData === undefined;
+  const showFitCol = judgingUtr !== null || parentAwaitingFamily;
   const tableGridTemplate = [
     "28px",
     "28px",
     "minmax(0,2.2fr)",
-    "100px",
+    ...(showFitCol ? ["100px"] : []),
     "minmax(0,2fr)",
     ...(showOpenings ? ["80px"] : []),
     "90px",
     ...(showDataCol ? ["110px"] : []),
   ].join(" ");
   const genderLabel = gender === "men" ? "men's" : "women's";
-  const hiddenColumnNote =
-    !showOpenings && !showDataCol
-      ? `Openings and verification status aren't tracked yet for any ${genderLabel} program shown — those columns reappear automatically once we have real data.`
-      : !showOpenings
-        ? `Openings aren't tracked yet for any ${genderLabel} program shown — that column reappears automatically once we have real data.`
-        : !showDataCol
-          ? `Verification status isn't tracked yet for any ${genderLabel} program shown — that column reappears automatically once we have real data.`
-          : null;
 
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-tight text-ink">Schools</h1>
-          {/* "Sorted by fit for you" is only true once there is a rating to
-              sort against — without one the order is the catalogue's own. */}
+          {/* Just the count. "Sorted by fit for you." used to be prepended
+              once the report arrived, which wrapped this line on a 320px
+              phone and pushed the whole page down 24px (CLS 0.13). The Sort
+              control below already says what the order is. */}
           <p className="mt-1.5 text-stone">
-            {report
-              ? viewingAsParent
-                ? `Sorted by fit for ${subjectName}. `
-                : "Sorted by fit for you. "
-              : ""}
             {ranked.length} {genderLabel} programs.
           </p>
-          <ProjectionNote utr={report?.utr} who={viewingAsParent ? subjectName : null} className="mt-1.5 max-w-2xl" />
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
           Search
@@ -523,14 +521,35 @@ export function SeededSchoolsBrowser({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="School, city or conference"
-              className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-[15px] text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
+              className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-[15px] text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
         </label>
       </div>
 
       <div className="mt-5">
-        {hasUtr && !viewingAsParent ? (
+        {/* Before the session check a signed-in browser used to render the
+            signed-out "Enter your UTR" banner here, then swap in the taller
+            what-if panel (CLS 0.075 at 375). Same trick as the band chips
+            below: a saved session gets an invisible box the panel's height
+            (247px where its pace row wraps, 185px from 360px up), an
+            anonymous visitor gets the banner. */}
+        {!sessionChecked && (
+          <>
+            <div aria-hidden className="pre-session-block pre-session-player-only hidden min-h-[247px] min-[360px]:min-h-[185px]" />
+            {/* The parent's two lines, measured: 174px at 320, 134 at 375, 94 from
+                640 to 1024, 74 at 1440. Between those widths it is close, not exact. */}
+            <div aria-hidden className="pre-session-block pre-session-parent-only hidden min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]" />
+          </>
+        )}
+        <div className={cn(!sessionChecked && "pre-session-hide")}>
+        {parentAwaitingFamily ? (
+          // A parent before the roster lands: the parent block's own height
+          // (same measured steps as the pre-session placeholder above), not
+          // the signed-out "Enter your UTR" banner, which is a different
+          // height and was shown for ~100ms (CLS 0.15 at 375, persona f).
+          <div aria-hidden className="min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]" />
+        ) : hasUtr && !viewingAsParent ? (
           <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} historyLoaded={utrEntries !== undefined} />
         ) : viewingAsParent ? (
           // A parent has no rating of their own and the slider is not for
@@ -553,14 +572,18 @@ export function SeededSchoolsBrowser({
                 Every program below is listed either way — fit bands need a rating to compare against.
               </span>
             </p>
+            {/* Secondary: the header's green "Get my free fit report" goes to
+                the same place, and the compare bar's "Compare side by side"
+                is this page's one green button (design system v2 rule 1). */}
             <Link
               href="/onboarding"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
             >
               Enter my UTR
             </Link>
           </div>
         )}
+        </div>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -573,12 +596,18 @@ export function SeededSchoolsBrowser({
               only under html[data-session]); otherwise four chips arriving
               after hydration re-wrapped this row and shifted the whole list
               (measured CLS 0.11 at 375 for a signed-in player). */}
-          {!sessionChecked &&
+          {/* ...and the same holds while a parent's roster is still loading:
+              the counts arrive with the child's rating (persona f, CLS 0.13
+              at 375 before this). */}
+          {(!sessionChecked || (parentAwaitingFamily && !counts)) &&
             ["Reach 00", "Target 00", "Likely 00", "Out of range 00"].map((label) => (
               <span
                 key={label}
                 aria-hidden
-                className="pre-session-only invisible min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-sm font-semibold sm:min-h-6 sm:py-1.5"
+                className={cn(
+                  "invisible min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-sm font-semibold sm:min-h-6 sm:py-1.5",
+                  sessionChecked ? "inline-flex" : "pre-session-only"
+                )}
               >
                 {label}
               </span>
@@ -620,7 +649,7 @@ export function SeededSchoolsBrowser({
           <select
             value={safeSort}
             onChange={(e) => setSort(e.target.value as SeededSchoolSort)}
-            className="h-11 rounded-lg border border-input bg-card px-2 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30 sm:h-8"
+            className="h-11 rounded-lg border border-input bg-card px-2 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-8"
           >
             {Object.entries(SEEDED_SORT_LABEL).map(([key, label]) => {
               const needsUtr = key === "gap" || key === "fit";
@@ -694,7 +723,6 @@ export function SeededSchoolsBrowser({
       </div>
 
       <div className="mt-5">
-        {hiddenColumnNote && <p className="mb-3 text-xs text-stone-light">{hiddenColumnNote}</p>}
 
         <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <div className="min-w-[760px]">
@@ -705,17 +733,13 @@ export function SeededSchoolsBrowser({
               <span aria-hidden />
               <span aria-hidden />
               <span>Program</span>
-              <span>{viewingAsParent ? `${subjectName}\u2019s fit` : "Your fit"}</span>
-              {/* The team side of this comparison is an unverified estimate
-                  with no source or date (P0-3) — say so in the header rather
-                  than repeat it on all ~37 rows. */}
-              <span className="normal-case">
-                <span className="uppercase">
-                  {viewingAsParent ? `${subjectName} vs team UTR` : "You vs team UTR"}
-                </span>
-                <span className="block font-normal tracking-normal text-stone-light">
-                  {UTR_RANGE_SOURCE_LABEL}
-                </span>
+              {showFitCol && <span>{viewingAsParent ? `${subjectName}\u2019s fit` : "Your fit"}</span>}
+              {/* The estimate label sits in the header of the column that
+                  prints the team ranges — next to the numbers (CLAUDE.md), not
+                  only under a 37-row table (independent review, 2026-11-16). */}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                {viewingAsParent ? `${subjectName} vs team UTR` : "You vs team UTR"}
+                <EstimateChip className="normal-case tracking-normal" label="Team range: estimate" />
               </span>
               {showOpenings && <span>Openings</span>}
               <span title={ACADEMIC_RANK_SOURCE_LABEL}>Acad.</span>
@@ -765,7 +789,7 @@ export function SeededSchoolsBrowser({
                         e.stopPropagation();
                         setExpandedSlug(expanded ? null : s.slug);
                       }}
-                      className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-2 hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-grass/50 sm:-m-1 sm:h-7 sm:w-7 sm:p-1"
+                      className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md p-2 hover:bg-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:-m-1 sm:h-7 sm:w-7 sm:p-1"
                     >
                       <ChevronDown
                         className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", expanded && "rotate-180")}
@@ -810,11 +834,7 @@ export function SeededSchoolsBrowser({
                         </p>
                       </Link>
                     </div>
-                    {fit ? (
-                      <FitBadge band={fit} />
-                    ) : (
-                      <span className="text-[13px] text-stone-light">Not tracked</span>
-                    )}
+                    {showFitCol && (fit ? <FitBadge band={fit} /> : <span aria-hidden />)}
                     <RangeBar
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
@@ -893,6 +913,25 @@ export function SeededSchoolsBrowser({
             )}
           </div>
         </div>
+        {/* The table's one data note (design system v2 rule 2). The team
+            side of every row is an estimate with no published source —
+            said once here, not on the header and all ~37 rows. */}
+        {/* The projection note lives HERE, under the table, not under the
+            page title: it arrives when the fit report does, and up there it
+            pushed the search box, what-if panel, chips and filters down
+            ~100px (CLS 0.13 at 375 for a signed-in player). Below the table
+            it moves nothing on screen. The what-if panel at the top already
+            names the projected rating and date. */}
+        {report?.utr.isProjected ? (
+          <ProjectionNote
+            utr={report.utr}
+            who={viewingAsParent ? subjectName : null}
+            className="mt-3"
+            after="Team UTR ranges are our estimates, not published rosters."
+          />
+        ) : (
+          <DataNote className="mt-3">Team UTR ranges are our estimates, not published rosters.</DataNote>
+        )}
       </div>
 
       {compareSlugs.length > 0 && (
@@ -934,36 +973,26 @@ export function SeededSchoolsBrowser({
               <div key={s.id} className="rounded-xl border border-line p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{s.shortName}</p>
-                  {fit ? (
-                    <FitBadge band={fit} />
-                  ) : (
-                    <span className="text-[13px] text-stone-light">Not tracked</span>
-                  )}
+                  {fit ? <FitBadge band={fit} /> : null}
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
                   {s.conference} · {s.division} · {s.city}, {s.state}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-stone-light">
-                    Avg roster UTR
-                    <span className="block text-xs">{UTR_RANGE_SOURCE_LABEL}</span>
-                  </dt>
+                  <dt className="text-stone-light">Avg roster UTR (est.)</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{s.avgRosterUTR.toFixed(1)}</dd>
-                  <dt className="text-stone-light">
-                    Min competitive UTR
-                    <span className="block text-xs">{UTR_RANGE_SOURCE_LABEL}</span>
-                  </dt>
+                  <dt className="text-stone-light">Min competitive UTR (est.)</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{s.minCompetitiveUTR.toFixed(1)}</dd>
-                  <dt className="text-stone-light">
-                    U.S. News academic rank
-                    <span className="block text-xs">Edition year not recorded</span>
-                  </dt>
+                  <dt className="text-stone-light">U.S. News academic rank</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>
                 </dl>
               </div>
             );
           })}
           {compareSchools.length === 0 && <p className="text-sm text-stone">Select up to 3 schools to compare.</p>}
+          {compareSchools.length > 0 && (
+            <DataNote>Team UTRs are our estimates, not published rosters.</DataNote>
+          )}
         </div>
       </Drawer>
 

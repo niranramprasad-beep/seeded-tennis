@@ -7,7 +7,9 @@ const LABEL: Record<FitBand, string> = {
   target: "Target",
   likely: "Likely",
   "out-of-range": "Out of range",
-  unverified: "Unverified",
+  // The band explainSchoolFit returns when there is no UTR to compare —
+  // said as what it is (design system v2 rule 3/4), not "Unverified".
+  unverified: "No UTR yet",
 };
 
 // Pixel-exact to DesignSystem.dc.html's ".chip" base + fit-band colors: pill,

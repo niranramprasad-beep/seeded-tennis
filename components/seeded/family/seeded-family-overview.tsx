@@ -329,7 +329,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          value={currentUTR == null ? "Not tracked" : formatUTR(currentUTR)}
+          value={currentUTR == null ? "No UTR yet" : formatUTR(currentUTR)}
           label={
             <>
               UTR
