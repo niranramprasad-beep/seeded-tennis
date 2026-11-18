@@ -6,6 +6,8 @@ import {
   type GrowthPace,
 } from "@/lib/config/growth";
 import { summerBeforeSeniorYear } from "@/lib/school-fit";
+import { shiftLocalMonths } from "@/lib/time";
+import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import {
   classifySchoolFit,
   fitBasis,
@@ -383,6 +385,13 @@ export function buildFitReport(input: {
    * growth, and the slider would quietly overshoot.
    */
   overrideUtr?: number | null;
+  /**
+   * The recruiting-time rating, already decided by this module — only ever
+   * `diagnosticRecruitingUtr(diagnosticProjection(...))`, so the onboarding
+   * diagnostic's report bands at the SAME number its "Projected UTR" card
+   * shows. Absent → recruitingTimeUtr() decides, as everywhere else.
+   */
+  recruitingUtr?: RecruitingTimeUtr | null;
   now?: Date;
 }): FitReport | null {
   const override =
@@ -400,7 +409,7 @@ export function buildFitReport(input: {
         year: input.graduationYear - 2,
         isProjected: false,
       }
-    : recruitingTimeUtr(input);
+    : input.recruitingUtr ?? recruitingTimeUtr(input);
   if (!utr) return null;
 
   const current = override ?? (input.currentUtr as number);
@@ -468,4 +477,215 @@ export function buildFitReport(input: {
     recruitingInRange: inRangeOf(recruitingCounts),
     canToggle: differ,
   };
+}
+
+/* ==========================================================================
+ * THE ONBOARDING DIAGNOSTIC'S PROJECTION
+ * ==========================================================================
+ * /onboarding asks for today's UTR and, optionally, what it was about 6 and
+ * about 12 months ago. That is the player's OWN pace, so the diagnostic
+ * carries it forward instead of assuming typical growth:
+ *
+ *   year-ago rating given   pace = (today − year ago) / 12 per month
+ *   else 6-month rating     pace = (today − 6 months ago) / 6 per month
+ *   neither                 today's rating, and the note says so
+ *
+ * carried to June 1 of (grad year − 1), the summer before senior year —
+ * projectionTargetDate(), the one target every screen uses.
+ *
+ * Three cases deliberately return TODAY'S rating rather than a forecast,
+ * each with a sentence saying why: no past rating (no pace to carry), the
+ * summer before senior year has already started (nothing left to project
+ * into — the same rule as projectUtrAtRecruiting), and a rating that went
+ * DOWN (a dip after an injury or a hard schedule is not a trend a
+ * 13-year-old should be told to expect; extrapolating it would be a guess
+ * presented as their pace).
+ *
+ * Caps are the ones buildFitReport's projection already uses: the
+ * per-gender REALISTIC_UTR_CEILING, rounded to one decimal. The ceiling only
+ * caps GROWTH — it never pulls a real rating that is already above it down.
+ */
+
+export type DiagnosticProjectionBasis =
+  | "year-pace"
+  | "six-month-pace"
+  | "no-past-rating"
+  | "rating-went-down"
+  | "summer-started";
+
+export interface DiagnosticProjection {
+  /** The rating at the summer before senior year. Equal to `todayUtr`
+   * unless `isEstimate`. */
+  value: number;
+  /** How to print `value`: one decimal for an estimate (a projection does
+   * not have two decimals of precision), the player's own figure otherwise. */
+  display: string;
+  todayUtr: number;
+  basis: DiagnosticProjectionBasis;
+  /** True only when a pace was carried forward over a real window. */
+  isEstimate: boolean;
+  /** UTR per month that was carried forward; 0 when none was. */
+  pacePerMonth: number;
+  /** Months (fractional) from now to the target; 0 once it has begun. */
+  monthsToTarget: number;
+  /** "summer {targetYear}". Always grad year − 1. */
+  targetYear: number;
+  /** The one-line sentence that must sit beside the number. */
+  note: string;
+  cappedByCeiling: boolean;
+}
+
+/** A rating Postgres would accept (`between 1 and 16.5`, migration 006). */
+export function isUsableUtr(v: number | null | undefined): v is number {
+  return typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 16.5;
+}
+
+/** The player's own figure as they typed it: 8.25 → "8.25", 9 → "9.0". */
+export function playerUtrText(v: number): string {
+  return v.toFixed(2).replace(/(\.\d)0$/, "$1");
+}
+
+export function diagnosticProjection(input: {
+  todayUtr: number | null | undefined;
+  sixMonthsAgoUtr?: number | null;
+  yearAgoUtr?: number | null;
+  graduationYear: number;
+  gender: PlayerGender;
+  now?: Date;
+}): DiagnosticProjection | null {
+  const today = input.todayUtr;
+  if (!isUsableUtr(today)) return null;
+
+  const now = input.now ?? new Date();
+  const targetYear = projectionTargetDate(input.graduationYear).getFullYear();
+  const monthsToTarget = yearsUntilRecruiting(input.graduationYear, now) * 12;
+  const asToday = (basis: DiagnosticProjectionBasis, note: string): DiagnosticProjection => ({
+    value: today,
+    display: playerUtrText(today),
+    todayUtr: today,
+    basis,
+    isEstimate: false,
+    pacePerMonth: 0,
+    monthsToTarget,
+    targetYear,
+    note,
+    cappedByCeiling: false,
+  });
+
+  if (monthsToTarget === 0) {
+    return asToday(
+      "summer-started",
+      "The summer before senior year has started, so this is today's UTR."
+    );
+  }
+
+  let basis: DiagnosticProjectionBasis;
+  let pacePerMonth: number;
+  if (isUsableUtr(input.yearAgoUtr)) {
+    basis = "year-pace";
+    pacePerMonth = (today - input.yearAgoUtr) / 12;
+  } else if (isUsableUtr(input.sixMonthsAgoUtr)) {
+    basis = "six-month-pace";
+    pacePerMonth = (today - input.sixMonthsAgoUtr) / 6;
+  } else {
+    return asToday("no-past-rating", "No past rating, so this is today's UTR.");
+  }
+
+  if (pacePerMonth < 0) {
+    return asToday("rating-went-down", "The rating went down, so this stays at today's UTR.");
+  }
+
+  const cap = Math.max(REALISTIC_UTR_CEILING[input.gender], today);
+  const raw = today + pacePerMonth * monthsToTarget;
+  const capped = raw > cap;
+  const value = Math.round(Math.min(cap, raw) * 10) / 10;
+  const window = basis === "year-pace" ? "12 months" : "6 months";
+  return {
+    value,
+    display: value.toFixed(1),
+    todayUtr: today,
+    basis,
+    isEstimate: true,
+    pacePerMonth,
+    monthsToTarget,
+    targetYear,
+    note: capped
+      ? `Pace from the last ${window}, capped near the top of college tennis.`
+      : `Pace from the last ${window}, carried to June ${targetYear}.`,
+    cappedByCeiling: capped,
+  };
+}
+
+/** The diagnostic's projection in the shape buildFitReport judges fit by.
+ * An estimate has no slow/fast spread (it is the player's own pace, not the
+ * typical-growth assumption); today's rating is today's. */
+export function diagnosticRecruitingUtr(p: DiagnosticProjection): RecruitingTimeUtr {
+  return {
+    value: p.value,
+    basis: p.isEstimate ? "projected" : "current",
+    low: p.value,
+    high: p.value,
+    assumption: p.isEstimate ? p.note : null,
+    year: p.targetYear,
+    isProjected: p.isEstimate,
+  };
+}
+
+/**
+ * The onboarding diagnostic's whole fit report: its projection, and the
+ * bands judged at exactly that number.
+ *
+ * Reach vs Out of range uses the three real answered ratings when all three
+ * exist (today, ~6 and ~12 months ago — the "three logged ratings"
+ * /methodology asks for). With fewer it falls back to the realistic-pace
+ * line every pre-auth surface already uses (P1-FIT-4), rather than calling
+ * every below-floor school a Reach.
+ */
+export function buildDiagnosticFitReport(input: {
+  todayUtr: number | null | undefined;
+  sixMonthsAgoUtr?: number | null;
+  yearAgoUtr?: number | null;
+  graduationYear: number;
+  gender: PlayerGender;
+  schools: Pick<SchoolLite, "slug" | "minCompetitiveUTR" | "avgRosterUTR">[];
+  view?: FitView;
+  now?: Date;
+}): { projection: DiagnosticProjection; report: FitReport } | null {
+  const now = input.now ?? new Date();
+  const projection = diagnosticProjection({ ...input, now });
+  if (!projection) return null;
+  const today = projection.todayUtr;
+  const six = input.sixMonthsAgoUtr;
+  const year = input.yearAgoUtr;
+
+  const projectionInput: SchoolFitProjectionInput =
+    isUsableUtr(six) && isUsableUtr(year)
+      ? {
+          utrHistory: [
+            { date: shiftLocalMonths(now, -12), utr: year },
+            { date: shiftLocalMonths(now, -6), utr: six },
+            { date: now, utr: today },
+          ],
+          graduationYear: input.graduationYear,
+          gender: input.gender,
+          now,
+        }
+      : realisticPaceProjectionFor({
+          currentUTR: today,
+          graduationYear: input.graduationYear,
+          gender: input.gender,
+          now,
+        });
+
+  const report = buildFitReport({
+    currentUtr: today,
+    graduationYear: input.graduationYear,
+    gender: input.gender,
+    schools: input.schools,
+    view: input.view,
+    projectionInput,
+    recruitingUtr: diagnosticRecruitingUtr(projection),
+    now,
+  });
+  return report ? { projection, report } : null;
 }
