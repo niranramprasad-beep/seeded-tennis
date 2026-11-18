@@ -12,13 +12,9 @@ import { GoalPaceWarning } from "./goal-pace-warning";
 import { TargetSchoolsList } from "./target-schools-list";
 import { ClosestSchoolsCard } from "./closest-schools";
 import { RecruitingChecklistCard } from "./recruiting-checklist";
-import {
-  closestSchoolsByUtrGap,
-  computeGoalPace,
-  explainSchoolFit,
-  summerBeforeSeniorYear,
-  type SchoolFitProjectionInput,
-} from "@/lib/school-fit";
+import { closestSchoolsByUtrGap, summerBeforeSeniorYear, type SchoolFitProjectionInput } from "@/lib/school-fit";
+import { isRealisticTarget, projectionPath } from "@/lib/fit";
+import { formatShortDate, parseLocalDate } from "@/lib/time";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
@@ -30,7 +26,8 @@ import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
 import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
-import { formatUTR, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
+import { PlanGoalEditor } from "./plan-goal-editor";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
 function initialOf(name: string): string {
@@ -49,7 +46,7 @@ function initialOf(name: string): string {
 // adds editable target schools, a goal-pace warning, a "closest schools"
 // section, and the real recruiting checklist, all around the existing
 // pixel-exact structure.)
-export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, pickerSchools }: RoadmapLayoutProps) {
+export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerSchools, planGoal }: RoadmapLayoutProps) {
   const { updatePlayer } = usePlayer();
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const { data: matches } = useSWR("matches", () => loadMatches());
@@ -60,7 +57,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
   // entry, or — with no logged history yet — the player's own current UTR
   // as the single "today" anchor, never a bare 0.
   const actualPoints = useMemo(() => {
-    const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
+    const real = (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }));
     // Day-granularity "today" anchor (not a full millisecond timestamp) —
     // matches the day-only precision every real UTR entry already uses
     // (localDateKey() elsewhere in this app), and avoids a real SSR/CSR
@@ -153,7 +150,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
   const lastLoggedUtr = useMemo(() => {
     if (!utrEntries || utrEntries.length === 0) return null;
     return [...utrEntries].sort(
-      (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+      (a, b) => parseLocalDate(b.recordedAt).getTime() - parseLocalDate(a.recordedAt).getTime()
     )[0];
   }, [utrEntries]);
   const contactedOrReplied = useMemo(() => {
@@ -179,31 +176,43 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
     [pickerSchools, player.targetSchoolSlugs]
   );
 
-  // Point 2: the real pace needed to close current -> goal by senior
-  // summer, against the real player UTR (not the what-if slider).
-  // Every number this produces is derived from the player's current UTR —
-  // the gap, the required pace per year, the "faster than realistic" read.
-  // Computed from the 0 sentinel it told a player with no rating that they
-  // need "about 7.1/year", which is a confident answer to a question we
-  // cannot answer.
-  const goalPace = useMemo(
+  // The goal, its checkpoints and the pace it needs all come from
+  // usePlanGoal (lib/fit.ts resolvePlanGoal) — the same hook /today reads.
+  const { goal, goalPace } = planGoal;
+  const [editingGoal, setEditingGoal] = useState(false);
+
+  // C5: "Show realistic targets" used to filter on explainSchoolFit's
+  // what-if-aware bands and changed nothing. It now keeps the targets whose
+  // floor the player's estimated UTR for the summer before senior year
+  // reaches (lib/fit.ts isRealisticTarget), read from a report WITHOUT the
+  // what-if override — dragging the slider must not change which targets
+  // are realistic for the player they actually are.
+  const realReport = useFitReport({ player, schools: pickerSchools });
+
+  // The report's estimate (report.utr, not the what-if) drawn as a path for
+  // the chart — its last point is the number the ProjectionNote prints.
+  const estimatePath = useMemo(
     () =>
-      hasRealUtr(player.currentUTR)
-        ? computeGoalPace(player.currentUTR, goalUTR, player.graduationYear)
-        : null,
-    [player.currentUTR, goalUTR, player.graduationYear]
+      projectionPath({
+        estimate: realReport?.utr,
+        currentUtr: player.currentUTR,
+        graduationYear: player.graduationYear,
+      }),
+    [realReport, player.currentUTR, player.graduationYear]
   );
+  const realisticCount = useMemo(
+    () => orderedTargetSchools.filter((s) => isRealisticTarget(realReport, s.slug)).length,
+    [orderedTargetSchools, realReport]
+  );
+  // A filter that would change nothing is not offered (same rule as the
+  // fit report's view toggle).
+  const canFilterRealistic = realReport != null && orderedTargetSchools.length > 0 && realisticCount < orderedTargetSchools.length;
   const [showRealisticOnly, setShowRealisticOnly] = useState(false);
-  const visibleTargetSchools = useMemo(() => {
-    if (!showRealisticOnly) return orderedTargetSchools;
-    return orderedTargetSchools.filter((s) => {
-      const explanation = explainSchoolFit(effectiveUtr, s, {
-        ...explanationInput,
-        band: reportBandBySlug?.get(s.slug),
-      });
-      return explanation.band !== "out-of-range" && !explanation.unreachable;
-    });
-  }, [showRealisticOnly, orderedTargetSchools, effectiveUtr, explanationInput, reportBandBySlug]);
+  const filtering = showRealisticOnly && canFilterRealistic;
+  const visibleTargetSchools = useMemo(
+    () => (filtering ? orderedTargetSchools.filter((s) => isRealisticTarget(realReport, s.slug)) : orderedTargetSchools),
+    [filtering, orderedTargetSchools, realReport]
+  );
 
   // Point 4: the 5 real catalog schools closest to the player's actual
   // level, independent of what's currently targeted.
@@ -228,12 +237,14 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      {/* C24: the page had no title — the player's name was the H1. */}
+      <h1 className="mb-5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">Plan</h1>
       <div className="flex flex-wrap items-center gap-6 rounded-xl border border-line bg-card p-6">
         <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-grass-50 font-seeded text-[26px] font-bold text-grass">
           {initialOf(player.name)}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="font-seeded text-[28px] font-bold text-ink">{player.name || "Your profile"}</h1>
+          <h2 className="font-seeded text-[28px] font-bold text-ink">{player.name || "Your profile"}</h2>
           <p className="mt-1 text-stone">
             Class of {player.graduationYear} · {player.gender === "female" ? "Women's" : "Men's"}
             {player.utrProfileLink && (
@@ -256,7 +267,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
             value={formatUtrOrNotTracked(player.currentUTR)}
             label={
               lastLoggedUtr
-                ? `UTR · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
+                ? `UTR · self-reported ${formatShortDate(lastLoggedUtr.recordedAt)}`
                 : "UTR"
             }
           />
@@ -279,25 +290,47 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
       <div className="mt-5 rounded-xl border border-line bg-card p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold text-ink">Your plan to senior summer</h2>
-          <span className="text-[13px] text-stone">Goal: {formatUTR(goalUTR)} UTR</span>
+          {goal && !editingGoal && (
+            <span className="flex items-baseline gap-2 text-[13px] text-stone">
+              <span>
+                Goal: <span className="font-mono text-ink">{formatPlayerUtr(goal.value)}</span>
+                {goal.source === "estimate" ? " (your estimate)" : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingGoal(true)}
+                className="inline-flex min-h-11 items-center font-semibold text-grass sm:min-h-6"
+              >
+                {goal.source === "estimate" ? "Set a goal" : "Change"}
+              </button>
+            </span>
+          )}
         </div>
+        {editingGoal && goal && (
+          <PlanGoalEditor
+            goal={goal}
+            onSave={async (v) => {
+              await planGoal.setGoal(v);
+              setEditingGoal(false);
+            }}
+            onCancel={() => setEditingGoal(false)}
+            className="mt-3"
+          />
+        )}
         <div className="mt-4">
           <PlanTrajectoryChart
             actualPoints={actualPoints}
             roadmap={roadmap}
-            gender={player.gender}
-            targetSchools={orderedTargetSchools}
-            goalUTR={goalUTR}
-            isStarred={isStarred}
-            toggleStar={toggleStar}
+            goal={goal}
+            estimate={estimatePath}
+            onChangeGoal={goal ? () => setEditingGoal(true) : undefined}
           />
         </div>
         <GoalPaceWarning
           goalPace={goalPace}
-          goalUTR={goalUTR}
-          showingRealisticOnly={showRealisticOnly}
-          onShowRealistic={() => setShowRealisticOnly(true)}
-          onShowAll={() => setShowRealisticOnly(false)}
+          goal={goal}
+          onUseEstimate={() => void planGoal.setGoal(null)}
+          className="mt-3.5"
         />
       </div>
 
@@ -324,7 +357,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
                 <div key={m.id} className="flex items-center justify-between gap-2">
                   <span className="truncate text-ink">
                     {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} vs{" "}
-                    {m.opponentUtr != null ? `opponent ${formatUTR(m.opponentUtr)}` : m.opponent || "opponent"}
+                    {m.opponentUtr != null ? `opponent ${formatPlayerUtr(m.opponentUtr)}` : m.opponent || "opponent"}
                     {m.tournamentName ? ` · ${m.tournamentName}` : ""}
                   </span>
                   <span className="shrink-0 font-mono text-stone">{m.score || "—"}</span>
@@ -339,7 +372,22 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
       </div>
 
       <div className="mt-5 rounded-xl border border-line bg-card p-5">
-        <h2 className="text-base font-semibold text-ink">Your target schools</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-ink">Your target schools</h2>
+          {canFilterRealistic && (
+            <button
+              type="button"
+              aria-pressed={showRealisticOnly}
+              onClick={() => setShowRealisticOnly((v) => !v)}
+              className={cn(
+                "inline-flex min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-xs font-semibold sm:min-h-8",
+                showRealisticOnly ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
+              )}
+            >
+              {showRealisticOnly ? "Show all targets" : `Show realistic targets (${realisticCount} of ${orderedTargetSchools.length})`}
+            </button>
+          )}
+        </div>
         <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
         <div className="mt-3.5">
           <WhatIfPanel
@@ -352,8 +400,15 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
         <div className="mt-3.5">
           {orderedTargetSchools.length === 0 ? (
             <EmptyState title="No target schools yet." description="Search below to add your first one." />
-          ) : showRealisticOnly && visibleTargetSchools.length === 0 ? (
-            <p className="text-sm text-stone">None of your current targets are at a realistic pace right now.</p>
+          ) : filtering && visibleTargetSchools.length === 0 ? (
+            <p className="text-sm text-stone">
+              None of your targets is within reach of your estimated{" "}
+              {realReport ? <span className="font-mono">{formatUtrEstimate(realReport.utr.value)}</span> : "UTR"} by the
+              summer before senior year.{" "}
+              <Link href="/schools" className="font-semibold text-grass">
+                Find schools in range
+              </Link>
+            </p>
           ) : null}
           <TargetSchoolsList
             targetSchools={visibleTargetSchools}
@@ -364,14 +419,13 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, goalUTR, p
             isStarred={isStarred}
             toggleStar={toggleStar}
             onReorder={(newOrder) => void updatePlayer({ targetSchoolSlugs: newOrder })}
-            reorderable={!showRealisticOnly}
+            reorderable={!filtering}
           />
         </div>
       </div>
 
       <ClosestSchoolsCard results={closestSchools} isStarred={isStarred} onToggleStar={toggleStar} />
 
-      <p className="mt-4 text-xs text-stone">Live data, your own account.</p>
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
         {toast?.message ?? " "}
       </Toast>
@@ -386,8 +440,4 @@ function StatTile({ value, label }: { value: string; label: string }) {
       <span className="text-[13px] text-stone">{label}</span>
     </div>
   );
-}
-
-function shortDate(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

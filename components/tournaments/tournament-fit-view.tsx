@@ -19,7 +19,7 @@ import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 import { SeededTournamentFitView } from "@/components/seeded/tournament-fit/seeded-tournament-fit-view";
 import {
   evaluateTournamentFit,
@@ -95,7 +95,7 @@ function LegacyTournamentFitView() {
   const effectiveUtr =
     utrTouched || !hydrated || !isAuthed || player.currentUTR <= 0
       ? utr
-      : utr || player.currentUTR.toFixed(1);
+      : utr || formatPlayerUtr(player.currentUTR);
 
   const levelInfo = useMemo(() => LEVELS.find((l) => l.value === level), [level]);
 

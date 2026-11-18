@@ -151,44 +151,63 @@ export function currentSeason(date: Date = new Date()): Season {
   return month >= 7 && month <= 10 ? "fall" : month >= 11 || month <= 1 ? "winter" : month <= 4 ? "spring" : "summer";
 }
 
-/** Parses a plain "YYYY-MM-DD" string as local midnight. `new Date(isoDate)`
- * parses date-only strings as UTC midnight, which displays as the previous
- * day in any timezone behind UTC — this avoids that off-by-one. */
+/* --------------------------------------------------------------------------
+ * DATE-ONLY VALUES ARE LOCAL DATES. ALWAYS.
+ * --------------------------------------------------------------------------
+ * `utr_entries.recorded_at`, `matches.match_date`, `tournament_entries.
+ * event_date`, `daily_checkins.checkin_date`, `budget_expenses.expense_date`
+ * and `profiles.commitment_date` are Postgres `date` columns: a calendar day
+ * with no time and no zone. PostgREST hands them back as "YYYY-MM-DD".
+ *
+ * `new Date("2026-11-18")` parses that as UTC MIDNIGHT — which in New York
+ * is 7pm on Nov 17. A UTR logged for Nov 18 rendered "self-reported Nov 17"
+ * on /plan. Going the other way, `d.toISOString().slice(0, 10)` turns a
+ * local evening into tomorrow's date. Both are banned in app code by
+ * lib/local-dates.test.ts, which runs under America/New_York AND
+ * Pacific/Auckland (UTC−5 and UTC+13: wrong in opposite directions).
+ *
+ * Write with `toLocalDateString(date)`. Read with `parseLocalDate(key)`.
+ * ------------------------------------------------------------------------ */
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Parses "YYYY-MM-DD" as LOCAL midnight of that calendar day. Built from
+ * components rather than a string, so no engine's ISO-parsing rules are
+ * involved. A longer timestamp string (e.g. a `timestamptz`) is a real
+ * instant and is parsed as one. */
 export function parseLocalDate(isoDate: string): Date {
-  return new Date(`${isoDate}T00:00:00`);
+  const m = DATE_ONLY.exec(isoDate);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(isoDate);
+}
+
+/** A Date's LOCAL calendar day as "YYYY-MM-DD" — what a `date` column
+ * should be written with. Never `toISOString().slice(0, 10)`, which is the
+ * UTC day. */
+export function toLocalDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** The one date display format for the app: "Oct 3, 2026". Accepts a
  * plain date string, a full timestamp string, or a Date. */
 export function formatDate(input: Date | string): string {
-  const date =
-    typeof input === "string"
-      ? /^\d{4}-\d{2}-\d{2}$/.test(input)
-        ? parseLocalDate(input)
-        : new Date(input)
-      : input;
+  const date = typeof input === "string" ? parseLocalDate(input) : input;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-/** Today's date (or `date`'s) as "YYYY-MM-DD" in the browser's local
- * timezone. `new Date().toISOString().slice(0, 10)` is the common mistake
- * here — toISOString() is always UTC, so in the evening in any US timezone
- * it silently returns tomorrow's date. */
-export function localDateKey(date: Date = new Date()): string {
-  const offset = date.getTimezoneOffset();
-  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+/** "Nov 18" — a date-only value without its year, for a label that sits
+ * beside one (a stat tile's "self-reported Nov 18"). Same local-day rule. */
+export function formatShortDate(input: Date | string): string {
+  const date = typeof input === "string" ? parseLocalDate(input) : input;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** "YYYY-MM-DD" built from the date's LOCAL year, month and day — no UTC
- * conversion at any step, so local midnight (or 11:59 pm) is never read as
- * the neighbouring day. Used for dated rows the player answers about
- * ("about 6 months ago"). */
-export function localDateString(date: Date): string {
-  const y = String(date.getFullYear()).padStart(4, "0");
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+/** The older name for `toLocalDateString`, kept so its ~20 callers did not
+ * all change in one sweep. Same function. */
+export const localDateKey = toLocalDateString;
 
 /**
  * The same local calendar day `months` months away (negative = earlier),

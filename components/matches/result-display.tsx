@@ -1,14 +1,14 @@
 import type { MatchRecord } from "@/lib/db/events";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 
 // How a logged result reads, wherever it is shown (/matches, /events).
 // Wins are green, losses neutral — a loss is not an error, and the old
 // "win" chip was clay.
 
-/** Opponent UTR with two decimals (8.20, 9.00). A shared formatter is being
- * added in parallel; this stays local and tiny until it lands. */
+/** Opponent UTR with two decimals (8.20, 9.00) — lib/utils.ts
+ * formatPlayerUtr, the one formatter for a logged rating. */
 export function opponentUtrLabel(v: number | null): string | null {
-  return hasRealUtr(v) ? v.toFixed(2) : null;
+  return hasRealUtr(v) ? formatPlayerUtr(v) : null;
 }
 
 /** "vs Alex Kim (8.20)", "vs Alex Kim", "vs an opponent rated 8.20", or

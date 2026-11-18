@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
 
 interface RangeBarProps {
   /** Filled range, both 0–100, measured from the left edge. */
@@ -40,10 +40,14 @@ interface RangeBarProps {
    */
   todayPct?: number | null;
   today?: number | null;
+  /** True when `you` is the projection to the summer before senior year
+   *  (lib/fit.ts) rather than a logged rating: it prints with one decimal,
+   *  a logged rating with two (lib/utils.ts formatPlayerUtr — C10). */
+  youIsEstimate?: boolean;
 }
 
 function signed(value: number): string {
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+  return `${value > 0 ? "+" : ""}${formatUtrEstimate(value)}`;
 }
 
 // Signature component, pixel-exact to DesignSystem.dc.html's "Range bar":
@@ -67,6 +71,7 @@ export function RangeBar({
   youLabel = "You",
   todayPct,
   today,
+  youIsEstimate = false,
 }: RangeBarProps) {
   const reduceMotion = useReducedMotion();
   const [tapOpen, setTapOpen] = useState(false);
@@ -167,14 +172,14 @@ export function RangeBar({
             )}
           >
             <p className="font-mono tabular-nums">
-              Floor {low!.toFixed(1)} · Average {median!.toFixed(1)} · Top (drawn) {high!.toFixed(1)}
+              Floor {formatUtrEstimate(low!)} · Average {formatUtrEstimate(median!)} · Top of range {formatUtrEstimate(high!)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
-              {youLabel} {you!.toFixed(1)} · Gap to team average {signed(median! - you!)}
+              {youLabel} {formatUtrFor(you!, youIsEstimate)} · Gap to team average {signed(median! - you!)}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">
-                Today {today.toFixed(1)} (hollow marker)
+                Today {formatPlayerUtr(today)} (hollow marker)
               </p>
             )}
           </div>

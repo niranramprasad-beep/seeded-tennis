@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { UtrChartModel } from "@/lib/parent-dashboard";
-import { formatUtr2 } from "@/lib/utils";
+import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
 // Board 22's hero chart. Draws a model lib/parent-dashboard.ts built — it
 // computes nothing. Logged ratings are solid (line + dots); the estimate is
@@ -125,7 +125,7 @@ export function UtrTrendChart({ model, ariaLabel }: { model: UtrChartModel; aria
               fill="rgb(var(--c-clay-tint-text))"
             >
               {narrow ? "Targets start" : "Target schools start at"}{" "}
-              <tspan fontFamily={NUMBER_FONT}>{formatUtr2(model.targetFloor as number)}</tspan>
+              <tspan fontFamily={NUMBER_FONT}>{formatUtrEstimate(model.targetFloor as number)}</tspan>
             </text>
           </g>
         )}
@@ -153,14 +153,14 @@ export function UtrTrendChart({ model, ariaLabel }: { model: UtrChartModel; aria
           fontFamily={NUMBER_FONT}
           fill="rgb(var(--c-ink))"
         >
-          {formatUtr2(model.today.utr)}
+          {formatPlayerUtr(model.today.utr)}
         </text>
 
         {proj && endX != null && endY != null && (
           <>
             <circle cx={endX} cy={endY} r={4} fill="rgb(var(--c-card))" stroke="rgb(var(--c-primary))" strokeWidth={2} strokeDasharray="2 2" />
             <text x={endX - 8} y={endY - 10} textAnchor="end" fontSize={12} fontFamily={LABEL_FONT} fill="rgb(var(--c-primary))">
-              ≈ <tspan fontFamily={NUMBER_FONT}>{proj.value.toFixed(1)}</tspan> estimate
+              ≈ <tspan fontFamily={NUMBER_FONT}>{formatUtrEstimate(proj.value)}</tspan> estimate
             </text>
           </>
         )}

@@ -4,12 +4,12 @@
 // no "bad tournament to skip" rule because this app has no queryable source
 // of upcoming tournament dates yet — see lib/tournament-fit.ts, which only
 // scores a tournament a family types in by hand, not a live calendar.
-import { plural } from "@/lib/utils";
+import { formatPlayerUtr, plural } from "@/lib/utils";
 import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit,
   fitBasis, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import type { OutreachStatusMapDated } from "@/lib/db/outreach";
-import { localDateKey } from "@/lib/time";
+import { localDateKey, parseLocalDate } from "@/lib/time";
 
 export type TodayActionKind = "email" | "followup" | "reminder";
 
@@ -60,7 +60,7 @@ export function buildTodayActions(
           kind: "email",
           school,
           title: `Email the ${school.shortName} coach`,
-          description: `Your UTR (${playerUtr.toFixed(2)}) is inside ${school.shortName}'s competitive range.`,
+          description: `Your UTR (${formatPlayerUtr(playerUtr)}) is inside ${school.shortName}'s competitive range.`,
           minutes: 10,
         });
       }
@@ -100,6 +100,97 @@ export function buildTodayActions(
     a.school.shortName.localeCompare(b.school.shortName);
 
   return [...emails.sort(bySchoolName), ...followups.sort(bySchoolName), ...reminders.sort(bySchoolName)];
+}
+
+/* --------------------------------------------------------- next steps (C12) */
+// Today said "You're all caught up this week." beside "On track for 0 of 4
+// targets", with an empty action list. Both were true to their own rule and
+// together they told a player who is off track that there is nothing to do.
+//
+// These are the honest next steps when the coach-email rules above produce
+// nothing, or the player is off track for some targets. Every one links to
+// a feature that exists today — /schools, /events (log a result),
+// /tournament-fit, the UTR drawer — and none promises anything Seeded does
+// not do.
+
+export interface NextStep {
+  id: "log-utr" | "pick-targets" | "targets-in-range" | "log-result" | "check-tournament";
+  title: string;
+  description: string;
+  cta: string;
+  /** A page to go to. Absent for "log-utr", which opens the UTR drawer. */
+  href?: string;
+}
+
+export interface NextStepsInput {
+  hasUtr: boolean;
+  targetCount: number;
+  /** Targets whose band (from the fit report) is Target or Likely. */
+  onTrackCount: number;
+  matchesThisWeek: number;
+  /** How many coach-email / follow-up actions buildTodayActions returned. */
+  actionCount: number;
+}
+
+export const MAX_NEXT_STEPS = 3;
+
+export function buildNextSteps(input: NextStepsInput): NextStep[] {
+  const offTrack = input.targetCount > 0 && input.onTrackCount < input.targetCount;
+  // Nothing to suggest when there are real actions and nothing is off.
+  if (input.hasUtr && input.actionCount > 0 && !offTrack && input.targetCount > 0) return [];
+
+  const steps: NextStep[] = [];
+  if (!input.hasUtr) {
+    steps.push({
+      id: "log-utr",
+      title: "Log your UTR",
+      description: "Your bands, plan and checkpoints all start from it.",
+      cta: "Log UTR",
+    });
+  }
+  if (input.targetCount === 0) {
+    steps.push({
+      id: "pick-targets",
+      title: "Pick a few target schools",
+      description: "Star schools to see your fit and plan around them.",
+      cta: "Browse schools",
+      href: "/schools",
+    });
+  } else if (offTrack) {
+    const behind = input.targetCount - input.onTrackCount;
+    steps.push({
+      id: "targets-in-range",
+      title: "Add targets you're on track for",
+      description: `${behind} of your ${plural(input.targetCount, "target", "targets")} ${behind === 1 ? "is" : "are"} a Reach or out of range. Add a few that fit where you're headed.`,
+      cta: "Find schools",
+      href: "/schools",
+    });
+  }
+  if (input.matchesThisWeek === 0) {
+    steps.push({
+      id: "log-result",
+      title: "Log a match result",
+      description: "Results show your progress between UTR updates.",
+      cta: "Log a result",
+      href: "/events",
+    });
+  }
+  steps.push({
+    id: "check-tournament",
+    title: "Check a tournament before you enter",
+    description: "See whether a draw's level fits where you are now.",
+    cta: "Check a tournament",
+    href: "/tournament-fit",
+  });
+  return steps.slice(0, MAX_NEXT_STEPS);
+}
+
+/** The headline beside the action list — it must not say "caught up" while
+ * the player is off track or has steps waiting. */
+export function todayHeadline(actionCount: number, nextStepCount: number): string {
+  if (actionCount > 0) return `${actionCount} thing${actionCount === 1 ? "" : "s"} move your recruiting this week.`;
+  if (nextStepCount > 0) return `Here ${nextStepCount === 1 ? "is a next step" : `are ${nextStepCount} next steps`} for this week.`;
+  return "You're all caught up this week.";
 }
 
 export interface ThisWeekItem {
@@ -179,7 +270,7 @@ export function isSundayCheckinDue(
   // already uses for this exact field) — otherwise this can disagree with
   // `now.getDay()` above by up to a day depending on the player's timezone.
   const daysSinceLastEntry = Math.floor(
-    (now.getTime() - new Date(`${mostRecentKey}T00:00:00`).getTime()) / 86_400_000
+    (now.getTime() - parseLocalDate(mostRecentKey).getTime()) / 86_400_000
   );
   return daysSinceLastEntry > 7;
 }

@@ -10,7 +10,6 @@ import {
   recentExpenses,
   seasonBudgetView,
   seasonSpendKpi,
-  shortLocalDate,
   targetSchoolsKpi,
   tournamentCheckHref,
   utrChartAriaLabel,
@@ -20,6 +19,7 @@ import {
   type ChartInput,
 } from "./parent-dashboard";
 import { buildFitReport, recruitingTimeUtr, utrHistoryFromEntries } from "./fit";
+import { formatShortDate } from "./time";
 import type { TournamentEntry } from "./db/events";
 import type { BudgetExpense } from "./db/family";
 import type { SchoolLite } from "./types";
@@ -185,7 +185,7 @@ describe("KPI sentences", () => {
       NOW
     );
     expect(k.deltaText).toBe("+0.40 since February");
-    expect(shortLocalDate("2026-12-01")).toBe("Dec 1");
+    expect(formatShortDate("2026-12-01")).toBe("Dec 1");
   });
 
   it("next event: soonest on or after today (local), with its place", () => {
@@ -399,12 +399,12 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(utrChartAriaLabel(model, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Sep 2025 to Nov 2026. Today: 7.50. ` +
         `Estimate for summer 2028, the summer before senior year: about ${rtu.value.toFixed(1)}, ` +
-        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.50.`
+        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.5.`
     );
     // A logged pace has no range, so the label claims none.
     expect(utrChartAriaLabel(buildUtrChart(logged)!, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Feb 2026 to Nov 2026. Today: 7.50. ` +
-        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.50.`
+        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.5.`
     );
   });
 });

@@ -9,6 +9,7 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { BudgetChip, SavedChip } from "./budget-chip";
 import { AddExpenseModal, EditBudgetModal } from "./budget-modals";
+import { formatShortDate } from "@/lib/time";
 
 function money(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -138,7 +139,7 @@ export function SeasonBudgetCard({
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-line last:border-0">
-                  <td className="whitespace-nowrap py-3 pr-3 font-mono text-stone">{shortDate(row.date)}</td>
+                  <td className="whitespace-nowrap py-3 pr-3 font-mono text-stone">{formatShortDate(row.date)}</td>
                   <td className="py-3 pr-3 text-ink">{row.label}</td>
                   <td className="py-3 pr-3">
                     <BudgetChip chip={row.chip} />
@@ -193,7 +194,3 @@ export function SeasonBudgetCard({
   );
 }
 
-function shortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}

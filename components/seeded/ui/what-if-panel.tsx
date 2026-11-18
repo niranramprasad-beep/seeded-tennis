@@ -3,7 +3,7 @@
 import { useReducedMotion } from "framer-motion";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import type { UseWhatIfUtrResult } from "@/lib/hooks/use-what-if-utr";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 
 interface WhatIfPanelProps extends UseWhatIfUtrResult {
   /** The calendar year of the senior-summer milestone, for the headline copy. */
@@ -60,7 +60,7 @@ export function WhatIfPanel({
         <p className="text-[15px] font-semibold text-ink">
           What if my UTR is{" "}
           <span className="font-mono text-grass">
-            <AnimatedNumber value={shownUtr} decimals={1} duration={reduceMotion ? 0 : 500} />
+            <AnimatedNumber value={shownUtr} decimals={2} duration={reduceMotion ? 0 : 500} />
           </span>{" "}
           {when}?
         </p>
@@ -111,10 +111,10 @@ export function WhatIfPanel({
           Custom
           <input
             type="number"
-            step={0.1}
+            step={0.01}
             min={minUTR}
             max={maxUTR}
-            value={shownUtr.toFixed(1)}
+            value={formatPlayerUtr(shownUtr)}
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               if (!Number.isNaN(v)) setCustom(v);

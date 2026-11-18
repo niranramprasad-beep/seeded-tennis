@@ -43,6 +43,13 @@ export function PlanPreview({ targetSchools }: { targetSchools: SchoolLite[] }) 
       chartData={[]}
       pickerSchools={targetSchools}
       toggle={() => {}}
+      planGoal={{
+        goal: { value: 9.9, source: "chosen", estimate: null },
+        roadmap: MOCK_ROADMAP,
+        goalPace: null,
+        loaded: true,
+        setGoal: async () => {},
+      }}
     />
   );
 }

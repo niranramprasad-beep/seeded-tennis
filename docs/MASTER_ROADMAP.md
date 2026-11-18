@@ -13,6 +13,20 @@
 
 ## Executive status
 
+**2026-11-18 — PR C, numbers (C5, C8–C12, C16, C19, C21, C24; no
+migrations).** One projection: the school page's Pace row, both charts and
+/plan's default goal all read the fit report's `utr` (`projectionPath`,
+`resolvePlanGoal`, the report's `utr`), locked by
+`lib/projection-single-source.test.ts`. A player's own rating always prints
+with two decimals (`formatPlayerUtr`, lib/utils.ts — 5.95 was going to
+coaches as "UTR 6.0"), guarded by `lib/player-utr-format.test.ts`.
+Date-only values are local days (`toLocalDateString` / `parseLocalDate`,
+lib/time.ts), guarded by `lib/local-dates.test.ts`; `npm run test:tz` runs
+the suite under New York and Auckland. /plan's goal is the player's choice
+(saved in `user_settings`) or the report's estimate — never the
+hardest target's floor; Today shows the same pace warning. Today offers real
+next steps instead of "all caught up" over "On track for 0 of 4". Decisions:
+docs/DECISIONS.md 2026-11-18.
 **2026-11-18 — PR C sweep, events/results/check-ins (branch
 `worktree-agent-a12d20489df582ed0`, not pushed, no migrations).** The
 calendar is manual-only in code: the /training planner, its generator and

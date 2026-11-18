@@ -5,6 +5,7 @@ import type { PendingSkipDecision } from "@/lib/family-budget";
 import { shortBadFitReason } from "@/lib/family-budget";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { formatShortDate } from "@/lib/time";
 
 function money(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -12,11 +13,6 @@ function money(value: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function shortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // Pixel-language from "18 Parent view + budget.png"'s "Needs a parent
@@ -53,7 +49,7 @@ function SkipDecisionRow({ decision }: { decision: PendingSkipDecision }) {
   return (
     <div className="rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4">
       <p className="font-semibold text-ink">
-        Skip {entry.name} ({shortDate(entry.eventDate)})?
+        Skip {entry.name} ({formatShortDate(entry.eventDate)})?
       </p>
       <p className="mt-1 text-sm text-stone">
         {shortBadFitReason(fit)} Saves about {money(wouldSave)}.

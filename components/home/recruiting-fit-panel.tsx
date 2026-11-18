@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Gauge, GraduationCap, School, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 import { getCurrentGrade, getCurrentSchoolYear, getSummerBeforeGradeYear } from "@/lib/time";
 
 const divisions = ["D1", "D2", "D3"] as const;
@@ -89,7 +89,7 @@ export function RecruitingFitPanel() {
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Field icon={Gauge} label="UTR" value={utr.toFixed(1)}>
+        <Field icon={Gauge} label="UTR" value={formatPlayerUtr(utr)}>
           <Slider value={utr} min={1} max={16} step={0.1} onChange={setUtr} aria-label="UTR" className="mt-3" />
         </Field>
         <Field icon={GraduationCap} label="GPA" value={gpa.toFixed(1)}>

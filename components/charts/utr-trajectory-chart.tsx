@@ -21,7 +21,7 @@ import {
   type UtrRangeOption,
 } from "@/lib/utr-projection";
 import type { PlayerGender } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 
 const RANGE_OPTIONS: { value: UtrRangeOption; label: string }[] = [
   { value: "3M", label: "3M" },
@@ -68,7 +68,7 @@ function ChartTooltip({ active, payload, c }: any) {
       </p>
       {rows.map((r) => (
         <p key={r.key} className="text-sm font-medium" style={{ color: r.color }}>
-          {r.label}: {r.value.toFixed(1)}
+          {r.label}: {formatPlayerUtr(r.value)}
         </p>
       ))}
     </div>

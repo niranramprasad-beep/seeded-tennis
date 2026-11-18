@@ -6,7 +6,7 @@ import type { MatchRecord } from "@/lib/db/events";
 import type { TournamentEntry } from "@/lib/db/events";
 import type { TrainingSession } from "@/lib/db/training";
 import { dateForWeekday } from "@/lib/training/grid-math";
-import { localDateKey } from "@/lib/time";
+import { toLocalDateString } from "@/lib/time";
 import { SeededEventsLayout } from "@/components/seeded/events/seeded-events-layout";
 import { SessionFormModal } from "@/components/seeded/events/session-form-modal";
 
@@ -37,11 +37,11 @@ const MOCK_PLAYER: Player = {
 
 function daysFromNow(n: number): string {
   const d = new Date();
-  return localDateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
+  return toLocalDateString(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
 }
 
 function daysAgo(n: number): string {
-  return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  return daysFromNow(-n);
 }
 
 const MOCK_TOURNAMENTS: TournamentEntry[] = [

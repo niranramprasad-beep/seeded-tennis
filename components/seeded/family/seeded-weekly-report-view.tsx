@@ -16,8 +16,8 @@ import { loadBudgetExpenses, loadSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { daysSince } from "@/lib/today-actions";
-import { currentSeason, localDateKey } from "@/lib/time";
-import { formatUtr2 } from "@/lib/utils";
+import { currentSeason, formatShortDate, toLocalDateString } from "@/lib/time";
+import { formatPlayerUtr } from "@/lib/utils";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -30,11 +30,6 @@ function money(value: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function shortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function seasonTitle(now: Date): string {
@@ -129,7 +124,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
   const upcomingEvents = useMemo(() => {
     // Local, not toISOString(): in a US evening that is already tomorrow.
-    const todayKey = localDateKey(now);
+    const todayKey = toLocalDateString(now);
     return [...tournamentEntries]
       .filter((e) => e.eventDate >= todayKey)
       .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
@@ -183,7 +178,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ReportTile
-          value={currentUTR == null ? "No UTR yet" : formatUtr2(currentUTR)}
+          value={currentUTR == null ? "No UTR yet" : formatPlayerUtr(currentUTR)}
           label={
             weekDelta
               ? `UTR · ${weekDelta.delta >= 0 ? "+" : ""}${weekDelta.delta.toFixed(2)} this week`
@@ -225,7 +220,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
               {upcomingEvents.map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-2">
                   <span className="truncate text-ink">{e.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-stone">{shortDate(e.eventDate)}</span>
+                  <span className="shrink-0 font-mono text-xs text-stone">{formatShortDate(e.eventDate)}</span>
                 </li>
               ))}
             </ul>

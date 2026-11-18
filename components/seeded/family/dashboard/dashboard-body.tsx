@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Eye } from "lucide-react";
 import type { BudgetBar, ParentDashboardModel, WeekAction } from "@/lib/parent-dashboard";
 import { formatMoney } from "@/lib/parent-dashboard";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
@@ -265,7 +265,7 @@ export function DashboardBody({
                 ) : model.targets.judging ? (
                   <DataNote>
                     Bands use {child}&rsquo;s UTR today:{" "}
-                    <span className="font-mono text-ink">{model.targets.judging.value.toFixed(2)}</span>.
+                    <span className="font-mono text-ink">{formatPlayerUtr(model.targets.judging.value)}</span>.
                   </DataNote>
                 ) : null}
               </div>

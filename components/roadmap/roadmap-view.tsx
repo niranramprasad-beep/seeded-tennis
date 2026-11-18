@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
-import type { SchoolLite } from "@/lib/types";
+import type { RoadmapYear, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildRoadmap } from "@/lib/db/plan";
+import { usePlanGoal, type UsePlanGoalResult } from "@/lib/hooks/use-plan-goal";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -64,12 +64,12 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
     [schools, whatIf]
   );
 
-  const roadmap = useMemo(
-    () => buildRoadmap(player, targetSchools),
-    [player, targetSchools]
-  );
-
-  const goalUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
+  // One goal for /plan and /today (lib/hooks/use-plan-goal.ts): the one the
+  // player set, or the typical-growth estimate. No longer the hardest
+  // target's floor — adding a target must not move the plan (C11).
+  const planGoal = usePlanGoal(player);
+  const roadmap = planGoal.roadmap;
+  const goalUTR = planGoal.goal?.value ?? player.currentUTR;
 
   const chartData = useMemo(
     () => [
@@ -111,6 +111,7 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
     chartData,
     pickerSchools,
     toggle,
+    planGoal,
   };
 
   return design === "seeded" ? (
@@ -126,11 +127,12 @@ export interface RoadmapLayoutProps {
   openStage: number | null;
   setOpenStage: (i: number | null) => void;
   targetSchools: SchoolLite[];
-  roadmap: ReturnType<typeof buildRoadmap>;
+  roadmap: RoadmapYear[];
   goalUTR: number;
   chartData: { label: string; utr: number }[];
   pickerSchools: SchoolLite[];
   toggle: (slug: string) => void;
+  planGoal: UsePlanGoalResult;
 }
 
 function LegacyRoadmapLayout({
@@ -157,9 +159,9 @@ function LegacyRoadmapLayout({
         <p className="mt-3 text-pretty leading-relaxed text-stone">
           Every target is set for the{" "}
           <span className="font-medium text-ink">summer before</span> that grade —
-          the window that actually matters for recruiting — and tuned so you clear
-          the most demanding school on your list. Adjust your what-if picks below
-          and watch the plan re-tune.
+          the window that actually matters for recruiting — on a straight line to
+          your goal: the one you set on the Seeded plan, or where typical growth
+          puts you by the summer before senior year.
         </p>
       </Reveal>
 
@@ -184,9 +186,9 @@ function LegacyRoadmapLayout({
 
         <Reveal index={2}>
         <Card className="flex h-full flex-col justify-center bg-grass p-6 text-on-primary shadow-glow">
-          <p className="text-sm text-on-primary/80">Goal UTR to be competitive</p>
+          <p className="text-sm text-on-primary/80">Your goal UTR</p>
           <div className="mt-1 text-6xl font-light">
-            <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
+            <AnimatedNumber key={goalUTR} value={goalUTR} decimals={2} />
           </div>
           <p className="mt-3 text-sm text-on-primary/80">
             {hasRealUtr(player.currentUTR)
@@ -268,7 +270,7 @@ function LegacyRoadmapLayout({
                     <AnimatedNumber
                       key={`${i}-${year.utrTarget}`}
                       value={year.utrTarget}
-                      decimals={1}
+                      decimals={2}
                     />
                   </div>
                 </div>

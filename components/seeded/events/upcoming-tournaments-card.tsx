@@ -6,7 +6,8 @@ import { evaluateTournamentFit } from "@/lib/tournament-fit";
 import type { TournamentEntry } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { formatShortDate } from "@/lib/time";
 
 // Same "border + bg + text" chip language as FitBadge (components/seeded/
 // ui/fit-badge.tsx)'s target/reach bands — reused directly rather than
@@ -88,7 +89,7 @@ export function UpcomingTournamentsCard({
         <h2 className="text-lg font-semibold text-ink">Upcoming tournaments</h2>
         <span className="text-[13px] text-stone">
           {utrKnown
-            ? `Fit checked against UTR ${playerUtr.toFixed(2)}`
+            ? `Fit checked against UTR ${formatPlayerUtr(playerUtr)}`
             : "Add your UTR to check fit"}
         </span>
       </div>
@@ -162,11 +163,6 @@ export function UpcomingTournamentsCard({
   );
 }
 
-function formatShortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
 function locationLine(t: TournamentEntry): string {
   const parts: string[] = [];
   const place = [t.city, t.state].filter(Boolean).join(", ");
@@ -176,7 +172,7 @@ function locationLine(t: TournamentEntry): string {
   } else if (t.distanceMiles != null) {
     parts.push(`${t.distanceMiles} mi`);
   }
-  if (t.drawUtr != null) parts.push(`field est. ${t.drawUtr.toFixed(1)}`);
+  if (t.drawUtr != null) parts.push(`field est. ${formatUtrEstimate(t.drawUtr)}`);
   return parts.join(" · ");
 }
 

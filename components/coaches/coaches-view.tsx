@@ -23,6 +23,7 @@ import {
   type CoachEmailResult,
 } from "@/lib/db/schools";
 import { loadUtrEntries } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 import {
   loadCoachOutreachDated,
   REMIND_ME_AFTER_DAYS,
@@ -41,7 +42,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { SchoolBadge } from "@/components/shared/school-badge";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 
 // Legacy key from before outreach status was synced to Supabase — still read
@@ -120,7 +121,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
             // level", which is a claim about the player's standing drawn
             // from the not-tracked sentinel.
             m.opponentUtr && hasRealUtr(player.currentUTR) && m.opponentUtr >= player.currentUTR
-              ? `beat a UTR ${m.opponentUtr.toFixed(1)} opponent`
+              ? `beat a UTR ${formatPlayerUtr(m.opponentUtr)} opponent`
               : "picked up wins",
         })),
     [matches, player.currentUTR]
@@ -134,7 +135,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const projection = useMemo(
     () => ({
-      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
       graduationYear: player.graduationYear,
       gender: player.gender,
     }),

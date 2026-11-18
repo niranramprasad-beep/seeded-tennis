@@ -10,6 +10,7 @@ import {
   XAxis,
 } from "recharts";
 import { useThemeColors } from "@/lib/context/theme-context";
+import { formatUtrEstimate } from "@/lib/utils";
 
 interface RosterDistributionChartProps {
   avgUTR: number;
@@ -30,7 +31,8 @@ export function RosterDistributionChart({
   const start = Math.round((minUTR - 0.5) * 2) / 2;
   const data = WEIGHTS.map((w, i) => {
     const utr = start + i * 0.5;
-    return { utr, label: utr.toFixed(1), players: w };
+    // A bucket on the TEAM scale — an estimate, one decimal.
+    return { utr, label: formatUtrEstimate(utr), players: w };
   });
 
   const minLabel = data.reduce((best, d) =>
