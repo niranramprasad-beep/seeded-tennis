@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidEmailAddress } from "./utils";
+import { formatUtr2, isValidEmailAddress } from "./utils";
 
 // Guards the outreach "To" field. Seeded stores no coach contacts (P0-3), so
 // the player types the address — this is the only check between a typo and a
@@ -33,5 +33,16 @@ describe("isValidEmailAddress", () => {
 
   it("rejects an absurdly long value", () => {
     expect(isValidEmailAddress(`${"a".repeat(250)}@test.example`)).toBe(false);
+  });
+});
+
+describe("formatUtr2", () => {
+  it("prints a logged rating the way UTR publishes it, two decimals", () => {
+    expect(formatUtr2(5.95)).toBe("5.95");
+    // the bug it exists for: toFixed(1) and formatUTR both turned these into
+    // a different rating
+    expect(formatUtr2(6)).toBe("6.00");
+    expect(formatUtr2(9.1)).toBe("9.10");
+    expect(formatUtr2(12.5)).toBe("12.50");
   });
 });

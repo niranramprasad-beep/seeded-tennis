@@ -9,6 +9,15 @@ export function formatUTR(value: number): string {
   return value.toFixed(2).replace(/\.00$/, ".0");
 }
 
+/** A UTR as UTR publishes it: always two decimals. `formatUTR(5.95)` is
+ * "5.95" but `formatUTR(6)` is "6.0", and `toFixed(1)` turns a real 5.95
+ * into "6.0" — a rating the player does not have. Use this for any rating
+ * somebody logged. (A projection is rounded to one decimal on purpose in
+ * lib/fit.ts and keeps its own format.) Callers check `hasRealUtr` first. */
+export function formatUtr2(value: number): string {
+  return value.toFixed(2);
+}
+
 /** True when this is a UTR somebody actually entered.
  *
  * `currentUTR <= 0` is this codebase's convention for "not logged yet"

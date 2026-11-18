@@ -4,6 +4,9 @@ import {
   compareSchoolBands,
   countBands,
   projectUtrAtRecruiting,
+  projectedUtrOn,
+  projectionReachDate,
+  projectionTargetDate,
   yearsUntilRecruiting,
 } from "./fit";
 import { UTR_GROWTH_PER_YEAR } from "./config/growth";
@@ -300,5 +303,46 @@ describe("one rating on one date gets one band (verifier H1, 2026-11-16)", () =>
     for (const s of schools.filter((x) => x.minCompetitiveUTR > projected.utr.value)) {
       expect(projected.bandBySlug.get(s.slug)).toBe("out-of-range");
     }
+  });
+});
+
+describe("projectedUtrOn / projectionReachDate (the parent chart's line and caption)", () => {
+  // Class of 2029 seen on 2026-11-15: the summer before senior year is
+  // June 1 2028, about 1.54 years away.
+  const NOW = new Date(2026, 10, 15, 12);
+  const base = { currentUtr: 8, graduationYear: 2029, gender: "male" as const, now: NOW };
+
+  it("starts at today's rating and ends where projectUtrAtRecruiting ends", () => {
+    expect(projectedUtrOn(base, NOW)).toBe(8);
+    const end = projectedUtrOn(base, projectionTargetDate(2029))!;
+    const official = projectUtrAtRecruiting(base)!;
+    // unrounded here; the official number is rounded to one decimal
+    expect(Math.abs(end - official.normal)).toBeLessThan(0.05);
+    expect(projectedUtrOn(base, projectionTargetDate(2029), "slow")!).toBeLessThan(end);
+    expect(projectedUtrOn(base, projectionTargetDate(2029), "fast")!).toBeGreaterThan(end);
+  });
+
+  it("never runs past the summer before senior year, or before today", () => {
+    const end = projectedUtrOn(base, projectionTargetDate(2029))!;
+    expect(projectedUtrOn(base, new Date(2031, 0, 1))).toBe(end);
+    expect(projectedUtrOn(base, new Date(2020, 0, 1))).toBe(8);
+  });
+
+  it("is capped at the realistic ceiling and null without a rating", () => {
+    expect(projectedUtrOn({ ...base, currentUtr: 13.9 }, projectionTargetDate(2029))).toBe(REALISTIC_UTR_CEILING.male);
+    for (const currentUtr of [null, undefined, 0, Number.NaN]) {
+      expect(projectedUtrOn({ ...base, currentUtr }, NOW)).toBeNull();
+      expect(projectionReachDate({ ...base, currentUtr }, 9)).toBeNull();
+    }
+  });
+
+  it("reach date: when the typical pace crosses the line, or null when it does not by then", () => {
+    const at = projectionReachDate(base, 9)!;
+    const years = 1 / UTR_GROWTH_PER_YEAR.normal;
+    expect(Math.abs(at.getTime() - (NOW.getTime() + years * 365.25 * 86_400_000))).toBeLessThan(1000);
+    expect(at.getTime()).toBeLessThan(projectionTargetDate(2029).getTime());
+    expect(projectionReachDate(base, 10)).toBeNull();
+    expect(projectionReachDate(base, 7.5)).toBe(NOW);
+    expect(projectionReachDate({ ...base, currentUtr: 13 }, 14.5)).toBeNull();
   });
 });
