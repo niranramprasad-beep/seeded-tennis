@@ -21,6 +21,24 @@ database half lands with it. Parent CLS cases from PR A addressed (one
 skeleton per route at every loading stage; the school page hides player-only
 controls for a remembered parent before hydration). Not yet measured with a
 signed-in persona.
+**2026-11-18 — PR B, database half (migrations 041–043; STAGING ONLY).**
+041: `profiles.birth_month` (write-once, month + year only) and
+`enrollment_term` for the diagnostic onboarding. 042: **the Family plan is
+now enforced in RLS** — a family is unlocked when any member (parent or
+player, either membership shape) is on Family; otherwise no member reads
+another's rows and nobody reads/writes the budget, notes or reports
+(restrictive `family_plan_required` on 10 tables; the roster and the
+join/approve/consent RPCs stay open). This closes "the Family plan unlocks
+nothing the code enforces" from PR A. 043: parents must prove their email
+(a magic link; `email_confirmed_at` is useless because production
+auto-confirms) before join/approve/consent — `42501 verify_email_required`;
+players never. App contracts: `lib/db/family-plan.ts`,
+`lib/db/email-verification.ts`, `/auth/verified`. Guard tests (mutation-
+tested): `lib/db/family-plan-lock.test.ts`,
+`lib/db/email-verification-gate.test.ts`, `lib/db/onboarding-fields.test.ts`.
+Staging probes and pasteable rollbacks: HANDOFF §J Steps 16–18; order:
+GO-SEQUENCE §3b. **Not on production; each needs Niran's go.** Personas:
+`docs/STAGING_PERSONAS.md`.
 
 **2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
 Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
@@ -852,6 +870,12 @@ ranked week-1 list in `docs/TODO.md`.
    app still projects at typical growth (1.0/yr), so a player who gave past
    ratings sees a different "summer before senior year" number after
    sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
+5. **Parent dashboard upgrade** (TODO week 1 #1). PR B's database half
+   (041–043) is on staging; it ships with the PR B UI, after Niran's go on
+   GO-SEQUENCE §3b. Before 043 ships: add `<site>/auth/verified` to the
+   Supabase Auth redirect allow-list, and do one real magic-link check on
+   staging with an inbox you control (HANDOFF §J Step 18).
+6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the

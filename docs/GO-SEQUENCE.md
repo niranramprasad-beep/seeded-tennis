@@ -98,6 +98,21 @@ once the v1 code is live, and the code merges after it.
 After step 14c: re-run the schema fingerprint; production should now match
 staging.
 
+### 3b. PR B migrations
+
+**PR B — 041, 042, 043 (written 2026-11-18; staging only, NOT yet run on
+production).** Run after the steps above are live and before the PR B code
+merges, each on Niran's explicit go. Detail, staging probe results and the
+pasteable rollbacks: `docs/HANDOFF.md` §J Steps 16–18.
+
+| # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
+|---|---|---|---|---|
+| 16 | 041 (onboarding fields) | as a real user: `birth_month` null → 5 ok, 5 → 6 **42501**; `enrollment_term = 'winter'` **23514**; an app-shaped profile upsert ok | a month can be changed, or an ordinary save fails | §J Step 16 block (trigger first, then columns) |
+| 17 | **042** (Family plan lock) | **pre-flight: count the families that will lock (§J Step 17 query) — they lose /family data at commit; that is the owner's decision.** Then, as real users: a free parent reads **0** of the player's `utr_entries` and a budget insert is **42501**; a Family-tier family (parent-paid AND player-paid) reads everything; `family_members()` still returns the roster for a free family | a free member reads another member's rows, or a paid family cannot | §J Step 17 block (policies, then functions) |
+| 18 | **043** (parent email verification) | **dashboard first: add `<site>/auth/verified` to Auth redirect URLs.** As real users: an unverified parent's approve / consent / join → **42501 `verify_email_required`**; a player's approve unaffected; client `update ... email_verified_at` → **42501** | a player is refused, or a client can set the column | §J Step 18 block (restore RPCs + trigger, then drop) |
+
+---
+
 ## 4. Code: merge the PR (5 min + deploy)
 
 `main` and `v1`: `main` was merged into `v1` (`0cea97e`) and

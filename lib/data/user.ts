@@ -35,4 +35,5 @@ export const emptyPlayer: Player = {
   deletionRequestedAt: null,
   birthMonth: null,
   enrollmentTerm: null,
+  emailVerified: false,
 };

@@ -216,6 +216,11 @@ export interface TrainingPlan {
 export type PlayerGender = "male" | "female";
 export type FamilyRole = "player" | "parent";
 
+/** When the player plans to start college (migration 041,
+ * profiles.enrollment_term). Mirrors the column's CHECK constraint. */
+export const ENROLLMENT_TERMS = ["fall_after_grad", "spring_after_grad", "not_sure"] as const;
+export type EnrollmentTerm = (typeof ENROLLMENT_TERMS)[number];
+
 export interface Player {
   name: string;
   currentUTR: number;
@@ -246,14 +251,24 @@ export interface Player {
   // reads this to actually delete data; the real 30-day purge is a
   // separate operational job outside the app's scope.
   deletionRequestedAt?: string | null;
-  // profiles.birth_month (1–12, write-once like birth_year) and
-  // profiles.enrollment_term — asked by the /onboarding diagnostic. Null
-  // means "not answered", never a default.
+  // Migration 041 (diagnostic onboarding). Month + year only, never a day.
+  // birth_month is WRITE-ONCE from the client, like birth_year: the 041
+  // trigger refuses any change once it is set (42501), so
+  // writeCurrentPlayerProfile() only sends it when it is non-null — which
+  // round-trips the stored value unchanged. Null = not answered, never a
+  // default.
   birthMonth: number | null;
   enrollmentTerm: EnrollmentTerm | null;
+  // Migration 043. True when the account has PROVEN it owns its current
+  // email: a magic-link/OTP session called mark_email_verified(), or the
+  // account signs in with a Google identity for that address. NOT
+  // auth.users.email_confirmed_at — production auto-confirms at sign-up, so
+  // that proves nothing. Read-only: email_verified_at is a privileged column.
+  // The database's own check (email_is_verified) is what gates parents;
+  // this is for the UI to decide whether to show "Confirm your email".
+  emailVerified?: boolean;
 }
 
-export type EnrollmentTerm = "fall_after_grad" | "spring_after_grad" | "not_sure";
 
 // Maps a player's gender to the school program gender they recruit into.
 export function programGenderFor(g: PlayerGender): Gender {
