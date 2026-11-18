@@ -636,6 +636,13 @@
     outline: 2px solid rgb(var(--c-focus));
     outline-offset: 2px;
   }
+  /* Headings, <main> and dialog shells that the PAGE focuses (tabindex=-1,
+     so a screen reader announces them) are never reached by Tab, so a ring
+     there is noise — on the onboarding report it drew a green line through
+     the headline. Keyboard-reachable elements keep the ring above. */
+  [data-design="seeded"] [tabindex="-1"]:focus-visible {
+    outline: none;
+  }
 
   /* Rule 7: one vertical rhythm. 96px between page sections (64 on phones),
      40 heading -> content, 20 between cards, 12 eyebrow -> title. */
