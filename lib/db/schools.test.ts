@@ -83,8 +83,16 @@ describe("buildCoachEmail never states a UTR the player did not enter", () => {
 
   it("still states a real rating, labelled self-reported", () => {
     const email = buildCoachEmail({ ...player, currentUTR: 9.4 }, school);
-    expect(email.body).toContain("My UTR is 9.4 (self-reported).");
-    expect(email.subject).toContain("UTR 9.4 (self-reported)");
+    expect(email.body).toContain("My UTR is 9.40 (self-reported).");
+    expect(email.subject).toContain("UTR 9.40 (self-reported)");
+  });
+
+  // Production sweep: a 5.95 player's draft said "My UTR is 6.0" — a rating
+  // they do not have, in an email a minor signs. Two decimals, as entered.
+  it("never rounds the player's rating (5.95 is not 6.0)", () => {
+    const email = buildCoachEmail({ ...player, currentUTR: 5.95 }, school);
+    expect(email.body).toContain("My UTR is 5.95 (self-reported).");
+    expect(`${email.subject} ${email.body}`).not.toMatch(/\b6\.0\b/);
   });
 
   it("the placeholder that caused this is gone from the codebase", () => {
@@ -184,11 +192,11 @@ describe("buildCoachEmail", () => {
   // against UTR — so it travels labeled.
   it("labels the UTR self-reported everywhere it appears", () => {
     const email = buildCoachEmail(player, school);
-    expect(email.subject).toContain("UTR 9.0 (self-reported)");
-    expect(email.body).toContain("My UTR is 9.0 (self-reported).");
-    expect(email.body).toContain("UTR 9.0 (self-reported) · Class of 2027");
-    // No bare "UTR 9.0" that isn't followed by the label.
-    expect(email.body).not.toMatch(/UTR 9\.0(?! \(self-reported\))/);
+    expect(email.subject).toContain("UTR 9.00 (self-reported)");
+    expect(email.body).toContain("My UTR is 9.00 (self-reported).");
+    expect(email.body).toContain("UTR 9.00 (self-reported) · Class of 2027");
+    // No bare "UTR 9.00" that isn't followed by the label.
+    expect(email.body).not.toMatch(/UTR 9\.00(?! \(self-reported\))/);
   });
 
   // The catch-all: nothing in the draft may describe the player's game in

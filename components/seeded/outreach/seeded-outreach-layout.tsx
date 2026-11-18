@@ -7,11 +7,21 @@ import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
-import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn, isValidEmailAddress } from "@/lib/utils";
-import type { SchoolFitBand } from "@/lib/school-fit";
+
+/**
+ * The column a target school sits in. A saved target with no outreach row
+ * yet is "Researching" — it used to sit in no column at all, so the header
+ * said "4 programs" over a board showing one (production sweep C13).
+ */
+export function boardStageFor(
+  slug: string,
+  statuses: OutreachStatusMapDated
+): OutreachStatus {
+  return statuses[slug]?.status ?? "researching";
+}
 
 // Same plain "Oct 25" (no year) format the board already used inline for
 // "Reminder set for {date}" — reused here for last-contact/follow-up-by too
@@ -66,14 +76,6 @@ export interface SeededOutreachLayoutProps {
    * moment later, pushing everything below it down (CLS 0.18 on /outreach at
    * 375). It shows a skeleton until the real columns are known. */
   loading?: boolean;
-  /**
-   * Bands, already decided. This used to take the player's raw UTR and a
-   * projection and classify each card itself, which is how six screens
-   * ended up each choosing their own rating. lib/fit.ts owns that decision
-   * now; this component renders what it is handed. Null means "no usable
-   * rating" — show no band at all rather than inventing one.
-   */
-  bandBySlug: ReadonlyMap<string, SchoolFitBand> | null;
   /** Draft text for the optional note a player can attach when marking a
    * school "replied" (migration 017_coach_outreach_reply_note.sql). */
   replyNote: string;
@@ -100,7 +102,6 @@ export function SeededOutreachLayout({
   setStatus,
   setReminder,
   outreachError,
-  bandBySlug,
   replyNote,
   setReplyNote,
   saveReplyNote,
@@ -171,11 +172,20 @@ export function SeededOutreachLayout({
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Six columns that share the width at 1440 (6 × 170px + gaps fits the
+          1112px content area beside the sidebar) and scroll sideways only
+          when the screen is narrower. Fixed 220px columns overflowed by
+          ~270px, so Offer and Committed sat clipped off the right edge
+          with nothing saying the board scrolled (C28). */}
+      <div
+        className="grid auto-cols-[minmax(170px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2"
+        role="list"
+        aria-label="Outreach board"
+      >
         {STAGES.map((stage) => {
-          const schools = targetSchools.filter((s) => statuses[s.slug]?.status === stage.key);
+          const schools = targetSchools.filter((s) => boardStageFor(s.slug, statuses) === stage.key);
           return (
-            <div key={stage.key} className="flex w-[220px] shrink-0 flex-col gap-2.5">
+            <div key={stage.key} role="listitem" className="flex min-w-0 flex-col gap-2.5">
               <div className="flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-[0.04em] text-ink/60">
                 <span>{stage.label}</span>
                 <span>{schools.length}</span>
@@ -191,7 +201,6 @@ export function SeededOutreachLayout({
               ) : (
                 schools.map((s) => {
                   const entry = statuses[s.slug];
-                  const band = bandBySlug?.get(s.slug) ?? null;
                   const due =
                     stage.key === "emailed" &&
                     entry &&
@@ -220,10 +229,7 @@ export function SeededOutreachLayout({
                       )}
                       onClick={() => setSelectedSlug(s.slug)}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <strong className="text-ink">{s.shortName}</strong>
-                        {band && <FitBadge band={band} className="shrink-0" />}
-                      </div>
+                      <strong className="text-ink">{s.shortName}</strong>
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}
                       </span>
@@ -246,7 +252,7 @@ export function SeededOutreachLayout({
                         value={stage.key}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => setStatus(s.slug, e.target.value as OutreachStatus)}
-                        className="mt-1 rounded-md border border-line bg-cream px-2 py-1 text-xs text-ink"
+                        className="mt-1 min-h-11 w-full rounded-md border border-line bg-cream px-2 py-1 text-xs text-ink sm:min-h-8"
                         aria-label={`Move ${s.shortName} to a different stage`}
                       >
                         {STAGES.map((opt) => (
@@ -274,119 +280,139 @@ export function SeededOutreachLayout({
         })}
       </div>
 
-      <aside className="w-full max-w-md rounded-xl border border-line bg-card p-5">
+      {/* The editor gets the page's full width (C22): it was a 448px aside
+          with a 9-row message box, at 1440 and on phones alike. */}
+      <section className="w-full rounded-xl border border-line bg-card p-5 sm:p-6" aria-label="Email editor">
         {!selectedSchool ? (
           <EmptyState
             title="No email selected."
             description="Pick a school from the board, or start a new email, to draft a message."
           />
         ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
               <h2 className="text-[17px] font-semibold text-ink">
                 {currentStatus === "emailed" ? "Follow-up" : "Email"} · {selectedSchool.shortName}
               </h2>
               {chip("border-line bg-card text-ink/70", "Draft")}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="outreach-to" className="text-[13px] font-medium text-ink/60">
-                To
-              </label>
-              <input
-                id="outreach-to"
-                type="email"
-                inputMode="email"
-                autoComplete="off"
-                spellCheck={false}
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                aria-invalid={recipientInvalid}
-                aria-describedby="outreach-to-help"
-                placeholder="Paste the coach's email address"
-                className={cn(
-                  "h-[42px] rounded-md border bg-cream px-3 text-sm text-ink",
-                  recipientInvalid ? "border-error" : "border-input"
-                )}
-              />
-              <p id="outreach-to-help" className="text-xs text-ink/60">
-                {recipientInvalid ? (
-                  <span className="text-error">
-                    That doesn&rsquo;t look like an email address yet.
-                  </span>
-                ) : (
-                  <>
-                    Seeded doesn&rsquo;t store coach contacts — look it up and paste it here.
-                  </>
-                )}
-              </p>
-              {!recipientInvalid && <StaffDirectoryHint school={selectedSchool} className="mt-2" />}
+
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="flex min-w-0 flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="outreach-to" className="text-[13px] font-medium text-ink/60">
+                    To
+                  </label>
+                  <input
+                    id="outreach-to"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    aria-invalid={recipientInvalid}
+                    aria-describedby={recipientInvalid ? "outreach-to-error" : "outreach-find-coach"}
+                    placeholder="Paste the coach's email address"
+                    className={cn(
+                      "h-11 rounded-md border bg-cream px-3 text-sm text-ink",
+                      recipientInvalid ? "border-error" : "border-input"
+                    )}
+                  />
+                  {recipientInvalid && (
+                    <p id="outreach-to-error" className="text-xs text-error">
+                      That doesn&rsquo;t look like an email address yet.
+                    </p>
+                  )}
+                </div>
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
+                  Subject
+                  <input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="h-11 rounded-md border border-input bg-cream px-3 text-sm text-ink"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
+                  Message
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    rows={16}
+                    className="min-h-[360px] resize-y rounded-md border border-input bg-cream p-3 text-sm leading-[1.6] text-ink"
+                  />
+                </label>
+              </div>
+
+              {/* Where to find the address. Said once — the To field's own
+                  help line used to repeat "Seeded doesn't store coach
+                  contacts" right above this (C16). */}
+              <div id="outreach-find-coach" className="min-w-0 rounded-lg border border-line bg-cream/50 p-4 lg:self-start">
+                <StaffDirectoryHint school={selectedSchool} />
+                <p className="mt-3 text-xs text-ink/60">
+                  The draft uses only what you&rsquo;ve logged and the program&rsquo;s name, division
+                  and conference. Edit it before you send. Seeded never sends for you.
+                </p>
+              </div>
             </div>
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
-              Subject
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="h-[42px] rounded-md border border-input bg-cream px-3 text-sm text-ink"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
-              Message
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={9}
-                className="resize-y rounded-md border border-input bg-cream p-3 text-sm leading-[1.55] text-ink"
-              />
-            </label>
-            <p className="text-xs text-ink/60">
-              Filled from what you&rsquo;ve logged — your results, your UTR, your focus areas.
-              Nothing about the program beyond its name, division and conference. Edit before
-              sending. Seeded never sends for you.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <SeededButton
-                variant="secondary"
-                disabled={!recipientValid}
-                title={recipientValid ? undefined : "Add the coach's email address first"}
-                onClick={() => {
-                  // Real Gmail web compose deep link — never the Gmail API,
-                  // never sent on the player's behalf. Opens a normal
-                  // pre-filled compose window in a new tab for the player to
-                  // review and send themselves. The recipient is whatever the
-                  // player typed above; we never supply one.
-                  if (!recipientValid) return;
-                  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-                    recipient.trim()
-                  )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                  window.open(url, "_blank", "noopener,noreferrer");
-                }}
-              >
-                Open in Gmail
-              </SeededButton>
-              {currentStatus === undefined || currentStatus === "researching" ? (
-                <SeededButton variant="primary" onClick={() => setStatus(selectedSchool.slug, "emailed")}>
-                  Mark sent
+
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <SeededButton
+                  variant="secondary"
+                  disabled={!recipientValid}
+                  aria-describedby={recipientValid ? undefined : "outreach-gmail-reason"}
+                  onClick={() => {
+                    // Real Gmail web compose deep link — never the Gmail API,
+                    // never sent on the player's behalf. Opens a normal
+                    // pre-filled compose window in a new tab for the player to
+                    // review and send themselves. The recipient is whatever the
+                    // player typed above; we never supply one.
+                    if (!recipientValid) return;
+                    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+                      recipient.trim()
+                    )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  Open in Gmail
                 </SeededButton>
-              ) : null}
-              <SeededButton variant="ghost" onClick={copyAll}>
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" aria-hidden /> Copy
-                  </>
-                )}
-              </SeededButton>
-              {currentStatus === "replied" ? (
-                chip("border-grass-100 bg-grass-50 text-grass", <><Check className="mr-1 inline h-3 w-3" aria-hidden />Coach replied</>)
-              ) : (
-                <SeededButton variant="ghost" onClick={() => setStatus(selectedSchool.slug, "replied")}>
-                  Mark replied
+                <SeededButton variant="ghost" onClick={copyAll}>
+                  {copied ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" aria-hidden /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" aria-hidden /> Copy
+                    </>
+                  )}
                 </SeededButton>
+                {/* Status actions sit on the same row, pushed right — "Mark
+                    replied" used to wrap onto a line of its own (C28). */}
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                  {currentStatus === undefined || currentStatus === "researching" ? (
+                    <SeededButton variant="primary" onClick={() => setStatus(selectedSchool.slug, "emailed")}>
+                      Mark sent
+                    </SeededButton>
+                  ) : null}
+                  {currentStatus === "replied" ? (
+                    chip("border-grass-100 bg-grass-50 text-grass", <><Check className="mr-1 inline h-3 w-3" aria-hidden />Coach replied</>)
+                  ) : (
+                    <SeededButton variant="secondary" onClick={() => setStatus(selectedSchool.slug, "replied")}>
+                      Mark replied
+                    </SeededButton>
+                  )}
+                </div>
+              </div>
+              {!recipientValid && (
+                <p id="outreach-gmail-reason" className="text-xs text-ink/60">
+                  Paste the coach&rsquo;s email in To to open Gmail. Or use Copy and paste the draft
+                  into any email app.
+                </p>
               )}
             </div>
+
             {currentStatus === "replied" && (
               <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink/60">
                 Reply note (optional)
@@ -394,18 +420,18 @@ export function SeededOutreachLayout({
                   value={replyNote}
                   onChange={(e) => setReplyNote(e.target.value)}
                   onBlur={() => saveReplyNote(selectedSchool.slug, replyNote)}
-                  rows={2}
+                  rows={3}
                   placeholder="What did the coach say?"
                   className="resize-y rounded-md border border-input bg-cream p-3 text-sm leading-[1.55] text-ink"
                 />
               </label>
             )}
             {outreachError && (
-              <p className="rounded-lg bg-error-bg px-3 py-2 text-sm text-error">{outreachError}</p>
+              <p role="alert" className="rounded-lg bg-error-bg px-3 py-2 text-sm text-error">{outreachError}</p>
             )}
           </div>
         )}
-      </aside>
+      </section>
     </div>
   );
 }

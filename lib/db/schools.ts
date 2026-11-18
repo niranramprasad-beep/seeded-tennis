@@ -209,7 +209,7 @@ export function buildCoachEmail(
   // all omitted — the draft simply does not mention a rating, which is the
   // honest version and still a usable email.
   const utrKnown = Number.isFinite(player.currentUTR) && player.currentUTR > 0;
-  const utr = utrKnown ? `${player.currentUTR.toFixed(1)} (self-reported)` : null;
+  const utr = utrKnown ? `${player.currentUTR.toFixed(2)} (self-reported)` : null;
 
   // 1) Results, strictly from what the player logged themselves. With nothing
   // logged we fall back to their own tournament counts — never a
