@@ -11,7 +11,13 @@ import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint"
 import { loadCoachOutreach } from "@/lib/db/outreach";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
-import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
+import {
+  missingPlayerUtrPhrase,
+  pickFamilyPlayer,
+  resolveFamilyPlayerFacts,
+  rosterStatsLocked,
+} from "@/lib/family-view";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { projectionTargetLabel } from "@/lib/fit";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
@@ -66,6 +72,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const familyMembers = familyMembersData ?? [];
   const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
   const facts = resolveFamilyPlayerFacts(familyPlayer, player);
+  // 044: a free family's roster carries no player stats. Without the plan
+  // status, a NULL rating would read as "no UTR logged" — untrue for
+  // a child who has one.
+  const { data: plan } = useSWR<FamilyPlanStatus>(isParent ? "family-plan-status" : null, () =>
+    loadFamilyPlanStatus()
+  );
+  const statsLocked = isParent ? rosterStatsLocked(plan) : false;
   const subjectUtr = facts.currentUtr;
   const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || "Your player" : null;
   const subject = {
@@ -95,8 +108,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       gender: subject.gender,
       catalog: allSchools,
       subjectName: subjectFirst,
+      ratingHidden: statsLocked === true && subjectUtr == null,
     }),
-    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst]
+    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst, statsLocked, subjectUtr]
   );
 
   // The fit card waits for WHO (a parent's family roster) and for the
@@ -104,7 +118,8 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // either arrived judged the parent's own empty profile, then the child;
   // and banded Reach, then Out of range — visible as rows vanishing and
   // reappearing (measured CLS 0.13 at 320 for persona f).
-  const fitReady = (!isParent || familyMembersData !== undefined) && utrEntries !== undefined;
+  const fitReady =
+    (!isParent || (familyMembersData !== undefined && plan !== undefined)) && utrEntries !== undefined;
 
   const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
   // The gaps, the chip and the range bar's marker all use the rating that
@@ -141,7 +156,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} ${judging?.isProjected ? `by ${formatDate(explanation.pace.byDate)}` : "today"}`
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
-        : "Log a UTR to see your pace.";
+        : subjectFirst
+          ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
+          : "Log a UTR to see your pace.";
 
   const fitSkeleton = (
     <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
@@ -219,7 +236,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             judgingValue != null
               ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
               : subjectFirst
-                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
+                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
                 : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
           }
           low={range.min}

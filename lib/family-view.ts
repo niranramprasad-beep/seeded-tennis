@@ -1,5 +1,36 @@
 import type { FamilyMember } from "@/lib/db/family";
+import type { FamilyPlanStatus } from "@/lib/db/family-plan";
 import type { Player, PlayerGender } from "@/lib/types";
+
+/**
+ * Whether the roster's player stats are hidden by the Family plan.
+ *
+ * Migration 044 returns another member's current_utr, grade,
+ * graduation_year, target_school_slugs and gender as NULL unless the family
+ * is on the Family plan. A NULL there therefore means one of two things —
+ * "nobody entered it" or "your plan does not include it" — and a screen that
+ * says "hasn't logged a UTR yet" to a free parent whose child has a rating is
+ * saying something untrue. `undefined` while the plan status is loading.
+ * Fails closed exactly like familyPlanStatusFor(): an error reads as locked.
+ */
+export function rosterStatsLocked(
+  plan: Pick<FamilyPlanStatus, "unlocked" | "reason"> | undefined
+): boolean | undefined {
+  if (!plan) return undefined;
+  return !plan.unlocked && plan.reason === "free";
+}
+
+/** What a parent screen says when it has no rating for the player. */
+export function missingPlayerUtrPhrase(playerFirst: string, locked: boolean | undefined): string {
+  return locked
+    ? `${playerFirst}’s rating shows with the Family plan`
+    : `${playerFirst} hasn’t logged a UTR yet`;
+}
+
+/** What a parent screen says when it has no class year for the player. */
+export function missingClassYearPhrase(locked: boolean | undefined): string {
+  return locked ? "Class year shows with the Family plan" : "Class year not set";
+}
 
 // The rule that /family's three views kept getting wrong, as a function.
 //

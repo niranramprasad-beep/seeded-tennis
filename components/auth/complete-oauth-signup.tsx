@@ -13,6 +13,8 @@ import {
   parentConsentRequired,
 } from "@/lib/config/consent";
 import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
+import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { VERIFY_COPY, rememberPendingJoinCode } from "@/lib/email-verify-flow";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,6 +58,7 @@ export function CompleteOAuthSignup() {
   const [grade, setGrade] = useState(10);
   const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
   const [joinCode, setJoinCode] = useState("");
+  const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<DiagnosticAnswers | null>(null);
@@ -133,6 +136,15 @@ export function CompleteOAuthSignup() {
       return setError(result.error ?? "Something went wrong. Try again.");
     }
 
+    // 043. A Google identity whose verified email is the account's counts as
+    // confirmed, so this is rare — but if join_family() still asks, it is a
+    // step, not a failure: the profile exists, and the code is kept.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
+      setSubmitting(false);
+      rememberPendingJoinCode(joinCode);
+      return setVerifyJoinCode(joinCode.trim().toUpperCase());
+    }
+
     // The diagnostic's answers, written to the account just created — only
     // for a player who is still a player here and is not waiting on a
     // parent's consent (an under-13 account can write nothing until then).
@@ -152,6 +164,18 @@ export function CompleteOAuthSignup() {
     setSubmitting(false);
     router.replace(next ?? (isParent ? "/family" : "/onboarding"));
   };
+
+  if (verifyJoinCode) {
+    return (
+      <AuthCard title={VERIFY_COPY.joinTitle("your family")}>
+        <VerifyEmailToJoin
+          bare
+          code={verifyJoinCode}
+          onJoined={() => router.replace("/family")}
+        />
+      </AuthCard>
+    );
+  }
 
   if (checking) {
     return (

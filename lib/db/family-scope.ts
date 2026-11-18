@@ -40,7 +40,12 @@ export async function resolveMyFamilyCode(
  * whole row — gpa, birth_year, whop_membership_id, both stripe ids. The
  * enumerated list below is now the entire cross-user surface, and it is
  * enforced in the database rather than by whichever columns a caller
- * happens to select. Do not reintroduce a cross-user `profiles` read. */
+ * happens to select. Do not reintroduce a cross-user `profiles` read.
+ *
+ * 044: current_utr, grade, graduation_year, target_school_slugs and gender
+ * are NULL for every row but your own unless the family is on the Family
+ * plan. NULL there can mean "locked", not "never entered" — ask
+ * `rosterStatsLocked()` (lib/family-view.ts) before saying which. */
 export interface FamilyRosterRow {
   user_id: string;
   name: string | null;

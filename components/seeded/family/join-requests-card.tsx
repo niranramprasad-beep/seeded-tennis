@@ -13,6 +13,9 @@ import {
   type FamilyRosterMember,
 } from "@/lib/db/family-join";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { VerifyEmailToApprove } from "@/components/auth/verify-email-prompt";
+import { approvalNeedsVerification } from "@/lib/email-verify-flow";
+import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 
 // "[Name] wants to join your family as Parent" → Approve / Deny.
 //
@@ -61,6 +64,13 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // B6 (migration 043): approve_family_join and grant_parent_consent refuse
+  // a PARENT who hasn't confirmed their email. Ask BEFORE the click, from
+  // Player.emailVerified; and if the database refuses anyway (42501
+  // verify_email_required, e.g. the address changed in another tab), switch
+  // to the same prompt instead of showing an error. Players never see it.
+  const [refusedForEmail, setRefusedForEmail] = useState(false);
+  const verifyFirst = viewerIsParent && (refusedForEmail || approvalNeedsVerification(player));
 
   // Most-recently-nudged first, then oldest request — "Remind them" bumps
   // remindedAt, which is the only thing it does (it sends nothing).
@@ -88,7 +98,8 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
     setBusyId(userId);
     setError("");
     const message = await fn(userId);
-    if (message) setError(message);
+    if (message === VERIFY_EMAIL_REQUIRED_MESSAGE) setRefusedForEmail(true);
+    else if (message) setError(message);
     await mutate();
     setBusyId(null);
   };
@@ -110,6 +121,8 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               : `${pending.length} people want to join`}
         </h2>
       </div>
+
+      {verifyFirst && <VerifyEmailToApprove />}
 
       <div className="mt-4 space-y-3">
         {/* Spec: the most urgent item gets the clay tint, the rest sit on the
@@ -163,17 +176,19 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               </p>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
-              <SeededButton
-                className="min-h-[38px]"
-                disabled={busyId === m.userId}
-                onClick={() => act(m.userId, approveFamilyJoin)}
-              >
-                {busyId === m.userId
-                  ? "Saving…"
-                  : m.consentStatus === "pending" && viewerIsParent
-                    ? "Approve and consent"
-                    : "Approve"}
-              </SeededButton>
+              {verifyFirst ? null : (
+                <SeededButton
+                  className="min-h-[38px]"
+                  disabled={busyId === m.userId}
+                  onClick={() => act(m.userId, approveFamilyJoin)}
+                >
+                  {busyId === m.userId
+                    ? "Saving…"
+                    : m.consentStatus === "pending" && viewerIsParent
+                      ? "Approve and consent"
+                      : "Approve"}
+                </SeededButton>
+              )}
               <SeededButton
                 variant="secondary"
                 className="min-h-[38px]"
@@ -213,15 +228,21 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
                     </Link>
                     .
                   </p>
-                  <div className="mt-3">
-                    <SeededButton
-                      className="min-h-[38px]"
-                      disabled={busyId === m.userId}
-                      onClick={() => act(m.userId, grantParentConsent)}
-                    >
-                      {busyId === m.userId ? "Saving…" : "I'm their parent — give consent"}
-                    </SeededButton>
-                  </div>
+                  {verifyFirst ? (
+                    <p className="mt-2 text-sm text-stone">
+                      Confirm your email above, then give consent here.
+                    </p>
+                  ) : (
+                    <div className="mt-3">
+                      <SeededButton
+                        className="min-h-[38px]"
+                        disabled={busyId === m.userId}
+                        onClick={() => act(m.userId, grantParentConsent)}
+                      >
+                        {busyId === m.userId ? "Saving…" : "I'm their parent — give consent"}
+                      </SeededButton>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="mt-1.5 text-sm text-stone">

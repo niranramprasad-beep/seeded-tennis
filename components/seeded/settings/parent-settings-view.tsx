@@ -12,7 +12,13 @@ import { requestPasswordReset } from "@/lib/auth";
 import { loadMySignInInfo, type SignInInfo } from "@/lib/db/account";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadMyFamilyCode } from "@/lib/db/family-join";
-import { firstNameLastInitial, pickFamilyPlayer } from "@/lib/family-view";
+import {
+  firstNameLastInitial,
+  missingClassYearPhrase,
+  pickFamilyPlayer,
+  rosterStatsLocked,
+} from "@/lib/family-view";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { getText, postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { downloadTextFile } from "@/lib/data/export-csv";
@@ -278,6 +284,10 @@ function LinkedPlayersCard() {
   const { data: members, error } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
   const players = (members ?? []).filter((m) => m.role === "player");
   const shown = pickFamilyPlayer(members ?? []);
+  // 044: the roster's class year is NULL for a free family, so "not set"
+  // would be untrue for a player who set it.
+  const { data: plan } = useSWR<FamilyPlanStatus>("family-plan-status", () => loadFamilyPlanStatus());
+  const statsLocked = rosterStatsLocked(plan);
 
   return (
     <section aria-labelledby="linked-players-heading" className="rounded-xl border border-line bg-card p-6">
@@ -289,7 +299,7 @@ function LinkedPlayersCard() {
         results, plan and outreach.
       </p>
 
-      {members === undefined && !error ? (
+      {(members === undefined || plan === undefined) && !error ? (
         <div className="mt-4 h-[76px] animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
       ) : error ? (
         <p role="alert" className="mt-4 text-sm text-error">
@@ -316,7 +326,7 @@ function LinkedPlayersCard() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-ink">{short}</p>
                   <p className="text-sm text-stone">
-                    {p.graduationYear != null ? `Class of ${p.graduationYear}` : "Class year not set"}
+                    {p.graduationYear != null ? `Class of ${p.graduationYear}` : missingClassYearPhrase(statsLocked)}
                     {players.length > 1 && p.id === shown?.id ? " · shown on your Overview" : ""}
                   </p>
                 </div>
