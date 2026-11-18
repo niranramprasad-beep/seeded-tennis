@@ -16,8 +16,12 @@ Travel cost stays optional. The rule is `verdictBlockers()` in
 lib/tournament-fit.ts. *Undo:* default `level` back to `"L4"` and drop the
 blocker check in the view.
 
-**/events' Upcoming card still judges entries saved without a fee.** It is
-another engineer's file in this sweep; `verdictBlockers()` is exported for it.
+**/events' Upcoming card uses the same rule** (fixed when the sweep's three
+branches were merged): an entry saved without a fee shows "No verdict" and
+"To see a verdict, add the entry fee." instead of "Good fit"/"Skip it". The
+same change fixed a crash: with no UTR logged the card read a verdict from
+an empty map (`fits.get(id)!`) and /events threw for any player with a
+saved tournament.
 
 **The /schools header counts what the table shows** (C25) — "Showing 4 of 37
 men's programs." when a filter is on — and filters still persist across

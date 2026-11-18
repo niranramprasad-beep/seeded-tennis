@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { evaluateTournamentFit } from "@/lib/tournament-fit";
+import { evaluateTournamentFit, verdictBlockerSentence, verdictBlockers } from "@/lib/tournament-fit";
 import type { TournamentEntry } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -54,6 +54,9 @@ export function UpcomingTournamentsCard({
     const map = new Map<string, ReturnType<typeof evaluateTournamentFit>>();
     if (!utrKnown) return map;
     sorted.forEach((t) => {
+      // Same rule as the tournament checker (C15): no verdict without a
+      // level, a UTR and an entry fee — a blank fee is not "$0 / match".
+      if (verdictBlockers({ level: t.level, playerUtr, entryCost: t.entryCost }).length > 0) return;
       map.set(
         t.id,
         evaluateTournamentFit({
@@ -105,9 +108,16 @@ export function UpcomingTournamentsCard({
       ) : (
         <ul className="mt-3.5 flex flex-col">
           {sorted.map((t) => {
-            const fit = fits.get(t.id)!;
-            const isGoodFit = fit.verdict === "good";
+            // Undefined when there is no verdict to give: no UTR yet, or the
+            // entry was saved without a fee. (Without a UTR this used to be
+            // a `!` on an empty map, and /events threw for that player.)
+            const fit = fits.get(t.id);
+            const isGoodFit = fit?.verdict === "good";
             const isWhyOpen = openWhyId === t.id;
+            // The header already says "Add your UTR to check fit"; per row,
+            // only a missing fee needs saying.
+            const noVerdictReason =
+              fit || !utrKnown ? null : verdictBlockerSentence(verdictBlockers({ level: t.level, playerUtr, entryCost: t.entryCost }));
 
             return (
               <li key={t.id} className="border-t border-line py-3.5 first:border-t-0 first:pt-0">
@@ -117,10 +127,18 @@ export function UpcomingTournamentsCard({
                     <p className="truncate font-semibold text-ink">{t.name}</p>
                     <p className="truncate text-sm text-stone">{locationLine(t)}</p>
                   </div>
-                  <Chip className={isGoodFit ? GOOD_FIT_CLASS : SKIP_IT_CLASS}>
-                    {isGoodFit ? "Good fit" : "Skip it"}
-                  </Chip>
-                  {isGoodFit ? (
+                  {!fit ? (
+                    t.status === "entered" ? (
+                      <Chip className={NEUTRAL_CLASS}>Entered</Chip>
+                    ) : (
+                      <Chip className={NEUTRAL_CLASS}>No verdict</Chip>
+                    )
+                  ) : (
+                    <Chip className={isGoodFit ? GOOD_FIT_CLASS : SKIP_IT_CLASS}>
+                      {isGoodFit ? "Good fit" : "Skip it"}
+                    </Chip>
+                  )}
+                  {!fit ? null : isGoodFit ? (
                     t.status === "entered" ? (
                       <Chip className={NEUTRAL_CLASS}>Entered</Chip>
                     ) : (
@@ -145,7 +163,10 @@ export function UpcomingTournamentsCard({
                     </SeededButton>
                   )}
                 </div>
-                {isWhyOpen && (
+                {noVerdictReason && (
+                  <p className="ml-[72px] mt-1.5 text-sm text-stone">{noVerdictReason}</p>
+                )}
+                {fit && isWhyOpen && (
                   <ul className="ml-[72px] mt-2.5 flex flex-col gap-1.5 border-l-2 border-line pl-3.5">
                     {fit.reasons.map((reason, i) => (
                       <li key={i} className="text-sm leading-relaxed text-stone">

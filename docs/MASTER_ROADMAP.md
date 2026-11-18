@@ -13,6 +13,19 @@
 
 ## Executive status
 
+**2026-11-18 — PR C integrated (branch `fix/production-sweep-1`, on top of
+PR B; not pushed, no migrations).** The three sweep branches (events/results/
+check-ins/nav; numbers; tournament/outreach/schools/settings) are merged onto
+PR B with PR B's rebuilt screens kept and each sweep fix re-applied to them.
+One formatter per kind of number (`formatPlayerUtr` two decimals for a
+logged rating, `formatUtrEstimate` one for projections and team numbers;
+PR B's `formatUtr2` / `playerUtrText` and the sweep's local `utr2` /
+`playerUtrText` helpers are gone) and one local-date parser
+(`parseLocalDate` / `formatShortDate`; PR B's `localDateString` /
+`localDate` / `shortLocalDate` and five hand-rolled `T00:00:00` copies are
+gone). The parent chart draws `projectionPath(report.utr)`. /events'
+Upcoming card no longer crashes for a player with no UTR and gives no verdict
+for an entry saved without a fee.
 **2026-11-18 — PR C, numbers (C5, C8–C12, C16, C19, C21, C24; no
 migrations).** One projection: the school page's Pace row, both charts and
 /plan's default goal all read the fit report's `utr` (`projectionPath`,
