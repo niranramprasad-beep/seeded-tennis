@@ -870,7 +870,7 @@ html[data-session] .pre-session-block {
 html[data-session] .pre-session-hide {
   display: none;
 }
-/* The remembered role (lib/context/player-context.tsx rememberRole): a
+/* The remembered role (lib/layout-hints.ts rememberRole): a
    placeholder sized for one role is hidden for the other. Without a
    remembered role, the player's shape shows. */
 html[data-session][data-role="parent"] .pre-session-player-only {
@@ -878,4 +878,28 @@ html[data-session][data-role="parent"] .pre-session-player-only {
 }
 html[data-session]:not([data-role="parent"]) .pre-session-parent-only {
   display: none;
+}
+.pre-session-parent-nofit-only {
+  display: none;
+}
+/* The remembered /schools shape (lib/layout-hints.ts SchoolsShape). The
+   placeholders above assume the account HAS a fit; three account shapes
+   never get one and their page jumped up when the smaller content landed
+   (CLS 0.15 at 1440 for a player with no UTR). Without a remembered shape,
+   "fit" is assumed, so only the first load after sign-in can shift.
+   - nofit: a parent's block with no bands — its no-rating sentence is
+     longer than the fit one, so it has its own placeholder, and the four
+     band-chip placeholders go.
+   - prompt: the page will show the "Enter your UTR" banner, which is what
+     the pre-session render already is (no player yet = no rating), so the
+     real content is shown instead of any placeholder. */
+html[data-session][data-schools-shape="nofit"] .pre-session-bands,
+html[data-session][data-schools-shape="prompt"] .pre-session-bands,
+html[data-session][data-schools-shape="nofit"] .pre-session-parent-only,
+html[data-session][data-schools-shape="prompt"] .pre-session-block {
+  display: none;
+}
+html[data-session][data-role="parent"][data-schools-shape="nofit"] .pre-session-parent-nofit-only,
+html[data-session][data-schools-shape="prompt"] .pre-session-hide {
+  display: block;
 }

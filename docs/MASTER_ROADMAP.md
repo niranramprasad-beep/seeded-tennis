@@ -20,7 +20,10 @@ three parent routes — the "Billing honesty" gap below closes once the
 database half lands with it. Parent CLS cases from PR A addressed (one
 skeleton per route at every loading stage; the school page hides player-only
 controls for a remembered parent before hydration). Not yet measured with a
-signed-in persona.
+signed-in persona. /schools CLS for accounts with no fit (no-UTR player,
+free-family parent, parent with no linked player) fixed by remembering the
+page's last shape (DECISIONS, "remembered role"): 0.08–0.15 → ≤ 0.0003 on a
+production build; a parent's first /schools load after sign-in can still shift.
 **2026-11-18 — PR B, B6 screens + migration 044 (STAGING ONLY, branch
 `b6-ui`).** 044: `family_members()` returns `current_utr`, `grade`,
 `graduation_year`, `target_school_slugs`, `gender` as NULL unless the family
