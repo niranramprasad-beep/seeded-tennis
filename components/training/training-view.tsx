@@ -39,7 +39,7 @@ import { SeededActionRail } from "@/components/seeded/training/action-rail";
 import { SeededWeekPlanner } from "@/components/seeded/training/week-planner";
 import { SeededDayPlanner } from "@/components/seeded/training/day-planner";
 import { SeededMonthPlanner } from "@/components/seeded/training/month-planner";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
 import {
   WEEK_ORDER,
@@ -172,7 +172,7 @@ function TrainingInner({ plans }: { plans: TrainingPlan[] }) {
         {
           id: createUuid(),
           name: hasRealUtr(player.currentUTR)
-            ? `${player.currentUTR.toFixed(1)} UTR build week`
+            ? `${formatPlayerUtr(player.currentUTR)} UTR build week`
             : "Build week",
           goal: `Close the gap toward ${player.targetSchoolSlugs.length ? "target-school" : "college"} roster pace without overloading recovery.`,
           sessionIds: sessions.map((s) => s.id),
@@ -917,7 +917,7 @@ function TrainingQuestionnaire({
           Set up the calendar for {playerName}.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-on-primary/78">
-          No canned plan. Seeded will use your UTR {currentUtr.toFixed(1)}, {ordinalGrade(grade)} grade timeline,
+          No canned plan. Seeded will use your UTR {formatPlayerUtr(currentUtr)}, {ordinalGrade(grade)} grade timeline,
           training load, and goals to create the first week.
         </p>
       </div>
@@ -1824,7 +1824,7 @@ function generatePersonalizedPlan({
   const plan = {
     id: createUuid(),
     name: `${hours}h personalized recruiting week`,
-    goal: `${preferences.primaryGoal} from a ${ordinalGrade(grade)} grade, UTR ${playerUtr.toFixed(1)} baseline by the summer before senior year.`,
+    goal: `${preferences.primaryGoal} from a ${ordinalGrade(grade)} grade, UTR ${formatPlayerUtr(playerUtr)} baseline by the summer before senior year.`,
     sessionIds: sessions.map((session) => session.id),
   };
 
@@ -1944,7 +1944,7 @@ function recommendation(utr: number, sessions: TrainingPlannerSession[], grade: 
   const matchPrep = sessions.filter((s) => s.typeId === "match-prep").length;
   const recovery = sessions.filter((s) => s.typeId === "recovery").length;
   if (matchPrep === 0) {
-    return `Add one match-prep block this week. At UTR ${utr.toFixed(1)}, coaches need to see point patterns under pressure, not just clean drilling.`;
+    return `Add one match-prep block this week. At UTR ${formatPlayerUtr(utr)}, coaches need to see point patterns under pressure, not just clean drilling.`;
   }
   if (recovery === 0) {
     return `Protect one recovery session. ${ordinalGrade(grade)} grade recruiting weeks only work if the body can repeat quality sessions.`;

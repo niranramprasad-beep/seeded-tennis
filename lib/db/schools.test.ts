@@ -83,8 +83,8 @@ describe("buildCoachEmail never states a UTR the player did not enter", () => {
 
   it("still states a real rating, labelled self-reported", () => {
     const email = buildCoachEmail({ ...player, currentUTR: 9.4 }, school);
-    expect(email.body).toContain("My UTR is 9.4 (self-reported).");
-    expect(email.subject).toContain("UTR 9.4 (self-reported)");
+    expect(email.body).toContain("My UTR is 9.40 (self-reported).");
+    expect(email.subject).toContain("UTR 9.40 (self-reported)");
   });
 
   it("the placeholder that caused this is gone from the codebase", () => {
@@ -184,11 +184,11 @@ describe("buildCoachEmail", () => {
   // against UTR — so it travels labeled.
   it("labels the UTR self-reported everywhere it appears", () => {
     const email = buildCoachEmail(player, school);
-    expect(email.subject).toContain("UTR 9.0 (self-reported)");
-    expect(email.body).toContain("My UTR is 9.0 (self-reported).");
-    expect(email.body).toContain("UTR 9.0 (self-reported) · Class of 2027");
+    expect(email.subject).toContain("UTR 9.00 (self-reported)");
+    expect(email.body).toContain("My UTR is 9.00 (self-reported).");
+    expect(email.body).toContain("UTR 9.00 (self-reported) · Class of 2027");
     // No bare "UTR 9.0" that isn't followed by the label.
-    expect(email.body).not.toMatch(/UTR 9\.0(?! \(self-reported\))/);
+    expect(email.body).not.toMatch(/UTR 9\.00(?! \(self-reported\))/);
   });
 
   // The catch-all: nothing in the draft may describe the player's game in

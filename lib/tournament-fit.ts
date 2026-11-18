@@ -11,6 +11,8 @@
 //   3. Travel burden — hours on the road, forgiven somewhat for the rare
 //      national-level opportunities that are worth traveling for.
 
+import { formatPlayerUtr } from "@/lib/utils";
+
 export const UTR_MIN = 1;
 export const UTR_MAX = 16.5;
 
@@ -197,7 +199,7 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
         tone: "negative",
         text: `The field averages ${gap.toFixed(1)} UTR above you — you'd likely be overmatched early, and one lopsided loss gives your rating very little to work with.`,
       });
-      suggestions.push(`Look for a draw averaging within about 1 UTR of your ${playerUtr.toFixed(1)} — that's where results actually move ratings.`);
+      suggestions.push(`Look for a draw averaging within about 1 UTR of your ${formatPlayerUtr(playerUtr)} — that's where results actually move ratings.`);
     } else if (gap >= -1.5) {
       reasons.push({
         tone: "neutral",
@@ -216,18 +218,18 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     if (playerUtr >= lo && playerUtr <= hi) {
       reasons.push({
         tone: "neutral",
-        text: `No draw strength given, so this is estimated from the level: ${levelInfo.label.split("—")[0].trim()} events are typically competitive for players around UTR ${lo}–${Math.min(hi, 16.5)}, and you're at ${playerUtr.toFixed(1)}.`,
+        text: `No draw strength given, so this is estimated from the level: ${levelInfo.label.split("—")[0].trim()} events are typically competitive for players around UTR ${lo}–${Math.min(hi, 16.5)}, and you're at ${formatPlayerUtr(playerUtr)}.`,
       });
     } else if (playerUtr > hi) {
       reasons.push({
         tone: "negative",
-        text: `At UTR ${playerUtr.toFixed(1)} you're likely above the typical ${input.level === "utr" ? "" : `${input.level} `}field — expect little rating value from wins here.`,
+        text: `At UTR ${formatPlayerUtr(playerUtr)} you're likely above the typical ${input.level === "utr" ? "" : `${input.level} `}field — expect little rating value from wins here.`,
       });
       suggestions.push("Check the entry list before committing — if the top seeds are 1+ UTR below you, pick a higher level.");
     } else {
       reasons.push({
         tone: "negative",
-        text: `At UTR ${playerUtr.toFixed(1)} this level's typical field would be a big step up — you may run into much higher-rated players in round one.`,
+        text: `At UTR ${formatPlayerUtr(playerUtr)} this level's typical field would be a big step up — you may run into much higher-rated players in round one.`,
       });
       suggestions.push("Build results at the level below first, then use this event as a target once you're inside its typical range.");
     }
@@ -305,12 +307,12 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     if (goalGap > 0 && input.drawUtr >= playerUtr - 0.5) {
       reasons.push({
         tone: "positive",
-        text: `This field points toward your goal of UTR ${input.goalUtr.toFixed(1)} — these are exactly the opponents you need results against to get there.`,
+        text: `This field points toward your goal of UTR ${formatPlayerUtr(input.goalUtr)} — these are exactly the opponents you need results against to get there.`,
       });
     } else if (goalGap > 0 && input.drawUtr < playerUtr - 1.5) {
       reasons.push({
         tone: "negative",
-        text: `You're chasing UTR ${input.goalUtr.toFixed(1)}, and this field can't give you the results that climb requires.`,
+        text: `You're chasing UTR ${formatPlayerUtr(input.goalUtr)}, and this field can't give you the results that climb requires.`,
       });
     }
   }

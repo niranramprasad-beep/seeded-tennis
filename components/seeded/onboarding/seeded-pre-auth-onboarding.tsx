@@ -16,7 +16,7 @@ import { parentConsentRequired } from "@/lib/config/consent";
 import { buildFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 import {
   GROWTH_ESTIMATE_CAPTION,
   GROWTH_ESTIMATE_CHIP,
@@ -182,7 +182,7 @@ function PreAuthOnboarding({
       <main className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-6 px-6 pb-16 pt-4">
         <section className="min-w-0 flex-[999_1_640px]">
           <p className="m-0 text-sm text-stone">
-            {GENDER_LABEL[gender]} · UTR {utrNum.toFixed(1)} · Class of {gradYear}
+            {GENDER_LABEL[gender]} · UTR {formatPlayerUtr(utrNum)} · Class of {gradYear}
             {gpa.trim() ? ` · GPA ${gpa}` : ""}{" "}
             <button onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6">
               Edit
@@ -263,7 +263,7 @@ function PreAuthOnboarding({
             ) : !report.utr.isProjected ? (
               <>
                 <p className="font-semibold text-ink">
-                  You&rsquo;re being recruited now, at {report.utr.value.toFixed(1)}.
+                  You&rsquo;re being recruited now, at {formatPlayerUtr(report.utr.value)}.
                 </p>
                 <p className="mt-1 text-sm text-stone">
                   The bands below use your rating today — no projected growth, because
@@ -275,12 +275,12 @@ function PreAuthOnboarding({
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                   <span className="text-sm text-stone">By {projectionTargetLabel(report.utr.year)}</span>
                   <span className="font-mono text-[28px] font-semibold leading-none tabular-nums text-ink">
-                    {report.utr.value.toFixed(1)}
+                    {formatUtrEstimate(report.utr.value)}
                   </span>
                   <EstimateChip label={GROWTH_ESTIMATE_CHIP} />
                 </div>
                 <p className="mt-1.5 text-sm text-stone">
-                  Slower {report.utr.low.toFixed(1)} · faster {report.utr.high.toFixed(1)}
+                  Slower {formatUtrEstimate(report.utr.low)} · faster {formatUtrEstimate(report.utr.high)}
                 </p>
                 {/* The SAME numbers the tabs and rows use — these come
                     from the one report, so "in range" here and the tab
@@ -314,8 +314,8 @@ function PreAuthOnboarding({
               <p className="mt-1.5 text-sm text-stone">
                 Seeded only covers {filtered.length} {GENDER_LABEL[gender].toLowerCase()} college
                 programs, and the lowest team range here starts well above a{" "}
-                {utrNum.toFixed(1)} UTR
-                {report.utr.isProjected ? ` — even at ${report.utr.value.toFixed(1)} by ${projectionTargetLabel(report.utr.year)}` : ""}.
+                {formatPlayerUtr(utrNum)} UTR
+                {report.utr.isProjected ? ` — even at ${formatUtrEstimate(report.utr.value)} by ${projectionTargetLabel(report.utr.year)}` : ""}.
                 That is a fact about our catalogue, not a verdict on the player.
               </p>
               <p className="mt-2.5 text-sm text-stone">
@@ -411,8 +411,8 @@ function PreAuthOnboarding({
                       youPct={utrToPct(judging)}
                       caption={
                         report?.utr.isProjected && report.view === "recruiting"
-                          ? `${report ? projectionTargetLabel(report.utr.year).replace(/^s/, "S") : "Projected"} ${judging.toFixed(1)} (estimate) · today ${utrNum.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `You ${judging.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          ? `${report ? projectionTargetLabel(report.utr.year).replace(/^s/, "S") : "Projected"} ${judging.toFixed(1)} (estimate) · today ${formatPlayerUtr(utrNum)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `You ${formatPlayerUtr(judging)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={(range.min + range.max) / 2}

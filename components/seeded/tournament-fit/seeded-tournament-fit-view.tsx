@@ -29,8 +29,8 @@ import {
 import { SeededButton } from "@/components/seeded/ui/button";
 import { Toast, type ToastVariant } from "@/components/seeded/ui/toast";
 import { Drawer } from "@/components/ui/drawer";
-import { localDateKey } from "@/lib/time";
-import { cn } from "@/lib/utils";
+import { formatShortDate, localDateKey, parseLocalDate } from "@/lib/time";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 
 const inputClass =
   "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
@@ -49,10 +49,6 @@ const VERDICT_META: Record<
   decent: { headline: "Worth a look", card: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", eyebrow: "text-[rgb(var(--c-gold-tint-text))]" },
   bad: { headline: "Skip it", card: "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text-strong))]", eyebrow: "text-[rgb(var(--c-clay-tint-text-strong))]" },
 };
-
-function shortDate(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 // Pixel-exact to "14 Tournament fit finder.png" — a genuinely live
 // calculator (no "get the verdict" submit step like the Legacy version
@@ -109,7 +105,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const [travel, setTravel] = useState<TravelPill>(shared.travel ?? "local");
   const [entryCost, setEntryCost] = useState(shared.entryCost != null ? String(shared.entryCost) : "");
   const [travelCost, setTravelCost] = useState(shared.travelCost != null ? String(shared.travelCost) : "");
-  const [utr, setUtr] = useState(shared.playerUtr != null ? shared.playerUtr.toFixed(1) : "");
+  const [utr, setUtr] = useState(shared.playerUtr != null ? formatPlayerUtr(shared.playerUtr) : "");
   // A shared link's UTR is a deliberate snapshot — it should win over the
   // opener's own profile, same reasoning as a manual edit.
   const [utrTouched, setUtrTouched] = useState(shared.playerUtr != null);
@@ -122,7 +118,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const lastLoggedUtr = useMemo(() => {
     if (!utrEntries || utrEntries.length === 0) return null;
     return [...utrEntries].sort(
-      (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+      (a, b) => parseLocalDate(b.recordedAt).getTime() - parseLocalDate(a.recordedAt).getTime()
     )[0];
   }, [utrEntries]);
 
@@ -132,7 +128,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const effectiveUtr =
     utrTouched || !hydrated || !isAuthed || subjectUtr <= 0
       ? utr
-      : utr || subjectUtr.toFixed(1);
+      : utr || formatPlayerUtr(subjectUtr);
   // No rating → no verdict. This used to fall back to 8.0 and print "Your
   // UTR 8.0 … you're at 8.0" to anyone without one — a parent included.
   const parsedUtr = Number(effectiveUtr);
@@ -143,9 +139,9 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
   const nudgeUtr = (delta: number) => {
     if (playerUtr == null) return;
-    const next = Math.min(UTR_MAX, Math.max(UTR_MIN, Math.round((playerUtr + delta) * 10) / 10));
+    const next = Math.min(UTR_MAX, Math.max(UTR_MIN, Math.round((playerUtr + delta) * 100) / 100));
     setUtrTouched(true);
-    setUtr(next.toFixed(1));
+    setUtr(formatPlayerUtr(next));
   };
 
   const travelHours = travelHoursForPill(travel);
@@ -301,7 +297,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 <span className="text-[13px] leading-snug text-stone">
                   {isParent ? `From ${subjectFirst ?? "your player"}'s profile` : "From your profile"}
                   {lastLoggedUtr
-                    ? ` · self-reported ${shortDate(new Date(lastLoggedUtr.recordedAt))}`
+                    ? ` · self-reported ${formatShortDate(lastLoggedUtr.recordedAt)}`
                     : ""}
                 </span>
               )}

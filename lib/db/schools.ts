@@ -12,6 +12,7 @@
 
 import type { Division, Gender, Player, School, SchoolLite } from "@/lib/types";
 import { getCurrentGrade, ordinalGrade } from "@/lib/time";
+import { formatPlayerUtr } from "@/lib/utils";
 
 import { mensD1Schools } from "./schools-data-mens";
 import { womensD1Schools } from "./schools-data-womens";
@@ -209,7 +210,8 @@ export function buildCoachEmail(
   // all omitted — the draft simply does not mention a rating, which is the
   // honest version and still a usable email.
   const utrKnown = Number.isFinite(player.currentUTR) && player.currentUTR > 0;
-  const utr = utrKnown ? `${player.currentUTR.toFixed(1)} (self-reported)` : null;
+  // Two decimals, exactly as logged (C10): 5.95 went to coaches as "6.0".
+  const utr = utrKnown ? `${formatPlayerUtr(player.currentUTR)} (self-reported)` : null;
 
   // 1) Results, strictly from what the player logged themselves. With nothing
   // logged we fall back to their own tournament counts — never a

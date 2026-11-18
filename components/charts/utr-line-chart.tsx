@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { useThemeColors } from "@/lib/context/theme-context";
+import { formatPlayerUtr } from "@/lib/utils";
 
 export interface UTRPoint {
   label: string;
@@ -30,7 +31,7 @@ function ChartTooltip({ active, payload, label }: any) {
     <div className="rounded-xl border-[0.5px] border-line bg-card px-3 py-2 shadow-lift">
       <p className="text-xs text-stone-light">{label}</p>
       <p className="text-sm font-medium text-ink">
-        UTR {Number(payload[0].value).toFixed(1)}
+        UTR {formatPlayerUtr(Number(payload[0].value))}
       </p>
     </div>
   );
