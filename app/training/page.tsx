@@ -1,21 +1,17 @@
 import type { Metadata } from "next";
-import { getTrainingPlans } from "@/lib/db/plan";
-import { TrainingView } from "@/components/training/training-view";
-import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
+import { redirect } from "next/navigation";
 
-// Behind an AuthGate and disallowed in robots.txt. The meta tag is the
-// belt-and-braces half: robots.txt is a request, a meta robots tag is an
-// instruction to a crawler that already has the page.
+// Still a private route (it resolves, by redirecting), so it keeps the
+// noindex every private page carries.
 export const metadata: Metadata = {
   title: "Training — Seeded",
   robots: { index: false, follow: false },
 };
 
-export default async function TrainingPage() {
-  const plans = await getTrainingPlans();
-  return (
-    <SeededRouteRedirect to="/events">
-      <TrainingView plans={plans} />
-    </SeededRouteRedirect>
-  );
+// The old /training planner generated weeks of sessions on the player's
+// behalf ("UTR build week", "Add suggested session"). It is deleted; the
+// player's own calendar is on /events, for both designs. Old links land
+// there.
+export default function TrainingPage() {
+  redirect("/events");
 }

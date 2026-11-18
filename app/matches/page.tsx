@@ -5,7 +5,7 @@ import { MatchHistoryView } from "@/components/matches/match-history-view";
 // belt-and-braces half: robots.txt is a request, a meta robots tag is an
 // instruction to a crawler that already has the page.
 export const metadata: Metadata = {
-  title: "Matches — Seeded",
+  title: "Results — Seeded",
   robots: { index: false, follow: false },
 };
 

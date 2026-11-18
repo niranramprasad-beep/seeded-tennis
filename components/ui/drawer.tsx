@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useId, useRef, type ReactNode } from "react";
 import { useDialog } from "@/lib/hooks/use-dialog";
+import { Portal } from "./portal";
 import { cn } from "@/lib/utils";
 
 interface DrawerProps {
@@ -30,6 +31,7 @@ export function Drawer({
   const titleId = useId();
   useDialog(open, onClose, panelRef);
   return (
+    <Portal>
     <AnimatePresence>
       {open && (
         <>
@@ -39,7 +41,9 @@ export function Drawer({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-ink/30"
+            // Black in both themes: `bg-ink/30` is a light grey in dark mode,
+            // where ink is the light text colour.
+            className="fixed inset-0 z-50 bg-black/40"
           />
           <motion.aside
             ref={panelRef}
@@ -57,15 +61,17 @@ export function Drawer({
               widthClass
             )}
           >
-            <div className="flex items-start justify-between border-b-[0.5px] border-line p-6">
+            <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 sm:p-6">
               <div>
                 {eyebrow && (
-                  <p className="font-serif text-base italic text-leaf-accent">
+                  // Plain small label. It was an orange italic serif — the
+                  // Legacy eyebrow — on Seeded screens (sweep C17).
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone">
                     {eyebrow}
                   </p>
                 )}
                 {title && (
-                  <h2 id={titleId} className="text-xl font-medium text-ink">{title}</h2>
+                  <h2 id={titleId} className="text-xl font-semibold text-ink">{title}</h2>
                 )}
               </div>
               <button
@@ -76,13 +82,14 @@ export function Drawer({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">{children}</div>
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:p-6">{children}</div>
             {footer && (
-              <div className="border-t-[0.5px] border-line p-6">{footer}</div>
+              <div className="border-t border-line px-5 py-4 sm:p-6">{footer}</div>
             )}
           </motion.aside>
         </>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }

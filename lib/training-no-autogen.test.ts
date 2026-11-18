@@ -1,37 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // CLAUDE.md, non-negotiable: "No auto-generated training plans — manual
 // calendar only."
 //
-// That rule was broken in shipped code for as long as it has existed, and
-// an independent verifier is what finally produced the line number:
-// components/training/training-view.tsx had a button labelled "Generate my
-// training week" wired through `applyPreferences` to
-// `generatePersonalizedPlan()`, which wrote a full week of sessions Seeded
-// invented ("Serve plus first-ball patterns", "Filmed set play"). Finishing
-// the setup questionnaire produced a training plan the player had never
-// asked for and could not distinguish from one they had written.
+// History, because the shape of the defeats is the point of this file:
+//  - components/training/training-view.tsx had "Generate my training week"
+//    wired to generatePersonalizedPlan(), which wrote a week of sessions
+//    Seeded invented. The button went; the function stayed "to be deleted
+//    in week 1", guarded by an identifier scan.
+//  - A verifier re-wired it from lib/ (not scanned then); another relabelled
+//    a template control "Fill my week for me". Both passed the suite.
+//  - The production sweep (2026-11-18) found it still live a different way:
+//    /events' "Add session" opened the whole legacy planner in a drawer —
+//    "6h personalized recruiting week", "UTR build week", "Add suggested
+//    session". Production holds 28 sessions in 5 generator-named plans.
 //
-// The UI entry point is gone. The FUNCTION is still in the file on purpose
-// — removing it is docs/TODO.md week-1 item #2, kept separate so that diff
-// is reviewable on its own — which is exactly the state in which someone
-// re-wires a button to it by accident. Hence this test.
-//
-// It is a source scan, so it is a lint and not a proof: it can tell you no
-// UI file names the generator, not that nothing ever auto-fills a calendar.
-// It is mutation-tested below against the real call site that shipped.
+// So the generator, its templates, the planner, Match mode's prep-plan
+// generator and the whole-state save are DELETED, not guarded. This file
+// fails the build if any of them, or anything shaped like them, returns.
+// It is a source scan: a lint, not a proof. The self-tests below are the
+// mutation tests — each detector is shown catching the thing that shipped.
 
-// `lib` is here because it was not, and that was the whole defeat: a
-// verifier added lib/training-autofill.ts, imported the exported generator
-// from training-view.tsx, and called it from applyPreferences. Every
-// assertion passed, because none of them looked at lib/.
-const UI_ROOTS = ["components", "app", "lib"];
+const ROOTS = ["components", "app", "lib"];
 const EXTS = [".ts", ".tsx"];
-
-/** The generator's own definition lives here; everything else is a caller. */
-const DEFINITION_FILE = "components/training/training-view.tsx";
 
 function sourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -43,118 +36,146 @@ function sourceFiles(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-// Comments quote the removed call deliberately — that note is the main
-// defence against someone restoring it — so only live code is scanned.
-function strippedSource(file: string): string {
-  return readFileSync(file, "utf8")
+// Comments quote the removed names deliberately — that history is the main
+// defence against someone restoring them — so only live code is scanned.
+function stripComments(src: string): string {
+  return src
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .split("\n")
     .filter((l) => !l.trim().startsWith("//"))
     .join("\n");
 }
+const strippedSource = (file: string) => stripComments(readFileSync(file, "utf8"));
 
-const FILES = UI_ROOTS.flatMap((r) => sourceFiles(r));
+const FILES = ROOTS.flatMap((r) => sourceFiles(r));
 
-describe("no UI path auto-generates a training plan", () => {
-  it("finds the UI source tree", () => {
+/** Identifiers of the deleted generators. Any mention in live code — a
+ * definition, an import, a value passed along — fails. */
+export const BANNED_IDENTIFIERS = [
+  "generatePersonalizedPlan",
+  "makeGeneratedSession",
+  "buildTemplateSessions",
+  "TEMPLATE_DEFINITIONS",
+  "applyTemplate",
+  "applyPreferences",
+  "generatePrepPlan",
+  "TrainingView",
+  "MatchModeView",
+  "saveTrainingPlannerState",
+  "loadTrainingPlannerState",
+  "saveTrainingTemplate",
+];
+
+/** Copy that offers to plan FOR the player. */
+export const BANNED_COPY: RegExp[] = [
+  /generate (?:my |your |a )?(?:training |prep )?(?:week|plan|schedule)/i,
+  /\bsuggested session/i,
+  /\bpersonali[sz]ed (?:\w+ )?(?:recruiting )?week\b/i,
+  /\bUTR build week\b/i,
+  /\bbuild week\b/i,
+  /fill (?:my|your|in your) (?:week|calendar|plan|schedule)/i,
+  /(?:build|make|create|plan|write) (?:my|your) (?:week|plan|schedule)[^"'`<>{}]{0,12}for me/i,
+  /\bdo it for me\b/i,
+  /\bauto-?fill\b/i,
+  /automatically (?:build|create|fill|plan|generate|add)/i,
+];
+
+function identifierHits(src: string): string[] {
+  return BANNED_IDENTIFIERS.filter((id) => new RegExp(`\\b${id}\\b`).test(src));
+}
+
+function copyHits(src: string): string[] {
+  return BANNED_COPY.filter((re) => re.test(src)).map(String);
+}
+
+describe("detectors catch what actually shipped (self-test)", () => {
+  it("the identifier scan catches a call, an import, and a function passed as a value", () => {
+    expect(identifierHits("const week = generatePersonalizedPlan(prefs);")).toContain("generatePersonalizedPlan");
+    expect(identifierHits('import { generatePrepPlan } from "@/lib/db/events";')).toContain("generatePrepPlan");
+    expect(identifierHits("const sneaky = () => buildTemplateSessions;")).toContain("buildTemplateSessions");
+    expect(identifierHits("<TrainingView plans={plans} />")).toContain("TrainingView");
+    expect(identifierHits(stripComments("// generatePersonalizedPlan was here"))).toEqual([]);
+  });
+
+  it("the copy scan catches the labels from the sweep and the earlier verifier", () => {
+    for (const s of [
+      "Generate my training week",
+      "Generate prep plan",
+      "Add suggested session",
+      "6h personalized recruiting week",
+      "UTR build week",
+      "5.5 UTR build week",
+      "Fill my week for me",
+    ]) {
+      expect(copyHits(s).length, s).toBeGreaterThan(0);
+    }
+    for (const s of ["Add session", "Repeat every week", "Only sessions you add. Nothing is planned for you."]) {
+      expect(copyHits(s), s).toEqual([]);
+    }
+  });
+
+  it("comment stripping keeps code and drops comments", () => {
+    expect(stripComments("// generatePrepPlan\nconst x = 1;")).not.toMatch(/generatePrepPlan/);
+    expect(stripComments("/* applyTemplate */ const y = 2;")).not.toMatch(/applyTemplate/);
+  });
+});
+
+describe("no path in the app auto-generates a training plan", () => {
+  it("finds the source tree", () => {
     expect(FILES.length).toBeGreaterThan(50);
   });
 
-  it("nothing references generatePersonalizedPlan at all, except its definition", () => {
-    // First version banned `generatePersonalizedPlan(` — a CALL. Mutation
-    // testing caught that immediately: `const sneaky = () =>
-    // generatePersonalizedPlan;` passes the function along as a value and
-    // never matches, so a caller one hop away was invisible. A function
-    // that is reachable is a function that gets called.
-    //
-    // So: the identifier may appear ONCE in the whole UI tree, on the line
-    // that defines it. An import, a re-export, an alias, a callback, a
-    // property on an options object — all fail.
-    const mentions: string[] = [];
-    for (const f of FILES) {
-      const src = strippedSource(f);
-      for (const m of src.matchAll(/\bgeneratePersonalizedPlan\b/g)) {
-        const line = src.slice(0, m.index!).split("\n").length;
-        const isDefinition =
-          f === DEFINITION_FILE &&
-          /(?:export\s+)?(?:async\s+)?function\s*$/.test(src.slice(Math.max(0, m.index! - 32), m.index!));
-        if (!isDefinition) mentions.push(`${f}:${line}`);
-      }
+  it("no live code names a deleted generator, planner or Match mode", () => {
+    const hits = FILES.flatMap((f) => identifierHits(strippedSource(f)).map((id) => `${f}: ${id}`));
+    expect(hits, "the calendar is filled in by hand — see docs/DECISIONS.md 2026-11-18").toEqual([]);
+  });
+
+  it("no control offers to plan, suggest or fill a week on the player's behalf", () => {
+    const hits = FILES.flatMap((f) => copyHits(strippedSource(f)).map((re) => `${f}: ${re}`));
+    expect(hits).toEqual([]);
+  });
+
+  it("the deleted modules stay deleted", () => {
+    for (const f of [
+      "components/training/training-view.tsx",
+      "components/matches/match-mode-view.tsx",
+      "components/seeded/training",
+      "app/api/training/planner/route.ts",
+      "app/api/training/templates/route.ts",
+    ]) {
+      expect(existsSync(f), `${f} was deleted with the generator`).toBe(false);
     }
-    expect(
-      mentions,
-      "the calendar is filled in by hand — see docs/TODO.md week-1 item #2"
-    ).toEqual([]);
   });
 
-  it("no control offers to fill a week on the player's behalf", () => {
-    // M7 from the final verification: a sidebar item relabelled "Fill my
-    // week for me", wired to applyTemplate("build"), wrote seven
-    // Seeded-authored sessions in one click with the suite green. The
-    // guard only knew the identifier `generatePersonalizedPlan` and the
-    // word "generate".
-    //
-    // Templates themselves STAY — Niran's call: a player choosing a
-    // template is choosing, which is what "manual" means. What must not
-    // exist is a control that does it FOR them.
-    const offenders: string[] = [];
-    for (const f of FILES) {
-      const src = strippedSource(f);
-      // First draft used /for me|for you|automatically|ready-made week/
-      // and flagged nine innocents ("Sorted by fit for you", "How Seeded
-      // decides which teams are realistic for you"). It also flagged the
-      // Templates drawer's "Replaces your active plan with a ready-made
-      // week" — which STAYS, because a player picking a template is
-      // choosing, and that is what manual means.
-      //
-      // The banned shape is narrower: a control offering to fill the
-      // calendar on the player's behalf.
-      for (const m of src.matchAll(
-        /["'`>]([^"'`<>{}]{0,50}?(?:fill (?:my|your|in your) (?:week|calendar|plan|schedule)|(?:build|make|create|plan|write) (?:my|your) (?:week|plan|schedule)[^"'`<>{}]{0,12}for me|do it for me|auto-?fill|automatically (?:build|create|fill|plan|generate|add))[^"'`<>{}]{0,30})/gi
-      )) {
-        offenders.push(`${f}: "${m[1].trim().slice(0, 60)}"`);
-      }
+  it("/training and /match-mode only redirect", () => {
+    for (const [file, to] of [
+      ["app/training/page.tsx", "/events"],
+      ["app/match-mode/page.tsx", "/matches"],
+    ] as const) {
+      const src = strippedSource(file);
+      expect(src).toMatch(new RegExp(`redirect\\("${to}"\\)`));
+      expect(src, `${file} renders something besides the redirect`).not.toMatch(/<[A-Z]/);
     }
-    expect(
-      offenders,
-      "a control that fills the calendar FOR the player is the banned thing, whatever it is called"
-    ).toEqual([]);
   });
 
-  it("no button offers to generate a week", () => {
-    const offenders = FILES.filter((f) =>
-      /generate (?:my |your |a )?(?:training )?(?:week|plan|schedule)/i.test(strippedSource(f))
-    );
-    expect(offenders, "a control that offers to produce a plan for the player").toEqual([]);
+  it("the training data layer writes one row at a time, inside the manual plan", () => {
+    const src = strippedSource("lib/db/training.ts");
+    // The old whole-state save deleted every session it was not handed:
+    // `.not("id", "in", …)`. With generated rows hidden from the UI, one
+    // ordinary save would have deleted them all.
+    expect(src).not.toMatch(/\.not\(\s*["']id["']\s*,\s*["']in["']/);
+    // Every update and delete is scoped to the manual plan as well as the owner.
+    const writes = [...src.matchAll(/\.(update|delete)\(/g)].length;
+    const scoped = [...src.matchAll(/\.in\(\s*["']training_plan_id["']\s*,\s*planIds\s*\)/g)].length;
+    expect(writes).toBeGreaterThan(0);
+    // One scoped read, plus one per update/delete.
+    expect(scoped).toBeGreaterThanOrEqual(writes + 1);
+    expect(src).toMatch(/contains\(\s*["']metadata["']\s*,\s*MANUAL_PLAN_METADATA\s*\)/);
   });
 
-  it("the generator is defined in exactly one place, so there is one thing to delete", () => {
-    const definers = FILES.filter((f) =>
-      /function\s+generatePersonalizedPlan\s*\(/.test(strippedSource(f))
-    );
-    expect(definers).toEqual([DEFINITION_FILE]);
-  });
-
-  it("the generator is not exported, so no other module can reach it", () => {
-    // The identifier-count check above only covers files this test walks.
-    // Not exporting it is the part that holds regardless: there is no way
-    // to import what is not exported, so a new file in any root — scanned
-    // or not — cannot call it.
-    const src = strippedSource(DEFINITION_FILE);
-    expect(src, "un-export it; it is deleted in week 1 anyway").not.toMatch(
-      /export\s+(?:async\s+)?function\s+generatePersonalizedPlan\b/
-    );
-    expect(src).not.toMatch(/export\s*\{[^}]*\bgeneratePersonalizedPlan\b/);
-  });
-
-  it("completing the setup questionnaire stores preferences and nothing else", () => {
-    const src = strippedSource(DEFINITION_FILE);
-    const m = src.match(/const applyPreferences = \([^)]*\) => \{([\s\S]*?)\n  \};/);
-    expect(m, "applyPreferences not found — did it get renamed?").not.toBeNull();
-    const body = m![1];
-    expect(body).not.toMatch(/generatePersonalizedPlan/);
-    // It may set preferences; it may not write sessions or plans.
-    expect(body, "the questionnaire must not write sessions").not.toMatch(/sessions:/);
-    expect(body, "the questionnaire must not write plans").not.toMatch(/plans:/);
+  it("the only training write route is the per-row one", () => {
+    expect(existsSync("app/api/training/sessions/route.ts")).toBe(true);
+    const dirs = readdirSync("app/api/training");
+    expect(dirs).toEqual(["sessions"]);
   });
 });

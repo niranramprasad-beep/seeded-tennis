@@ -1,11 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import type { Player, WeekdayShort } from "@/lib/types";
-import type { MatchRecord } from "@/lib/db/events";
-import type { TournamentEntry } from "@/lib/db/events";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
-import type { AddSessionInput, SessionFormValues } from "@/lib/hooks/use-events-calendar";
+import type { Player } from "@/lib/types";
+import type { MatchRecord, TournamentEntry } from "@/lib/db/events";
+import type { TrainingSession } from "@/lib/db/training";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { UpcomingTournamentsCard } from "./upcoming-tournaments-card";
 import { RecentResultsCard } from "./recent-results-card";
@@ -14,86 +11,67 @@ import { EventsCalendarCard } from "./events-calendar-card";
 export interface SeededEventsLayoutProps {
   player: Player;
   tournamentEntries: TournamentEntry[];
-  matches: MatchRecord[];
-  sessions: TrainingPlannerSession[];
-  sessionTypes: TrainingSessionType[];
+  matches: MatchRecord[] | undefined;
+  /** undefined while loading. */
+  sessions: TrainingSession[] | undefined;
   onMarkEntered: (id: string) => void;
-  onAddSession: () => void;
+  /** Opens the session form; a date/time when it came from a calendar slot. */
+  onAddSession: (date?: string, time?: string) => void;
+  onEditSession: (session: TrainingSession) => void;
+  onMoveSession: (id: string, date: string, startTime: string) => void;
+  onResizeSession: (id: string, duration: number) => void;
   onLogResult: () => void;
-  onAddCalendarSession: (input: AddSessionInput) => void;
-  onUpdateCalendarSession: (id: string, values: SessionFormValues, weekOffset: number) => void;
-  onMoveCalendarSession: (id: string, day: WeekdayShort, startTime: string, weekOffset: number) => void;
-  onResizeCalendarSession: (id: string, duration: number) => void;
-  onDeleteCalendarSession: (session: TrainingPlannerSession, scope: "one" | "series") => void;
 }
 
-// Pixel-exact to "15 Events (schedule + results).png" — the real merge of
-// Legacy's two separate screens (Training's calendar, Match mode's log)
-// into one schedule. "Upcoming tournaments" is real fit-checked storage
-// (lib/db/events.ts + lib/tournament-fit.ts's
-// evaluateTournamentFit), not mockup copy; "Recent results" is the same
-// real loadMatches() data /plan already shows; the calendar card is the
-// real month planner's session data, restyled into this narrower column.
-// The mockup's "Recruiting" camp-invite row (a coach-initiated ID camp
-// invitation) has no real data source anywhere in this codebase — no
-// coach-invitation tracking exists — so it's never rendered here, same
-// discipline as every other "don't fabricate" call in this redesign.
+// /events: the player's own schedule. The calendar is full width (it was
+// squeezed into a 400px column — Mon–Thu visible, the rest behind a
+// sideways scroll); tournaments and results sit below it, side by side and
+// the same height. "Add session" is the screen's one green button.
+// The mockup's "Recruiting" camp-invite row has no data source anywhere, so
+// it is not drawn.
 export function SeededEventsLayout({
   player,
   tournamentEntries,
   matches,
   sessions,
-  sessionTypes,
   onMarkEntered,
   onAddSession,
+  onEditSession,
+  onMoveSession,
+  onResizeSession,
   onLogResult,
-  onAddCalendarSession,
-  onUpdateCalendarSession,
-  onMoveCalendarSession,
-  onResizeCalendarSession,
-  onDeleteCalendarSession,
 }: SeededEventsLayoutProps) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-seeded text-[30px] font-semibold tracking-tight text-ink">Events</h1>
-          <p className="mt-1.5 text-stone">Tournaments, results and practice in one schedule.</p>
+          <h1 className="text-[30px] font-semibold tracking-tight text-ink">Events</h1>
+          <p className="mt-1.5 text-stone">Your training, tournaments and results.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/tournament-fit">
-            <SeededButton variant="secondary">Check a tournament</SeededButton>
-          </Link>
-          <SeededButton variant="secondary" onClick={onLogResult}>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <SeededButton variant="secondary" onClick={onLogResult} className="flex-1 sm:flex-none">
             Log a result
           </SeededButton>
-          <SeededButton variant="primary" onClick={onAddSession}>
+          <SeededButton onClick={() => onAddSession()} className="flex-1 sm:flex-none">
             Add session
           </SeededButton>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="min-w-0">
-          <UpcomingTournamentsCard
-            entries={tournamentEntries}
-            playerUtr={player.currentUTR}
-            onMarkEntered={onMarkEntered}
-          />
-          <RecentResultsCard matches={matches} />
-        </div>
-        <div className="min-w-0">
-          <EventsCalendarCard
-            sessions={sessions}
-            sessionTypes={sessionTypes}
-            tournamentEntries={tournamentEntries}
-            onAddSession={onAddCalendarSession}
-            onUpdateSession={onUpdateCalendarSession}
-            onMoveSession={onMoveCalendarSession}
-            onResizeSession={onResizeCalendarSession}
-            onDeleteSession={onDeleteCalendarSession}
-          />
-        </div>
+      <div className="mt-6">
+        <EventsCalendarCard
+          sessions={sessions}
+          tournamentEntries={tournamentEntries}
+          onAdd={onAddSession}
+          onEdit={onEditSession}
+          onMove={onMoveSession}
+          onResize={onResizeSession}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-5 md:grid-cols-2">
+        <UpcomingTournamentsCard entries={tournamentEntries} playerUtr={player.currentUTR} onMarkEntered={onMarkEntered} />
+        <RecentResultsCard matches={matches} />
       </div>
     </div>
   );

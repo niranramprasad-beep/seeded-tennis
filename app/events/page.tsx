@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { getTrainingPlans } from "@/lib/db/plan";
-import { SeededEventsView } from "@/components/seeded/events/seeded-events-view";
+import { EventsInner } from "@/components/seeded/events/events-inner";
 
 // Behind an AuthGate and disallowed in robots.txt. The meta tag is the
 // belt-and-braces half: robots.txt is a request, a meta robots tag is an
@@ -11,11 +9,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function EventsPage() {
-  const plans = await getTrainingPlans();
-  return (
-    <Suspense fallback={null}>
-      <SeededEventsView plans={plans} />
-    </Suspense>
-  );
+// One page for both designs. Legacy used to get a tab switcher over the old
+// /training planner (which generated plans) and Match mode; both are gone
+// (docs/DECISIONS.md, 2026-11-18).
+export default function EventsPage() {
+  return <EventsInner />;
 }

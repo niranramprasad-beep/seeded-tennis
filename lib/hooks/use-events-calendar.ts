@@ -1,46 +1,37 @@
 "use client";
 
-// Real CRUD for the Events calendar card's week view (components/seeded/
-// events/events-calendar-card.tsx) — add/edit/delete/move/resize/repeat.
-// Deliberately NOT a parallel storage path: every mutation here reads and
-// writes the exact same `TrainingPlannerState` (workout_sessions +
-// training_plans, via lib/db/events.ts's loadTrainingPlannerState/
-// saveTrainingPlannerState) that /training's own TrainingView already owns,
-// the same SWR cache key ["training-planner-state", storageKey] events-
-// inner.tsx already fetches under. This hook just adds: optimistic local
-// updates (so dragging/resizing/deleting feels instant), an Undo-offering
-// toast on delete (same mechanism as lib/hooks/use-star-schools.ts's
-// star-to-target undo), and the "repeat weekly" series math from
-// lib/training/calendar-interactions.ts.
+// Add / edit / move / resize / delete for the player's own training
+// calendar on /events. Every write is one of lib/db/training.ts's per-row
+// calls; the calendar updates at once (optimistic) and then:
+//   - success: a toast says what happened ("Session added.");
+//   - failure: the list is re-read from the server and an error toast says
+//     the change did not save — never a silent revert, never a stuck
+//     "Saving…" (both shipped in the old Training drawer).
+// Delete offers Undo, which re-creates the same rows with the same ids.
 import { useCallback, useRef, useState } from "react";
 import type { KeyedMutator } from "swr";
-import type { Intensity, WeekdayShort } from "@/lib/types";
 import {
+  createTrainingSessions,
   createUuid,
-  saveTrainingPlannerState,
-  type TrainingFolder,
-  type TrainingPlannerSession,
-  type TrainingPlannerState,
-} from "@/lib/db/events";
-import { dateForWeekday } from "@/lib/training/grid-math";
+  deleteTrainingSessions,
+  updateTrainingSession,
+  type TrainingSession,
+} from "@/lib/db/training";
 import { generateWeeklySeriesDates } from "@/lib/training/calendar-interactions";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
+import { plural } from "@/lib/utils";
 
+/** What the session form edits. */
 export interface SessionFormValues {
-  title: string;
-  typeId: string;
-  day: WeekdayShort;
+  date: string;
   startTime: string;
   duration: number;
+  typeId: string;
   notes: string;
 }
 
 export interface AddSessionInput extends SessionFormValues {
-  /** Which displayed week the clicked slot belongs to — same weekOffset
-   * contract as lib/training/grid-math.ts's dateForWeekday. */
-  weekOffset: number;
-  /** 1 = a single, one-off session. >1 generates a bounded weekly series
-   * (clamped by generateWeeklySeriesDates) sharing one seriesId. */
+  /** 1 = a one-off session. More creates a bounded weekly series. */
   repeatWeeks: number;
 }
 
@@ -52,221 +43,136 @@ export interface CalendarToast {
 
 export type DeleteScope = "one" | "series";
 
-const DEFAULT_INTENSITY: Intensity = "moderate";
+export const SESSIONS_KEY = "training-sessions";
 
-/** Returns a state guaranteed to have at least one real plan and a valid
- * activePlanId — workout_sessions.training_plan_id is NOT NULL, so any
- * brand-new user whose EMPTY_PLANNER_STATE (events-inner.tsx) has zero
- * plans needs one created the first time they add a session here, the same
- * normalization TrainingInner already does for /training's own fallback. */
-function withGuaranteedPlan(state: TrainingPlannerState): TrainingPlannerState {
-  if (state.plans.some((p) => p.id === state.activePlanId)) return state;
-  const existing = state.plans[0];
-  if (existing) return { ...state, activePlanId: existing.id };
-  const plan: TrainingFolder = { id: createUuid(), name: "My sessions", goal: "", sessionIds: [] };
-  return { ...state, plans: [plan], activePlanId: plan.id };
-}
+const SAVE_FAILED = "That change didn't save. Check your connection and try again.";
 
-function addSessionIdsToPlan(plans: TrainingFolder[], planId: string, sessionIds: string[]): TrainingFolder[] {
-  return plans.map((p) => (p.id === planId ? { ...p, sessionIds: [...p.sessionIds, ...sessionIds] } : p));
+function byDateThenTime(a: TrainingSession, b: TrainingSession): number {
+  return a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date);
 }
 
 export function useEventsCalendar(
-  plannerState: TrainingPlannerState | null | undefined,
-  mutatePlanner: KeyedMutator<TrainingPlannerState | null>
+  sessions: TrainingSession[] | undefined,
+  mutate: KeyedMutator<TrainingSession[]>
 ) {
   const [toast, setToast] = useState<CalendarToast | null>(null);
+  const sessionsRef = useRef(sessions ?? []);
+  sessionsRef.current = sessions ?? [];
 
-  // Always-fresh snapshot, readable from undo closures created on an
-  // earlier render — identical reasoning to use-star-schools.ts's slugsRef.
-  const stateRef = useRef(plannerState);
-  stateRef.current = plannerState;
-
-  const persist = useCallback(
-    (next: TrainingPlannerState) => {
-      mutatePlanner(next, { revalidate: false });
-      // Optimistic update, but NOT a silent one any more.
-      //
-      // This used to be `.catch(() => undefined)`. An independent review
-      // pointed out what that costs once writes can be refused: the calendar
-      // shows the edit applied, the write fails, and nothing anywhere says
-      // so — the user closes the tab and the change is gone. The review
-      // found it while tracing a rate limit that sat below the size of one
-      // ordinary save, but the swallow is wrong regardless of why the write
-      // failed (offline, signed out, a server error).
-      //
-      // The optimistic update stays: SWR revalidates on focus and will
-      // correct the view. The difference is that the person is told.
-      void saveTrainingPlannerState(next).catch(() => {
-        setToast({
-          message: "That change didn't save. Check your connection and try again.",
-          variant: "error",
-        });
-      });
+  const apply = useCallback(
+    (next: TrainingSession[]) => {
+      void mutate([...next].sort(byDateThenTime), { revalidate: false });
     },
-    [mutatePlanner]
+    [mutate]
+  );
+
+  const fail = useCallback(
+    (err: unknown) => {
+      void mutate();
+      setToast({ message: err instanceof Error && err.message ? err.message : SAVE_FAILED, variant: "error" });
+    },
+    [mutate]
   );
 
   const addSession = useCallback(
-    (input: AddSessionInput) => {
-      const current = stateRef.current;
-      if (!current) return;
-      const base = withGuaranteedPlan(current);
-      const baseDate = dateForWeekday(input.day, input.weekOffset);
-      const occurrenceDates = generateWeeklySeriesDates(baseDate, input.repeatWeeks);
-      const seriesId = occurrenceDates.length > 1 ? createUuid() : null;
-      const newSessions: TrainingPlannerSession[] = occurrenceDates.map((date) => ({
+    async (input: AddSessionInput) => {
+      const dates = generateWeeklySeriesDates(input.date, input.repeatWeeks);
+      const seriesId = dates.length > 1 ? createUuid() : null;
+      const created: TrainingSession[] = dates.map((date) => ({
         id: createUuid(),
-        title: input.title.trim() || "Training session",
-        typeId: input.typeId,
-        day: input.day,
         date,
         startTime: input.startTime,
         duration: input.duration,
-        intensity: DEFAULT_INTENSITY,
-        notes: input.notes,
-        goals: "",
-        drills: [],
-        completed: false,
+        typeId: input.typeId,
+        notes: input.notes.trim(),
         seriesId,
       }));
-      const next: TrainingPlannerState = {
-        ...base,
-        sessions: [...base.sessions, ...newSessions],
-        plans: addSessionIdsToPlan(base.plans, base.activePlanId, newSessions.map((s) => s.id)),
-      };
-      persist(next);
+      apply([...sessionsRef.current, ...created]);
+      try {
+        await createTrainingSessions(created);
+        setToast({
+          message: created.length > 1 ? `${plural(created.length, "session", "sessions")} added.` : "Session added.",
+          variant: "success",
+        });
+      } catch (err) {
+        fail(err);
+      }
     },
-    [persist]
+    [apply, fail]
+  );
+
+  const replace = useCallback(
+    async (id: string, patch: Partial<TrainingSession>, successMessage?: string) => {
+      const current = sessionsRef.current.find((s) => s.id === id);
+      if (!current) return;
+      const updated = { ...current, ...patch };
+      apply(sessionsRef.current.map((s) => (s.id === id ? updated : s)));
+      try {
+        await updateTrainingSession(updated);
+        if (successMessage) setToast({ message: successMessage, variant: "success" });
+      } catch (err) {
+        fail(err);
+      }
+    },
+    [apply, fail]
   );
 
   const updateSession = useCallback(
-    (id: string, input: SessionFormValues, weekOffset: number) => {
-      const current = stateRef.current;
-      if (!current) return;
-      const date = dateForWeekday(input.day, weekOffset);
-      const next: TrainingPlannerState = {
-        ...current,
-        sessions: current.sessions.map((s) =>
-          s.id === id
-            ? {
-                ...s,
-                title: input.title.trim() || "Training session",
-                typeId: input.typeId,
-                day: input.day,
-                date,
-                startTime: input.startTime,
-                duration: input.duration,
-                notes: input.notes,
-              }
-            : s
-        ),
-      };
-      persist(next);
-    },
-    [persist]
+    (id: string, values: SessionFormValues) =>
+      replace(id, { ...values, notes: values.notes.trim() }, "Session saved."),
+    [replace]
   );
 
-  /** Drag-to-move: updates the session's real day/date/start time. */
+  /** Drag-to-move: a new date and start time. */
   const moveSession = useCallback(
-    (id: string, day: WeekdayShort, startTime: string, weekOffset: number) => {
-      const current = stateRef.current;
-      if (!current) return;
-      const date = dateForWeekday(day, weekOffset);
-      const next: TrainingPlannerState = {
-        ...current,
-        sessions: current.sessions.map((s) => (s.id === id ? { ...s, day, date, startTime } : s)),
-      };
-      persist(next);
-    },
-    [persist]
+    (id: string, date: string, startTime: string) => replace(id, { date, startTime }),
+    [replace]
   );
 
-  /** Drag-the-edge-to-resize: updates the session's real duration. */
-  const resizeSession = useCallback(
-    (id: string, duration: number) => {
-      const current = stateRef.current;
-      if (!current) return;
-      const next: TrainingPlannerState = {
-        ...current,
-        sessions: current.sessions.map((s) => (s.id === id ? { ...s, duration } : s)),
-      };
-      persist(next);
-    },
-    [persist]
-  );
-
-  const activeTokenRef = useRef(0);
+  /** Drag-the-edge-to-resize: a new length. */
+  const resizeSession = useCallback((id: string, duration: number) => replace(id, { duration }), [replace]);
 
   const deleteSession = useCallback(
-    (session: TrainingPlannerSession, scope: DeleteScope = "one") => {
-      const current = stateRef.current;
-      if (!current) return;
-
-      const removeIds = new Set(
+    async (session: TrainingSession, scope: DeleteScope = "one") => {
+      const removed =
         scope === "series" && session.seriesId
-          ? current.sessions.filter((s) => s.seriesId === session.seriesId).map((s) => s.id)
-          : [session.id]
-      );
-      const removedSessions = current.sessions.filter((s) => removeIds.has(s.id));
-      if (removedSessions.length === 0) return;
-      const membership = current.plans.flatMap((p) =>
-        p.sessionIds.filter((sid) => removeIds.has(sid)).map((sessionId) => ({ sessionId, planId: p.id }))
-      );
+          ? sessionsRef.current.filter((s) => s.seriesId === session.seriesId)
+          : sessionsRef.current.filter((s) => s.id === session.id);
+      if (removed.length === 0) return;
+      const removedIds = new Set(removed.map((s) => s.id));
+      apply(sessionsRef.current.filter((s) => !removedIds.has(s.id)));
+      try {
+        await deleteTrainingSessions([...removedIds]);
+      } catch (err) {
+        fail(err);
+        return;
+      }
 
-      const next: TrainingPlannerState = {
-        ...current,
-        sessions: current.sessions.filter((s) => !removeIds.has(s.id)),
-        plans: current.plans.map((p) => ({ ...p, sessionIds: p.sessionIds.filter((sid) => !removeIds.has(sid)) })),
-      };
-
-      const token = ++activeTokenRef.current;
-      let settled = false;
-      persist(next);
-
-      const undo = () => {
-        if (settled) return;
-        settled = true;
-        const latest = stateRef.current;
-        if (!latest) return;
-        const toRestore = removedSessions.filter((s) => !latest.sessions.some((existing) => existing.id === s.id));
-        const restoredPlans = latest.plans.map((p) => {
-          const idsToAdd = membership
-            .filter((m) => m.planId === p.id)
-            .map((m) => m.sessionId)
-            .filter((id) => !p.sessionIds.includes(id) && toRestore.some((s) => s.id === id));
-          return idsToAdd.length ? { ...p, sessionIds: [...p.sessionIds, ...idsToAdd] } : p;
-        });
-        persist({ ...latest, sessions: [...latest.sessions, ...toRestore], plans: restoredPlans });
+      let undone = false;
+      const undo = async () => {
+        if (undone) return;
+        undone = true;
+        const toRestore = removed.filter((s) => !sessionsRef.current.some((x) => x.id === s.id));
+        if (toRestore.length === 0) return;
+        apply([...sessionsRef.current, ...toRestore]);
+        try {
+          await createTrainingSessions(toRestore);
+          setToast({ message: "Restored.", variant: "success" });
+        } catch (err) {
+          fail(err);
+        }
       };
 
       setToast({
-        message:
-          removedSessions.length > 1
-            ? `Deleted ${removedSessions.length} sessions in this series.`
-            : `Deleted "${session.title || "session"}".`,
+        message: removed.length > 1 ? `Deleted ${plural(removed.length, "session", "sessions")}.` : "Session deleted.",
         variant: "default",
-        action: { label: "Undo", onClick: undo },
+        action: { label: "Undo", onClick: () => void undo() },
       });
-
-      // A later delete's toast should never be silently cleared by a
-      // stale timer from this one.
-      return () => {
-        if (activeTokenRef.current === token) settled = true;
-      };
     },
-    [persist]
+    [apply, fail]
   );
 
   const dismissToast = useCallback(() => setToast(null), []);
 
-  return {
-    addSession,
-    updateSession,
-    moveSession,
-    resizeSession,
-    deleteSession,
-    toast,
-    dismissToast,
-  };
+  return { addSession, updateSession, moveSession, resizeSession, deleteSession, toast, dismissToast };
 }

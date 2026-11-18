@@ -1,273 +1,239 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import type { WeekdayShort } from "@/lib/types";
-import type { TrainingPlannerSession, TrainingSessionType } from "@/lib/db/events";
-import { WEEK_ORDER } from "@/lib/training/grid-math";
+import { useEffect, useId, useState } from "react";
+import type { TrainingSession } from "@/lib/db/training";
+import { SESSION_TYPES } from "@/lib/training/session-types";
 import { MAX_SERIES_WEEKS } from "@/lib/training/calendar-interactions";
 import type { SessionFormValues } from "@/lib/hooks/use-events-calendar";
 import { SeededButton } from "@/components/seeded/ui/button";
-import { ModalShell } from "@/components/seeded/family/budget-modals";
-import { cn } from "@/lib/utils";
+import { SeededDialog } from "@/components/seeded/ui/dialog";
+import { localDateKey, parseLocalDate } from "@/lib/time";
+import { plural } from "@/lib/utils";
 
-const fieldClass = "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus";
-const labelClass = "mb-1.5 block text-sm font-medium text-stone";
+const fieldClass =
+  "h-11 w-full rounded-lg border border-input bg-card px-3 text-base text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+const labelClass = "mb-1.5 block text-sm font-medium text-ink";
+
+const DURATIONS = [15, 30, 45, 60, 75, 90, 120, 150, 180, 240];
 
 export interface SessionFormResult extends SessionFormValues {
   repeatWeeks: number;
 }
 
-interface SessionFormModalProps {
-  open: boolean;
-  onClose: () => void;
-  /** Present when editing an existing session; absent when adding a new one. */
-  session: TrainingPlannerSession | null;
-  /** Prefilled when opened by clicking an empty slot. */
-  defaultDay: WeekdayShort;
-  defaultTime?: string;
-  types: TrainingSessionType[];
-  onSave: (values: SessionFormResult) => void;
-  onDelete: (scope: "one" | "series") => void;
+function durationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} h ${m} min` : plural(h, "hour", "hours");
 }
 
-// A small, real create/edit form for the Events calendar card specifically —
-// deliberately NOT the full SessionDrawer inside components/training/
-// training-view.tsx (goals/drills/templates/custom-type management the
-// Events card's week grid has no room or need for). Same ModalShell/
-// fieldClass shell components/seeded/family/budget-modals.tsx already
-// established, just with this card's own fields: title, day, time,
-// duration, type, notes, and — only when adding, never when editing a
-// session that might already belong to a series — a bounded "repeat
-// weekly" option (lib/training/calendar-interactions.ts's
-// generateWeeklySeriesDates).
+// The manual session form: date, start time, length, type, and an optional
+// note. That is all a session is. Nothing here suggests, prefills from a
+// template, or plans on the player's behalf (CLAUDE.md: manual calendar
+// only). "Repeat weekly" is the player choosing to repeat their own session,
+// bounded to MAX_SERIES_WEEKS.
 export function SessionFormModal({
   open,
   onClose,
   session,
-  defaultDay,
+  defaultDate,
   defaultTime,
-  types,
   onSave,
   onDelete,
-}: SessionFormModalProps) {
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Present when editing; null when adding. */
+  session: TrainingSession | null;
+  /** Prefilled when opened from an empty slot. */
+  defaultDate?: string;
+  defaultTime?: string;
+  onSave: (values: SessionFormResult) => void;
+  onDelete: (scope: "one" | "series") => void;
+}) {
   const isEditing = !!session;
-  const [title, setTitle] = useState("");
-  const [day, setDay] = useState<WeekdayShort>(defaultDay);
-  const [startTime, setStartTime] = useState(defaultTime ?? "16:00");
+  const ids = useId();
+  const [date, setDate] = useState(localDateKey());
+  const [startTime, setStartTime] = useState("16:00");
   const [duration, setDuration] = useState(60);
-  const [typeId, setTypeId] = useState(types[0]?.id ?? "tennis");
+  const [typeId, setTypeId] = useState(SESSION_TYPES[0].id);
   const [notes, setNotes] = useState("");
   const [repeat, setRepeat] = useState(false);
-  const [repeatWeeks, setRepeatWeeks] = useState(6);
-  const [confirmingDelete, setConfirmingDelete] = useState<"one" | "series" | null>(null);
+  const [repeatWeeks, setRepeatWeeks] = useState(4);
 
   useEffect(() => {
     if (!open) return;
-    setConfirmingDelete(null);
-    if (session) {
-      setTitle(session.title);
-      setDay(session.day);
-      setStartTime(session.startTime);
-      setDuration(session.duration);
-      setTypeId(session.typeId);
-      setNotes(session.notes);
-      setRepeat(false);
-      setRepeatWeeks(6);
-    } else {
-      setTitle("");
-      setDay(defaultDay);
-      setStartTime(defaultTime ?? "16:00");
-      setDuration(60);
-      setTypeId(types[0]?.id ?? "tennis");
-      setNotes("");
-      setRepeat(false);
-      setRepeatWeeks(6);
-    }
-  }, [open, session, defaultDay, defaultTime, types]);
+    setDate(session?.date ?? defaultDate ?? localDateKey());
+    setStartTime(session?.startTime ?? defaultTime ?? "16:00");
+    setDuration(session?.duration ?? 60);
+    setTypeId(session?.typeId ?? SESSION_TYPES[0].id);
+    setNotes(session?.notes ?? "");
+    setRepeat(false);
+    setRepeatWeeks(4);
+  }, [open, session, defaultDate, defaultTime]);
 
-  const submit = () => {
-    onSave({
-      title,
-      typeId,
-      day,
-      startTime,
-      duration: Math.max(15, Math.round(duration)),
-      notes,
-      repeatWeeks: repeat ? repeatWeeks : 1,
-    });
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}$/.test(startTime);
+  const weekday = valid ? parseLocalDate(date).toLocaleDateString("en-US", { weekday: "long" }) : "";
+  const durations = DURATIONS.includes(duration) ? DURATIONS : [...DURATIONS, duration].sort((a, b) => a - b);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    onSave({ date, startTime, duration, typeId, notes, repeatWeeks: repeat ? repeatWeeks : 1 });
   };
 
   return (
-    <ModalShell open={open} onClose={onClose} titleId="session-form-title">
-      <div className="flex items-start justify-between">
-        <h2 id="session-form-title" className="text-lg font-semibold text-ink">
-          {isEditing ? "Edit session" : "Add session"}
-        </h2>
-        <button onClick={onClose} aria-label="Close" className="text-stone-light hover:text-ink">
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <label className="mt-4 block">
-        <span className={labelClass}>Title</span>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Serve + return drills"
-          className={fieldClass}
-          autoFocus
-        />
-      </label>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className={labelClass}>Day</span>
-          <select value={day} onChange={(e) => setDay(e.target.value as WeekdayShort)} className={fieldClass}>
-            {WEEK_ORDER.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className={labelClass}>Type</span>
-          <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={fieldClass}>
-            {types.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className={labelClass}>Start time</span>
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className={fieldClass}
-          />
-        </label>
-        <label className="block">
-          <span className={labelClass}>Duration (minutes)</span>
-          <input
-            type="number"
-            min={15}
-            step={15}
-            value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
-            className={fieldClass}
-          />
-        </label>
-      </div>
-
-      <label className="mt-4 block">
-        <span className={labelClass}>Notes</span>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Anything to remember for this one"
-          className={cn(fieldClass, "h-auto min-h-[84px] py-2.5")}
-        />
-      </label>
-
-      {!isEditing && (
-        <div className="mt-4 rounded-lg border border-line bg-cream/60 p-3">
-          <label className="flex items-center gap-2 text-sm font-medium text-ink">
-            <input
-              type="checkbox"
-              checked={repeat}
-              onChange={(e) => setRepeat(e.target.checked)}
-              className="h-4 w-4 rounded border-input text-grass focus:ring-focus"
-            />
-            Repeat weekly
-          </label>
-          {repeat && (
-            <label className="mt-3 block">
-              <span className={labelClass}>For how many weeks (max {MAX_SERIES_WEEKS})</span>
-              <input
-                type="number"
-                min={2}
-                max={MAX_SERIES_WEEKS}
-                value={repeatWeeks}
-                onChange={(e) =>
-                  setRepeatWeeks(Math.max(2, Math.min(MAX_SERIES_WEEKS, Number(e.target.value))))
-                }
-                className={fieldClass}
-              />
-              <span className="mt-1 block text-xs text-stone-light">
-                Creates {repeatWeeks} sessions, one every week on {day}. Removable as a whole series later.
-              </span>
-            </label>
-          )}
-        </div>
-      )}
-
-      {isEditing && session?.seriesId && (
-        <p className="mt-4 rounded-lg border border-line bg-cream/60 p-3 text-xs text-stone">
-          Part of a weekly series. Editing only changes this one session.
-        </p>
-      )}
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        {isEditing ? (
-          confirmingDelete ? (
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-stone">
-                {confirmingDelete === "series" ? "Delete the whole series?" : "Delete this session?"}
-              </span>
+    <SeededDialog
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Edit session" : "Add a session"}
+      footer={
+        <>
+          {isEditing && (
+            <div className="mr-auto flex flex-wrap gap-1">
               <button
                 type="button"
-                onClick={() => onDelete(confirmingDelete)}
-                className="font-semibold text-error hover:underline"
-              >
-                Yes, delete
-              </button>
-              <button type="button" onClick={() => setConfirmingDelete(null)} className="text-stone hover:text-ink">
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete("one")}
-                className="font-semibold text-error hover:underline"
+                onClick={() => onDelete("one")}
+                className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-error hover:bg-error-bg"
               >
                 Delete
               </button>
               {session?.seriesId && (
                 <button
                   type="button"
-                  onClick={() => setConfirmingDelete("series")}
-                  className="font-semibold text-error hover:underline"
+                  onClick={() => onDelete("series")}
+                  className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-error hover:bg-error-bg"
                 >
-                  Delete whole series
+                  Delete series
                 </button>
               )}
             </div>
-          )
-        ) : (
-          <span />
-        )}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
-          >
+          )}
+          <SeededButton variant="secondary" type="button" onClick={onClose}>
             Cancel
-          </button>
-          <SeededButton onClick={submit} disabled={!title.trim()}>
+          </SeededButton>
+          <SeededButton type="submit" form={`${ids}-form`} disabled={!valid}>
             {isEditing ? "Save" : "Add session"}
           </SeededButton>
+        </>
+      }
+    >
+      <form id={`${ids}-form`} onSubmit={submit} className="grid gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor={`${ids}-date`} className={labelClass}>
+              Date
+            </label>
+            <input
+              id={`${ids}-date`}
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label htmlFor={`${ids}-time`} className={labelClass}>
+              Start time
+            </label>
+            <input
+              id={`${ids}-time`}
+              type="time"
+              required
+              step={900}
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label htmlFor={`${ids}-duration`} className={labelClass}>
+              Length
+            </label>
+            <select
+              id={`${ids}-duration`}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className={fieldClass}
+            >
+              {durations.map((d) => (
+                <option key={d} value={d}>
+                  {durationLabel(d)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor={`${ids}-type`} className={labelClass}>
+              Type
+            </label>
+            <select id={`${ids}-type`} value={typeId} onChange={(e) => setTypeId(e.target.value)} className={fieldClass}>
+              {SESSION_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
-    </ModalShell>
+
+        <div>
+          <label htmlFor={`${ids}-notes`} className={labelClass}>
+            Note <span className="font-normal text-stone">(optional)</span>
+          </label>
+          <textarea
+            id={`${ids}-notes`}
+            value={notes}
+            maxLength={1000}
+            rows={3}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[88px] w-full rounded-lg border border-input bg-card px-3 py-2.5 text-base text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          />
+        </div>
+
+        {!isEditing && (
+          <div>
+            <label className="flex min-h-11 items-center gap-2.5 text-sm font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={repeat}
+                onChange={(e) => setRepeat(e.target.checked)}
+                className="h-5 w-5 rounded border-input accent-[rgb(var(--c-primary))]"
+              />
+              Repeat every week
+            </label>
+            {repeat && (
+              <div className="mt-2">
+                <label htmlFor={`${ids}-weeks`} className={labelClass}>
+                  For how many weeks
+                </label>
+                <select
+                  id={`${ids}-weeks`}
+                  value={repeatWeeks}
+                  onChange={(e) => setRepeatWeeks(Number(e.target.value))}
+                  className={fieldClass}
+                >
+                  {Array.from({ length: MAX_SERIES_WEEKS - 1 }, (_, i) => i + 2).map((n) => (
+                    <option key={n} value={n}>
+                      {plural(n, "week", "weeks")}
+                    </option>
+                  ))}
+                </select>
+                {weekday && (
+                  <p className="mt-1.5 text-sm text-stone">
+                    {plural(repeatWeeks, "session", "sessions")}, every {weekday}.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isEditing && session?.seriesId && (
+          <p className="text-sm text-stone">Part of a weekly series. Saving changes only this one.</p>
+        )}
+      </form>
+    </SeededDialog>
   );
 }

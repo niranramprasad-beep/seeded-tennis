@@ -16,9 +16,9 @@ import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card"
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
-import { currentSeason, getCurrentGrade, formatDate } from "@/lib/time";
+import { currentSeason, getCurrentGrade, formatDate, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { formatUTR, hasRealUtr } from "@/lib/utils";
+import { formatUTR, hasRealUtr, plural } from "@/lib/utils";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
@@ -91,7 +91,9 @@ export function SeededDashboardLayout({
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
     const weekAgo = now.getTime() - 7 * 86_400_000;
-    return matches.filter((m) => new Date(m.matchDate).getTime() >= weekAgo).length;
+    // A match date is a LOCAL date: `new Date("YYYY-MM-DD")` is UTC
+    // midnight, the previous evening in the US.
+    return matches.filter((m) => parseLocalDate(m.matchDate).getTime() >= weekAgo).length;
   }, [matches, now]);
 
   // targetPoints[0] is "today" (dashboard-view.tsx always anchors it there);
@@ -140,7 +142,7 @@ export function SeededDashboardLayout({
           </span>
           {targetSchools.length > 0 && (
             <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
-              On track for {onTrackCount} of {targetSchools.length} targets
+              On track for {onTrackCount} of {plural(targetSchools.length, "target", "targets")}
             </span>
           )}
           {nextCheckpoint && (
@@ -192,14 +194,15 @@ export function SeededDashboardLayout({
 
         <div className="flex items-center gap-4 rounded-[10px] border border-line bg-panel px-4 py-3 text-sm text-stone">
           <span className="flex-1">
-            Done this week: logged {matchesThisWeek} match{matchesThisWeek === 1 ? "" : "es"}
+            Done this week: logged {plural(matchesThisWeek, "match", "matches")}
           </span>
           <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
             <Sparkles className="h-3.5 w-3.5" />
             Log check-in
           </button>
-          <Link href="/events" className="inline-flex min-h-11 items-center font-semibold text-ink underline sm:min-h-6">
-            History
+          {/* Was "History" → /events, which shows no check-ins. */}
+          <Link href="/today/check-ins" className="inline-flex min-h-11 items-center font-semibold text-ink underline sm:min-h-6">
+            Check-in history
           </Link>
         </div>
       </section>

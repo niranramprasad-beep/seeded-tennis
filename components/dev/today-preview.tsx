@@ -9,7 +9,7 @@ import {
   type SundayCheckinSaveInput,
 } from "@/components/dashboard/sunday-checkin-drawer";
 import { createUtrEntry } from "@/lib/db/plan";
-import { generatePrepPlan, saveMatch } from "@/lib/db/events";
+import { saveMatch } from "@/lib/db/events";
 
 // Internal tool only — pixel-checks /today's real action-list/chart/targets
 // rendering without signing in through real auth (local dev shares
@@ -93,17 +93,10 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
       });
 
       if (input.match) {
-        const prepPlan = generatePrepPlan({
-          weaknesses: player.weaknesses,
-          surface: input.match.surface,
-          currentUtr: input.utr,
-          opponentUtr: null,
-        });
         await saveMatch({
           matchDate: input.match.matchDate,
           opponent: input.match.opponent,
           surface: input.match.surface,
-          prepPlan,
           result: input.match.result,
           score: input.match.score,
           notificationRequested: false,
@@ -137,7 +130,6 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         UTRTrajectoryChart={UTRTrajectoryChart}
         weeklyHours={0}
         weekSessions={[]}
-        plannerState={null}
         targetSchools={targetSchools}
         setUtrDrawerOpen={() => {}}
         setCheckinDrawerOpen={() => {}}

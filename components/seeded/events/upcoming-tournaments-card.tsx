@@ -123,8 +123,10 @@ export function UpcomingTournamentsCard({
                     t.status === "entered" ? (
                       <Chip className={NEUTRAL_CLASS}>Entered</Chip>
                     ) : (
+                      // Secondary: "Add session" is /events' one green
+                      // button (design system v2 rule 1, sweep C20).
                       <SeededButton
-                        variant={t.id === firstGoodFitId ? "primary" : "secondary"}
+                        variant="secondary"
                         className="min-h-[38px] px-4"
                         onClick={() => onMarkEntered(t.id)}
                       >
