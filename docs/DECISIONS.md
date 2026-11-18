@@ -7,6 +7,42 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR B: /family to Board 22, and the Family paywall (app side)
+
+**Budget bars: one limit, not one per category.** Board 22 shows per-category
+bars with "Near limit" / "Over by $X" chips and "Gear is $60 over. Lessons
+has $380 left…". `season_budgets` holds one total per family and
+`budget_expenses` has three categories (entries, travel, camps) with no
+limits, so only the season total carries a status; category bars show their
+share of the total and no chip. `lib/parent-dashboard.ts` already handles
+per-category limits (the board's sentence is a test case) — add a
+`category_limits` column and pass it to `seasonBudgetView()`. *Undo:* n/a.
+
+**"At a typical pace", not "At this pace".** The estimate is lib/fit.ts's
+typical-growth assumption, not the child's own trend, so the caption says so.
+
+**The estimate prints one decimal ("≈ 9.1 estimate"), logged UTRs two.**
+lib/fit.ts rounds projections to one decimal on purpose and ProjectionNote
+on the same page prints it that way; two would claim precision the
+assumption does not have. Logged ratings use the new `formatUtr2`.
+
+**Dropped from /family: "Needs a parent decision", the family members card
+and the top scope line.** Not on Board 22. Members live in Settings; the
+scope sentence is the sidebar note (and a line at the foot of the page on
+phones). The join-requests/consent card stays on /family on every plan —
+approving an under-13 must never be behind a paywall.
+
+**Settings is in the parent's main nav** (Board 22's five items); the ⌘K
+palette lists it once.
+
+**The paywall's Example preview runs sample rows through the real
+builders** (`components/seeded/family/dashboard/sample-model.ts`): no real
+school is named, the preview is hidden from assistive tech and inert, and it
+wears a dashed "Example" chip. *Undo:* drop the `<section>` in
+family-plan-paywall.tsx.
+
+---
+
 ## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
 
 Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`
