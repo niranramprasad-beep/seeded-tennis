@@ -879,6 +879,23 @@ html[data-session][data-role="parent"] .pre-session-player-only {
 html[data-session]:not([data-role="parent"]) .pre-session-parent-only {
   display: none;
 }
+/* Pre-session text variants (e.g. /schools' no-fit banner): the player's
+   wording unless the remembered role is parent. Both are in the server HTML
+   in wrapper spans; display: contents keeps the inner element's own layout
+   (a link stays inline-flex), and only one is ever displayed, so the box has
+   its final size from first paint. */
+.pre-session-player-text {
+  display: contents;
+}
+.pre-session-parent-text {
+  display: none;
+}
+html[data-session][data-role="parent"] .pre-session-parent-text {
+  display: contents;
+}
+html[data-session][data-role="parent"] .pre-session-player-text {
+  display: none;
+}
 .pre-session-parent-nofit-only {
   display: none;
 }

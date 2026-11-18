@@ -641,9 +641,21 @@ export function SeededSchoolsBrowser({
                 joined the family, "Enter your UTR" asked the wrong person for
                 the wrong thing. Same box, so the remembered layout holds. */}
             <p className="m-0 text-[15px] text-ink">
-              <strong className="font-semibold">
-                {player.role === "parent" ? "Your player's fit shows here once they join your family." : "Enter your UTR to see your fit."}
-              </strong>{" "}
+              {/* Before the session check React doesn't know the role, so it
+                  renders BOTH sentences and the remembered role's CSS shows
+                  one (html[data-role], see globals.css) — otherwise the
+                  parent's sentence arrived after hydration and re-wrapped the
+                  banner (CLS 0.13 at 375). After the check, only the right one. */}
+              {!sessionChecked ? (
+                <>
+                  <span className="pre-session-player-text"><strong className="font-semibold">Enter your UTR to see your fit.</strong></span>
+                  <span className="pre-session-parent-text"><strong className="font-semibold">Your player&apos;s fit shows once they join.</strong></span>
+                </>
+              ) : (
+                <strong className="font-semibold">
+                  {player.role === "parent" ? "Your player's fit shows once they join." : "Enter your UTR to see your fit."}
+                </strong>
+              )}{" "}
               <span className="text-stone">
                 Every program below is listed either way — fit bands need a rating to compare against.
               </span>
@@ -651,12 +663,29 @@ export function SeededSchoolsBrowser({
             {/* Secondary: the header's green "Get my free fit report" goes to
                 the same place, and the compare bar's "Compare side by side"
                 is this page's one green button (design system v2 rule 1). */}
-            <Link
-              href={player.role === "parent" ? "/family" : "/onboarding"}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
-            >
-              {player.role === "parent" ? "Go to Family" : "Enter my UTR"}
-            </Link>
+            {!sessionChecked ? (
+              <>
+                <span className="pre-session-player-text"><Link
+                  href="/onboarding"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  Enter my UTR
+                </Link></span>
+                <span className="pre-session-parent-text"><Link
+                  href="/family"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  Go to Family
+                </Link></span>
+              </>
+            ) : (
+              <Link
+                href={player.role === "parent" ? "/family" : "/onboarding"}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+              >
+                {player.role === "parent" ? "Go to Family" : "Enter my UTR"}
+              </Link>
+            )}
           </div>
         )}
         </div>
