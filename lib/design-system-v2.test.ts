@@ -204,6 +204,14 @@ describe("rule 1: one green button per screen", () => {
     "components/seeded/schools/seeded-school-detail.tsx": { max: 1, why: "Save to targets" },
     "components/seeded/schools/seeded-schools-browser.tsx": { max: 1, why: "Compare side by side, in the bar that appears once schools are ticked" },
     "components/seeded/layout/nav.tsx": { max: 2, why: "the header CTA, desktop + the mobile menu copy of it" },
+    "components/seeded/onboarding/diagnostic/diagnostic-flow.tsx": {
+      max: 2,
+      why: "Continue on a question; 'See my fit report' on the result, where Continue is not rendered",
+    },
+    "components/seeded/onboarding/diagnostic/diagnostic-save.tsx": {
+      max: 4,
+      why: "one per branch, never two at once: under-13 link, player submit, parent submit, parent's 'Go to my family'",
+    },
     "components/seeded/home/seeded-home-view.tsx": {
       max: 3,
       why: "hero (desktop), the calculator's button (phones only, where the hero copy is hidden), the final CTA band at the bottom",
