@@ -7,6 +7,86 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR C sweep: one manual calendar, no Match mode, a Tools group
+
+Made in the production sweep (items C1, C2, C6, C7, C14, C17, C18, C20,
+C26, C27). Each is a deliberate change a reviewer might read as a regression.
+
+**The training calendar shows only sessions the player added by hand.**
+`workout_sessions.training_plan_id` is NOT NULL, so "sessions with no plan"
+cannot exist; the brief's `training_plan_id is null` was not expressible.
+Instead a player's own sessions go into ONE `training_plans` row per player
+with `metadata = {"kind":"manual"}`, created on first add, and the calendar
+reads only that plan (lib/db/training.ts). Production was checked read-only
+first: 28 sessions in 5 plans, every plan generator-named ("6h personalized
+recruiting week", "UTR build week", "5.5 UTR build week", "10h personalized
+recruiting week", and an empty "Regular Training") — so no hand-made session
+is hidden by this. **No data migration was written.** The 28 rows are hidden,
+not deleted; deleting them is Niran's call (one `delete from training_plans
+where not metadata @> '{"kind":"manual"}'` — cascades to their sessions —
+after a backup). *Undo:* read every plan again in `loadTrainingSessions`.
+
+**Writes are per row, never a whole-state save.** `/api/training/planner`
+re-upserted every plan and deleted every session not in the state it was
+sent. With generated rows filtered out of the UI, the first ordinary save
+would have deleted all of them — a data decision made by accident. It and
+`/api/training/templates` are deleted; `/api/training/sessions` creates,
+updates and deletes single rows, each filtered by owner AND manual plan.
+
+**Session types are a fixed list** (lib/training/session-types.ts), in
+tokens. The old page let a player invent types into
+`user_settings.notification_preferences.session_types`; that data is left in
+place and unused. An unknown type shows as "Tennis".
+
+**Week and Month render one list, grouped by real date.** Month used to
+group by weekday — a "recurring template" — so generated rows dotted every
+day while Week (by real date) showed none.
+
+**Match mode is deleted; `/match-mode` redirects to `/matches`.** Its only
+feature was a prep plan Seeded wrote from a template (warm-up, tactics,
+packing list) — generated content, which CLAUDE.md rules out — plus a
+"remind me" flag that sends nothing. `generatePrepPlan()` went with it; a
+logged match stores an empty `prep_plan` (the column is NOT NULL). /events'
+"Log a result" opens the same form /matches uses
+(components/matches/match-result-form.tsx). *Undo:* git history.
+
+**`/training` redirects to `/events` for both designs**, and /events no
+longer has a Legacy tab view. Legacy users see the Seeded events page.
+
+**A secondary "Tools" group under the five** (C26): Results and Tournament
+checker, in the sidebar, the avatar menu on phones (the bottom bar stays
+five) and ⌘K. CLAUDE.md's 5-item rule is about the primary nav and is
+unchanged in substance; its line now says so. The sidebar's dark-mode
+toggle is gone — Settings → Appearance is the one place.
+
+**Today's "History" link is now "Check-in history" → `/today/check-ins`**
+(C7), a new page: a 12-week heatmap and every check-in, newest first, from
+real `daily_checkins` rows. It pointed at /events, which shows none.
+`loadDailyCheckins` gained an optional `days` argument for it.
+
+**Overlays render in a portal** (components/ui/portal.tsx). The staging run
+found the check-in drawer's Save button under the phone tab bar at 320px:
+every page sits in AppShell's animated wrapper, a stacking context, so a
+z-50 drawer could not rise above the z-40 bars. The Drawer, the Seeded
+dialog and the Toast now render on `document.body`; the toast sits above the
+tab bar on phones. `ModalShell` (components/seeded/family/budget-modals.tsx)
+was not changed — it is the family pass's file — and has the same issue.
+
+**Every native confirm/alert/prompt is gone** (C6) and banned by
+`lib/no-native-dialogs.test.ts`. Deleting a result asks in the Seeded dialog
+and then offers Undo (re-saves the same record). Deleting a session has no
+confirm, only Undo — it is one tap to restore, the same rows by id.
+
+**Gradients are banned on Seeded screens** (C17,
+`lib/design-system-v2.test.ts`), with five allow-listed files. One is a
+real open violation: `components/auth/parent-login-form.tsx` (glass card,
+gradient button on /parent-login), left to the onboarding/auth pass.
+
+**`plural(n, one, many)`** in lib/utils.ts is the one way a count meets a
+noun; `lib/plural.test.ts` scans for hand-rolled `${n} …s`.
+
+---
+
 ## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
 
 Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`

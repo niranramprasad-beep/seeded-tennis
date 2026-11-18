@@ -128,13 +128,22 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   `/methodology`, in `lib/school-fit.ts`. Reach-vs-Out-of-range uses a
   real UTR-trajectory projection, never a static snapshot.
 - **"Leaving" counts, never "open spots."** Real grad-year math only.
-- **5-item nav**: Today, Plan, Schools, Outreach, Events. Settings/Family
-  live under the avatar menu.
+- **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
+  nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
+  Tournament checker) in the sidebar, the avatar menu on phones and ⌘K
+  (docs/DECISIONS.md, 2026-11-18). Tools is not a sixth primary item; the
+  phone bottom bar stays exactly five. Settings/Family live under the avatar
+  menu; the theme toggle lives only in Settings → Appearance.
 - **Friends and badges are removed, product-wide.** Don't resurrect
   either without being explicitly asked.
-- **No auto-generated training plans — manual calendar only.** (Currently
-  violated by the training setup wizard — see HANDOFF TODO #2, not fixed
-  yet, don't treat the existing wizard as the intended design.)
+- **No auto-generated training plans — manual calendar only.** True in code
+  since 2026-11-18: the /training planner, its generator and templates,
+  Match mode's prep-plan generator and the whole-state planner save are
+  deleted; `lib/training-no-autogen.test.ts` fails the build if any return.
+  The calendar reads only sessions in the player's manual plan
+  (`training_plans.metadata = {"kind":"manual"}`, lib/db/training.ts).
+  **Production still holds 28 generated sessions in 5 plans — hidden, not
+  deleted. Whether to delete them is Niran's call** (DECISIONS 2026-11-18).
 - **Gmail = compose-link only.** Never the Gmail API, never inbox access,
   never auto-send.
 - **UTR = profile link + manual check-in only.** Never fetch or scrape
