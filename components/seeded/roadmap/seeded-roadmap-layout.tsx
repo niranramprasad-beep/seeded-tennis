@@ -384,7 +384,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
                 showRealisticOnly ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
               )}
             >
-              {showRealisticOnly ? "Show all targets" : `Show realistic targets (${realisticCount})`}
+              {showRealisticOnly ? "Show all targets" : `Show realistic targets (${realisticCount} of ${orderedTargetSchools.length})`}
             </button>
           )}
         </div>
