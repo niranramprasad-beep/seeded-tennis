@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { markEmailVerified } from "@/lib/db/email-verification";
-import { seededButtonVariants } from "@/components/seeded/ui/button";
+import { joinFamily } from "@/lib/db/family-join";
+import { usePlayer } from "@/lib/context/player-context";
+import {
+  clearPendingJoinCode,
+  clearVerifyReturn,
+  joinOutcomeFor,
+  readPendingJoinCode,
+  readVerifyReturn,
+} from "@/lib/email-verify-flow";
+import { SeededButton } from "@/components/seeded/ui/button";
 import { AuthCard } from "./auth-card";
 
 // Where the verification link lands (migration 043, B6).
@@ -18,7 +26,10 @@ import { AuthCard } from "./auth-card";
 // the address is proven — the database does.
 //
 // Three outcomes:
-//   confirmed  -> "Email confirmed", back to /family.
+//   confirmed  -> "Email confirmed", then back to where the person asked
+//                 from (stored before the link was sent; lib/email-verify-
+//                 flow.ts). A parent who was refused a family join has it
+//                 finished here, with the code they already typed.
 //   not proven -> the session is not from a link (e.g. someone typed the URL
 //                 while signed in with a password). Calm, says what to do.
 //   no session -> the link expired, was used, or was opened in a different
@@ -27,15 +38,34 @@ import { AuthCard } from "./auth-card";
 
 type State = "working" | "confirmed" | "not-proven" | "no-session";
 
+/** How long the confirmation stays on screen before going back. Long enough
+ *  to read one line; the button goes straight away. */
+const BOUNCE_MS = 2500;
+
+function destinationLabel(path: string): string {
+  const bare = path.split(/[?#]/)[0];
+  if (bare === "/family" || bare.startsWith("/family/")) return "Back to Family";
+  if (bare === "/today") return "Back to Today";
+  if (bare === "/settings" || bare.startsWith("/settings/")) return "Back to Settings";
+  return "Continue";
+}
+
 export function EmailVerified() {
   const params = useSearchParams();
+  const router = useRouter();
+  const { retryConnection } = usePlayer();
   const [state, setState] = useState<State>("working");
+  const [joinNote, setJoinNote] = useState<string | null>(null);
+  // Read once, after mount (localStorage), so the server render and the
+  // first client render agree.
+  const [returnPath, setReturnPath] = useState("/today");
   // React double-mounts effects in development; a code can be exchanged once.
   const ran = useRef(false);
 
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
+    setReturnPath(readVerifyReturn());
 
     (async () => {
       const supabase = getSupabase();
@@ -55,9 +85,49 @@ export function EmailVerified() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return setState("no-session");
 
-      setState((await markEmailVerified()) ? "confirmed" : "not-proven");
+      if (!(await markEmailVerified())) return setState("not-proven");
+
+      // A parent refused at join_family() (043) left their code behind.
+      // Finish what they asked for, now that the database will accept it.
+      const pendingCode = readPendingJoinCode();
+      if (pendingCode) {
+        const outcome = joinOutcomeFor(await joinFamily(pendingCode));
+        if (outcome.kind === "joined") {
+          clearPendingJoinCode();
+          setJoinNote(
+            outcome.status === "approved"
+              ? "You’re in the family."
+              : "Your request to join is in. Someone in the family approves it from their Seeded."
+          );
+        } else if (outcome.kind === "error") {
+          clearPendingJoinCode();
+          setJoinNote(`${outcome.message} You can enter the code again from Family.`);
+        }
+      }
+
+      // The session may have just been created in this tab (the link
+      // usually opens a new one), and Player.emailVerified is now stale
+      // everywhere: re-read both.
+      retryConnection();
+      setState("confirmed");
     })().catch(() => setState("no-session"));
-  }, [params]);
+  }, [params, retryConnection]);
+
+  // Bounce back to where they came from — unless there is a join result to
+  // read, which the button then carries them past.
+  useEffect(() => {
+    if (state !== "confirmed" || joinNote) return;
+    const t = setTimeout(() => {
+      clearVerifyReturn();
+      router.replace(returnPath);
+    }, BOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [state, joinNote, returnPath, router]);
+
+  const goBack = () => {
+    clearVerifyReturn();
+    router.replace(returnPath);
+  };
 
   if (state === "working") {
     return (
@@ -74,11 +144,11 @@ export function EmailVerified() {
     return (
       <AuthCard
         title="Email confirmed"
-        subtitle="Thanks. You can now approve family members and give consent for a player under 13."
+        subtitle={joinNote ?? "Thanks. Taking you back now."}
       >
-        <Link href="/family" className={seededButtonVariants({ variant: "primary" }) + " w-full"}>
-          Back to Family
-        </Link>
+        <SeededButton type="button" variant="primary" className="w-full" onClick={goBack}>
+          {destinationLabel(returnPath)}
+        </SeededButton>
       </AuthCard>
     );
   }
@@ -88,13 +158,13 @@ export function EmailVerified() {
       title="We couldn't confirm your email"
       subtitle={
         state === "not-proven"
-          ? "This page only works from the link in the email we sent. Open that link, or ask for a new one from Family."
-          : "That link has expired or was already used, or it was opened in a different browser from the one that asked for it. Ask for a new one from Family and open it in this browser."
+          ? "This page only works from the link in the email we sent. Open that link, or ask for a new one."
+          : "That link has expired or was already used, or it was opened in a different browser from the one that asked for it. Ask for a new one and open it in this browser."
       }
     >
-      <Link href="/family" className={seededButtonVariants({ variant: "secondary" }) + " w-full"}>
-        Back to Family
-      </Link>
+      <SeededButton type="button" variant="secondary" className="w-full" onClick={goBack}>
+        {destinationLabel(returnPath)}
+      </SeededButton>
     </AuthCard>
   );
 }

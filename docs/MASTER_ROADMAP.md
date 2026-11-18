@@ -21,6 +21,25 @@ database half lands with it. Parent CLS cases from PR A addressed (one
 skeleton per route at every loading stage; the school page hides player-only
 controls for a remembered parent before hydration). Not yet measured with a
 signed-in persona.
+**2026-11-18 — PR B, B6 screens + migration 044 (STAGING ONLY, branch
+`b6-ui`).** 044: `family_members()` returns `current_utr`, `grade`,
+`graduation_year`, `target_school_slugs`, `gender` as NULL unless the family
+is on the Family plan (own row excepted) — the roster was a side door round
+042's paywall. Rows and the approval/consent columns unchanged. Guarded by
+`lib/db/family-roster-shape.test.ts` (structural, 8 mutants); HANDOFF §J
+Step 19, GO-SEQUENCE §3b row 19. Parent /schools, /schools/[slug] and the
+Settings linked-players card now say "shows with the Family plan" instead of
+"hasn't logged a UTR yet" / "Class year not set" for a locked family
+(`rosterStatsLocked()`), and `/privacy` says the five details need the plan.
+B6 screens: the parent join step at sign-up (email + Google) treats
+`verify_email_required` as a step ("Confirm your email to join your family",
+Send the link, "I've confirmed — try again", code kept); /family's code
+forms the same; the approval / consent card asks an unverified parent to
+verify BEFORE the button and turns a 42501 into the same prompt; a
+dismissible fixed-position banner for any unverified account (never on auth
+pages or onboarding); `/auth/verified` finishes a remembered join and
+bounces back to the stored path. Rules: `lib/email-verify-flow.ts`, tested in
+`lib/email-verify-flow.test.ts`. Not verified end to end with a real inbox.
 **2026-11-18 — PR B, database half (migrations 041–043; STAGING ONLY).**
 041: `profiles.birth_month` (write-once, month + year only) and
 `enrollment_term` for the diagnostic onboarding. 042: **the Family plan is
@@ -871,10 +890,12 @@ ranked week-1 list in `docs/TODO.md`.
    ratings sees a different "summer before senior year" number after
    sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
 5. **Parent dashboard upgrade** (TODO week 1 #1). PR B's database half
-   (041–043) is on staging; it ships with the PR B UI, after Niran's go on
-   GO-SEQUENCE §3b. Before 043 ships: add `<site>/auth/verified` to the
-   Supabase Auth redirect allow-list, and do one real magic-link check on
-   staging with an inbox you control (HANDOFF §J Step 18).
+   (041–044) is on staging; it ships with the PR B UI, after Niran's go on
+   GO-SEQUENCE §3b (044 after 042). Before 043 ships: add
+   `<site>/auth/verified` to the Supabase Auth redirect allow-list, and do
+   one real magic-link check on staging with an inbox you control (HANDOFF
+   §J Step 18) — the B6 screens' send → open → bounce-back path has only
+   been exercised in tests.
 6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).

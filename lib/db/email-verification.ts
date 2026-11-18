@@ -1,5 +1,6 @@
-import { getSupabase } from "@/lib/supabase/client";
-import { AUTH_ERROR_MESSAGES, friendlyAuthError } from "@/lib/auth";
+import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { AUTH_ERROR_MESSAGES, friendlyAuthError, isEmailVerifiedFor } from "@/lib/auth";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
 
 // Parent email verification (B6, migration 043).
 //
@@ -52,7 +53,9 @@ export async function sendVerificationLink(email: string): Promise<{ ok: boolean
     const { data, error } = await supabase.rpc("consume_rate_limit", { p_bucket: "email_verify" });
     if (error) return { ok: false, error: friendlyAuthError(error) };
     const allowed = (data as { allowed?: unknown } | null)?.allowed === true;
-    if (!allowed) return { ok: false, error: AUTH_ERROR_MESSAGES.rateLimited };
+    // Not AUTH_ERROR_MESSAGES.rateLimited ("wait a minute"): this bucket is
+    // 3 an hour, so a minute's wait would just fail again.
+    if (!allowed) return { ok: false, error: VERIFY_COPY.linkLimit };
   } catch (e) {
     return { ok: false, error: friendlyAuthError(e) };
   }
@@ -70,6 +73,53 @@ export async function sendVerificationLink(email: string): Promise<{ ok: boolean
     return { ok: true };
   } catch (e) {
     return { ok: false, error: friendlyAuthError(e) };
+  }
+}
+
+/**
+ * sendVerificationLink() to the signed-in account's own address. The
+ * screens that offer "Send the link" to someone already signed in (the
+ * approval gate, the banner) do not hold the email — `Player` has none — so
+ * it is read from the session, never typed. Returns the address used, so
+ * the screen can say where the link went.
+ */
+export async function sendVerificationLinkToMe(): Promise<{ ok: boolean; email?: string; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
+  try {
+    const { data } = await getAuthedUser(supabase);
+    const email = data.user?.email ?? "";
+    if (!email) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
+    const result = await sendVerificationLink(email);
+    return { ...result, email };
+  } catch (e) {
+    return { ok: false, error: friendlyAuthError(e) };
+  }
+}
+
+/**
+ * Re-reads whether the signed-in account has proven its email, for an
+ * "I've confirmed" button in a tab that sent the link while the link itself
+ * was opened in another. Same rule as the profile mapping
+ * (isEmailVerifiedFor): the stamped address must be the CURRENT one. Reads
+ * the caller's own profile row only. False on any error.
+ */
+export async function checkEmailVerified(): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { data } = await getAuthedUser(supabase);
+    const user = data.user;
+    if (!user) return false;
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("email_verified_at, email_verified_for")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (error) return false;
+    return isEmailVerifiedFor(profile, user);
+  } catch {
+    return false;
   }
 }
 

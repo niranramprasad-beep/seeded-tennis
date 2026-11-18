@@ -337,7 +337,10 @@ export async function signUp(
   });
   if (!profileResult.ok) return profileResult;
 
-  return { ok: true, familyCode };
+  // joinStatus carried through: a parent refused with verify_email_required
+  // (043) has a working account and one step left, and the sign-up screen
+  // must show that step rather than drop them on an empty /family.
+  return { ok: true, familyCode, joinStatus: profileResult.joinStatus };
 }
 
 // Starts Google OAuth via Supabase. This calls the real Supabase API — it's

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import {
   cancelMyFamilyRequest,
@@ -9,6 +9,8 @@ import {
   type PendingFamilyRequest,
 } from "@/lib/db/family-join";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { VerifyEmailToJoin } from "@/components/auth/verify-email-prompt";
+import { joinOutcomeFor, readPendingJoinCode, rememberPendingJoinCode } from "@/lib/email-verify-flow";
 
 // What a joiner sees while they wait.
 //
@@ -43,6 +45,7 @@ export function FamilyPendingScreen({
   const [reentering, setReentering] = useState(false);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
+  const [verifyCode, setVerifyCode] = useState<string | null>(null);
 
   const remind = async () => {
     setBusy(true);
@@ -68,22 +71,35 @@ export function FamilyPendingScreen({
     // Clear the old pending row first — join_family() reports `already`
     // for an existing request rather than replacing it.
     await cancelMyFamilyRequest();
-    const result = await joinFamily(trimmed);
+    const outcome = joinOutcomeFor(await joinFamily(trimmed));
     setBusy(false);
 
-    if (result.status === "pending" || result.status === "approved") {
+    if (outcome.kind === "joined") {
       setReentering(false);
       setCode("");
       onChanged();
       return;
     }
-    if (result.status === "invalid") setCodeError("That code isn't valid. Check it and try again.");
-    else if (result.status === "own_family") setCodeError("That's already your own family.");
-    else if (result.status === "rate_limited")
-      setCodeError("Too many tries. Wait an hour and try again.");
-    else setCodeError(result.message ?? "Could not do that right now.");
+    if (outcome.kind === "verify") {
+      // 043: a parent must confirm their email first. Not an error; the
+      // code is kept and the verify step finishes the join.
+      rememberPendingJoinCode(trimmed);
+      setVerifyCode(trimmed.toUpperCase());
+      return;
+    }
+    setCodeError(outcome.message);
     onChanged();
   };
+
+  if (verifyCode) {
+    return (
+      <div className="mx-auto max-w-content container-px py-10">
+        <div className="mx-auto max-w-md">
+          <VerifyEmailToJoin code={verifyCode} onJoined={() => onChanged()} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
@@ -178,6 +194,15 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [verifyCode, setVerifyCode] = useState<string | null>(null);
+
+  // A parent refused at sign-up (043: confirm your email first) left their
+  // code behind, so it is never typed twice. After hydration only: the
+  // server render has no localStorage.
+  useEffect(() => {
+    const remembered = readPendingJoinCode();
+    if (remembered) setCode((c) => c || remembered);
+  }, []);
 
   const submit = async () => {
     const trimmed = code.trim();
@@ -188,20 +213,26 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
     setBusy(true);
     setError("");
     await cancelMyFamilyRequest();
-    const result = await joinFamily(trimmed);
+    const outcome = joinOutcomeFor(await joinFamily(trimmed));
     setBusy(false);
 
-    if (result.status === "pending" || result.status === "approved") {
+    if (outcome.kind === "joined") {
       setCode("");
       onJoined();
       return;
     }
-    if (result.status === "invalid") setError("That code isn't valid. Check it and try again.");
-    else if (result.status === "own_family") setError("That's already your own family.");
-    else if (result.status === "rate_limited") setError("Too many tries. Wait an hour and try again.");
-    else setError(result.message ?? "Could not do that right now.");
+    if (outcome.kind === "verify") {
+      rememberPendingJoinCode(trimmed);
+      setVerifyCode(trimmed.toUpperCase());
+      return;
+    }
+    setError(outcome.message);
     onJoined();
   };
+
+  if (verifyCode) {
+    return <VerifyEmailToJoin code={verifyCode} onJoined={() => onJoined()} />;
+  }
 
   return (
     <div>

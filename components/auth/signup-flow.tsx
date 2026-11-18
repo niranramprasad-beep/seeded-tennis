@@ -24,6 +24,8 @@ import {
 } from "./auth-card";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { CheckEmailCard } from "./check-email";
+import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { VERIFY_COPY, rememberPendingJoinCode } from "@/lib/email-verify-flow";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +94,7 @@ export function SignupFlow({
   const [error, setError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
+  const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -241,6 +244,15 @@ export function SignupFlow({
     };
     beginSession(player);
 
+    // 043: join_family() refuses a PARENT who hasn't confirmed their email.
+    // The account was created and is signed in — this is one more step,
+    // not a failed sign-up. Keep the code so nothing is re-typed.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
+      rememberPendingJoinCode(joinCode);
+      setVerifyJoinCode(joinCode.trim().toUpperCase());
+      return;
+    }
+
     if (effectiveFamilyMode === "create" && result.familyCode) {
       // Includes a parent who just created the family: the code IS the thing
       // they came for, since it is what their player signs up with.
@@ -278,6 +290,21 @@ export function SignupFlow({
           Go to sign in
         </SeededButton>
       </CheckEmailCard>
+    );
+  }
+
+  // Signed up and signed in as a parent, and the join is waiting on an email
+  // confirmation (043). A calm step, never an error.
+  if (verifyJoinCode) {
+    return (
+      <AuthCard title={VERIFY_COPY.joinTitle("your family")}>
+        <VerifyEmailToJoin
+          bare
+          code={verifyJoinCode}
+          email={email}
+          onJoined={() => router.replace("/family")}
+        />
+      </AuthCard>
     );
   }
 
