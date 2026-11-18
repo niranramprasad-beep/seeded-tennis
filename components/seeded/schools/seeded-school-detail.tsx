@@ -122,6 +122,14 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // is the new one, both wired to the same toggleStar call.
   const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
   const saved = isStarred(school.slug);
+  // Before the session resolves, `player.role` is the default ("player"),
+  // so the star, "Save to targets" and "Draft an email" render — and then
+  // vanish for a parent once their role arrives. At 320px that removed a
+  // wrapped header row and moved the page under the reader (PR A, persona
+  // f: CLS 0.089). The head script already marks html[data-role] from the
+  // remembered role, so until hydration these carry a class that CSS hides
+  // for a remembered parent: they are never drawn, so nothing disappears.
+  const playerOnlyUntilHydrated = hydrated ? undefined : "pre-session-player-only";
 
   // Two projections can appear on this card, and they answer different
   // questions: the rating that judges the band is an estimate at TYPICAL
@@ -255,6 +263,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                   starred={saved}
                   onToggle={() => toggleStar(school.slug, school.shortName)}
                   label={school.shortName}
+                  className={playerOnlyUntilHydrated}
                 />
               )}
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
@@ -286,6 +295,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <SeededButton
                 variant={saved ? "secondary" : "primary"}
                 onClick={() => toggleStar(school.slug, school.shortName)}
+                className={playerOnlyUntilHydrated}
               >
                 {saved ? "Saved to targets" : "Save to targets"}
               </SeededButton>
@@ -329,7 +339,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             {!isParent && (
               <Link
                 href={`/outreach?school=${school.slug}`}
-                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full")}
+                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full", playerOnlyUntilHydrated)}
               >
                 Draft an email to the head coach
               </Link>
