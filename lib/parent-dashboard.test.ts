@@ -19,7 +19,7 @@ import {
   weeklyReportHasNews,
   type ChartInput,
 } from "./parent-dashboard";
-import { buildFitReport, recruitingTimeUtr } from "./fit";
+import { buildFitReport, recruitingTimeUtr, utrHistoryFromEntries } from "./fit";
 import type { TournamentEntry } from "./db/events";
 import type { BudgetExpense } from "./db/family";
 import type { SchoolLite } from "./types";
@@ -257,9 +257,11 @@ describe("recent expenses and the week's actions", () => {
 });
 
 describe("the UTR chart: every number from lib/fit.ts, every sentence true", () => {
+  // No logged rating 5–13 months old (Nov 1 is 17 days ago), so the chart —
+  // like the fit report beside it — uses the typical-growth assumption.
   const input: ChartInput = {
     entries: [
-      { utr: 7.0, recordedAt: "2026-02-10" },
+      { utr: 7.0, recordedAt: "2025-09-10" },
       { utr: 7.5, recordedAt: "2026-11-01" },
     ],
     currentUtr: 7.5,
@@ -268,10 +270,30 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     targetFloor: 8.5,
     now: NOW,
   };
+  // A rating dated Feb 10 2026 (about 9.3 months ago) is a year-ago rating:
+  // the chart now follows Maya's own pace, exactly as recruitingTimeUtr does.
+  const logged: ChartInput = {
+    ...input,
+    entries: [
+      { utr: 7.0, recordedAt: "2026-02-10" },
+      { utr: 7.5, recordedAt: "2026-11-01" },
+    ],
+  };
+  const rtuFor = (i: ChartInput) =>
+    recruitingTimeUtr({
+      currentUtr: i.currentUtr,
+      graduationYear: i.graduationYear!,
+      gender: i.gender!,
+      now: NOW,
+      history: utrHistoryFromEntries(i.entries),
+    })!;
 
-  it("the projection's end is recruitingTimeUtr's, exactly", () => {
+  it("the projection's end is recruitingTimeUtr's, exactly (typical growth)", () => {
     const model = buildUtrChart(input)!;
-    const rtu = recruitingTimeUtr({ currentUtr: 7.5, graduationYear: 2029, gender: "female", now: NOW })!;
+    const rtu = rtuFor(input);
+    expect(rtu.source).toBe("typical-growth");
+    expect(rtu).toEqual(recruitingTimeUtr({ currentUtr: 7.5, graduationYear: 2029, gender: "female", now: NOW }));
+    expect(model.projection!.source).toBe("typical-growth");
     expect(model.projection!.value).toBe(rtu.value);
     expect(model.projection!.low).toBe(rtu.low);
     expect(model.projection!.high).toBe(rtu.high);
@@ -280,6 +302,35 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(model.projection!.path[0].normal).toBe(7.5);
     expect(model.domain.min).toBeLessThanOrEqual(7.0);
     expect(model.domain.max).toBeGreaterThanOrEqual(rtu.high);
+  });
+
+  it("with a logged rating in the window, the line is the child's own pace — the fit report's number, no range", () => {
+    const model = buildUtrChart(logged)!;
+    const rtu = rtuFor(logged);
+    expect(rtu.source).toBe("logged-pace");
+    // (7.5 − 7.0) over ~9.27 months, carried ~18.4 months to June 1 2028.
+    expect(rtu.value).toBe(8.5);
+    expect(model.projection!.source).toBe("logged-pace");
+    expect(model.projection!.value).toBe(rtu.value);
+    expect(model.projection!.low).toBe(rtu.value);
+    expect(model.projection!.high).toBe(rtu.value);
+    // Every step of the line has one value at every pace (no invented band),
+    // and it never dips below today.
+    for (const step of model.projection!.path) {
+      expect(step.slow).toBe(step.normal);
+      expect(step.fast).toBe(step.normal);
+      expect(step.normal).toBeGreaterThanOrEqual(7.5);
+    }
+    // The same report the page bands with (useFitReport passes these rows).
+    const report = buildFitReport({
+      currentUtr: 7.5,
+      graduationYear: 2029,
+      gender: "female",
+      schools: [],
+      projectionInput: { utrHistory: utrHistoryFromEntries(logged.entries), graduationYear: 2029, gender: "female" },
+      now: NOW,
+    })!;
+    expect(report.utr.value).toBe(model.projection!.value);
   });
 
   it("no rating, no chart — and the caption says so", () => {
@@ -295,6 +346,28 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     // 1.0 points at 1.0/yr from Nov 18 2026 -> about Nov 2027
     expect(utrChartCaption(model, { ...input, childFirst: "Maya" })).toBe(
       "At a typical pace, Maya reaches the start of their target range around November 2027."
+    );
+  });
+
+  it("caption: names the logged pace when that is what the line follows", () => {
+    const at82 = { ...logged, targetFloor: 8.2 };
+    // 0.7 points at ~0.054 a month: about 13 months, December 2027.
+    expect(utrChartCaption(buildUtrChart(at82), { ...at82, childFirst: "Maya" })).toBe(
+      "At the pace in Maya's logged ratings, Maya reaches the start of their target range around December 2027."
+    );
+    const far = { ...logged, targetFloor: 11 };
+    expect(utrChartCaption(buildUtrChart(far), { ...far, childFirst: "Maya" })).toBe(
+      "At the pace in Maya's logged ratings, Maya is about 2.5 short of where their target schools start by summer 2028."
+    );
+  });
+
+  it("caption: a falling logged rating is held at today, and says so", () => {
+    const falling = { ...logged, entries: [{ utr: 8.0, recordedAt: "2026-02-10" }] };
+    const model = buildUtrChart(falling)!;
+    expect(model.projection!.held).toBe(true);
+    expect(model.projection!.value).toBe(7.5);
+    expect(utrChartCaption(model, { ...falling, childFirst: "Maya" })).toBe(
+      "Held at today's rating (Maya's has gone down lately), Maya is about 1.0 short of where their target schools start by summer 2028."
     );
   });
 
@@ -322,11 +395,16 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
 
   it("the aria-label is a full sentence of what the picture shows", () => {
     const model = buildUtrChart(input)!;
-    const rtu = recruitingTimeUtr({ currentUtr: 7.5, graduationYear: 2029, gender: "female", now: NOW })!;
+    const rtu = rtuFor(input);
     expect(utrChartAriaLabel(model, "Maya")).toBe(
-      `Maya's UTR trend. 2 ratings logged from Feb 2026 to Nov 2026. Today: 7.50. ` +
+      `Maya's UTR trend. 2 ratings logged from Sep 2025 to Nov 2026. Today: 7.50. ` +
         `Estimate for summer 2028, the summer before senior year: about ${rtu.value.toFixed(1)}, ` +
         `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.50.`
+    );
+    // A logged pace has no range, so the label claims none.
+    expect(utrChartAriaLabel(buildUtrChart(logged)!, "Maya")).toBe(
+      `Maya's UTR trend. 2 ratings logged from Feb 2026 to Nov 2026. Today: 7.50. ` +
+        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.50.`
     );
   });
 });

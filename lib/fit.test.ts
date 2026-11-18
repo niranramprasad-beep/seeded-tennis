@@ -290,6 +290,10 @@ describe("one rating on one date gets one band (verifier H1, 2026-11-16)", () =>
   it("the default projected view and the what-if at the same rating agree school by school", () => {
     const projected = buildFitReport({ ...base, view: "recruiting" })!;
     expect(projected.utr.isProjected).toBe(true);
+    // Since 2026-11-18 the Nov 14 2025 entry (12 months) sets the summer
+    // estimate itself — the player's own ~0.8/yr, not typical growth — and
+    // the two views must still agree at that number.
+    expect(projected.utr.source).toBe("logged-pace");
     const chosen = buildFitReport({ ...base, overrideUtr: projected.utr.value })!;
     for (const s of schools) {
       expect(chosen.bandBySlug.get(s.slug)).toBe(projected.bandBySlug.get(s.slug));

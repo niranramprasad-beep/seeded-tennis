@@ -23,7 +23,10 @@ import {
   projectionTargetDate,
   projectionTargetLabel,
   recruitingTimeUtr,
+  utrHistoryFromEntries,
+  type ProjectionSubject,
   type RecruitingTimeUtr,
+  type RecruitingUtrSource,
 } from "@/lib/fit";
 import type { SchoolFitBand } from "@/lib/school-fit";
 import type { SeasonBudgetSummary } from "@/lib/family-budget";
@@ -512,8 +515,14 @@ export interface UtrChartModel {
     low: number;
     high: number;
     year: number;
+    /** Which rule drew the line: the child's own logged pace or the
+     *  typical-growth assumption (recruitingTimeUtr). */
+    source: RecruitingUtrSource;
+    /** The logged pace went down, so the line is held at today's rating. */
+    held: boolean;
     /** Normal, slow and fast pace from today to the end, for the line and
-     *  the band. The last point is the labelled one. */
+     *  the band (all three equal for a logged pace). The last point is the
+     *  labelled one. */
     path: { date: Date; normal: number; slow: number; fast: number }[];
   } | null;
   targetFloor: number | null;
@@ -535,14 +544,24 @@ export function lowestTargetFloor(schools: Pick<SchoolLite, "minCompetitiveUTR">
   return floors.length ? Math.min(...floors) : null;
 }
 
-function projectionFor(input: ChartInput): RecruitingTimeUtr | null {
+/** The child's projection subject — WITH their logged history, so the chart
+ *  follows the same rule as the fit report beside it (useFitReport reads the
+ *  same rows): their own pace when a rating is 5–13 months old, typical
+ *  growth otherwise. */
+function subjectFor(input: ChartInput): ProjectionSubject | null {
   if (input.graduationYear == null || input.gender == null) return null;
-  return recruitingTimeUtr({
+  return {
     currentUtr: input.currentUtr,
     graduationYear: input.graduationYear,
     gender: input.gender,
     now: input.now,
-  });
+    history: utrHistoryFromEntries(input.entries),
+  };
+}
+
+function projectionFor(input: ChartInput): RecruitingTimeUtr | null {
+  const subject = subjectFor(input);
+  return subject ? recruitingTimeUtr(subject) : null;
 }
 
 /** Null when there is no rating to draw. */
@@ -560,7 +579,7 @@ export function buildUtrChart(input: ChartInput): UtrChartModel | null {
   let projection: UtrChartModel["projection"] = null;
   if (rtu && rtu.isProjected && input.graduationYear != null && input.gender != null) {
     const end = projectionTargetDate(input.graduationYear);
-    const p = { currentUtr, graduationYear: input.graduationYear, gender: input.gender, now };
+    const p = subjectFor(input) as ProjectionSubject;
     const STEPS = 12;
     const path = [];
     for (let i = 0; i <= STEPS; i++) {
@@ -576,7 +595,16 @@ export function buildUtrChart(input: ChartInput): UtrChartModel | null {
         });
       }
     }
-    projection = { end, value: rtu.value, low: rtu.low, high: rtu.high, year: rtu.year, path };
+    projection = {
+      end,
+      value: rtu.value,
+      low: rtu.low,
+      high: rtu.high,
+      year: rtu.year,
+      source: rtu.source,
+      held: rtu.source === "logged-pace" && (rtu.pace?.perMonth ?? 0) < 0,
+      path,
+    };
   }
 
   const firstLogged = logged[0]?.date ?? now;
@@ -604,17 +632,23 @@ export function utrChartCaption(model: UtrChartModel | null, input: ChartInput &
   if (current >= floor) return `${child} is already at or above where their target schools start.`;
 
   const proj = model.projection;
-  if (proj && input.graduationYear != null && input.gender != null) {
-    const reach = projectionReachDate(
-      { currentUtr: current, graduationYear: input.graduationYear, gender: input.gender, now: input.now },
-      floor
-    );
-    if (reach) return `At a typical pace, ${child} reaches the start of their target range around ${monthYear(reach)}.`;
+  const subject = subjectFor(input);
+  if (proj && subject) {
+    // Same rule as the line and the fit report: the child's own logged pace
+    // when there is one, typical growth otherwise — and the sentence names
+    // which.
+    const at = proj.held
+      ? `Held at today's rating (${child}'s has gone down lately)`
+      : proj.source === "logged-pace"
+        ? `At the pace in ${child}'s logged ratings`
+        : "At a typical pace";
+    const reach = projectionReachDate({ ...subject, currentUtr: current }, floor);
+    if (reach) return `${at}, ${child} reaches the start of their target range around ${monthYear(reach)}.`;
     const gap = Math.round((floor - proj.value) * 10) / 10;
     if (gap <= 0) {
-      return `At a typical pace, ${child} reaches the start of their target range around ${monthYear(proj.end)}.`;
+      return `${at}, ${child} reaches the start of their target range around ${monthYear(proj.end)}.`;
     }
-    return `At a typical pace, ${child} is about ${gap.toFixed(1)} short of where their target schools start by ${projectionTargetLabel(proj.year)}.`;
+    return `${at}, ${child} is about ${gap.toFixed(1)} short of where their target schools start by ${projectionTargetLabel(proj.year)}.`;
   }
   if (input.graduationYear == null) {
     return `${child} is ${formatUtr2(floor - current)} below where their target schools start. With no class year set, there is no estimate.`;
@@ -638,7 +672,9 @@ export function utrChartAriaLabel(model: UtrChartModel, childFirst: string): str
   if (model.projection) {
     const p = model.projection;
     parts.push(
-      `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${p.value.toFixed(1)}, between ${p.low.toFixed(1)} and ${p.high.toFixed(1)}.`
+      p.low === p.high
+        ? `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${p.value.toFixed(1)}.`
+        : `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${p.value.toFixed(1)}, between ${p.low.toFixed(1)} and ${p.high.toFixed(1)}.`
     );
   }
   if (model.targetFloor != null) parts.push(`Target schools start at ${formatUtr2(model.targetFloor)}.`);

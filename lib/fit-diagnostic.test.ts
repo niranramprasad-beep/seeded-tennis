@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { buildSync } from "esbuild";
 import {
+  SUMMER_STARTED_NOTE,
   buildDiagnosticFitReport,
+  buildFitReport,
   diagnosticProjection,
-  diagnosticRecruitingUtr,
+  projectUtrAtRecruiting,
+  projectionAssumptionLabel,
   projectionTargetDate,
   yearsUntilRecruiting,
 } from "./fit";
@@ -12,8 +15,12 @@ import { REALISTIC_UTR_CEILING } from "./config/recruiting";
 import { localDateString, shiftLocalMonths } from "./time";
 import type { SchoolLite } from "./types";
 
-// The /onboarding diagnostic's projection (board 20): the player's OWN pace
-// from the ratings they answered, carried to June 1 of (grad year − 1).
+// The /onboarding diagnostic's projection (board 20), which since 2026-11-18
+// is recruitingTimeUtr() — the app's one rule — over the answered ratings:
+// the player's OWN pace when they gave a past rating, carried to June 1 of
+// (grad year − 1); the labelled typical-growth estimate when they did not.
+// The rule's own edges live in lib/fit-projection-rule.test.ts; the
+// before/after-sign-up agreement in lib/fit-onboarding-consistency.test.ts.
 
 const NOW = new Date(2026, 10, 18, 12, 0, 0); // Nov 18 2026, local noon
 
@@ -27,7 +34,7 @@ describe("diagnosticProjection", () => {
       gender: "male",
       now: NOW,
     })!;
-    expect(p.basis).toBe("year-pace");
+    expect(p.basis).toBe("logged-pace");
     expect(p.pacePerMonth).toBeCloseTo(1 / 12, 10);
     expect(p.targetYear).toBe(2029);
     expect(projectionTargetDate(2030)).toEqual(new Date(2029, 5, 1));
@@ -39,7 +46,9 @@ describe("diagnosticProjection", () => {
     expect(p.value).toBe(10.5);
     expect(p.isEstimate).toBe(true);
     expect(p.display).toBe("10.5");
-    expect(p.note).toBe("Pace from the last 12 months, carried to June 2029.");
+    expect(p.note).toBe("At your logged pace (+0.08 a month since November 2025).");
+    expect(p.recruiting.low).toBe(p.value);
+    expect(p.recruiting.high).toBe(p.value);
   });
 
   it("falls back to the 6-month pace, (today − 6 months ago) / 6", () => {
@@ -50,20 +59,25 @@ describe("diagnosticProjection", () => {
       gender: "female",
       now: NOW,
     })!;
-    expect(p.basis).toBe("six-month-pace");
+    expect(p.basis).toBe("logged-pace");
     expect(p.pacePerMonth).toBeCloseTo(0.05, 10);
     const months = yearsUntilRecruiting(2029, NOW) * 12;
     expect(p.value).toBe(Math.round((8 + 0.05 * months) * 10) / 10);
-    expect(p.note).toMatch(/last 6 months, carried to June 2028/);
+    expect(p.note).toBe("At your logged pace (+0.05 a month since May 2026).");
   });
 
-  it("no past rating → today's rating, and it says so", () => {
+  it("no past rating → the typical-growth estimate, labelled as one (not today's rating)", () => {
     const p = diagnosticProjection({ todayUtr: 8.25, graduationYear: 2031, gender: "male", now: NOW })!;
-    expect(p.basis).toBe("no-past-rating");
-    expect(p.value).toBe(8.25);
-    expect(p.display).toBe("8.25");
-    expect(p.isEstimate).toBe(false);
-    expect(p.note).toBe("No past rating, so this is today's UTR.");
+    const typical = projectUtrAtRecruiting({ currentUtr: 8.25, graduationYear: 2031, gender: "male", now: NOW })!;
+    expect(p.basis).toBe("typical-growth");
+    expect(p.value).toBe(typical.normal);
+    expect(p.value).toBe(11.8);
+    expect(p.display).toBe("11.8");
+    expect(p.isEstimate).toBe(true);
+    expect(p.note).toBe(projectionAssumptionLabel("normal"));
+    expect(p.note).toBe("Assumes typical growth of 1.0 UTR per year.");
+    expect(p.recruiting.low).toBe(typical.slow);
+    expect(p.recruiting.high).toBe(typical.fast);
   });
 
   it("target summer already started → today's rating, and it says so (even with a pace)", () => {
@@ -80,7 +94,7 @@ describe("diagnosticProjection", () => {
     expect(p.display).toBe("11.0");
     expect(p.isEstimate).toBe(false);
     expect(p.monthsToTarget).toBe(0);
-    expect(p.note).toMatch(/has started, so this is today's UTR/);
+    expect(p.note).toBe(SUMMER_STARTED_NOTE);
   });
 
   it("June 1 itself counts as started; May 31 still has a sliver of growth", () => {
@@ -99,11 +113,11 @@ describe("diagnosticProjection", () => {
       gender: "female",
       now: new Date(2027, 4, 31, 12, 0, 0),
     })!;
-    expect(dayBefore.basis).toBe("year-pace");
+    expect(dayBefore.basis).toBe("logged-pace");
     expect(dayBefore.value).toBe(9);
   });
 
-  it("a rating that went down is not carried forward into a lower one", () => {
+  it("a rating that went down is held at today's, never carried into a lower one", () => {
     const p = diagnosticProjection({
       todayUtr: 8,
       yearAgoUtr: 9,
@@ -111,9 +125,13 @@ describe("diagnosticProjection", () => {
       gender: "male",
       now: NOW,
     })!;
-    expect(p.basis).toBe("rating-went-down");
+    expect(p.basis).toBe("logged-pace");
     expect(p.value).toBe(8);
-    expect(p.isEstimate).toBe(false);
+    expect(p.display).toBe("8.0");
+    expect(p.pacePerMonth).toBeLessThan(0);
+    expect(p.note).toBe(
+      "Your rating has gone down since November 2025 (−0.08 a month), so this stays at today's UTR."
+    );
   });
 
   it("caps growth at the same per-gender ceiling buildFitReport uses — never below today", () => {
@@ -155,7 +173,7 @@ describe("diagnosticProjection", () => {
       gender: "male",
       now: NOW,
     })!;
-    expect(p.basis).toBe("no-past-rating");
+    expect(p.basis).toBe("typical-growth");
   });
 });
 
@@ -176,6 +194,7 @@ describe("buildDiagnosticFitReport: the report bands at the number the card show
       schools: SCHOOLS,
       now: NOW,
     })!;
+    expect(built.report.utr).toBe(built.projection.recruiting);
     expect(built.report.utr.value).toBe(built.projection.value);
     expect(built.report.utr.isProjected).toBe(true);
     expect(built.report.view).toBe("recruiting");
@@ -184,7 +203,7 @@ describe("buildDiagnosticFitReport: the report bands at the number the card show
     expect(built.report.inRange).toBe(built.report.counts.target + built.report.counts.likely);
   });
 
-  it("without a past rating: today's view only, judged at today's rating", () => {
+  it("without a past rating: judged at the typical-growth estimate — the same report a signed-in player with no history gets", () => {
     const built = buildDiagnosticFitReport({
       todayUtr: 8,
       graduationYear: 2031,
@@ -192,15 +211,17 @@ describe("buildDiagnosticFitReport: the report bands at the number the card show
       schools: SCHOOLS,
       now: NOW,
     })!;
-    expect(built.report.utr.value).toBe(8);
-    expect(built.report.utr.isProjected).toBe(false);
-    expect(built.report.view).toBe("today");
-    expect(built.report.canToggle).toBe(false);
+    const app = buildFitReport({ currentUtr: 8, graduationYear: 2031, gender: "male", schools: SCHOOLS, now: NOW })!;
+    expect(built.report.utr.value).toBe(11.5);
+    expect(built.report.utr.value).toBe(app.utr.value);
+    expect(built.report.utr.source).toBe("typical-growth");
+    expect(built.report.utr.isProjected).toBe(true);
+    expect(built.report.view).toBe("recruiting");
   });
 
-  it("diagnosticRecruitingUtr carries the same year and value", () => {
+  it("projection.recruiting carries the same year and value", () => {
     const p = diagnosticProjection({ todayUtr: 9, sixMonthsAgoUtr: 8.5, graduationYear: 2029, gender: "female", now: NOW })!;
-    const r = diagnosticRecruitingUtr(p);
+    const r = p.recruiting;
     expect(r.value).toBe(p.value);
     expect(r.year).toBe(2028);
     expect(r.basis).toBe("projected");

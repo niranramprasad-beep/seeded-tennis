@@ -7,6 +7,63 @@ Newest first.
 
 ---
 
+## 2026-11-18 — One projection rule for onboarding and the app
+
+**Decision.** The "UTR at the summer before senior year" is decided in one
+place, `recruitingTimeUtr()` in `lib/fit.ts`, and both the signed-in app
+(`buildFitReport` → `useFitReport`, the parent chart's `projectedUtrOn` /
+`projectionReachDate`) and the onboarding diagnostic (`diagnosticProjection`,
+now a thin wrapper) call it:
+
+1. Summer before senior year begun → today's rating.
+2. A real logged rating 5–13 months old (local calendar days, inclusive; the
+   one closest to 12 months among those ≥ 9 months old, else the one closest
+   to 6) → the player's own pace, `(today − past) / months`, carried to
+   June 1 of grad − 1, capped at `REALISTIC_UTR_CEILING`, never below today
+   (a falling rating is held). One value, no slow/fast range. Labelled by
+   `loggedPaceAssumption()`: "At your logged pace (+0.25 a month since May
+   2026)."
+3. Otherwise → the typical-growth estimate with its existing label.
+
+The diagnostic's answers become dated ratings at the same local dates
+sign-up writes them to `utr_entries`, so for the same moment the card and
+the app give the same number (`lib/fit-onboarding-consistency.test.ts`).
+
+**Why.** Before this, a player who answered the diagnostic saw one summer
+number (their own pace), signed up, and the app showed another (typical
+growth). One number before and after sign-up is the point of the
+diagnostic. And a junior with no history is never banded at today's rating —
+the bug `recruitingTimeUtr` first existed to fix.
+
+**Deliberate deviation from board 20.** The board says "No past rating → use
+today's rating and say so." The diagnostic now shows the typical-growth
+estimate instead, because that is what the app will show the moment they
+sign up, and because banding a 13-year-old at today's rating is the original
+bug. The board's "say so" is kept by the label ("Assumes typical growth of
+1.0 UTR per year.") and by the report's prompt to add a past rating. The
+falling-rating case (decision 3 of the B1 entry below) is kept, now inside
+rule 2.
+
+**What changes for existing players.** Anyone with an entry 5–13 months old
+now sees their own pace. Staging persona (a) (8.70, Class of 2031, Feb 8
+2026 at 8.20): summer-2030 estimate 12.2 → 11.0. `fake-sweep-player` (5.95,
+Class of 2029): 7.5 → 6.6 on Nov 18 (its 13-month entry), 6.5 from Nov 19
+(its 5-month entry). The window slides: as a rating ages past 13 months the
+estimate falls back to typical growth until the player logs again.
+
+**Synthetic lines are never a pace.** The homepage passes the realistic-pace
+line (P1-FIT-4) as `projectionInput`; `syntheticUtrHistoryFor()` now marks
+its points `synthetic: true` and `loggedPaceFor()` skips them, so a visitor
+is never told an assumed line is "your logged pace".
+
+**Undo.** In `recruitingTimeUtr`, delete the `loggedPaceFor` branch (rule 2)
+and restore `diagnosticProjection`'s own pace arithmetic from `23d792a`.
+`lib/fit-onboarding-consistency.test.ts` will fail — that is the
+inconsistency the B1 entry's "Known inconsistency" paragraph describes
+coming back; delete it in the same commit. Revert the /methodology paragraph.
+
+---
+
 ## 2026-11-18 — PR B: /family to Board 22, and the Family paywall (app side)
 
 **Budget bars: one limit, not one per category.** Board 22 shows per-category
@@ -19,7 +76,9 @@ per-category limits (the board's sentence is a test case) — add a
 `category_limits` column and pass it to `seasonBudgetView()`. *Undo:* n/a.
 
 **"At a typical pace", not "At this pace".** The estimate is lib/fit.ts's
-typical-growth assumption, not the child's own trend, so the caption says so.
+typical-growth assumption, not the child's own trend, so the caption says so. *(Since "One projection rule", above: when the child has a logged
+rating 5–13 months old the line IS their own pace, and the caption says "At
+the pace in Avery's logged ratings" instead.)*
 
 **The estimate prints one decimal ("≈ 9.1 estimate"), logged UTRs two.**
 lib/fit.ts rounds projections to one decimal on purpose and ProjectionNote
@@ -69,7 +128,9 @@ with it. Considered and rejected:
 `diagnosticPlayerProfile` is the one place to change.
 
 **2. The diagnostic projects from the player's OWN pace, and its fit report
-uses that number.** Board 20: pace = (today − year ago)/12 or (today − 6
+uses that number.** *(Superseded the same day by "One projection rule for
+onboarding and the app", above: the app now uses the same rule, and a player
+with no past rating sees the labelled typical-growth estimate.)* Board 20: pace = (today − year ago)/12 or (today − 6
 months ago)/6 per month, carried to June 1 of grad − 1; no past rating, or
 the summer already started, → today's rating, and the card says so.
 `diagnosticProjection()` in lib/fit.ts; the fit report after it is built by

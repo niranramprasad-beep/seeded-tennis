@@ -848,10 +848,14 @@ ranked week-1 list in `docs/TODO.md`.
    pace); guard `lib/onboarding-ui-no-math.test.ts`. Depends on the DB
    half of PR B (`profiles.birth_month`, `profiles.enrollment_term`, wired in
    `writeCurrentPlayerProfile`/`mapProfileToPlayer`) — until that lands the
-   two answers are carried on `Player` but not stored. **Open:** the signed-in
-   app still projects at typical growth (1.0/yr), so a player who gave past
-   ratings sees a different "summer before senior year" number after
-   sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
+   two answers are carried on `Player` but not stored. **Fixed on
+   `unify-projection` (2026-11-18, not merged):** one rule in
+   `recruitingTimeUtr()` for the diagnostic and the app — the player's own
+   pace from a logged rating 5–13 months old, else typical growth — so the
+   summer number is the same before and after sign-up
+   (`lib/fit-onboarding-consistency.test.ts`; DECISIONS "One projection rule
+   for onboarding and the app"). Players with such an entry see their
+   estimate move (staging persona (a): 12.2 → 11.0).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the

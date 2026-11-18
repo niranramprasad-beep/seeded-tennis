@@ -145,8 +145,12 @@ export function SeededMethodologyView() {
                 the coach emails Seeded drafts say so.
               </p>
               <p className="text-stone">
-                Until the summer before senior year, the rating that decides your band is a projection: today&apos;s
-                rating grown to June 1 of that summer at a typical pace (the same assumption for everyone). It is
+                Until the summer before senior year, the rating that decides your band is a projection to June 1 of
+                that summer. If you&apos;ve logged a rating from about 5 to 13 months ago, it carries your own pace
+                forward from that rating (the one closest to a year ago, otherwise the one closest to 6 months ago),
+                capped near the top of college tennis and never below today&apos;s rating &mdash; a rating that went
+                down is held where it is. Without one, it grows today&apos;s rating at a typical pace, the same
+                assumption for everyone. The same rule runs before you sign up and after. It is
                 labelled &ldquo;Estimate&rdquo; with its assumption wherever it&apos;s used, and on your fit report you
                 can switch to today&apos;s rating instead. Once that summer has begun, it is simply today&apos;s rating.
                 Top D1 programs often decide earlier, during junior year, so treat the projection as a ceiling on

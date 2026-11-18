@@ -11,6 +11,15 @@ import type { PlayerGender } from "@/lib/types";
 export interface UtrDataPoint {
   date: Date;
   utr: number;
+  /**
+   * Set ONLY by syntheticUtrHistoryFor() (lib/what-if-utr.ts): a point on an
+   * assumed line, not a rating anyone logged. The mark travels with the
+   * point, so a synthetic history spread into another input stays marked.
+   * lib/fit.ts's loggedPaceFor() never takes a pace from a marked point —
+   * otherwise the homepage's realistic-pace line would be shown to a
+   * visitor as "your logged pace".
+   */
+  synthetic?: true;
 }
 
 export interface UtrProjection {
