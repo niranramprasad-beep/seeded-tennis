@@ -2137,6 +2137,647 @@ old code calls `consume_rate_limit`, which 034 leaves in place, so leaving
 034 applied is safe, but dropping it while the NEW code is live 429s every
 write.
 
+### PR B — Steps 16–18 (migrations 041–043), written 2026-11-18
+
+**Not applied to production.** Applied to STAGING (`gnlcpnsweqbtwpaqhqqg`)
+only, probed as real `authenticated` users in rolled-back transactions, and
+each rollback below was rehearsed on staging inside a transaction that was
+then rolled back (all three, in reverse order: 043 → 042 → 041, with a
+profile save and a join after each). Order on production: **041, 042, 043**,
+after Step 15's code is live, then the PR B code. Personas:
+`docs/STAGING_PERSONAS.md` (families `FAKEFAM-PB1`…`PB5`).
+
+### Step 16 — migration 041 (diagnostic onboarding fields)
+`profiles.birth_month smallint` (1–12; month + year only, never a day) and
+`profiles.enrollment_term text` (`fall_after_grad` / `spring_after_grad` /
+`not_sure`). `birth_month` is **write-once from the client** exactly like
+`birth_year`: `protect_privileged_profile_columns()` is 035's body verbatim
+plus one block. `enrollment_term` is ordinary.
+**Apply:** `supabase/migrations/041_diagnostic_onboarding_fields.sql`.
+**Pre-flight:** none (two nullable columns; no backfill).
+**Verify (as a real user, `set local role authenticated` + claims) — staging, 2026-11-18, persona-b:**
+
+| probe | result |
+|---|---|
+| `birth_month` null → 5 | ok |
+| 5 → 5 (re-save, unchanged) | ok |
+| 5 → 6 | **42501** "Date of birth can only be changed by Seeded." |
+| 5 → null | **42501** |
+| upsert carrying 7 when 5 is stored | **42501** |
+| app-shaped full upsert without `birth_month` | ok |
+| `enrollment_term` set / changed | ok / ok |
+| `enrollment_term = 'winter'` | **23514** |
+| update another user's `birth_month` | 0 rows (RLS) |
+| `birth_month = 13` as postgres | **23514** |
+| brand-new account INSERT with month + term | stored (3, `not_sure`) |
+| 3 past-dated `utr_entries` inserts by the owner (onboarding) | ok; `utr_entry` bucket 3 of 20 used |
+
+`utr_entries.recorded_at` is a **`date`** (no time, no zone) with no
+past/future CHECK — only `utr between 1 and 16.5`. A date-only value must be
+rendered as a calendar date, not parsed through `new Date('YYYY-MM-DD')`
+(UTC midnight → the previous day west of UTC).
+**Rollback (runnable; restores 035's trigger FIRST — 041's reads
+`old.birth_month`, so dropping the column under it breaks every profile
+UPDATE with 42703). If 043 is applied, run Step 18's rollback first.**
+```sql
+-- ROLLBACK 041 (onboarding fields). Run as postgres, AFTER 043's rollback
+-- if 043 is applied. Function first: 041's trigger reads old.birth_month.
+begin;
+create or replace function public.protect_privileged_profile_columns()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $fn$
+declare
+  v_is_new_account boolean;
+begin
+  if current_user in ('service_role', 'postgres', 'supabase_admin') then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    -- An upsert's INSERT branch runs even when the row exists. Only a row
+    -- that does NOT exist yet is an account being created.
+    v_is_new_account := not public.profile_row_exists(new.id);
+
+    if v_is_new_account then
+      -- 032: a family_code may only be claimed if nobody holds it yet.
+      if new.family_code is not null and public.family_code_is_taken(new.family_code) then
+        raise exception
+          'Use the join code to request access to an existing family; it cannot be set on a profile directly.'
+          using errcode = '42501';
+      end if;
+
+      -- 033: the under-13 gate cannot be skipped by omitting the field.
+      if new.birth_year is null then
+        raise exception 'A birth year is required to create an account.'
+          using errcode = '23502';
+      end if;
+    end if;
+
+    -- Always scrubbed, new row or not: these are never the client's to set.
+    new.subscription_tier      := 'free';
+    new.whop_membership_id     := null;
+    new.stripe_customer_id     := null;
+    new.stripe_subscription_id := null;
+
+    if v_is_new_account then
+      new.consent_status :=
+        case when public.consent_required_for_birth_year(new.birth_year)
+             then 'pending' else 'not_required' end;
+      new.consent_granted_at := null;
+      new.consent_granted_by := null;
+    end if;
+    -- NOTE: when the row already exists, the consent columns are left
+    -- exactly as the payload had them and are NEVER read here.
+    --
+    -- An earlier draft did `select ... into new.consent_status ... from
+    -- profiles where id = new.id`, which a verification pass flagged: this
+    -- trigger is SECURITY INVOKER, so that read is RLS-filtered, and
+    -- `SELECT INTO` with no rows sets its targets to NULL *silently* while
+    -- consent_status is NOT NULL. Routing it through a SECURITY DEFINER
+    -- helper then failed for a different reason — the trigger runs as
+    -- `authenticated`, so the helper would have to be executable by every
+    -- signed-in user, turning it into a consent-status oracle for any uuid.
+    --
+    -- Neither is necessary. For an upsert, `DO UPDATE SET` only assigns the
+    -- columns in the payload, and consent_status is not one of them — so
+    -- whatever this branch leaves in `excluded` never reaches the stored
+    -- row. The BEFORE UPDATE branch below then forces consent from `old`,
+    -- which is the authoritative value. For a plain INSERT onto an existing
+    -- id, the statement fails with 23505 regardless.
+    --
+    -- The shortest correct code here is no code.
+
+    return new;
+  end if;
+
+  if new.subscription_tier      is distinct from old.subscription_tier
+  or new.whop_membership_id     is distinct from old.whop_membership_id
+  or new.stripe_customer_id     is distinct from old.stripe_customer_id
+  or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+  or new.role                   is distinct from old.role
+  or new.family_code            is distinct from old.family_code
+  then
+    raise exception 'This profile field can only be changed by Seeded.'
+      using errcode = '42501';
+  end if;
+
+  if old.birth_year is not null and new.birth_year is distinct from old.birth_year then
+    raise exception 'Date of birth can only be changed by Seeded. Contact support.'
+      using errcode = '42501';
+  end if;
+
+  if old.birth_year is null and new.birth_year is not null then
+    new.consent_status :=
+      case when public.consent_required_for_birth_year(new.birth_year)
+           then 'pending' else 'not_required' end;
+    new.consent_granted_at := null;
+    new.consent_granted_by := null;
+  else
+    new.consent_status     := old.consent_status;
+    new.consent_granted_at := old.consent_granted_at;
+    new.consent_granted_by := old.consent_granted_by;
+  end if;
+
+  return new;
+end;
+$fn$;
+revoke all on function public.protect_privileged_profile_columns() from public, anon, authenticated;
+
+alter table public.profiles drop constraint if exists profiles_enrollment_term_check;
+alter table public.profiles drop constraint if exists profiles_birth_month_check;
+alter table public.profiles drop column if exists enrollment_term;
+alter table public.profiles drop column if exists birth_month;
+commit;
+```
+**Risk: low.** Additive columns; the trigger change only refuses changing a
+month that is already set.
+
+### Step 17 — migration 042 (the Family plan lock, B4)
+**Owner decision, already made: lock it now.** A family is unlocked when ANY
+member, in either membership shape, has `subscription_tier = 'family'`;
+pending links never count. `family_has_tier(code, tier)` (SECURITY DEFINER;
+answers `false` for a code the signed-in caller is not a member of, so it is
+not an unrate-limited "does this code exist and pay" oracle),
+`shares_family_plan_with(uuid)` (036's intersection, gated per shared code),
+`my_family_has_tier(tier)` (the app's call).
+Ten RESTRICTIVE policies named `family_plan_required` — a ceiling on top of
+the existing permissive policies, which are untouched:
+
+| table | command | condition |
+|---|---|---|
+| `utr_entries`, `matches`, `tournament_entries`, `daily_checkins`, `cost_calculations`, `coach_outreach` (every table whose SELECT uses `shares_approved_family_with`) | SELECT | `user_id = auth.uid() or shares_family_plan_with(user_id)` |
+| `season_budgets`, `budget_expenses`, `parent_reports` | ALL | `family_has_tier(family_code,'family')` (USING and WITH CHECK) |
+| `encouragement_notes` | ALL | USING `parent_id = auth.uid() or family_has_tier(...)`; CHECK `family_has_tier(...)` |
+
+Not gated: `profiles` (own row only since 037), `families`,
+`family_codes`, `parent_accounts`, `family_members()`, and every
+join/approve/deny/remove/consent RPC — a free family can still form.
+API: `/api/family/budget` and `/api/family/budget/expenses` call
+`refuseUnlessFamilyPlan()` (lib/api-auth.ts) → 403; `/api/account/export`
+deliberately does not (right of access; RLS already scopes it, so a locked
+family's export simply has no budget rows).
+**Apply:** `supabase/migrations/042_family_plan_lock.sql`.
+**Pre-flight (read-only, production) — how many families lose /family:**
+```sql
+select count(distinct code) filter (where not paid) as families_locking,
+       count(distinct code) filter (where paid)     as families_staying_unlocked
+from (
+  select f.code, exists (
+    select 1 from public.profiles p
+    where (p.family_code = f.code
+           or exists (select 1 from public.parent_accounts pa
+                      where pa.user_id = p.id and pa.family_code = f.code and pa.status = 'approved'))
+      and p.subscription_tier = 'family') as paid
+  from public.families f
+) s;
+```
+Every family in the first number loses cross-member reads and the budget the
+moment 042 commits. That is the decision; know the number before you run it.
+**Verify — staging, 2026-11-18, as real users:**
+
+| identity | other members' UTR rows | budgets / expenses / notes | `my_family_has_tier('family')` | roster rows | budget expense insert | note insert |
+|---|---|---|---|---|---|---|
+| PB1 parent (free family) | **0** | 0 / 0 / 1 (their own note) | false | 3 | **42501** | **42501** |
+| PB1 player (free) | 0 (own: 3) | 0 / 0 / 0 | false | 3 | — | — |
+| PB2 parent (parent pays) | **3** | 1 / 2 / 1 | true | 2 | ok | ok |
+| PB2 player (parent pays) | 0 (own: 3) | 1 / 3 / 2 | true | 2 | — | — |
+| PB3 parent (player pays) | **3** | 1 / 2 / 1 | true | 2 | ok | ok |
+| PB3 player (player pays) | 0 (own: 3) | 1 / 3 / 2 | true | 2 | — | — |
+| PB5 solo player | 0 | 0 / 0 / 0 | false | 1 | — | — |
+| A1 approved joiner (A1 holder pays) | 12 | 1 / 2 / 5 / reports 1 | true | 7 | — | — |
+
+(Counts after the paid rows include the probe's own inserts — same
+transaction.) Downgrade / re-upgrade, PB2:
+
+| step | PB2 parent: other UTR / budgets / expenses / notes / tier |
+|---|---|
+| paid | 3 / 1 / 2 / 1 / true |
+| payer set to `free` (as postgres) | **0 / 0 / 0 / 1 / false** (PB2 player: 0/0/0/0) |
+| …row count as postgres | utr 3, budgets 1, expenses 2, notes 1 — **nothing deleted** |
+| payer back to `family` | 3 / 1 / 2 / 1 / true |
+| payer on `player` (not family) | 0 / 0 / 0 / 1 / false |
+
+Also: PB5 asking `family_has_tier('FAKEFAM-PB3','family')` → **false** (not
+its family); a PENDING joiner reads 0 and gets `false`; no public views and no
+RLS-less tables exist (checked); `delete_my_account()` as a free parent still
+works (`deleted`, their note gone, the family budget kept).
+**Rollback (runnable; policies first — the functions cannot be dropped while a
+policy uses them):**
+```sql
+-- ROLLBACK 042 (Family plan lock). Run as postgres. Policies first.
+begin;
+drop policy if exists family_plan_required on public.utr_entries;
+drop policy if exists family_plan_required on public.matches;
+drop policy if exists family_plan_required on public.tournament_entries;
+drop policy if exists family_plan_required on public.daily_checkins;
+drop policy if exists family_plan_required on public.cost_calculations;
+drop policy if exists family_plan_required on public.coach_outreach;
+drop policy if exists family_plan_required on public.season_budgets;
+drop policy if exists family_plan_required on public.budget_expenses;
+drop policy if exists family_plan_required on public.parent_reports;
+drop policy if exists family_plan_required on public.encouragement_notes;
+drop function if exists public.my_family_has_tier(text);
+drop function if exists public.shares_family_plan_with(uuid);
+drop function if exists public.family_has_tier(text, text);
+commit;
+```
+Roll the PR B app code back first: without `my_family_has_tier()` the budget
+routes fail closed (403) rather than open.
+**Risk: medium, by design.** Every free family loses `/family` data at
+commit. Nothing is deleted; buying Family restores it instantly.
+
+### Step 18 — migration 043 (parent email verification, B6)
+Production auto-confirms email at sign-up, so `email_confirmed_at` proves
+nothing and is not used. `profiles.email_verified_at` +
+`profiles.email_verified_for` are PRIVILEGED (scrubbed on INSERT, 42501 on
+any client change). `mark_email_verified()` stamps them for the caller only
+when the session's JWT `amr` contains `otp` / `magiclink` / `recovery` /
+`email/signup` (Supabase "JWT Claims Reference"; a PKCE magic-link exchange
+carries the method via `auth.flow_state.authentication_method`), or the
+account has a Google identity whose verified email is the account email.
+`email_is_verified(uuid)` is internal (no EXECUTE for clients) and only
+counts while `email_verified_for` equals the CURRENT auth email.
+`join_family()` (parents only, before the attempt is logged),
+`approve_family_join()` (parents only) and `grant_parent_consent()` raise
+**42501 `verify_email_required`** for an unverified parent; players are
+never checked. `rate_limit_for_bucket()` gains `email_verify` = 3/hour.
+**Apply:** `supabase/migrations/043_parent_email_verification.sql`, after 041.
+**Dashboard, before the code ships:** add `<site>/auth/verified` to Auth →
+URL Configuration → Redirect URLs, or the link lands on the Site URL instead.
+**Pre-flight (read-only):** `select count(*) from profiles where role = 'parent';`
+— every one of them must verify before they can next approve, consent, or
+join. Existing approvals are not undone.
+**Verify — staging, 2026-11-18, as real users:**
+
+| probe | result |
+|---|---|
+| unverified parent (PB4) `approve_family_join(minor)` | **42501 verify_email_required** |
+| unverified parent (PB4) `grant_parent_consent(minor)` | **42501 verify_email_required** |
+| unverified parent (PB1 pending) `join_family('FAKEFAM-PB2')` | **42501 verify_email_required**; join attempts logged: **0** |
+| player (PB1) `approve_family_join(pending parent)` | `approved` (unaffected) |
+| player (PB5) `join_family('FAKEFAM-PB3')` | `pending` (unaffected) |
+| client `update ... set email_verified_at = now()` | **42501** |
+| client `update ... set email_verified_for = ...` | **42501** |
+| verified parent upserting a different `email_verified_at` | **42501** |
+| unverified parent upserting `email_verified_*` | succeeds, stored value stays **NULL** (scrubbed) |
+| brand-new account INSERT carrying `email_verified_*` | stored **NULL** |
+| `mark_email_verified()` with amr `password` / `oauth` / `token_refresh+password` | **false** (and approve still refused) |
+| `mark_email_verified()` with amr `otp` / `magiclink` / `recovery` / bare-string `"otp"` | true |
+| verified parent, later in a PASSWORD session: approve the under-13 | `approved`, consent `granted` |
+| …after the auth email is changed | **42501 verify_email_required** again |
+| previously-refused parent, after verifying: `join_family` | `pending` |
+| Google identity with `email_verified: true` for the account email | `email_is_verified` → true |
+| client calling `email_is_verified(other uuid)` | **42501 permission denied** |
+
+**Not verified end to end:** a real magic-link email. Staging's
+`auth.mfa_amr_claims` holds only `password` (no link sign-in has ever
+happened there) and no fake address can receive mail. The amr values are
+from the Supabase docs plus the `flow_state.authentication_method` column;
+the SQL was exercised with forged claims. **One live check before relying on
+it:** on staging, sign a real inbox you control in via
+`sendVerificationLink()`, open the link in the same browser, and confirm
+`/auth/verified` says "Email confirmed".
+**Rollback (runnable; restores 023/030's RPCs, 035's buckets and 041's trigger
+BEFORE dropping 043's objects — the RPCs call `email_is_verified()` and the
+trigger reads the columns):**
+```sql
+-- ROLLBACK 043 (parent email verification). Run as postgres. Restores
+-- 023/030's RPCs, 041's trigger and 035's bucket list, THEN drops 043's objects.
+begin;
+create or replace function public.join_family(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_recent int;
+  v_exists boolean;
+  v_own text;
+  v_existing public.parent_accounts%rowtype;
+begin
+  -- WHY THIS RETURNS A STATUS INSTEAD OF RAISING (found by the staging
+  -- attack test, 2026-11-14):
+  -- The first version logged the attempt and then RAISED for an invalid
+  -- code. Raising rolls the function's own work back to its savepoint —
+  -- and under PostgREST every RPC call is its own transaction — so the
+  -- attempt row vanished with the exception. The rate limiter therefore
+  -- counted zero failed attempts and never fired. Brute force was
+  -- unlimited, which is the one thing it existed to stop.
+  --
+  -- So: expected outcomes (invalid / own family / already linked /
+  -- pending) RETURN, which lets the attempt row commit. Only "not signed
+  -- in" and "rate limited" raise, and neither needs to be logged.
+  --
+  -- Yes, a distinguishable 'invalid' vs 'pending' is an oracle for which
+  -- codes exist. That is unavoidable — a user has to learn whether their
+  -- code worked. It is acceptable only BECAUSE the rate limit now works
+  -- and because a valid code on its own still grants nothing until a
+  -- member approves it. If you ever weaken the rate limit, revisit this.
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  select count(*) into v_recent
+  from public.family_join_attempts
+  where user_id = v_user and created_at > now() - interval '1 hour';
+
+  if v_recent >= 5 then
+    raise exception 'Too many attempts. Try again later.' using errcode = '53400';
+  end if;
+
+  select exists(select 1 from public.families f where f.code = p_code) into v_exists;
+
+  insert into public.family_join_attempts (user_id, attempted_code, succeeded)
+  values (v_user, p_code, v_exists);
+
+  if not v_exists then
+    return jsonb_build_object('status','invalid');
+  end if;
+
+  select family_code into v_own from public.profiles where id = v_user;
+  if v_own = p_code then
+    return jsonb_build_object('status','own_family');
+  end if;
+
+  select * into v_existing from public.parent_accounts
+  where user_id = v_user and family_code = p_code;
+
+  if found then
+    return jsonb_build_object('status', v_existing.status, 'already', true);
+  end if;
+
+  insert into public.parent_accounts (user_id, family_code, status)
+  values (v_user, p_code, 'pending');
+
+  return jsonb_build_object('status', 'pending', 'already', false);
+end;
+$$;
+revoke all on function public.join_family(text) from public, anon;
+grant execute on function public.join_family(text) to authenticated;
+
+create or replace function public.grant_parent_consent(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_my_role text;
+  v_my_status text;
+  v_child_code text;
+  v_updated int;
+begin
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  if p_user_id = v_user then
+    return jsonb_build_object('status', 'not_allowed', 'reason', 'self');
+  end if;
+
+  select role, consent_status into v_my_role, v_my_status
+  from public.profiles where id = v_user;
+
+  if v_my_status = 'pending' then
+    return jsonb_build_object('status', 'not_allowed', 'reason', 'own_account_pending');
+  end if;
+
+  if v_my_role is distinct from 'parent' then
+    return jsonb_build_object('status', 'not_allowed', 'reason', 'not_a_parent_account');
+  end if;
+
+  -- The child's family: whichever of the two shapes holds it.
+  select coalesce(
+    (select family_code from public.profiles where id = p_user_id),
+    (select family_code from public.parent_accounts
+      where user_id = p_user_id and status = 'approved' limit 1)
+  ) into v_child_code;
+
+  if v_child_code is null or not public.is_family_member(v_child_code) then
+    return jsonb_build_object('status', 'not_allowed', 'reason', 'not_your_family');
+  end if;
+
+  update public.profiles
+  set consent_status = 'granted',
+      consent_granted_at = now(),
+      consent_granted_by = v_user
+  where id = p_user_id and consent_status = 'pending';
+
+  get diagnostics v_updated = row_count;
+  if v_updated = 0 then
+    return jsonb_build_object('status', 'nothing_pending');
+  end if;
+
+  return jsonb_build_object('status', 'granted');
+end;
+$$;
+revoke all on function public.grant_parent_consent(uuid) from public, anon;
+grant execute on function public.grant_parent_consent(uuid) to authenticated;
+
+create or replace function public.approve_family_join(p_parent_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_code text;
+  v_updated int;
+  v_my_role text;
+  v_consent text := null;
+begin
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  -- 026 widened this from "the player only" to "any approved member", via
+  -- my_family_code() + is_family_member(). Unchanged here.
+  v_code := public.my_family_code();
+  if v_code is null or not public.is_family_member(v_code) then
+    raise exception 'You are not in a family.' using errcode = '22023';
+  end if;
+
+  update public.parent_accounts
+  set status = 'approved', approved_at = now(), approved_by = v_user
+  where user_id = p_parent_user_id
+    and family_code = v_code
+    and status = 'pending';
+
+  get diagnostics v_updated = row_count;
+  if v_updated = 0 then
+    raise exception 'No pending request from that person.' using errcode = '22023';
+  end if;
+
+  select role into v_my_role from public.profiles where id = v_user;
+
+  if v_my_role = 'parent' then
+    update public.profiles
+    set consent_status = 'granted',
+        consent_granted_at = now(),
+        consent_granted_by = v_user
+    where id = p_parent_user_id and consent_status = 'pending';
+
+    get diagnostics v_updated = row_count;
+    if v_updated > 0 then
+      v_consent := 'granted';
+    end if;
+  else
+    if exists (
+      select 1 from public.profiles
+      where id = p_parent_user_id and consent_status = 'pending'
+    ) then
+      -- Approved into the family, still waiting on an adult.
+      v_consent := 'still_pending';
+    end if;
+  end if;
+
+  return jsonb_build_object('status', 'approved', 'consent', v_consent);
+end;
+$$;
+revoke all on function public.approve_family_join(uuid) from public, anon;
+grant execute on function public.approve_family_join(uuid) to authenticated;
+
+create or replace function public.rate_limit_for_bucket(p_bucket text)
+returns int
+language sql
+immutable
+set search_path = public
+as $$
+  select case p_bucket
+    when 'profile_write'     then 60
+    when 'utr_entry'         then 20
+    when 'match_write'       then 60
+    when 'outreach_write'    then 40
+    when 'budget_write'      then 60
+    -- Bulk: one calendar save rewrites the whole plan, row by row.
+    when 'training_write'    then 2000
+    when 'account_deletion'  then 5
+    when 'data_export'       then 3
+    when 'whop_checkout'     then 20
+    when 'checkin_write'     then 60
+    when 'tournament_write'  then 60
+    when 'checklist_write'   then 120
+    when 'settings_write'    then 60
+    when 'family_write'      then 30
+    when 'note_write'        then 30
+    else null
+  end;
+$$;
+revoke all on function public.rate_limit_for_bucket(text) from public, anon;
+grant execute on function public.rate_limit_for_bucket(text) to authenticated;
+
+create or replace function public.protect_privileged_profile_columns()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $fn$
+declare
+  v_is_new_account boolean;
+begin
+  if current_user in ('service_role', 'postgres', 'supabase_admin') then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    -- An upsert's INSERT branch runs even when the row exists. Only a row
+    -- that does NOT exist yet is an account being created.
+    v_is_new_account := not public.profile_row_exists(new.id);
+
+    if v_is_new_account then
+      -- 032: a family_code may only be claimed if nobody holds it yet.
+      if new.family_code is not null and public.family_code_is_taken(new.family_code) then
+        raise exception
+          'Use the join code to request access to an existing family; it cannot be set on a profile directly.'
+          using errcode = '42501';
+      end if;
+
+      -- 033: the under-13 gate cannot be skipped by omitting the field.
+      if new.birth_year is null then
+        raise exception 'A birth year is required to create an account.'
+          using errcode = '23502';
+      end if;
+    end if;
+
+    -- Always scrubbed, new row or not: these are never the client's to set.
+    new.subscription_tier      := 'free';
+    new.whop_membership_id     := null;
+    new.stripe_customer_id     := null;
+    new.stripe_subscription_id := null;
+
+    if v_is_new_account then
+      new.consent_status :=
+        case when public.consent_required_for_birth_year(new.birth_year)
+             then 'pending' else 'not_required' end;
+      new.consent_granted_at := null;
+      new.consent_granted_by := null;
+    end if;
+    -- When the row already exists the consent columns are left as the
+    -- payload had them and never read here; see 035 for why that is safe
+    -- (DO UPDATE SET only assigns payload columns, and the UPDATE branch
+    -- below forces consent from OLD).
+
+    return new;
+  end if;
+
+  if new.subscription_tier      is distinct from old.subscription_tier
+  or new.whop_membership_id     is distinct from old.whop_membership_id
+  or new.stripe_customer_id     is distinct from old.stripe_customer_id
+  or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+  or new.role                   is distinct from old.role
+  or new.family_code            is distinct from old.family_code
+  then
+    raise exception 'This profile field can only be changed by Seeded.'
+      using errcode = '42501';
+  end if;
+
+  if old.birth_year is not null and new.birth_year is distinct from old.birth_year then
+    raise exception 'Date of birth can only be changed by Seeded. Contact support.'
+      using errcode = '42501';
+  end if;
+
+  -- 041: birth_month is write-once, like birth_year. A null may be filled in
+  -- once (onboarding, or an account that predates 041); after that only
+  -- Seeded can change it. Re-sending the same value is not a change.
+  if old.birth_month is not null and new.birth_month is distinct from old.birth_month then
+    raise exception 'Date of birth can only be changed by Seeded. Contact support.'
+      using errcode = '42501';
+  end if;
+
+  if old.birth_year is null and new.birth_year is not null then
+    new.consent_status :=
+      case when public.consent_required_for_birth_year(new.birth_year)
+           then 'pending' else 'not_required' end;
+    new.consent_granted_at := null;
+    new.consent_granted_by := null;
+  else
+    new.consent_status     := old.consent_status;
+    new.consent_granted_at := old.consent_granted_at;
+    new.consent_granted_by := old.consent_granted_by;
+  end if;
+
+  return new;
+end;
+$fn$;
+revoke all on function public.protect_privileged_profile_columns() from public, anon, authenticated;
+
+drop function if exists public.mark_email_verified();
+drop function if exists public.email_is_verified(uuid);
+alter table public.profiles drop column if exists email_verified_for;
+alter table public.profiles drop column if exists email_verified_at;
+commit;
+```
+**Risk: medium.** Every existing parent becomes unable to approve, consent or
+join until they click a link; the link depends on SMTP (80/hour project-wide)
+and on the redirect allow-list.
+
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
 - [ ] Update `docs/DATABASE_SPEC.md`: mark 022–039 applied to production, with the date
