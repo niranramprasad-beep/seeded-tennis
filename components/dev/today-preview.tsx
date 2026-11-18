@@ -9,6 +9,7 @@ import {
   type SundayCheckinSaveInput,
 } from "@/components/dashboard/sunday-checkin-drawer";
 import { createUtrEntry } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 import { generatePrepPlan, saveMatch } from "@/lib/db/events";
 
 // Internal tool only — pixel-checks /today's real action-list/chart/targets
@@ -60,7 +61,7 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
   const [sundayStatus, setSundayStatus] = useState<"idle" | "saving" | "error">("idle");
   const [sundayError, setSundayError] = useState("");
 
-  const actualPoints = utrEntries.map((e) => ({ date: new Date(`${e.recordedAt}T00:00:00`), utr: e.utr }));
+  const actualPoints = utrEntries.map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }));
   const targetPoints = [
     { date: now, utr: player.currentUTR },
     { date: new Date(now.getFullYear() + 1, 5, 1), utr: 11.2 },
@@ -143,6 +144,9 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         setCheckinDrawerOpen={() => {}}
         sundayCheckinDue
         setSundayCheckinOpen={setSundayCheckinOpen}
+        planGoal={{ value: 11.2, source: "chosen", estimate: null }}
+        goalPace={null}
+        onUseEstimateGoal={() => {}}
       />
       <SundayCheckinDrawer
         open={sundayCheckinOpen}

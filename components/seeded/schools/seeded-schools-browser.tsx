@@ -15,6 +15,7 @@ import {
   type SchoolFitBand,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
@@ -34,7 +35,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatUtrFor, hasRealUtr } from "@/lib/utils";
 
 const selectClass =
   "h-11 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-10";
@@ -137,7 +138,7 @@ export function SeededSchoolsBrowser({
   // those has already loaded this session.
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const realUtrHistory = useMemo(
-    () => (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+    () => (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
     [utrEntries]
   );
 
@@ -844,12 +845,13 @@ export function SeededSchoolsBrowser({
                       caption={
                         judgingUtr === null
                           ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${judgingUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${formatUtrFor(judgingUtr, report?.utr.isProjected ?? false)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
                       you={judgingUtr}
+                      youIsEstimate={report?.utr.isProjected ?? false}
                       youLabel={projectedYouLabel(report?.utr, viewingAsParent ? (subjectName ?? "Player") : null)}
                     />
                     {showOpenings && (
@@ -927,6 +929,7 @@ export function SeededSchoolsBrowser({
             utr={report.utr}
             who={viewingAsParent ? subjectName : null}
             className="mt-3"
+            withEarlyDecisionNote
             after="Team UTR ranges are our estimates, not published rosters."
           />
         ) : (

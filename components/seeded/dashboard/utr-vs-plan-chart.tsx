@@ -1,125 +1,117 @@
-import { computeUtrProjection, type UtrDataPoint } from "@/lib/utr-projection";
-import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import type { PlayerGender } from "@/lib/types";
-import { formatUTR } from "@/lib/utils";
-import { formatDate } from "@/lib/time";
+"use client";
 
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import type { UtrDataPoint } from "@/lib/utr-projection";
+import { estimateOnDate, type UtrEstimatePoint } from "@/lib/fit";
+import { formatPlayerUtr, hasRealUtr } from "@/lib/utils";
+import { formatDate } from "@/lib/time";
+import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
+import { approxTextWidth, monthYearLabel } from "@/components/seeded/ui/chart-axis";
 
 interface UtrVsPlanChartProps {
   actualPoints: UtrDataPoint[];
   nextCheckpoint: { date: Date; utr: number } | null;
-  gender: PlayerGender;
+  /** lib/fit.ts projectionPath — the same estimate /plan shades and every
+   *  ProjectionNote prints. Empty once the summer before senior year has
+   *  begun. */
+  estimate: UtrEstimatePoint[];
 }
 
-// Pixel-styled to Today.dc.html's "UTR vs plan" SVG: a confidence band (real
-// projection math, not an invented margin — see lib/utr-projection.ts),
-// solid line through real entries, ball-yellow dot at "now", dashed
-// checkpoint marker. With fewer than 3 real entries there's no honest trend
-// to project, so the band is simply omitted rather than faked.
-export function UtrVsPlanChart({ actualPoints, nextCheckpoint, gender }: UtrVsPlanChartProps) {
-  const sorted = [...actualPoints].sort((a, b) => a.date.getTime() - b.date.getTime());
-  const now = sorted[sorted.length - 1] ?? { date: new Date(), utr: 0 };
-  const start = sorted[0] ?? now;
-  // A checkpoint at or before "now" isn't a future target worth drawing —
-  // treat it the same as having none, rather than inverting the chart's
-  // date axis.
-  const validCheckpoint = nextCheckpoint && nextCheckpoint.date.getTime() > now.date.getTime() ? nextCheckpoint : null;
-  const end = validCheckpoint ?? { date: new Date(now.date.getTime() + 180 * 86_400_000), utr: now.utr };
+const H = 150;
+const PAD_X = 10;
+const PAD_TOP = 22;
+const BASELINE = H - 24;
+const FONT = "var(--font-inter)";
+const NUMBER_FONT = "var(--font-mono-active)";
 
-  const ceiling = REALISTIC_UTR_CEILING[gender];
-  const projection = computeUtrProjection(sorted, { ceiling });
+// /today's "UTR vs plan": solid line through the player's logged ratings,
+// lime dot at the latest, dashed marker at the plan's next checkpoint, and
+// the typical-growth estimate (lib/fit.ts) shaded up to it.
+//
+// C21: the end labels used to sit at fixed offsets in a 300-wide viewBox and
+// were clipped ("Jun '2", "Jun '27 · 9.0"), and the y-axis only spanned the
+// first and last ratings, so a dip between them fell off the chart. The
+// viewBox is now the column's real width, every label is anchored inside it,
+// and the y-range covers every logged value.
+export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate }: UtrVsPlanChartProps) {
+  const { ref, width } = useMeasuredWidth<HTMLDivElement>(320);
+  const sorted = [...actualPoints].filter((p) => hasRealUtr(p.utr)).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const utrValues = [start.utr, now.utr, end.utr];
-  if (projection) {
-    utrValues.push(projection.upperBound(end.date), projection.lowerBound(end.date));
+  if (sorted.length === 0) {
+    return (
+      <div ref={ref} className="flex h-[120px] items-center rounded-lg border border-dashed border-line px-4 text-sm text-stone">
+        Log a UTR to start your chart.
+      </div>
+    );
   }
-  const utrMin = Math.min(...utrValues) - 0.4;
-  const utrMax = Math.max(...utrValues) + 0.4;
-  const dateMin = Math.min(start.date.getTime(), now.date.getTime());
-  const dateMax = Math.max(end.date.getTime(), now.date.getTime() + 1);
 
-  const W = 300;
-  const H = 140;
-  const padL = 10;
-  const padR = 10;
-  const padTop = 10;
-  const baseline = 118;
+  const now = sorted[sorted.length - 1];
+  const start = sorted[0];
+  const checkpoint = nextCheckpoint && nextCheckpoint.date.getTime() > now.date.getTime() ? nextCheckpoint : null;
+  const endDate = checkpoint?.date ?? new Date(now.date.getTime() + 180 * 86_400_000);
 
-  const x = (t: number) => padL + ((t - dateMin) / (dateMax - dateMin)) * (W - padL - padR);
-  const y = (utr: number) => baseline - ((utr - utrMin) / (utrMax - utrMin)) * (baseline - padTop);
+  // The estimate between today and the right edge of this chart.
+  const band = estimate.filter((p) => p.date.getTime() <= endDate.getTime());
+  const edge = estimateOnDate(estimate, endDate);
+  if (edge && band.length > 0 && band[band.length - 1].date.getTime() < endDate.getTime()) band.push(edge);
 
-  const nowX = x(now.date.getTime());
-  const nowY = y(now.utr);
-  const endX = x(end.date.getTime());
+  const utrValues = [...sorted.map((p) => p.utr), ...(checkpoint ? [checkpoint.utr] : []), ...band.flatMap((p) => [p.low, p.high])];
+  const utrMin = Math.min(...utrValues) - 0.3;
+  const utrMax = Math.max(...utrValues) + 0.3;
+  const dateMin = start.date.getTime();
+  const dateMax = Math.max(endDate.getTime(), dateMin + 1);
+
+  const W = Math.max(240, width);
+  const x = (t: number) => PAD_X + ((t - dateMin) / (dateMax - dateMin)) * (W - 2 * PAD_X);
+  const y = (utr: number) => BASELINE - ((utr - utrMin) / (utrMax - utrMin)) * (BASELINE - PAD_TOP);
 
   const linePoints = sorted.map((p) => `${x(p.date.getTime())},${y(p.utr)}`).join(" ");
+  const bandPath =
+    band.length > 1
+      ? `M${band.map((p) => `${x(p.date.getTime())},${y(p.high)}`).join(" L")} L${[...band]
+          .reverse()
+          .map((p) => `${x(p.date.getTime())},${y(p.low)}`)
+          .join(" L")} Z`
+      : null;
 
-  const bandPath = projection
-    ? (() => {
-        const steps = 12;
-        const upper: string[] = [];
-        const lower: string[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const t = now.date.getTime() + (i / steps) * (end.date.getTime() - now.date.getTime());
-          const d = new Date(t);
-          upper.push(`${x(t)},${y(projection.upperBound(d))}`);
-          lower.push(`${x(t)},${y(projection.lowerBound(d))}`);
-        }
-        return `M${upper.join(" L")} L${lower.reverse().join(" L")} Z`;
-      })()
-    : null;
-
-  const label = (d: Date) => `${MONTH_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+  const endX = x(endDate.getTime());
+  const checkpointText = checkpoint ? `${monthYearLabel(checkpoint.date)} · ${formatPlayerUtr(checkpoint.utr)}` : "";
+  // Anchored to END at the marker, so it reads leftwards from the edge
+  // instead of running off it.
+  const checkpointLabelX = Math.max(PAD_X + approxTextWidth(checkpointText, 11), endX - 4);
 
   return (
-    <div>
+    <div ref={ref} className="w-full">
       <svg
         role="img"
-        aria-label={`UTR ${formatUTR(now.utr)} as of ${label(now.date)}${
-          validCheckpoint ? `, next checkpoint ${formatUTR(validCheckpoint.utr)} by ${label(validCheckpoint.date)}` : ""
+        aria-label={`UTR ${formatPlayerUtr(now.utr)} as of ${monthYearLabel(now.date)}${
+          checkpoint ? `, next checkpoint ${formatPlayerUtr(checkpoint.utr)} by ${monthYearLabel(checkpoint.date)}` : ""
         }`}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
+        width={W}
+        height={H}
+        className="block max-w-full"
       >
         {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
-        {sorted.length > 1 && (
-          <polyline points={linePoints} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" />
-        )}
-        {validCheckpoint && (
+        {sorted.length > 1 && <polyline points={linePoints} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" />}
+        {checkpoint && (
           <>
-            <line
-              x1={endX}
-              y1={padTop}
-              x2={endX}
-              y2={baseline}
-              stroke="rgb(var(--c-gold))"
-              strokeDasharray="3 3"
-            />
-            <text
-              x={Math.max(padL, Math.min(endX, W - 70))}
-              y={padTop + 10}
-              fontSize="11"
-              fill="rgb(var(--c-gold))"
-              fontFamily="Inter"
-            >
-              {label(end.date)} · {formatUTR(end.utr)}
+            <line x1={endX} y1={PAD_TOP - 4} x2={endX} y2={BASELINE} stroke="rgb(var(--c-gold))" strokeDasharray="3 3" />
+            <text x={checkpointLabelX} y={PAD_TOP - 8} textAnchor="end" fontSize="11" fill="rgb(var(--c-ink))" fontFamily={FONT}>
+              {monthYearLabel(checkpoint.date)} · <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(checkpoint.utr)}</tspan>
             </text>
           </>
         )}
-        <circle cx={nowX} cy={nowY} r="6" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
-        <text x={padL} y={H - 4} fontSize="11" fill="rgb(var(--c-stone))" fontFamily="Inter">
-          {label(start.date)}
+        <circle cx={x(now.date.getTime())} cy={y(now.utr)} r="6" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
+        <text x={PAD_X} y={H - 6} fontSize="11" fill="rgb(var(--c-stone))" fontFamily={FONT}>
+          {monthYearLabel(start.date)}
         </text>
-        <text x={W - 36} y={H - 4} fontSize="11" fill="rgb(var(--c-stone))" fontFamily="Inter">
-          {label(end.date)}
+        <text x={W - PAD_X} y={H - 6} textAnchor="end" fontSize="11" fill="rgb(var(--c-stone))" fontFamily={FONT}>
+          {monthYearLabel(endDate)}
         </text>
       </svg>
       <p className="mt-1.5 text-[13px] text-stone">
-        {projection
-          ? "Green band = projected range if your recent pace continues."
-          : "Log a few more UTR results to unlock a projected range."}
-        {validCheckpoint && ` Next checkpoint: ${formatUTR(validCheckpoint.utr)} by ${formatDate(validCheckpoint.date)}.`}
+        {bandPath ? "Shaded: your estimate for the summer before senior year." : "Your logged UTRs."}
+        {checkpoint && ` Next checkpoint: ${formatPlayerUtr(checkpoint.utr)} by ${formatDate(checkpoint.date)}.`}
       </p>
     </div>
   );

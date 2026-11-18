@@ -53,6 +53,7 @@ import { getSummerBeforeGradeYear, formatDate, localDateKey } from "@/lib/time";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import { academicTier } from "@/lib/school-academics";
 import { regionForState } from "@/lib/school-regions";
+import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
 export type SchoolFitBand = Exclude<FitBand, "unverified">;
 
@@ -256,10 +257,30 @@ function timingNote(division: SchoolLite["division"]): string {
     : "D3 coaches can respond any time — junior fall to junior spring is a typical first-contact window.";
 }
 
+/**
+ * The projected rating for this player at the summer before senior year —
+ * which is NOT computed here. It is the fit report's (lib/fit.ts
+ * `recruitingTimeUtr`), passed in as `estimate`, so the school page's Pace
+ * row and the ProjectionNote under it print one number for one date. This
+ * used to run its own regression and printed "8.5 by Jun 1, 2028" above the
+ * report's "7.5 for summer 2028" (C8, 2026-11-18).
+ */
 export type SchoolFitPace =
   | { status: "no-player-utr" }
-  | { status: "insufficient-history"; message: string }
-  | { status: "ready"; projectedUTR: number; byDate: string };
+  | { status: "no-estimate" }
+  | {
+      status: "ready";
+      projectedUTR: number;
+      /** "YYYY-MM-DD", the summer before senior year. */
+      byDate: string;
+      /** False once that summer has begun: the value is today's rating. */
+      isProjected: boolean;
+      /** The player's logged pace reaches the team floor by that date —
+       * read off the band (Reach = yes, Out of range = no), never a
+       * second projected number. Null when the band is not below the floor
+       * or there are too few logged ratings to tell. */
+      loggedPaceReachesFloor: boolean | null;
+    };
 
 /** What it would take to move up exactly one band — null once the player is
  * already in the top band (Likely has no higher band to move into). */
@@ -428,6 +449,16 @@ export interface SchoolFitExplanationInput {
    * summary then says "Bailey is 8.7" instead of addressing the parent as
    * "You're 8.7". */
   subjectName?: string | null;
+  /** The fit report's rating at the summer before senior year
+   * (`report.utr`). The Pace row prints exactly this. */
+  estimate?: { value: number; isProjected: boolean } | null;
+}
+
+/** Three or more logged ratings — the minimum for a trend (lib/utr-
+ * projection.ts). With fewer, a Reach means "can't tell yet", not "your
+ * pace gets there". */
+function hasLoggedTrend(history: UtrDataPoint[]): boolean {
+  return computeUtrProjection(history) != null;
 }
 
 /**
@@ -490,30 +521,29 @@ export function explainSchoolFit(
   // The below-floor sentence used to read "X's lowest reliable player is
   // 11.2", which describes a roster Seeded does not have. It is the team's
   // estimated competitive floor, and says so.
+  // The player's own rating: two decimals, never rounded (C10). 5.95 read
+  // "You're 6.0 today" here.
+  const mine = formatPlayerUtr(playerUtr);
   const summary =
     gapToFloor < 0
-      ? `${youAre} ${playerUtr.toFixed(1)} today, already above ${school.shortName}'s competitive floor of ${school.minCompetitiveUTR.toFixed(1)}.`
+      ? `${youAre} ${mine} today, already above ${school.shortName}'s competitive floor of ${formatUtrEstimate(school.minCompetitiveUTR)}.`
       : gapToFloor === 0
-        ? `${youAre} ${playerUtr.toFixed(1)} today, exactly at ${school.shortName}'s competitive floor.`
-        : `${school.shortName}'s estimated competitive floor is ${school.minCompetitiveUTR.toFixed(1)}. ${youAre} ${playerUtr.toFixed(1)} today.`;
+        ? `${youAre} ${mine} today, exactly at ${school.shortName}'s competitive floor.`
+        : `${school.shortName}'s estimated competitive floor is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
-  const computed = computeUtrProjection(
-    history,
-    input.gender ? { ceiling: REALISTIC_UTR_CEILING[input.gender] } : undefined
-  );
-  // Same evaluation date classifySchoolFit uses: past the summer before
-  // senior year the trend is read as of today, not "by" a date that has
-  // gone (a senior's page said "10.8 by Jun 1, 2026", chipped Projected).
-  const paceDate = milestone.getTime() > now.getTime() ? milestone : now;
-  const pace: SchoolFitPace =
-    computed == null
-      ? { status: "insufficient-history", message: "Log more results to see your pace." }
-      : {
-          status: "ready",
-          projectedUTR: Math.round(computed.predict(paceDate) * 10) / 10,
-          byDate: localDateKey(paceDate),
-        };
+  // ONE projection: the fit report's (see SchoolFitPace). Nothing here
+  // projects a rating of its own any more.
+  const estimate = input.estimate;
+  const pace: SchoolFitPace = !estimate
+    ? { status: "no-estimate" }
+    : {
+        status: "ready",
+        projectedUTR: estimate.value,
+        byDate: localDateKey(milestone),
+        isProjected: estimate.isProjected,
+        loggedPaceReachesFloor: band === "reach" ? (hasLoggedTrend(history) ? true : null) : band === "out-of-range" ? false : null,
+      };
 
   const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone, who);
   const unreachable = nextBand != null && (nextBand.paceRead === "faster-than-realistic" || nextBand.paceRead === "no-time-left");
@@ -579,6 +609,13 @@ export function computeGoalPace(
 
   const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
   return { gap, byDate, requiredPaceUtrPerYear, paceRead: paceReadFor(requiredPaceUtrPerYear) };
+}
+
+/** THE rule for showing the unrealistic-pace warning — /plan and /today
+ * both render GoalPaceWarning, which asks this, so the two screens cannot
+ * disagree about when a goal is out of reach. */
+export function goalPaceNeedsWarning(pace: GoalPace | null): boolean {
+  return pace != null && (pace.paceRead === "faster-than-realistic" || pace.paceRead === "no-time-left");
 }
 
 // ---------------------------------------------------------------------

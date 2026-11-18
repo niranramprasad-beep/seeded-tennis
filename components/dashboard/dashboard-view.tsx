@@ -17,7 +17,10 @@ import {
 import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
-import { buildRoadmap } from "@/lib/db/plan";
+import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
+import type { PlanGoal } from "@/lib/fit";
+import type { GoalPace } from "@/lib/school-fit";
+import { Toast } from "@/components/seeded/ui/toast";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +34,9 @@ import { useDesign } from "@/lib/context/design-context";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
 import { DailyCheckinCard } from "./daily-checkin-card";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
-import { localDateKey } from "@/lib/time";
+import { formatDate, localDateKey, parseLocalDate } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { cn, formatUTR, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUTR, hasRealUtr, utrInputValue } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
@@ -170,13 +173,16 @@ function DashboardInner({ schools }: DashboardViewProps) {
     [schools, player.targetSchoolSlugs]
   );
 
-  const roadmap = useMemo(
-    () => buildRoadmap(player, targetSchools),
-    [player, targetSchools]
-  );
+  // The same goal and checkpoints /plan shows (lib/hooks/use-plan-goal.ts):
+  // the one the player set, or the typical-growth estimate. It used to be
+  // the hardest target's floor, so "Next checkpoint" jumped whenever a
+  // target was added (C11).
+  const planGoal = usePlanGoal(player);
+  const roadmap = planGoal.roadmap;
 
-  const targetUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
+  const targetUTR = planGoal.goal?.value ?? player.currentUTR;
   const firstName = player.name.trim().split(/\s+/)[0] || "";
+  const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // Never invent data: with no logged entries yet, the only "actual" point is
   // the player's own current UTR from their profile — a real value, not a
@@ -186,7 +192,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
       return [{ date: new Date(), utr: player.currentUTR }];
     }
     return utrEntries.map((e) => ({
-      date: new Date(`${e.recordedAt}T00:00:00`),
+      date: parseLocalDate(e.recordedAt),
       utr: e.utr,
     }));
   }, [utrEntries, player.currentUTR]);
@@ -226,6 +232,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
       updatePlayer({ currentUTR: mostRecent.utr });
       setUtrDrawerOpen(false);
       setUtrStatus("idle");
+      // C19: the drawer used to close with no word that anything happened.
+      setSavedToast(`UTR ${formatPlayerUtr(input.utr)} saved for ${formatDate(input.recordedAt)}.`);
     } catch (error) {
       setUtrStatus("error");
       setUtrError(error instanceof Error ? error.message : "Could not save UTR entry.");
@@ -289,6 +297,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
 
       setSundayCheckinOpen(false);
       setSundayStatus("idle");
+      setSavedToast(`Check-in saved. UTR ${formatPlayerUtr(input.utr)}.`);
     } catch (error) {
       setSundayStatus("error");
       setSundayError(error instanceof Error ? error.message : "Could not save your check-in.");
@@ -314,6 +323,9 @@ function DashboardInner({ schools }: DashboardViewProps) {
     setCheckinDrawerOpen,
     sundayCheckinDue,
     setSundayCheckinOpen,
+    planGoal: planGoal.goal,
+    goalPace: planGoal.goalPace,
+    onUseEstimateGoal: () => void planGoal.setGoal(null),
   };
 
   return (
@@ -351,6 +363,10 @@ function DashboardInner({ schools }: DashboardViewProps) {
       <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
         <DailyCheckinCard />
       </Drawer>
+
+      <Toast open={savedToast != null} onDismiss={() => setSavedToast(null)} variant="success">
+        {savedToast ?? " "}
+      </Toast>
     </div>
   );
 }
@@ -376,6 +392,10 @@ export interface DashboardLayoutProps {
    * yet today) or when genuinely overdue (7+ days since the last entry). */
   sundayCheckinDue: boolean;
   setSundayCheckinOpen: (v: boolean) => void;
+  /** lib/hooks/use-plan-goal.ts — the same goal /plan shows. */
+  planGoal: PlanGoal | null;
+  goalPace: GoalPace | null;
+  onUseEstimateGoal: () => void;
 }
 
 function LegacyDashboardLayout({
@@ -497,7 +517,7 @@ function LegacyDashboardLayout({
               <p className="text-sm text-on-primary/80">Your current UTR</p>
               <div className="relative mt-1 text-6xl font-bold tracking-tight sm:text-7xl">
                 {hasRealUtr(player.currentUTR) ? (
-                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
+                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={2} />
                 ) : (
                   <span className="text-3xl font-semibold sm:text-4xl">Not tracked</span>
                 )}
@@ -692,14 +712,14 @@ function UtrLogDrawer({
   onClose: () => void;
   onSave: (input: { utr: number; recordedAt: string; note: string }) => void;
 }) {
-  const [utr, setUtr] = useState(currentUtr.toFixed(1));
+  const [utr, setUtr] = useState(utrInputValue(currentUtr));
   const [recordedAt, setRecordedAt] = useState(localDateKey());
   const [note, setNote] = useState("");
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setUtr(currentUtr.toFixed(1));
+    setUtr(utrInputValue(currentUtr));
     setRecordedAt(localDateKey());
     setNote("");
     setLocalError("");

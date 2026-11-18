@@ -270,7 +270,9 @@ describe("(d) the school page explains the report's band, never its own", () => 
     const callers = ROOTS.flatMap((r) => sourceFiles(r)).filter((f) =>
       /\bexplainSchoolFit\s*\(/.test(stripComments(readFileSync(f, "utf8")))
     );
-    expect(callers.length).toBeGreaterThanOrEqual(4);
+    // 3 since 2026-11-18: /plan no longer calls it to filter "realistic"
+    // targets (lib/fit.ts isRealisticTarget does that, from the report).
+    expect(callers.length).toBeGreaterThanOrEqual(3);
     for (const f of callers) {
       const src = stripComments(readFileSync(f, "utf8"));
       // The band must come from the report: the file reads bandBySlug or a

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildRoadmap, calculateStreak, validateUtrEntryInput, type DailyCheckin } from "./plan";
 import { getCurrentGrade, localDateKey } from "@/lib/time";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
-import type { Player, School } from "@/lib/types";
+import type { Player } from "@/lib/types";
 
 // Far enough out that "current grade" stays comfortably below 12 no matter
 // which calendar day this suite actually runs on.
@@ -23,41 +23,42 @@ const player: Player = {
   onboarded: true,
 };
 
-const target: Pick<School, "minCompetitiveUTR"> = { minCompetitiveUTR: 11 };
+const GOAL = 11;
 
 describe("buildRoadmap", () => {
   it("produces one checkpoint per remaining grade through 12th", () => {
-    const years = buildRoadmap(player, [target]);
+    const years = buildRoadmap(player, GOAL);
     const currentGrade = Math.min(getCurrentGrade(player.graduationYear), 12);
     expect(years.length).toBe(12 - currentGrade);
     expect(years[years.length - 1].shortLabel).toBe("12th");
   });
 
-  it("ramps the UTR target up to the highest target school's minCompetitiveUTR by grade 12", () => {
-    const years = buildRoadmap(player, [target, { minCompetitiveUTR: 9.5 }]);
-    const last = years[years.length - 1];
-    expect(last.utrTarget).toBeCloseTo(11, 1);
-    // monotonically non-decreasing toward the goal
+  it("ramps to exactly the goal by the summer before senior year, never down", () => {
+    const years = buildRoadmap(player, GOAL);
+    expect(years[years.length - 1].utrTarget).toBe(GOAL);
     for (let i = 1; i < years.length; i++) {
       expect(years[i].utrTarget).toBeGreaterThanOrEqual(years[i - 1].utrTarget);
     }
   });
 
-  it("falls back to current UTR + 2.5 (capped at the gender ceiling) with no target schools", () => {
-    const years = buildRoadmap(player, []);
-    const last = years[years.length - 1];
-    expect(last.utrTarget).toBeCloseTo(player.currentUTR + 2.5, 1);
-  });
-
-  it("caps the fallback goal at the realistic ceiling for the player's gender", () => {
-    const nearCeiling = { ...player, currentUTR: 12 }; // 12 + 2.5 = 14.5 > female ceiling (12.5)
-    const years = buildRoadmap(nearCeiling, []);
-    const last = years[years.length - 1];
-    expect(last.utrTarget).toBeLessThanOrEqual(12.5);
+  it("puts every checkpoint on one straight line in time, at hundredth precision (C11)", () => {
+    // The chart draws a straight dashed line through these; grade-step
+    // progress put the first checkpoint a full 1/n of the gap away even
+    // when it was months off.
+    const now = new Date(2026, 10, 18);
+    const p = { currentUTR: 5.95, graduationYear: 2029 };
+    const years = buildRoadmap(p, 7.5, now);
+    const goalT = new Date(2028, 5, 1).getTime();
+    for (const y of years) {
+      const t = new Date(y.calendarYear, 5, 1).getTime();
+      const expected = 5.95 + (7.5 - 5.95) * ((t - now.getTime()) / (goalT - now.getTime()));
+      expect(y.utrTarget).toBeCloseTo(expected, 2);
+      expect(Math.round(y.utrTarget * 100) / 100).toBe(y.utrTarget);
+    }
   });
 
   it("attaches real milestones for each grade, never an empty list", () => {
-    const years = buildRoadmap(player, [target]);
+    const years = buildRoadmap(player, GOAL);
     for (const year of years) {
       expect(year.milestones.length).toBeGreaterThan(0);
     }

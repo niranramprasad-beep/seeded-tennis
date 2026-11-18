@@ -143,6 +143,146 @@ export function projectUtrAtRecruiting(input: {
   };
 }
 
+/**
+ * The fit report's estimate (`report.utr`), drawn as a path from today to
+ * the summer before senior year — for the charts on /today and /plan.
+ *
+ * THIS DECIDES NOTHING. It takes the `RecruitingTimeUtr` the report already
+ * chose (whatever rule `recruitingTimeUtr` applies) and draws straight
+ * lines from today's rating to its low / value / high at the target date.
+ * So the chart's end label, the ProjectionNote and the school page's Pace
+ * row are one number by construction.
+ *
+ * WHY. Until 2026-11-18 each chart shaded its own regression through the
+ * logged ratings while every other screen printed the report's estimate.
+ * The school page showed both in one card: "Pace: 8.5 by Jun 1, 2028" above
+ * "estimated UTR for summer 2028: 7.5" — two projections for one date (C8).
+ *
+ * Empty when there is no estimate or it is today's rating (the summer has
+ * begun), so there is nothing projected to draw.
+ */
+export interface UtrEstimatePoint {
+  date: Date;
+  low: number;
+  value: number;
+  high: number;
+}
+
+export function projectionPath(input: {
+  /** `report.utr` — never computed here. */
+  estimate: RecruitingTimeUtr | null | undefined;
+  currentUtr: number | null | undefined;
+  graduationYear: number;
+  now?: Date;
+  /** Points including both ends. */
+  steps?: number;
+}): UtrEstimatePoint[] {
+  const { estimate, currentUtr } = input;
+  if (!estimate?.isProjected || currentUtr == null || !Number.isFinite(currentUtr) || currentUtr <= 0) return [];
+  const now = input.now ?? new Date();
+  const target = projectionTargetDate(input.graduationYear);
+  const span = target.getTime() - now.getTime();
+  if (span <= 0) return [];
+  const steps = Math.max(2, input.steps ?? 12);
+  const points: UtrEstimatePoint[] = [];
+  for (let i = 0; i < steps; i++) {
+    const f = i / (steps - 1);
+    const lerp = (end: number) => currentUtr + (end - currentUtr) * f;
+    points.push({
+      date: new Date(now.getTime() + span * f),
+      low: lerp(estimate.low),
+      value: lerp(estimate.value),
+      high: lerp(estimate.high),
+    });
+  }
+  // The end is exactly the report's numbers, not a float near them.
+  points[points.length - 1] = { date: target, low: estimate.low, value: estimate.value, high: estimate.high };
+  return points;
+}
+
+/**
+ * The value of that path on one date — the estimate at a chart's right edge
+ * when the chart stops before the summer before senior year. Clamped to the
+ * path's ends. Null when there is no estimate.
+ */
+export function estimateOnDate(
+  path: UtrEstimatePoint[],
+  date: Date
+): UtrEstimatePoint | null {
+  if (path.length === 0) return null;
+  const t = date.getTime();
+  if (t <= path[0].date.getTime()) return path[0];
+  const last = path[path.length - 1];
+  if (t >= last.date.getTime()) return last;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (t <= b.date.getTime()) {
+      const f = (t - a.date.getTime()) / (b.date.getTime() - a.date.getTime());
+      const lerp = (x: number, y: number) => x + (y - x) * f;
+      return { date, low: lerp(a.low, b.low), value: lerp(a.value, b.value), high: lerp(a.high, b.high) };
+    }
+  }
+  return last;
+}
+
+/* ==========================================================================
+ * THE PLAN GOAL
+ * ==========================================================================
+ * /plan's goal used to be the floor of the HARDEST target school (Duke,
+ * 12.0, for a 5.95 player). So the goal, every checkpoint on /plan and the
+ * "Next checkpoint" chip on /today jumped whenever a target was added
+ * (8.90 → 9.0 → 9.50 in one session), and the default plan asked for
+ * 3.9 UTR a year — a pace almost nobody manages, presented as "your plan".
+ *
+ * Now: the goal is one the player chose, or — until they choose — the fit
+ * report's estimate for the summer before senior year (`report.utr`, the
+ * number every ProjectionNote prints). Adding a target never moves it, and
+ * this function computes no projection of its own.
+ */
+export type PlanGoalSource = "chosen" | "estimate";
+
+export interface PlanGoal {
+  value: number;
+  source: PlanGoalSource;
+  /** The default the player can always go back to. Null without a rating. */
+  estimate: number | null;
+}
+
+export function resolvePlanGoal(input: {
+  /** The goal the player saved, if any (lib/db/settings.ts). */
+  chosenGoalUtr: number | null | undefined;
+  /** `report.utr` — the fit report's rating for the summer before senior year. */
+  estimate: RecruitingTimeUtr | null | undefined;
+}): PlanGoal | null {
+  const estimate = input.estimate?.value ?? null;
+  const chosen = input.chosenGoalUtr;
+  if (chosen != null && Number.isFinite(chosen) && chosen > 0) {
+    return { value: chosen, source: "chosen", estimate };
+  }
+  if (estimate == null) return null;
+  return { value: estimate, source: "estimate", estimate };
+}
+
+/* ==========================================================================
+ * REALISTIC TARGETS (/plan's "Show realistic targets")
+ * ==========================================================================
+ * A target is realistic when the ONE estimate — the rating this module
+ * projects to the summer before senior year — reaches its competitive
+ * floor: the report's recruiting-time band is Target or Likely. A Reach is
+ * by definition below the floor even at that estimate, and Out of range is
+ * below it on the player's own logged pace too. For a player whose summer
+ * has begun the recruiting band IS today's band.
+ *
+ * Read from the report built WITHOUT the what-if override: dragging the
+ * slider must not change which targets are "realistic" for the player they
+ * actually are.
+ */
+export function isRealisticTarget(report: FitReport | null, slug: string): boolean {
+  const row = report?.rows.find((r) => r.slug === slug);
+  return row != null && (row.recruitingBand === "target" || row.recruitingBand === "likely");
+}
+
 /** The caption to render under a projected number. Always paired with it —
  * the number alone is the thing this module exists to avoid. */
 export function projectionAssumptionLabel(pace: GrowthPace = "normal"): string {

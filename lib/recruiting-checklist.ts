@@ -64,8 +64,11 @@ export interface RecruitingChecklistContext {
   now?: Date;
 }
 
-const NCAA_CAVEAT =
-  "General NCAA contact-period guidance, not sport-specific to tennis — rules change; confirm the current calendar at ncaa.org.";
+// The dated NCAA rows carry no per-row note. The caveat ("general NCAA
+// contact-period guidance, not specific to tennis; confirm at ncaa.org") is
+// said ONCE, at the top of the card (components/seeded/roadmap/
+// recruiting-checklist.tsx). It used to repeat under all five rows (C16).
+const NO_NOTE = "";
 
 /** The fixed set of default checklist items — every date computed for real
  * from `context.graduationYear`, nothing hardcoded to a specific year. */
@@ -128,7 +131,7 @@ export function buildDefaultRecruitingChecklist(
       category: "outreach",
       division: "D1",
       dueDate: d1ContactOpen,
-      note: NCAA_CAVEAT,
+      note: NO_NOTE,
       autoDone: null,
     },
     {
@@ -137,7 +140,7 @@ export function buildDefaultRecruitingChecklist(
       category: "visits",
       division: "D1",
       dueDate: d1OffCampus,
-      note: NCAA_CAVEAT,
+      note: NO_NOTE,
       autoDone: null,
     },
     {
@@ -146,7 +149,7 @@ export function buildDefaultRecruitingChecklist(
       category: "outreach",
       division: "D1",
       dueDate: d1WrittenOffer,
-      note: NCAA_CAVEAT,
+      note: NO_NOTE,
       autoDone: null,
     },
     {
@@ -155,7 +158,7 @@ export function buildDefaultRecruitingChecklist(
       category: "visits",
       division: "D3",
       dueDate: d3OffCampus,
-      note: NCAA_CAVEAT,
+      note: NO_NOTE,
       autoDone: null,
     },
     {
@@ -164,7 +167,7 @@ export function buildDefaultRecruitingChecklist(
       category: "visits",
       division: "D3",
       dueDate: d3OfficialVisit,
-      note: NCAA_CAVEAT,
+      note: NO_NOTE,
       autoDone: null,
     },
     {

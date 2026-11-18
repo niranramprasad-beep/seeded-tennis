@@ -2,6 +2,7 @@ import type { RecruitingTimeUtr } from "@/lib/fit";
 import { projectionTargetLabel } from "@/lib/fit";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
+import { formatUtrEstimate } from "@/lib/utils";
 
 /**
  * The one sentence every screen shows when its bands come from the
@@ -17,6 +18,7 @@ export function ProjectionNote({
   who,
   className,
   after,
+  withEarlyDecisionNote = false,
 }: {
   utr: RecruitingTimeUtr | null | undefined;
   /** "Avery" on a parent's screen; omitted means "your". */
@@ -25,6 +27,14 @@ export function ProjectionNote({
   /** A second short sentence about the same card's data, so the card still
    *  carries ONE note (rule 2) — e.g. the team-range caveat under a table. */
   after?: string;
+  /**
+   * Adds "Top D1 programs often decide earlier, during junior year." ONE
+   * screen passes this: the /schools list (C16, 2026-11-18). It used to
+   * ride along on every ProjectionNote — Today, Plan, the school page,
+   * /family — four times in one session. Niran's 2026-11-16 call that the
+   * line exists is kept; it now exists once, where a player picks schools.
+   */
+  withEarlyDecisionNote?: boolean;
 }) {
   if (!utr?.isProjected) return null;
   const whose = who ? `${who}'s` : "your";
@@ -36,7 +46,8 @@ export function ProjectionNote({
     <DataNote className={className}>
       <EstimateChip className="mr-1.5" />
       Bands use {whose} estimated UTR for {projectionTargetLabel(utr.year)}, the summer before senior year:{" "}
-      <span className="font-mono tabular-nums text-ink">{utr.value.toFixed(1)}</span>. {EARLY_DECISION_NOTE}
+      <span className="font-mono tabular-nums text-ink">{formatUtrEstimate(utr.value)}</span>.
+      {withEarlyDecisionNote ? ` ${EARLY_DECISION_NOTE}` : null}
       {after ? ` ${after}` : null}
     </DataNote>
   );

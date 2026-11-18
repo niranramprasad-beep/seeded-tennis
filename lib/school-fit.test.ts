@@ -8,7 +8,7 @@ import {
   findAlternativeSchools,
   REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
   type SchoolFitProjectionInput, fitBasis } from "./school-fit";
-import { computeUtrProjection, type UtrDataPoint } from "./utr-projection";
+import type { UtrDataPoint } from "./utr-projection";
 import type { SchoolLite } from "./types";
 
 const SCHOOL = { minCompetitiveUTR: 10, avgRosterUTR: 11 };
@@ -205,14 +205,14 @@ describe("explainSchoolFit — summary sentence, real numbers only", () => {
     const explanation = explainSchoolFit(5.8, school, { graduationYear: 2028 });
     // "today": the band may be judged at a projected estimate (the fit
     // report's choice), so the sentence says which rating it is quoting.
-    expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.3. You're 5.8 today.");
+    expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.3. You're 5.80 today.");
     expect(explanation.gapToFloor).toBeCloseTo(6.5, 2);
     expect(explanation.gapToMedian).toBeCloseTo(7.8, 2);
   });
 
   it("switches to an 'already above' sentence once the player clears the floor", () => {
     const explanation = explainSchoolFit(14, school, { graduationYear: 2028 });
-    expect(explanation.summary).toBe("You're 14.0 today, already above Stanford's competitive floor of 12.3.");
+    expect(explanation.summary).toBe("You're 14.00 today, already above Stanford's competitive floor of 12.3.");
     expect(explanation.gapToFloor).toBeCloseTo(-1.7, 2);
   });
 });
@@ -232,32 +232,49 @@ describe("explainSchoolFit — Likely band has nothing higher to move into", () 
 describe("explainSchoolFit — pace projection (point 4)", () => {
   const school = schoolLite({ slug: "pace-school", minCompetitiveUTR: 10, avgRosterUTR: 11 });
 
-  it("returns 'Log more results to see your pace' with fewer than 3 real history points", () => {
-    const explanation = explainSchoolFit(10.5, school, { graduationYear: 2028 });
-    expect(explanation.pace).toEqual({
-      status: "insufficient-history",
-      message: "Log more results to see your pace.",
-    });
-  });
-
-  it("returns a real projected UTR + date once >=3 real history points exist", () => {
+  // C8 (2026-11-18): the Pace row used to print its OWN regression
+  // projection ("8.5 by Jun 1, 2028") above the report's "7.5 for summer
+  // 2028". It now prints the estimate it is handed — the fit report's — and
+  // never projects a number itself.
+  it("has nothing to print without the report's estimate — it never projects on its own", () => {
     const flatPace: UtrDataPoint[] = [
       { date: d("2025-05-01"), utr: 8.9 },
       { date: d("2025-08-01"), utr: 8.95 },
       { date: d("2025-11-01"), utr: 9.0 },
     ];
-    const graduationYear = 2027;
-    const now = d("2025-11-08");
-    const explanation = explainSchoolFit(9, school, { graduationYear, utrHistory: flatPace, now });
+    const explanation = explainSchoolFit(10.5, school, { graduationYear: 2028, utrHistory: flatPace });
+    expect(explanation.pace).toEqual({ status: "no-estimate" });
+  });
+
+  it("prints exactly the estimate it is given, at the summer before senior year", () => {
+    const explanation = explainSchoolFit(9, school, {
+      graduationYear: 2027,
+      now: d("2025-11-08"),
+      estimate: { value: 9.6, isProjected: true },
+    });
     expect(explanation.pace.status).toBe("ready");
     if (explanation.pace.status !== "ready") throw new Error("unreachable");
-    // Computed independently from the same real regression, not hardcoded —
-    // this just proves explainSchoolFit wires the real math through, rather
-    // than re-deriving its own expectation of what that math should say.
-    const expected =
-      Math.round(computeUtrProjection(flatPace)!.predict(new Date(2026, 5, 1)) * 10) / 10;
-    expect(explanation.pace.projectedUTR).toBeCloseTo(expected, 5);
+    expect(explanation.pace.projectedUTR).toBe(9.6);
     expect(explanation.pace.byDate).toBe("2026-06-01");
+    expect(explanation.pace.isProjected).toBe(true);
+  });
+
+  it("says whether the logged pace reaches the floor from the band, without a second number", () => {
+    const rising: UtrDataPoint[] = [
+      { date: d("2025-05-01"), utr: 8.0 },
+      { date: d("2025-08-01"), utr: 8.5 },
+      { date: d("2025-11-01"), utr: 9.0 },
+    ];
+    const est = { value: 9.6, isProjected: true };
+    const reach = explainSchoolFit(9, school, { graduationYear: 2027, utrHistory: rising, band: "reach", estimate: est });
+    const oor = explainSchoolFit(9, school, { graduationYear: 2027, utrHistory: rising, band: "out-of-range", estimate: est });
+    const thin = explainSchoolFit(9, school, { graduationYear: 2027, utrHistory: rising.slice(0, 2), band: "reach", estimate: est });
+    const target = explainSchoolFit(10.2, school, { graduationYear: 2027, utrHistory: rising, band: "target", estimate: est });
+    const read = (e: typeof reach) => (e.pace.status === "ready" ? e.pace.loggedPaceReachesFloor : "n/a");
+    expect(read(reach)).toBe(true);
+    expect(read(oor)).toBe(false);
+    expect(read(thin), "fewer than 3 ratings: can't tell").toBeNull();
+    expect(read(target), "already at or above the floor").toBeNull();
   });
 });
 
@@ -612,7 +629,7 @@ describe("explainSchoolFit — the school page agrees with the /schools row", ()
 
   it("names the player for a parent instead of addressing the parent as 'you'", () => {
     const e = explainSchoolFit(8.7, school, { graduationYear: 2031, subjectName: "Avery" });
-    expect(e.summary).toMatch(/Avery is 8\.7 today/);
+    expect(e.summary).toMatch(/Avery is 8\.70 today/);
     expect(e.summary).not.toMatch(/\bYou\b/);
     const none = explainSchoolFit(null, school, { graduationYear: 2031, subjectName: "Avery" });
     expect(none.summary).toMatch(/^Avery hasn't logged a UTR/);

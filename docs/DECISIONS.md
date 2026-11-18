@@ -7,6 +7,93 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR C numbers: one projection, two decimals, local dates, a real goal
+
+Made in the production sweep's numbers branch. Each is a deliberate change
+a reviewer might otherwise read as a regression.
+
+**ONE projection (C8).** The fit report's `utr` (lib/fit.ts
+`recruitingTimeUtr`, via `buildFitReport`) is the only projected UTR any
+screen prints — whatever rule that function applies (PR B is changing it to
+use a recent logged pace; nothing here needs to change when it lands). The
+school page's Pace row used to run its own regression through the logged
+ratings ("8.5 by Jun 1, 2028") two lines above the report's "7.5 for summer
+2028"; /today and /plan shaded that same regression. Now the Pace row
+prints `report.utr.value` and says in words whether the player's logged
+pace reaches this team's floor (read off the band — the 2026-11-16 Reach
+rule is unchanged); both charts shade `projectionPath(report.utr)`, which
+only draws straight lines from today's rating to the report's
+low / value / high and decides nothing. The what-if panel's "My pace" button still extends the
+logged trend: it is a hypothetical the player asks for, labelled as one.
+*Undo:* `explainSchoolFit`'s `pace` block and the two chart components.
+
+**Two decimals for a player's rating, one for estimates (C10, C19).**
+`formatPlayerUtr` (lib/utils.ts) is the only formatter for a rating a
+player logged, typed, emails or exports — 5.95, 5.80, 9.00 — in chips,
+charts, inputs, the tournament checker and the coach email. Estimates —
+the projection, team floors/averages/ranges, gaps to them — stay at one
+decimal (`formatUtrEstimate`): they are rounded to 0.1 in lib/fit.ts on
+purpose, and "7.50" would claim a precision the assumption does not have.
+Plan goals and checkpoints are on the player's own scale and use two.
+`formatUTR` survives as an alias of `formatPlayerUtr` so no caller keeps
+the old "9.0" / "9.50" mix. *Undo:* lib/utils.ts.
+
+**Date-only values are local days (C9).** `toLocalDateString(d)` writes and
+`parseLocalDate("YYYY-MM-DD")` reads every Postgres `date` column;
+`localDateKey` is now the same function. Vitest runs files in worker
+threads, where assigning `process.env.TZ` mid-run does not change the zone,
+so the two-zone proof is a script — `npm run test:tz` (New York, then
+Auckland) — and `lib/local-dates.test.ts` asserts in whichever zone it runs.
+Two existing fixtures used UTC instants as "Sunday"/"Jan 15" and failed in
+Auckland; they now use local times.
+
+**The plan goal (C11).** Default = the fit report's estimate for the
+summer before senior year (`report.utr`, the number every ProjectionNote
+prints), so the default plan needs a realistic pace and adding a target
+never moves it. A
+player can set their own goal on /plan; it is stored in
+`user_settings.notification_preferences.planGoalUtr` — the same JSON bag
+that already holds the player's other preferences — so no migration, and it
+is in the account export with the rest of `user_settings`. An unrealistic
+chosen goal shows the same warning on /plan and /today
+(`GoalPaceWarning`, rule `goalPaceNeedsWarning`), offering the estimate
+back. Checkpoints now sit on a straight line in time to the goal (they
+moved in equal grade steps). *Undo:* `buildRoadmap`'s old target-floor goal
+in lib/db/plan.ts and `usePlanGoal`.
+
+**"Show realistic targets" (C5) — kept, made real.** It keeps targets whose
+floor the estimate reaches (the report's recruiting-time band is Target or
+Likely), read from the report without the what-if override, and is only
+offered when it would hide something. It moved from the pace warning (which
+the new default goal rarely shows) to the target list's header.
+
+**Today's next steps (C12).** When there are no coach actions, or some
+targets are off track, Today lists up to three steps that link to features
+that exist: log your UTR (drawer), add targets you're on track for
+(/schools), log a match result (/events), check a tournament
+(/tournament-fit). The headline never says "caught up" over them.
+
+**"Top D1 programs often decide earlier, during junior year." lives on the
+/schools list only (C16).** Niran's 2026-11-16 call that the line exists
+somewhere a player will see it is kept: /schools is where a player chooses
+programs. It is gone from Today, Plan, the school page and /family. The
+pre-auth fit report still prints it beside the timing note; that screen is
+onboarding's rebuild (board 20) and was left to it. The NCAA contact-period
+caveat on /plan's timeline is said once, at the top of the card.
+
+**Copy (C24).** /plan has an H1 "Plan" (the player's name is now an H2).
+"Top (drawn)" → "Top of range". The school page no longer says "#1 of the
+D1 men's programs in Seeded on our combined score" — it was a ranking only
+Seeded uses; the U.S. News rank stays. "Live data, your own account." is
+gone from Today and Plan.
+
+**Charts (C21).** Both charts draw in a viewBox as wide as their column, so
+12px text stays 12px at 320 and labels are anchored inside the edges; the
+y-axis covers every logged rating; /plan's checkpoint labels sit above-left
+of each diamond, off the rising dashed line.
+
+---
+
 ## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
 
 Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`

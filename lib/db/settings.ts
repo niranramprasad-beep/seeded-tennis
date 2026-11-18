@@ -99,6 +99,32 @@ export async function savePublicRecruitingPage(value: boolean): Promise<void> {
   await mergeIntoBag({ publicRecruitingPage: value });
 }
 
+/* ------------------------------------------------------------ plan goal */
+// The UTR goal a player sets on /plan (C11). Lives in the same
+// `user_settings.notification_preferences` bag as the rest of the player's
+// own preferences — no migration, the same read-then-merge write, and it
+// rides along in /api/account/export with the rest of user_settings.
+// `null` means "no goal chosen": lib/fit.ts resolvePlanGoal then uses the
+// typical-growth estimate. A value outside the real UTR scale is ignored
+// rather than trusted.
+
+const PLAN_GOAL_KEY = "planGoalUtr";
+
+export function parsePlanGoalUtr(raw: unknown): number | null {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  if (!Number.isFinite(n) || n < 1 || n > 16.5) return null;
+  return Math.round(n * 100) / 100;
+}
+
+export async function loadPlanGoalUtr(): Promise<number | null> {
+  const bag = await loadBag();
+  return parsePlanGoalUtr(bag?.[PLAN_GOAL_KEY]);
+}
+
+export async function savePlanGoalUtr(value: number | null): Promise<void> {
+  await mergeIntoBag({ [PLAN_GOAL_KEY]: value == null ? null : parsePlanGoalUtr(value) });
+}
+
 /* ------------------------------------------------------- design preference */
 
 export interface DesignPreference {

@@ -13,6 +13,21 @@
 
 ## Executive status
 
+**2026-11-18 — PR C, numbers (C5, C8–C12, C16, C19, C21, C24; no
+migrations).** One projection: the school page's Pace row, both charts and
+/plan's default goal all read the fit report's `utr` (`projectionPath`,
+`resolvePlanGoal`, the report's `utr`), locked by
+`lib/projection-single-source.test.ts`. A player's own rating always prints
+with two decimals (`formatPlayerUtr`, lib/utils.ts — 5.95 was going to
+coaches as "UTR 6.0"), guarded by `lib/player-utr-format.test.ts`.
+Date-only values are local days (`toLocalDateString` / `parseLocalDate`,
+lib/time.ts), guarded by `lib/local-dates.test.ts`; `npm run test:tz` runs
+the suite under New York and Auckland. /plan's goal is the player's choice
+(saved in `user_settings`) or the report's estimate — never the
+hardest target's floor; Today shows the same pace warning. Today offers real
+next steps instead of "all caught up" over "On track for 0 of 4". Decisions:
+docs/DECISIONS.md 2026-11-18.
+
 **2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
 Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
 banned badge copy, raw hex, lime button fills, focus ring, primary-button
