@@ -493,10 +493,19 @@ export function SeededSchoolsBrowser({
     ...(showFitCol ? ["100px"] : []),
     "minmax(0,2fr)",
     ...(showOpenings ? ["80px"] : []),
-    "90px",
+    "104px",
     ...(showDataCol ? ["110px"] : []),
   ].join(" ");
   const genderLabel = gender === "men" ? "men's" : "women's";
+  // The header counts what the table shows (C25). A remembered filter —
+  // "Saved" most often — used to leave "37 men's programs." above a
+  // one-row table. Filters still persist (a family that narrowed the list
+  // expects it narrowed next visit); the line now says so.
+  const catalogCount = allSchools.filter((s) => s.gender === gender).length;
+  const countLine =
+    visible.length === catalogCount
+      ? `${catalogCount} ${genderLabel} programs.`
+      : `Showing ${visible.length} of ${catalogCount} ${genderLabel} programs.`;
 
   return (
     <div>
@@ -507,8 +516,8 @@ export function SeededSchoolsBrowser({
               once the report arrived, which wrapped this line on a 320px
               phone and pushed the whole page down 24px (CLS 0.13). The Sort
               control below already says what the order is. */}
-          <p className="mt-1.5 text-stone">
-            {ranked.length} {genderLabel} programs.
+          <p className="mt-1.5 text-stone" aria-live="polite">
+            {countLine}
           </p>
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
@@ -742,7 +751,7 @@ export function SeededSchoolsBrowser({
                 <EstimateChip className="normal-case tracking-normal" label="Team range: estimate" />
               </span>
               {showOpenings && <span>Openings</span>}
-              <span title={ACADEMIC_RANK_SOURCE_LABEL}>Acad.</span>
+              <span title={ACADEMIC_RANK_SOURCE_LABEL}>Academics</span>
               {showDataCol && <span>Data</span>}
             </div>
             {visible.map((s, index) => {
@@ -855,7 +864,11 @@ export function SeededSchoolsBrowser({
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
                     )}
-                    <DataChip status="updated">{ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}</DataChip>
+                    {/* A label, not a control: plain text, so "Top 25"
+                        doesn't read as a pill you can press (C25). */}
+                    <span className="whitespace-nowrap text-sm text-stone">
+                      {ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}
+                    </span>
                     {showDataCol && (
                       <DataChip status={dataVerificationChip(s).status}>{dataVerificationChip(s).label}</DataChip>
                     )}
@@ -895,8 +908,12 @@ export function SeededSchoolsBrowser({
                           region, and realistically in reach today.
                         </p>
                       )}
+                      {/* One sentence (C16). This printed both of
+                          explainSchoolFit()'s "…aren't tracked yet — this
+                          isn't factored into your band." notes back to back. */}
                       <p className="mt-1.5 text-xs text-stone-light">
-                        {explanation.playersLeaving} {explanation.academics}
+                        Roster openings and academic admit ranges aren&apos;t tracked yet, so neither
+                        changes this band.
                       </p>
                     </div>
                   )}
