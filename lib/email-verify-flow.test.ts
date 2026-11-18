@@ -26,7 +26,7 @@ import type { JoinFamilyStatus } from "./db/family-join";
  *     failed sign-up, and keeps the code;
  *   - the approval card asks a parent to verify BEFORE the click, and turns
  *     a 42501 into the same prompt rather than an error;
- *   - the banner shows for any signed-in unverified account, never on auth
+ *   - the banner shows only to a signed-in unverified PARENT, never on auth
  *     pages or onboarding, and stays dismissed;
  *   - /auth/verified bounces back only to a same-origin, non-auth path. */
 
@@ -75,7 +75,7 @@ describe("the join step: verify_email_required is a step, not a failure", () => 
     expect(at, "signup-flow must branch on verify_email_required").toBeGreaterThan(-1);
     // ...before it routes a parent to /family.
     expect(at).toBeLessThan(src.indexOf('router.replace("/family")'));
-    expect(src).toMatch(/rememberPendingJoinCode\(joinCode\)/);
+    expect(src).toMatch(/rememberMyPendingJoinCode\(joinCode\)/);
     expect(src).toMatch(/<VerifyEmailToJoin[\s\S]{0,80}code=\{verifyJoinCode\}/);
     // and signUp() passes the join status through (it used to drop it).
     expect(read("lib", "auth.ts")).toMatch(/return \{ ok: true, familyCode, joinStatus: profileResult\.joinStatus \}/);
@@ -90,7 +90,23 @@ describe("the join step: verify_email_required is a step, not a failure", () => 
   it("/family's code forms keep the code and show the verify step", () => {
     const src = read("components", "seeded", "family", "family-pending-screen.tsx");
     expect(src.match(/outcome\.kind === "verify"/g)?.length).toBe(2);
-    expect(src).toMatch(/readPendingJoinCode\(\)/);
+    expect(src).toMatch(/readMyPendingJoinCode\(\)/);
+  });
+
+  it("the onboarding diagnostic's parent save handles it too (it used to drop the code and route on)", () => {
+    const src = read("components", "seeded", "onboarding", "diagnostic", "diagnostic-save.tsx");
+    const parentSave = src.slice(src.indexOf("function ParentSave"));
+    const branch = parentSave.indexOf('result.joinStatus === "verify_email_required"');
+    expect(branch, "ParentSave must branch on verify_email_required").toBeGreaterThan(-1);
+    // ...before the catch-all that starts the session and routes to /family.
+    const routeOn = parentSave.indexOf('router.replace("/family")');
+    expect(branch).toBeLessThan(routeOn);
+    expect(parentSave).toMatch(/rememberMyPendingJoinCode\(joinCode\)/);
+    expect(parentSave).toMatch(/setVerifyJoinCode\(joinCode\.trim\(\)\.toUpperCase\(\)\)/);
+    expect(parentSave).toMatch(/<VerifyEmailToJoin[\s\S]{0,80}code=\{verifyJoinCode\}/);
+    // The session starts only once the join step is done (beginSession
+    // unmounts this form), and the step routes to /family.
+    expect(parentSave).toMatch(/onJoined=\{\(\) => \{\s+if \(sessionPlayer\) beginSession\(sessionPlayer\);\s+router\.replace\("\/family"\);/);
   });
 
   it("the verify step offers Send the link, then the retry, with the planned copy", () => {
@@ -105,8 +121,15 @@ describe("the join step: verify_email_required is a step, not a failure", () => 
 
   it("the link limit has its own sentence (3 an hour, not 'wait a minute')", () => {
     const src = read("lib", "db", "email-verification.ts");
-    expect(src).toMatch(/if \(!allowed\) return \{ ok: false, error: VERIFY_COPY\.linkLimit \}/);
+    expect(src).toMatch(/if \(request\.reason === "rate_limited"\) return \{ ok: false, error: VERIFY_COPY\.linkLimit \}/);
     expect(VERIFY_COPY.linkLimit).toMatch(/3 links in the last hour/);
+  });
+
+  it("a refused verification write says 'too many tries', not 'not proven'", () => {
+    expect(VERIFY_COPY.markRateLimited).toBe("Too many tries. Wait a few minutes and try again.");
+    const src = read("components", "auth", "email-verified.tsx");
+    expect(src).toMatch(/if \(marked === "rate-limited"\) return setState\("rate-limited"\)/);
+    expect(src).toMatch(/state === "rate-limited"\s+\? VERIFY_COPY\.markRateLimited/);
   });
 });
 
@@ -144,13 +167,25 @@ describe("the banner's visibility rules", () => {
   const base = {
     hydrated: true,
     isAuthed: true,
+    role: "parent" as string | null | undefined,
     emailVerified: false as boolean | undefined,
     pathname: "/today",
     dismissed: false,
   };
 
-  it("shows for a signed-in, unverified account (players included)", () => {
+  it("shows for a signed-in, unverified PARENT", () => {
     expect(shouldShowVerifyBanner(base)).toBe(true);
+  });
+
+  it("never shows to a player (043 never gates them), verified or not", () => {
+    expect(shouldShowVerifyBanner({ ...base, role: "player" })).toBe(false);
+    expect(shouldShowVerifyBanner({ ...base, role: undefined })).toBe(false);
+  });
+
+  it("says something true: no password-reset claim (Supabase sends resets regardless)", () => {
+    expect(VERIFY_COPY.bannerText).not.toMatch(/reset|password/i);
+    expect(VERIFY_COPY.bannerText).toMatch(/approve/i);
+    expect(read("components", "shared", "verify-email-banner.tsx")).toMatch(/role: player\.role/);
   });
 
   it.each([
@@ -208,11 +243,28 @@ describe("remembered state (localStorage, try/catch)", () => {
     }
   });
 
+  const ME = "00000000-0000-0000-0000-0000000b0401";
+  const SOMEONE_ELSE = "00000000-0000-0000-0000-0000000b0102";
+
   it("keeps the family code, normalised, and forgets it on request", () => {
-    rememberPendingJoinCode(" abcd-2345 ");
-    expect(readPendingJoinCode()).toBe("ABCD-2345");
+    rememberPendingJoinCode(" abcd-2345 ", ME);
+    expect(readPendingJoinCode(ME)).toBe("ABCD-2345");
     clearPendingJoinCode();
-    expect(readPendingJoinCode()).toBeNull();
+    expect(readPendingJoinCode(ME)).toBeNull();
+  });
+
+  it("binds the code to the account that stored it (a shared browser never submits it for anyone else)", () => {
+    rememberPendingJoinCode("ABCD-2345", ME);
+    expect(readPendingJoinCode(SOMEONE_ELSE)).toBeNull();
+    expect(readPendingJoinCode(null)).toBeNull();
+    expect(readPendingJoinCode(ME)).toBe("ABCD-2345");
+    // Nothing is stored without an owner.
+    clearPendingJoinCode();
+    rememberPendingJoinCode("ABCD-2345", null);
+    expect(readPendingJoinCode(ME)).toBeNull();
+    // The old, unbound shape (a bare code) reads as nothing.
+    g.window!.localStorage.setItem("seeded.verify.joinCode", "ABCD-2345");
+    expect(readPendingJoinCode(ME)).toBeNull();
   });
 
   it("never throws when storage is blocked", () => {
@@ -224,7 +276,7 @@ describe("remembered state (localStorage, try/catch)", () => {
     expect(() => dismissVerifyBanner()).not.toThrow();
     expect(isVerifyBannerDismissed()).toBe(false);
     expect(readVerifyReturn()).toBe(DEFAULT_VERIFY_RETURN);
-    expect(readPendingJoinCode()).toBeNull();
+    expect(readPendingJoinCode(ME)).toBeNull();
   });
 });
 
@@ -233,7 +285,9 @@ describe("/auth/verified bounces back", () => {
     const src = read("components", "auth", "email-verified.tsx");
     expect(src).toMatch(/readVerifyReturn\(\)/);
     expect(src).toMatch(/router\.replace\(returnPath\)/);
-    expect(src).toMatch(/readPendingJoinCode\(\)/);
+    // Only this account's code, and cleared after one use whatever happens.
+    expect(src).toMatch(/const pendingCode = await readMyPendingJoinCode\(\);\s+clearPendingJoinCode\(\);/);
+    expect(src).not.toMatch(/\breadPendingJoinCode\(/);
     expect(src).toMatch(/retryConnection\(\)/);
   });
 });

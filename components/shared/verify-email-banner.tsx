@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
-import { sendVerificationLinkToMe } from "@/lib/db/email-verification";
+import { sendVerificationLink } from "@/lib/db/email-verification";
 import {
   VERIFY_COPY,
   dismissVerifyBanner,
@@ -14,9 +14,10 @@ import {
 } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 
-// B6 (migration 043): "Confirm your email so you can reset your password
-// later." For ANY signed-in account whose email is not confirmed — players
-// included — and it never blocks anything.
+// B6 (migration 043): "Confirm your email so you can approve family requests
+// and give consent." For a signed-in PARENT whose email is not confirmed —
+// the one role the database gates. Players never see it, and it never blocks
+// anything.
 //
 // Layout: a FIXED bar, so appearing after load moves nothing on the page
 // (CLS counts in-flow shifts; a fixed element is out of flow). It is drawn
@@ -43,6 +44,7 @@ export function VerifyEmailBanner() {
     shouldShowVerifyBanner({
       hydrated,
       isAuthed,
+      role: player.role,
       emailVerified: player.emailVerified,
       pathname,
       dismissed,
@@ -53,7 +55,7 @@ export function VerifyEmailBanner() {
     setPhase("sending");
     setError(null);
     rememberVerifyReturn(pathname);
-    const result = await sendVerificationLinkToMe();
+    const result = await sendVerificationLink();
     if (result.ok) {
       setSentTo(result.email ?? null);
       setPhase("sent");

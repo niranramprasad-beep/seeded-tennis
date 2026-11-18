@@ -7,14 +7,13 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { joinFamily } from "@/lib/db/family-join";
 import {
   checkEmailVerified,
+  rememberMyPendingJoinCode,
   sendVerificationLink,
-  sendVerificationLinkToMe,
 } from "@/lib/db/email-verification";
 import {
   VERIFY_COPY,
   clearPendingJoinCode,
   joinOutcomeFor,
-  rememberPendingJoinCode,
   rememberVerifyReturn,
 } from "@/lib/email-verify-flow";
 import { usePlayer } from "@/lib/context/player-context";
@@ -27,17 +26,16 @@ type SendState = { phase: "idle" | "sending" | "sent"; email?: string; error?: s
 
 /**
  * "Send the link", with the return path stored BEFORE sending so
- * /auth/verified can bring the person back. `email` when the screen has it
- * (sign-up); otherwise the session's own address is used.
+ * /auth/verified can bring the person back. The address is always the
+ * session's own, as recorded by request_email_verification() (043) — the
+ * screen never chooses it.
  */
-function useVerificationLink(opts: { email?: string; returnPath: string }) {
+function useVerificationLink(opts: { returnPath: string }) {
   const [state, setState] = useState<SendState>({ phase: "idle" });
   const send = async () => {
     setState((s) => ({ ...s, phase: "sending", error: undefined }));
     rememberVerifyReturn(opts.returnPath);
-    const result = opts.email
-      ? { ...(await sendVerificationLink(opts.email)), email: opts.email }
-      : await sendVerificationLinkToMe();
+    const result = await sendVerificationLink();
     if (result.ok) setState({ phase: "sent", email: result.email });
     else setState((s) => ({ phase: s.email ? "sent" : "idle", email: s.email, error: result.error }));
   };
@@ -51,26 +49,26 @@ function useVerificationLink(opts: { email?: string; returnPath: string }) {
  */
 export function VerifyEmailToJoin({
   code,
-  email,
   familyLabel = "your family",
   returnPath = "/family",
   bare = false,
   onJoined,
 }: {
   code: string;
-  email?: string;
   familyLabel?: string;
   returnPath?: string;
   /** Inside an AuthCard, which supplies the title and the frame. */
   bare?: boolean;
   onJoined: (status: "pending" | "approved") => void;
 }) {
-  const { state, send } = useVerificationLink({ email, returnPath });
+  const { state, send } = useVerificationLink({ returnPath });
   const [retrying, setRetrying] = useState(false);
   const [retryNote, setRetryNote] = useState("");
 
   const sendAndRemember = async () => {
-    rememberPendingJoinCode(code);
+    // Bound to this account's id: /auth/verified finishes the join only
+    // for the account that typed the code.
+    await rememberMyPendingJoinCode(code);
     await send();
   };
 

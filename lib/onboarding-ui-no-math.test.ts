@@ -8,12 +8,15 @@ import { codeOnly } from "./testing/source-text";
 // lib/fit.ts's diagnosticProjection(), produces the number. The same rule as
 // lib/fit-single-source.test.ts: components render, lib/fit.ts decides.
 //
-// So nothing under components/seeded/onboarding/ may
+// So nothing under components/seeded/onboarding/ or lib/onboarding/ may
 //   (a) import a growth/pace/projection internal and do its own projecting;
 //   (b) do arithmetic on a UTR, a pace or a projection.
 
 const ROOT = join(__dirname, "..");
 const DIR = join(ROOT, "components/seeded/onboarding");
+/** The onboarding UI's own lib code: answer parsing, step rules and the
+ *  save. It hands numbers to lib/fit.ts and lib/db, and computes none. */
+const LIB_DIR = join(ROOT, "lib/onboarding");
 
 function files(dir: string, acc: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -30,7 +33,9 @@ export function codeWithoutText(src: string): string {
   return src
     .replace(/`(?:[^`\\]|\\.)*`/g, (t) => (t.match(/\$\{[^}]*\}/g) ?? []).join(" "))
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''");
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    // Regex literals (`/^\d+$/.test(t)`): their slashes are not division.
+    .replace(/(?<=[=(,:!&|?;{}[]\s*)\/(?![/*])(?:[^/\\\n[]|\\.|\[(?:[^\]\\\n]|\\.)*\])+\/[gimsuy]*/g, "RE");
 }
 
 const UTR_WORD = /utr|pace|projection|projected/i;
@@ -39,13 +44,87 @@ const UTR_WORD = /utr|pace|projection|projected/i;
 const TEAM_FIELD = /\w*(?:Competitive|Roster)UTR\b/g;
 const namesUtr = (operand: string) => UTR_WORD.test(operand.replace(TEAM_FIELD, ""));
 
-/** Every binary + - * / % whose either operand names a UTR-ish value. */
+const IDENT = /[A-Za-z_$][\w$]*/g;
+
+/**
+ * Local names that hold a UTR-ish value under a name that does not say so:
+ *   const { utrToday: t } = values;          -> t
+ *   const { utrToday } = values;             -> utrToday (already says so)
+ *   const t = values.utrToday ?? 0;          -> t
+ *   const u = t;                             -> u (chains, to a fixpoint)
+ * An independent review defeated the first version of this guard with
+ * exactly the first shape (`t * 2`). A plain alias is caught when the right
+ * side is just a value read — a member chain or name, optionally with `!`,
+ * `?? x` / `|| x`, or wrapped in Number(...).
+ */
+export function utrAliases(code: string): Set<string> {
+  const tainted = new Set<string>();
+  const isUtr = (s: string) => namesUtr(s) || [...s.matchAll(IDENT)].some((m) => tainted.has(m[0]));
+  for (let changed = true; changed; ) {
+    changed = false;
+    const add = (name: string) => {
+      if (name && !tainted.has(name)) {
+        tainted.add(name);
+        changed = true;
+      }
+    };
+    for (const m of code.matchAll(/\b(?:const|let|var)\s*\{([^}]*)\}\s*=/g)) {
+      for (const part of m[1].split(",")) {
+        const [rawKey, rawAlias] = part.split(":");
+        const key = (rawKey ?? "").replace(/^\s*\.\.\./, "").replace(/=.*$/, "").trim();
+        const local = (rawAlias ?? rawKey ?? "").replace(/^\s*\.\.\./, "").replace(/=.*$/, "").trim();
+        if (key && /^[\w$]+$/.test(local) && isUtr(key)) add(local);
+      }
+    }
+    for (const m of code.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;\n]+)?=\s*([^;\n]+)/g)) {
+      const rhs = m[2]
+        .trim()
+        .replace(/^Number\((.*)\)$/, "$1")
+        .replace(/\s*(?:\?\?|\|\|)\s*[\w$.]+$/, "")
+        .replace(/!$/, "")
+        .trim();
+      if (/^[\w$]+(?:\??\.[\w$]+|!)*$/.test(rhs)) {
+        const last = rhs.split(/\??\./).pop()!.replace(/!$/, "");
+        if (namesUtr(last) || tainted.has(rhs)) add(m[1]);
+      }
+    }
+  }
+  return tainted;
+}
+
+const MATH_FN = /\bMath\.(max|min|round|floor|ceil|trunc|abs|pow|sqrt|sign)\s*\(/g;
+
+/** The argument text of the call whose "(" is at `open`. */
+function callArgs(code: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === "(") depth++;
+    else if (code[i] === ")" && --depth === 0) return code.slice(open + 1, i);
+  }
+  return code.slice(open + 1);
+}
+
+/** Every binary + - * / % whose either operand names a UTR-ish value (or a
+ *  local alias of one), and every Math.max/min/round/floor/ceil/… applied
+ *  to one. */
 export function utrArithmetic(code: string): string[] {
   const hits: string[] = [];
+  const aliases = utrAliases(code);
+  const utrish = (operand: string) =>
+    namesUtr(operand) || [...operand.replace(TEAM_FIELD, "").matchAll(IDENT)].some((m) => aliases.has(m[0]));
   const re = /([\w$.?!\])]+)\s*([-+*/%])(?![-+=>*/])\s*([\w$.(!]+)/g;
   for (const m of code.matchAll(re)) {
     const [whole, left, , right] = m;
-    if (namesUtr(left) || namesUtr(right)) hits.push(whole.trim());
+    if (utrish(left) || utrish(right)) hits.push(whole.trim());
+  }
+  // A parenthesised operand: `(t ?? 0) * 2`, `2 * Number(values.utrToday)`.
+  for (const m of code.matchAll(/\(([^()]*)\)\s*([-+*/%])(?![-+=>*/])|([-+*/%])(?<![-+=<>*/]{2})\s*[\w$.]*\(([^()]*)\)/g)) {
+    const inner = m[1] ?? m[4] ?? "";
+    if (utrish(inner)) hits.push(m[0].trim());
+  }
+  for (const m of code.matchAll(MATH_FN)) {
+    const args = callArgs(code, m.index! + m[0].length - 1);
+    if (utrish(args)) hits.push(`Math.${m[1]}(${args.trim()})`);
   }
   return hits;
 }
@@ -75,6 +154,19 @@ describe("the onboarding UI does no UTR arithmetic of its own", () => {
       "{answers.utrToday! - 1}",
       "const n = 3 * pacePerMonth;",
       "a.minCompetitiveUTR - utrToday",
+      // The two bypasses an independent review found (2026-11-18):
+      "const { utrToday: t } = values; const v = t * 2;",
+      "const m = Math.max(values.utrToday, 1);",
+      // ...and their neighbours.
+      "const { utrToday } = values; const v = utrToday / 2;",
+      "const { utrYearAgo: then, utrToday: now } = v; const d = now - then;",
+      "const t = values.utrToday ?? 0; const v = t + 1;",
+      "const t = values.utrToday!; const u = t; const v = 2 * u;",
+      "const r = Math.round(projection.value * 100) / 100;",
+      "const f = Math.floor(answers.utrToday);",
+      "const { utrToday: t } = values; const m = Math.min(t, 16.5);",
+      "const { utrToday: t } = values; return (t ?? 0) * 2;",
+      "const v = 2 * Number(values.utrToday);",
     ]) {
       expect(utrArithmetic(codeWithoutText(s)), s).not.toEqual([]);
     }
@@ -86,19 +178,23 @@ describe("the onboarding UI does no UTR arithmetic of its own", () => {
       "`UTR around ${label}`",
       "const x = -1;",
       "a.minCompetitiveUTR - b.minCompetitiveUTR",
+      "const { name: n } = values; const s = n + suffix;",
+      "const m = Math.max(step, 1);",
+      "const t = values.utrToday; const label = formatUtrOrNotTracked(t);",
     ]) {
       expect(utrArithmetic(codeWithoutText(s)), s).toEqual([]);
     }
   });
 
-  const list = files(DIR);
+  const list = [...files(DIR), ...files(LIB_DIR)];
 
   it("finds the diagnostic", () => {
     expect(list.some((f) => f.endsWith("diagnostic-flow.tsx"))).toBe(true);
-    expect(list.length).toBeGreaterThanOrEqual(4);
+    expect(list.some((f) => f.endsWith("lib/onboarding/diagnostic.ts"))).toBe(true);
+    expect(list.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("no file under components/seeded/onboarding does arithmetic on a UTR", () => {
+  it("no file under components/seeded/onboarding or lib/onboarding does arithmetic on a UTR", () => {
     const offenders: string[] = [];
     for (const f of list) {
       for (const hit of utrArithmetic(codeWithoutText(codeOnly(f)))) {

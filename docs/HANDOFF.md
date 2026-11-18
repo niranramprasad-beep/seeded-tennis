@@ -2393,18 +2393,47 @@ commit. Nothing is deleted; buying Family restores it instantly.
 ### Step 18 — migration 043 (parent email verification, B6)
 Production auto-confirms email at sign-up, so `email_confirmed_at` proves
 nothing and is not used. `profiles.email_verified_at` +
-`profiles.email_verified_for` are PRIVILEGED (scrubbed on INSERT, 42501 on
-any client change). `mark_email_verified()` stamps them for the caller only
-when the session's JWT `amr` contains `otp` / `magiclink` / `recovery` /
-`email/signup` (Supabase "JWT Claims Reference"; a PKCE magic-link exchange
-carries the method via `auth.flow_state.authentication_method`), or the
-account has a Google identity whose verified email is the account email.
-`email_is_verified(uuid)` is internal (no EXECUTE for clients) and only
-counts while `email_verified_for` equals the CURRENT auth email.
+`profiles.email_verified_for` + `profiles.email_verify_requested_for` +
+`profiles.email_verify_requested_at` are PRIVILEGED (scrubbed on INSERT,
+42501 on any client change). `request_email_verification()` (authenticated
+only) spends one `email_verify` (3/hour) and records the caller's CURRENT
+auth email and the time; the app calls it BEFORE `signInWithOtp` and sends
+the link to the address it returns. `mark_email_verified()` stamps the
+caller only when ALL hold: the JWT `amr` has an `otp`/`magiclink` entry whose
+`timestamp` is at/after the request and within 60 minutes; the current auth
+email = `requested_for` = the JWT's `email` claim; and the account's email has
+not changed in the 24 hours before that timestamp (`public.auth_email_changes`,
+written by an `AFTER UPDATE OF email` trigger on `auth.users`; no client
+access). Success clears the request, so a session can stamp once. A verified
+Google identity for the account email still counts. A `profile_write` refusal
+raises 53400 `email_verify_rate_limited` (the app says "Too many tries"), not
+"not proven". `email_is_verified(uuid)` is internal (no EXECUTE for clients)
+and only counts while `email_verified_for` equals the CURRENT auth email.
 `join_family()` (parents only, before the attempt is logged),
 `approve_family_join()` (parents only) and `grant_parent_consent()` raise
 **42501 `verify_email_required`** for an unverified parent; players are
-never checked. `rate_limit_for_bucket()` gains `email_verify` = 3/hour.
+never checked.
+**Why the request columns, the timestamp and the change log (2026-11-18
+review).** The first version accepted ANY otp/magiclink amr entry, ignored
+its time, and stamped whatever the auth email was when called. A reviewer
+proved on staging (rolled back): verify own address A by link →
+`updateUser({ email: B })` (auto-confirm applies B at once) → call
+`mark_email_verified()` again in the same session → B "verified" →
+`approve_family_join` records under-13 consent. The 24-hour rule closes the
+slower variant (ask for a code to an address you own, switch the account to
+one you don't, request, then redeem the old code): Supabase caps email OTP
+validity at 24 hours, so a code redeemed with no email change in the
+preceding day was sent to the address the account has now. Seeded has no
+email-change screen, so only someone driving the Auth API directly meets
+that wait. `recovery` and `email/signup` amr methods no longer count.
+**What the `email_verify` bucket does NOT do:** protect the project's email
+budget. `signInWithOtp` is a public Auth endpoint reachable with the anon key
+without touching Seeded's RPC; that budget rests on Supabase Auth's own rate
+limits (Dashboard → Authentication → Rate Limits, and SMTP) — project
+settings, not this repo.
+**Staging ledger note:** staging got 043 in two steps — the first version,
+then `043b_fresh_email_verification` (the delta to the fixed file).
+Production runs only the fixed 043, once. Both end in the same schema.
 **Apply:** `supabase/migrations/043_parent_email_verification.sql`, after 041.
 **Dashboard, before the code ships:** add `<site>/auth/verified` to Auth →
 URL Configuration → Redirect URLs, or the link lands on the Site URL instead.
@@ -2433,14 +2462,43 @@ join. Existing approvals are not undone.
 | Google identity with `email_verified: true` for the account email | `email_is_verified` → true |
 | client calling `email_is_verified(other uuid)` | **42501 permission denied** |
 
+**Re-probed after the fix (043b), staging 2026-11-18, as PB4's parent
+(`…0b0401`), each in a rolled-back transaction with forged claims:**
+
+| probe | result |
+|---|---|
+| request (email A) → `mark` with `magiclink` amr after it, jwt email A | `true` |
+| …then auth email → B; `mark` again, same session (jwt email A) | **false** |
+| …same, refreshed token (jwt email B) | **false** |
+| …`request_email_verification()` right after the change | `{"allowed":false,"reason":"email_recently_changed"}` |
+| …`approve_family_join(minor)` | **42501 verify_email_required** |
+| request, then `otp` amr timestamped 2 min BEFORE it | **false** |
+| amr `magiclink` 61 min old (request 3 h old) / control 59 min old | **false** / `true` |
+| right amr, jwt `email` claim differs / absent | **false** / **false** |
+| bare-string amr `"otp"` (no timestamp); amr `password`+`recovery` | **false**; **false** |
+| code redeemed 2 h after an email change (request made in between) | **false** |
+| NEW address B, change 25 h ago: request → fresh `otp` → mark → approve | `{"allowed":true,"email":B}` → `true` → `approved`, consent `granted`; `verified_for` = B, request cleared |
+| the same session marks a second time | **false** |
+| client `update ... email_verify_requested_for` / `_at` | **42501** / **42501** |
+| client upsert carrying both request columns | succeeds, stored **NULL, NULL** |
+| `authenticated` selects `auth_email_changes`; `anon` calls request / mark | **42501** ×3 |
+| 4th `request_email_verification()` in an hour | `{"allowed":false,"reason":"rate_limited"}` |
+| valid proof with `profile_write` spent | **53400 `email_verify_rate_limited`** |
+
 **Not verified end to end:** a real magic-link email. Staging's
 `auth.mfa_amr_claims` holds only `password` (no link sign-in has ever
 happened there) and no fake address can receive mail. The amr values are
 from the Supabase docs plus the `flow_state.authentication_method` column;
-the SQL was exercised with forged claims. **One live check before relying on
-it:** on staging, sign a real inbox you control in via
-`sendVerificationLink()`, open the link in the same browser, and confirm
-`/auth/verified` says "Email confirmed".
+the SQL was exercised with forged claims. The fix now also relies on the amr
+entry's `timestamp` being the time that session was authenticated (GoTrue
+fills it from `auth.mfa_amr_claims.updated_at`) and on the JWT carrying an
+`email` claim — both standard, neither observed on a real link session here.
+Nor was the `auth.users` trigger fired by GoTrue itself (only by an `UPDATE`
+as `postgres`). **One live check before relying on it:** on staging, sign a
+real inbox you control in via `sendVerificationLink()`, open the link in the
+same browser within the hour, and confirm `/auth/verified` says "Email
+confirmed"; then change that account's email through the Auth API and
+confirm a row appears in `auth_email_changes`.
 **Rollback (runnable; restores 023/030's RPCs, 035's buckets and 041's trigger
 BEFORE dropping 043's objects — the RPCs call `email_is_verified()` and the
 trigger reads the columns):**
@@ -2769,8 +2827,14 @@ end;
 $fn$;
 revoke all on function public.protect_privileged_profile_columns() from public, anon, authenticated;
 
+drop trigger if exists seeded_note_auth_email_change on auth.users;
+drop function if exists public.note_auth_email_change();
+drop function if exists public.request_email_verification();
 drop function if exists public.mark_email_verified();
 drop function if exists public.email_is_verified(uuid);
+drop table if exists public.auth_email_changes;
+alter table public.profiles drop column if exists email_verify_requested_at;
+alter table public.profiles drop column if exists email_verify_requested_for;
 alter table public.profiles drop column if exists email_verified_for;
 alter table public.profiles drop column if exists email_verified_at;
 commit;

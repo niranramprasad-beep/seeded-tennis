@@ -28,6 +28,9 @@ import {
 } from "@/components/auth/auth-card";
 import { ChipRadioGroup } from "@/components/auth/chip-radio-group";
 import { FamilyCodeBox } from "@/components/auth/signup-flow";
+import { VerifyEmailToJoin } from "@/components/auth/verify-email-prompt";
+import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -258,6 +261,7 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
   const [sessionPlayer, setSessionPlayer] = useState<Player | null>(null);
   const [checkEmail, setCheckEmail] = useState<string | null>(null);
 
@@ -311,6 +315,16 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
     if (familyMode === "create" && result.familyCode) {
       setCreatedCode(result.familyCode);
       setSessionPlayer(parentPlayer);
+    } else if (familyMode === "join" && result.joinStatus === "verify_email_required") {
+      // 043: join_family() refuses a PARENT who hasn't confirmed their email.
+      // The account exists and is signed in — this is one more step, not a
+      // failed sign-up, and the code is kept (bound to this account) so
+      // /auth/verified or "I've confirmed — try again" finishes the join.
+      // The session starts only once they leave this step, for the same
+      // reason as the created-code branch above.
+      void rememberMyPendingJoinCode(joinCode);
+      setVerifyJoinCode(joinCode.trim().toUpperCase());
+      setSessionPlayer(parentPlayer);
     } else {
       beginSession(parentPlayer);
       router.replace("/family");
@@ -322,6 +336,24 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
       <p role="status" className="rounded-lg border border-line bg-cream p-4 text-[15px] leading-relaxed text-ink">
         We sent a link to <strong>{checkEmail}</strong>. Open it, then sign in.
       </p>
+    );
+  }
+
+  if (verifyJoinCode) {
+    return (
+      <div>
+        <p className="m-0 text-[15px] font-semibold text-ink">{VERIFY_COPY.joinTitle("your family")}</p>
+        <div className="mt-2">
+          <VerifyEmailToJoin
+            bare
+            code={verifyJoinCode}
+            onJoined={() => {
+              if (sessionPlayer) beginSession(sessionPlayer);
+              router.replace("/family");
+            }}
+          />
+        </div>
+      </div>
     );
   }
 

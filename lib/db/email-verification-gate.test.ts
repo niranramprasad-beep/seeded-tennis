@@ -14,10 +14,13 @@ import {
  *
  * Production auto-confirms email at sign-up, so auth.users.email_confirmed_at
  * proves nothing. The proof is a session that came from a link/code sent to
- * the address (JWT amr: otp / magiclink / recovery / email/signup), recorded
- * by mark_email_verified() in the PRIVILEGED profiles.email_verified_at.
+ * the address (JWT amr: otp / magiclink, timestamped AFTER a recorded
+ * request for that same address), recorded by mark_email_verified() in the
+ * PRIVILEGED profiles.email_verified_at.
  * These tests read the migration SQL and fail the build when:
- *   - a client could set email_verified_at / email_verified_for;
+ *   - a client could set email_verified_* / email_verify_requested_*;
+ *   - mark_email_verified() stops binding the proof to the request (the
+ *     verify-A-then-switch-to-B attack a reviewer ran on staging);
  *   - one of the three family RPCs stops refusing an unverified PARENT, or
  *     starts refusing players;
  *   - mark_email_verified() starts trusting a password session or
@@ -44,6 +47,8 @@ const PRIVILEGED_PROFILE_COLUMNS = [
   "family_code",
   "email_verified_at",
   "email_verified_for",
+  "email_verify_requested_for",
+  "email_verify_requested_at",
 ];
 
 describe("protect_privileged_profile_columns(): the privileged list", () => {
@@ -64,6 +69,8 @@ describe("protect_privileged_profile_columns(): the privileged list", () => {
       ["stripe_subscription_id", "null"],
       ["email_verified_at", "null"],
       ["email_verified_for", "null"],
+      ["email_verify_requested_for", "null"],
+      ["email_verify_requested_at", "null"],
     ]) {
       expect(sql, `${file}: INSERT must force ${column} := ${value}`).toMatch(
         new RegExp(`new\\.${column}\\s*:=\\s*${value}`)
@@ -142,9 +149,18 @@ describe("mark_email_verified(): what counts as proof", () => {
     const { file, sql } = fn("mark_email_verified");
     expect(sql).toContain("security definer");
     expect(sql).toMatch(/auth\.jwt\(\) -> 'amr'/);
-    const list = sql.match(/in \(([^)]*)\)/)?.[1] ?? "";
+    const list = sql.match(/'method' in \(([^)]*)\)/)?.[1] ?? "";
     for (const method of ["'otp'", "'magiclink'"]) expect(list, `${file}: must accept ${method}`).toContain(method);
-    for (const method of ["'password'", "'oauth'", "'token_refresh'", "'anonymous'", "'totp'"]) {
+    for (const method of [
+      "'password'",
+      "'oauth'",
+      "'token_refresh'",
+      "'anonymous'",
+      "'totp'",
+      // Accepted by the first version; the app never sends either to verify.
+      "'recovery'",
+      "'email/signup'",
+    ]) {
       expect(list, `${file}: must NOT accept ${method} — it proves nothing about the address`).not.toContain(method);
     }
     expect(sql).toMatch(/provider = 'google'/);
@@ -172,6 +188,105 @@ describe("mark_email_verified(): what counts as proof", () => {
   it("only counts while the proven address is the CURRENT auth email", () => {
     const { sql } = fn("email_is_verified");
     expect(sql).toMatch(/lower\(p\.email_verified_for\) = lower\(u\.email\)/);
+  });
+});
+
+describe("mark_email_verified(): the proof is bound to a fresh request for the current address", () => {
+  /** The expression assigned to v_proven for the link/code path. */
+  function proofExpression(): { file: string; expr: string; sql: string } {
+    const { file, sql } = fn("mark_email_verified");
+    const expr = sql.match(/\bv_proven :=([\s\S]*?);/)?.[1] ?? "";
+    expect(expr, `${file}: mark_email_verified must assign v_proven from the checks`).not.toBe("");
+    return { file, expr, sql };
+  }
+
+  it("reads the amr TIMESTAMP and compares it to the request time (not just the method)", () => {
+    const { file, expr, sql } = proofExpression();
+    expect(sql, `${file}: the proof time must come from the amr entry's timestamp`).toMatch(
+      /max\(\(e ->> 'timestamp'\)::numeric\) into v_proof_at/
+    );
+    expect(sql).toMatch(/jsonb_typeof\(e -> 'timestamp'\) = 'number'/);
+    expect(sql, `${file}: the request time must be read from profiles`).toMatch(
+      /select p\.email_verify_requested_for, p\.email_verify_requested_at\s+into v_requested_for, v_requested_at/
+    );
+    expect(expr, `${file}: the session must be authenticated at or after the request`).toMatch(
+      /v_proof_at >= floor\(extract\(epoch from v_requested_at\)\)/
+    );
+    expect(expr, `${file}: and within the last 60 minutes`).toMatch(
+      /v_proof_at >= extract\(epoch from now\(\) - interval '60 minutes'\)/
+    );
+    expect(expr).toMatch(/v_requested_at is not null/);
+  });
+
+  it("compares the CURRENT auth email (and the JWT's email) to requested_for", () => {
+    const { file, expr } = proofExpression();
+    expect(expr, `${file}: current auth email must equal the requested address`).toMatch(
+      /lower\(v_email\) = lower\(v_requested_for\)/
+    );
+    expect(expr, `${file}: the token's own email claim must equal it too`).toMatch(
+      /lower\(coalesce\(v_jwt_email, ''\)\) = lower\(v_requested_for\)/
+    );
+    expect(expr).toMatch(/v_requested_for is not null/);
+  });
+
+  it("refuses a code redeemed within 24 hours of an email change", () => {
+    const { file, expr, sql } = proofExpression();
+    expect(sql).toMatch(/from public\.auth_email_changes c where c\.user_id = v_user/);
+    expect(expr, `${file}: no email change in the 24 h before the proof`).toMatch(
+      /v_changed_at is null\s+or extract\(epoch from v_changed_at\) <= v_proof_at - 86400/
+    );
+  });
+
+  it("stamps only after the checks, and clears the request so a session stamps once", () => {
+    const { file, sql } = proofExpression();
+    const gate = sql.indexOf("if not v_proven then\n    return false;");
+    const stamp = sql.indexOf("update public.profiles");
+    expect(gate, `${file}: the not-proven return must exist`).toBeGreaterThan(-1);
+    expect(stamp, `${file}: the stamp must come after it`).toBeGreaterThan(gate);
+    const update = sql.slice(stamp, sql.indexOf("where id = v_user", stamp));
+    expect(update).toMatch(/email_verified_for\s*=\s*v_email/);
+    expect(update, `${file}: success must clear the request`).toMatch(/email_verify_requested_for\s*=\s*null/);
+    expect(update).toMatch(/email_verify_requested_at\s*=\s*null/);
+  });
+
+  it("a profile_write refusal reads as 'too many tries', not 'not proven'", () => {
+    const { sql } = proofExpression();
+    expect(sql).toMatch(
+      /exception when sqlstate '53400' then\s+raise exception 'email_verify_rate_limited' using errcode = '53400';/
+    );
+  });
+});
+
+describe("request_email_verification(): the only writer of the request", () => {
+  it("spends email_verify, records the CURRENT auth email, and is for authenticated only", () => {
+    const { file, sql } = fn("request_email_verification");
+    expect(sql).toContain("security definer");
+    expect(sql, `${file}: must spend the email_verify bucket`).toMatch(/consume_rate_limit\('email_verify'\)/);
+    expect(sql, `${file}: the address is the account's own`).toMatch(
+      /select u\.email into v_email from auth\.users u where u\.id = v_user/
+    );
+    expect(sql).toMatch(/set email_verify_requested_for = v_email,\s+email_verify_requested_at\s+= now\(\)/);
+    expect(sql).toMatch(/revoke all on function public\.request_email_verification\(\) from public, anon/);
+    expect(sql).toMatch(/grant execute on function public\.request_email_verification\(\) to authenticated/);
+  });
+
+  it("an auth.users trigger records every email change", () => {
+    const sql = migrations.map((m) => m.body.toLowerCase()).join("\n");
+    expect(sql).toMatch(
+      /create trigger seeded_note_auth_email_change\s+after update of email on auth\.users\s+for each row\s+when \(old\.email is distinct from new\.email\)/
+    );
+    expect(fn("note_auth_email_change").sql).toMatch(/on conflict \(user_id\) do update set changed_at = excluded\.changed_at/);
+    expect(sql).toMatch(/revoke all on table public\.auth_email_changes from public, anon, authenticated/);
+  });
+
+  it("the app requests BEFORE it sends, and sends to the address the database returned", () => {
+    const src = readFileSync(join(__dirname, "email-verification.ts"), "utf8");
+    const request = src.indexOf('rpc("request_email_verification")');
+    const send = src.indexOf("signInWithOtp(");
+    expect(request).toBeGreaterThan(-1);
+    expect(send).toBeGreaterThan(request);
+    expect(src).toMatch(/address = request\.email;/);
+    expect(src).toMatch(/signInWithOtp\(\{\s+email: address,/);
   });
 });
 

@@ -2,6 +2,7 @@ import { buildFitReport, utrHistoryFromEntries } from "@/lib/fit";
 import { buildParentDashboard, type ParentDashboardModel } from "@/lib/parent-dashboard";
 import type { TournamentEntry } from "@/lib/db/events";
 import type { BudgetExpense } from "@/lib/db/family";
+import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import type { SchoolLite } from "@/lib/types";
 
 // SAMPLE DATA — the paywall's "Example" preview and nothing else.
@@ -82,7 +83,16 @@ export function sampleParentDashboard(): ParentDashboardModel {
     utrEntries: UTR_ENTRIES,
     fitReport,
     targetSchools: SCHOOLS,
-    budgetSummary: { totalBudget: 3000, spent: 2460, entriesSpent: 395, travelSpent: 475, campsSpent: 1590 },
+    // Derived from the same rows the statement lists, by the engine the
+    // real page uses — so each category is the sum of its rows and the
+    // total is the sum of the categories. It used to be typed in by hand and
+    // did not add up (camps $1,590 beside a single $640 camp row).
+    budgetSummary: buildSeasonBudgetSummary({
+      totalBudget: 3000,
+      playerUtr: 7.45,
+      entries: ENTRIES,
+      expenses: EXPENSES,
+    }),
     childEntries: ENTRIES,
     familyEntries: ENTRIES,
     expenses: EXPENSES,

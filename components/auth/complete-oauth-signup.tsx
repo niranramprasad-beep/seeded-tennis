@@ -14,7 +14,8 @@ import {
 } from "@/lib/config/consent";
 import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
-import { VERIFY_COPY, rememberPendingJoinCode } from "@/lib/email-verify-flow";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
+import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
@@ -141,7 +142,7 @@ export function CompleteOAuthSignup() {
     // step, not a failure: the profile exists, and the code is kept.
     if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
       setSubmitting(false);
-      rememberPendingJoinCode(joinCode);
+      void rememberMyPendingJoinCode(joinCode);
       return setVerifyJoinCode(joinCode.trim().toUpperCase());
     }
 

@@ -25,7 +25,8 @@ import {
 import { ChipRadioGroup } from "./chip-radio-group";
 import { CheckEmailCard } from "./check-email";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
-import { VERIFY_COPY, rememberPendingJoinCode } from "@/lib/email-verify-flow";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
+import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
 
@@ -248,7 +249,7 @@ export function SignupFlow({
     // The account was created and is signed in — this is one more step,
     // not a failed sign-up. Keep the code so nothing is re-typed.
     if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
-      rememberPendingJoinCode(joinCode);
+      void rememberMyPendingJoinCode(joinCode);
       setVerifyJoinCode(joinCode.trim().toUpperCase());
       return;
     }
@@ -301,7 +302,6 @@ export function SignupFlow({
         <VerifyEmailToJoin
           bare
           code={verifyJoinCode}
-          email={email}
           onJoined={() => router.replace("/family")}
         />
       </AuthCard>
