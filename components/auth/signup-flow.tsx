@@ -236,6 +236,8 @@ export function SignupFlow({
       tournamentsPlayed: 0,
       tournamentsGoal: 12,
       onboarded: isParentSignup,
+      birthMonth: null,
+      enrollmentTerm: null,
     };
     beginSession(player);
 
@@ -690,7 +692,7 @@ function FamilyModeChoice({
   );
 }
 
-function FamilyCodeBox({ code }: { code: string }) {
+export function FamilyCodeBox({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-cream p-4">

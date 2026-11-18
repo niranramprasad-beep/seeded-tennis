@@ -30,4 +30,8 @@ export const PlayerBodySchema = z.object({
   utrProfileLink: z.string().optional(),
   gpa: z.number().nullable().optional(),
   deletionRequestedAt: z.string().nullable().optional(),
+  // Optional so a client built before these existed still validates.
+  // writeCurrentPlayerProfile() decides whether they reach Postgres.
+  birthMonth: z.number().int().min(1).max(12).nullable().optional(),
+  enrollmentTerm: z.enum(["fall_after_grad", "spring_after_grad", "not_sure"]).nullable().optional(),
 });
