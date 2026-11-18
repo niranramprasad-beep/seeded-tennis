@@ -840,6 +840,18 @@ ranked week-1 list in `docs/TODO.md`.
    Ships only with the database half (`my_family_has_tier`, the tier-gated
    RLS); per-category budget limits need a column (DECISIONS 2026-11-18).
 6. **Premium diagnostic onboarding** (TODO week 1 #2).
+5. **Parent dashboard upgrade** (TODO week 1 #1).
+6. **Premium diagnostic onboarding** (TODO week 1 #2) — **built in PR B
+   (B1), 2026-11-18, not merged.** /onboarding is board 20: nine questions,
+   result, fit report, sign-up that keeps every answer (email and Google).
+   Projection = `diagnosticProjection()` in lib/fit.ts (the player's own
+   pace); guard `lib/onboarding-ui-no-math.test.ts`. Depends on the DB
+   half of PR B (`profiles.birth_month`, `profiles.enrollment_term`, wired in
+   `writeCurrentPlayerProfile`/`mapProfileToPlayer`) — until that lands the
+   two answers are carried on `Player` but not stored. **Open:** the signed-in
+   app still projects at typical growth (1.0/yr), so a player who gave past
+   ratings sees a different "summer before senior year" number after
+   sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the

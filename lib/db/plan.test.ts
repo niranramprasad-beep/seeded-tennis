@@ -21,6 +21,8 @@ const player: Player = {
   tournamentsPlayed: 0,
   tournamentsGoal: 12,
   onboarded: true,
+  birthMonth: null,
+  enrollmentTerm: null,
 };
 
 const target: Pick<School, "minCompetitiveUTR"> = { minCompetitiveUTR: 11 };

@@ -33,6 +33,8 @@ const MOCK_PLAYER: Player = {
   tournamentsPlayed: 6,
   tournamentsGoal: 12,
   onboarded: true,
+  birthMonth: null,
+  enrollmentTerm: null,
 };
 
 function daysFromNow(n: number): string {

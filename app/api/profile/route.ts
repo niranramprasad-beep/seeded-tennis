@@ -94,11 +94,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    await writeCurrentPlayerProfile(parsed.data, {
-      supabase: ctx.supabase,
-      userId: ctx.user.id,
-      userEmail: ctx.user.email ?? null,
-    });
+    await writeCurrentPlayerProfile(
+      {
+        ...parsed.data,
+        birthMonth: parsed.data.birthMonth ?? null,
+        enrollmentTerm: parsed.data.enrollmentTerm ?? null,
+      },
+      {
+        supabase: ctx.supabase,
+        userId: ctx.user.id,
+        userEmail: ctx.user.email ?? null,
+      }
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

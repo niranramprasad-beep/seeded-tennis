@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
 import { getSchoolsLite } from "@/lib/db/schools";
+import { prefillFromSearchParams } from "@/lib/onboarding/diagnostic";
 import { OnboardingPageSwitch } from "@/components/onboarding/onboarding-page-switch";
 
 export const metadata: Metadata = {
   title: "Your free fit report — Seeded",
   description:
-    "See which college tennis programs are a realistic Reach, Target or Likely fit for your UTR — free, in 60 seconds, no account required.",
+    "Nine quick questions, about 90 seconds. See which college tennis programs are a realistic Reach, Target or Likely fit, with no account needed.",
   alternates: { canonical: "/onboarding" },
 };
 
-export default async function OnboardingPage() {
-  const schools = await getSchoolsLite();
-  return <OnboardingPageSwitch schools={schools} />;
+// The homepage calculator links here as /onboarding?utr=…&gradYear=…&gender=…
+// The query string is read HERE, on the server, and handed down as props —
+// not with useSearchParams() in the client, which bails the whole subtree
+// out of server rendering and left a crawler (and a no-JS visitor) with an
+// empty <main>.
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [schools, params] = await Promise.all([getSchoolsLite(), searchParams]);
+  const { answers, prefilled } = prefillFromSearchParams(params);
+  return <OnboardingPageSwitch schools={schools} initialAnswers={answers} prefilled={prefilled} />;
 }

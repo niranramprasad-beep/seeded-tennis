@@ -196,6 +196,15 @@ export function AuthCard({
   );
 }
 
+interface GoogleButtonProps {
+  next?: string;
+  label?: string;
+  /** Runs just before the browser leaves for Google — the onboarding
+   * diagnostic keeps its answers in sessionStorage here, so they survive
+   * the redirect and are applied on /auth/complete. */
+  onStart?: () => void;
+}
+
 /**
  * "Continue with Google" — a SECONDARY button (Board 21: one primary per
  * screen, and that is the email form's submit).
@@ -216,7 +225,7 @@ export function AuthCard({
  * still on the page they started from, and sending them somewhere else to
  * read an error would lose whatever they had typed.
  */
-export function GoogleButton({ next, label }: { next?: string; label?: string }) {
+export function GoogleButton({ next, label, onStart }: GoogleButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -225,6 +234,7 @@ export function GoogleButton({ next, label }: { next?: string; label?: string })
   const start = async () => {
     setError(null);
     setLoading(true);
+    onStart?.();
     const result = await signInWithGoogle(next);
     // On success the browser is already navigating to Google; leaving the
     // button in its loading state is correct, not a stuck spinner.

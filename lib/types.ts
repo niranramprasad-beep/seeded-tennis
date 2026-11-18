@@ -246,7 +246,14 @@ export interface Player {
   // reads this to actually delete data; the real 30-day purge is a
   // separate operational job outside the app's scope.
   deletionRequestedAt?: string | null;
+  // profiles.birth_month (1–12, write-once like birth_year) and
+  // profiles.enrollment_term — asked by the /onboarding diagnostic. Null
+  // means "not answered", never a default.
+  birthMonth: number | null;
+  enrollmentTerm: EnrollmentTerm | null;
 }
+
+export type EnrollmentTerm = "fall_after_grad" | "spring_after_grad" | "not_sure";
 
 // Maps a player's gender to the school program gender they recruit into.
 export function programGenderFor(g: PlayerGender): Gender {

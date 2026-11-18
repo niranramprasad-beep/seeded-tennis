@@ -45,6 +45,12 @@ const MARKETING_LINKS: NavLink[] = [
 // one primary button on the card.
 const LOGO_ONLY_ROUTES = ["/login", "/signup", "/reset-password", "/parent-login", "/parent-signup", "/auth/complete", "/auth/callback"];
 
+// The green "Get my free fit report" CTA links to /onboarding. ON /onboarding
+// it is a second green button beside the diagnostic's Continue (rule 1) that
+// goes nowhere new, so it is left out there; "Fit report" stays in the links
+// with aria-current.
+const NO_CTA_ROUTES = ["/onboarding"];
+
 function SeededLogo({ onClick }: { onClick?: () => void }) {
   return (
     <Link
@@ -66,6 +72,7 @@ export function SeededNav() {
   const [open, setOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const showCta = !NO_CTA_ROUTES.includes(pathname);
 
   if (LOGO_ONLY_ROUTES.includes(pathname)) {
     return (
@@ -105,12 +112,14 @@ export function SeededNav() {
           <Link href="/login" className="inline-flex min-h-6 items-center whitespace-nowrap text-[15px] text-ink hover:text-grass">
             Sign in
           </Link>
-          <Link
-            href="/onboarding"
-            className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
-          >
-            Get my free fit report
-          </Link>
+          {showCta && (
+            <Link
+              href="/onboarding"
+              className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
+            >
+              Get my free fit report
+            </Link>
+          )}
         </div>
 
         <button
@@ -157,13 +166,15 @@ export function SeededNav() {
                 >
                   Sign in
                 </Link>
-                <Link
-                  href="/onboarding"
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg bg-grass py-3 text-center text-[15px] font-semibold text-on-primary"
-                >
-                  Get my free fit report
-                </Link>
+                {showCta && (
+                  <Link
+                    href="/onboarding"
+                    onClick={() => setOpen(false)}
+                    className="rounded-lg bg-grass py-3 text-center text-[15px] font-semibold text-on-primary"
+                  >
+                    Get my free fit report
+                  </Link>
+                )}
               </div>
             </div>
           </motion.div>
