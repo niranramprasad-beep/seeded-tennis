@@ -4,6 +4,7 @@
 // no "bad tournament to skip" rule because this app has no queryable source
 // of upcoming tournament dates yet — see lib/tournament-fit.ts, which only
 // scores a tournament a family types in by hand, not a live calendar.
+import { plural } from "@/lib/utils";
 import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit,
   fitBasis, type SchoolFitProjectionInput } from "@/lib/school-fit";
@@ -74,7 +75,7 @@ export function buildTodayActions(
           kind: "followup",
           school,
           title: `Follow up with ${school.shortName}`,
-          description: `Sent ${days} days ago, no reply yet.`,
+          description: `Sent ${plural(days, "day", "days")} ago, no reply yet.`,
           minutes: 5,
         });
       }

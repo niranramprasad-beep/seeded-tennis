@@ -9,6 +9,7 @@ import {
   School,
   Settings,
   TrendingUp,
+  Trophy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -57,8 +58,29 @@ export const PARENT_NAV_LINKS: NavLink[] = [
   SETTINGS_LINK,
 ];
 
-/** Reachable from the avatar menu for both roles, not the main nav. */
-export const SHARED_SECONDARY_LINKS: NavLink[] = [
-  { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
-];
+const TOURNAMENT_CHECKER_LINK: NavLink = {
+  href: "/tournament-fit",
+  label: "Tournament checker",
+  icon: Compass,
+  keywords: "tournament fit check event",
+};
+
+const RESULTS_LINK: NavLink = {
+  href: "/matches",
+  label: "Results",
+  icon: Trophy,
+  keywords: "matches log a result history record",
+};
+
+/** Pages both roles may open that are not in the main nav. */
+export const SHARED_SECONDARY_LINKS: NavLink[] = [TOURNAMENT_CHECKER_LINK];
+
+// "Tools": a small secondary group under the main nav, in the sidebar, the
+// avatar menu (phones, where the bottom bar holds exactly the five) and ⌘K.
+// The PRIMARY nav stays the five items above — CLAUDE.md and
+// docs/DECISIONS.md (2026-11-18). Results and the tournament checker were
+// reachable only through a link on /events and the avatar menu.
+export const PLAYER_TOOL_LINKS: NavLink[] = [RESULTS_LINK, TOURNAMENT_CHECKER_LINK];
+// A parent cannot open /matches (it is the player's write surface).
+export const PARENT_TOOL_LINKS: NavLink[] = [TOURNAMENT_CHECKER_LINK];
 

@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { KeyedMutator } from "swr";
+import { useState } from "react";
 import type { Player } from "@/lib/types";
 import type { MatchRecord } from "@/lib/db/events";
 import type { TournamentEntry } from "@/lib/db/events";
-import type { TrainingPlannerState } from "@/lib/db/events";
-import { DEFAULT_TYPES } from "@/components/training/training-view";
+import type { TrainingSession } from "@/lib/db/training";
 import { dateForWeekday } from "@/lib/training/grid-math";
-import { useEventsCalendar } from "@/lib/hooks/use-events-calendar";
-import { Toast } from "@/components/seeded/ui/toast";
+import { localDateKey } from "@/lib/time";
 import { SeededEventsLayout } from "@/components/seeded/events/seeded-events-layout";
+import { SessionFormModal } from "@/components/seeded/events/session-form-modal";
 
 // Internal tool only — pixel-checks /events' real layout (header, fit
 // verdicts, recent results, month calendar) with populated data, without
@@ -38,7 +36,8 @@ const MOCK_PLAYER: Player = {
 };
 
 function daysFromNow(n: number): string {
-  return new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const d = new Date();
+  return localDateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
 }
 
 function daysAgo(n: number): string {
@@ -153,44 +152,24 @@ const MOCK_MATCHES: MatchRecord[] = [
   },
 ];
 
-// Real dates (this real current week), not "" — the Events calendar
-// card's week view filters sessions by their actual stored date (see
-// events-calendar-card.tsx's header comment), so an empty date string
-// would make every mock session invisible in week view.
-const MOCK_PLANNER_STATE: TrainingPlannerState = {
-  sessions: [
-    { id: "s-1", title: "Drills", typeId: "tennis", day: "Mon", date: dateForWeekday("Mon"), startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-    { id: "s-2", title: "Fitness", typeId: "strength", day: "Tue", date: dateForWeekday("Tue"), startTime: "16:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-    { id: "s-3", title: "Match play against someone whose name takes up the whole row", typeId: "match-prep", day: "Wed", date: dateForWeekday("Wed"), startTime: "16:00", duration: 90, intensity: "high", notes: "", goals: "", drills: [], completed: false },
-    { id: "s-4", title: "Drills", typeId: "tennis", day: "Fri", date: dateForWeekday("Fri"), startTime: "16:00", duration: 60, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-    { id: "s-5", title: "Fitness", typeId: "strength", day: "Sat", date: dateForWeekday("Sat"), startTime: "10:00", duration: 45, intensity: "moderate", notes: "", goals: "", drills: [], completed: false },
-    { id: "s-6", title: "Coach call", typeId: "mental", day: "Thu", date: dateForWeekday("Thu"), startTime: "17:00", duration: 20, intensity: "low", notes: "", goals: "", drills: [], completed: false },
-  ],
-  sessionTypes: DEFAULT_TYPES,
-  plans: [{ id: "plan-1", name: "Preview plan", goal: "", sessionIds: ["s-1", "s-2", "s-3", "s-4", "s-5", "s-6"] }],
-  activePlanId: "plan-1",
-  templates: [],
-  preferences: { fullTime: false, weeklyHours: 10, primaryGoal: "", constraints: "" },
-};
+// Real dates in the current week — both calendar views place a session by
+// its stored date.
+const MOCK_SESSIONS: TrainingSession[] = [
+  { id: "s-1", typeId: "tennis", date: dateForWeekday("Mon"), startTime: "16:00", duration: 60, notes: "", seriesId: null },
+  { id: "s-2", typeId: "strength", date: dateForWeekday("Tue"), startTime: "16:00", duration: 45, notes: "", seriesId: null },
+  { id: "s-3", typeId: "match-prep", date: dateForWeekday("Wed"), startTime: "16:00", duration: 90, notes: "", seriesId: null },
+  { id: "s-4", typeId: "tennis", date: dateForWeekday("Fri"), startTime: "16:00", duration: 60, notes: "", seriesId: null },
+  { id: "s-5", typeId: "strength", date: dateForWeekday("Sat"), startTime: "10:00", duration: 45, notes: "", seriesId: null },
+  { id: "s-6", typeId: "mental", date: dateForWeekday("Thu"), startTime: "17:00", duration: 20, notes: "", seriesId: null },
+];
 
-// Internal tool only, unauthenticated — saveTrainingPlannerState() inside
-// the real useEventsCalendar hook already no-ops without a signed-in user,
-// so this safely drives the exact same add/edit/delete/move/resize/repeat
-// logic /events itself uses, just against local state instead of SWR.
+// Internal tool only, unauthenticated: local state stands in for the real
+// per-row writes (lib/db/training.ts), so nothing here reaches Supabase.
 export function EventsPreview() {
-  const [state, setState] = useState<TrainingPlannerState>(MOCK_PLANNER_STATE);
-  const mutate = useCallback(
-    (data?: unknown) => {
-      let next = state;
-      setState((prev) => {
-        next = typeof data === "function" ? (data as (p: TrainingPlannerState) => TrainingPlannerState)(prev) : ((data as TrainingPlannerState) ?? prev);
-        return next;
-      });
-      return Promise.resolve(next);
-    },
-    [state]
-  );
-  const calendar = useEventsCalendar(state, mutate as unknown as KeyedMutator<TrainingPlannerState | null>);
+  const [sessions, setSessions] = useState<TrainingSession[]>(MOCK_SESSIONS);
+  const [form, setForm] = useState<{ session: TrainingSession | null; date?: string; time?: string } | null>(null);
+  const patch = (id: string, p: Partial<TrainingSession>) =>
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, ...p } : s)));
 
   return (
     <>
@@ -198,20 +177,32 @@ export function EventsPreview() {
         player={MOCK_PLAYER}
         tournamentEntries={MOCK_TOURNAMENTS}
         matches={MOCK_MATCHES}
-        sessions={state.sessions}
-        sessionTypes={state.sessionTypes}
+        sessions={sessions}
         onMarkEntered={() => {}}
-        onAddSession={() => {}}
+        onAddSession={(date, time) => setForm({ session: null, date, time })}
+        onEditSession={(session) => setForm({ session })}
+        onMoveSession={(id, date, startTime) => patch(id, { date, startTime })}
+        onResizeSession={(id, duration) => patch(id, { duration })}
         onLogResult={() => {}}
-        onAddCalendarSession={calendar.addSession}
-        onUpdateCalendarSession={calendar.updateSession}
-        onMoveCalendarSession={calendar.moveSession}
-        onResizeCalendarSession={calendar.resizeSession}
-        onDeleteCalendarSession={calendar.deleteSession}
       />
-      <Toast open={!!calendar.toast} onDismiss={calendar.dismissToast} action={calendar.toast?.action}>
-        {calendar.toast?.message ?? " "}
-      </Toast>
+      <SessionFormModal
+        open={!!form}
+        onClose={() => setForm(null)}
+        session={form?.session ?? null}
+        defaultDate={form?.date}
+        defaultTime={form?.time}
+        onSave={(v) => {
+          const editing = form?.session;
+          setForm(null);
+          if (editing) patch(editing.id, v);
+          else setSessions((prev) => [...prev, { id: `s-${Date.now()}`, seriesId: null, ...v }]);
+        }}
+        onDelete={() => {
+          const editing = form?.session;
+          setForm(null);
+          if (editing) setSessions((prev) => prev.filter((s) => s.id !== editing.id));
+        }}
+      />
     </>
   );
 }

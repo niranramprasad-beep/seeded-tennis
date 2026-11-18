@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { plural } from "@/lib/utils";
 import { Clock } from "lucide-react";
 import {
   cancelMyFamilyRequest,
@@ -27,10 +28,10 @@ import { joinOutcomeFor, readPendingJoinCode, rememberPendingJoinCode } from "@/
 function sinceLabel(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} minutes ago`;
+  if (mins < 60) return `${plural(mins, "minute", "minutes")} ago`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} hours ago`;
-  return `${Math.round(hours / 24)} days ago`;
+  if (hours < 24) return `${plural(hours, "hour", "hours")} ago`;
+  return `${plural(Math.round(hours / 24), "day", "days")} ago`;
 }
 
 export function FamilyPendingScreen({

@@ -12,7 +12,6 @@ import {
   Plus,
   Sparkles,
   Target,
-  Trophy,
 } from "lucide-react";
 import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
@@ -29,7 +28,7 @@ import { AnimatedNumber } from "@/components/shared/animated-number";
 import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
-import { DailyCheckinCard } from "./daily-checkin-card";
+import { CheckinDrawer } from "@/components/seeded/dashboard/checkin-drawer";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { localDateKey } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
@@ -39,28 +38,16 @@ import {
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/db/plan";
-import {
-  generatePrepPlan,
-  loadMatches,
-  saveMatch,
-  type MatchRecord,
-  loadTrainingPlannerState,
-  type TrainingPlannerState,
-} from "@/lib/db/events";
+import { loadMatches, saveMatch, type MatchRecord } from "@/lib/db/events";
+import { loadTrainingSessions, type TrainingSession } from "@/lib/db/training";
+import { SESSIONS_KEY } from "@/lib/hooks/use-events-calendar";
+import { sessionType } from "@/lib/training/session-types";
 
 const WEEKDAYS: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const EMPTY_PLANNER_STATE: TrainingPlannerState = {
-  sessions: [],
-  sessionTypes: [],
-  plans: [],
-  activePlanId: "",
-  templates: [],
-};
-
 // Mon-Sun date keys for the week containing `today`, so "This week" can
 // filter the player's real scheduled sessions instead of showing a generic
-// template — the dashboard and /training must agree on what's planned.
+// template — the dashboard and /events must agree on what is planned.
 function currentWeekDateKeys(today = new Date()): string[] {
   const weekday = today.getDay(); // 0=Sun..6=Sat
   const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
@@ -96,21 +83,18 @@ export function DashboardView(props: DashboardViewProps) {
 function DashboardInner({ schools }: DashboardViewProps) {
   const { player, updatePlayer } = usePlayer();
   const { tier } = useTier();
-  // Same SWR key /training itself uses, so both pages share one fetch and
-  // can never disagree about what's actually scheduled this week.
-  const trainingStorageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
-  const { data: plannerState } = useSWR<TrainingPlannerState | null>(
-    ["training-planner-state", trainingStorageKey],
-    () => loadTrainingPlannerState(EMPTY_PLANNER_STATE)
-  );
+  // Same SWR key /events uses, so both pages share one fetch and can never
+  // disagree about what's actually scheduled this week — the player's own
+  // sessions only (lib/db/training.ts).
+  const { data: sessions } = useSWR<TrainingSession[]>(SESSIONS_KEY, () => loadTrainingSessions());
   const weekDateKeys = useMemo(() => currentWeekDateKeys(), []);
   const weekSessions = useMemo(() => {
-    const sessions = plannerState?.sessions ?? [];
+    const all = sessions ?? [];
     return weekDateKeys.map((date, i) => ({
       day: WEEKDAYS[i],
-      sessions: sessions.filter((s) => s.date === date),
+      sessions: all.filter((s) => s.date === date),
     }));
-  }, [plannerState, weekDateKeys]);
+  }, [sessions, weekDateKeys]);
   const weeklyHours = useMemo(
     () =>
       weekSessions.reduce(
@@ -128,7 +112,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
     isLoading: utrFetchLoading,
     mutate: mutateUtrEntries,
   } = useSWR<UtrEntry[]>("utr-entries", () => loadUtrEntries());
-  // Same "matches" key /match-mode and /matches already use — one shared
+  // Same "matches" key /matches and /events already use — one shared
   // fetch/cache across every page, so a match logged here (or there) shows
   // up everywhere else instantly, no refetch needed.
   const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
@@ -264,17 +248,10 @@ function DashboardInner({ schools }: DashboardViewProps) {
       updatePlayer({ currentUTR: mostRecent.utr });
 
       if (input.match) {
-        const prepPlan = generatePrepPlan({
-          weaknesses: player.weaknesses,
-          surface: input.match.surface,
-          currentUtr: input.utr,
-          opponentUtr: null,
-        });
         const savedMatch = await saveMatch({
           matchDate: input.match.matchDate,
           opponent: input.match.opponent,
           surface: input.match.surface,
-          prepPlan,
           result: input.match.result,
           score: input.match.score,
           notificationRequested: false,
@@ -308,7 +285,6 @@ function DashboardInner({ schools }: DashboardViewProps) {
     UTRTrajectoryChart,
     weeklyHours,
     weekSessions,
-    plannerState,
     targetSchools,
     setUtrDrawerOpen,
     setCheckinDrawerOpen,
@@ -348,9 +324,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
         onSave={handleSaveSundayCheckin}
       />
 
-      <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
-        <DailyCheckinCard />
-      </Drawer>
+      <CheckinDrawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)} />
     </div>
   );
 }
@@ -366,8 +340,7 @@ export interface DashboardLayoutProps {
   targetPoints: { date: Date; utr: number }[];
   UTRTrajectoryChart: typeof UTRTrajectoryChart;
   weeklyHours: number;
-  weekSessions: { day: WeekdayShort; sessions: TrainingPlannerState["sessions"] }[];
-  plannerState: TrainingPlannerState | null | undefined;
+  weekSessions: { day: WeekdayShort; sessions: TrainingSession[] }[];
   targetSchools: SchoolLite[];
   setUtrDrawerOpen: (v: boolean) => void;
   setCheckinDrawerOpen: (v: boolean) => void;
@@ -390,7 +363,6 @@ function LegacyDashboardLayout({
   UTRTrajectoryChart,
   weeklyHours,
   weekSessions,
-  plannerState,
   targetSchools,
   setUtrDrawerOpen,
   setCheckinDrawerOpen,
@@ -533,7 +505,7 @@ function LegacyDashboardLayout({
                 </p>
               </div>
               <Link
-                href="/training"
+                href="/events"
                 className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
               >
                 Open planner
@@ -559,17 +531,9 @@ function LegacyDashboardLayout({
                         <span className="text-xs text-stone-light">Rest day</span>
                       ) : (
                         sessions.map((s) => {
-                          const type = plannerState?.sessionTypes.find((t) => t.id === s.typeId);
                           return (
-                            <span
-                              key={s.id}
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-xs font-medium",
-                                type?.bg ?? "bg-grass-50",
-                                type?.text ?? "text-grass-700"
-                              )}
-                            >
-                              {type?.label ?? s.title}
+                            <span key={s.id} className="rounded-full bg-grass-50 px-2 py-0.5 text-xs font-medium text-grass-700">
+                              {sessionType(s.typeId).label}
                             </span>
                           );
                         })
@@ -647,8 +611,7 @@ function LegacyDashboardLayout({
         {/* quick links — kept so match history and cost calculator stay
             reachable without crowding the three sections above */}
         <Reveal index={5} className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
-          <QuickLink href="/match-mode" icon={Trophy} label="Match mode" />
-          <QuickLink href="/matches" icon={Target} label="Match history" />
+          <QuickLink href="/matches" icon={Target} label="Results" />
           <QuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
           <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
         </Reveal>

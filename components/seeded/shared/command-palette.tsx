@@ -3,28 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  CalendarDays,
-  Clock,
-  Compass,
-  DollarSign,
-  FileText,
-  LayoutDashboard,
-  Mail,
-  School,
-  Search,
-  Settings,
-  TrendingUp,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDialog } from "@/lib/hooks/use-dialog";
 import { cn } from "@/lib/utils";
 import {
   PARENT_NAV_LINKS,
+  PARENT_TOOL_LINKS,
   PLAYER_NAV_LINKS,
+  PLAYER_TOOL_LINKS,
   SETTINGS_LINK,
-  SHARED_SECONDARY_LINKS,
   type NavLink,
 } from "@/components/seeded/layout/nav-links";
 
@@ -39,10 +28,12 @@ interface Command {
 // two hand-kept copies "kept in sync" by a comment, and they were not: the
 // parent copy still offered Events after the sidebar dropped it.
 const toCommand = (l: NavLink): Command => ({ label: l.label, href: l.href, icon: l.icon, keywords: l.keywords });
-const PLAYER_COMMANDS: Command[] = [...PLAYER_NAV_LINKS, ...SHARED_SECONDARY_LINKS].map(toCommand);
+// The sidebar's two groups, in order: the main nav, then Tools (Results,
+// the tournament checker).
+const PLAYER_COMMANDS: Command[] = [...PLAYER_NAV_LINKS, ...PLAYER_TOOL_LINKS].map(toCommand);
 // Settings is in the parent's main nav (Board 22) and in SHARED_COMMANDS;
 // list it once.
-const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...SHARED_SECONDARY_LINKS]
+const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...PARENT_TOOL_LINKS]
   .filter((l) => l.href !== SETTINGS_LINK.href)
   .map(toCommand);
 
@@ -131,7 +122,9 @@ export function CommandPalette() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-ink/50"
+            // Black in both themes — `bg-ink/50` was a light-grey wash in
+            // dark mode, where ink is the light text colour.
+            className="fixed inset-0 z-[100] bg-black/50"
             onClick={() => setOpen(false)}
           />
           <div className="pointer-events-none fixed inset-x-0 top-[18vh] z-[101] flex justify-center px-4">
@@ -141,7 +134,7 @@ export function CommandPalette() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="seeded-glass pointer-events-auto w-full max-w-lg overflow-hidden rounded-[22px] shadow-seeded-3"
+            className="pointer-events-auto w-full max-w-lg overflow-hidden rounded-xl border border-line bg-card shadow-card"
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
@@ -154,7 +147,7 @@ export function CommandPalette() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKeyDown}
                 placeholder="Jump to…"
-                className="w-full bg-transparent font-seeded text-sm text-ink placeholder:text-stone-light focus:outline-none"
+                className="w-full bg-transparent text-base text-ink placeholder:text-stone-light focus:outline-none sm:text-sm"
                 aria-label="Search pages"
               />
               <kbd className="shrink-0 rounded-md border border-[rgb(var(--c-line))] px-1.5 py-0.5 font-mono text-[10px] text-stone-light">
@@ -170,11 +163,12 @@ export function CommandPalette() {
                   key={c.href}
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => go(c.href)}
+                  // The highlighted row is the sidebar's active style, not the
+                  // old accent gradient (design system v2, sweep C17).
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl border-[1.5px] px-3 py-2.5 text-left font-seeded text-sm transition-colors",
-                    i === activeIndex ? "border-transparent text-on-primary" : "border-transparent hover:border-[rgb(var(--c-line))] text-ink"
+                    "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors",
+                    i === activeIndex ? "bg-grass-50 font-semibold text-grass" : "text-ink"
                   )}
-                  style={i === activeIndex ? { background: "var(--s-accent-gradient)" } : undefined}
                 >
                   <c.icon className="h-4 w-4 shrink-0" />
                   {c.label}

@@ -13,6 +13,21 @@
 
 ## Executive status
 
+**2026-11-18 — PR C sweep, events/results/check-ins (branch
+`worktree-agent-a12d20489df582ed0`, not pushed, no migrations).** The
+calendar is manual-only in code: the /training planner, its generator and
+templates, Match mode and `generatePrepPlan()` are deleted, `/training` and
+`/match-mode` redirect, and the calendar reads only the player's manual plan
+— production's 28 generated sessions are hidden, not deleted (**Niran to
+decide** delete vs keep, DECISIONS 2026-11-18). Per-row
+`/api/training/sessions` replaces the whole-state save that would have
+deleted them. Week and Month render one date-keyed list. "Log a result"
+opens the real result form; /matches rebuilt (labels, 44px, no gradients,
+Seeded delete dialog + Undo); Today's check-in is one drawer with a
+check-in history page; Results + Tournament checker are a "Tools" group;
+overlays render in a portal (the check-in Save button was under the phone
+tab bar). New guards: no-native-dialogs, plural, gradients, calendar one
+source; training-no-autogen rewritten to "stays deleted".
 **2026-11-18 — PR B (app side, in progress).** /family rebuilt to Board 22
 (KPIs, UTR trend chart with the lib/fit.ts estimate, budget bars, recent
 expenses, targets, "For you this week") and the Family paywall (B4) on the
@@ -909,7 +924,11 @@ ranked week-1 list in `docs/TODO.md`.
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the
    highest-value data task: every band rests on unsourced team ranges.
-9. **Delete Legacy (P1-UX-2) and `generatePersonalizedPlan()`.**
+9. **Delete Legacy (P1-UX-2).** `generatePersonalizedPlan()`, the /training
+   planner and Match mode are deleted (2026-11-18). Open from that pass:
+   Niran's call on production's 28 hidden generated sessions; the
+   parent-login gradient (auth pass); `ModalShell` needs the same portal
+   fix as Drawer.
 10. **Observability** — no error tracking or alerting exists; the billing
     failure is what that looks like in practice.
 

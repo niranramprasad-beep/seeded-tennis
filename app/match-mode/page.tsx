@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import { MatchModeView } from "@/components/matches/match-mode-view";
-import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
+import { redirect } from "next/navigation";
 
-// Behind an AuthGate and disallowed in robots.txt. The meta tag is the
-// belt-and-braces half: robots.txt is a request, a meta robots tag is an
-// instruction to a crawler that already has the page.
+// Still a private route (it resolves, by redirecting), so it keeps the
+// noindex every private page carries.
 export const metadata: Metadata = {
   title: "Match mode — Seeded",
   robots: { index: false, follow: false },
 };
 
+// Match mode is gone (docs/DECISIONS.md, 2026-11-18). Its one feature was a
+// "prep plan" Seeded wrote for the player — warm-up, tactics, a packing
+// list — from a template, which is the auto-generated plan CLAUDE.md rules
+// out. Logging a result is what /matches does. Old links and bookmarks land
+// there.
 export default function MatchModePage() {
-  return (
-    <SeededRouteRedirect to="/events">
-      <MatchModeView />
-    </SeededRouteRedirect>
-  );
+  redirect("/matches");
 }

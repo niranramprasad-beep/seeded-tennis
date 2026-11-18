@@ -9,7 +9,7 @@ import { buildDiagnosticFitReport, playerUtrText, projectionTargetLabel, type Fi
 import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagnostic";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { RECRUITING_TIMING_NOTE, EARLY_DECISION_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/growth";
 import { type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -322,7 +322,7 @@ export function DiagnosticFitReport({
       </div>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">
         Fit bands use {parent ? "the" : "your"} UTR and each program&apos;s roster range:{" "}
-        {filtered.length} programs for {GENDER_LABEL[gender]} in the catalog.
+        {plural(filtered.length, "program", "programs")} for {GENDER_LABEL[gender]} in the catalog.
       </p>
     </div>
   );

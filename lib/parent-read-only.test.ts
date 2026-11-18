@@ -17,8 +17,9 @@ const PLAYER_DATA_WRITE_ROUTES = [
   "app/api/utr-entries/route.ts",
   "app/api/matches/route.ts",
   "app/api/outreach/route.ts",
-  "app/api/training/planner/route.ts",
-  "app/api/training/templates/route.ts",
+  // The training calendar's only write route (per-row, manual plan only).
+  // /api/training/planner and /templates were deleted with the generator.
+  "app/api/training/sessions/route.ts",
 ];
 
 describe("server: no player-data write route accepts a parent", () => {

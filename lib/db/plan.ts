@@ -320,14 +320,20 @@ function mapCheckin(row: Tables<"daily_checkins">): DailyCheckin {
   };
 }
 
-export async function loadDailyCheckins(subject: DataSubject = "self", signal?: AbortSignal): Promise<DailyCheckin[]> {
+/** The player's check-ins for the last `days` days (31 by default — what
+ * Today's heatmap needs; the check-in history page asks for more). */
+export async function loadDailyCheckins(
+  subject: DataSubject = "self",
+  signal?: AbortSignal,
+  days = 31
+): Promise<DailyCheckin[]> {
   const supabase = getSupabase();
   const id = await getUserId();
   if (!supabase || !id) return [];
   let query = supabase
     .from("daily_checkins")
     .select("*")
-    .gte("checkin_date", localDateKey(new Date(Date.now() - 31 * 86400000)))
+    .gte("checkin_date", localDateKey(new Date(Date.now() - days * 86400000)))
     .order("checkin_date", { ascending: true });
   // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
   // who joined with a code, so a joined parent saw only their own rows

@@ -5,32 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  CalendarDays,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  Clock,
-  Compass,
-  DollarSign,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Mail,
-  School,
-  Search,
-  Settings,
-  TrendingUp,
-} from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Search, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
-import { DarkModeToggle } from "@/components/shared/dark-mode-toggle";
 import { getSchoolsLite } from "@/lib/db/schools";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
-import { PARENT_NAV_LINKS, PLAYER_NAV_LINKS } from "./nav-links";
+import { PARENT_NAV_LINKS, PARENT_TOOL_LINKS, PLAYER_NAV_LINKS, PLAYER_TOOL_LINKS, type NavLink } from "./nav-links";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { parentSidebarNote, pickFamilyPlayer } from "@/lib/family-view";
 
@@ -96,6 +79,7 @@ export function SeededSidebar() {
   // Every other link (including those two sub-routes themselves) keeps the
   // normal startsWith behavior for their own nested pages (e.g. /schools/
   // [slug]).
+  const toolLinks = isParent ? PARENT_TOOL_LINKS : PLAYER_TOOL_LINKS;
   const isActive = (href: string) =>
     href === "/family" ? pathname === "/family" : pathname === href || pathname.startsWith(href + "/");
 
@@ -184,35 +168,30 @@ export function SeededSidebar() {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="App">
-          {navLinks.map((l) => {
-            const Icon = l.icon;
-            const active = isActive(l.href);
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  "flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans text-[15px] transition-colors",
-                  active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span className="truncate">{l.label}</span>}
-                {!collapsed && !!l.badge && (
-                  <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-on-lime">
-                    {l.badge}
-                  </span>
-                )}
-                {collapsed && (
-                  <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg border border-[rgb(var(--c-line))] bg-card px-2.5 py-1.5 font-sans text-xs font-medium text-ink opacity-0 shadow-card transition-opacity duration-150 hover:opacity-100">
-                    {l.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="App">
+          <ul className="space-y-0.5">
+            {navLinks.map((l) => (
+              <li key={l.href}>
+                <SidebarLink link={l} active={isActive(l.href)} collapsed={collapsed} />
+              </li>
+            ))}
+          </ul>
+          {/* The five above are the primary nav (CLAUDE.md). Tools is a small
+              secondary group: Results and the tournament checker. */}
+          <div className={cn("mt-5 border-t border-[rgb(var(--c-line))] pt-3", collapsed && "mt-3")}>
+            {!collapsed && (
+              <p id="sidebar-tools" className="px-3 pb-1 font-sans text-xs font-semibold uppercase tracking-wide text-stone">
+                Tools
+              </p>
+            )}
+            <ul className="space-y-0.5" aria-labelledby={collapsed ? undefined : "sidebar-tools"} aria-label={collapsed ? "Tools" : undefined}>
+              {toolLinks.map((l) => (
+                <li key={l.href}>
+                  <SidebarLink link={l} active={isActive(l.href)} collapsed={collapsed} small />
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
 
         {/* Board 22: what a parent can and cannot change, under the nav. The
@@ -224,7 +203,6 @@ export function SeededSidebar() {
         )}
 
         <div className={cn("relative shrink-0 border-t border-[rgb(var(--c-line))] p-3", collapsed && "px-2")}>
-          <DarkModeToggle showLabel={!collapsed} className={collapsed ? "mx-auto mb-1" : "mb-1"} />
           <SeededAvatarMenu
             player={player}
             isParent={isParent}
@@ -251,6 +229,7 @@ export function SeededSidebar() {
           {mobileMenuOpen && (
             <SeededAvatarPanel
               align="right"
+              tools={toolLinks}
               onClose={() => setMobileMenuOpen(false)}
               onSignOut={handleSignOut}
             />
@@ -293,6 +272,41 @@ export function SeededSidebar() {
         })}
       </nav>
     </>
+  );
+}
+
+function SidebarLink({
+  link,
+  active,
+  collapsed,
+  small = false,
+}: {
+  link: NavLink;
+  active: boolean;
+  collapsed: boolean;
+  small?: boolean;
+}) {
+  const Icon = link.icon;
+  return (
+    <Link
+      href={link.href}
+      aria-current={active ? "page" : undefined}
+      title={collapsed ? link.label : undefined}
+      className={cn(
+        "relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans transition-colors",
+        small ? "text-sm" : "text-[15px]",
+        active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
+        collapsed && "justify-center px-0"
+      )}
+    >
+      <Icon className={cn("shrink-0", small ? "h-4 w-4" : "h-[18px] w-[18px]")} aria-hidden />
+      {collapsed ? <span className="sr-only">{link.label}</span> : <span className="truncate">{link.label}</span>}
+      {!collapsed && !!link.badge && (
+        <span className="ml-auto rounded-pill bg-lime-accent px-[7px] py-px text-xs font-semibold text-on-lime">
+          {link.badge}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -461,10 +475,14 @@ function SeededAvatarMenu({
 
 function SeededAvatarPanel({
   align,
+  tools = [],
   onClose,
   onSignOut,
 }: {
   align: "left" | "right";
+  /** Phones only: the bottom bar holds the five, so Tools live here. On
+   * desktop they are in the sidebar and this menu is account-only. */
+  tools?: NavLink[];
   onClose: () => void;
   onSignOut: () => void;
 }) {
@@ -479,9 +497,11 @@ function SeededAvatarPanel({
         align === "left" ? "left-0" : "right-0 top-full bottom-auto mb-0 mt-2"
       )}
     >
-      <PanelLink href="/tournament-fit" icon={Compass} onClick={onClose}>
-        Tournament fit
-      </PanelLink>
+      {tools.map((t) => (
+        <PanelLink key={t.href} href={t.href} icon={t.icon} onClick={onClose}>
+          {t.label}
+        </PanelLink>
+      ))}
       <PanelLink href="/settings" icon={Settings} onClick={onClose}>
         Settings
       </PanelLink>

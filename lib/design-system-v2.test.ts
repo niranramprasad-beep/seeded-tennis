@@ -212,6 +212,10 @@ describe("rule 1: one green button per screen", () => {
       max: 4,
       why: "one per branch, never two at once: under-13 link, player submit, parent submit, parent's 'Go to my family'",
     },
+    "components/seeded/events/seeded-events-layout.tsx": { max: 1, why: "Add session (sweep C20)" },
+    "components/seeded/events/upcoming-tournaments-card.tsx": { max: 0, why: "it sits on /events, whose one green button is Add session" },
+    "components/seeded/events/events-calendar-card.tsx": { max: 0, why: "it sits on /events, whose one green button is Add session" },
+    "components/seeded/events/recent-results-card.tsx": { max: 0, why: "it sits on /events, whose one green button is Add session" },
     "components/seeded/home/seeded-home-view.tsx": {
       max: 3,
       why: "hero (desktop), the calculator's button (phones only, where the hero copy is hidden), the final CTA band at the bottom",
@@ -269,5 +273,69 @@ describe("rule 8: the focus ring is court green on light, lime only on dark", ()
   it("no component hard-codes a lime focus ring", () => {
     const hits = V2_FILES.filter((f) => /focus(?:-visible|-within)?:(?:outline|ring)-lime-accent/.test(codeOnly(f))).map(rel);
     expect(hits).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------- no gradients */
+
+// Sweep C17: the ⌘K highlight was the accent gradient, /matches had a
+// gradient divider under a marketing headline, Match mode a gradient badge.
+// Board 23 is flat: solid tokens only. Scope is every Seeded file plus the
+// app-route components that live outside components/seeded (results,
+// Today's drawers).
+export const GRADIENT =
+  /bg-gradient-|(?:linear|radial|conic)-gradient\(|--s-accent-gradient|seeded-gradient-text|seeded-glass|\brule-gold\b/;
+
+// Files that may keep one, each with the reason. Shrink this list; never
+// grow it without a reason a reviewer would accept.
+const GRADIENT_ALLOWED: Record<string, string> = {
+  "components/layout/footer.tsx":
+    "the gradient sits in `isSeeded ?` branches below `if (isSeeded) return <SlimFooter />` — unreachable for Seeded, Legacy-only in practice",
+  "components/pricing/legacy-pricing-view.tsx": "the Legacy pricing page; Seeded renders seeded-pricing-view.tsx",
+  "components/shared/glow-orb.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
+  "components/shared/spotlight-card.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
+  "components/auth/parent-login-form.tsx":
+    "OPEN: a real Seeded violation (glass card + gradient button on /parent-login). Auth belongs to the onboarding pass running in parallel; flagged in the sweep C17 report rather than edited here",
+};
+
+const APP_ROUTE_EXTRA_DIRS = ["components/matches", "components/dashboard"];
+
+describe("design system v2: no gradients on Seeded screens", () => {
+  it("the detector catches each spelling (self-test)", () => {
+    for (const s of [
+      'style={{ background: "var(--s-accent-gradient)" }}',
+      'className="seeded-glass p-6"',
+      'className="bg-gradient-to-r from-grass to-lime"',
+      'background: "linear-gradient(90deg, red, blue)"',
+      'className="rule-gold mt-8"',
+      'className="seeded-gradient-text"',
+    ]) {
+      expect(GRADIENT.test(s), s).toBe(true);
+    }
+    for (const s of ['className="bg-grass-50 text-grass"', "gradient of the trajectory"]) {
+      expect(GRADIENT.test(s), s).toBe(false);
+    }
+  });
+
+  it("no Seeded or app-route file paints a gradient", () => {
+    const files = [...V2_FILES, ...APP_ROUTE_EXTRA_DIRS.flatMap((d) => walk(join(ROOT, d)))];
+    const hits: string[] = [];
+    for (const f of files) {
+      if (GRADIENT_ALLOWED[rel(f)]) continue;
+      const m = codeOnly(f).match(GRADIENT);
+      if (m) hits.push(`${rel(f)}: ${m[0]}`);
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("every allow-listed file still has one (so the list cannot rot)", () => {
+    const stale = Object.keys(GRADIENT_ALLOWED).filter((f) => {
+      try {
+        return !GRADIENT.test(codeOnly(join(ROOT, f)));
+      } catch {
+        return true;
+      }
+    });
+    expect(stale, "remove these from GRADIENT_ALLOWED").toEqual([]);
   });
 });

@@ -1,11 +1,10 @@
-// Real data access behind /events: logged match results, tracked/entered
-// tournaments, and the player's own recurring training-session calendar.
+// Real data access behind /events: logged match results and tracked/entered
+// tournaments. The training calendar is lib/db/training.ts.
 // Moved verbatim from the former lib/supabase/features.ts's matches
 // section, lib/supabase/tournaments.ts, and lib/supabase/training.ts —
 // /events is the one real page that renders all three (recent results,
 // upcoming tournaments, training calendar), which is why they're
 // consolidated here rather than split further.
-import type { Weakness, Intensity, WeekdayShort } from "@/lib/types";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
@@ -25,24 +24,12 @@ export interface EventsWriteContext {
   familyCode: string | null;
 }
 
-/** Same idea as EventsWriteContext, for app/api/training/planner and
- * app/api/training/templates — the training-planner tables
- * (training_plans/workout_sessions/saved_templates/exercises/
- * session_exercises) are strictly user-owned with no family-sharing
- * column, so this context never needs a family code. */
-export interface TrainingWriteContext {
-  supabase: TypedSupabaseClient;
-  userId: string;
-}
-
 // text columns backed only by a Postgres CHECK constraint — see
 // lib/db/narrow.ts's header for why these need narrowing back down from
 // the generated `string` type rather than widening the app-level type.
 const SURFACES: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];
 const MATCH_RESULTS: NonNullable<MatchRecord["result"]>[] = ["win", "loss"];
 const FIT_LEVELS: FitLevel[] = LEVELS.map((l) => l.value);
-const INTENSITIES: Intensity[] = ["low", "moderate", "high"];
-const TEMPLATE_TYPES: SavedTrainingTemplate["templateType"][] = ["session", "plan"];
 
 async function userId(): Promise<string | null> {
   const supabase = getSupabase();
@@ -97,51 +84,13 @@ export interface MatchAnalysis {
   source: "ai" | "fallback";
 }
 
-export function generatePrepPlan(args: {
-  weaknesses: Weakness[];
-  surface: MatchRecord["surface"];
-  currentUtr: number;
-  opponentUtr?: number | null;
-}): PrepPlan {
-  const weak = args.weaknesses.length ? args.weaknesses : ["serve", "mental"];
-  const surfaceNote =
-    args.surface === "clay"
-      ? "Use higher net clearance and build points before changing direction."
-      : args.surface === "grass"
-        ? "Stay low, shorten backswings, and prioritize first-strike returns."
-        : args.surface === "indoor"
-          ? "Expect faster timing. Warm up compact returns and first-ball patterns."
-          : "Own cross-court depth and be ready for longer neutral rallies.";
-  const gap = args.opponentUtr ? args.opponentUtr - args.currentUtr : 0;
-  return {
-    warmup: [
-      "8 minutes dynamic movement: skips, lunges, open hips, shoulder bands.",
-      `12 minutes focused reps on ${weak[0]} with low-error targets.`,
-      `8 minutes ${weak[1] ?? "serve"} pressure pattern: 3-ball sequences with score calls.`,
-      surfaceNote,
-    ],
-    tactics: [
-      gap >= 1
-        ? "Opponent is higher rated: make them play one extra ball, target long rallies, and avoid low-percentage line changes early."
-        : gap <= -1
-          ? "You are higher rated: start assertive, protect service games, and do not give away short neutral balls."
-          : "Ratings are close: win the first four shots and track which pattern earns short balls.",
-      "Open with high-percentage cross-court patterns until the opponent proves they can hurt you.",
-      "Between points, name the next serve/return target before stepping up.",
-    ],
-    mental: [
-      "Sleep target: 8+ hours, phone away 45 minutes before bed.",
-      "Visualize three pressure points and your exact between-point reset.",
-      "Write one controllable goal: feet active, target margin, or first-serve routine.",
-    ],
-    matchDay: [
-      "Pack: two racquets, grips, towel, hat, sunscreen, bands, extra shirt.",
-      "Hydration: bottle plus electrolytes; start sipping before warm-up.",
-      "Arrive 45 minutes early and check court surface, wind, and shade.",
-      "Start warm-up with margin. Do not judge your game in the first five minutes.",
-    ],
-    generatedAt: new Date().toISOString(),
-  };
+/** What a match row's NOT NULL `prep_plan` column holds now. It used to be
+ * filled by `generatePrepPlan()` — a warm-up, tactics and a packing list
+ * Seeded wrote from a template for every match logged, shown on /match-mode
+ * as the player's "prep plan". Match mode is gone and so is the generator
+ * (docs/DECISIONS.md, 2026-11-18); nothing renders this field. */
+export function emptyPrepPlan(): PrepPlan {
+  return { warmup: [], tactics: [], mental: [], matchDay: [], generatedAt: new Date().toISOString() };
 }
 
 // "All time" is a real filter option in the match history view, so this
@@ -209,7 +158,6 @@ export async function loadMatches(subject: DataSubject = "self", signal?: AbortS
 export type SaveMatchInput = Partial<MatchRecord> & {
   matchDate: string;
   surface: MatchRecord["surface"];
-  prepPlan: PrepPlan;
 };
 
 function matchRowFromInput(match: SaveMatchInput, ctx: EventsWriteContext) {
@@ -222,7 +170,7 @@ function matchRowFromInput(match: SaveMatchInput, ctx: EventsWriteContext) {
     opponent_utr: match.opponentUtr ?? null,
     tournament_name: match.tournamentName || null,
     surface: match.surface,
-    prep_plan: match.prepPlan as unknown as Json,
+    prep_plan: (match.prepPlan ?? emptyPrepPlan()) as unknown as Json,
     notification_requested: Boolean(match.notificationRequested),
     result: match.result ?? null,
     score: match.score || null,
@@ -235,16 +183,15 @@ function matchRowFromInput(match: SaveMatchInput, ctx: EventsWriteContext) {
 }
 
 /**
- * Saves (adds, or updates when `.id` is passed) a logged match or planned
- * match — the real action behind /matches' log form and /events' Match
- * mode (prep plan, result, notification flag). The browser never calls the
+ * Saves (adds, or updates when `.id` is passed) a logged match — the real
+ * action behind the result form (components/matches/match-result-form.tsx,
+ * on /matches and /events) and Today's Sunday check-in. The browser never calls the
  * Supabase upsert directly: without `ctx` (every real UI call site), this
  * instead posts to app/api/matches, the zod-validated route handler that
  * supplies `ctx` and performs the actual write — same contract (resolves
  * with the saved match, null when there's no signed-in session to save
  * against, throws with a specific message on a real write failure) every
- * existing caller (components/matches/match-history-view.tsx,
- * components/matches/match-mode-view.tsx) already expects.
+ * existing caller already expects.
  */
 export async function saveMatch(
   match: SaveMatchInput,
@@ -270,8 +217,8 @@ export async function saveMatch(
   return mapMatch(data);
 }
 
-/** Deletes a logged/planned match — real action behind /matches' delete
- * button and /events' Match mode "Cancel match". Same "no browser-direct
+/** Deletes a logged match — real action behind /matches' delete button
+ * (whose Undo re-saves the same record). Same "no browser-direct
  * write" shape as saveMatch above: without `ctx`, this posts to the
  * zod-validated app/api/matches route instead of writing to Supabase
  * itself. */
@@ -519,368 +466,4 @@ export async function deleteTournamentEntry(id: string): Promise<void> {
   if (!supabase || !ownerId) return;
   const { error } = await supabase.from("tournament_entries").delete().eq("id", id).eq("user_id", ownerId);
   if (error) throw new Error(error.message);
-}
-
-/* ------------------------------------------------------------- training planner */
-// The player's own editable weekly training calendar (training_plans +
-// workout_sessions + exercises/session_exercises) — distinct from the
-// static "which plan fits your UTR" catalog in lib/db/plan.ts.
-
-export interface TrainingSessionType {
-  id: string;
-  label: string;
-  color: string;
-  bg: string;
-  text: string;
-}
-
-export interface TrainingPlannerSession {
-  id: string;
-  title: string;
-  typeId: string;
-  day: WeekdayShort;
-  date: string;
-  startTime: string;
-  duration: number;
-  intensity: Intensity;
-  notes: string;
-  goals: string;
-  drills: string[];
-  completed: boolean;
-  /** Groups the occurrences generated by the Events calendar card's
-   * "repeat weekly" option (lib/training/calendar-interactions.ts's
-   * generateWeeklySeriesDates) so the whole series can be removed together.
-   * Null/undefined for a one-off session. Stored inside the existing
-   * `metadata` jsonb column below rather than a new table column — same
-   * "reuse the bag that's already there" call migration
-   * 014_profile_fields_and_deletion.sql's header comment made for
-   * `notification_preferences`, since `metadata` already holds other
-   * session-shaped extras (`drills`) and a plain grouping id needs no
-   * indexing or FK integrity to be useful here. */
-  seriesId?: string | null;
-}
-
-export interface TrainingFolder {
-  id: string;
-  name: string;
-  goal: string;
-  sessionIds: string[];
-}
-
-export interface TrainingPreferences {
-  fullTime: boolean;
-  weeklyHours: number;
-  primaryGoal: string;
-  constraints: string;
-}
-
-export interface SavedTrainingTemplate {
-  id: string;
-  name: string;
-  templateType: "session" | "plan";
-  description: string;
-  payload: Record<string, unknown>;
-}
-
-export interface TrainingPlannerState {
-  sessions: TrainingPlannerSession[];
-  sessionTypes: TrainingSessionType[];
-  plans: TrainingFolder[];
-  activePlanId: string;
-  templates: SavedTrainingTemplate[];
-  preferences?: TrainingPreferences;
-}
-
-// Reads across 4 tables, each filtered to the signed-in user EXPLICITLY.
-//
-// This comment used to argue the opposite: the tables are all
-// "auth.uid() = user_id" RLS, "so there's nothing gained by resolving the
-// user id first and filtering by it ourselves". That is the exact reasoning
-// loadUtrEntries() used before migration 036 widened utr_entries' policy and
-// it began returning a whole family's ratings (the previous pass's
-// CRITICAL). RLS is a ceiling on what may be read; the query must say what
-// it means to read, so a future family policy on these tables cannot
-// silently put a sibling's sessions on this calendar. (workout_sessions/training_plans don't
-// get date-range-limited here: this planner is a recurring weekly
-// template, not a dated log — a user's current sessions stay bounded to
-// roughly "however many are in their active plan(s)," not an ever-growing
-// history, so there's no "visible range" to narrow to the way there is for
-// matches/check-ins.)
-export async function loadTrainingPlannerState(
-  fallback: TrainingPlannerState,
-  signal?: AbortSignal
-): Promise<TrainingPlannerState | null> {
-  const supabase = getSupabase();
-  if (!supabase) return null;
-
-  const withSignal = <T extends { abortSignal: (s: AbortSignal) => T }>(q: T): T =>
-    signal ? q.abortSignal(signal) : q;
-
-  // user_settings is queried separately from the other three: `.maybeSingle()`
-  // resolves the filter builder into a different (non-chainable) response
-  // type that no longer exposes `.abortSignal()`, so the signal has to be
-  // attached to the query BEFORE `.maybeSingle()` runs, not after.
-  const ownerId = await userId();
-  if (!ownerId) return null;
-  let settingsQuery = supabase.from("user_settings").select("*").eq("user_id", ownerId);
-  if (signal) settingsQuery = settingsQuery.abortSignal(signal);
-
-  const [{ data: plans, error: plansError }, { data: sessions, error: sessionsError }, { data: settings }, { data: templates }] =
-    await Promise.all([
-      withSignal(supabase.from("training_plans").select("*").eq("user_id", ownerId).order("created_at", { ascending: true })),
-      withSignal(supabase.from("workout_sessions").select("*").eq("user_id", ownerId).order("order_index", { ascending: true })),
-      settingsQuery.maybeSingle(),
-      withSignal(supabase.from("saved_templates").select("*").eq("user_id", ownerId).order("created_at", { ascending: false })),
-    ]);
-
-  if (plansError || sessionsError) {
-    throw new Error(plansError?.message ?? sessionsError?.message ?? "Could not load training data.");
-  }
-
-  if (!plans || plans.length === 0) {
-    return fallback;
-  }
-
-  const mappedSessions: TrainingPlannerSession[] = (sessions ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    typeId: row.session_type,
-    day: (row.weekday ?? "Mon") as WeekdayShort,
-    date: row.scheduled_date ?? "",
-    startTime: String(row.start_time ?? "16:00").slice(0, 5),
-    duration: row.duration_minutes,
-    intensity: narrowLiteral(row.intensity, INTENSITIES, "moderate"),
-    notes: row.notes ?? "",
-    goals: row.goals ?? "",
-    drills: ((row.metadata as { drills?: string[] } | null)?.drills ?? []) as string[],
-    completed: row.completed,
-    seriesId: (row.metadata as { seriesId?: string | null } | null)?.seriesId ?? null,
-  }));
-
-  const mappedPlans: TrainingFolder[] = (plans ?? []).map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    goal: plan.goal ?? "",
-    sessionIds: mappedSessions
-      .filter((session) =>
-        (sessions ?? []).some((row) => row.id === session.id && row.training_plan_id === plan.id)
-      )
-      .map((session) => session.id),
-  }));
-
-  const mappedTemplates: SavedTrainingTemplate[] = (templates ?? []).map((t) => ({
-    id: t.id,
-    name: t.name,
-    templateType: narrowLiteral(t.template_type, TEMPLATE_TYPES, "session"),
-    description: t.description ?? "",
-    payload: (t.payload as Record<string, unknown> | null) ?? {},
-  }));
-
-  const notificationPrefs = settings?.notification_preferences as
-    | { session_types?: TrainingSessionType[]; training_preferences?: TrainingPreferences }
-    | undefined;
-  const sessionTypes = notificationPrefs?.session_types ?? fallback.sessionTypes;
-  const preferences = notificationPrefs?.training_preferences ?? fallback.preferences;
-
-  return {
-    sessions: mappedSessions,
-    sessionTypes,
-    plans: mappedPlans,
-    activePlanId: (plans ?? []).find((plan) => plan.active)?.id ?? mappedPlans[0]?.id ?? fallback.activePlanId,
-    templates: mappedTemplates,
-    preferences,
-  };
-}
-
-/**
- * Persists the player's whole weekly training planner (plans, sessions,
- * their drills/exercises, the session-type palette, and preferences) in
- * one go — the real action behind /training's autosave and the Events
- * calendar card's add/edit/delete/move/resize/repeat (lib/hooks/
- * use-events-calendar.ts's `persist`, which always writes the full next
- * state rather than a per-field patch). The browser never calls the
- * Supabase upsert/delete sequence directly: without `ctx` (every real UI
- * call site), this instead posts to app/api/training/planner, the
- * zod-validated route handler that supplies `ctx` and performs the actual
- * write — same contract (resolves on success, returns early with no
- * network write when there's no signed-in session, throws with a specific
- * message on a real write failure) every existing caller
- * (components/training/training-view.tsx, use-events-calendar.ts's
- * best-effort `.catch(() => undefined)`) already expects.
- */
-export async function saveTrainingPlannerState(
-  state: TrainingPlannerState,
-  ctx?: TrainingWriteContext
-): Promise<void> {
-  if (!ctx) {
-    const ownerId = await userId();
-    if (!ownerId) return;
-    const { postJson } = await import("@/lib/api-client");
-    await postJson("/api/training/planner", state);
-    return;
-  }
-
-  const { supabase, userId: ownerId } = ctx;
-
-  const planRows = state.plans.map((plan) => ({
-    id: plan.id,
-    user_id: ownerId,
-    name: plan.name,
-    goal: plan.goal,
-    active: plan.id === state.activePlanId,
-    source: "custom" as const,
-  }));
-
-  if (planRows.length) {
-    const { error } = await supabase.from("training_plans").upsert(planRows);
-    if (error) throw new Error(error.message);
-  }
-
-  const planBySession = new Map<string, string>();
-  state.plans.forEach((plan) =>
-    plan.sessionIds.forEach((sessionId) => planBySession.set(sessionId, plan.id))
-  );
-
-  const sessionRows = state.sessions
-    .filter((session) => planBySession.has(session.id))
-    .map((session, index) => ({
-      id: session.id,
-      user_id: ownerId,
-      training_plan_id: planBySession.get(session.id) as string,
-      title: session.title,
-      session_type: session.typeId,
-      scheduled_date: session.date,
-      weekday: session.day,
-      start_time: session.startTime,
-      duration_minutes: session.duration,
-      intensity: session.intensity,
-      notes: session.notes,
-      goals: session.goals,
-      completed: session.completed,
-      order_index: index,
-      metadata: { drills: session.drills, seriesId: session.seriesId ?? null },
-    }));
-
-  if (sessionRows.length) {
-    const { error } = await supabase.from("workout_sessions").upsert(sessionRows);
-    if (error) throw new Error(error.message);
-  }
-
-  const sessionIds = state.sessions.map((session) => session.id);
-  const planIds = state.plans.map((plan) => plan.id);
-
-  let sessionDelete = supabase.from("workout_sessions").delete().eq("user_id", ownerId);
-  if (sessionIds.length) {
-    sessionDelete = sessionDelete.not("id", "in", `(${sessionIds.join(",")})`);
-  }
-  await sessionDelete;
-
-  let planDelete = supabase.from("training_plans").delete().eq("user_id", ownerId);
-  if (planIds.length) {
-    planDelete = planDelete.not("id", "in", `(${planIds.join(",")})`);
-  }
-  await planDelete;
-
-  // Read-then-merge: notification_preferences is a shared JSONB bag (also
-  // used by lib/db/settings.ts's design-preference section) — a blind
-  // overwrite here would silently wipe whatever else is sitting in that
-  // same blob on every training autosave.
-  const { data: existingSettings } = await supabase
-    .from("user_settings")
-    .select("notification_preferences")
-    .eq("user_id", ownerId)
-    .maybeSingle();
-
-  await supabase.from("user_settings").upsert({
-    user_id: ownerId,
-    default_training_view: "week",
-    notification_preferences: {
-      ...((existingSettings?.notification_preferences as Record<string, unknown> | undefined) ?? {}),
-      session_types: state.sessionTypes,
-      training_preferences: state.preferences ?? null,
-    } as unknown as Json,
-  });
-
-  await syncExercises(state, ctx);
-}
-
-/** Saves (adds, or updates when `.id` is passed) one reusable
- * session/plan template — real action behind /training's "Save as
- * template". Same "no browser-direct write" shape as
- * saveTrainingPlannerState above: without `ctx`, this posts to the
- * zod-validated app/api/training/templates route instead of writing to
- * Supabase itself. */
-export async function saveTrainingTemplate(
-  template: Omit<SavedTrainingTemplate, "id"> & { id?: string },
-  ctx?: TrainingWriteContext
-): Promise<SavedTrainingTemplate | null> {
-  if (!ctx) {
-    const ownerId = await userId();
-    if (!ownerId) return null;
-    const { postJson } = await import("@/lib/api-client");
-    const { template: saved } = await postJson<{ template: SavedTrainingTemplate | null }>(
-      "/api/training/templates",
-      template
-    );
-    return saved;
-  }
-
-  const id = template.id ?? createUuid();
-  const { error } = await ctx.supabase.from("saved_templates").upsert({
-    id,
-    user_id: ctx.userId,
-    name: template.name,
-    template_type: template.templateType,
-    description: template.description,
-    payload: template.payload as unknown as Json,
-  });
-  if (error) throw new Error(error.message);
-  return { ...template, id };
-}
-
-async function syncExercises(state: TrainingPlannerState, ctx: TrainingWriteContext) {
-  const { supabase, userId: ownerId } = ctx;
-
-  for (const session of state.sessions) {
-    for (const [index, drill] of session.drills.entries()) {
-      const name = drill.trim();
-      if (!name) continue;
-
-      const { data: exercise, error } = await supabase
-        .from("exercises")
-        .upsert(
-          {
-            user_id: ownerId,
-            name,
-            exercise_type: session.typeId,
-            description: session.goals,
-          },
-          { onConflict: "user_id,name" }
-        )
-        .select("id")
-        .single();
-
-      if (error || !exercise) continue;
-
-      await supabase.from("session_exercises").upsert({
-        user_id: ownerId,
-        workout_session_id: session.id,
-        exercise_id: exercise.id,
-        order_index: index,
-        duration_minutes: Math.max(5, Math.round(session.duration / Math.max(1, session.drills.length))),
-        notes: session.notes,
-      });
-    }
-  }
-}
-
-export function createUuid(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
-    const rand = Math.floor(Math.random() * 16);
-    const value = char === "x" ? rand : (rand & 0x3) | 0x8;
-    return value.toString(16);
-  });
 }
