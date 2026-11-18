@@ -149,11 +149,24 @@ describe("042: the predicates", () => {
     expect(sql).toMatch(/grant\s+execute\s+on\s+function\s+public\.my_family_has_tier\(text\)\s+to\s+authenticated/);
   });
 
-  it("does not gate the roster or the join/approve/consent RPCs (a free family must still form)", () => {
-    for (const fn of ["family_members", "join_family", "approve_family_join", "grant_parent_consent", "remove_family_member"]) {
+  it("does not gate the join/approve/consent RPCs (a free family must still form)", () => {
+    for (const fn of ["join_family", "approve_family_join", "grant_parent_consent", "remove_family_member"]) {
       const def = latestFunctionDefinition(fn, migrations);
       expect(def, fn).not.toBeNull();
       expect(def!.sql, `${fn} must not require the Family plan`).not.toMatch(/family_has_tier|shares_family_plan_with/i);
+    }
+  });
+
+  it("gates only the roster's stat COLUMNS, never its rows (044)", () => {
+    // 044 nulls current_utr / grade / graduation_year / target_school_slugs /
+    // gender for a free family; family-roster-shape.test.ts checks that
+    // structurally. Here: the plan never decides WHO is on the roster.
+    const def = latestFunctionDefinition("family_members", migrations);
+    expect(def).not.toBeNull();
+    for (const w of def!.sql.matchAll(/\bwhere\b([\s\S]*?)(?=\bunion\b|\border\b|\bselect\b|\$fn\$)/gi)) {
+      expect(w[1], "family_members() must not filter rows by the plan").not.toMatch(
+        /family_has_tier|shares_family_plan_with/i
+      );
     }
   });
 });

@@ -22,7 +22,13 @@ import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
-import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
+import {
+  missingPlayerUtrPhrase,
+  pickFamilyPlayer,
+  resolveFamilyPlayerFacts,
+  rosterStatsLocked,
+} from "@/lib/family-view";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
@@ -234,6 +240,14 @@ export function SeededSchoolsBrowser({
     [familyMembers, player]
   );
   const viewingAsParent = player.role === "parent" && playerFacts.hasLinkedPlayer;
+  // 044: a free family's roster returns the player's rating, class year,
+  // targets and gender as NULL. Knowing the plan is what lets the line
+  // below say "shows with the Family plan" instead of "hasn't logged one".
+  const { data: familyPlan } = useSWR<FamilyPlanStatus>(
+    player.role === "parent" ? "family-plan-status" : null,
+    () => loadFamilyPlanStatus()
+  );
+  const statsLocked = rosterStatsLocked(familyPlan);
 
   // A parent browsing their child's fit must be looking at their child's
   // side of the catalogue. GenderProvider seeds from the SIGNED-IN user's
@@ -484,7 +498,8 @@ export function SeededSchoolsBrowser({
   // first paint. Holding the column while that loads keeps every row from
   // sliding sideways when it lands (measured CLS 0.29 at 1440 for persona
   // f before this); it is dropped only once we KNOW there is no rating.
-  const parentAwaitingFamily = player.role === "parent" && familyMembersData === undefined;
+  const parentAwaitingFamily =
+    player.role === "parent" && (familyMembersData === undefined || familyPlan === undefined);
   const showFitCol = judgingUtr !== null || parentAwaitingFamily;
   const tableGridTemplate = [
     "28px",
@@ -558,7 +573,22 @@ export function SeededSchoolsBrowser({
           <div className="space-y-2">
             <ParentScopeLine />
             <p className="px-1 text-sm text-stone">
-              Fit below uses the rating on {subjectName}&rsquo;s profile.
+              {playerFacts.currentUtr != null ? (
+                <>Fit below uses the rating on {subjectName}&rsquo;s profile.</>
+              ) : (
+                <>
+                  {missingPlayerUtrPhrase(subjectName ?? "Your player", statsLocked)}, so programs
+                  below aren&rsquo;t banded for fit.
+                  {statsLocked ? (
+                    <>
+                      {" "}
+                      <Link href="/pricing" className="font-semibold text-ink underline underline-offset-2">
+                        See the Family plan
+                      </Link>
+                    </>
+                  ) : null}
+                </>
+              )}
             </p>
           </div>
         ) : (

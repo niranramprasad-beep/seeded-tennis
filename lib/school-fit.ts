@@ -428,6 +428,10 @@ export interface SchoolFitExplanationInput {
    * summary then says "Bailey is 8.7" instead of addressing the parent as
    * "You're 8.7". */
   subjectName?: string | null;
+  /** True when the subject's rating is hidden from the reader by the Family
+   * plan (migration 044 returns it NULL to a free family). The no-rating
+   * summary then says so instead of claiming nobody logged one. */
+  ratingHidden?: boolean;
 }
 
 /**
@@ -455,7 +459,9 @@ export function explainSchoolFit(
   if (playerUtr == null || playerUtr <= 0) {
     return {
       band: "unverified",
-      summary: who
+      summary: who && input.ratingHidden
+        ? `${who}'s rating shows with the Family plan, so there's nothing to compare to ${school.shortName}'s roster here.`
+        : who
         ? `${who} hasn't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`
         : `You haven't logged a UTR yet, so there's nothing real to compare to ${school.shortName}'s roster.`,
       gapToFloor: null,

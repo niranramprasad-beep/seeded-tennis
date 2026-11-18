@@ -2137,13 +2137,13 @@ old code calls `consume_rate_limit`, which 034 leaves in place, so leaving
 034 applied is safe, but dropping it while the NEW code is live 429s every
 write.
 
-### PR B — Steps 16–18 (migrations 041–043), written 2026-11-18
+### PR B — Steps 16–19 (migrations 041–044), written 2026-11-18
 
 **Not applied to production.** Applied to STAGING (`gnlcpnsweqbtwpaqhqqg`)
 only, probed as real `authenticated` users in rolled-back transactions, and
 each rollback below was rehearsed on staging inside a transaction that was
 then rolled back (all three, in reverse order: 043 → 042 → 041, with a
-profile save and a join after each). Order on production: **041, 042, 043**,
+profile save and a join after each). Order on production: **041, 042, 043, 044** (044 added later the same day; Step 19),
 after Step 15's code is live, then the PR B code. Personas:
 `docs/STAGING_PERSONAS.md` (families `FAKEFAM-PB1`…`PB5`).
 
@@ -2313,7 +2313,8 @@ the existing permissive policies, which are untouched:
 | `encouragement_notes` | ALL | USING `parent_id = auth.uid() or family_has_tier(...)`; CHECK `family_has_tier(...)` |
 
 Not gated: `profiles` (own row only since 037), `families`,
-`family_codes`, `parent_accounts`, `family_members()`, and every
+`family_codes`, `parent_accounts`, `family_members()` (its five player-stat
+COLUMNS are gated by 044, Step 19; its rows are not), and every
 join/approve/deny/remove/consent RPC — a free family can still form.
 API: `/api/family/budget` and `/api/family/budget/expenses` call
 `refuseUnlessFamilyPlan()` (lib/api-auth.ts) → 403; `/api/account/export`
@@ -2777,6 +2778,135 @@ commit;
 **Risk: medium.** Every existing parent becomes unable to approve, consent or
 join until they click a link; the link depends on SMTP (80/hour project-wide)
 and on the redirect allow-list.
+
+### Step 19 — migration 044 (the roster respects the Family plan)
+**Why:** 042 locked every cross-member read behind the Family plan but left
+`family_members()` alone (Step 17's "Not gated" list), and the roster still
+returned each member's `current_utr`, `grade`, `graduation_year`,
+`target_school_slugs` and `gender` to a FREE family — a side door around the
+paywall: a free parent read 0 of the player's `utr_entries` and the player's
+current UTR straight off the roster.
+**What:** same signature, same 15 columns in the same order, same row set.
+Those five columns are NULL unless `family_has_tier(<caller's code>,
+'family')` (042's own predicate), except on the caller's OWN row (readable
+from `profiles` anyway). Ungated, because a free family must still form:
+`user_id, name, email, role, status, is_creator, joined_at, reminded_at,
+consent_status, onboarded`. `create or replace` (identical return type, so
+grants are kept); the revoke/grant pair is re-asserted.
+**Apply:** `supabase/migrations/044_roster_respects_family_plan.sql`, after
+042 (it calls `family_has_tier`).
+**Pre-flight:** none (no data change). The app code that reads the nulls
+honestly (`rosterStatsLocked()`, lib/family-view.ts) should ship with it, or a
+free parent's /schools says "hasn't logged a UTR yet" for a child who has one.
+**Verify — staging, 2026-11-18, as real users** (`set local role
+authenticated` + claims; compared row-for-row against 038's body run as a
+temp function in the same session):
+
+| identity | `my_family_has_tier('family')` | roster rows (044 / 038) | identity columns identical to 038 | other members' stats visible |
+|---|---|---|---|---|
+| PB1 parent (free) | false | 3 / 3 | yes | **0** (player's UTR 8.40 → NULL; own row kept) |
+| PB1 player (free, holder) | false | 3 / 3 | yes | **0** (own 8.40 / 2028 shown) |
+| PB1 pending parent | false | 0 / 0 | yes | — (as before) |
+| PB2 parent (parent pays) | true | 2 / 2 | yes, **whole rows identical** | 1 (9.10) |
+| PB3 parent (player pays) | true | 2 / 2 | yes, whole rows identical | 1 (10.20) |
+| PB4 parent (free, minor pending) | false | 2 / 2 | yes | 0 |
+| PB4 minor (pending) | false | 0 / 0 | yes | — |
+| A1 stranger joiner (holder pays) | true | 7 / 7 | yes, whole rows identical | 6 |
+
+Downgrade / upgrade, in a rolled-back subtransaction: PB2 payer → `free`:
+parent and player both see 0 stats (rows still 2); payer → `player`: still 0;
+back to `family`: player's 9.10 again. A1 holder → `free`: the joiner and
+parent2 see 7 rows, all four players' UTR NULL. PB1 player → `family`: PB1
+parent sees 8.40. Tiers afterwards unchanged (checked). Grants after apply:
+`authenticated`, `postgres`, `service_role` — `anon` and `PUBLIC` false.
+Rollback rehearsed in a rolled-back subtransaction: PB1 parent sees 8.40
+again, grants unchanged.
+**Guard:** `lib/db/family-roster-shape.test.ts` ("044") parses the LAST
+definition and fails unless each of the five columns is `case when <cond>
+then x.<col> end` with `<cond>` resolving (through the function's own
+aliases) to `family_has_tier(..., 'family')`, and the plan never appears in a
+WHERE. Eight mutants (gate removed, one column bare, constant condition,
+constant plan CTE, wrong tier, own-row exception widened, plan moved into
+WHERE, a column dropped) are test cases; a hand mutation of the real file
+(`grade` left bare) fails it too. `lib/db/family-plan-lock.test.ts` now allows
+the roster to reference the plan for columns only.
+**Rollback (runnable; restores 038's definition verbatim). Run BEFORE 042's
+rollback if both go — this body calls `family_has_tier()`:**
+```sql
+-- ROLLBACK 044. Run as postgres.
+begin;
+create or replace function public.family_members()
+returns table (
+  user_id uuid, name text, email text, role text, status text,
+  is_creator boolean, joined_at timestamptz, reminded_at timestamptz,
+  consent_status text, current_utr numeric, grade integer,
+  graduation_year integer, onboarded boolean,
+  target_school_slugs text[], gender text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $fn$
+  with fam as (select public.my_family_code() as code),
+  both_shapes as (
+    select p.id as user_id,
+           coalesce(nullif(p.name,''),'Family member') as name,
+           p.email,
+           coalesce(p.role,'player') as role,
+           'approved'::text as status,
+           p.created_at as joined_at,
+           null::timestamptz as reminded_at,
+           p.consent_status,
+           p.current_utr, p.grade, p.graduation_year, p.onboarded,
+           p.target_school_slugs, p.gender,
+           2 as shape_rank
+    from public.profiles p, fam
+    where fam.code is not null
+      and p.family_code = fam.code
+      and public.is_family_member(fam.code)
+    union all
+    select pa.user_id,
+           coalesce(nullif(p2.name,''),'Family member'),
+           p2.email,
+           coalesce(p2.role,'parent'),
+           pa.status,
+           pa.created_at,
+           pa.reminded_at,
+           p2.consent_status,
+           p2.current_utr, p2.grade, p2.graduation_year, p2.onboarded,
+           p2.target_school_slugs, p2.gender,
+           1
+    from public.parent_accounts pa
+    join public.profiles p2 on p2.id = pa.user_id, fam
+    where fam.code is not null
+      and pa.family_code = fam.code
+      and public.is_family_member(fam.code)
+  ),
+  one_per_member as (
+    select distinct on (b.user_id)
+           b.user_id, b.name, b.email, b.role, b.status,
+           b.joined_at, b.reminded_at, b.consent_status,
+           b.current_utr, b.grade, b.graduation_year, b.onboarded,
+           b.target_school_slugs, b.gender
+    from both_shapes b
+    order by b.user_id, (b.status = 'pending') desc, b.shape_rank
+  )
+  select m.user_id, m.name, m.email, m.role, m.status,
+         m.user_id = public.family_account_holder((select code from fam)) as is_creator,
+         m.joined_at, m.reminded_at, m.consent_status,
+         m.current_utr, m.grade, m.graduation_year, m.onboarded,
+         m.target_school_slugs, m.gender
+  from one_per_member m
+  order by 6 desc, 5, 7
+$fn$;
+revoke all on function public.family_members() from public, anon;
+grant execute on function public.family_members() to authenticated;
+commit;
+```
+**Risk: low.** No data change, no row-set change; free families' roster
+cards keep names, roles and approvals. `/privacy` (lib/legal/policy.ts) says
+the five details need the Family plan.
 
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
