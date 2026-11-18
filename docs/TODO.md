@@ -9,6 +9,25 @@ Last updated 2026-11-16.
 
 ## WEEK 1 — ranked (written by the 2026-11-15 overnight pass)
 
+**Open after PR B (2026-11-18) — Niran's calls or dashboard steps:**
+
+- **One Family subscription unlocks any number of families.** `family_has_tier`
+  counts any approved member, and a user can hold links in several families,
+  so a coach or friend on one Family plan who joins (and is approved into)
+  other families unlocks all of them (proved on staging by the PR B review,
+  rolled back). Decide: allow it (and say so in the pricing FAQ), or count
+  only members who hold that family's code / cap linked families per payer.
+- **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
+  staging, and `<site>/auth/verified` added to Supabase Auth → URL
+  Configuration → Redirect URLs on staging and production BEFORE 043 ships.
+- **Email budget:** every parent who wants to approve or consent will need one
+  verification email; production's custom SMTP allows 80/hour for the whole
+  project, shared with password resets. Supabase Auth's own rate limits are the
+  only real cap on `signInWithOtp` (the `email_verify` bucket limits Seeded's
+  own path only).
+- **Production's 28 generated workout sessions** (5 training_plans, 3 users)
+  are hidden by PR C, not deleted — S2: hide for good or delete.
+
 **Billing honesty — needs Niran's call (found 2026-11-16 rebuilding /pricing):
 the Family plan unlocks nothing the code enforces.** `FEATURE_TIER`
 (lib/types.ts) marks the parent dashboard, season budget and weekly report as

@@ -84,6 +84,11 @@ export const ACCOUNT_EXPORT_OMISSIONS: Record<string, string> = {
   // keep out of reach.
   family_join_attempts: "abuse-control log, not account content",
   rate_limit_events: "abuse-control counter, not account content",
+  // 043: one timestamp per account (when its sign-in email last changed),
+  // written by a trigger on auth.users and read only inside
+  // mark_email_verified(). No client role can read it, so the export, which
+  // runs as the signed-in user, could not include it.
+  auth_email_changes: "verification-control timestamp, unreadable by any client",
   // Removed features, locked in 027. No rows the product reads or writes.
   badges: "removed feature, table locked (S-13)",
   friendships: "removed feature, table locked (S-13)",

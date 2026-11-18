@@ -886,8 +886,17 @@ export interface PlayerWriteContext {
  * `err.message` in its JSON response, same convention as every other
  * lib/db/* write function); resolves on success.
  */
+/** A Player as the profile route hands it over. birthMonth and
+ * enrollmentTerm may be ABSENT (an older client's body never had them), and
+ * absent must stay absent: it means "leave the stored value alone", which is
+ * not the same as null ("clear it"). */
+export type PlayerProfileWrite = Omit<Player, "birthMonth" | "enrollmentTerm"> & {
+  birthMonth?: number | null;
+  enrollmentTerm?: Player["enrollmentTerm"];
+};
+
 export async function writeCurrentPlayerProfile(
-  player: Player,
+  player: PlayerProfileWrite,
   ctx: PlayerWriteContext
 ): Promise<void> {
   const base = {

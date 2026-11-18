@@ -127,6 +127,12 @@ const KEY_PUBLIC = ["/", "/schools", "/schools/stanford-m", "/schools/stanford-w
 const P = (id, email, label, routes) => ({ id, email, label, routes });
 export const PERSONAS = [
   P("h", null, "Logged-out first-time visitor", ALL_ROUTES),
+  // PR B personas (docs/STAGING_PERSONAS.md): Family-plan lock + email verification.
+  P("k", "fake-pb1-parent@example.com", "FREE parent (family has no Family plan)", [...APP_ROUTES, ...KEY_PUBLIC]),
+  P("l", "fake-pb3-parent@example.com", "Parent whose PLAYER pays Family", [...APP_ROUTES, ...KEY_PUBLIC]),
+  P("m", "fake-pb5-noutr@example.com", "Player with no UTR, not onboarded", [...APP_ROUTES, "/", "/schools", "/onboarding"]),
+  P("n", "fake-pb4-parent@example.com", "UNVERIFIED parent, under-13 pending consent", [...APP_ROUTES, "/", "/schools"]),
+  P("s", "fake-sweep-player@example.com", "Family-tier player, UTR 5.95, Class of 2029", [...APP_ROUTES, ...KEY_PUBLIC]),
   P("a", "fake-persona-a@example.com", "Men's 8.7, C/2031, GPA 3.5, Free", [...APP_ROUTES, ...KEY_PUBLIC]),
   P("b", "fake-persona-b@example.com", "Women's 6.0, C/2029, GPA 3.9", [...APP_ROUTES, ...KEY_PUBLIC]),
   P("c", "fake-persona-c@example.com", "Men's 11.0, C/2027, Player tier", [...APP_ROUTES, ...KEY_PUBLIC]),

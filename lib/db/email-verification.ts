@@ -1,6 +1,6 @@
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { AUTH_ERROR_MESSAGES, friendlyAuthError, isEmailVerifiedFor } from "@/lib/auth";
-import { VERIFY_COPY } from "@/lib/email-verify-flow";
+import { VERIFY_COPY, readPendingJoinCode, rememberPendingJoinCode } from "@/lib/email-verify-flow";
 
 // Parent email verification (B6, migration 043).
 //
@@ -8,22 +8,31 @@ import { VERIFY_COPY } from "@/lib/email-verify-flow";
 // production Auth, so Supabase stamps auth.users.email_confirmed_at at
 // sign-up for everyone. It proves nothing about owning the address. The
 // proof is a session that came from a link (or code) sent TO the address:
-// its JWT carries amr method `magiclink` / `otp`. mark_email_verified()
-// checks exactly that, server-side, and is the only writer of the
-// privileged profiles.email_verified_at.
+// its JWT carries amr method `magiclink` / `otp` with a timestamp.
+// mark_email_verified() checks that server-side, and is the only writer of
+// the privileged profiles.email_verified_at.
 //
 // The flow:
-//   1. sendVerificationLink(email) — spends one of 3/hour from the
-//      `email_verify` bucket (the limit lives in SQL, 043), then asks
-//      Supabase to email a sign-in link to the account's own address.
+//   1. sendVerificationLink() — request_email_verification() (043) spends
+//      one of 3/hour from the `email_verify` bucket and records WHICH
+//      address the link is for (the account's current auth email) and WHEN.
+//      Only then does Supabase email a sign-in link, to exactly the address
+//      the database returned — never one the screen was handed.
 //      shouldCreateUser: false, so it can never mint an account.
 //   2. The person opens it. /auth/verified lands the new session (PKCE: it
 //      must be opened in the SAME browser that asked) and calls
-//      markEmailVerified().
+//      markEmailVerified(). The database accepts it only if that session was
+//      authenticated by the link AFTER the request, within the last hour,
+//      for the requested address, with no email change in the day before.
 //   3. join_family / approve_family_join / grant_parent_consent stop
 //      refusing that parent with 42501 'verify_email_required'.
 //
 // Players are never asked.
+//
+// What the `email_verify` bucket does NOT do: protect the project's email
+// budget. signInWithOtp is a public Auth endpoint anyone can call with the
+// anon key without ever touching Seeded's RPC. The limits on that are
+// Supabase project settings (Auth -> Rate Limits, SMTP), not this repo.
 
 /** Where the link sends the browser. Must be in Supabase Auth's redirect
  * allow-list (Dashboard -> Authentication -> URL Configuration). */
@@ -37,25 +46,46 @@ export {
   isEmailVerifyRequired,
 } from "@/lib/email-verify-required";
 
+type RequestResult = { allowed: true; email: string } | { allowed: false; reason: string };
+
+/** request_email_verification()'s jsonb, or null when it is not that shape. */
+export function parseVerificationRequest(data: unknown): RequestResult | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as { allowed?: unknown; email?: unknown; reason?: unknown };
+  if (d.allowed === true && typeof d.email === "string" && d.email) return { allowed: true, email: d.email };
+  if (d.allowed === false) return { allowed: false, reason: typeof d.reason === "string" ? d.reason : "unknown" };
+  return null;
+}
+
 /**
- * Email a one-time sign-in link to `email` so the person can prove they own
- * it. Never throws. Errors come back as a sentence safe to show.
+ * Email a one-time sign-in link to the signed-in account's OWN address so
+ * the person can prove they own it. The address comes from the database
+ * (request_email_verification, 043), which also records the request that
+ * mark_email_verified() later checks the session against — so the request
+ * and the link are always for the same address. Never throws. Errors come
+ * back as a sentence safe to show; `email` is where the link went.
  */
-export async function sendVerificationLink(email: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendVerificationLink(): Promise<{ ok: boolean; email?: string; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
-  const address = email.trim();
-  if (!address) return { ok: false, error: AUTH_ERROR_MESSAGES.invalidEmail };
 
-  // The ceiling is in SQL (rate_limit_for_bucket, 043), so a caller cannot
-  // raise its own. Fails closed: if the limiter cannot be asked, no email.
+  // Fails closed: if the request cannot be recorded, no email.
+  let address: string;
   try {
-    const { data, error } = await supabase.rpc("consume_rate_limit", { p_bucket: "email_verify" });
+    const { data, error } = await supabase.rpc("request_email_verification");
     if (error) return { ok: false, error: friendlyAuthError(error) };
-    const allowed = (data as { allowed?: unknown } | null)?.allowed === true;
-    // Not AUTH_ERROR_MESSAGES.rateLimited ("wait a minute"): this bucket is
-    // 3 an hour, so a minute's wait would just fail again.
-    if (!allowed) return { ok: false, error: VERIFY_COPY.linkLimit };
+    const request = parseVerificationRequest(data);
+    if (!request) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
+    if (!request.allowed) {
+      // Not AUTH_ERROR_MESSAGES.rateLimited ("wait a minute"): this bucket
+      // is 3 an hour, so a minute's wait would just fail again.
+      if (request.reason === "rate_limited") return { ok: false, error: VERIFY_COPY.linkLimit };
+      if (request.reason === "email_recently_changed") {
+        return { ok: false, error: VERIFY_COPY.emailRecentlyChanged };
+      }
+      return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
+    }
+    address = request.email;
   } catch (e) {
     return { ok: false, error: friendlyAuthError(e) };
   }
@@ -70,28 +100,7 @@ export async function sendVerificationLink(email: string): Promise<{ ok: boolean
       },
     });
     if (error) return { ok: false, error: friendlyAuthError(error) };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: friendlyAuthError(e) };
-  }
-}
-
-/**
- * sendVerificationLink() to the signed-in account's own address. The
- * screens that offer "Send the link" to someone already signed in (the
- * approval gate, the banner) do not hold the email — `Player` has none — so
- * it is read from the session, never typed. Returns the address used, so
- * the screen can say where the link went.
- */
-export async function sendVerificationLinkToMe(): Promise<{ ok: boolean; email?: string; error?: string }> {
-  const supabase = getSupabase();
-  if (!supabase) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
-  try {
-    const { data } = await getAuthedUser(supabase);
-    const email = data.user?.email ?? "";
-    if (!email) return { ok: false, error: AUTH_ERROR_MESSAGES.unknown };
-    const result = await sendVerificationLink(email);
-    return { ...result, email };
+    return { ok: true, email: address };
   } catch (e) {
     return { ok: false, error: friendlyAuthError(e) };
   }
@@ -123,18 +132,60 @@ export async function checkEmailVerified(): Promise<boolean> {
   }
 }
 
-/**
- * Record that the CURRENT session proves the address. True only when the
- * database agreed (the session came from a link/code, or the account is a
- * Google identity for that address). False otherwise, including on error.
- */
-export async function markEmailVerified(): Promise<boolean> {
+/** The signed-in account's id, or null. Never throws. */
+async function currentUserId(): Promise<string | null> {
   const supabase = getSupabase();
-  if (!supabase) return false;
+  if (!supabase) return null;
+  try {
+    const { data } = await getAuthedUser(supabase);
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** rememberPendingJoinCode() for the signed-in account (bound to its id, so
+ *  /auth/verified never submits it for anyone else). */
+export async function rememberMyPendingJoinCode(code: string): Promise<void> {
+  rememberPendingJoinCode(code, await currentUserId());
+}
+
+/** The code the signed-in account left behind, or null — including when a
+ *  code is stored for a different account. */
+export async function readMyPendingJoinCode(): Promise<string | null> {
+  return readPendingJoinCode(await currentUserId());
+}
+
+export type MarkEmailVerifiedResult ="verified" | "not-proven" | "rate-limited";
+
+/** 043 raises this (errcode 53400) when its own profile write is refused by
+ *  the profile_write limit. */
+export const EMAIL_VERIFY_RATE_LIMITED = "email_verify_rate_limited";
+
+/** Which kind of failure a mark_email_verified() error is. */
+export function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
+  const e = (error ?? {}) as { code?: unknown; message?: unknown };
+  const limited =
+    e.code === "53400" || (typeof e.message === "string" && e.message.includes(EMAIL_VERIFY_RATE_LIMITED));
+  return limited ? "rate-limited" : "not-proven";
+}
+
+/**
+ * Record that the CURRENT session proves the address. "verified" only when
+ * the database agreed (a link/code session newer than the request, for the
+ * requested address — or a Google identity for that address).
+ * "rate-limited" when the write was refused by the profile_write limit, so
+ * the screen says "too many tries" rather than "not proven". "not-proven"
+ * otherwise, including on any other error.
+ */
+export async function markEmailVerified(): Promise<MarkEmailVerifiedResult> {
+  const supabase = getSupabase();
+  if (!supabase) return "not-proven";
   try {
     const { data, error } = await supabase.rpc("mark_email_verified");
-    return !error && data === true;
-  } catch {
-    return false;
+    if (error) return markErrorKind(error);
+    return data === true ? "verified" : "not-proven";
+  } catch (e) {
+    return markErrorKind(e);
   }
 }

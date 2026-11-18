@@ -439,7 +439,28 @@ word "parent" or "player", no id or name — so the head script can mark
 `html[data-role]` before React runs and a placeholder can be the right
 height for a parent or a player. Cleared on sign-out. It is a layout hint,
 never an access decision (RLS and route-access decide access). *Undo:*
-`rememberRole` in lib/context/player-context.tsx and the head script.
+`rememberRole` in lib/layout-hints.ts and the head script.
+
+*Extended 2026-11-18:* **/schools also remembers its last shape
+(`seeded.schools.shape` = `fit` | `nofit` | `prompt`)**, read by the head
+script into `html[data-schools-shape]` (only alongside a session). The
+pre-session placeholders assumed every account HAS a fit, so the three that
+never get one jumped when the smaller content landed: a player with no UTR
+(CLS 0.149 at 1440), a parent in a free family (0.078 at 375), a parent with
+no linked player yet (0.151 at 1440). Three values, not fit/no-fit: a parent
+can land on either the no-rating parent block (`nofit`, a longer sentence
+than the fit one) or the "Enter your UTR" banner (`prompt`, no linked
+player), and the two differ by up to 40px. `prompt` needs no placeholder —
+the pre-session render already is that banner, so CSS just un-hides it.
+The page stores the shape once it has resolved; the player context also
+stores a player's from their own rating at sign-in, so a player's first
+/schools load is right too. A parent's first load after sign-in still
+assumes `fit` (the roster is what decides it), so only that one load can
+shift. Same rules as the role: a layout word, no id/name/rating; cleared on
+sign-out; a stale value costs one shift. Measured on a production build
+(scripts/cls-sources.mjs, CLS_WARM=1): every persona ≤ 0.0216 at 320/375/1440.
+*Undo:* lib/layout-hints.ts's `SCHOOLS_SHAPE_KEY` users, the head script's
+`data-schools-shape`, and the `data-schools-shape` rules in globals.css.
 
 **Focus ring:** court green on light, lime on dark, via one `--c-focus`
 token and one global `:focus-visible` rule (rule 8). Before, Seeded buttons

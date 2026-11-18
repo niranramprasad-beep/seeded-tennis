@@ -11,7 +11,8 @@ import {
 } from "@/lib/db/family-join";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { VerifyEmailToJoin } from "@/components/auth/verify-email-prompt";
-import { joinOutcomeFor, readPendingJoinCode, rememberPendingJoinCode } from "@/lib/email-verify-flow";
+import { joinOutcomeFor } from "@/lib/email-verify-flow";
+import { readMyPendingJoinCode, rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 
 // What a joiner sees while they wait.
 //
@@ -84,7 +85,7 @@ export function FamilyPendingScreen({
     if (outcome.kind === "verify") {
       // 043: a parent must confirm their email first. Not an error; the
       // code is kept and the verify step finishes the join.
-      rememberPendingJoinCode(trimmed);
+      void rememberMyPendingJoinCode(trimmed);
       setVerifyCode(trimmed.toUpperCase());
       return;
     }
@@ -201,8 +202,13 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
   // code behind, so it is never typed twice. After hydration only: the
   // server render has no localStorage.
   useEffect(() => {
-    const remembered = readPendingJoinCode();
-    if (remembered) setCode((c) => c || remembered);
+    let live = true;
+    void readMyPendingJoinCode().then((remembered) => {
+      if (live && remembered) setCode((c) => c || remembered);
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   const submit = async () => {
@@ -223,7 +229,7 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
       return;
     }
     if (outcome.kind === "verify") {
-      rememberPendingJoinCode(trimmed);
+      void rememberMyPendingJoinCode(trimmed);
       setVerifyCode(trimmed.toUpperCase());
       return;
     }

@@ -19,6 +19,11 @@ import {
 } from "@/lib/auth";
 import { createUtrEntry } from "@/lib/db/plan";
 import { localDateKey } from "@/lib/time";
+import { hasRealUtr } from "@/lib/utils";
+// The role (and /schools' shape) kept for the NEXT page load only, so the
+// head script in app/layout.tsx can size pre-session placeholders before
+// React runs. Layout hints, never access decisions. Cleared on sign-out.
+import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
 
 interface PlayerContextValue {
   player: Player;
@@ -48,22 +53,6 @@ interface PlayerContextValue {
 // authenticated-only UI like the sidebar without ever signing in through
 // the real auth flow against the shared Supabase project.
 export const PlayerContext = createContext<PlayerContextValue | null>(null);
-
-/**
- * The signed-in account's role, kept for the NEXT page load only: the head
- * script in app/layout.tsx reads it into html[data-role] before React runs,
- * so a pre-session placeholder can be the right height for a parent or a
- * player (a parent's /schools shifted 0.07-0.10 on phones because it got the
- * player's). Only "parent"/"player" — no id, no name. Cleared on sign-out.
- */
-function rememberRole(role: "parent" | "player" | null) {
-  try {
-    if (role) localStorage.setItem("seeded.role", role);
-    else localStorage.removeItem("seeded.role");
-  } catch {
-    /* private mode: placeholders fall back to the player's shape */
-  }
-}
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [player, setPlayer] = useState<Player>(emptyPlayer);
@@ -115,7 +104,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated && !isAuthed) return;
     rememberRole(isAuthed ? (player.role === "parent" ? "parent" : "player") : null);
-  }, [hydrated, isAuthed, player.role]);
+    // A player's /schools shape follows from their own rating alone, so it
+    // can be stored before they ever open the page — the first /schools
+    // load after sign-in is then sized right too. A parent's depends on the
+    // family roster, which only /schools reads; it stores that itself.
+    if (isAuthed && player.role !== "parent") {
+      rememberSchoolsShape(hasRealUtr(player.currentUTR) ? "fit" : "prompt");
+    }
+  }, [hydrated, isAuthed, player.role, player.currentUTR]);
 
   const retryConnection = useCallback(() => {
     void hydrate();

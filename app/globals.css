@@ -636,6 +636,13 @@
     outline: 2px solid rgb(var(--c-focus));
     outline-offset: 2px;
   }
+  /* Headings, <main> and dialog shells that the PAGE focuses (tabindex=-1,
+     so a screen reader announces them) are never reached by Tab, so a ring
+     there is noise — on the onboarding report it drew a green line through
+     the headline. Keyboard-reachable elements keep the ring above. */
+  [data-design="seeded"] [tabindex="-1"]:focus-visible {
+    outline: none;
+  }
 
   /* Rule 7: one vertical rhythm. 96px between page sections (64 on phones),
      40 heading -> content, 20 between cards, 12 eyebrow -> title. */
@@ -863,7 +870,7 @@ html[data-session] .pre-session-block {
 html[data-session] .pre-session-hide {
   display: none;
 }
-/* The remembered role (lib/context/player-context.tsx rememberRole): a
+/* The remembered role (lib/layout-hints.ts rememberRole): a
    placeholder sized for one role is hidden for the other. Without a
    remembered role, the player's shape shows. */
 html[data-session][data-role="parent"] .pre-session-player-only {
@@ -871,4 +878,45 @@ html[data-session][data-role="parent"] .pre-session-player-only {
 }
 html[data-session]:not([data-role="parent"]) .pre-session-parent-only {
   display: none;
+}
+/* Pre-session text variants (e.g. /schools' no-fit banner): the player's
+   wording unless the remembered role is parent. Both are in the server HTML
+   in wrapper spans; display: contents keeps the inner element's own layout
+   (a link stays inline-flex), and only one is ever displayed, so the box has
+   its final size from first paint. */
+.pre-session-player-text {
+  display: contents;
+}
+.pre-session-parent-text {
+  display: none;
+}
+html[data-session][data-role="parent"] .pre-session-parent-text {
+  display: contents;
+}
+html[data-session][data-role="parent"] .pre-session-player-text {
+  display: none;
+}
+.pre-session-parent-nofit-only {
+  display: none;
+}
+/* The remembered /schools shape (lib/layout-hints.ts SchoolsShape). The
+   placeholders above assume the account HAS a fit; three account shapes
+   never get one and their page jumped up when the smaller content landed
+   (CLS 0.15 at 1440 for a player with no UTR). Without a remembered shape,
+   "fit" is assumed, so only the first load after sign-in can shift.
+   - nofit: a parent's block with no bands — its no-rating sentence is
+     longer than the fit one, so it has its own placeholder, and the four
+     band-chip placeholders go.
+   - prompt: the page will show the "Enter your UTR" banner, which is what
+     the pre-session render already is (no player yet = no rating), so the
+     real content is shown instead of any placeholder. */
+html[data-session][data-schools-shape="nofit"] .pre-session-bands,
+html[data-session][data-schools-shape="prompt"] .pre-session-bands,
+html[data-session][data-schools-shape="nofit"] .pre-session-parent-only,
+html[data-session][data-schools-shape="prompt"] .pre-session-block {
+  display: none;
+}
+html[data-session][data-role="parent"][data-schools-shape="nofit"] .pre-session-parent-nofit-only,
+html[data-session][data-schools-shape="prompt"] .pre-session-hide {
+  display: block;
 }

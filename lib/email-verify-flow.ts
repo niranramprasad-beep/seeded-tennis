@@ -6,8 +6,10 @@
 //      succeeds, so the join step must never look like a failed sign-up);
 //   2. approving a join request / giving under-13 consent as a parent
 //      (approve_family_join, grant_parent_consent — same refusal);
-//   3. a dismissible banner for ANY signed-in account that hasn't confirmed,
-//      players included, because a password reset goes to that address.
+//   3. a dismissible banner for a signed-in PARENT who hasn't confirmed —
+//      they are the only accounts the database gates. Players never see it.
+//      (It used to say a confirmed email was needed to reset a password;
+//      that was untrue — Supabase sends a reset to the address regardless.)
 // Players are never blocked by any of it. The database decides who is
 // verified; these only decide what to show, and what to remember across the
 // hop out to the email and back.
@@ -39,11 +41,16 @@ export const VERIFY_COPY = {
   sent: (email: string) => `We sent a link to ${email}. Open it in this browser, then come back.`,
   joinTitle: (family: string) => `Confirm your email to join ${family}`,
   approveTitle: "Verify your email to approve",
-  bannerText: "Confirm your email so you can reset your password later.",
+  bannerText: "Confirm your email so you can approve family requests and give consent.",
   stillUnverified:
     "We can’t see the confirmation yet. Open the link in this browser, then try again.",
   /** sendVerificationLink() when the 3-an-hour limit (043) is spent. */
   linkLimit: "You’ve asked for 3 links in the last hour. Use the newest one in your inbox, or try again in an hour.",
+  /** request_email_verification() refuses for 24 hours after an email change (043). */
+  emailRecentlyChanged:
+    "Your email address changed in the last day. For your security, try again tomorrow.",
+  /** mark_email_verified() hit the profile_write limit (043). */
+  markRateLimited: "Too many tries. Wait a few minutes and try again.",
 } as const;
 
 function store(): Storage | null {
@@ -99,16 +106,37 @@ export function clearVerifyReturn(): void {
   write(VERIFY_RETURN_KEY, null);
 }
 
-/** The family code a parent was refused with, so nothing is re-typed. */
-export function rememberPendingJoinCode(code: string): void {
-  const c = code.trim().toUpperCase();
-  if (c) write(PENDING_JOIN_KEY, c);
+/** Family codes are short [A-Z0-9-]; anything else was not written by us. */
+function normaliseJoinCode(code: unknown): string | null {
+  const c = typeof code === "string" ? code.trim().toUpperCase() : "";
+  return /^[A-Z0-9-]{4,40}$/.test(c) ? c : null;
 }
 
-export function readPendingJoinCode(): string | null {
-  const c = (read(PENDING_JOIN_KEY) ?? "").trim().toUpperCase();
-  // Family codes are short [A-Z0-9-]; anything else was not written by us.
-  return /^[A-Z0-9-]{4,40}$/.test(c) ? c : null;
+/**
+ * The family code a parent was refused with, so nothing is re-typed —
+ * BOUND to the account that typed it. /auth/verified finishes the join
+ * automatically, so a code left in a shared browser must never be submitted
+ * for whoever signs in next. No owner, nothing stored.
+ */
+export function rememberPendingJoinCode(code: string, ownerId: string | null | undefined): void {
+  const c = normaliseJoinCode(code);
+  if (!c || !ownerId) return;
+  write(PENDING_JOIN_KEY, JSON.stringify({ code: c, owner: ownerId }));
+}
+
+/** The remembered code, only for the account that stored it. A value
+ *  stored for anyone else (or in the old, unbound shape) reads as nothing. */
+export function readPendingJoinCode(ownerId: string | null | undefined): string | null {
+  if (!ownerId) return null;
+  const raw = read(PENDING_JOIN_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { code?: unknown; owner?: unknown } | null;
+    if (!parsed || typeof parsed !== "object" || parsed.owner !== ownerId) return null;
+    return normaliseJoinCode(parsed.code);
+  } catch {
+    return null;
+  }
 }
 
 export function clearPendingJoinCode(): void {
@@ -140,19 +168,21 @@ export function isVerifyBannerHiddenOn(pathname: string): boolean {
 }
 
 /**
- * Whether to show "Confirm your email so you can reset your password later."
- * Only a signed-in account whose `emailVerified` is KNOWN to be false (an
+ * Whether to show the confirm-your-email banner. Only a signed-in PARENT
+ * (the one role 043 gates) whose `emailVerified` is KNOWN to be false (an
  * unknown value never nags), not on auth/onboarding pages, not once
- * dismissed. Players included; it never blocks anything.
+ * dismissed. Players never see it; it never blocks anything.
  */
 export function shouldShowVerifyBanner(input: {
   hydrated: boolean;
   isAuthed: boolean;
+  role: string | null | undefined;
   emailVerified: boolean | undefined;
   pathname: string;
   dismissed: boolean;
 }): boolean {
   if (!input.hydrated || !input.isAuthed) return false;
+  if (input.role !== "parent") return false;
   if (input.emailVerified !== false) return false;
   if (input.dismissed) return false;
   return !isVerifyBannerHiddenOn(input.pathname);

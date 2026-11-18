@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
-import { markEmailVerified } from "@/lib/db/email-verification";
+import { markEmailVerified, readMyPendingJoinCode } from "@/lib/db/email-verification";
 import { joinFamily } from "@/lib/db/family-join";
 import { usePlayer } from "@/lib/context/player-context";
 import {
+  VERIFY_COPY,
   clearPendingJoinCode,
   clearVerifyReturn,
   joinOutcomeFor,
-  readPendingJoinCode,
   readVerifyReturn,
 } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
@@ -30,13 +30,16 @@ import { AuthCard } from "./auth-card";
 //                 from (stored before the link was sent; lib/email-verify-
 //                 flow.ts). A parent who was refused a family join has it
 //                 finished here, with the code they already typed.
-//   not proven -> the session is not from a link (e.g. someone typed the URL
-//                 while signed in with a password). Calm, says what to do.
+//   not proven -> the session is not from a link sent after the latest
+//                 request (e.g. someone typed the URL while signed in with a
+//                 password, or opened an older link). Calm, says what to do.
+//   rate-limited -> mark_email_verified()'s write hit profile_write; "too
+//                 many tries", never "not proven".
 //   no session -> the link expired, was used, or was opened in a different
 //                 browser from the one that asked (PKCE keeps the verifier
 //                 in the asking browser).
 
-type State = "working" | "confirmed" | "not-proven" | "no-session";
+type State = "working" | "confirmed" | "not-proven" | "rate-limited" | "no-session";
 
 /** How long the confirmation stays on screen before going back. Long enough
  *  to read one line; the button goes straight away. */
@@ -85,22 +88,26 @@ export function EmailVerified() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return setState("no-session");
 
-      if (!(await markEmailVerified())) return setState("not-proven");
+      const marked = await markEmailVerified();
+      if (marked === "rate-limited") return setState("rate-limited");
+      if (marked !== "verified") return setState("not-proven");
 
       // A parent refused at join_family() (043) left their code behind.
-      // Finish what they asked for, now that the database will accept it.
-      const pendingCode = readPendingJoinCode();
+      // Finish what they asked for, now that the database will accept it —
+      // but only a code THIS account stored (it is bound to the user id), so
+      // a code left in a shared browser is never submitted for someone else.
+      // Cleared after one use, whatever the outcome.
+      const pendingCode = await readMyPendingJoinCode();
+      clearPendingJoinCode();
       if (pendingCode) {
         const outcome = joinOutcomeFor(await joinFamily(pendingCode));
         if (outcome.kind === "joined") {
-          clearPendingJoinCode();
           setJoinNote(
             outcome.status === "approved"
               ? "You’re in the family."
               : "Your request to join is in. Someone in the family approves it from their Seeded."
           );
-        } else if (outcome.kind === "error") {
-          clearPendingJoinCode();
+        } else {
           setJoinNote(`${outcome.message} You can enter the code again from Family.`);
         }
       }
@@ -157,8 +164,10 @@ export function EmailVerified() {
     <AuthCard
       title="We couldn't confirm your email"
       subtitle={
-        state === "not-proven"
-          ? "This page only works from the link in the email we sent. Open that link, or ask for a new one."
+        state === "rate-limited"
+          ? VERIFY_COPY.markRateLimited
+          : state === "not-proven"
+          ? "This page only works from the newest link we emailed you, within an hour of asking for it. Open that link, or ask for a new one."
           : "That link has expired or was already used, or it was opened in a different browser from the one that asked for it. Ask for a new one and open it in this browser."
       }
     >

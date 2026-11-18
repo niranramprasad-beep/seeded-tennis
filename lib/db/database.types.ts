@@ -21,6 +21,23 @@ export type Database = {
   }
   public: {
     Tables: {
+      // 043 — no client access (RLS on, no policies, no grants). Listed so
+      // the account-export test classifies it; the app never queries it.
+      auth_email_changes: {
+        Row: {
+          changed_at: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           badge_key: string
@@ -549,6 +566,8 @@ export type Database = {
           email: string | null
           email_verified_at: string | null
           email_verified_for: string | null
+          email_verify_requested_at: string | null
+          email_verify_requested_for: string | null
           enrollment_term: string | null
           family_code: string | null
           gender: string | null
@@ -587,6 +606,8 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           email_verified_for?: string | null
+          email_verify_requested_at?: string | null
+          email_verify_requested_for?: string | null
           enrollment_term?: string | null
           family_code?: string | null
           gender?: string | null
@@ -625,6 +646,8 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           email_verified_for?: string | null
+          email_verify_requested_at?: string | null
+          email_verify_requested_for?: string | null
           enrollment_term?: string | null
           family_code?: string | null
           gender?: string | null
@@ -1120,6 +1143,7 @@ export type Database = {
       // 043 — parent email verification. email_is_verified is INTERNAL (no
       // EXECUTE for authenticated); calling it from the app fails 42501.
       mark_email_verified: { Args: never; Returns: boolean }
+      request_email_verification: { Args: never; Returns: Json }
       email_is_verified: { Args: { p_user_id: string }; Returns: boolean }
       join_family: { Args: { p_code: string }; Returns: Json }
       approve_family_join: { Args: { p_parent_user_id: string }; Returns: Json }

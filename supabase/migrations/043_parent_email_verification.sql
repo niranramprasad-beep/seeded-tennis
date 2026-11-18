@@ -6,6 +6,12 @@
 -- it replaces protect_privileged_profile_columns() again and keeps 041's
 -- birth_month block.
 --
+-- REVISED 2026-11-18, before production, after a review broke the first
+-- version on staging (see "THE GUARANTEE" below). This file is the fixed
+-- version and is what production runs, once. Staging received the first
+-- version and then the delta as `043b_fresh_email_verification`; both paths
+-- end in the same schema.
+--
 -- ===========================================================================
 -- Why
 -- ===========================================================================
@@ -23,24 +29,65 @@
 --      profiles.email_verified_for text null — PRIVILEGED. No client can set
 --      or change either (the trigger scrubs them on INSERT and refuses any
 --      change on UPDATE with 42501, exactly like subscription_tier).
---      _for records WHICH address was proven. Without it, a parent could
---      verify an address they own and then change their auth email to one
---      they do not (with auto-confirm on, an email change may not need a
---      link) and stay "verified".
---   2. mark_email_verified() — SECURITY DEFINER, granted to authenticated.
---      Stamps both columns for the CALLER only, and only when the CURRENT
---      session was established by a link or code sent to the address:
---      the JWT's `amr` array has an entry whose method is one of
---        otp | magiclink | recovery | email/signup
---      (Supabase "JWT Claims Reference", amr.method values; signInWithOtp
---      verified by link -> magiclink, by 6-digit code -> otp; a PKCE flow
---      carries the method through auth.flow_state.authentication_method into
---      the session's AMR). `password`, `oauth`, `token_refresh` etc. do not
---      count. OR the account has a Google identity whose verified email is
---      the account's email — Google has already proven it.
+--      _for records WHICH address was proven; verification only counts while
+--      it equals the CURRENT auth email (email_is_verified, below).
+--   1b. profiles.email_verify_requested_for text null and
+--      profiles.email_verify_requested_at timestamptz null — PRIVILEGED the
+--      same way. Written only by request_email_verification(): which address
+--      a link was asked for, and when.
+--   1c. public.auth_email_changes (user_id pk, changed_at) + an AFTER UPDATE
+--      OF email trigger on auth.users that records the time of the LAST
+--      email change. RLS on, no policies, no client grants: only
+--      mark_email_verified() / request_email_verification() read it.
+--   2. request_email_verification() — SECURITY DEFINER, granted to
+--      authenticated. Spends one 'email_verify' (3/hour) and records
+--      requested_for = the caller's CURRENT auth email, requested_at = now().
+--      Refuses (returns, does not raise) when the email changed in the last
+--      24 hours. The app calls it BEFORE signInWithOtp and sends the link to
+--      the address it returns (lib/db/email-verification.ts).
+--      mark_email_verified() — SECURITY DEFINER, granted to authenticated.
+--      Stamps verified_at/verified_for for the CALLER only, and clears the
+--      request, when ALL of these hold:
+--        a. the JWT `amr` has an entry whose method is `otp` or `magiclink`
+--           and whose `timestamp` (epoch seconds) is at or after the
+--           request time AND within the last 60 minutes;
+--        b. the current auth.users.email = requested_for, and the JWT's own
+--           `email` claim = requested_for;
+--        c. the account's email has not changed since 24 hours before that
+--           amr timestamp (auth_email_changes).
+--      OR the account has a Google identity whose verified email is the
+--      account's email — Google has already proven it.
 --      Returns true when it stamped, false when the session does not prove
---      the address. Never raises for "not proven", so the app can show a
---      calm message.
+--      the address. Raises 53400 'email_verify_rate_limited' only when its
+--      own profile write hits the profile_write limit, so the app can say
+--      "too many tries" instead of "not proven".
+--
+--      THE GUARANTEE, and why each part is there (a reviewer broke the first
+--      version on staging, 2026-11-18): the first version accepted ANY
+--      otp/magiclink amr entry, ignored its time, and stamped whatever the
+--      auth email was AT THE TIME OF THE CALL. So: verify own address A by
+--      link -> updateUser({ email: B }) (production auto-confirms, B applies
+--      at once) -> call mark_email_verified() again in the same session ->
+--      B "verified" -> approve_family_join records under-13 consent for an
+--      address nobody proved. Now:
+--        - (a) a link/code session older than the request proves nothing
+--          about this request; the request is cleared on success, so the
+--          same session can never stamp twice;
+--        - (b) the address stamped is the one the link was requested for,
+--          and still the account's address;
+--        - (c) closes the slower variant: ask for a code to an address you
+--          own, change the account's email to one you don't, request, and
+--          only THEN redeem the code. A code is valid for at most 24 hours
+--          (Supabase's ceiling on email OTP expiry), so a redemption with no
+--          email change in the 24 hours before it was sent to the address
+--          the account has now. This is why an email change blocks
+--          verification for a day; Seeded has no email-change screen, so
+--          only someone driving the Auth API directly meets it.
+--      What it still rests on: Supabase delivering the link/code to the
+--      address on the account, and amr timestamps being the time the
+--      session was authenticated (GoTrue: mfa_amr_claims.updated_at).
+--      'recovery' and 'email/signup' were accepted by the first version and
+--      no longer are: the app never sends either for this purpose.
 --   3. email_is_verified(uuid) — SECURITY DEFINER, INTERNAL (no EXECUTE for
 --      anon or authenticated; only the RPCs below, which run as the owner,
 --      call it). True when email_verified_for matches the CURRENT auth email
@@ -60,11 +107,13 @@
 --          approving is unaffected.
 --        - grant_parent_consent: after the "not a parent account" return
 --          (the caller is a parent by then), before any lookup.
---   5. rate_limit_for_bucket(): adds 'email_verify' = 3/hour. The app calls
---      consume_rate_limit('email_verify') before every signInWithOtp
---      (lib/db/email-verification.ts). Every other bucket is unchanged
---      (035's list).
---   6. protect_privileged_profile_columns(): 041's version plus the two new
+--   5. rate_limit_for_bucket(): adds 'email_verify' = 3/hour, spent by
+--      request_email_verification(). Every other bucket is unchanged (035's
+--      list). Be exact about what this limits: Seeded's OWN path. Anyone
+--      holding the public anon key can call Supabase Auth's signInWithOtp
+--      directly and never touch this bucket; the limits on that are Supabase
+--      project settings (Auth -> Rate Limits, and SMTP), not this repo.
+--   6. protect_privileged_profile_columns(): 041's version plus the four new
 --      privileged columns.
 --
 -- ===========================================================================
@@ -75,7 +124,11 @@
 --   unverified parent: select public.join_family('<code>');                  -> 42501 verify_email_required
 --   player:            select public.approve_family_join('<pending uid>');   -> {"status":"approved",...}
 --   claims with "amr":[{"method":"password",...}]: select public.mark_email_verified(); -> false
---   claims with "amr":[{"method":"otp",...}]:      select public.mark_email_verified(); -> true
+--   select public.request_email_verification();    -> {"allowed":true,"email":...}
+--   claims with "amr":[{"method":"otp","timestamp":<after the request>}] and
+--     "email":<that address>:                      select public.mark_email_verified(); -> true
+--   the same claims, called again:                 -> false (request consumed)
+--   amr timestamp before the request, or > 60 min old: -> false
 --   then the same parent: approve / consent -> allowed
 --   any user: update profiles set email_verified_at = now() where id = auth.uid(); -> 42501
 --
@@ -94,8 +147,14 @@
 --   --    All five are reproduced as one pasteable block in
 --   --    docs/HANDOFF.md §J Step 18.
 --   -- 2. Then:
+--   drop trigger if exists seeded_note_auth_email_change on auth.users;
+--   drop function if exists public.note_auth_email_change();
+--   drop function if exists public.request_email_verification();
 --   drop function if exists public.mark_email_verified();
 --   drop function if exists public.email_is_verified(uuid);
+--   drop table if exists public.auth_email_changes;
+--   alter table public.profiles drop column if exists email_verify_requested_at;
+--   alter table public.profiles drop column if exists email_verify_requested_for;
 --   alter table public.profiles drop column if exists email_verified_for;
 --   alter table public.profiles drop column if exists email_verified_at;
 --   commit;
@@ -104,14 +163,57 @@
 
 alter table public.profiles add column if not exists email_verified_at timestamptz;
 alter table public.profiles add column if not exists email_verified_for text;
+alter table public.profiles add column if not exists email_verify_requested_for text;
+alter table public.profiles add column if not exists email_verify_requested_at timestamptz;
 
 comment on column public.profiles.email_verified_at is
-  'When this account proved it owns email_verified_for (magic link / OTP / recovery session, or a Google identity). PRIVILEGED: set only by mark_email_verified() (043). NOT auth.users.email_confirmed_at, which auto-confirm stamps at sign-up.';
+  'When this account proved it owns email_verified_for (a magic link / OTP session newer than its request, or a Google identity). PRIVILEGED: set only by mark_email_verified() (043). NOT auth.users.email_confirmed_at, which auto-confirm stamps at sign-up.';
 comment on column public.profiles.email_verified_for is
   'The address email_verified_at was proven for. Verification only counts while it equals the current auth email. PRIVILEGED (043).';
+comment on column public.profiles.email_verify_requested_for is
+  'The auth email a verification link was last requested for, by request_email_verification(). Cleared when mark_email_verified() succeeds. PRIVILEGED (043).';
+comment on column public.profiles.email_verify_requested_at is
+  'When that link was requested. A link/code session only proves the address if it was authenticated at or after this time. PRIVILEGED (043).';
 
 -- ---------------------------------------------------------------------------
--- 1. The trigger: 041's version + two privileged columns
+-- 0. When the account's email last changed. Written by a trigger on
+--    auth.users (so it is recorded even before a profile row exists), read
+--    only by the two SECURITY DEFINER functions below. No client access.
+-- ---------------------------------------------------------------------------
+create table if not exists public.auth_email_changes (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  changed_at timestamptz not null default now()
+);
+comment on table public.auth_email_changes is
+  'When each account''s auth email last changed (043). A link or code redeemed within 24 hours of a change may have been sent to the OLD address, so mark_email_verified() refuses it. No client access.';
+alter table public.auth_email_changes enable row level security;
+revoke all on table public.auth_email_changes from public, anon, authenticated;
+grant all on table public.auth_email_changes to service_role;
+
+create or replace function public.note_auth_email_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  insert into public.auth_email_changes (user_id, changed_at)
+  values (new.id, now())
+  on conflict (user_id) do update set changed_at = excluded.changed_at;
+  return new;
+end;
+$fn$;
+revoke all on function public.note_auth_email_change() from public, anon, authenticated;
+
+drop trigger if exists seeded_note_auth_email_change on auth.users;
+create trigger seeded_note_auth_email_change
+  after update of email on auth.users
+  for each row
+  when (old.email is distinct from new.email)
+  execute function public.note_auth_email_change();
+
+-- ---------------------------------------------------------------------------
+-- 1. The trigger: 041's version + four privileged columns
 -- ---------------------------------------------------------------------------
 create or replace function public.protect_privileged_profile_columns()
 returns trigger
@@ -154,6 +256,8 @@ begin
     -- 043: proven only by mark_email_verified(), never by a payload.
     new.email_verified_at      := null;
     new.email_verified_for     := null;
+    new.email_verify_requested_for := null;
+    new.email_verify_requested_at  := null;
 
     if v_is_new_account then
       new.consent_status :=
@@ -178,6 +282,8 @@ begin
   or new.family_code            is distinct from old.family_code
   or new.email_verified_at      is distinct from old.email_verified_at
   or new.email_verified_for     is distinct from old.email_verified_for
+  or new.email_verify_requested_for is distinct from old.email_verify_requested_for
+  or new.email_verify_requested_at  is distinct from old.email_verify_requested_at
   then
     raise exception 'This profile field can only be changed by Seeded.'
       using errcode = '42501';
@@ -248,7 +354,71 @@ revoke all on function public.email_is_verified(uuid) from public, anon, authent
 grant execute on function public.email_is_verified(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 3. mark_email_verified — the only writer of the two columns
+-- 3a. request_email_verification — called BEFORE every link is sent
+-- ---------------------------------------------------------------------------
+create or replace function public.request_email_verification()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_user uuid := auth.uid();
+  v_email text;
+  v_limit jsonb;
+  v_updated int;
+begin
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  select u.email into v_email from auth.users u where u.id = v_user;
+  if coalesce(v_email, '') = '' then
+    return jsonb_build_object('allowed', false, 'reason', 'no_email');
+  end if;
+
+  -- A link redeemed within 24 hours of an email change may be one that was
+  -- sent to the OLD address (header, (c)). Say so up front rather than send
+  -- a link mark_email_verified() would refuse.
+  if exists (
+    select 1 from public.auth_email_changes c
+    where c.user_id = v_user and c.changed_at > now() - interval '24 hours'
+  ) then
+    return jsonb_build_object('allowed', false, 'reason', 'email_recently_changed');
+  end if;
+
+  -- The 'email_verify' bucket (3/hour), inside SQL so a caller cannot raise
+  -- its own ceiling. It limits Seeded's path only: see the header, 5.
+  v_limit := public.consume_rate_limit('email_verify');
+  if coalesce((v_limit ->> 'allowed')::boolean, false) is not true then
+    return jsonb_build_object('allowed', false, 'reason', 'rate_limited',
+                              'retry_after_seconds', v_limit -> 'retry_after_seconds');
+  end if;
+
+  begin
+    update public.profiles
+    set email_verify_requested_for = v_email,
+        email_verify_requested_at  = now()
+    where id = v_user;
+    get diagnostics v_updated = row_count;
+  exception when sqlstate '53400' then
+    -- profile_write is spent (the rate-limit trigger on profiles).
+    return jsonb_build_object('allowed', false, 'reason', 'rate_limited');
+  end;
+
+  if v_updated = 0 then
+    return jsonb_build_object('allowed', false, 'reason', 'no_profile');
+  end if;
+
+  -- The app sends the link to THIS address, never one it was handed.
+  return jsonb_build_object('allowed', true, 'email', v_email);
+end;
+$fn$;
+revoke all on function public.request_email_verification() from public, anon;
+grant execute on function public.request_email_verification() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 3b. mark_email_verified — the only writer of the verified columns
 -- ---------------------------------------------------------------------------
 create or replace function public.mark_email_verified()
 returns boolean
@@ -259,27 +429,57 @@ as $fn$
 declare
   v_user uuid := auth.uid();
   v_amr jsonb := auth.jwt() -> 'amr';
-  v_proven boolean := false;
+  v_jwt_email text := auth.jwt() ->> 'email';
   v_email text;
+  v_requested_for text;
+  v_requested_at timestamptz;
+  v_changed_at timestamptz;
+  v_proof_at numeric;
+  v_proven boolean := false;
+  v_updated int;
 begin
   if v_user is null then
     raise exception 'Sign in first.' using errcode = '28000';
   end if;
 
-  -- amr is [{"method": "...", "timestamp": n}, ...]. Older tokens used bare
-  -- strings; accept either element shape, never a non-array.
-  if jsonb_typeof(v_amr) = 'array' then
-    select exists (
-      select 1 from jsonb_array_elements(v_amr) e
-      where coalesce(e ->> 'method', e #>> '{}')
-            in ('otp', 'magiclink', 'recovery', 'email/signup')
-    ) into v_proven;
-  end if;
-
   select u.email into v_email from auth.users u where u.id = v_user;
-  if v_email is null then
+  if coalesce(v_email, '') = '' then
     return false;
   end if;
+
+  select p.email_verify_requested_for, p.email_verify_requested_at
+  into v_requested_for, v_requested_at
+  from public.profiles p where p.id = v_user;
+
+  select c.changed_at into v_changed_at
+  from public.auth_email_changes c where c.user_id = v_user;
+
+  -- amr is [{"method": "...", "timestamp": <epoch seconds>}, ...]. Only an
+  -- otp / magiclink entry WITH a numeric timestamp counts; the bare-string
+  -- shape carries no time and so proves nothing about this request.
+  if jsonb_typeof(v_amr) = 'array' then
+    select max((e ->> 'timestamp')::numeric) into v_proof_at
+    from jsonb_array_elements(v_amr) e
+    where jsonb_typeof(e) = 'object'
+      and e ->> 'method' in ('otp', 'magiclink')
+      and jsonb_typeof(e -> 'timestamp') = 'number';
+  end if;
+
+  v_proven :=
+        v_proof_at is not null
+    and v_requested_at is not null
+    and v_requested_for is not null
+    -- (a) authenticated by the link/code AFTER the request (amr timestamps
+    --     are whole seconds), and within the last 60 minutes.
+    and v_proof_at >= floor(extract(epoch from v_requested_at))
+    and v_proof_at >= extract(epoch from now() - interval '60 minutes')
+    -- (b) the address the link was requested for is still the account's,
+    --     and is the one this session's token was issued for.
+    and lower(v_email) = lower(v_requested_for)
+    and lower(coalesce(v_jwt_email, '')) = lower(v_requested_for)
+    -- (c) no email change in the 24 hours before the code was redeemed.
+    and (v_changed_at is null
+         or extract(epoch from v_changed_at) <= v_proof_at - 86400);
 
   if not v_proven then
     -- Google has already proven the address; no link needed. Checked as
@@ -299,13 +499,22 @@ begin
 
   -- Runs as the function owner, so 043's trigger lets it through (the
   -- current_user exemption); the rate-limit trigger still counts it against
-  -- the caller's profile_write bucket.
-  update public.profiles
-  set email_verified_at = now(),
-      email_verified_for = v_email
-  where id = v_user;
+  -- the caller's profile_write bucket. Clearing the request means this
+  -- session can never stamp again.
+  begin
+    update public.profiles
+    set email_verified_at          = now(),
+        email_verified_for         = v_email,
+        email_verify_requested_for = null,
+        email_verify_requested_at  = null
+    where id = v_user;
+    get diagnostics v_updated = row_count;
+  exception when sqlstate '53400' then
+    -- Distinct from "not proven": the app says "too many tries".
+    raise exception 'email_verify_rate_limited' using errcode = '53400';
+  end;
 
-  return found;
+  return v_updated > 0;
 end;
 $fn$;
 revoke all on function public.mark_email_verified() from public, anon;
@@ -552,9 +761,11 @@ as $$
     when 'settings_write'    then 60
     when 'family_write'      then 30
     when 'note_write'        then 30
-    -- 043: each one sends a real email from support@ (SMTP, 80/hour for the
-    -- whole project). Three an hour is plenty for a person and keeps one
-    -- account from spending the project's budget.
+    -- 043: spent by request_email_verification() before Seeded sends a
+    -- link. Three an hour is plenty for a person. It bounds SEEDED'S path
+    -- only: signInWithOtp is reachable directly with the public anon key,
+    -- so the project's email budget rests on Supabase Auth's own rate
+    -- limits (a project setting), not on this bucket.
     when 'email_verify'      then 3
     else null
   end;

@@ -42,6 +42,7 @@ import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
 import { cn, formatUtrEstimate, formatUtrFor, hasRealUtr, plural } from "@/lib/utils";
+import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
   "h-11 w-full rounded-lg border border-input bg-card px-3 font-sans text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-10";
@@ -67,6 +68,16 @@ function openingsChip(_s: School): ColumnChip {
 function dataVerificationChip(_s: School): ColumnChip {
   return NOT_TRACKED;
 }
+
+// The parent block's height while there is nothing to put in it yet, in
+// measured steps (persona f: 174px at 320, 134 at 375, 94 from 640 to 1024,
+// 74 at 1440). Between those widths it is close, not exact. The no-rating
+// sentence ("X's rating shows with the Family plan, so programs below
+// aren't banded for fit.") is longer, so a parent whose last /schools had no
+// fit gets its own steps (persona pb1: 194 at 320, 174 at 375, 74 at 1440).
+const PARENT_BLOCK_FIT_H = "min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]";
+const PARENT_BLOCK_NOFIT_H =
+  "min-h-[194px] min-[350px]:min-h-[174px] min-[440px]:min-h-[134px] min-[580px]:min-h-[114px] md:min-h-[94px] min-[1320px]:min-h-[74px]";
 
 // localStorage persistence for this page's filters — same read-on-mount /
 // write-on-change pattern as design-context.tsx and gender-context.tsx.
@@ -127,7 +138,7 @@ export function SeededSchoolsBrowser({
   reset,
   allSchools,
 }: Props) {
-  const { player, hydrated: sessionChecked } = usePlayer();
+  const { player, hydrated: sessionChecked, isAuthed } = usePlayer();
   const [region, setRegion] = useState<"all" | SchoolRegion>("all");
   const [chip, setChip] = useState<ChipFilter>("all");
   const [sort, setSort] = useState<SeededSchoolSort>("default");
@@ -501,7 +512,32 @@ export function SeededSchoolsBrowser({
   // f before this); it is dropped only once we KNOW there is no rating.
   const parentAwaitingFamily =
     player.role === "parent" && (familyMembersData === undefined || familyPlan === undefined);
-  const showFitCol = judgingUtr !== null || parentAwaitingFamily;
+  // What this account's /schools looked like last time it resolved
+  // (lib/layout-hints.ts) — the same hint the head script used for the
+  // pre-session placeholders, so the two stages agree. Read once the
+  // session is known (never during hydration, so server and client render
+  // the same), and only used while a parent's roster is loading. Unknown
+  // means "fit": the placeholders below then hold the bands' space, which
+  // is the old behaviour, and only a first visit can be wrong.
+  const rememberedShape = useMemo(() => (sessionChecked ? readSchoolsShape() : null), [sessionChecked]);
+  const awaitingShape = parentAwaitingFamily ? (rememberedShape ?? "fit") : null;
+  const showFitCol = judgingUtr !== null || awaitingShape === "fit";
+  // Store the resolved shape for the next load. A parent's is known only
+  // once the roster and plan have landed; a player's is also stored by the
+  // player context, from their own rating, before they ever open this page.
+  const resolvedShape =
+    sessionChecked && isAuthed && !parentAwaitingFamily
+      ? schoolsShapeFor({
+          isParent: player.role === "parent",
+          // `hasUtr`, not a second read of the sentinel (see youUtr above).
+          hasOwnUtr: hasUtr,
+          hasLinkedPlayer: viewingAsParent,
+          childHasUtr: playerFacts.currentUtr != null,
+        })
+      : null;
+  useEffect(() => {
+    if (resolvedShape) rememberSchoolsShape(resolvedShape);
+  }, [resolvedShape]);
   const tableGridTemplate = [
     "28px",
     "28px",
@@ -562,18 +598,23 @@ export function SeededSchoolsBrowser({
         {!sessionChecked && (
           <>
             <div aria-hidden className="pre-session-block pre-session-player-only hidden min-h-[247px] min-[360px]:min-h-[185px]" />
-            {/* The parent's two lines, measured: 174px at 320, 134 at 375, 94 from
-                640 to 1024, 74 at 1440. Between those widths it is close, not exact. */}
-            <div aria-hidden className="pre-session-block pre-session-parent-only hidden min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]" />
+            <div aria-hidden className={cn("pre-session-block pre-session-parent-only hidden", PARENT_BLOCK_FIT_H)} />
+            {/* Shown only for a parent whose last /schools had no fit
+                (globals.css, html[data-schools-shape="nofit"]). A "prompt"
+                shape needs no placeholder: the banner below IS the
+                pre-session render, and globals.css un-hides it. */}
+            <div aria-hidden className={cn("pre-session-parent-nofit-only", PARENT_BLOCK_NOFIT_H)} />
           </>
         )}
         <div className={cn(!sessionChecked && "pre-session-hide")}>
-        {parentAwaitingFamily ? (
+        {awaitingShape === "fit" || awaitingShape === "nofit" ? (
           // A parent before the roster lands: the parent block's own height
           // (same measured steps as the pre-session placeholder above), not
           // the signed-out "Enter your UTR" banner, which is a different
           // height and was shown for ~100ms (CLS 0.15 at 375, persona f).
-          <div aria-hidden className="min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]" />
+          // A parent whose last visit showed the banner ("prompt": no
+          // linked player yet) falls through to the banner instead.
+          <div aria-hidden className={awaitingShape === "fit" ? PARENT_BLOCK_FIT_H : PARENT_BLOCK_NOFIT_H} />
         ) : hasUtr && !viewingAsParent ? (
           <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} historyLoaded={utrEntries !== undefined} />
         ) : viewingAsParent ? (
@@ -606,8 +647,25 @@ export function SeededSchoolsBrowser({
           // has nothing to move from without a rating, and rendering it
           // anyway is what put a 0.0 on the screen.
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
+            {/* A parent has no rating of their own: before their player has
+                joined the family, "Enter your UTR" asked the wrong person for
+                the wrong thing. Same box, so the remembered layout holds. */}
             <p className="m-0 text-[15px] text-ink">
-              <strong className="font-semibold">Enter your UTR to see your fit.</strong>{" "}
+              {/* Before the session check React doesn't know the role, so it
+                  renders BOTH sentences and the remembered role's CSS shows
+                  one (html[data-role], see globals.css) — otherwise the
+                  parent's sentence arrived after hydration and re-wrapped the
+                  banner (CLS 0.13 at 375). After the check, only the right one. */}
+              {!sessionChecked ? (
+                <>
+                  <span className="pre-session-player-text"><strong className="font-semibold">Enter your UTR to see your fit.</strong></span>
+                  <span className="pre-session-parent-text"><strong className="font-semibold">Your player&apos;s fit shows once they join.</strong></span>
+                </>
+              ) : (
+                <strong className="font-semibold">
+                  {player.role === "parent" ? "Your player's fit shows once they join." : "Enter your UTR to see your fit."}
+                </strong>
+              )}{" "}
               <span className="text-stone">
                 Every program below is listed either way — fit bands need a rating to compare against.
               </span>
@@ -615,12 +673,29 @@ export function SeededSchoolsBrowser({
             {/* Secondary: the header's green "Get my free fit report" goes to
                 the same place, and the compare bar's "Compare side by side"
                 is this page's one green button (design system v2 rule 1). */}
-            <Link
-              href="/onboarding"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
-            >
-              Enter my UTR
-            </Link>
+            {!sessionChecked ? (
+              <>
+                <span className="pre-session-player-text"><Link
+                  href="/onboarding"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  Enter my UTR
+                </Link></span>
+                <span className="pre-session-parent-text"><Link
+                  href="/family"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  Go to Family
+                </Link></span>
+              </>
+            ) : (
+              <Link
+                href={player.role === "parent" ? "/family" : "/onboarding"}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+              >
+                {player.role === "parent" ? "Go to Family" : "Enter my UTR"}
+              </Link>
+            )}
           </div>
         )}
         </div>
@@ -639,14 +714,17 @@ export function SeededSchoolsBrowser({
           {/* ...and the same holds while a parent's roster is still loading:
               the counts arrive with the child's rating (persona f, CLS 0.13
               at 375 before this). */}
-          {(!sessionChecked || (parentAwaitingFamily && !counts)) &&
+          {/* ...unless this account's last /schools had no bands (a
+              remembered "nofit"/"prompt" shape): holding four chips that
+              never arrive was then the shift (CLS 0.08 at 375, pb1/pb4). */}
+          {(!sessionChecked || (awaitingShape === "fit" && !counts)) &&
             ["Reach 00", "Target 00", "Likely 00", "Out of range 00"].map((label) => (
               <span
                 key={label}
                 aria-hidden
                 className={cn(
                   "invisible min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-sm font-semibold sm:min-h-6 sm:py-1.5",
-                  sessionChecked ? "inline-flex" : "pre-session-only"
+                  sessionChecked ? "inline-flex" : "pre-session-only pre-session-bands"
                 )}
               >
                 {label}

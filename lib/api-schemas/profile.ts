@@ -41,3 +41,15 @@ export const PlayerBodySchema = z.object({
   // never sends it.
   emailVerified: z.boolean().optional(),
 });
+
+export type PlayerBody = z.infer<typeof PlayerBodySchema>;
+
+/**
+ * The validated body, as writeCurrentPlayerProfile takes it. An ABSENT
+ * birthMonth / enrollmentTerm stays undefined — "leave the stored value
+ * alone" — and is never coerced to null ("clear it"): an older client that
+ * never sent enrollmentTerm must not wipe the term a newer one saved.
+ */
+export function playerWriteFromBody(body: PlayerBody): PlayerBody {
+  return { ...body };
+}
