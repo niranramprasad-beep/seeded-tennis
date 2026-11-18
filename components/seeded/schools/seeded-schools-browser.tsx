@@ -508,7 +508,7 @@ export function SeededSchoolsBrowser({
               phone and pushed the whole page down 24px (CLS 0.13). The Sort
               control below already says what the order is. */}
           <p className="mt-1.5 text-stone">
-            {ranked.length} {genderLabel} programs.
+            {ranked.length} {genderLabel} {ranked.length === 1 ? "program" : "programs"}.
           </p>
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">

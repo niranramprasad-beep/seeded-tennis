@@ -16,7 +16,7 @@ import { parentConsentRequired } from "@/lib/config/consent";
 import { buildFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import {
   GROWTH_ESTIMATE_CAPTION,
   GROWTH_ESTIMATE_CHIP,
@@ -445,7 +445,7 @@ function PreAuthOnboarding({
       </main>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">
         Fit bands shown here use your UTR and each program&apos;s roster
-        range — {filtered.length} programs for {GENDER_LABEL[gender]} in the catalog.
+        range — {plural(filtered.length, "program", "programs")} for {GENDER_LABEL[gender]} in the catalog.
       </p>
     </div>
   );

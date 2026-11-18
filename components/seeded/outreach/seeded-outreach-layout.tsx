@@ -10,7 +10,7 @@ import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint"
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
-import { cn, isValidEmailAddress } from "@/lib/utils";
+import { cn, isValidEmailAddress, plural } from "@/lib/utils";
 import type { SchoolFitBand } from "@/lib/school-fit";
 
 // Same plain "Oct 25" (no year) format the board already used inline for
@@ -141,7 +141,7 @@ export function SeededOutreachLayout({
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-[-0.02em] text-ink">Outreach</h1>
           <p className="mt-1.5 text-ink/70">
-            {targetSchools.length} programs · {emailedCount} emailed · {repliedCount} replied ·{" "}
+            {plural(targetSchools.length, "program", "programs")} · {emailedCount} emailed · {repliedCount} replied ·{" "}
             {dueCount} follow-up{dueCount === 1 ? "" : "s"} due this week
           </p>
         </div>

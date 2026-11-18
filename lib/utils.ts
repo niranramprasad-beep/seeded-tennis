@@ -52,3 +52,11 @@ export function slugify(input: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
+
+/** "1 match", "2 matches", "0 matches". The one way a count meets a noun —
+ * "1 matches logged" shipped because every screen hand-rolled its own
+ * `${n} …s`. Pass both forms: English plurals are not a suffix rule
+ * ("match"/"matches", "entry"/"entries"). */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}

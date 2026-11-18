@@ -19,7 +19,7 @@ import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
 import { currentSeason, getCurrentGrade } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { formatUTR } from "@/lib/utils";
+import { formatUTR, plural } from "@/lib/utils";
 import { SeasonBudgetCard } from "./season-budget-card";
 import { NeedsDecisionCard } from "./needs-decision-card";
 import { FamilyMembersCard } from "./family-members-card";
@@ -308,7 +308,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
                 ? null
                 : onTrackCount == null
                   ? `${targetSchools.length} target${targetSchools.length === 1 ? "" : "s"} · not enough data to say how many are in range`
-                  : `on track for ${onTrackCount} of ${targetSchools.length} targets`,
+                  : `on track for ${onTrackCount} of ${plural(targetSchools.length, "target", "targets")}`,
             ]
               .filter(Boolean)
               .join(" · ") || "No player details to show yet."}
