@@ -1,4 +1,4 @@
-import { buildFitReport } from "@/lib/fit";
+import { buildFitReport, utrHistoryFromEntries } from "@/lib/fit";
 import { buildParentDashboard, type ParentDashboardModel } from "@/lib/parent-dashboard";
 import type { TournamentEntry } from "@/lib/db/events";
 import type { BudgetExpense } from "@/lib/db/family";
@@ -69,6 +69,9 @@ export function sampleParentDashboard(): ParentDashboardModel {
     graduationYear: 2028,
     gender: "female",
     schools: SCHOOLS,
+    // The same rows the chart draws, as useFitReport passes them on the real
+    // page — so the sample's bands and its chart follow one projection rule.
+    projectionInput: { utrHistory: utrHistoryFromEntries(UTR_ENTRIES), graduationYear: 2028, gender: "female", now: NOW },
     now: NOW,
   });
   cached = buildParentDashboard({

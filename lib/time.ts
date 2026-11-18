@@ -207,6 +207,29 @@ export function shiftLocalMonths(date: Date, months: number): Date {
   return shifted;
 }
 
+/** Local midnight of `date`'s own calendar day. */
+export function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * Calendar months from `from`'s local day to `to`'s local day, with the
+ * part-month as a fraction of the month it falls in. May 18 → Nov 18 is
+ * exactly 6; Feb 28 → Aug 31 is 6 and 3/31. Times of day are ignored, so a
+ * rating recorded "today" (a date-only row) and `new Date()` at 11 pm are 0
+ * months apart. Negative when `to` is before `from`.
+ */
+export function localMonthsBetween(from: Date, to: Date): number {
+  const a = startOfLocalDay(from);
+  const b = startOfLocalDay(to);
+  if (b.getTime() < a.getTime()) return -localMonthsBetween(to, from);
+  let whole = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  if (shiftLocalMonths(a, whole).getTime() > b.getTime()) whole--;
+  const lo = shiftLocalMonths(a, whole).getTime();
+  const hi = shiftLocalMonths(a, whole + 1).getTime();
+  return whole + (b.getTime() - lo) / (hi - lo);
+}
+
 /** "May 2026" — a month and year in plain words, from local components. */
 export function monthYearLabel(date: Date): string {
   return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;

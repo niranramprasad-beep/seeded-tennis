@@ -876,6 +876,14 @@ ranked week-1 list in `docs/TODO.md`.
    Supabase Auth redirect allow-list, and do one real magic-link check on
    staging with an inbox you control (HANDOFF §J Step 18).
 6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
+   two answers are carried on `Player` but not stored. **Fixed on
+   `unify-projection` (2026-11-18, not merged):** one rule in
+   `recruitingTimeUtr()` for the diagnostic and the app — the player's own
+   pace from a logged rating 5–13 months old, else typical growth — so the
+   summer number is the same before and after sign-up
+   (`lib/fit-onboarding-consistency.test.ts`; DECISIONS "One projection rule
+   for onboarding and the app"). Players with such an entry see their
+   estimate move (staging persona (a): 12.2 → 11.0).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the

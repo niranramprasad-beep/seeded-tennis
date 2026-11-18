@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { Player, SchoolLite } from "@/lib/types";
-import { buildFitReport, type FitReport, type FitView } from "@/lib/fit";
+import { buildFitReport, utrHistoryFromEntries, type FitReport, type FitView } from "@/lib/fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 
 /**
@@ -45,11 +45,16 @@ export function useFitReport(input: {
     () => (historyUserId ? loadUtrEntriesFor(historyUserId) : loadUtrEntries())
   );
 
+  // The history decides two things in buildFitReport: Reach vs Out of
+  // range, and — when a rating is 5–13 months old — the pace the summer
+  // estimate is carried at (recruitingTimeUtr, rule 2). Dates are parsed as
+  // LOCAL days; `new Date("YYYY-MM-DD")` is UTC midnight, the day before in
+  // every US time zone, which would move a rating across that window's edge.
   const projectionInput = useMemo(
     () =>
       entries && entries.length
         ? {
-            utrHistory: entries.map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+            utrHistory: utrHistoryFromEntries(entries),
             graduationYear: player.graduationYear,
             gender: player.gender,
           }

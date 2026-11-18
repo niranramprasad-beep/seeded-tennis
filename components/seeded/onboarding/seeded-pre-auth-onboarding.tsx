@@ -10,7 +10,7 @@ import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagn
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn } from "@/lib/utils";
-import { RECRUITING_TIMING_NOTE, EARLY_DECISION_NOTE } from "@/lib/config/growth";
+import { RECRUITING_TIMING_NOTE, EARLY_DECISION_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/growth";
 import { type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { DiagnosticSaveForm } from "@/components/seeded/onboarding/diagnostic/diagnostic-save";
@@ -176,7 +176,9 @@ export function DiagnosticFitReport({
                   by {projectionTargetLabel(projection.targetYear)}.
                 </p>
                 <p className="mt-2.5 text-xs text-stone">
-                  A guess from {parent ? "your player's" : "your"} own past ratings, not a promise.
+                  {projection.basis === "logged-pace"
+                    ? `A guess from ${parent ? "your player's" : "your"} own past ratings, not a promise.`
+                    : GROWTH_ESTIMATE_CAPTION}
                 </p>
               </>
             ) : (
@@ -191,8 +193,8 @@ export function DiagnosticFitReport({
                 when a projection was made. */}
             <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
               {projection?.isEstimate ? `${RECRUITING_TIMING_NOTE} ` : ""}
-              {projection?.basis === "no-past-rating"
-                ? "Add a rating from 6 or 12 months ago (Change answers) to see the pace. "
+              {projection?.basis === "typical-growth"
+                ? `Add a rating from 6 or 12 months ago (Change answers) to use ${parent ? "your player's" : "your"} own pace instead of typical growth. `
                 : ""}
               {EARLY_DECISION_NOTE}
             </p>
