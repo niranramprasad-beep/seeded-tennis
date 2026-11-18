@@ -37,8 +37,16 @@ What each one is for:
   UTR history and the budget, and can add expenses and notes.
 - **PB4** — the parent must verify before approving the child (which also
   records consent). `approve_family_join('…0b0402')` as b0401 →
-  `42501 verify_email_required` until `mark_email_verified()` runs in a
-  session whose `amr` says `otp`/`magiclink`.
+  `42501 verify_email_required` until `request_email_verification()` has
+  run and then `mark_email_verified()` runs in a session whose `amr` has an
+  `otp`/`magiclink` entry timestamped AFTER that request (and within the
+  hour), whose JWT `email` is the requested address, with no auth-email
+  change in the day before (043 as fixed; HANDOFF §J Step 18). Forged claims
+  need all three: `"email"`, and `"amr":[{"method":"otp","timestamp":<epoch
+  ≥ the request>}]`. To probe the email-change path, change
+  `auth.users.email` as `postgres` inside the rolled-back transaction (the
+  `auth.users` trigger then writes `auth_email_changes`), and backdate that
+  row to simulate "more than a day ago".
 - **PB5** — every "Not tracked" / no-UTR state.
 
 Family-tier changes are made as `postgres`

@@ -51,7 +51,21 @@ join/approve/consent RPCs stay open). This closes "the Family plan unlocks
 nothing the code enforces" from PR A. 043: parents must prove their email
 (a magic link; `email_confirmed_at` is useless because production
 auto-confirms) before join/approve/consent — `42501 verify_email_required`;
-players never. App contracts: `lib/db/family-plan.ts`,
+players never. **043 was fixed the same day after a review broke it on
+staging** (verify A by link → switch the auth email to B → mark again → B
+counted as verified → under-13 consent): the proof is now bound to a
+recorded request (`request_email_verification()`) for the current address,
+the amr timestamp must follow it within the hour, and an email change blocks
+verification for 24 h (`auth_email_changes`, via a trigger on `auth.users`).
+The fixed 043 file is what production runs; staging got the delta as
+`043b_fresh_email_verification`. Same review, also fixed in PR B: the
+onboarding diagnostic's parent join silently dropped a
+`verify_email_required` join; the banner (now parents only) claimed a
+confirmed email was needed for password resets; `/api/profile` coerced an
+absent `enrollmentTerm` to null and wiped the stored term; the no-math guard
+missed aliased UTRs and `Math.*`; the paywall Example's budget didn't add
+up; and `/auth/verified` would submit a pending join code stored by a
+different account in the same browser. App contracts: `lib/db/family-plan.ts`,
 `lib/db/email-verification.ts`, `/auth/verified`. Guard tests (mutation-
 tested): `lib/db/family-plan-lock.test.ts`,
 `lib/db/email-verification-gate.test.ts`, `lib/db/onboarding-fields.test.ts`.
@@ -895,7 +909,11 @@ ranked week-1 list in `docs/TODO.md`.
    `<site>/auth/verified` to the Supabase Auth redirect allow-list, and do
    one real magic-link check on staging with an inbox you control (HANDOFF
    §J Step 18) — the B6 screens' send → open → bounce-back path has only
-   been exercised in tests.
+   been exercised in tests, and the fixed 043 additionally relies on the
+   real amr `timestamp`, the JWT `email` claim, and GoTrue firing the new
+   `auth.users` trigger, none yet seen on a real link session. The
+   `email_verify` bucket limits only Seeded's path; the project's email
+   budget rests on Supabase Auth's rate limits (a dashboard setting).
 6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
    two answers are carried on `Player` but not stored. **Fixed on
    `unify-projection` (2026-11-18, not merged):** one rule in
