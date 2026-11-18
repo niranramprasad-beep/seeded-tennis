@@ -110,6 +110,13 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Next 15 streams metadata into the <body> for dynamic routes unless the
+  // user agent is on its bot list — and /onboarding is dynamic (it reads
+  // searchParams for the homepage calculator's prefill). Measured
+  // 2026-11-18: its <meta name="description"> landed after </head> for a
+  // normal browser AND for "Googlebot", and Lighthouse SEO fell to 91.
+  // Matching every user agent restores blocking metadata in <head>.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
