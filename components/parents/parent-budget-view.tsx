@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { SchoolLite } from "@/lib/types";
 import { AuthGate } from "@/components/shared/auth-gate";
+import { BudgetPageSkeleton } from "@/components/seeded/family/dashboard/page-skeletons";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededFamilyBudgetView } from "@/components/seeded/family/seeded-family-budget-view";
 
@@ -16,7 +17,7 @@ import { SeededFamilyBudgetView } from "@/components/seeded/family/seeded-family
 // discipline AuthGate itself uses.
 export function ParentBudgetView({ schools }: { schools: SchoolLite[] }) {
   return (
-    <AuthGate>
+    <AuthGate fallback={<BudgetPageSkeleton />}>
       <ParentBudgetInner schools={schools} />
     </AuthGate>
   );

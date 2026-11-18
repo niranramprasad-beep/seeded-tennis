@@ -16,10 +16,13 @@ import { loadBudgetExpenses, loadSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { daysSince } from "@/lib/today-actions";
-import { currentSeason } from "@/lib/time";
-import { formatUTR } from "@/lib/utils";
+import { currentSeason, localDateKey } from "@/lib/time";
+import { formatUtr2 } from "@/lib/utils";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { FamilyPlanPaywall } from "./dashboard/family-plan-paywall";
+import { NoFamilyYet, WeeklyReportSkeleton } from "./dashboard/page-skeletons";
 
 function money(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -57,33 +60,46 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   const { data: members = [], isLoading: membersLoading } = useSWR<FamilyMember[]>("family-members", () =>
     loadFamilyMembers()
   );
+  // The Family plan first: while it is locked nothing below starts (RLS
+  // would return it all empty, which reads as "a quiet week").
+  const plan = useSWR<FamilyPlanStatus>("family-plan-status", () => loadFamilyPlanStatus());
+  const unlocked = plan.data?.unlocked === true;
   // The PLAYER's history, explicitly. This read the pooled family list and
   // computed "−4.40 this week" by subtracting one person's rating from
   // another's — see loadUtrEntries() for the whole story.
   const playerId = pickFamilyPlayer(members)?.id ?? null;
-  const { data: utrEntries } = useSWR(
-    playerId ? ["utr-entries", playerId] : null,
-    () => loadUtrEntriesFor(playerId!)
-  );
+  const live = unlocked && playerId != null;
+  const utrSwr = useSWR(live ? ["utr-entries", playerId] : null, () => loadUtrEntriesFor(playerId!));
+  const utrEntries = utrSwr.data;
   // Scoped to the player by id (lib/db/family-scope.ts DataSubject). These
   // used to load every approved member's rows whenever the viewer was a
   // parent, so a sibling's emails and events were counted as this player's.
-  const { data: outreach } = useSWR(
-    playerId ? ["coach-outreach-dated", subjectKey({ userId: playerId })] : null,
-    () => loadCoachOutreachDated({ userId: playerId! })
+  const outreachSwr = useSWR(live ? ["coach-outreach-dated", subjectKey({ userId: playerId! })] : null, () =>
+    loadCoachOutreachDated({ userId: playerId! })
   );
-  const { data: tournamentEntries = [] } = useSWR(
-    playerId ? ["tournament-entries", subjectKey({ userId: playerId })] : null,
-    () => loadTournamentEntries({ userId: playerId! })
+  const outreach = outreachSwr.data;
+  const entriesSwr = useSWR(live ? ["tournament-entries", subjectKey({ userId: playerId! })] : null, () =>
+    loadTournamentEntries({ userId: playerId! })
   );
+  const tournamentEntries = useMemo(() => entriesSwr.data ?? [], [entriesSwr.data]);
   // The season budget is the FAMILY's money, so its spend counts every
   // player's entered tournaments — explicitly, not by default.
-  const { data: familyTournamentEntries = [] } = useSWR(
-    ["tournament-entries", subjectKey("family-players")],
-    () => loadTournamentEntries("family-players")
+  const familyEntriesSwr = useSWR(unlocked ? ["tournament-entries", subjectKey("family-players")] : null, () =>
+    loadTournamentEntries("family-players")
   );
-  const { data: seasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
-  const { data: expenses = [] } = useSWR("budget-expenses", () => loadBudgetExpenses());
+  const familyTournamentEntries = useMemo(() => familyEntriesSwr.data ?? [], [familyEntriesSwr.data]);
+  const budgetSwr = useSWR(unlocked ? "season-budget" : null, () => loadSeasonBudget());
+  const seasonBudget = budgetSwr.data;
+  const expensesSwr = useSWR(unlocked ? "budget-expenses" : null, () => loadBudgetExpenses());
+  const expenses = useMemo(() => expensesSwr.data ?? [], [expensesSwr.data]);
+  const dataLoading =
+    plan.isLoading ||
+    utrSwr.isLoading ||
+    outreachSwr.isLoading ||
+    entriesSwr.isLoading ||
+    familyEntriesSwr.isLoading ||
+    budgetSwr.isLoading ||
+    expensesSwr.isLoading;
 
   const playerMember = pickFamilyPlayer(members);
   // Never the viewer's own name: with no player in the family this printed
@@ -112,7 +128,8 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   }, [outreach, now]);
 
   const upcomingEvents = useMemo(() => {
-    const todayKey = now.toISOString().slice(0, 10);
+    // Local, not toISOString(): in a US evening that is already tomorrow.
+    const todayKey = localDateKey(now);
     return [...tournamentEntries]
       .filter((e) => e.eventDate >= todayKey)
       .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
@@ -139,18 +156,13 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
     return `${fmt(start)} – ${fmt(now)}`;
   }, [now]);
 
-  if (membersLoading) {
-    // Wait for the roster: the scope line, the player's name and every
-    // player-scoped number below depend on it, and rendering first made the
-    // page jump when they arrived. Keyed so the real page mounts fresh.
-    return (
-      <div key="family-page-skeleton" className="mx-auto max-w-content container-px py-10" aria-busy="true">
-        <p className="sr-only" role="status">Loading…</p>
-        <div className="h-[72px] animate-pulse rounded-lg bg-line/40 motion-reduce:animate-none" aria-hidden />
-        <div className="mt-6 h-10 w-72 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
-        <div className="mt-6 min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
-      </div>
-    );
+  // Wait for the roster, the plan AND every row the report shows, then draw
+  // once: drawing on the roster alone let each tile and list fill in (and
+  // grow) afterwards. The skeleton is this page's own boxes.
+  if (membersLoading || dataLoading) return <WeeklyReportSkeleton />;
+  if (plan.data?.reason === "no-family") return <NoFamilyYet />;
+  if (!unlocked) {
+    return <FamilyPlanPaywall page="weekly" childFirst={playerMember ? firstName : null} />;
   }
 
   return (
@@ -171,7 +183,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ReportTile
-          value={currentUTR == null ? "No UTR yet" : formatUTR(currentUTR)}
+          value={currentUTR == null ? "No UTR yet" : formatUtr2(currentUTR)}
           label={
             weekDelta
               ? `UTR · ${weekDelta.delta >= 0 ? "+" : ""}${weekDelta.delta.toFixed(2)} this week`

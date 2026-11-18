@@ -10,10 +10,13 @@ import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { loadTournamentEntries } from "@/lib/db/events";
 import { subjectKey } from "@/lib/db/family-scope";
 import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudget } from "@/lib/db/family";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { buildSeasonBudgetSummary, canEditBudget } from "@/lib/family-budget";
 import { currentSeason } from "@/lib/time";
 import { CostCalculatorView } from "@/components/cost/cost-calculator-view";
 import { SeasonBudgetCard } from "./season-budget-card";
+import { FamilyPlanPaywall } from "./dashboard/family-plan-paywall";
+import { BudgetPageSkeleton, NoFamilyYet } from "./dashboard/page-skeletons";
 
 function seasonTitle(now: Date): string {
   const s = currentSeason(now);
@@ -34,14 +37,19 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   const { data: members = [], isLoading: membersLoading } = useSWR<FamilyMember[]>("family-members", () =>
     loadFamilyMembers()
   );
+  // The Family plan first. While it is locked none of the budget loaders
+  // start: RLS would return them empty, which reads as "no spend", and this
+  // page's Edit / Add-expense controls must not be reachable at all.
+  const plan = useSWR<FamilyPlanStatus>("family-plan-status", () => loadFamilyPlanStatus());
+  const unlocked = plan.data?.unlocked === true;
   // The family's money: every approved player's entered tournaments,
   // chosen explicitly (lib/db/family-scope.ts DataSubject).
-  const { data: tournamentEntries = [] } = useSWR(
-    ["tournament-entries", subjectKey("family-players")],
-    () => loadTournamentEntries("family-players")
+  const entriesSwr = useSWR(unlocked ? ["tournament-entries", subjectKey("family-players")] : null, () =>
+    loadTournamentEntries("family-players")
   );
-  const { data: seasonBudget, mutate: mutateSeasonBudget } = useSWR("season-budget", () => loadSeasonBudget());
-  const { data: expenses = [], mutate: mutateExpenses } = useSWR("budget-expenses", () => loadBudgetExpenses());
+  const budgetSwr = useSWR(unlocked ? "season-budget" : null, () => loadSeasonBudget());
+  const expensesSwr = useSWR(unlocked ? "budget-expenses" : null, () => loadBudgetExpenses());
+  const seasonBudget = budgetSwr.data;
 
   const playerMember = pickFamilyPlayer(members);
   // See seeded-family-overview.tsx. The `??` borrowed the signed-in
@@ -57,35 +65,33 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
       buildSeasonBudgetSummary({
         totalBudget,
         playerUtr: currentUTR,
-        entries: tournamentEntries,
-        expenses,
+        entries: entriesSwr.data ?? [],
+        expenses: expensesSwr.data ?? [],
         judgedUserId: playerMember?.id ?? null,
       }),
-    [totalBudget, currentUTR, tournamentEntries, expenses, playerMember]
+    [totalBudget, currentUTR, entriesSwr.data, expensesSwr.data, playerMember]
   );
 
   const saveBudget = async (input: { seasonLabel: string; totalBudget: number }) => {
     const saved = await saveSeasonBudget(input);
-    if (saved) mutateSeasonBudget(saved, { revalidate: false });
+    if (saved) budgetSwr.mutate(saved, { revalidate: false });
   };
 
   const addExpense = async (input: Parameters<typeof saveBudgetExpense>[0]) => {
     const saved = await saveBudgetExpense(input);
-    if (saved) mutateExpenses([saved, ...expenses], { revalidate: false });
+    if (saved) expensesSwr.mutate([saved, ...(expensesSwr.data ?? [])], { revalidate: false });
   };
 
-  if (membersLoading) {
-    // Wait for the roster: the scope line, the player's name and every
-    // player-scoped number below depend on it, and rendering first made the
-    // page jump when they arrived. Keyed so the real page mounts fresh.
-    return (
-      <div key="family-page-skeleton" className="mx-auto max-w-content container-px py-10" aria-busy="true">
-        <p className="sr-only" role="status">Loading…</p>
-        <div className="h-[72px] animate-pulse rounded-lg bg-line/40 motion-reduce:animate-none" aria-hidden />
-        <div className="mt-6 h-10 w-72 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
-        <div className="mt-6 min-h-[50vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
-      </div>
-    );
+  // Wait for EVERYTHING the page shows, then draw once. Drawing as soon as
+  // the roster answered let the budget, the expenses and the entries each
+  // grow the card afterwards (CLS 0.058 at 1440, PR A).
+  if (membersLoading || plan.isLoading || entriesSwr.isLoading || budgetSwr.isLoading || expensesSwr.isLoading) {
+    return <BudgetPageSkeleton />;
+  }
+  if (plan.data?.reason === "no-family") return <NoFamilyYet />;
+  if (!unlocked) {
+    const child = (playerMember?.name ?? "").trim().split(" ")[0] || null;
+    return <FamilyPlanPaywall page="budget" childFirst={child} />;
   }
 
   return (
