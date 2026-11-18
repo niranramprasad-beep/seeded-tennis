@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENROLLMENT_TERMS } from "@/lib/types";
 
 // Shape validated by app/api/profile's route handler before it ever calls
 // writeCurrentPlayerProfile (lib/auth.ts) — the single highest-traffic
@@ -30,4 +31,13 @@ export const PlayerBodySchema = z.object({
   utrProfileLink: z.string().optional(),
   gpa: z.number().nullable().optional(),
   deletionRequestedAt: z.string().nullable().optional(),
+  // Migration 041. The CHECK constraints are the real rule; these only turn
+  // a bad value into a 400 instead of a raw 23514. birthMonth is write-once
+  // (the 041 trigger), so a changed value is refused by the database.
+  birthMonth: z.number().int().min(1).max(12).nullable().optional(),
+  enrollmentTerm: z.enum(ENROLLMENT_TERMS).nullable().optional(),
+  // Accepted so the client can post its whole Player, and IGNORED:
+  // email_verified_at is privileged (043) and writeCurrentPlayerProfile
+  // never sends it.
+  emailVerified: z.boolean().optional(),
 });

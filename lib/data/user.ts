@@ -33,4 +33,7 @@ export const emptyPlayer: Player = {
   utrProfileLink: "",
   gpa: null,
   deletionRequestedAt: null,
+  birthMonth: null,
+  enrollmentTerm: null,
+  emailVerified: false,
 };

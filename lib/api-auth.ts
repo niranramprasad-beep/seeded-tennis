@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { narrowNullableLiteral } from "@/lib/db/narrow";
+import { familyPlanStatusFor } from "@/lib/db/family-plan";
 
 const PROFILE_ROLES = ["player", "parent"] as const;
 
@@ -79,6 +80,42 @@ export async function getProfileRoleAndFamily(
     role: narrowNullableLiteral(data?.role ?? null, PROFILE_ROLES),
     familyCode: (code as string | null) ?? null,
   };
+}
+
+/** The sentence a locked family gets from a Family-plan API route. */
+export const FAMILY_PLAN_LOCKED_MESSAGE =
+  "The season budget and family reports are part of the Family plan. Upgrade to Family to use them.";
+
+/**
+ * Refuse a request for Family-plan data (season budget, budget expenses,
+ * family reports, parent notes) when the caller's family is not on the
+ * Family plan — migration 042, B4.
+ *
+ * Returns a 403 response to send, or null to continue. Every API route that
+ * reads or writes that data calls this; `lib/db/family-plan-lock.test.ts`
+ * fails the build if one stops.
+ *
+ * Not the gate. 042's restrictive RLS policies are: a locked family's
+ * budget write is refused 42501 by Postgres whatever this says. This exists
+ * so the common path gets a clear sentence instead of a raw RLS error.
+ * Fails CLOSED via familyPlanStatusFor(): if the status cannot be read, the
+ * route refuses.
+ */
+export async function refuseUnlessFamilyPlan(ctx: {
+  supabase: SupabaseClient<Database>;
+}): Promise<Response | null> {
+  const status = await familyPlanStatusFor(ctx.supabase);
+  if (status.unlocked) return null;
+  return new Response(
+    JSON.stringify({
+      error:
+        status.reason === "no-family"
+          ? "You're not part of a family yet."
+          : FAMILY_PLAN_LOCKED_MESSAGE,
+      reason: status.reason,
+    }),
+    { status: 403, headers: { "content-type": "application/json" } }
+  );
 }
 
 /**
