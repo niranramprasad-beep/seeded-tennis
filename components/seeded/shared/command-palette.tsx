@@ -40,7 +40,11 @@ interface Command {
 // parent copy still offered Events after the sidebar dropped it.
 const toCommand = (l: NavLink): Command => ({ label: l.label, href: l.href, icon: l.icon, keywords: l.keywords });
 const PLAYER_COMMANDS: Command[] = [...PLAYER_NAV_LINKS, ...SHARED_SECONDARY_LINKS].map(toCommand);
-const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...SHARED_SECONDARY_LINKS].map(toCommand);
+// Settings is in the parent's main nav (Board 22) and in SHARED_COMMANDS;
+// list it once.
+const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...SHARED_SECONDARY_LINKS]
+  .filter((l) => l.href !== SETTINGS_LINK.href)
+  .map(toCommand);
 
 const SHARED_COMMANDS: Command[] = [toCommand(SETTINGS_LINK)];
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { SchoolLite } from "@/lib/types";
 import { AuthGate } from "@/components/shared/auth-gate";
+import { WeeklyReportSkeleton } from "@/components/seeded/family/dashboard/page-skeletons";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededWeeklyReportView } from "@/components/seeded/family/seeded-weekly-report-view";
 
@@ -12,7 +13,7 @@ import { SeededWeeklyReportView } from "@/components/seeded/family/seeded-weekly
 // components/parents/parent-budget-view.tsx — see that file's comment.
 export function ParentWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   return (
-    <AuthGate>
+    <AuthGate fallback={<WeeklyReportSkeleton />}>
       <ParentWeeklyReportInner schools={schools} />
     </AuthGate>
   );

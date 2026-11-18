@@ -96,6 +96,29 @@ export function pickFamilyPlayer<
   })[0];
 }
 
+/**
+ * Board 22's sidebar note, under the parent nav. The same claim as
+ * `parentScopeSentence`, shorter: a parent writes the budget and notes
+ * (RLS: is_parent_member, 033) and nothing else.
+ */
+export function parentSidebarNote(playerFirst: string | null): string {
+  if (!playerFirst) return "No player has joined your family yet. You can edit the budget and send notes.";
+  return `You're viewing ${playerFirst}'s account. You can edit the budget and send notes. Everything else is ${playerFirst}'s.`;
+}
+
+/**
+ * Said on /family when the family has more than one player, so the choice
+ * pickFamilyPlayer() made is visible rather than silent. Null otherwise.
+ */
+export function multiPlayerNote(
+  members: readonly { role: string }[],
+  shownFirst: string
+): string | null {
+  const players = members.filter((m) => m.role === "player").length;
+  if (players < 2) return null;
+  return `Your family has ${players} players. This page shows ${shownFirst}, who joined first.`;
+}
+
 /** "Bailey Post035" -> "Bailey P." — how a parent's settings refer to a
  *  linked child. First name and last initial only. */
 export function firstNameLastInitial(name: string | null | undefined): string {

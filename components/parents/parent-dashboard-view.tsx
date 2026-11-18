@@ -34,10 +34,16 @@ import { useDesign } from "@/lib/context/design-context";
 import { getCurrentGrade } from "@/lib/time";
 import { formatUTR } from "@/lib/utils";
 import { SeededFamilyOverview } from "@/components/seeded/family/seeded-family-overview";
+import { FamilyDashboardSkeleton } from "@/components/seeded/family/dashboard/dashboard-skeleton";
+import { FamilyPlanPaywall } from "@/components/seeded/family/dashboard/family-plan-paywall";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 
 export function ParentDashboardView({ schools }: { schools: SchoolLite[] }) {
+  const { design } = useDesign();
+  // Seeded: the session wait shows the dashboard's own skeleton — the same
+  // boxes app/family/loading.tsx and the overview's data wait show.
   return (
-    <AuthGate>
+    <AuthGate fallback={design === "seeded" ? <FamilyDashboardSkeleton /> : undefined}>
       <ParentDashboardInner schools={schools} />
     </AuthGate>
   );
@@ -52,6 +58,21 @@ function ParentDashboardInner({ schools }: { schools: SchoolLite[] }) {
   const { design } = useDesign();
   if (design === "seeded") {
     return <SeededFamilyOverview schools={schools} />;
+  }
+  return <LegacyFamilyPlanGate />;
+}
+
+// Legacy is slated for deletion but still reachable from Settings →
+// Appearance. It gets the same plan check: a locked family sees the paywall,
+// and the legacy dashboard (whose notes loader would come back empty) never
+// mounts.
+function LegacyFamilyPlanGate() {
+  const { data: plan } = useSWR<FamilyPlanStatus>("family-plan-status", () => loadFamilyPlanStatus());
+  const { data: members } = useSWR<FamilyMember[]>("family-members", () => loadFamilyMembers());
+  if (!plan || !members) return <FamilyDashboardSkeleton />;
+  if (!plan.unlocked) {
+    const child = (pickFamilyPlayer(members)?.name ?? "").trim().split(/\s+/)[0] || null;
+    return <FamilyPlanPaywall page="overview" childFirst={child} />;
   }
   return <LegacyParentDashboard />;
 }

@@ -32,7 +32,7 @@ import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
 import { PARENT_NAV_LINKS, PLAYER_NAV_LINKS } from "./nav-links";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
-import { pickFamilyPlayer } from "@/lib/family-view";
+import { parentSidebarNote, pickFamilyPlayer } from "@/lib/family-view";
 
 // NavLink, PLAYER_NAV_LINKS and PARENT_NAV_LINKS live in ./nav-links — the
 // one list the ⌘K palette also reads.
@@ -214,6 +214,14 @@ export function SeededSidebar() {
             );
           })}
         </nav>
+
+        {/* Board 22: what a parent can and cannot change, under the nav. The
+            access boundary itself is RLS; this says it in words. */}
+        {!collapsed && isParent && familyMembers !== undefined && (
+          <p className="shrink-0 px-4 pb-4 font-sans text-xs leading-relaxed text-stone">
+            {parentSidebarNote(subjectFirst || null)}
+          </p>
+        )}
 
         <div className={cn("relative shrink-0 border-t border-[rgb(var(--c-line))] p-3", collapsed && "px-2")}>
           <DarkModeToggle showLabel={!collapsed} className={collapsed ? "mx-auto mb-1" : "mb-1"} />

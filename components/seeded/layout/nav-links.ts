@@ -40,15 +40,21 @@ export const PLAYER_NAV_LINKS: NavLink[] = [
   { href: "/events", label: "Events", icon: CalendarDays, keywords: "calendar training matches" },
 ];
 
-// "18 Parent view + budget.png". No Events: /events is the player's
+/** In the avatar menu for both roles, and in the ⌘K palette. */
+export const SETTINGS_LINK: NavLink = { href: "/settings", label: "Settings", icon: Settings };
+
+// Board 22 (docs/DESIGN_MOCKUP_SPEC_V2.md): Overview · Weekly reports ·
+// Budget · Schools · Settings. No Events: /events is the player's
 // tournament planner, a write surface a parent is deliberately kept out of
 // (AuthGate's isParentAllowedPath does not admit it). Upcoming events
-// already appear on the parent's Overview and weekly report.
+// already appear on the parent's Overview and weekly report. Settings is in
+// the parent's main nav because a parent has five places to go, not ten.
 export const PARENT_NAV_LINKS: NavLink[] = [
   { href: "/family", label: "Overview", icon: LayoutDashboard, keywords: "family dashboard" },
+  { href: "/family/weekly-reports", label: "Weekly reports", icon: FileText, keywords: "summary report" },
   { href: "/family/budget", label: "Budget", icon: DollarSign, keywords: "season spend expenses" },
   { href: "/schools", label: "Schools", icon: School, keywords: "browse programs" },
-  { href: "/family/weekly-reports", label: "Weekly reports", icon: FileText, keywords: "summary report" },
+  SETTINGS_LINK,
 ];
 
 /** Reachable from the avatar menu for both roles, not the main nav. */
@@ -56,5 +62,3 @@ export const SHARED_SECONDARY_LINKS: NavLink[] = [
   { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
 ];
 
-/** In the avatar menu for both roles, and in the ⌘K palette. */
-export const SETTINGS_LINK: NavLink = { href: "/settings", label: "Settings", icon: Settings };

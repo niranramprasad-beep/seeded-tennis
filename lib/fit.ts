@@ -143,6 +143,63 @@ export function projectUtrAtRecruiting(input: {
   };
 }
 
+/**
+ * The projection between today and the summer before senior year, at one
+ * date — what a chart draws between "today" and the projected end point.
+ *
+ * Same arithmetic as projectUtrAtRecruiting (current + growth × years,
+ * capped at the realistic ceiling), evaluated at `date` instead of at the
+ * target, and NOT rounded: the end point a screen labels is the rounded
+ * projectUtrAtRecruiting value; this only places the line under it. `date`
+ * is clamped to [now, target], so the line never runs past the point
+ * coaches decide. Null when there is no usable rating.
+ */
+export function projectedUtrOn(
+  input: {
+    currentUtr: number | null | undefined;
+    graduationYear: number;
+    gender: PlayerGender;
+    now?: Date;
+  },
+  date: Date,
+  pace: GrowthPace = "normal"
+): number | null {
+  const { currentUtr, graduationYear, gender } = input;
+  if (currentUtr == null || !Number.isFinite(currentUtr) || currentUtr <= 0) return null;
+  const now = input.now ?? new Date();
+  const target = projectionTargetDate(graduationYear).getTime();
+  const t = Math.min(Math.max(date.getTime(), now.getTime()), Math.max(now.getTime(), target));
+  const years = Math.max(0, (t - now.getTime()) / MS_PER_YEAR);
+  return Math.min(REALISTIC_UTR_CEILING[gender], currentUtr + UTR_GROWTH_PER_YEAR[pace] * years);
+}
+
+/**
+ * When the normal-pace projection first reaches `utr`, or null when it does
+ * not by the summer before senior year (or the rating is unusable).
+ *
+ * Today's date when the player is already there. Answers "around which month
+ * does the player reach where their target schools start?" without a
+ * component doing the division itself.
+ */
+export function projectionReachDate(
+  input: {
+    currentUtr: number | null | undefined;
+    graduationYear: number;
+    gender: PlayerGender;
+    now?: Date;
+  },
+  utr: number
+): Date | null {
+  const { currentUtr, graduationYear, gender } = input;
+  if (currentUtr == null || !Number.isFinite(currentUtr) || currentUtr <= 0) return null;
+  const now = input.now ?? new Date();
+  if (currentUtr >= utr) return now;
+  if (utr > REALISTIC_UTR_CEILING[gender]) return null;
+  const years = (utr - currentUtr) / UTR_GROWTH_PER_YEAR.normal;
+  const at = new Date(now.getTime() + years * MS_PER_YEAR);
+  return at.getTime() <= projectionTargetDate(graduationYear).getTime() ? at : null;
+}
+
 /** The caption to render under a projected number. Always paired with it —
  * the number alone is the thing this module exists to avoid. */
 export function projectionAssumptionLabel(pace: GrowthPace = "normal"): string {

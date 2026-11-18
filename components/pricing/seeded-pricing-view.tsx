@@ -238,12 +238,16 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
             </Faq>
             {/* Mechanics from lib/route-access.ts (only a parent account
                 opens /family), migration 026 (joiners land pending until
-                approved) and CLAUDE.md's parent-write rule. */}
+                approved), CLAUDE.md's parent-write rule, and PR B's gate:
+                /family, /family/budget and /family/weekly-reports show the
+                Family paywall unless my_family_has_tier('family') — a plan
+                held by anyone in the family (lib/db/family-plan.ts). */}
             <Faq question="Does a parent need the Family plan?">
-              Family is the plan with the parent tools: a read-only parent dashboard, the season
-              budget and the weekly family report, all inside the app. A parent uses their own parent
-              account and joins with the family code, and a family member approves them. The parent
-              can edit the budget and send notes; everything else is read-only.
+              Yes, for the parent tools. The parent dashboard, the season budget and the weekly family
+              report need the Family plan, and anyone in the family can buy it: the player or a
+              parent. A parent uses their own parent account and joins with the family code, and a
+              family member approves them. The parent can edit the budget and send notes; everything
+              else is read-only.
             </Faq>
             <Faq question="Where do the numbers come from?">
               Your UTR is the number you enter. Team levels are our estimates, not official numbers.{" "}

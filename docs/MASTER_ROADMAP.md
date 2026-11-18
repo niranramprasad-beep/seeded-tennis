@@ -13,6 +13,15 @@
 
 ## Executive status
 
+**2026-11-18 — PR B (app side, in progress).** /family rebuilt to Board 22
+(KPIs, UTR trend chart with the lib/fit.ts estimate, budget bars, recent
+expenses, targets, "For you this week") and the Family paywall (B4) on the
+three parent routes — the "Billing honesty" gap below closes once the
+database half lands with it. Parent CLS cases from PR A addressed (one
+skeleton per route at every loading stage; the school page hides player-only
+controls for a remembered parent before hydration). Not yet measured with a
+signed-in persona.
+
 **2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
 Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
 banned badge copy, raw hex, lime button fills, focus ring, primary-button
@@ -824,7 +833,12 @@ ranked week-1 list in `docs/TODO.md`.
    step 7) — a real deletion by hand, with their confirmation. And the
    privacy policy that names processors and retention, reviewed by an adult
    or a lawyer.
-5. **Parent dashboard upgrade** (TODO week 1 #1).
+5. **Parent dashboard upgrade** (TODO week 1 #1) — **app side built in PR B
+   (2026-11-18), not merged**: Board 22 at /family from
+   `lib/parent-dashboard.ts`, and the Family-plan paywall on /family,
+   /family/budget and /family/weekly-reports via `loadFamilyPlanStatus()`.
+   Ships only with the database half (`my_family_has_tier`, the tier-gated
+   RLS); per-category budget limits need a column (DECISIONS 2026-11-18).
 6. **Premium diagnostic onboarding** (TODO week 1 #2).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
