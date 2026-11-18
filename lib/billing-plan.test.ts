@@ -176,8 +176,15 @@ describe("billingDate is the viewer's local date", () => {
   });
 
   it("a timestamp is shown in the viewer's timezone", () => {
-    // 03:00 UTC on Dec 15 is still Dec 14 in California.
-    expect(billingDate("2026-12-15T03:00:00.000Z")).toBe("Dec 14, 2026");
+    // 03:00 UTC on Dec 15 is still Dec 14 in California, and already Dec 15
+    // in Auckland. Assigning process.env.TZ above does not change the zone
+    // inside a vitest worker (docs/DECISIONS.md, PR C numbers), so the
+    // expectation is the instant's LOCAL day in whatever zone this runs —
+    // `npm run test:tz` runs it in New York (Dec 14) and Auckland (Dec 15).
+    const instant = new Date("2026-12-15T03:00:00.000Z");
+    const localDay = `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][instant.getMonth()]} ${instant.getDate()}, ${instant.getFullYear()}`;
+    expect(billingDate("2026-12-15T03:00:00.000Z")).toBe(localDay);
+    if (instant.getTimezoneOffset() >= 180) expect(localDay).toBe("Dec 14, 2026");
   });
 
   it("missing or garbled is null, never 'Invalid Date'", () => {

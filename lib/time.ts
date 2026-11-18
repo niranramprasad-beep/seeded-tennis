@@ -225,9 +225,13 @@ export function localMonthsBetween(from: Date, to: Date): number {
   if (b.getTime() < a.getTime()) return -localMonthsBetween(to, from);
   let whole = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (shiftLocalMonths(a, whole).getTime() > b.getTime()) whole--;
-  const lo = shiftLocalMonths(a, whole).getTime();
-  const hi = shiftLocalMonths(a, whole + 1).getTime();
-  return whole + (b.getTime() - lo) / (hi - lo);
+  // Count the part-month in calendar DAYS, not milliseconds: a month that
+  // contains a daylight-saving change is an hour short or long, which made
+  // Feb 28 → Aug 31 come out 6.09690 in Auckland instead of 6 + 3/31.
+  const dayNumber = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000;
+  const lo = dayNumber(shiftLocalMonths(a, whole));
+  const hi = dayNumber(shiftLocalMonths(a, whole + 1));
+  return whole + (dayNumber(b) - lo) / (hi - lo);
 }
 
 /** "May 2026" — a month and year in plain words, from local components. */
