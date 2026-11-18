@@ -52,7 +52,6 @@ export function WhatIfPanel({
   // senior's what-if is about now, not a date that has gone.
   const milestonePassed = new Date() >= new Date(seniorSummerYear, 5, 1);
   const when = milestonePassed ? "now" : `by June ${seniorSummerYear}`;
-  const fillPct = Math.min(100, Math.max(0, ((shownUtr - minUTR) / (maxUTR - minUTR)) * 100));
 
   return (
     <div className="rounded-xl border border-line bg-card p-[18px]">
@@ -71,18 +70,10 @@ export function WhatIfPanel({
         )}
       </div>
 
-      {/* Decorative progress read, separate from the native slider below it
-          (no appearance-none thumb-replacement hacks — too fragile across
-          browsers for a component with no exact mockup spec to match). */}
-      <div className="relative mt-3.5 h-1.5 rounded-pill bg-line" aria-hidden>
-        <div
-          className={cn(
-            "absolute inset-y-0 left-0 rounded-pill bg-grass-300",
-            !reduceMotion && "transition-[width] duration-150 ease-out"
-          )}
-          style={{ width: `${fillPct}%` }}
-        />
-      </div>
+      {/* One track: the native slider's own, tinted with accent-color. A
+          decorative progress bar used to sit above it, so the page drew
+          two tracks for one control (C25). 44px tall for a thumb on a
+          phone (board 23 rule 8). */}
       <input
         type="range"
         min={minUTR}
@@ -91,7 +82,7 @@ export function WhatIfPanel({
         value={shownUtr}
         onChange={(e) => setCustom(parseFloat(e.target.value))}
         aria-label={`Hypothetical UTR ${when}`}
-        className="mt-1.5 h-6 w-full cursor-pointer accent-grass"
+        className="mt-3 h-11 w-full cursor-pointer accent-grass sm:h-8"
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -120,7 +111,7 @@ export function WhatIfPanel({
               if (!Number.isNaN(v)) setCustom(v);
             }}
             className={cn(
-              "h-8 w-[64px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus",
+              "h-8 w-[72px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus",
               activePaceMode === "custom" && "border-grass"
             )}
           />

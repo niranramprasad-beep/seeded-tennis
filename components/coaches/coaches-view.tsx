@@ -22,8 +22,6 @@ import {
   buildCoachEmail,
   type CoachEmailResult,
 } from "@/lib/db/schools";
-import { loadUtrEntries } from "@/lib/db/plan";
-import { parseLocalDate } from "@/lib/time";
 import {
   loadCoachOutreachDated,
   REMIND_ME_AFTER_DAYS,
@@ -43,7 +41,6 @@ import { SchoolBadge } from "@/components/shared/school-badge";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
-import { useFitReport } from "@/lib/hooks/use-fit-report";
 
 // Legacy key from before outreach status was synced to Supabase — still read
 // once on load so no one's existing tracking silently disappears when this
@@ -97,8 +94,10 @@ function CoachesInner({ schools }: { schools: School[] }) {
     [schools, player.targetSchoolSlugs]
   );
 
-  // One report, shared with /today, /schools and the parent view.
-  const fitReport = useFitReport({ player, schools: targetSchools });
+  // No fit bands here (production sweep C28): the pipeline is about where
+  // each conversation stands, and the band already lives on /schools and
+  // every school page. A band chip on each card crowded the 220px column
+  // and read as a second status.
 
   // Same "matches" key as /match-mode and /matches — reuses that cached
   // fetch instead of loading the player's whole match history a third time.
@@ -127,20 +126,6 @@ function CoachesInner({ schools }: { schools: School[] }) {
     [matches, player.currentUTR]
   );
 
-  // Same "utr-entries" SWR key /today, /plan, and the Schools browser
-  // already fetch under — a real cache hit, not a second round-trip,
-  // whenever one of those loaded this session. Feeds each card's real fit
-  // band via classifySchoolFit (inside SeededOutreachLayout), the exact
-  // same function those other surfaces use — never a second fit model.
-  const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
-  const projection = useMemo(
-    () => ({
-      utrHistory: (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
-      graduationYear: player.graduationYear,
-      gender: player.gender,
-    }),
-    [utrEntries, player.graduationYear, player.gender]
-  );
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
     targetSchools[0]?.slug ?? null
@@ -237,12 +222,19 @@ function CoachesInner({ schools }: { schools: School[] }) {
 
   const setReminder = async (slug: string) => {
     const previous = statuses;
-    if (!statuses[slug]) return; // reminders only apply to a row already being tracked
+    // Every target is on the board now, in Researching when it has no
+    // outreach row yet (C13). A reminder is an UPDATE of that row, so a
+    // school with none gets its "researching" row first — otherwise the
+    // button on its card would silently do nothing.
+    const hadRow = Boolean(statuses[slug]);
+    const nowIso = new Date().toISOString();
     const remindAt = new Date(Date.now() + REMIND_ME_AFTER_DAYS * 86_400_000).toISOString();
-    const next = { ...statuses, [slug]: { ...statuses[slug], remindAt } };
+    const base = statuses[slug] ?? { status: "researching" as OutreachStatus, updatedAt: nowIso };
+    const next = { ...statuses, [slug]: { ...base, remindAt } };
     mutateStatuses(next, { revalidate: false });
     setOutreachError("");
     try {
+      if (!hadRow) await saveCoachOutreachStatus(slug, "researching");
       await saveCoachOutreachReminder(slug);
     } catch (err) {
       mutateStatuses(previous, { revalidate: false });
@@ -330,7 +322,6 @@ function CoachesInner({ schools }: { schools: School[] }) {
           setStatus={setStatus}
           setReminder={setReminder}
           outreachError={outreachError}
-          bandBySlug={fitReport?.bandBySlug ?? null}
           replyNote={replyNote}
           setReplyNote={setReplyNote}
           saveReplyNote={saveReplyNote}

@@ -70,18 +70,58 @@ const LEVEL_UTR_WINDOW: Record<FitLevel, [number, number]> = {
 };
 
 /**
- * The same level-based field estimate evaluateTournamentFit() falls back to
- * when no real draw average is entered (see competitionFromLevel below) —
- * exposed so the Tournament Fit screen's "Typical field for this level" note
- * shows the exact number the engine will actually score against, instead of
- * a second, possibly-drifting copy of the same windows. "utr" has no
- * meaningful typical field (draw strength there comes entirely from who
- * enters, per LEVELS' own description) — callers should special-case it
- * rather than display this midpoint as if it meant something.
+ * The level-based field estimate evaluateTournamentFit() falls back to when
+ * no real draw average is entered (see competitionFromLevel below), as the
+ * RANGE the engine actually scores against. The checker's "Typical field for
+ * this level" note and the verdict's own sentence both print this one
+ * string, so they cannot disagree. (The note used to print the midpoint,
+ * "avg 9.0", directly above a verdict that said "players around UTR 6–12" —
+ * two numbers for one estimate; production sweep C15.) "utr" has no typical
+ * field: its strength comes entirely from who enters, so callers
+ * special-case it.
  */
-export function typicalFieldUtr(level: FitLevel): number {
-  const [lo, hi] = LEVEL_UTR_WINDOW[level];
-  return Math.round(((lo + hi) / 2) * 10) / 10;
+export function typicalFieldRange(level: FitLevel): { low: number; high: number; label: string } {
+  const [low, high] = LEVEL_UTR_WINDOW[level];
+  return { low, high, label: `${low}–${high}` };
+}
+
+export type VerdictBlocker = "level" | "utr" | "entry fee";
+
+/**
+ * What the checker still needs before it may say "Worth it" or "Skip it".
+ * A verdict with no fee scored a blank cost as "$0 / match" and still said
+ * "Worth it" (production sweep C15), and a verdict before the level was
+ * chosen judged whichever level happened to be pre-selected. Returns what
+ * is missing, in the order the form asks for it; empty means a verdict may
+ * be shown. An entry fee of 0 is a real answer (a free event), not missing.
+ */
+export function verdictBlockers(input: {
+  level: FitLevel | null;
+  playerUtr: number | null;
+  entryCost: number | null;
+}): VerdictBlocker[] {
+  const missing: VerdictBlocker[] = [];
+  if (input.level == null) missing.push("level");
+  if (input.playerUtr == null) missing.push("utr");
+  if (input.entryCost == null || !Number.isFinite(input.entryCost) || input.entryCost < 0) {
+    missing.push("entry fee");
+  }
+  return missing;
+}
+
+const BLOCKER_PHRASE: Record<VerdictBlocker, string> = {
+  level: "choose the level",
+  utr: "enter a UTR",
+  "entry fee": "add the entry fee",
+};
+
+/** "To see a verdict, choose the level and add the entry fee." */
+export function verdictBlockerSentence(blockers: VerdictBlocker[]): string {
+  if (blockers.length === 0) return "";
+  const parts = blockers.map((b) => BLOCKER_PHRASE[b]);
+  const joined =
+    parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `To see a verdict, ${joined}.`;
 }
 
 export type Verdict = "good" | "decent" | "bad";
@@ -218,18 +258,28 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     if (playerUtr >= lo && playerUtr <= hi) {
       reasons.push({
         tone: "neutral",
-        text: `No draw strength given, so this is estimated from the level: ${levelInfo.label.split("—")[0].trim()} events are typically competitive for players around UTR ${lo}–${Math.min(hi, 16.5)}, and you're at ${formatPlayerUtr(playerUtr)}.`,
+        text: `No draw strength given, so this is estimated from the level: ${levelInfo.label.split("—")[0].trim()} events are typically competitive for players around UTR ${typicalFieldRange(input.level).label}, and you're at ${formatPlayerUtr(playerUtr)}.`,
       });
     } else if (playerUtr > hi) {
+      // Every sentence here quotes the same typicalFieldRange() label the
+      // checker's "Typical field" note prints (C15).
       reasons.push({
-        tone: "negative",
-        text: `At UTR ${formatPlayerUtr(playerUtr)} you're likely above the typical ${input.level === "utr" ? "" : `${input.level} `}field — expect little rating value from wins here.`,
+        tone: playerUtr - hi <= 0.5 ? "neutral" : "negative",
+        text:
+          playerUtr - hi <= 0.5
+            ? `At UTR ${formatPlayerUtr(playerUtr)} you're just above this level's typical field (UTR ${typicalFieldRange(input.level).label}) — wins still count, but each one moves your rating less.`
+            : `At UTR ${formatPlayerUtr(playerUtr)} you're above this level's typical field (UTR ${typicalFieldRange(input.level).label}) — expect little rating value from wins here.`,
       });
       suggestions.push("Check the entry list before committing — if the top seeds are 1+ UTR below you, pick a higher level.");
     } else {
+      // 5.95 against a 6–12 window is the edge of the range, not "a big step
+      // up"; that sentence used to sit under a "Worth it" headline.
       reasons.push({
-        tone: "negative",
-        text: `At UTR ${formatPlayerUtr(playerUtr)} this level's typical field would be a big step up — you may run into much higher-rated players in round one.`,
+        tone: lo - playerUtr <= 0.5 ? "neutral" : "negative",
+        text:
+          lo - playerUtr <= 0.5
+            ? `At UTR ${formatPlayerUtr(playerUtr)} you're just under this level's typical field (UTR ${typicalFieldRange(input.level).label}) — most opponents will be a little stronger, which is where wins move your rating most.`
+            : `At UTR ${formatPlayerUtr(playerUtr)} this level's typical field (UTR ${typicalFieldRange(input.level).label}) would be a big step up — you may run into much higher-rated players in round one.`,
       });
       suggestions.push("Build results at the level below first, then use this event as a target once you're inside its typical range.");
     }

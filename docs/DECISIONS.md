@@ -7,6 +7,49 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR C sweep: tournament checker, outreach board, schools
+
+**The tournament checker gives no verdict until the level and the entry fee
+are in** (C15). No level is pre-selected any more, and a blank fee no longer
+scores as "$0 / match". A fee of 0 is accepted as an answer (a free event).
+Travel cost stays optional. The rule is `verdictBlockers()` in
+lib/tournament-fit.ts. *Undo:* default `level` back to `"L4"` and drop the
+blocker check in the view.
+
+**/events' Upcoming card still judges entries saved without a fee.** It is
+another engineer's file in this sweep; `verdictBlockers()` is exported for it.
+
+**The /schools header counts what the table shows** (C25) — "Showing 4 of 37
+men's programs." when a filter is on — and filters still persist across
+visits. Chosen over not persisting the filter: a family that narrowed the
+list to Saved expects it narrowed next time; what was wrong was the header
+claiming 37. *Undo:* print `ranked.length` again in seeded-schools-browser.
+
+**Outreach shows every saved target on the board, in Researching when it has
+no outreach row** (C13). No row is written just by viewing; one is written
+the first time the family moves the card, sets a reminder, or marks it sent.
+**Fit-band chips are gone from pipeline cards** (C28): the band lives on
+/schools and the school page; on the board it read as a second status.
+
+**The route wrapper's fade-in no longer fills forwards** (tailwind.config.ts,
+`backwards` instead of `both`). Filling forwards kept the wrapper a stacking
+context for ever, so every in-page Drawer (z-50) painted under the phone
+header and tab bar (z-40): the Add-to-events drawer's title and close
+button were hidden at 375px. Visually identical at rest. *Undo:* `both`.
+
+**C3 root cause, as far as staging can show it.** The save itself works for
+the sweep persona (201 and the row in Upcoming), and staging's API log had
+no tournament_entries request in the 24 hours before — so the report's save
+never left the browser. The drawer's City/State placeholders read
+"Bethesda"/"MD" (an empty form looked filled), Save stopped on one small
+"City is required." line, and the date was pre-filled with today. Now: blank
+date, no data-looking placeholders, per-field errors with focus, a plain-words
+message for every server failure (RLS, rate limit, signed out), INSERT
+instead of upsert for a new entry, and every "tournament-entries" SWR key
+revalidated on success. Production was not inspected (staging only).
+
+---
+
 ## 2026-11-18 — PR C numbers: one projection, two decimals, local dates, a real goal
 
 Made in the production sweep's numbers branch. Each is a deliberate change

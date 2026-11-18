@@ -114,7 +114,7 @@ export function ProfileCard({
             className={inputClass}
             value={homeArea}
             onChange={(e) => setHomeArea(e.target.value)}
-            placeholder="Bethesda, MD"
+            placeholder="City, state"
           />
         </label>
 
@@ -140,7 +140,7 @@ export function ProfileCard({
             value={gpa}
             onChange={(e) => setGpa(e.target.value)}
             inputMode="decimal"
-            placeholder="3.7"
+            placeholder="0.0 to 4.0"
           />
         </label>
       </div>

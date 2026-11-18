@@ -266,6 +266,24 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         />
       </div>
       <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>
+
+      {/* "Academics and cost" was its own card in the row below, two
+          sentences in a box sized to its taller neighbour, while this card
+          held a single range bar beside the much taller "Why this band"
+          (C22, board 23 rule 5). One card now carries both. */}
+      <div className="mt-6 border-t border-line pt-5">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-grass" aria-hidden />
+          <h3 className="text-base font-semibold text-ink">Academics and cost</h3>
+        </div>
+        <p className="mt-2.5 text-sm text-stone">
+          {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
+              was jargon about a Seeded-only ranking. The rank a family can
+              check is the U.S. News one. */}
+          {academicRankSentence(school.usNewsRanking)} Seeded has no cost or aid figures; ask the
+          school&apos;s financial aid office.
+        </p>
+      </div>
     </div>
   </div>
   );
@@ -341,48 +359,35 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
 
         {fitSection}
 
-        <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-2">
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+        {/* Coaching staff is the only card left in this row, so it spans the
+            width: the finder on the left, the next step on the right. The
+            one-sentence "Recruiting timeline" card that once sat beside it
+            is gone (design system v2 rule 5): the "Why this band" card's
+            Timing row already says the same thing. */}
+        <div className="mt-5 grid min-w-0 gap-5 rounded-[10px] border border-line bg-card p-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-end">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-grass" />
-              <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
-            </div>
-            <p className="mt-2.5 text-sm text-stone">
-              {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
-                  was jargon about a Seeded-only ranking. The rank a family can
-                  check is the U.S. News one. */}
-              {academicRankSentence(school.usNewsRanking)}
-            </p>
-            <p className="mt-3 text-sm text-stone">
-              Seeded has no cost or aid figures. Ask the school&apos;s financial aid office.
-            </p>
-          </div>
-
-          <div className="flex min-w-0 flex-col rounded-[10px] border border-line bg-card p-[22px]">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-grass" />
+              <User className="h-4 w-4 text-grass" aria-hidden />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
             <StaffDirectoryHint school={school} className="mt-2.5" />
-            {/* The one-sentence "Recruiting timeline" card that sat beside this
-                one is gone (design system v2 rule 5): the "Why this band"
-                card's Timing row already says the same thing. */}
-            {!isParent && outreach && !alreadyContacted && (
-              <p className="mb-3.5 mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
-            )}
-            {/* Outreach is the player's: a parent opening /outreach is
-                bounced to /family, and Seeded never writes to a coach on a
-                player's behalf. */}
-            {!isParent && (
+          </div>
+          {/* Outreach is the player's: a parent opening /outreach is
+              bounced to /family, and Seeded never writes to a coach on a
+              player's behalf. */}
+          {!isParent && (
+            <div className={cn("min-w-0", playerOnlyUntilHydrated)}>
+              {outreach && !alreadyContacted && (
+                <p className="mb-2.5 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
+              )}
               <Link
                 href={`/outreach?school=${school.slug}`}
-                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full", playerOnlyUntilHydrated)}
+                className={cn(seededButtonVariants({ variant: "secondary" }), "w-full")}
               >
                 Draft an email to the head coach
               </Link>
-            )}
-          </div>
-
+            </div>
+          )}
         </div>
       </div>
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>

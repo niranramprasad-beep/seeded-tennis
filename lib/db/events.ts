@@ -293,6 +293,84 @@ export interface NewTournamentEntryInput {
   travelCost?: number | null;
 }
 
+/** A real calendar date written as YYYY-MM-DD — what `<input type="date">`
+ *  produces and what the `event_date date` column stores. Checked from its
+ *  parts, never `new Date("YYYY-MM-DD")` (that reads it as UTC midnight). */
+export function isCalendarDateKey(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const local = new Date(y, mo - 1, d);
+  return local.getFullYear() === y && local.getMonth() === mo - 1 && local.getDate() === d;
+}
+
+/**
+ * The exact `tournament_entries` row a save sends. Pure, so the columns are
+ * pinned by a test (lib/db/events.test.ts) rather than discovered at runtime.
+ * `id` is only present for an update — an insert lets the column default
+ * (gen_random_uuid()) choose it. `family_code` is whatever my_family_code()
+ * answered; 036's stamp_family_code trigger sets it authoritatively anyway.
+ */
+export function buildTournamentEntryRow(
+  input: NewTournamentEntryInput & { id?: string; status?: TournamentEntryStatus },
+  ownerId: string,
+  familyCode: string | null
+) {
+  return {
+    ...(input.id ? { id: input.id } : {}),
+    user_id: ownerId,
+    family_code: familyCode,
+    name: input.name.trim(),
+    level: input.level,
+    event_date: input.eventDate,
+    city: input.city.trim(),
+    state: input.state.trim(),
+    travel_hours: input.travelHours ?? null,
+    distance_miles: input.distanceMiles ?? null,
+    draw_utr: input.drawUtr ?? null,
+    goal_utr: input.goalUtr ?? null,
+    entry_cost: input.entryCost ?? null,
+    travel_cost: input.travelCost ?? null,
+    status: input.status ?? ("saved" as TournamentEntryStatus),
+  };
+}
+
+/**
+ * A save that did not happen, in words a family can act on. The raw
+ * PostgREST message ("new row violates row-level security policy for table
+ * \"tournament_entries\"") is kept on `detail` for logs, never shown.
+ */
+export class TournamentSaveError extends Error {
+  readonly code: string | null;
+  readonly detail: string | null;
+  constructor(message: string, code: string | null = null, detail: string | null = null) {
+    super(message);
+    this.name = "TournamentSaveError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+export function tournamentSaveErrorMessage(error: { code?: string | null; message?: string | null }): string {
+  switch (error.code) {
+    case "53400":
+      // 034's rate limit. Its own message is already plain words.
+      return "Too many changes at once. Wait a few minutes, then try again.";
+    case "42501":
+      // RLS refused the row: an inactive account (under-13 awaiting a
+      // parent's consent) or a session that no longer matches the owner.
+      return "Seeded couldn't save this to your account. Sign out and back in, then try again. If it keeps happening, email support.";
+    case "23514":
+    case "22P02":
+    case "22007":
+    case "22008":
+      return "One of the details isn't valid. Check the date, the costs and the level, then try again.";
+    default:
+      return "Couldn't save this tournament. Check your connection and try again.";
+  }
+}
+
 /**
  * Validates a tournament-entry save before it ever reaches Supabase. Pure —
  * no network, no auth — so both /events and the (separately rebuilt)
@@ -304,9 +382,7 @@ export interface NewTournamentEntryInput {
 export function validateTournamentEntryInput(input: NewTournamentEntryInput): string | null {
   if (!input.name || !input.name.trim()) return "Tournament name is required.";
   if (!LEVELS.some((l) => l.value === input.level)) return "Choose a valid tournament level.";
-  if (!input.eventDate || Number.isNaN(Date.parse(input.eventDate))) {
-    return "Enter a valid tournament date.";
-  }
+  if (!isCalendarDateKey(input.eventDate)) return "Enter a valid tournament date.";
   if (!input.city || !input.city.trim()) return "City is required.";
   if (!input.state || !input.state.trim()) return "State is required.";
 
@@ -399,45 +475,47 @@ export async function loadTournamentEntries(
  * evaluateTournamentFit, so the two screens never disagree about what
  * "saved" means.
  *
- * Throws if `input` fails validateTournamentEntryInput, or if the Supabase
- * write itself fails — including "relation does not exist" until migration
- * 013_tournament_entries.sql is applied, the same way saveMatch/
- * saveCoachOutreachStatus already surface write failures to their callers.
- * Returns null only when there's no signed-in user to save against.
+ * Every outcome is either the saved row or a thrown error with a message a
+ * family can read — never a silent no-op. It used to return null when no
+ * signed-in user was found and throw the raw PostgREST message otherwise;
+ * the Tournament Fit drawer could show neither well (production sweep C3).
+ * Validation failures throw a TournamentSaveError with code "invalid".
  */
 export async function saveTournamentEntry(
   input: NewTournamentEntryInput & { id?: string; status?: TournamentEntryStatus }
-): Promise<TournamentEntry | null> {
+): Promise<TournamentEntry> {
   const validationError = validateTournamentEntryInput(input);
-  if (validationError) throw new Error(validationError);
+  if (validationError) throw new TournamentSaveError(validationError, "invalid");
 
   const supabase = getSupabase();
-  const { id: userId } = await userIdAndProfile();
-  if (!supabase || !userId) return null;
+  const { id: ownerId } = await userIdAndProfile();
+  if (!supabase || !ownerId) {
+    throw new TournamentSaveError("You're signed out. Sign in again to save this tournament.", "signed-out");
+  }
 
   // 036's stamp_family_code trigger sets this authoritatively on INSERT and
   // freezes it on UPDATE; sending the resolved value keeps the two in step.
   const familyCode = await resolveMyFamilyCode(supabase);
+  const row = buildTournamentEntryRow(input, ownerId, familyCode);
 
-  const row = {
-    id: input.id,
-    user_id: userId,
-    family_code: familyCode,
-    name: input.name.trim(),
-    level: input.level,
-    event_date: input.eventDate,
-    city: input.city.trim(),
-    state: input.state.trim(),
-    travel_hours: input.travelHours ?? null,
-    distance_miles: input.distanceMiles ?? null,
-    draw_utr: input.drawUtr ?? null,
-    goal_utr: input.goalUtr ?? null,
-    entry_cost: input.entryCost ?? null,
-    travel_cost: input.travelCost ?? null,
-    status: input.status ?? "saved",
-  };
-  const { data, error } = await supabase.from("tournament_entries").upsert(row).select("*").single();
-  if (error) throw new Error(error.message);
+  // A new entry is a plain INSERT. upsert() was used for both, which asks
+  // PostgREST for ON CONFLICT DO UPDATE — an UPDATE path a new row never
+  // needs, and one more policy (and the BEFORE UPDATE triggers) a brand-new
+  // save had to satisfy (CLAUDE.md: an .upsert() fires BEFORE INSERT
+  // triggers even when the row exists, and vice versa).
+  const { data, error } = input.id
+    ? await supabase
+        .from("tournament_entries")
+        .update(row)
+        .eq("id", input.id)
+        .eq("user_id", ownerId)
+        .select("*")
+        .single()
+    : await supabase.from("tournament_entries").insert(row).select("*").single();
+  if (error) {
+    throw new TournamentSaveError(tournamentSaveErrorMessage(error), error.code ?? null, error.message ?? null);
+  }
+  if (!data) throw new TournamentSaveError(tournamentSaveErrorMessage({}), null, "no row returned");
   return mapTournamentEntry(data);
 }
 

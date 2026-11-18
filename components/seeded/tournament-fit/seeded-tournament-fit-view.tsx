@@ -1,21 +1,28 @@
 "use client";
 
-import { useMemo, useState, Suspense } from "react";
+import { useId, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
-import { saveTournamentEntry, type TournamentEntry } from "@/lib/db/events";
+import {
+  isCalendarDateKey,
+  saveTournamentEntry,
+  TournamentSaveError,
+  type TournamentEntry,
+} from "@/lib/db/events";
 import {
   evaluateTournamentFit,
   LEVELS,
   UTR_MAX,
   UTR_MIN,
-  typicalFieldUtr,
+  typicalFieldRange,
+  verdictBlockers,
+  verdictBlockerSentence,
   type FitLevel,
   type Verdict,
 } from "@/lib/tournament-fit";
@@ -101,7 +108,9 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const [shared] = useState(() => decodeTournamentFitShareParams(searchParams));
 
   const [name, setName] = useState(shared.name ?? "");
-  const [level, setLevel] = useState<FitLevel>(shared.level ?? "L4");
+  // No level is pre-selected: a verdict judged against a default "L4" the
+  // family never chose read as a real answer (production sweep C15).
+  const [level, setLevel] = useState<FitLevel | null>(shared.level ?? null);
   const [travel, setTravel] = useState<TravelPill>(shared.travel ?? "local");
   const [entryCost, setEntryCost] = useState(shared.entryCost != null ? String(shared.entryCost) : "");
   const [travelCost, setTravelCost] = useState(shared.travelCost != null ? String(shared.travelCost) : "");
@@ -110,6 +119,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   // opener's own profile, same reasoning as a manual edit.
   const [utrTouched, setUtrTouched] = useState(shared.playerUtr != null);
 
+  const { mutate } = useSWRConfig();
   const [addOpen, setAddOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
 
@@ -145,30 +155,38 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   };
 
   const travelHours = travelHoursForPill(travel);
-  const entryCostNum = entryCost !== "" ? Number(entryCost) : null;
-  const travelCostNum = travelCost !== "" ? Number(travelCost) : null;
+  const entryCostRaw = entryCost !== "" ? Number(entryCost) : null;
+  const travelCostRaw = travelCost !== "" ? Number(travelCost) : null;
+  const entryCostNum = entryCostRaw != null && Number.isFinite(entryCostRaw) && entryCostRaw >= 0 ? entryCostRaw : null;
+  const travelCostNum = travelCostRaw != null && Number.isFinite(travelCostRaw) && travelCostRaw >= 0 ? travelCostRaw : null;
   const tournamentName = name.trim() || "This tournament";
+
+  // No verdict until the level, a rating and the entry fee are all in.
+  const blockers = verdictBlockers({ level, playerUtr, entryCost: entryCostNum });
 
   const result = useMemo(
     () =>
-      playerUtr == null
+      blockers.length > 0 || level == null || playerUtr == null
         ? null
         : evaluateTournamentFit({
-        name: tournamentName,
-        level,
-        playerUtr,
-        goalUtr: null,
-        drawUtr: null,
-        travelHours,
-        distanceMiles: null,
-        entryCost: entryCostNum != null && Number.isFinite(entryCostNum) && entryCostNum >= 0 ? entryCostNum : null,
-        travelCost: travelCostNum != null && Number.isFinite(travelCostNum) && travelCostNum >= 0 ? travelCostNum : null,
-      }),
+            name: tournamentName,
+            level,
+            playerUtr,
+            goalUtr: null,
+            drawUtr: null,
+            travelHours,
+            distanceMiles: null,
+            entryCost: entryCostNum,
+            travelCost: travelCostNum,
+          }),
+    // blockers is derived from level/playerUtr/entryCostNum, all listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum]
   );
 
   const meta = result ? VERDICT_META[result.verdict] : null;
   const blurb = result?.reasons[0]?.text ?? "";
+  const field = level && level !== "utr" ? typicalFieldRange(level) : null;
 
   const handleShare = async () => {
     const params = encodeTournamentFitShareParams({
@@ -191,6 +209,10 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const handleAddClick = () => {
     if (!isAuthed) {
       setToast({ message: "Sign in to add this tournament to your events.", variant: "error" });
+      return;
+    }
+    if (level == null) {
+      setToast({ message: "Choose the tournament's level first.", variant: "error" });
       return;
     }
     setAddOpen(true);
@@ -220,12 +242,11 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               className={inputClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="USTA L4 Bethesda Spring Open"
             />
           </label>
 
-          <div className="mt-5">
-            <span className="mb-2 block text-sm font-semibold text-ink">Level</span>
+          <div className="mt-5" role="group" aria-labelledby="tf-level-label">
+            <span id="tf-level-label" className="mb-2 block text-sm font-semibold text-ink">Level</span>
             <div className="grid grid-cols-4 gap-1.5 min-[480px]:grid-cols-8">
               {LEVELS.map((l) => {
                 const active = level === l.value;
@@ -248,13 +269,16 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               })}
             </div>
             <p className="mt-2 text-[13px] leading-relaxed text-stone">
-              {level === "utr" ? (
-                "No typical field for UTR events — strength comes entirely from the draw."
+              {level == null ? (
+                "Pick the level printed on the event page."
+              ) : level === "utr" ? (
+                "No typical field for UTR events — strength comes entirely from who enters."
               ) : (
                 <>
+                  {/* The same range the verdict's sentence quotes —
+                      typicalFieldRange() is the one source for both. */}
                   Typical field for this level:{" "}
-                  <span className="font-mono font-semibold text-ink">avg {typicalFieldUtr(level).toFixed(1)}</span>{" "}
-                  (estimate · enter the real draw for a better answer)
+                  <span className="font-mono font-semibold text-ink">UTR {field?.label}</span> (estimate)
                 </>
               )}
             </p>
@@ -282,7 +306,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                   setUtrTouched(true);
                   setUtr(e.target.value);
                 }}
-                className="w-[88px] rounded-lg border border-input bg-card py-1 text-center font-mono text-3xl font-semibold tabular-nums text-ink placeholder:text-stone-light"
+                className="w-[120px] rounded-lg border border-input bg-card py-1 text-center font-mono text-3xl font-semibold tabular-nums text-ink placeholder:text-stone-light"
               />
               <button
                 type="button"
@@ -341,7 +365,6 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                   inputMode="decimal"
                   value={entryCost}
                   onChange={(e) => setEntryCost(e.target.value)}
-                  placeholder="70"
                 />
               </div>
             </label>
@@ -356,7 +379,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                   inputMode="decimal"
                   value={travelCost}
                   onChange={(e) => setTravelCost(e.target.value)}
-                  placeholder="110"
+                  placeholder="Optional"
                 />
               </div>
             </label>
@@ -396,8 +419,8 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
             ) : (
               <div className="rounded-lg border border-line bg-cream p-5">
                 <span className="text-xs font-bold uppercase tracking-[0.1em] text-stone">Verdict</span>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-ink">
-                  Enter {isParent ? `${subjectFirst ?? "your player"}'s` : "your"} UTR to check this tournament.
+                <p className="mt-1.5 text-[15px] leading-relaxed text-ink" aria-live="polite">
+                  {verdictBlockerSentence(blockers)}
                   {playerUtr == null && effectiveUtr !== "" ? ` UTR runs from ${UTR_MIN} to ${UTR_MAX}.` : ""}
                 </p>
               </div>
@@ -423,22 +446,29 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
         </div>
       </div>
 
-      <AddToEventsDrawer
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        base={{
-          name: tournamentName,
-          level,
-          travelHours,
-          entryCost: entryCostNum,
-          travelCost: travelCostNum,
-        }}
-        onSaved={() => {
-          setAddOpen(false);
-          setToast({ message: "Added to your events.", variant: "success" });
-        }}
-        onError={(message) => setToast({ message, variant: "error" })}
-      />
+      {level && (
+        <AddToEventsDrawer
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          base={{
+            name: name.trim(),
+            level,
+            travelHours,
+            entryCost: entryCostNum,
+            travelCost: travelCostNum,
+          }}
+          onSaved={(entry) => {
+            setAddOpen(false);
+            // Every screen that lists tournament entries reads them through
+            // an SWR key starting "tournament-entries" (/events' Upcoming,
+            // the family overview, budget and weekly report). Revalidate all
+            // of them, so the new row is there the moment /events opens
+            // rather than after the 5s dedupe window.
+            void mutate((key) => key === "tournament-entries" || (Array.isArray(key) && key[0] === "tournament-entries"));
+            setToast({ message: `Saved. ${entry.name} is in Upcoming on Events.`, variant: "success" });
+          }}
+        />
+      )}
 
       <Toast
         open={toast != null}
@@ -466,20 +496,27 @@ function Meter({ label, value, pct }: { label: string; value: string; pct: numbe
   );
 }
 
-// There's no event-date/city/state input anywhere in the mockup's
-// calculator — but lib/db/events.ts's saveTournamentEntry
-// genuinely requires all three (validateTournamentEntryInput rejects a save
-// without them). Rather than fabricate placeholder values for fields this
-// screen never collected, "Add to my events" opens this small real drawer
-// (the same Drawer component /events' own "Add session"/"Log result"
-// actions already use) to collect exactly the 3 missing required fields,
-// then calls the real save with everything the calculator already computed.
+type DrawerField = "name" | "date" | "city" | "state";
+
+// The calculator collects no date, city or state, and saveTournamentEntry
+// requires all three, so "Add to my events" opens this drawer for them.
+//
+// Production sweep C3 ("Save to my events saves nothing, no error"): on
+// staging the write itself succeeds for the sweep persona (201, row in
+// Upcoming), and staging's API log shows no tournament_entries request from
+// anyone else in the 24 hours before — the save never left the browser. The
+// drawer is why: City and State showed "Bethesda" / "MD" as placeholders,
+// so an empty form looked filled in; Save then stopped on "City is
+// required." in one small line under the fields, and the date was
+// pre-filled with TODAY, so even a "complete" form saved the wrong day.
+// Now: no placeholders that look like data, a blank date, each problem shown
+// on its own field (aria-invalid + message) with focus moved to the first,
+// and every server failure shown in plain words in the drawer.
 function AddToEventsDrawer({
   open,
   onClose,
   base,
   onSaved,
-  onError,
 }: {
   open: boolean;
   onClose: () => void;
@@ -491,25 +528,53 @@ function AddToEventsDrawer({
     travelCost: number | null;
   };
   onSaved: (entry: TournamentEntry) => void;
-  onError: (message: string) => void;
 }) {
-  const [eventDate, setEventDate] = useState(() => localDateKey());
+  const [tName, setTName] = useState(base.name);
+  const [eventDate, setEventDate] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<DrawerField, string>>>({});
   const [formError, setFormError] = useState("");
+  const idBase = useId();
+  const refs = {
+    name: useRef<HTMLInputElement>(null),
+    date: useRef<HTMLInputElement>(null),
+    city: useRef<HTMLInputElement>(null),
+    state: useRef<HTMLInputElement>(null),
+  };
+
+  // The checker's name can change while the drawer is closed; pick it up
+  // each time the drawer opens, without clobbering an edit made inside it.
+  const [lastOpen, setLastOpen] = useState(open);
+  if (open !== lastOpen) {
+    setLastOpen(open);
+    if (open) {
+      setTName(base.name);
+      setFieldErrors({});
+      setFormError("");
+    }
+  }
 
   const submit = async () => {
     setFormError("");
-    if (!city.trim()) return setFormError("City is required.");
-    if (!state.trim()) return setFormError("State is required.");
-    if (!eventDate || Number.isNaN(Date.parse(eventDate))) {
-      return setFormError("Enter a valid tournament date.");
+    const errors: Partial<Record<DrawerField, string>> = {};
+    if (!tName.trim()) errors.name = "Give the tournament a name.";
+    if (!eventDate) errors.date = "Pick the tournament's date.";
+    else if (!isCalendarDateKey(eventDate)) errors.date = "That isn't a real date.";
+    if (!city.trim()) errors.city = "Add the city.";
+    if (!state.trim()) errors.state = "Add the state.";
+    setFieldErrors(errors);
+    const first = (["name", "date", "city", "state"] as DrawerField[]).find((f) => errors[f]);
+    if (first) {
+      refs[first].current?.focus();
+      return;
     }
     setSaving(true);
     try {
       const saved = await saveTournamentEntry({
         ...base,
+        name: tName,
         eventDate,
         city,
         state,
@@ -517,47 +582,74 @@ function AddToEventsDrawer({
         drawUtr: null,
         goalUtr: null,
       });
-      if (!saved) {
-        onError("Sign in to add this tournament to your events.");
-        return;
-      }
       onSaved(saved);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Couldn't save this tournament.");
+      setFormError(
+        err instanceof TournamentSaveError || err instanceof Error
+          ? err.message
+          : "Couldn't save this tournament. Check your connection and try again."
+      );
     } finally {
       setSaving(false);
     }
   };
 
+  const field = (
+    key: DrawerField,
+    label: string,
+    input: Omit<React.InputHTMLAttributes<HTMLInputElement>, "id" | "className">
+  ) => {
+    const id = `${idBase}-${key}`;
+    const err = fieldErrors[key];
+    return (
+      <label className="block" htmlFor={id}>
+        <span className="mb-1.5 block text-sm font-semibold text-ink">{label}</span>
+        <input
+          ref={refs[key]}
+          id={id}
+          className={cn(inputClass, err && "border-error")}
+          aria-invalid={err ? true : undefined}
+          aria-describedby={err ? `${id}-error` : undefined}
+          {...input}
+        />
+        {err && (
+          <span id={`${id}-error`} className="mt-1.5 block text-sm text-error">
+            {err}
+          </span>
+        )}
+      </label>
+    );
+  };
+
   return (
-    <Drawer open={open} onClose={onClose} eyebrow="Add to my events" title={base.name}>
-      <div className="space-y-4">
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-semibold text-ink">Tournament date</span>
-          <input
-            className={inputClass}
-            type="date"
-            value={eventDate}
-            onChange={(e) => setEventDate(e.target.value)}
-          />
-        </label>
+    <Drawer open={open} onClose={onClose} eyebrow="Add to my events" title={tName.trim() || "New tournament"}>
+      <form
+        className="space-y-4"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        {field("name", "Tournament name", { value: tName, onChange: (e) => setTName(e.target.value) })}
+        {field("date", "Tournament date", {
+          type: "date",
+          value: eventDate,
+          onChange: (e) => setEventDate(e.target.value),
+        })}
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-ink">City</span>
-            <input className={inputClass} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bethesda" />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-ink">State</span>
-            <input className={inputClass} value={state} onChange={(e) => setState(e.target.value)} placeholder="MD" />
-          </label>
+          {field("city", "City", { value: city, onChange: (e) => setCity(e.target.value), autoComplete: "address-level2" })}
+          {field("state", "State", { value: state, onChange: (e) => setState(e.target.value), autoComplete: "address-level1" })}
         </div>
         {formError && (
-          <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{formError}</p>
+          <p role="alert" className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
+            {formError}
+          </p>
         )}
-        <SeededButton className="w-full" onClick={submit} loading={saving}>
+        <SeededButton type="submit" className="w-full" loading={saving}>
           Save to my events
         </SeededButton>
-      </div>
+      </form>
     </Drawer>
   );
 }
