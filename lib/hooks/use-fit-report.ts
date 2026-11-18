@@ -5,6 +5,7 @@ import useSWR from "swr";
 import type { Player, SchoolLite } from "@/lib/types";
 import { buildFitReport, type FitReport, type FitView } from "@/lib/fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 
 /**
  * The one way an app screen gets fit bands.
@@ -49,7 +50,7 @@ export function useFitReport(input: {
     () =>
       entries && entries.length
         ? {
-            utrHistory: entries.map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+            utrHistory: entries.map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
             graduationYear: player.graduationYear,
             gender: player.gender,
           }

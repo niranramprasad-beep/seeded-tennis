@@ -8,6 +8,7 @@ import type { TournamentEntry } from "@/lib/db/events";
 import type { TrainingPlannerState } from "@/lib/db/events";
 import { DEFAULT_TYPES } from "@/components/training/training-view";
 import { dateForWeekday } from "@/lib/training/grid-math";
+import { toLocalDateString } from "@/lib/time";
 import { useEventsCalendar } from "@/lib/hooks/use-events-calendar";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SeededEventsLayout } from "@/components/seeded/events/seeded-events-layout";
@@ -36,11 +37,11 @@ const MOCK_PLAYER: Player = {
 };
 
 function daysFromNow(n: number): string {
-  return new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  return toLocalDateString(new Date(Date.now() + n * 86_400_000));
 }
 
 function daysAgo(n: number): string {
-  return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  return toLocalDateString(new Date(Date.now() - n * 86_400_000));
 }
 
 const MOCK_TOURNAMENTS: TournamentEntry[] = [

@@ -172,7 +172,8 @@ describe("buildThisWeekItems", () => {
 
 describe("isSundayCheckinDue", () => {
   // 2026-11-08 is a real Sunday; 2026-11-11 is a real Wednesday.
-  const SUNDAY = new Date("2026-11-08T12:00:00Z");
+  // Local noon, so it is Sunday in every zone the suite runs in (test:tz).
+  const SUNDAY = new Date(2026, 10, 8, 12);
   const WEDNESDAY = new Date("2026-11-11T12:00:00Z");
 
   it("is due on Sunday with no entries logged at all", () => {

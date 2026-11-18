@@ -17,7 +17,7 @@ import { loadBudgetExpenses, loadSeasonBudget, saveBudgetExpense, saveSeasonBudg
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
 import { buildSeasonBudgetSummary, canEditBudget, pendingSkipDecisions } from "@/lib/family-budget";
-import { currentSeason, getCurrentGrade } from "@/lib/time";
+import { currentSeason, getCurrentGrade, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { formatUTR } from "@/lib/utils";
 import { SeasonBudgetCard } from "./season-budget-card";
@@ -151,7 +151,7 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
   // called — the one-fit-path rule stays intact.
   const fitProjection = useMemo(() => {
     if (currentUTR == null || graduationYear == null || gender == null) return null;
-    const real = (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr }));
+    const real = (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }));
     const utrHistory = real.length > 0 ? real : [{ date: now, utr: currentUTR }];
     return { utrHistory, graduationYear, gender, now };
   }, [utrEntries, currentUTR, graduationYear, gender, now]);

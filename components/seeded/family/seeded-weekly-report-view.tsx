@@ -16,7 +16,7 @@ import { loadBudgetExpenses, loadSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { daysSince } from "@/lib/today-actions";
-import { currentSeason } from "@/lib/time";
+import { currentSeason, toLocalDateString } from "@/lib/time";
 import { formatUTR } from "@/lib/utils";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -112,7 +112,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   }, [outreach, now]);
 
   const upcomingEvents = useMemo(() => {
-    const todayKey = now.toISOString().slice(0, 10);
+    const todayKey = toLocalDateString(now);
     return [...tournamentEntries]
       .filter((e) => e.eventDate >= todayKey)
       .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
