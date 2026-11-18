@@ -153,6 +153,8 @@ describe("KPI sentences", () => {
       value: "7.50",
       delta: 0.5,
       deltaText: "+0.50 since February",
+      deltaAmount: "+0.50",
+      since: "February",
       direction: "up",
     });
     expect(utrKpi(entries, null, NOW)).toMatchObject({ hasUtr: false, value: "No UTR yet", deltaText: null });

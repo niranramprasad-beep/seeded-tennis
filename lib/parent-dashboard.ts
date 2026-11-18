@@ -224,6 +224,10 @@ export interface UtrKpi {
   delta: number | null;
   /** "+0.50 since February" */
   deltaText: string | null;
+  /** The two halves of deltaText, for a screen that sets the number in mono:
+   *  "+0.50" / "February". */
+  deltaAmount: string | null;
+  since: string | null;
   direction: "up" | "down" | "flat" | null;
 }
 
@@ -239,30 +243,28 @@ export function utrKpi(
   now: Date
 ): UtrKpi {
   if (!hasRealUtr(currentUtr)) {
-    return { hasUtr: false, value: "No UTR yet", delta: null, deltaText: null, direction: null };
+    return { hasUtr: false, value: "No UTR yet", delta: null, deltaText: null, deltaAmount: null, since: null, direction: null };
   }
   const value = formatUtr2(currentUtr);
   const sorted = entries
     .map((e) => ({ utr: e.utr, date: localDate(e.recordedAt) }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
-  if (sorted.length < 2) return { hasUtr: true, value, delta: null, deltaText: null, direction: null };
+  const none: UtrKpi = { hasUtr: true, value, delta: null, deltaText: null, deltaAmount: null, since: null, direction: null };
+  if (sorted.length < 2) return none;
 
   const latest = sorted[sorted.length - 1];
   const cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
   const baseline =
     [...sorted].reverse().find((e) => e.date.getTime() <= cutoff.getTime()) ??
     (sorted[0].date.getTime() < latest.date.getTime() ? sorted[0] : null);
-  if (!baseline) return { hasUtr: true, value, delta: null, deltaText: null, direction: null };
+  if (!baseline) return none;
 
   const delta = Math.round((latest.utr - baseline.utr) * 100) / 100;
   const monthsAgo = (now.getFullYear() - baseline.date.getFullYear()) * 12 + now.getMonth() - baseline.date.getMonth();
   const since = monthsAgo <= 11 ? MONTHS[baseline.date.getMonth()] : monthYear(baseline.date);
   const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-  const deltaText =
-    direction === "flat"
-      ? `No change since ${since}`
-      : `${direction === "up" ? "+" : "−"}${Math.abs(delta).toFixed(2)} since ${since}`;
-  return { hasUtr: true, value, delta, deltaText, direction };
+  const deltaAmount = direction === "flat" ? "No change" : `${direction === "up" ? "+" : "−"}${Math.abs(delta).toFixed(2)}`;
+  return { hasUtr: true, value, delta, deltaText: `${deltaAmount} since ${since}`, deltaAmount, since, direction };
 }
 
 export interface TargetSchoolsKpi {

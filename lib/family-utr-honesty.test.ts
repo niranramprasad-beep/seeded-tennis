@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { buildSeasonBudgetSummary, pendingSkipDecisions } from "./family-budget";
+import { utrKpi } from "./parent-dashboard";
 import type { TournamentEntry } from "./db/events";
 
 // Found while capturing the real /family screenshots for TASK B, on a staging
@@ -80,8 +81,16 @@ describe("no fabricated UTR reaches a family screen", () => {
     // Any `formatUTR(x)` whose argument can be null must be guarded. Rather
     // than parse types, assert the guard exists beside each family-surface
     // call site, which is where the nullable value actually lives.
+    // /family (Board 22, PR B) no longer formats the UTR itself: it goes
+    // through lib/parent-dashboard.ts's utrKpi, whose null branch is pinned
+    // below and in lib/parent-dashboard.test.ts. Pin the wiring instead.
+    const overview = readFileSync(join(REPO, "components/seeded/family/seeded-family-overview.tsx"), "utf8");
+    expect(overview).toMatch(/buildParentDashboard\(/);
+    expect(overview).toMatch(/currentUtr: facts\.currentUtr/);
+    expect(overview).not.toMatch(/formatUTR|formatUtr2|\.toFixed\(/);
+    expect(utrKpi([], null, new Date()).value).toBe("No UTR yet");
+    expect(utrKpi([], 0, new Date()).value).toBe("No UTR yet");
     for (const file of [
-      "components/seeded/family/seeded-family-overview.tsx",
       "components/seeded/family/seeded-weekly-report-view.tsx",
       "components/parents/parent-dashboard-view.tsx",
     ]) {
