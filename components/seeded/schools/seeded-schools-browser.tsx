@@ -637,8 +637,13 @@ export function SeededSchoolsBrowser({
           // has nothing to move from without a rating, and rendering it
           // anyway is what put a 0.0 on the screen.
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
+            {/* A parent has no rating of their own: before their player has
+                joined the family, "Enter your UTR" asked the wrong person for
+                the wrong thing. Same box, so the remembered layout holds. */}
             <p className="m-0 text-[15px] text-ink">
-              <strong className="font-semibold">Enter your UTR to see your fit.</strong>{" "}
+              <strong className="font-semibold">
+                {player.role === "parent" ? "Your player's fit shows here once they join your family." : "Enter your UTR to see your fit."}
+              </strong>{" "}
               <span className="text-stone">
                 Every program below is listed either way — fit bands need a rating to compare against.
               </span>
@@ -647,10 +652,10 @@ export function SeededSchoolsBrowser({
                 the same place, and the compare bar's "Compare side by side"
                 is this page's one green button (design system v2 rule 1). */}
             <Link
-              href="/onboarding"
+              href={player.role === "parent" ? "/family" : "/onboarding"}
               className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
             >
-              Enter my UTR
+              {player.role === "parent" ? "Go to Family" : "Enter my UTR"}
             </Link>
           </div>
         )}
