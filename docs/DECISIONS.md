@@ -7,6 +7,72 @@ Newest first.
 
 ---
 
+## 2026-11-18 — /onboarding diagnostic (PR B, B1): four calls
+
+Made while building board 20. Each one is a place a reviewer could read the
+behaviour as a mistake.
+
+**1. A parent's answers about their player are never stored.** A parent who
+fills in the diagnostic sees the result and the fit report from their
+answers, and can create THEIR OWN account (role parent, own name, own birth
+year, start or join a family). Nothing they said about the player — UTR,
+past ratings, grad year, birthday, GPA, start term — is written anywhere:
+`diagnosticPlayerProfile()` throws for a parent and `diagnosticUtrEntries()`
+returns nothing. The parent gets the family code and is told, on screen,
+that the player answers for themselves (about 90 seconds) when they join
+with it. Considered and rejected:
+- *Write them to the parent's profile* — board 22 and CLAUDE.md: a parent's
+  profile holds no UTR or player stats. The player's birth year on the
+  parent's row would also make the parent's own account read as under 13
+  (birth_year is write-once and drives `consent_status`).
+- *Hold them somewhere and hand them to the player when they join* — needs a
+  new table or column with its own RLS, retention and deletion story, for a
+  minor's data the minor never entered. Not in this PR's scope (no
+  migrations), and the privacy policy would have to describe it.
+- *Keep them in the browser for the player* — the player usually signs up
+  on another device; on a shared one it would leave a child's ratings in
+  storage for whoever is next.
+*Undo:* a later PR that adds a "pending player profile" with its own RLS;
+`diagnosticPlayerProfile` is the one place to change.
+
+**2. The diagnostic projects from the player's OWN pace, and its fit report
+uses that number.** Board 20: pace = (today − year ago)/12 or (today − 6
+months ago)/6 per month, carried to June 1 of grad − 1; no past rating, or
+the summer already started, → today's rating, and the card says so.
+`diagnosticProjection()` in lib/fit.ts; the fit report after it is built by
+`buildDiagnosticFitReport()` with that projection as its recruiting rating,
+so the "Projected UTR" card and every band on the next screen are one
+number. Consequence: a player with NO past rating gets a report judged at
+today's rating (the "Today" view only), where the old pre-auth report
+assumed typical growth of 1.0/yr. That is what the board specifies, and it
+is the more honest of the two (no assumed growth is shown as theirs).
+**Known inconsistency, not fixed here:** after sign-up, the app's own fit
+report (`useFitReport`) still projects at typical growth, so a player who
+gave past ratings can see a different summer number in the app than the
+diagnostic showed. Fixing it means deciding, app-wide, whether logged pace
+replaces typical growth — a product call bigger than onboarding.
+*Undo:* drop `recruitingUtr` from the `buildFitReport` call in
+`buildDiagnosticFitReport`.
+
+**3. A rating that went DOWN is not carried forward.** If the past rating is
+higher than today's, the projection is today's rating and the note says
+"The rating went down, so this stays at today's UTR." Board 20 does not
+cover it; extrapolating a dip (injury, a hard season) into a lower
+"projection" would tell a 13-year-old their pace is a decline. *Undo:* the
+`pacePerMonth < 0` branch in `diagnosticProjection`.
+
+**4. No separate slim header; the header CTA is hidden on /onboarding.**
+Board 20 draws a slim header (logo, progress, Sign in). Board 23 and the
+2026-11-16 decision say ONE header on every route — /onboarding had no
+`<header>` at all once and lost its navigation for search visitors. So the
+shared header stays and the progress strip ("Question N of 9 · About 90
+seconds" + bar) sits under it. The header's green "Get my free fit report"
+links to the page you are on and was a second green button beside
+Continue (rule 1), so `SeededNav` leaves it out on /onboarding only.
+*Undo:* `NO_CTA_ROUTES` in `components/seeded/layout/nav.tsx`.
+
+---
+
 ## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
 
 Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`
