@@ -178,7 +178,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
             <div className="mt-3 flex flex-wrap gap-2">
               {verifyFirst ? null : (
                 <SeededButton
-                  className="min-h-[38px]"
+                  className="min-h-11 sm:min-h-[38px]"
                   disabled={busyId === m.userId}
                   onClick={() => act(m.userId, approveFamilyJoin)}
                 >
@@ -191,7 +191,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
               )}
               <SeededButton
                 variant="secondary"
-                className="min-h-[38px]"
+                className="min-h-11 sm:min-h-[38px]"
                 disabled={busyId === m.userId}
                 onClick={() => act(m.userId, denyFamilyJoin)}
               >
@@ -235,7 +235,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
                   ) : (
                     <div className="mt-3">
                       <SeededButton
-                        className="min-h-[38px]"
+                        className="min-h-11 sm:min-h-[38px]"
                         disabled={busyId === m.userId}
                         onClick={() => act(m.userId, grantParentConsent)}
                       >

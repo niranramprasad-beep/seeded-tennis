@@ -91,7 +91,7 @@ export function VerifyEmailBanner() {
             <SeededButton
               type="button"
               variant="secondary"
-              className="mt-2 min-h-[36px] px-3 text-sm"
+              className="mt-2 min-h-11 px-3 text-sm sm:min-h-[36px]"
               loading={phase === "sending"}
               onClick={send}
             >
@@ -103,7 +103,7 @@ export function VerifyEmailBanner() {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss"
-          className="-m-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-stone hover:bg-subtle-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="-m-1.5 inline-flex h-11 w-11 shrink-0 sm:-m-1 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-stone hover:bg-subtle-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>

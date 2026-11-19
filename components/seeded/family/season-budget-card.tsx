@@ -77,10 +77,10 @@ export function SeasonBudgetCard({
         <h2 className="text-lg font-semibold text-ink">Season budget · {seasonLabel}</h2>
         {canEdit ? (
           <div className="flex items-center gap-2.5">
-            <SeededButton variant="secondary" className="min-h-[38px] px-4" onClick={() => setEditOpen(true)}>
+            <SeededButton variant="secondary" className="min-h-11 sm:min-h-[38px] px-4" onClick={() => setEditOpen(true)}>
               Edit budget
             </SeededButton>
-            <SeededButton className="min-h-[38px] px-4" onClick={() => setAddOpen(true)}>
+            <SeededButton className="min-h-11 sm:min-h-[38px] px-4" onClick={() => setAddOpen(true)}>
               Add expense
             </SeededButton>
           </div>

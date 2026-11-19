@@ -169,9 +169,10 @@ export function TargetSchoolsList({
                     starred={isStarred(s.slug)}
                     onToggle={() => toggleStar(s.slug, s.shortName)}
                     label={s.shortName}
-                    className="h-7 w-7"
+                    className="sm:h-7 sm:w-7"
                   />
-                  <Link href={`/schools/${s.slug}`} className="block min-h-6 truncate leading-6 text-ink hover:text-grass">
+                  {/* 44px tall on phones (C29); the star keeps its 44px too. */}
+                  <Link href={`/schools/${s.slug}`} className="flex min-h-11 min-w-0 items-center truncate text-ink hover:text-grass sm:block sm:min-h-6 sm:leading-6">
                     {s.shortName}
                   </Link>
                 </div>

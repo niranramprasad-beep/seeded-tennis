@@ -203,7 +203,7 @@ export function SeededDashboardLayout({
                 Quick weekly update — your UTR, plus a match result if you played one.
               </p>
             </div>
-            <SeededButton className="min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
+            <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
               <Sparkles className="h-3.5 w-3.5" />
               Start check-in
             </SeededButton>

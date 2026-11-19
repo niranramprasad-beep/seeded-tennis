@@ -124,12 +124,12 @@ export function FamilyPendingScreen({
 
         {!reentering && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <SeededButton className="min-h-[38px]" disabled={busy} onClick={remind}>
+            <SeededButton className="min-h-11 sm:min-h-[38px]" disabled={busy} onClick={remind}>
               {busy ? "…" : "Remind them"}
             </SeededButton>
             <SeededButton
               variant="secondary"
-              className="min-h-[38px]"
+              className="min-h-11 sm:min-h-[38px]"
               disabled={busy}
               onClick={() => {
                 setReentering(true);
@@ -168,12 +168,12 @@ export function FamilyPendingScreen({
             />
             {codeError && <p className="mt-1.5 text-sm text-error">{codeError}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
-              <SeededButton className="min-h-[38px]" disabled={busy} onClick={submitNewCode}>
+              <SeededButton className="min-h-11 sm:min-h-[38px]" disabled={busy} onClick={submitNewCode}>
                 {busy ? "Checking…" : "Use this code"}
               </SeededButton>
               <SeededButton
                 variant="ghost"
-                className="min-h-[38px]"
+                className="min-h-11 sm:min-h-[38px]"
                 disabled={busy}
                 onClick={() => {
                   setReentering(false);
@@ -257,7 +257,7 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
         className="mt-1.5 h-[42px] w-full rounded-md border border-input bg-cream px-3 font-mono text-sm text-ink"
       />
       {error && <p className="mt-1.5 text-sm text-error">{error}</p>}
-      <SeededButton className="mt-3 min-h-[38px]" disabled={busy} onClick={submit}>
+      <SeededButton className="mt-3 min-h-11 sm:min-h-[38px]" disabled={busy} onClick={submit}>
         {busy ? "Checking…" : "Ask to join"}
       </SeededButton>
     </div>
