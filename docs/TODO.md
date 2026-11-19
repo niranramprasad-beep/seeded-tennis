@@ -3,7 +3,7 @@
 Short, ordered, and about *what happens next*. `docs/MASTER_ROADMAP.md`
 stays the full picture with acceptance criteria; this file is the queue.
 
-Last updated 2026-11-16.
+Last updated 2026-11-19.
 
 ---
 
@@ -11,12 +11,10 @@ Last updated 2026-11-16.
 
 **Open after PR B (2026-11-18) — Niran's calls or dashboard steps:**
 
-- **One Family subscription unlocks any number of families.** `family_has_tier`
-  counts any approved member, and a user can hold links in several families,
-  so a coach or friend on one Family plan who joins (and is approved into)
-  other families unlocks all of them (proved on staging by the PR B review,
-  rolled back). Decide: allow it (and say so in the pricing FAQ), or count
-  only members who hold that family's code / cap linked families per payer.
+- ~~**One Family subscription unlocks any number of families.**~~ **Decided
+  2026-11-19: RESTRICT** — one plan unlocks the payer's home family only, and a
+  family holds at most 4 players and 2 parents. Migration 045 (HANDOFF §J
+  Step 20); copy on /pricing, the paywall and /privacy.
 - **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
   staging, and `<site>/auth/verified` added to Supabase Auth → URL
   Configuration → Redirect URLs on staging and production BEFORE 043 ships.
@@ -26,7 +24,9 @@ Last updated 2026-11-16.
   only real cap on `signInWithOtp` (the `email_verify` bucket limits Seeded's
   own path only).
 - **Production's 28 generated workout sessions** (5 training_plans, 3 users)
-  are hidden by PR C, not deleted — S2: hide for good or delete.
+  are hidden by PR C, not deleted. **Decided 2026-11-19: keep them hidden; do
+  not delete. Revisit on or after 2026-12-19** (30 days): if nobody has asked
+  for them, propose deletion again with a backup.
 
 **Billing honesty — needs Niran's call (found 2026-11-16 rebuilding /pricing):
 the Family plan unlocks nothing the code enforces.** `FEATURE_TIER`

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Player } from "@/lib/types";
+import { familyFullMessage, type Player } from "@/lib/types";
 import { emptyPlayer } from "@/lib/data/user";
 import { usePlayer } from "@/lib/context/player-context";
+import { FamilyFullNotice } from "@/components/auth/family-full-notice";
 import { AUTH_ERROR_MESSAGES, signUp } from "@/lib/auth";
 import { birthYearOptions, isPlausibleBirthYear } from "@/lib/config/consent";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
@@ -262,6 +263,8 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
   const [error, setError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
+  // 045: the family already holds 2 parents.
+  const [familyFull, setFamilyFull] = useState<string | null>(null);
   const [sessionPlayer, setSessionPlayer] = useState<Player | null>(null);
   const [checkEmail, setCheckEmail] = useState<string | null>(null);
 
@@ -325,6 +328,11 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
       void rememberMyPendingJoinCode(joinCode);
       setVerifyJoinCode(joinCode.trim().toUpperCase());
       setSessionPlayer(parentPlayer);
+    } else if (familyMode === "join" && result.joinStatus === "family_full") {
+      // 045: the family is at its parent cap. The account exists; say why
+      // first, and start the session when they move on.
+      setFamilyFull(familyFullMessage("parent"));
+      setSessionPlayer(parentPlayer);
     } else {
       beginSession(parentPlayer);
       router.replace("/family");
@@ -336,6 +344,23 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
       <p role="status" className="rounded-lg border border-line bg-cream p-4 text-[15px] leading-relaxed text-ink">
         We sent a link to <strong>{checkEmail}</strong>. Open it, then sign in.
       </p>
+    );
+  }
+
+  if (familyFull) {
+    return (
+      <div>
+        <p className="m-0 text-[15px] font-semibold text-ink">This family is full</p>
+        <div className="mt-2">
+          <FamilyFullNotice
+            message={familyFull}
+            onContinue={() => {
+              if (sessionPlayer) beginSession(sessionPlayer);
+              router.replace("/family");
+            }}
+          />
+        </div>
+      </div>
     );
   }
 

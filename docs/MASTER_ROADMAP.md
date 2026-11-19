@@ -13,6 +13,18 @@
 
 ## Executive status
 
+**2026-11-19 — PR B: migration 045, one Family plan = one family (owner's
+decision).** A Family plan now unlocks only the payer's home family
+(`home_family_code()`, the rule `my_family_code()` already used), and a family
+holds at most 4 players and 2 parents — `join_family` returns `family_full`,
+`approve_family_join` raises `family_full_<role>`, nobody is ever removed.
+Probed on staging as real roles with two mutants that each let the refused
+case through; rollback rehearsed. Production pre-flight (read-only): both
+Family payers are at home, no family over a cap, so nobody's access changes on
+the day. /pricing, the Family card, compare table, FAQ, paywall and /privacy
+say "For one family: up to 4 players and 2 parents". Closes TODO "one plan
+unlocks many families". HANDOFF §J Step 20; DECISIONS 2026-11-19.
+
 **2026-11-18 — PR B (app side, in progress).** /family rebuilt to Board 22
 (KPIs, UTR trend chart with the lib/fit.ts estimate, budget bars, recent
 expenses, targets, "For you this week") and the Family paywall (B4) on the

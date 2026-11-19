@@ -15,6 +15,7 @@
 
 import { getSupabase } from "@/lib/supabase/client";
 import { isEmailVerifyRequired, VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
+import { familyFullMessage } from "@/lib/types";
 
 export type JoinFamilyStatus =
   | "pending"
@@ -26,14 +27,25 @@ export type JoinFamilyStatus =
    * it can ask to join. Players never get this. `message` carries the
    * sentence to show; lib/db/email-verification.ts sends the link. */
   | "verify_email_required"
+  /** Migration 045: the family already holds the cap for this account's
+   * role (4 players / 2 parents). Nothing was created; `message` says so. */
+  | "family_full"
   | "error";
 
 export interface JoinFamilyResult {
   status: JoinFamilyStatus;
   /** True when a row already existed for this user + code. */
   already?: boolean;
-  /** Only set for "error"/"rate_limited"/"verify_email_required" — safe to show the user. */
+  /** Only set for "error"/"rate_limited"/"verify_email_required"/"family_full" — safe to show the user. */
   message?: string;
+}
+
+/** 045's answers: join_family() RETURNS {status:"family_full", role}; approve_family_join() RAISES "family_full_<role>". */
+export function familyFullRole(value: unknown): "player" | "parent" | null {
+  const text = typeof value === "string" ? value : "";
+  if (text === "player" || text.includes("family_full_player")) return "player";
+  if (text === "parent" || text.includes("family_full_parent")) return "parent";
+  return null;
 }
 
 export interface PendingFamilyRequest {
@@ -93,7 +105,10 @@ export async function joinFamily(code: string): Promise<JoinFamilyResult> {
   });
   if (error) return friendly(error);
 
-  const row = (data ?? {}) as { status?: string; already?: boolean };
+  const row = (data ?? {}) as { status?: string; already?: boolean; role?: string };
+  if (row.status === "family_full") {
+    return { status: "family_full", message: familyFullMessage(familyFullRole(row.role) ?? "player") };
+  }
   return {
     status: (row.status as JoinFamilyStatus) ?? "error",
     already: row.already,
@@ -213,6 +228,9 @@ export async function approveFamilyJoin(userId: string): Promise<string | null> 
   if (!supabase) return "Not configured.";
   const { error } = await supabase.rpc("approve_family_join", { p_parent_user_id: userId });
   if (isEmailVerifyRequired(error)) return VERIFY_EMAIL_REQUIRED_MESSAGE;
+  // 045: approving would take the family past 4 players / 2 parents.
+  const fullRole = familyFullRole(error?.message);
+  if (fullRole) return familyFullMessage(fullRole);
   return error ? "Could not approve that request. Try again." : null;
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import type { FamilyRole, PlayerGender } from "@/lib/types";
+import { familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, hasSeededProfile } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/config/auth";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/config/consent";
 import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { FamilyFullNotice } from "./family-full-notice";
 import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { ChipRadioGroup } from "./chip-radio-group";
@@ -60,6 +61,8 @@ export function CompleteOAuthSignup() {
   const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
   const [joinCode, setJoinCode] = useState("");
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
+  // 045: the family already holds 4 players / 2 parents.
+  const [familyFull, setFamilyFull] = useState<{ message: string; next: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<DiagnosticAnswers | null>(null);
@@ -146,6 +149,15 @@ export function CompleteOAuthSignup() {
       return setVerifyJoinCode(joinCode.trim().toUpperCase());
     }
 
+    // 045: the family is at its cap. The profile exists; the diagnostic
+    // answers below are still saved for a player (the account is theirs
+    // whether or not the family has room), then the notice says why before
+    // they go on.
+    const familyFullText =
+      effectiveFamilyMode === "join" && result.joinStatus === "family_full"
+        ? familyFullMessage(isParent ? "parent" : "player")
+        : null;
+
     // The diagnostic's answers, written to the account just created — only
     // for a player who is still a player here and is not waiting on a
     // parent's consent (an under-13 account can write nothing until then).
@@ -160,11 +172,22 @@ export function CompleteOAuthSignup() {
       setSubmitting(false);
       if (saved.player) beginSession(saved.player);
       if (!saved.ok) return setError(saved.error);
+      if (familyFullText) return setFamilyFull({ message: familyFullText, next: next ?? "/today" });
       return router.replace(next ?? "/today");
     }
     setSubmitting(false);
-    router.replace(next ?? (isParent ? "/family" : "/onboarding"));
+    const destination = next ?? (isParent ? "/family" : "/onboarding");
+    if (familyFullText) return setFamilyFull({ message: familyFullText, next: destination });
+    router.replace(destination);
   };
+
+  if (familyFull) {
+    return (
+      <AuthCard title="This family is full">
+        <FamilyFullNotice message={familyFull.message} onContinue={() => router.replace(familyFull.next)} />
+      </AuthCard>
+    );
+  }
 
   if (verifyJoinCode) {
     return (

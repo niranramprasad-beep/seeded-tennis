@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  FAMILY_PLAN_MAX_PARENTS,
+  FAMILY_PLAN_MAX_PLAYERS,
   FEATURE_TIER,
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_PRICE_USD,
@@ -56,7 +58,7 @@ describe("comparison table is generated from FEATURE_TIER", () => {
 
   it("ticks each gated row exactly for the tiers FEATURE_TIER lets in", () => {
     for (const row of rows) {
-      if (row.source === null || row.source === "target-limit") continue;
+      if (row.source === null || row.source === "target-limit" || row.source === "family-size") continue;
       const required = FEATURE_TIER[row.source];
       for (const t of TIERS) {
         expect(row.cells[t], `${row.label} / ${t}`).toEqual({
@@ -83,6 +85,21 @@ describe("comparison table is generated from FEATURE_TIER", () => {
       player: { kind: "text", value: "Unlimited" },
       family: { kind: "text", value: "Unlimited" },
     });
+  });
+
+  it("states the Family plan's size from the same caps the database enforces (045)", () => {
+    const size = rows.find((r) => r.source === "family-size");
+    expect(size).toBeDefined();
+    expect(size!.cells).toEqual({
+      free: { kind: "check", included: false },
+      player: { kind: "check", included: false },
+      family: {
+        kind: "text",
+        value: `1 family: ${FAMILY_PLAN_MAX_PLAYERS} players, ${FAMILY_PLAN_MAX_PARENTS} parents`,
+      },
+    });
+    const familyCard = planCards(counts).find((c) => c.tier === "family")!;
+    expect(familyCard.tagline).toBe("For one family: up to 4 players and 2 parents.");
   });
 
   it("groups rows as SCHOOLS · PLANNING · FAMILY, none empty", () => {

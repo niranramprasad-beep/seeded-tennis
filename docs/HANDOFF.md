@@ -2972,6 +2972,274 @@ commit;
 cards keep names, roles and approvals. `/privacy` (lib/legal/policy.ts) says
 the five details need the Family plan.
 
+### Step 20 — migration 045 (one Family plan = one family; 4 players, 2 parents)
+**Owner decision, 2026-11-19 (docs/DECISIONS.md): RESTRICT.** 042 let one
+Family plan unlock every family its holder was approved into. 045:
+- `home_family_code(uuid)` — the one family an account belongs to: its
+  profile's `family_code`, else its earliest APPROVED `parent_accounts` row
+  (ties broken by `created_at`, then code). `my_family_code()` now returns
+  `home_family_code(auth.uid())`, so the app's "my family" and the payer's
+  home family are the same rule by construction. Internal (no client EXECUTE:
+  it would name the family of any uuid).
+- `family_has_tier(code, 'family')` additionally requires
+  `home_family_code(payer) = code`. Every other branch is 042's.
+- Caps: `family_member_cap(role)` (player 4, parent 2) and
+  `family_member_count(code, role)` (approved, either shape, one per person).
+  `join_family()` RETURNS `{"status":"family_full","role":…,"limit":…}` before
+  creating a pending row (the attempt still logs — 023's rate-limit lesson);
+  `approve_family_join()` raises **P0001 `family_full_<role>`**. Both take a
+  per-family advisory lock. Existing members are never removed; an over-cap
+  family simply cannot grow.
+**Apply:** `supabase/migrations/045_family_plan_one_family_and_caps.sql`, after 044.
+**Pre-flight (read-only, production) — must show every payer at home and nobody over a cap:**
+```sql
+select left(p.id::text,8) as payer, p.role,
+       coalesce(p.family_code, (select pa.family_code from public.parent_accounts pa
+         where pa.user_id = p.id and pa.status = 'approved'
+         order by pa.approved_at nulls last, pa.created_at, pa.family_code limit 1)) as home_family,
+       (select count(*) from public.parent_accounts pa where pa.user_id = p.id and pa.status = 'approved') as other_links
+from public.profiles p where p.subscription_tier = 'family';
+select f.code, p.role, count(*) from public.families f join public.profiles p
+  on (p.family_code = f.code or exists (select 1 from public.parent_accounts pa
+      where pa.user_id = p.id and pa.family_code = f.code and pa.status = 'approved'))
+group by 1, 2 having (p.role = 'player' and count(*) > 4) or (p.role = 'parent' and count(*) > 2);
+```
+2026-11-19: two payers (both players, `other_links` 0, each at home in the
+family they pay for — NIRAN-0FI8 and JORDA-0N6T); no family over a cap;
+nobody in two families. **So 045 changes no one's access on the day.**
+**Verify — staging, 2026-11-19, as real users (rolled back):**
+
+| probe | result |
+|---|---|
+| PB2 parent / PB2 player / PB3 player / PB3 parent `my_family_has_tier('family')` | t / t / t / t |
+| PB1 player / PB1 parent / PB5 player | f / f / f |
+| PB3's payer approved INTO PB1 → PB1 parent tier; PB1 player's `utr_entries` | **f; 0** |
+| …same, with 042's `family_has_tier` put back (mutant) | t; 3 — the home check is what refuses |
+| PB3 parent (payer's home) | t |
+| 4th player join → approve | `pending` → `approved` |
+| 5th player join | **`family_full` (player, 4)**; 0 `parent_accounts` rows; attempt logged |
+| approve a 5th player already pending | **P0001 `family_full_player`**; still pending |
+| …with the player cap raised to 5 (mutant) | `pending` — the cap is what refuses |
+| 2nd parent approve; 3rd parent (email proven) join | `approved`; **`family_full` (parent, 2)** |
+| approve a 3rd parent already pending | **P0001 `family_full_parent`** |
+| joiner pays for PB3 → player tier; `remove_family_member(payer)` → player tier | t → **f**; payer's `my_family_code` NULL |
+| PB5 with 7 players inserted over the cap | roster 7 rows (nobody removed); 8th join `family_full` |
+| `authenticated` calls `home_family_code` / `family_member_count` / `family_member_cap` | **42501** ×3 |
+
+The rollback below was itself run on staging inside a rolled-back
+transaction: helpers gone, the four functions back to their pre-045 bodies
+(043's email check kept), grants intact, and a payer approved into a second
+family unlocked it again (the old behaviour).
+**Rollback (runnable):**
+```sql
+-- ROLLBACK 045 (one family per plan + caps). Run as postgres, BEFORE 044's
+-- rollback if both are rolled back. Restores 026's my_family_code, 042's
+-- family_has_tier and 043's join_family / approve_family_join verbatim,
+-- THEN drops 045's helpers (my_family_code and family_has_tier call them).
+begin;
+-- my_family_code: verbatim from 026_family_approval_flow.sql
+create or replace function public.my_family_code()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select p.family_code from public.profiles p where p.id = auth.uid()),
+    (select pa.family_code from public.parent_accounts pa
+      where pa.user_id = auth.uid() and pa.status = 'approved'
+      order by pa.approved_at nulls last limit 1)
+  )
+$$;
+revoke all on function public.my_family_code() from public, anon;
+grant execute on function public.my_family_code() to authenticated;
+-- family_has_tier: verbatim from 042_family_plan_lock.sql
+create or replace function public.family_has_tier(p_code text, p_tier text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select case
+    when p_tier = 'free' then true
+    when p_code is null or p_tier is null or p_tier not in ('player', 'family') then false
+    -- Only ever an answer about the caller's OWN family. No caller (service
+    -- role, postgres) = no restriction.
+    when auth.uid() is not null and not public.is_family_member(p_code) then false
+    else exists (
+      select 1
+      from public.profiles p
+      where (
+              p.family_code = p_code
+              or exists (
+                select 1 from public.parent_accounts pa
+                where pa.user_id = p.id
+                  and pa.family_code = p_code
+                  and pa.status = 'approved'
+              )
+            )
+        and (
+              (p_tier = 'player' and p.subscription_tier in ('player', 'family'))
+           or (p_tier = 'family' and p.subscription_tier = 'family')
+            )
+    )
+  end
+$fn$;
+revoke all on function public.family_has_tier(text, text) from public, anon;
+grant execute on function public.family_has_tier(text, text) to authenticated, service_role;
+-- join_family: verbatim from 043_parent_email_verification.sql
+create or replace function public.join_family(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_recent int;
+  v_exists boolean;
+  v_own text;
+  v_existing public.parent_accounts%rowtype;
+begin
+  -- WHY THIS RETURNS A STATUS INSTEAD OF RAISING: see 023. Expected outcomes
+  -- RETURN so the attempt row commits and the rate limiter counts it. Only
+  -- "not signed in", "rate limited" and (043) "verify your email" raise, and
+  -- none of them needs to be logged.
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  -- 043: a parent account must have proven its email before it can ask to
+  -- join a family. Checked BEFORE the attempt is logged or the code is
+  -- looked up: the caller learns nothing about the code and spends none of
+  -- the 5/hour budget. Players are never checked.
+  if exists (select 1 from public.profiles where id = v_user and role = 'parent')
+     and not public.email_is_verified(v_user) then
+    raise exception 'verify_email_required' using errcode = '42501';
+  end if;
+
+  select count(*) into v_recent
+  from public.family_join_attempts
+  where user_id = v_user and created_at > now() - interval '1 hour';
+
+  if v_recent >= 5 then
+    raise exception 'Too many attempts. Try again later.' using errcode = '53400';
+  end if;
+
+  select exists(select 1 from public.families f where f.code = p_code) into v_exists;
+
+  insert into public.family_join_attempts (user_id, attempted_code, succeeded)
+  values (v_user, p_code, v_exists);
+
+  if not v_exists then
+    return jsonb_build_object('status','invalid');
+  end if;
+
+  select family_code into v_own from public.profiles where id = v_user;
+  if v_own = p_code then
+    return jsonb_build_object('status','own_family');
+  end if;
+
+  select * into v_existing from public.parent_accounts
+  where user_id = v_user and family_code = p_code;
+
+  if found then
+    return jsonb_build_object('status', v_existing.status, 'already', true);
+  end if;
+
+  insert into public.parent_accounts (user_id, family_code, status)
+  values (v_user, p_code, 'pending');
+
+  return jsonb_build_object('status', 'pending', 'already', false);
+end;
+$$;
+revoke all on function public.join_family(text) from public, anon;
+grant execute on function public.join_family(text) to authenticated;
+-- approve_family_join: verbatim from 043_parent_email_verification.sql
+create or replace function public.approve_family_join(p_parent_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_code text;
+  v_updated int;
+  v_my_role text;
+  v_consent text := null;
+begin
+  if v_user is null then
+    raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  -- 043: a PARENT approving must have proven their email (approving as a
+  -- parent also records consent for a pending under-13, below). A player
+  -- approving is never checked.
+  if exists (select 1 from public.profiles where id = v_user and role = 'parent')
+     and not public.email_is_verified(v_user) then
+    raise exception 'verify_email_required' using errcode = '42501';
+  end if;
+
+  -- 026 widened this from "the player only" to "any approved member", via
+  -- my_family_code() + is_family_member(). Unchanged here.
+  v_code := public.my_family_code();
+  if v_code is null or not public.is_family_member(v_code) then
+    raise exception 'You are not in a family.' using errcode = '22023';
+  end if;
+
+  update public.parent_accounts
+  set status = 'approved', approved_at = now(), approved_by = v_user
+  where user_id = p_parent_user_id
+    and family_code = v_code
+    and status = 'pending';
+
+  get diagnostics v_updated = row_count;
+  if v_updated = 0 then
+    raise exception 'No pending request from that person.' using errcode = '22023';
+  end if;
+
+  select role into v_my_role from public.profiles where id = v_user;
+
+  if v_my_role = 'parent' then
+    update public.profiles
+    set consent_status = 'granted',
+        consent_granted_at = now(),
+        consent_granted_by = v_user
+    where id = p_parent_user_id and consent_status = 'pending';
+
+    get diagnostics v_updated = row_count;
+    if v_updated > 0 then
+      v_consent := 'granted';
+    end if;
+  else
+    if exists (
+      select 1 from public.profiles
+      where id = p_parent_user_id and consent_status = 'pending'
+    ) then
+      -- Approved into the family, still waiting on an adult.
+      v_consent := 'still_pending';
+    end if;
+  end if;
+
+  return jsonb_build_object('status', 'approved', 'consent', v_consent);
+end;
+$$;
+revoke all on function public.approve_family_join(uuid) from public, anon;
+grant execute on function public.approve_family_join(uuid) to authenticated;
+drop function if exists public.family_member_count(text, text);
+drop function if exists public.family_member_cap(text);
+drop function if exists public.home_family_code(uuid);
+commit;
+```
+**Risk: low on the day** (pre-flight shows no family changes), **by design
+afterwards**: a payer approved into a second family no longer unlocks it, and
+a full family cannot grow. App: `lib/db/family-join.ts` maps both answers to
+"This family already has 4 players. Contact support@seededtennis.com" (or 2
+parents); `lib/family-plan-scope.test.ts` pins the caps and the SQL order.
+
 ### After
 - [ ] Re-run the schema fingerprint; prod and staging should now match exactly again
 - [ ] Update `docs/DATABASE_SPEC.md`: mark 022–039 applied to production, with the date

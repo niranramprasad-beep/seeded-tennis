@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown } from "lucide-react";
 import {
+  FAMILY_PLAN_SCOPE_LABEL,
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   type BillingInterval,
 } from "@/lib/types";
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import type { CatalogCounts } from "@/lib/db/schools";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
@@ -248,6 +250,15 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               parent. A parent uses their own parent account and joins with the family code, and a
               family member approves them. The parent can edit the budget and send notes; everything
               else is read-only.
+            </Faq>
+            {/* Migration 045 (docs/DECISIONS.md, 2026-11-19): the plan unlocks
+                the family the paying account belongs to (home_family_code),
+                and join_family / approve_family_join refuse past the caps. */}
+            <Faq question="How many people does one Family plan cover?">
+              {FAMILY_PLAN_SCOPE_LABEL}. The plan unlocks the family that the paying account belongs
+              to, and only that family. If that account leaves the family, the family goes back to
+              Free; nothing is deleted. A family that&apos;s full can&apos;t take another player or
+              parent. Contact {SUPPORT_EMAIL} if you need more.
             </Faq>
             <Faq question="Where do the numbers come from?">
               Your UTR is the number you enter. Team levels are our estimates, not official numbers.{" "}

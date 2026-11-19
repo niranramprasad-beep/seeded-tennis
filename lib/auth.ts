@@ -1071,7 +1071,14 @@ async function ensureSupabaseProfile(input: {
   // the UI drops them on the pending screen, which offers "Wrong code?
   // Re-enter". Failing here would strand someone with an account they
   // cannot get back into.
-  if (join.status === "invalid" || join.status === "own_family" || join.status === "rate_limited") {
+  if (
+    join.status === "invalid" ||
+    join.status === "own_family" ||
+    join.status === "rate_limited" ||
+    // 045: the family is at its cap. Not a failed sign-up either — the
+    // account exists; the screen shows join.message.
+    join.status === "family_full"
+  ) {
     return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
   }
   if (join.status === "error") {
