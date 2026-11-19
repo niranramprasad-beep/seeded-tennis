@@ -13,6 +13,29 @@
 
 ## Executive status
 
+**2026-11-18 — PR C verified by script, and the review's fixes (no
+migrations, not pushed).** `scripts/sweep-c.mjs` checks C1–C30 against a
+production build on staging as the sweep persona and writes
+`~/seeded-evidence/production-sweep-1/SWEEP.md`: 28 fixed, C29 fixed, C30
+blocked on a dashboard step (staging has no Google provider; the button and
+the new-user → /auth/complete path are checked in code). The run found two
+items not actually fixed and they are: /plan's Recent results said "vs
+opponent 6.10" over a named opponent (C14) and its "Log a result" went to a
+query nothing read (C2); the school page and /events stretched a short card
+to its neighbour's height (C22). Phone sweep (320 + 375, player, Family
+parent, free parent): 942 taps under 44px on 156 page loads → 0, no
+sideways scroll, nothing under the tab bar; budget modals and the
+delete-account dialog render on document.body like the other overlays.
+Review fixes: /events shows every hand-added session (manual plan, the old
+"My sessions" plan, or added a minute after its plan), not only the new
+manual plan's; session-save errors are plain words; Legacy /today draws
+the one projection and prints a chosen goal with two decimals; Legacy /plan
+never prints a 0.00 goal; a goal at or below today's rating is rejected;
+the native-dialog and local-date guards catch the bypasses the review found.
+Still open: the nav Tools group awaits sign-off on CLAUDE.md's 5-item line;
+the tab bar's 11px labels (mockup) and a ~0.07 CLS the harness sees on
+phone /today that cls-sources.mjs cannot reproduce.
+
 **2026-11-18 — PR C integrated (branch `fix/production-sweep-1`, on top of
 PR B; not pushed, no migrations).** The three sweep branches (events/results/
 check-ins/nav; numbers; tournament/outreach/schools/settings) are merged onto
@@ -924,7 +947,10 @@ ranked week-1 list in `docs/TODO.md`.
    reconcile the paid bullis.org membership.
 3. **Supabase Auth settings**: custom SMTP (Google Workspace,
    support@seededtennis.com, 80/hour), leaked-password protection, minimum
-   password length. Re-test one real signup end to end.
+   password length. Re-test one real signup end to end. For PR C's C30:
+   enable the Google provider on STAGING (steps in
+   `~/seeded-evidence/production-sweep-1/C30-google.md`) so the Google
+   sign-in can be run end to end before it ships.
 4. **The people who asked to be deleted under the old flow** (HANDOFF §J
    step 7) — a real deletion by hand, with their confirmation. And the
    privacy policy that names processors and retention, reviewed by an adult
