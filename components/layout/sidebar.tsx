@@ -33,8 +33,8 @@ type NavLink = { href: string; label: string; icon: LucideIcon };
 const APP_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/roadmap", label: "Roadmap", icon: Route },
-  { href: "/training", label: "Training", icon: CalendarDays },
-  { href: "/match-mode", label: "Match mode", icon: Trophy },
+  { href: "/events", label: "Events", icon: CalendarDays },
+  { href: "/matches", label: "Results", icon: Trophy },
   { href: "/tournament-fit", label: "Tournament fit", icon: Compass },
   { href: "/schools", label: "Schools", icon: School },
   { href: "/coaches", label: "Coaches", icon: Mail },

@@ -30,15 +30,17 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar }: Closest
       </p>
       <ul className="mt-3.5 flex flex-col gap-2.5 text-sm">
         {results.map(({ school, gap, band }) => (
-          <li key={school.id} className="flex items-center justify-between gap-2 border-b border-line pb-2.5 last:border-b-0 last:pb-0">
-            <div className="flex min-w-0 items-center gap-1">
+          // Wraps on a phone: at 320 the gap text and badge squeezed the
+          // school's name to 14px ("M…") (C29).
+          <li key={school.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-b border-line pb-2.5 last:border-b-0 last:pb-0">
+            <div className="flex min-w-0 flex-1 basis-36 items-center gap-1">
               <StarButton
                 starred={isStarred(school.slug)}
                 onToggle={() => onToggleStar(school.slug, school.shortName)}
                 label={school.shortName}
-                className="h-7 w-7"
+                className="sm:h-7 sm:w-7"
               />
-              <Link href={`/schools/${school.slug}`} className="block min-h-6 truncate leading-6 text-ink hover:text-grass">
+              <Link href={`/schools/${school.slug}`} className="flex min-h-11 min-w-11 items-center truncate text-ink hover:text-grass sm:block sm:min-h-6 sm:min-w-0 sm:leading-6">
                 {school.shortName}
               </Link>
             </div>

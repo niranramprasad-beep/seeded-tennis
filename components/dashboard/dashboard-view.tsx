@@ -12,12 +12,15 @@ import {
   Plus,
   Sparkles,
   Target,
-  Trophy,
 } from "lucide-react";
 import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
-import { buildRoadmap } from "@/lib/db/plan";
+import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
+import { projectionPath, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
+import type { GoalPace } from "@/lib/school-fit";
+import { Toast } from "@/components/seeded/ui/toast";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,38 +32,26 @@ import { AnimatedNumber } from "@/components/shared/animated-number";
 import { Reveal } from "@/components/shared/reveal";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
-import { DailyCheckinCard } from "./daily-checkin-card";
+import { CheckinDrawer } from "@/components/seeded/dashboard/checkin-drawer";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
-import { localDateKey } from "@/lib/time";
+import { formatDate, localDateKey, parseLocalDate } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { cn, formatUTR, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUTR, hasRealUtr, utrInputValue } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/db/plan";
-import {
-  generatePrepPlan,
-  loadMatches,
-  saveMatch,
-  type MatchRecord,
-  loadTrainingPlannerState,
-  type TrainingPlannerState,
-} from "@/lib/db/events";
+import { loadMatches, saveMatch, type MatchRecord } from "@/lib/db/events";
+import { loadTrainingSessions, type TrainingSession } from "@/lib/db/training";
+import { SESSIONS_KEY } from "@/lib/hooks/use-events-calendar";
+import { sessionType } from "@/lib/training/session-types";
 
 const WEEKDAYS: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const EMPTY_PLANNER_STATE: TrainingPlannerState = {
-  sessions: [],
-  sessionTypes: [],
-  plans: [],
-  activePlanId: "",
-  templates: [],
-};
-
 // Mon-Sun date keys for the week containing `today`, so "This week" can
 // filter the player's real scheduled sessions instead of showing a generic
-// template — the dashboard and /training must agree on what's planned.
+// template — the dashboard and /events must agree on what is planned.
 function currentWeekDateKeys(today = new Date()): string[] {
   const weekday = today.getDay(); // 0=Sun..6=Sat
   const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
@@ -96,21 +87,18 @@ export function DashboardView(props: DashboardViewProps) {
 function DashboardInner({ schools }: DashboardViewProps) {
   const { player, updatePlayer } = usePlayer();
   const { tier } = useTier();
-  // Same SWR key /training itself uses, so both pages share one fetch and
-  // can never disagree about what's actually scheduled this week.
-  const trainingStorageKey = `seeded.training.${player.name.replace(/\s+/g, "-").toLowerCase()}`;
-  const { data: plannerState } = useSWR<TrainingPlannerState | null>(
-    ["training-planner-state", trainingStorageKey],
-    () => loadTrainingPlannerState(EMPTY_PLANNER_STATE)
-  );
+  // Same SWR key /events uses, so both pages share one fetch and can never
+  // disagree about what's actually scheduled this week — the player's own
+  // sessions only (lib/db/training.ts).
+  const { data: sessions } = useSWR<TrainingSession[]>(SESSIONS_KEY, () => loadTrainingSessions());
   const weekDateKeys = useMemo(() => currentWeekDateKeys(), []);
   const weekSessions = useMemo(() => {
-    const sessions = plannerState?.sessions ?? [];
+    const all = sessions ?? [];
     return weekDateKeys.map((date, i) => ({
       day: WEEKDAYS[i],
-      sessions: sessions.filter((s) => s.date === date),
+      sessions: all.filter((s) => s.date === date),
     }));
-  }, [plannerState, weekDateKeys]);
+  }, [sessions, weekDateKeys]);
   const weeklyHours = useMemo(
     () =>
       weekSessions.reduce(
@@ -128,7 +116,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
     isLoading: utrFetchLoading,
     mutate: mutateUtrEntries,
   } = useSWR<UtrEntry[]>("utr-entries", () => loadUtrEntries());
-  // Same "matches" key /match-mode and /matches already use — one shared
+  // Same "matches" key /matches and /events already use — one shared
   // fetch/cache across every page, so a match logged here (or there) shows
   // up everywhere else instantly, no refetch needed.
   const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
@@ -170,13 +158,30 @@ function DashboardInner({ schools }: DashboardViewProps) {
     [schools, player.targetSchoolSlugs]
   );
 
-  const roadmap = useMemo(
-    () => buildRoadmap(player, targetSchools),
-    [player, targetSchools]
-  );
+  // The same goal and checkpoints /plan shows (lib/hooks/use-plan-goal.ts):
+  // the one the player set, or the typical-growth estimate. It used to be
+  // the hardest target's floor, so "Next checkpoint" jumped whenever a
+  // target was added (C11).
+  const planGoal = usePlanGoal(player);
+  const roadmap = planGoal.roadmap;
 
-  const targetUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
+  const targetUTR = planGoal.goal?.value ?? player.currentUTR;
+  // Legacy /today's chart draws the SAME projection as every Seeded screen:
+  // projectionPath(report.utr). It used to fit its own regression
+  // (buildUtrChartSeries → computeUtrProjection) and print a different number.
+  const fitReport = useFitReport({ player, schools: targetSchools });
+  const estimatePath = useMemo(
+    () =>
+      projectionPath({
+        estimate: fitReport?.utr,
+        currentUtr: hasRealUtr(player.currentUTR) ? player.currentUTR : null,
+        graduationYear: player.graduationYear,
+        now,
+      }),
+    [fitReport?.utr, player.currentUTR, player.graduationYear, now]
+  );
   const firstName = player.name.trim().split(/\s+/)[0] || "";
+  const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // Never invent data: with no logged entries yet, the only "actual" point is
   // the player's own current UTR from their profile — a real value, not a
@@ -186,7 +191,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
       return [{ date: new Date(), utr: player.currentUTR }];
     }
     return utrEntries.map((e) => ({
-      date: new Date(`${e.recordedAt}T00:00:00`),
+      date: parseLocalDate(e.recordedAt),
       utr: e.utr,
     }));
   }, [utrEntries, player.currentUTR]);
@@ -226,6 +231,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
       updatePlayer({ currentUTR: mostRecent.utr });
       setUtrDrawerOpen(false);
       setUtrStatus("idle");
+      // C19: the drawer used to close with no word that anything happened.
+      setSavedToast(`UTR ${formatPlayerUtr(input.utr)} saved for ${formatDate(input.recordedAt)}.`);
     } catch (error) {
       setUtrStatus("error");
       setUtrError(error instanceof Error ? error.message : "Could not save UTR entry.");
@@ -264,17 +271,10 @@ function DashboardInner({ schools }: DashboardViewProps) {
       updatePlayer({ currentUTR: mostRecent.utr });
 
       if (input.match) {
-        const prepPlan = generatePrepPlan({
-          weaknesses: player.weaknesses,
-          surface: input.match.surface,
-          currentUtr: input.utr,
-          opponentUtr: null,
-        });
         const savedMatch = await saveMatch({
           matchDate: input.match.matchDate,
           opponent: input.match.opponent,
           surface: input.match.surface,
-          prepPlan,
           result: input.match.result,
           score: input.match.score,
           notificationRequested: false,
@@ -289,6 +289,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
 
       setSundayCheckinOpen(false);
       setSundayStatus("idle");
+      setSavedToast(`Check-in saved. UTR ${formatPlayerUtr(input.utr)}.`);
     } catch (error) {
       setSundayStatus("error");
       setSundayError(error instanceof Error ? error.message : "Could not save your check-in.");
@@ -301,6 +302,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
     tier,
     player,
     targetUTR,
+    estimatePath,
+    goalUtr: planGoal.goal?.value ?? null,
     utrStatus,
     utrError,
     actualPoints,
@@ -308,12 +311,14 @@ function DashboardInner({ schools }: DashboardViewProps) {
     UTRTrajectoryChart,
     weeklyHours,
     weekSessions,
-    plannerState,
     targetSchools,
     setUtrDrawerOpen,
     setCheckinDrawerOpen,
     sundayCheckinDue,
     setSundayCheckinOpen,
+    planGoal: planGoal.goal,
+    goalPace: planGoal.goalPace,
+    onUseEstimateGoal: () => void planGoal.setGoal(null),
   };
 
   return (
@@ -348,9 +353,11 @@ function DashboardInner({ schools }: DashboardViewProps) {
         onSave={handleSaveSundayCheckin}
       />
 
-      <Drawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)}>
-        <DailyCheckinCard />
-      </Drawer>
+      <CheckinDrawer open={checkinDrawerOpen} onClose={() => setCheckinDrawerOpen(false)} />
+
+      <Toast open={savedToast != null} onDismiss={() => setSavedToast(null)} variant="success">
+        {savedToast ?? " "}
+      </Toast>
     </div>
   );
 }
@@ -360,14 +367,17 @@ export interface DashboardLayoutProps {
   tier: ReturnType<typeof useTier>["tier"];
   player: ReturnType<typeof usePlayer>["player"];
   targetUTR: number;
+  /** projectionPath(report.utr): the one projection, for the Legacy chart. */
+  estimatePath: UtrEstimatePoint[];
+  /** The plan goal, or null — never the 0 sentinel. */
+  goalUtr: number | null;
   utrStatus: "idle" | "loading" | "saving" | "error";
   utrError: string;
   actualPoints: { date: Date; utr: number }[];
   targetPoints: { date: Date; utr: number }[];
   UTRTrajectoryChart: typeof UTRTrajectoryChart;
   weeklyHours: number;
-  weekSessions: { day: WeekdayShort; sessions: TrainingPlannerState["sessions"] }[];
-  plannerState: TrainingPlannerState | null | undefined;
+  weekSessions: { day: WeekdayShort; sessions: TrainingSession[] }[];
   targetSchools: SchoolLite[];
   setUtrDrawerOpen: (v: boolean) => void;
   setCheckinDrawerOpen: (v: boolean) => void;
@@ -376,6 +386,10 @@ export interface DashboardLayoutProps {
    * yet today) or when genuinely overdue (7+ days since the last entry). */
   sundayCheckinDue: boolean;
   setSundayCheckinOpen: (v: boolean) => void;
+  /** lib/hooks/use-plan-goal.ts — the same goal /plan shows. */
+  planGoal: PlanGoal | null;
+  goalPace: GoalPace | null;
+  onUseEstimateGoal: () => void;
 }
 
 function LegacyDashboardLayout({
@@ -387,10 +401,11 @@ function LegacyDashboardLayout({
   utrError,
   actualPoints,
   targetPoints,
+  estimatePath,
+  goalUtr,
   UTRTrajectoryChart,
   weeklyHours,
   weekSessions,
-  plannerState,
   targetSchools,
   setUtrDrawerOpen,
   setCheckinDrawerOpen,
@@ -454,9 +469,8 @@ function LegacyDashboardLayout({
                 <UTRTrajectoryChart
                   actualEntries={actualPoints}
                   targetPoints={targetPoints}
-                  graduationYear={player.graduationYear}
-                  targetUTR={targetUTR}
-                  gender={player.gender}
+                  estimatePath={estimatePath}
+                  goalUtr={goalUtr}
                 />
               </div>
             </Card>
@@ -497,7 +511,7 @@ function LegacyDashboardLayout({
               <p className="text-sm text-on-primary/80">Your current UTR</p>
               <div className="relative mt-1 text-6xl font-bold tracking-tight sm:text-7xl">
                 {hasRealUtr(player.currentUTR) ? (
-                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={1} />
+                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={2} />
                 ) : (
                   <span className="text-3xl font-semibold sm:text-4xl">Not tracked</span>
                 )}
@@ -533,7 +547,7 @@ function LegacyDashboardLayout({
                 </p>
               </div>
               <Link
-                href="/training"
+                href="/events"
                 className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
               >
                 Open planner
@@ -559,17 +573,9 @@ function LegacyDashboardLayout({
                         <span className="text-xs text-stone-light">Rest day</span>
                       ) : (
                         sessions.map((s) => {
-                          const type = plannerState?.sessionTypes.find((t) => t.id === s.typeId);
                           return (
-                            <span
-                              key={s.id}
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-xs font-medium",
-                                type?.bg ?? "bg-grass-50",
-                                type?.text ?? "text-grass-700"
-                              )}
-                            >
-                              {type?.label ?? s.title}
+                            <span key={s.id} className="rounded-full bg-grass-50 px-2 py-0.5 text-xs font-medium text-grass-700">
+                              {sessionType(s.typeId).label}
                             </span>
                           );
                         })
@@ -647,8 +653,7 @@ function LegacyDashboardLayout({
         {/* quick links — kept so match history and cost calculator stay
             reachable without crowding the three sections above */}
         <Reveal index={5} className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
-          <QuickLink href="/match-mode" icon={Trophy} label="Match mode" />
-          <QuickLink href="/matches" icon={Target} label="Match history" />
+          <QuickLink href="/matches" icon={Target} label="Results" />
           <QuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
           <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
         </Reveal>
@@ -692,14 +697,14 @@ function UtrLogDrawer({
   onClose: () => void;
   onSave: (input: { utr: number; recordedAt: string; note: string }) => void;
 }) {
-  const [utr, setUtr] = useState(currentUtr.toFixed(1));
+  const [utr, setUtr] = useState(utrInputValue(currentUtr));
   const [recordedAt, setRecordedAt] = useState(localDateKey());
   const [note, setNote] = useState("");
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setUtr(currentUtr.toFixed(1));
+    setUtr(utrInputValue(currentUtr));
     setRecordedAt(localDateKey());
     setNote("");
     setLocalError("");
@@ -763,7 +768,7 @@ function UtrLogDrawer({
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Example: new singles result after L4 Bethesda draw"
+            placeholder="e.g. what changed since your last rating"
             className="min-h-[104px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
           />
         </label>

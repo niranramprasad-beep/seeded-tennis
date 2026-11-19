@@ -115,7 +115,7 @@ export function VerifyEmailToJoin({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <SeededButton
-          className="min-h-[38px]"
+          className="min-h-11 sm:min-h-[38px]"
           variant={state.phase === "sent" ? "secondary" : "primary"}
           loading={state.phase === "sending"}
           onClick={sendAndRemember}
@@ -127,7 +127,7 @@ export function VerifyEmailToJoin({
               : VERIFY_COPY.send}
         </SeededButton>
         <SeededButton
-          className="min-h-[38px]"
+          className="min-h-11 sm:min-h-[38px]"
           variant={state.phase === "sent" ? "primary" : "secondary"}
           loading={retrying}
           onClick={retry}
@@ -181,7 +181,7 @@ export function VerifyEmailToApprove({ note }: { note?: string }) {
       )}
       <div className="mt-2.5 flex flex-wrap gap-2">
         <SeededButton
-          className="min-h-[38px]"
+          className="min-h-11 sm:min-h-[38px]"
           variant={state.phase === "sent" ? "secondary" : "primary"}
           loading={state.phase === "sending"}
           onClick={send}
@@ -193,7 +193,7 @@ export function VerifyEmailToApprove({ note }: { note?: string }) {
               : VERIFY_COPY.send}
         </SeededButton>
         {state.phase === "sent" && (
-          <SeededButton className="min-h-[38px]" variant="primary" loading={checking} onClick={recheck}>
+          <SeededButton className="min-h-11 sm:min-h-[38px]" variant="primary" loading={checking} onClick={recheck}>
             {VERIFY_COPY.recheck}
           </SeededButton>
         )}

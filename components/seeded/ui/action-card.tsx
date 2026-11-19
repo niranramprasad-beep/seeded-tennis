@@ -72,7 +72,7 @@ export function ActionCard({
         <div className="text-sm text-stone">{description}</div>
       </div>
       {estimate && <span className="text-[13px] text-stone">{estimate}</span>}
-      <SeededButton className="min-h-[38px]" onClick={complete}>
+      <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={complete}>
         {actionLabel}
       </SeededButton>
     </div>

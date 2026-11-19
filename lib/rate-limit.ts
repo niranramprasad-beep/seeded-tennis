@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { plural } from "@/lib/utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 
@@ -66,9 +67,9 @@ export interface RateLimitVerdict {
 function minutesPhrase(seconds: number): string {
   if (seconds <= 90) return "in a minute";
   const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `in about ${minutes} minutes`;
+  if (minutes < 60) return `in about ${plural(minutes, "minute", "minutes")}`;
   const hours = Math.ceil(minutes / 60);
-  return hours === 1 ? "in about an hour" : `in about ${hours} hours`;
+  return hours === 1 ? "in about an hour" : `in about ${plural(hours, "hour", "hours")}`;
 }
 
 /** Friendly, specific, and honest about the wait. No "429" and no mention of

@@ -101,7 +101,9 @@ staging.
 ### 3b. PR B migrations
 
 **PR B — 041, 042, 043, 044, 045 (041–044 written 2026-11-18, 045 on
-2026-11-19; rehearsed on staging).** Run after the steps above are live and before the PR B code
+2026-11-19; rehearsed on staging). RUN ON PRODUCTION 2026-11-19, 13:08–13:10
+UTC, on Niran's go, after a full backup; every row's verify passed and
+nothing was rolled back. PR B merged right after.** Run after the steps above are live and before the PR B code
 merges, each on Niran's explicit go. Detail, staging probe results and the
 pasteable rollbacks: `docs/HANDOFF.md` §J Steps 16–20.
 

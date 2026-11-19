@@ -237,7 +237,8 @@ describe("formatDate", () => {
   });
 
   it("formats a full timestamp string", () => {
-    expect(formatDate("2026-01-15T12:00:00Z")).toMatch(/Jan 1[45], 2026/);
+    // An instant: its local day is Jan 14 (UTC−12) to Jan 16 (UTC+13).
+    expect(formatDate("2026-01-15T12:00:00Z")).toMatch(/Jan 1[456], 2026/);
   });
 
   it("formats a Date object", () => {

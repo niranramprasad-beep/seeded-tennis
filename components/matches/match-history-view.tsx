@@ -1,31 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Filter, Trash2, Trophy } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/shared/auth-gate";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Reveal } from "@/components/shared/reveal";
-import { usePlayer } from "@/lib/context/player-context";
-import { useDesign } from "@/lib/context/design-context";
-import {
-  deleteMatch,
-  generatePrepPlan,
-  loadMatches,
-  saveMatch,
-  type MatchRecord,
-} from "@/lib/db/events";
+import { ConfirmDialog } from "@/components/seeded/ui/dialog";
+import { Toast, type ToastAction, type ToastVariant } from "@/components/seeded/ui/toast";
+import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { deleteMatch, loadMatches, saveMatch, type MatchRecord } from "@/lib/db/events";
 import { formatDate, localDateKey } from "@/lib/time";
-import { cn } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
+import { MatchResultForm } from "./match-result-form";
+import { opponentLine, ResultChip } from "./result-display";
 
-const filters = ["all", "last 30", "wins", "losses"] as const;
-
-const inputClass =
-  "h-12 w-full rounded-xl border-[0.5px] border-line bg-card px-4 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
-const areaClass =
-  "min-h-[86px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30";
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "last30", label: "Last 30 days" },
+  { id: "wins", label: "Wins" },
+  { id: "losses", label: "Losses" },
+] as const;
+type FilterId = (typeof FILTERS)[number]["id"];
 
 export function MatchHistoryView() {
   return (
@@ -35,216 +29,172 @@ export function MatchHistoryView() {
   );
 }
 
+interface PageToast {
+  message: string;
+  variant: ToastVariant;
+  action?: ToastAction;
+}
+
 function MatchHistoryInner() {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
-  const { player } = usePlayer();
-  // Same "matches" key as match-mode-view — shares one cached fetch across
-  // both pages instead of each loading its own copy.
-  const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
-    "matches",
-    () => loadMatches()
-  );
-  const [filter, setFilter] = useState<(typeof filters)[number]>("all");
-  const [saving, setSaving] = useState("");
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({
-    matchDate: localDateKey(),
-    opponent: "",
-    opponentUtr: "",
-    tournamentName: "",
-    surface: "hard" as MatchRecord["surface"],
-    result: "win" as "win" | "loss",
-    score: "",
-    worked: "",
-    needsWork: "",
-    notes: "",
-  });
-
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const remove = async (match: MatchRecord) => {
-    const label = match.tournamentName || match.opponent || "this match";
-    if (!window.confirm(`Delete ${label}? This can't be undone.`)) return;
-    setDeletingId(match.id);
-    try {
-      await deleteMatch(match.id);
-      mutateMatches((prev = []) => prev.filter((m) => m.id !== match.id), { revalidate: false });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete the match. Try again.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const { data: matches, mutate } = useSWR<MatchRecord[]>("matches", () => loadMatches());
+  const [filter, setFilter] = useState<FilterId>("all");
+  const [pendingDelete, setPendingDelete] = useState<MatchRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState<PageToast | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const visible = useMemo(() => {
     const cutoff = localDateKey(new Date(Date.now() - 30 * 86400000));
-    return matches.filter((m) => {
-      if (filter === "last 30") return m.matchDate >= cutoff;
+    return (matches ?? []).filter((m) => {
+      if (filter === "last30") return m.matchDate >= cutoff;
       if (filter === "wins") return m.result === "win";
       if (filter === "losses") return m.result === "loss";
       return true;
     });
   }, [filter, matches]);
 
-  const save = async () => {
-    setError("");
-    if (!form.tournamentName.trim() && !form.opponent.trim() && !form.score.trim()) {
-      setError("Add at least a tournament, opponent, or score before saving — an empty entry isn't a real match record.");
-      return;
-    }
-    const opponentUtr = form.opponentUtr ? Number(form.opponentUtr) : null;
-    if (opponentUtr !== null && (!Number.isFinite(opponentUtr) || opponentUtr < 1 || opponentUtr > 16.5)) {
-      setError("Opponent UTR must be between 1.00 and 16.50.");
-      return;
-    }
-    setSaving("Saving match…");
+  const record = useMemo(() => {
+    const all = matches ?? [];
+    return { wins: all.filter((m) => m.result === "win").length, losses: all.filter((m) => m.result === "loss").length };
+  }, [matches]);
+
+  const restore = async (match: MatchRecord) => {
     try {
-      const saved = await saveMatch({
-        matchDate: form.matchDate,
-        opponent: form.opponent,
-        opponentUtr,
-        tournamentName: form.tournamentName,
-        surface: form.surface,
-        result: form.result,
-        score: form.score,
-        worked: form.worked,
-        needsWork: form.needsWork,
-        notes: form.notes,
-        prepPlan: generatePrepPlan({
-          weaknesses: player.weaknesses,
-          surface: form.surface,
-          currentUtr: player.currentUTR,
-          opponentUtr,
-        }),
-      });
-      if (saved)
-        mutateMatches((prev = []) => [saved, ...prev.filter((m) => m.id !== saved.id)], {
+      const saved = await saveMatch(match);
+      if (saved) {
+        await mutate((prev = []) => [saved, ...prev.filter((m) => m.id !== saved.id)].sort((a, b) => b.matchDate.localeCompare(a.matchDate)), {
           revalidate: false,
         });
-      setSaving("Saved");
+      }
+      setToast({ message: "Result restored.", variant: "success" });
     } catch (err) {
-      setSaving("");
-      setError(err instanceof Error ? err.message : "Could not save the match. Try again.");
+      setToast({ message: err instanceof Error ? err.message : "Could not restore it. Try again.", variant: "error" });
     }
   };
 
+  const confirmDelete = async () => {
+    const match = pendingDelete;
+    if (!match) return;
+    setDeleting(true);
+    try {
+      await deleteMatch(match.id);
+      await mutate((prev = []) => prev.filter((m) => m.id !== match.id), { revalidate: false });
+      setPendingDelete(null);
+      setToast({ message: "Result deleted.", variant: "default", action: { label: "Undo", onClick: () => void restore(match) } });
+    } catch (err) {
+      setPendingDelete(null);
+      setToast({ message: err instanceof Error ? err.message : "Could not delete it. Try again.", variant: "error" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const count = matches?.length ?? 0;
+
   return (
-    <div className="mx-auto max-w-content container-px py-12">
-      <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Match history</span>
-          <h1 className={cn("mt-3 text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
-            Turn matches into next-week work.
-          </h1>
-          <p className="mt-3 max-w-xl text-pretty leading-relaxed text-stone">
-            Log the score, what worked, and what broke down — your record builds a
-            clear picture coaches can trust.
-          </p>
-        </div>
-        <Badge variant="outline" size="md" className="shrink-0">
-          <Trophy className="h-4 w-4" />
-          {saving || `${matches.length} matches logged`}
-        </Badge>
-      </Reveal>
+    <div className="mx-auto max-w-content container-px py-10">
+      <h1 className="text-[30px] font-semibold tracking-tight text-ink">Results</h1>
+      <p className="mt-1.5 text-stone">
+        {matches === undefined
+          ? "Your logged matches."
+          : count === 0
+            ? "No matches logged yet."
+            : `${plural(count, "match", "matches")} logged · ${record.wins}–${record.losses}`}
+      </p>
 
-      <div className="rule-gold mt-8 max-w-[140px]" />
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[400px_minmax(0,1fr)]">
+        <section aria-labelledby="log-heading" className="rounded-xl border border-line bg-card p-5">
+          <h2 id="log-heading" className="text-lg font-semibold text-ink">
+            Log a result
+          </h2>
+          <MatchResultForm className="mt-4" onSaved={() => setToast({ message: "Result saved.", variant: "success" })} />
+        </section>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-[380px_1fr]">
-        <Reveal index={1}>
-        <Card className={cn("h-fit p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-          <h2 className={cn("text-lg font-medium text-ink", isSeeded && "font-seeded")}>Log a match</h2>
-          <div className="mt-4 grid gap-3">
-            <input className={inputClass} type="date" value={form.matchDate} onChange={(e) => setForm({ ...form, matchDate: e.target.value })} aria-label="Match date" />
-            <input className={inputClass} placeholder="Tournament name" value={form.tournamentName} onChange={(e) => setForm({ ...form, tournamentName: e.target.value })} />
-            <input className={inputClass} placeholder="Opponent" value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} />
-            <input className={inputClass} type="number" min={1} max={16.5} step={0.01} placeholder="Opponent UTR (optional)" value={form.opponentUtr} onChange={(e) => setForm({ ...form, opponentUtr: e.target.value })} />
-            <div className="grid grid-cols-2 gap-2">
-              {(["win", "loss"] as const).map((result) => (
-                <button
-                  key={result}
-                  className={cn(
-                    "rounded-pill border-[0.5px] py-2 text-sm capitalize transition-colors",
-                    form.result === result ? "border-grass bg-grass text-on-primary" : "border-line bg-card text-stone hover:text-ink"
-                  )}
-                  onClick={() => setForm({ ...form, result })}
-                >
-                  {result}
-                </button>
-              ))}
-            </div>
-            <input className={inputClass} placeholder="Score, e.g. 6-4, 6-3" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} />
-            <textarea className={areaClass} placeholder="What worked?" value={form.worked} onChange={(e) => setForm({ ...form, worked: e.target.value })} />
-            <textarea className={areaClass} placeholder="What didn't work?" value={form.needsWork} onChange={(e) => setForm({ ...form, needsWork: e.target.value })} />
-            <textarea className={areaClass} placeholder="Other notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            {error && (
-              <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">{error}</p>
-            )}
-            <Button variant="primary" size="md" onClick={save}>Save match</Button>
-          </div>
-        </Card>
-        </Reveal>
-
-        <div>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <Filter className="h-4 w-4 text-stone-light" />
-            {filters.map((f) => (
+        <section aria-labelledby="history-heading" className="min-w-0">
+          <h2 id="history-heading" className="sr-only">
+            Your results
+          </h2>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter results">
+            {FILTERS.map((f) => (
               <button
-                key={f}
-                onClick={() => setFilter(f)}
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                aria-pressed={filter === f.id}
                 className={cn(
-                  "flex min-h-11 items-center rounded-pill px-3 text-sm capitalize transition-colors",
-                  filter === f ? "bg-grass text-on-primary" : "bg-grass-50 text-stone hover:text-ink"
+                  "min-h-11 rounded-pill border px-3.5 text-sm font-semibold transition-colors",
+                  filter === f.id ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone hover:text-ink"
                 )}
               >
-                {f}
+                {f.label}
               </button>
             ))}
           </div>
-          <div className="space-y-3">
-            {visible.map((match, i) => (
-              <Reveal key={match.id} index={i} step={0.05}>
-              <Card interactive className={cn("p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={match.result === "win" ? "leaf" : "outline"}>
-                      {match.result ?? "planned"}
-                    </Badge>
-                    <h3 className="font-medium text-ink">{match.tournamentName || "Match"}</h3>
+
+          <ul className="mt-4 flex flex-col gap-3">
+            {matches === undefined &&
+              [0, 1, 2].map((i) => (
+                <li key={i} aria-hidden className="h-[92px] animate-pulse rounded-xl border border-line bg-line/40 motion-reduce:animate-none" />
+              ))}
+            {visible.map((match) => {
+              const vs = opponentLine(match);
+              return (
+                <li key={match.id} className="rounded-xl border border-line bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ResultChip result={match.result} />
+                        <span className="font-semibold text-ink">{match.score || "No score"}</span>
+                        {vs && <span className="text-ink">{vs}</span>}
+                      </div>
+                      <p className="mt-1 text-sm text-stone">
+                        {[formatDate(match.matchDate), match.tournamentName, match.surface.charAt(0).toUpperCase() + match.surface.slice(1)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {(match.worked || match.notes) && <p className="mt-2 text-sm text-ink">{match.worked || match.notes}</p>}
+                      {match.needsWork && (
+                        <p className="mt-1 text-sm text-ink">
+                          <span className="font-semibold">To work on: </span>
+                          {match.needsWork}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Delete the ${formatDate(match.matchDate)} result`}
+                      onClick={() => setPendingDelete(match)}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-stone transition-colors hover:bg-error-bg hover:text-error"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Delete match"
-                    onClick={() => remove(match)}
-                    disabled={deletingId === match.id}
-                    className="rounded-lg p-1.5 text-stone-light transition-colors hover:bg-error-bg hover:text-error disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-stone-light">
-                  {formatDate(match.matchDate)} · {match.opponent || "opponent not listed"} · {match.score || "no score"}
-                </p>
-                {(match.worked || match.notes) && (
-                  <p className="mt-3 text-sm text-stone">{match.worked || match.notes}</p>
-                )}
-                {match.needsWork && (
-                  <p className="mt-2 text-sm text-stone">
-                    <span className="font-medium text-ink">To work on: </span>
-                    {match.needsWork}
-                  </p>
-                )}
-              </Card>
-              </Reveal>
-            ))}
-            {!visible.length && (
-              <Card className="p-10 text-center">
-                <p className="text-sm text-stone">No matches in this view yet — log your first on the left.</p>
-              </Card>
-            )}
-          </div>
-        </div>
+                </li>
+              );
+            })}
+          </ul>
+          {matches !== undefined && visible.length === 0 && (
+            <EmptyState
+              className="mt-4"
+              title={count === 0 ? "No results yet." : "Nothing matches this filter."}
+              description={count === 0 ? "Log your first match with the form." : undefined}
+            />
+          )}
+        </section>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete this result?"
+        description={pendingDelete ? `${formatDate(pendingDelete.matchDate)}${opponentLine(pendingDelete) ? `, ${opponentLine(pendingDelete)}` : ""}. You can undo right after.` : undefined}
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <Toast open={!!toast} onDismiss={dismissToast} variant={toast?.variant ?? "default"} action={toast?.action} duration={toast?.action ? 8000 : 4000}>
+        {toast?.message ?? " "}
+      </Toast>
     </div>
   );
 }

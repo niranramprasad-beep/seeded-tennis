@@ -13,12 +13,12 @@
 //      rows, so the preview is the real layout rather than a drawing of it.
 //
 // Projection numbers come from lib/fit.ts only (recruitingTimeUtr,
-// projectedUtrOn, projectionReachDate). Nothing here multiplies a growth
+// projectionPath, projectionReachDate). Nothing here multiplies a growth
 // rate.
 
 import type { FitReport } from "@/lib/fit";
 import {
-  projectedUtrOn,
+  projectionPath,
   projectionReachDate,
   projectionTargetDate,
   projectionTargetLabel,
@@ -34,8 +34,8 @@ import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/db/family";
 import type { TournamentEntry } from "@/lib/db/events";
 import type { PlayerGender, SchoolLite } from "@/lib/types";
 import { encodeTournamentFitShareParams, type TravelPill } from "@/lib/tournament-fit-share";
-import { localDateKey, parseLocalDate } from "@/lib/time";
-import { formatUtr2, hasRealUtr } from "@/lib/utils";
+import { formatShortDate, localDateKey, parseLocalDate, startOfLocalDay } from "@/lib/time";
+import { formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 
 const MS_PER_DAY = 86_400_000;
 const MONTHS = [
@@ -50,16 +50,6 @@ export function formatMoney(value: number): string {
   );
 }
 
-/** "Nov 12" from a YYYY-MM-DD, read as a LOCAL date. `new Date("2026-11-12")`
- *  is UTC midnight, which is Nov 11 in every US time zone. */
-export function shortLocalDate(isoDate: string): string {
-  return parseLocalDate(isoDate.slice(0, 10)).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-/** A date column that may be a plain date or a timestamp, as a local Date. */
-function localDate(value: string): Date {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseLocalDate(value) : new Date(value);
-}
 
 function monthYear(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
@@ -248,9 +238,9 @@ export function utrKpi(
   if (!hasRealUtr(currentUtr)) {
     return { hasUtr: false, value: "No UTR yet", delta: null, deltaText: null, deltaAmount: null, since: null, direction: null };
   }
-  const value = formatUtr2(currentUtr);
+  const value = formatPlayerUtr(currentUtr);
   const sorted = entries
-    .map((e) => ({ utr: e.utr, date: localDate(e.recordedAt) }))
+    .map((e) => ({ utr: e.utr, date: parseLocalDate(e.recordedAt) }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   const none: UtrKpi = { hasUtr: true, value, delta: null, deltaText: null, deltaAmount: null, since: null, direction: null };
   if (sorted.length < 2) return none;
@@ -408,7 +398,7 @@ export function recentExpenses(
   return rows
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit)
-    .map((r) => ({ id: r.id, dateLabel: shortLocalDate(r.date), item: r.item, category: r.category, amount: formatMoney(r.amount) }));
+    .map((r) => ({ id: r.id, dateLabel: formatShortDate(r.date), item: r.item, category: r.category, amount: formatMoney(r.amount) }));
 }
 
 /* --------------------------------------------------- for you this week */
@@ -424,14 +414,14 @@ export function weeklyReportHasNews(input: {
   now: Date;
 }): boolean {
   const { now } = input;
-  const startOfToday = parseLocalDate(localDateKey(now)).getTime();
+  const startOfToday = startOfLocalDay(now).getTime();
   const weekAgo = startOfToday - 6 * MS_PER_DAY;
   const weekAhead = startOfToday + 7 * MS_PER_DAY;
   const inLastWeek = (d: Date) => d.getTime() >= weekAgo && d.getTime() <= now.getTime();
   return (
-    input.utrEntries.some((e) => inLastWeek(localDate(e.recordedAt))) ||
-    input.outreachUpdatedAt.some((u) => inLastWeek(localDate(u))) ||
-    input.expenses.some((x) => inLastWeek(localDate(x.expenseDate))) ||
+    input.utrEntries.some((e) => inLastWeek(parseLocalDate(e.recordedAt))) ||
+    input.outreachUpdatedAt.some((u) => inLastWeek(parseLocalDate(u))) ||
+    input.expenses.some((x) => inLastWeek(parseLocalDate(x.expenseDate))) ||
     input.entries.some((e) => {
       const t = parseLocalDate(e.eventDate.slice(0, 10)).getTime();
       return t >= weekAgo && t <= weekAhead;
@@ -570,7 +560,7 @@ export function buildUtrChart(input: ChartInput): UtrChartModel | null {
   if (!hasRealUtr(currentUtr)) return null;
 
   const logged = input.entries
-    .map((e) => ({ date: localDate(e.recordedAt), utr: e.utr }))
+    .map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }))
     .filter((p) => p.date.getTime() <= now.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   const today = { date: now, utr: currentUtr };
@@ -579,22 +569,16 @@ export function buildUtrChart(input: ChartInput): UtrChartModel | null {
   let projection: UtrChartModel["projection"] = null;
   if (rtu && rtu.isProjected && input.graduationYear != null && input.gender != null) {
     const end = projectionTargetDate(input.graduationYear);
-    const p = subjectFor(input) as ProjectionSubject;
-    const STEPS = 12;
-    const path = [];
-    for (let i = 0; i <= STEPS; i++) {
-      const date = new Date(now.getTime() + ((end.getTime() - now.getTime()) * i) / STEPS);
-      if (i === STEPS) {
-        path.push({ date: end, normal: rtu.value, slow: rtu.low, fast: rtu.high });
-      } else {
-        path.push({
-          date,
-          normal: projectedUtrOn(p, date, "normal") as number,
-          slow: projectedUtrOn(p, date, "slow") as number,
-          fast: projectedUtrOn(p, date, "fast") as number,
-        });
-      }
-    }
+    // lib/fit.ts projectionPath: straight lines from today's rating to the
+    // report's own low / value / high — the same path /today and /plan
+    // shade, deciding nothing itself (lib/projection-single-source.test.ts).
+    const path = projectionPath({
+      estimate: rtu,
+      currentUtr,
+      graduationYear: input.graduationYear,
+      now,
+      steps: 13,
+    }).map((pt) => ({ date: pt.date, normal: pt.value, slow: pt.low, fast: pt.high }));
     projection = {
       end,
       value: rtu.value,
@@ -648,12 +632,12 @@ export function utrChartCaption(model: UtrChartModel | null, input: ChartInput &
     if (gap <= 0) {
       return `${at}, ${child} reaches the start of their target range around ${monthYear(proj.end)}.`;
     }
-    return `${at}, ${child} is about ${gap.toFixed(1)} short of where their target schools start by ${projectionTargetLabel(proj.year)}.`;
+    return `${at}, ${child} is about ${formatUtrEstimate(gap)} short of where their target schools start by ${projectionTargetLabel(proj.year)}.`;
   }
   if (input.graduationYear == null) {
-    return `${child} is ${formatUtr2(floor - current)} below where their target schools start. With no class year set, there is no estimate.`;
+    return `${child} is ${formatUtrEstimate(floor - current)} below where their target schools start. With no class year set, there is no estimate.`;
   }
-  return `${child} is ${formatUtr2(floor - current)} below where their target schools start.`;
+  return `${child} is ${formatUtrEstimate(floor - current)} below where their target schools start.`;
 }
 
 const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -663,21 +647,21 @@ const shortMonthYear = (d: Date) => `${SHORT_MONTH[d.getMonth()]} ${d.getFullYea
 export function utrChartAriaLabel(model: UtrChartModel, childFirst: string): string {
   const parts: string[] = [`${childFirst}'s UTR trend.`];
   const n = model.logged.length;
-  if (n === 0) parts.push(`No ratings logged yet. Today: ${formatUtr2(model.today.utr)}.`);
-  else if (n === 1) parts.push(`One rating logged, in ${shortMonthYear(model.logged[0].date)}. Today: ${formatUtr2(model.today.utr)}.`);
+  if (n === 0) parts.push(`No ratings logged yet. Today: ${formatPlayerUtr(model.today.utr)}.`);
+  else if (n === 1) parts.push(`One rating logged, in ${shortMonthYear(model.logged[0].date)}. Today: ${formatPlayerUtr(model.today.utr)}.`);
   else
     parts.push(
-      `${n} ratings logged from ${shortMonthYear(model.logged[0].date)} to ${shortMonthYear(model.logged[n - 1].date)}. Today: ${formatUtr2(model.today.utr)}.`
+      `${n} ratings logged from ${shortMonthYear(model.logged[0].date)} to ${shortMonthYear(model.logged[n - 1].date)}. Today: ${formatPlayerUtr(model.today.utr)}.`
     );
   if (model.projection) {
     const p = model.projection;
     parts.push(
       p.low === p.high
-        ? `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${p.value.toFixed(1)}.`
-        : `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${p.value.toFixed(1)}, between ${p.low.toFixed(1)} and ${p.high.toFixed(1)}.`
+        ? `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${formatUtrEstimate(p.value)}.`
+        : `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${formatUtrEstimate(p.value)}, between ${formatUtrEstimate(p.low)} and ${formatUtrEstimate(p.high)}.`
     );
   }
-  if (model.targetFloor != null) parts.push(`Target schools start at ${formatUtr2(model.targetFloor)}.`);
+  if (model.targetFloor != null) parts.push(`Target schools start at ${formatUtrEstimate(model.targetFloor)}.`);
   return parts.join(" ");
 }
 

@@ -70,9 +70,12 @@ describe("MatchesBodySchema (save)", () => {
     expect(MatchesBodySchema.safeParse({ ...validSave, matchDate: "" }).success).toBe(false);
   });
 
-  it("rejects a missing prepPlan", () => {
+  // Optional since 2026-11-18: the prep plan was generated text (Match
+  // mode, deleted). A result is saved without one and the server stores an
+  // empty plan; an Undo of a delete sends the original back unchanged.
+  it("accepts a save with no prepPlan", () => {
     const { prepPlan: _prepPlan, ...rest } = validSave;
-    expect(MatchesBodySchema.safeParse(rest).success).toBe(false);
+    expect(MatchesBodySchema.safeParse(rest).success).toBe(true);
   });
 
   it("rejects a malformed prepPlan", () => {

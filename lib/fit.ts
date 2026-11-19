@@ -7,7 +7,7 @@ import {
 } from "@/lib/config/growth";
 import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import {
-  localDateString,
+  toLocalDateString,
   localMonthsBetween,
   monthYearLabel,
   parseLocalDate,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/time";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import type { UtrDataPoint } from "@/lib/utr-projection";
+import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 import {
   classifySchoolFit,
   fitBasis,
@@ -223,6 +224,160 @@ export function projectionReachDate(input: ProjectionSubject, utr: number): Date
   const years = (utr - currentUtr) / perYear;
   const at = new Date(now.getTime() + years * MS_PER_YEAR);
   return at.getTime() <= projectionTargetDate(graduationYear).getTime() ? at : null;
+}
+
+/**
+ * The fit report's estimate (`report.utr`), drawn as a path from today to
+ * the summer before senior year — for the charts on /today and /plan.
+ *
+ * THIS DECIDES NOTHING. It takes the `RecruitingTimeUtr` the report already
+ * chose (whatever rule `recruitingTimeUtr` applies) and draws straight
+ * lines from today's rating to its low / value / high at the target date.
+ * So the chart's end label, the ProjectionNote and the school page's Pace
+ * row are one number by construction.
+ *
+ * WHY. Until 2026-11-18 each chart shaded its own regression through the
+ * logged ratings while every other screen printed the report's estimate.
+ * The school page showed both in one card: "Pace: 8.5 by Jun 1, 2028" above
+ * "estimated UTR for summer 2028: 7.5" — two projections for one date (C8).
+ *
+ * Empty when there is no estimate or it is today's rating (the summer has
+ * begun), so there is nothing projected to draw.
+ */
+export interface UtrEstimatePoint {
+  date: Date;
+  low: number;
+  value: number;
+  high: number;
+}
+
+export function projectionPath(input: {
+  /** `report.utr` — never computed here. */
+  estimate: RecruitingTimeUtr | null | undefined;
+  currentUtr: number | null | undefined;
+  graduationYear: number;
+  now?: Date;
+  /** Points including both ends. */
+  steps?: number;
+}): UtrEstimatePoint[] {
+  const { estimate, currentUtr } = input;
+  if (!estimate?.isProjected || currentUtr == null || !Number.isFinite(currentUtr) || currentUtr <= 0) return [];
+  const now = input.now ?? new Date();
+  const target = projectionTargetDate(input.graduationYear);
+  const span = target.getTime() - now.getTime();
+  if (span <= 0) return [];
+  const steps = Math.max(2, input.steps ?? 12);
+  const points: UtrEstimatePoint[] = [];
+  for (let i = 0; i < steps; i++) {
+    const f = i / (steps - 1);
+    const lerp = (end: number) => currentUtr + (end - currentUtr) * f;
+    points.push({
+      date: new Date(now.getTime() + span * f),
+      low: lerp(estimate.low),
+      value: lerp(estimate.value),
+      high: lerp(estimate.high),
+    });
+  }
+  // The end is exactly the report's numbers, not a float near them.
+  points[points.length - 1] = { date: target, low: estimate.low, value: estimate.value, high: estimate.high };
+  return points;
+}
+
+/**
+ * The value of that path on one date — the estimate at a chart's right edge
+ * when the chart stops before the summer before senior year. Clamped to the
+ * path's ends. Null when there is no estimate.
+ */
+export function estimateOnDate(
+  path: UtrEstimatePoint[],
+  date: Date
+): UtrEstimatePoint | null {
+  if (path.length === 0) return null;
+  const t = date.getTime();
+  if (t <= path[0].date.getTime()) return path[0];
+  const last = path[path.length - 1];
+  if (t >= last.date.getTime()) return last;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (t <= b.date.getTime()) {
+      const f = (t - a.date.getTime()) / (b.date.getTime() - a.date.getTime());
+      const lerp = (x: number, y: number) => x + (y - x) * f;
+      return { date, low: lerp(a.low, b.low), value: lerp(a.value, b.value), high: lerp(a.high, b.high) };
+    }
+  }
+  return last;
+}
+
+/* ==========================================================================
+ * THE PLAN GOAL
+ * ==========================================================================
+ * /plan's goal used to be the floor of the HARDEST target school (Duke,
+ * 12.0, for a 5.95 player). So the goal, every checkpoint on /plan and the
+ * "Next checkpoint" chip on /today jumped whenever a target was added
+ * (8.90 → 9.0 → 9.50 in one session), and the default plan asked for
+ * 3.9 UTR a year — a pace almost nobody manages, presented as "your plan".
+ *
+ * Now: the goal is one the player chose, or — until they choose — the fit
+ * report's estimate for the summer before senior year (`report.utr`, the
+ * number every ProjectionNote prints). Adding a target never moves it, and
+ * this function computes no projection of its own.
+ */
+export type PlanGoalSource = "chosen" | "estimate";
+
+export interface PlanGoal {
+  value: number;
+  source: PlanGoalSource;
+  /** The default the player can always go back to. Null without a rating. */
+  estimate: number | null;
+}
+
+export function resolvePlanGoal(input: {
+  /** The goal the player saved, if any (lib/db/settings.ts). */
+  chosenGoalUtr: number | null | undefined;
+  /** `report.utr` — the fit report's rating for the summer before senior year. */
+  estimate: RecruitingTimeUtr | null | undefined;
+}): PlanGoal | null {
+  const estimate = input.estimate?.value ?? null;
+  const chosen = input.chosenGoalUtr;
+  if (chosen != null && Number.isFinite(chosen) && chosen > 0) {
+    return { value: chosen, source: "chosen", estimate };
+  }
+  if (estimate == null) return null;
+  return { value: estimate, source: "estimate", estimate };
+}
+
+/**
+ * Why a goal the player typed can't be saved, or null when it can. A goal is
+ * a rating not reached yet: one at or below today's rating would put every
+ * checkpoint behind the player (docs/DECISIONS.md, 2026-11-18). With no real
+ * rating (null / the 0 sentinel) any 1–16.5 goal is accepted.
+ */
+export function planGoalInputError(value: number, currentUtr: number | null | undefined): string | null {
+  if (!Number.isFinite(value) || value < 1 || value > 16.5) return "Enter a UTR between 1.00 and 16.50.";
+  if (currentUtr != null && currentUtr > 0 && Math.round(value * 100) <= Math.round(currentUtr * 100)) {
+    return `Your goal needs to be above your current UTR, ${formatPlayerUtr(currentUtr)}.`;
+  }
+  return null;
+}
+
+/* ==========================================================================
+ * REALISTIC TARGETS (/plan's "Show realistic targets")
+ * ==========================================================================
+ * A target is realistic when the ONE estimate — the rating this module
+ * projects to the summer before senior year — reaches its competitive
+ * floor: the report's recruiting-time band is Target or Likely. A Reach is
+ * by definition below the floor even at that estimate, and Out of range is
+ * below it on the player's own logged pace too. For a player whose summer
+ * has begun the recruiting band IS today's band.
+ *
+ * Read from the report built WITHOUT the what-if override: dragging the
+ * slider must not change which targets are "realistic" for the player they
+ * actually are.
+ */
+export function isRealisticTarget(report: FitReport | null, slug: string): boolean {
+  const row = report?.rows.find((r) => r.slug === slug);
+  return row != null && (row.recruitingBand === "target" || row.recruitingBand === "likely");
 }
 
 /** The caption to render under a projected number. Always paired with it —
@@ -484,10 +639,7 @@ export function loggedPaceAssumption(
 export function utrHistoryFromEntries(
   entries: readonly { utr: number; recordedAt: string }[]
 ): UtrDataPoint[] {
-  return entries.map((e) => ({
-    date: /^\d{4}-\d{2}-\d{2}$/.test(e.recordedAt) ? parseLocalDate(e.recordedAt) : new Date(e.recordedAt),
-    utr: e.utr,
-  }));
+  return entries.map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }));
 }
 
 /**
@@ -819,11 +971,6 @@ export function isUsableUtr(v: number | null | undefined): v is number {
   return typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 16.5;
 }
 
-/** The player's own figure as they typed it: 8.25 → "8.25", 9 → "9.0". */
-export function playerUtrText(v: number): string {
-  return v.toFixed(2).replace(/(\.\d)0$/, "$1");
-}
-
 /** The note when the summer before senior year has already begun. */
 export const SUMMER_STARTED_NOTE = "The summer before senior year has started, so this is today's UTR.";
 
@@ -837,7 +984,7 @@ export function diagnosticPastRatings(input: {
   yearAgoUtr?: number | null;
   now: Date;
 }): UtrDataPoint[] {
-  const at = (monthsAgo: number) => parseLocalDate(localDateString(shiftLocalMonths(input.now, -monthsAgo)));
+  const at = (monthsAgo: number) => parseLocalDate(toLocalDateString(shiftLocalMonths(input.now, -monthsAgo)));
   const out: UtrDataPoint[] = [];
   if (isUsableUtr(input.yearAgoUtr)) out.push({ date: at(12), utr: input.yearAgoUtr });
   if (isUsableUtr(input.sixMonthsAgoUtr)) out.push({ date: at(6), utr: input.sixMonthsAgoUtr });
@@ -870,7 +1017,7 @@ export function diagnosticProjection(input: {
     recruiting.source === "current" ? "summer-started" : recruiting.source;
   return {
     value: recruiting.value,
-    display: recruiting.value === today ? playerUtrText(today) : recruiting.value.toFixed(1),
+    display: recruiting.value === today ? formatPlayerUtr(today) : formatUtrEstimate(recruiting.value),
     todayUtr: today,
     basis,
     isEstimate: recruiting.isProjected,

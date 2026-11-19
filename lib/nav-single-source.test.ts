@@ -3,7 +3,9 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   PARENT_NAV_LINKS,
+  PARENT_TOOL_LINKS,
   PLAYER_NAV_LINKS,
+  PLAYER_TOOL_LINKS,
   SHARED_SECONDARY_LINKS,
 } from "@/components/seeded/layout/nav-links";
 import { isParentAllowedPath, isPlayerBlockedPath } from "./route-access";
@@ -29,7 +31,7 @@ const PUBLIC = new Set<string>(PUBLIC_CONTENT_ROUTES);
 
 describe("navigation: one list, and every link reaches its page", () => {
   it("every parent link is a page a parent can actually open", () => {
-    for (const l of [...PARENT_NAV_LINKS, ...SHARED_SECONDARY_LINKS]) {
+    for (const l of [...PARENT_NAV_LINKS, ...PARENT_TOOL_LINKS, ...SHARED_SECONDARY_LINKS]) {
       expect(
         isParentAllowedPath(l.href) || PUBLIC.has(l.href),
         `${l.href} is in the parent nav but AuthGate bounces a parent from it`
@@ -38,13 +40,26 @@ describe("navigation: one list, and every link reaches its page", () => {
   });
 
   it("no player link leads to a page AuthGate bounces a player from", () => {
-    for (const l of [...PLAYER_NAV_LINKS, ...SHARED_SECONDARY_LINKS]) {
+    for (const l of [...PLAYER_NAV_LINKS, ...PLAYER_TOOL_LINKS, ...SHARED_SECONDARY_LINKS]) {
       expect(isPlayerBlockedPath(l.href), l.href).toBe(false);
     }
   });
 
+  it("the player's primary nav is exactly the five; Results and the tournament checker are Tools", () => {
+    // CLAUDE.md: "5-item nav: Today, Plan, Schools, Outreach, Events" — the
+    // Tools group (docs/DECISIONS.md, 2026-11-18) is secondary, not a sixth.
+    expect(PLAYER_NAV_LINKS.map((l) => l.label)).toEqual(["Today", "Plan", "Schools", "Outreach", "Events"]);
+    expect(PLAYER_TOOL_LINKS.map((l) => l.href)).toEqual(["/matches", "/tournament-fit"]);
+    const sidebar = read(join(ROOT, "components/seeded/layout/sidebar.tsx"));
+    const palette = read(join(ROOT, "components/seeded/shared/command-palette.tsx"));
+    expect(sidebar).toMatch(/PLAYER_TOOL_LINKS/);
+    expect(palette).toMatch(/PLAYER_TOOL_LINKS/);
+    // The theme toggle lives in Settings → Appearance only.
+    expect(sidebar).not.toMatch(/DarkModeToggle/);
+  });
+
   it("the parent nav never offers the player's write surfaces", () => {
-    const hrefs = PARENT_NAV_LINKS.map((l) => l.href);
+    const hrefs = [...PARENT_NAV_LINKS, ...PARENT_TOOL_LINKS].map((l) => l.href);
     for (const p of ["/events", "/outreach", "/plan", "/today", "/training", "/matches"]) {
       expect(hrefs).not.toContain(p);
     }

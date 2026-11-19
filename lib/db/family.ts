@@ -5,7 +5,7 @@
 // of the former lib/supabase/budget.ts.
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
-import { resolveGraduationYear } from "@/lib/time";
+import { isCalendarDateKey, resolveGraduationYear } from "@/lib/time";
 import { narrowLiteral, narrowOptionalLiteral } from "./narrow";
 import {
   approvedFamilyMemberIds,
@@ -340,7 +340,7 @@ export function validateBudgetExpenseInput(input: NewBudgetExpenseInput): string
   if (!input.label || !input.label.trim()) return "A short description is required.";
   if (!BUDGET_EXPENSE_CATEGORIES.includes(input.category)) return "Choose a valid category.";
   if (!Number.isFinite(input.amount) || input.amount < 0) return "Cost can't be negative.";
-  if (!input.expenseDate || Number.isNaN(Date.parse(input.expenseDate))) {
+  if (!isCalendarDateKey(input.expenseDate)) {
     return "Enter a valid date.";
   }
   return null;

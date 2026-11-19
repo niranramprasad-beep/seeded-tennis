@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Eye } from "lucide-react";
 import type { BudgetBar, ParentDashboardModel, WeekAction } from "@/lib/parent-dashboard";
 import { formatMoney } from "@/lib/parent-dashboard";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr } from "@/lib/utils";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
@@ -167,7 +167,7 @@ export function DashboardBody({
               (preview ? (
                 <InertButton>Edit budget</InertButton>
               ) : (
-                <SeededButton variant="secondary" className="min-h-10 px-4" onClick={onEditBudget}>
+                <SeededButton variant="secondary" className="min-h-11 px-4 sm:min-h-10" onClick={onEditBudget}>
                   Edit budget
                 </SeededButton>
               ))}
@@ -265,7 +265,7 @@ export function DashboardBody({
                 ) : model.targets.judging ? (
                   <DataNote>
                     Bands use {child}&rsquo;s UTR today:{" "}
-                    <span className="font-mono text-ink">{model.targets.judging.value.toFixed(2)}</span>.
+                    <span className="font-mono text-ink">{formatPlayerUtr(model.targets.judging.value)}</span>.
                   </DataNote>
                 ) : null}
               </div>
@@ -353,7 +353,7 @@ function ActionButton({ action, preview }: { action: WeekAction; preview: boolea
   return (
     <Link
       href={action.href}
-      className={cn(seededButtonVariants({ variant: action.primary ? "primary" : "secondary" }), "min-h-10 shrink-0 px-4")}
+      className={cn(seededButtonVariants({ variant: action.primary ? "primary" : "secondary" }), "min-h-11 shrink-0 px-4 sm:min-h-10")}
     >
       {action.label}
     </Link>
@@ -365,7 +365,7 @@ function ActionButton({ action, preview }: { action: WeekAction; preview: boolea
  *  Family" is that screen's one primary. */
 function InertButton({ children }: { children: ReactNode }) {
   return (
-    <span aria-hidden className={cn(seededButtonVariants({ variant: "secondary" }), "pointer-events-none min-h-10 shrink-0 px-4")}>
+    <span aria-hidden className={cn(seededButtonVariants({ variant: "secondary" }), "pointer-events-none min-h-11 shrink-0 px-4 sm:min-h-10")}>
       {children}
     </span>
   );

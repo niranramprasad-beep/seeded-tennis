@@ -13,6 +13,16 @@
 
 ## Executive status
 
+**2026-11-19 — Rollout: 041–045 on production; PR B (#6) merged.** Backup
+first (pg_dump + JSON snapshot in `~/seeded-backups/`), then each migration in
+its own transaction with its ledger row (production ledger 42 → 47), each
+followed by GO-SEQUENCE's probe as real users in a rolled-back transaction —
+all passed, nothing rolled back, no probe residue. 042 locked 5 families, of
+which only NIRAN-0LK2 (the owner's test family) has more than one member.
+PR B deployed (`dpl_E5AxjbACRiSmUGSBdydZ7RwC7mBZ`), every public route 200,
+0 runtime errors. PR C (#7) merges next. Report:
+`~/seeded-evidence/rollout-2026-11-19/REPORT.md`.
+
 **2026-11-19 — PR B: migration 045, one Family plan = one family (owner's
 decision).** A Family plan now unlocks only the payer's home family
 (`home_family_code()`, the rule `my_family_code()` already used), and a family
@@ -25,6 +35,84 @@ the day. /pricing, the Family card, compare table, FAQ, paywall and /privacy
 say "For one family: up to 4 players and 2 parents". Closes TODO "one plan
 unlocks many families". HANDOFF §J Step 20; DECISIONS 2026-11-19.
 
+**2026-11-18 — one-run build: PR B (#6) and PR C (#7) open, nothing merged,
+nothing on production.** PR B: diagnostic onboarding (board 20), parent
+dashboard (board 22), Family plan lock (042 + 044, RLS), billing page,
+parent email verification (043), one projection rule shared by onboarding
+and the app. PR C: production sweep C1–C30 — 29 fixed and proved by
+`scripts/sweep-c.mjs`, C30 (Google end-to-end) blocked on enabling Google on
+staging; catalog expansion plan (`docs/CATALOG_EXPANSION.md`). **Waiting on
+Niran:** S1 (migrations 041–044 to production, GO-SEQUENCE §3b, backup
+first), S2 (hide vs delete production's 28 generated workout sessions), comps
+(one production parent, `025d6b77…`, will see the paywall), the nav "Tools"
+group sign-off, "one Family plan unlocks many families", Supabase redirect
+URL for `/auth/verified`, and Google on staging (C30).
+
+**2026-11-18 — PR C verified by script, and the review's fixes (no
+migrations, not pushed).** `scripts/sweep-c.mjs` checks C1–C30 against a
+production build on staging as the sweep persona and writes
+`~/seeded-evidence/production-sweep-1/SWEEP.md`: 28 fixed, C29 fixed, C30
+blocked on a dashboard step (staging has no Google provider; the button and
+the new-user → /auth/complete path are checked in code). The run found two
+items not actually fixed and they are: /plan's Recent results said "vs
+opponent 6.10" over a named opponent (C14) and its "Log a result" went to a
+query nothing read (C2); the school page and /events stretched a short card
+to its neighbour's height (C22). Phone sweep (320 + 375, player, Family
+parent, free parent): 942 taps under 44px on 156 page loads → 0, no
+sideways scroll, nothing under the tab bar; budget modals and the
+delete-account dialog render on document.body like the other overlays.
+Review fixes: /events shows every hand-added session (manual plan, the old
+"My sessions" plan, or added a minute after its plan), not only the new
+manual plan's; session-save errors are plain words; Legacy /today draws
+the one projection and prints a chosen goal with two decimals; Legacy /plan
+never prints a 0.00 goal; a goal at or below today's rating is rejected;
+the native-dialog and local-date guards catch the bypasses the review found.
+The nav Tools group was approved 2026-11-19. Still open:
+the tab bar's 11px labels (mockup) and a ~0.07 CLS the harness sees on
+phone /today that cls-sources.mjs cannot reproduce.
+
+**2026-11-18 — PR C integrated (branch `fix/production-sweep-1`, on top of
+PR B; not pushed, no migrations).** The three sweep branches (events/results/
+check-ins/nav; numbers; tournament/outreach/schools/settings) are merged onto
+PR B with PR B's rebuilt screens kept and each sweep fix re-applied to them.
+One formatter per kind of number (`formatPlayerUtr` two decimals for a
+logged rating, `formatUtrEstimate` one for projections and team numbers;
+PR B's `formatUtr2` / `playerUtrText` and the sweep's local `utr2` /
+`playerUtrText` helpers are gone) and one local-date parser
+(`parseLocalDate` / `formatShortDate`; PR B's `localDateString` /
+`localDate` / `shortLocalDate` and five hand-rolled `T00:00:00` copies are
+gone). The parent chart draws `projectionPath(report.utr)`. /events'
+Upcoming card no longer crashes for a player with no UTR and gives no verdict
+for an entry saved without a fee.
+**2026-11-18 — PR C, numbers (C5, C8–C12, C16, C19, C21, C24; no
+migrations).** One projection: the school page's Pace row, both charts and
+/plan's default goal all read the fit report's `utr` (`projectionPath`,
+`resolvePlanGoal`, the report's `utr`), locked by
+`lib/projection-single-source.test.ts`. A player's own rating always prints
+with two decimals (`formatPlayerUtr`, lib/utils.ts — 5.95 was going to
+coaches as "UTR 6.0"), guarded by `lib/player-utr-format.test.ts`.
+Date-only values are local days (`toLocalDateString` / `parseLocalDate`,
+lib/time.ts), guarded by `lib/local-dates.test.ts`; `npm run test:tz` runs
+the suite under New York and Auckland. /plan's goal is the player's choice
+(saved in `user_settings`) or the report's estimate — never the
+hardest target's floor; Today shows the same pace warning. Today offers real
+next steps instead of "all caught up" over "On track for 0 of 4". Decisions:
+docs/DECISIONS.md 2026-11-18.
+**2026-11-18 — PR C sweep, events/results/check-ins (branch
+`worktree-agent-a12d20489df582ed0`, not pushed, no migrations).** The
+calendar is manual-only in code: the /training planner, its generator and
+templates, Match mode and `generatePrepPlan()` are deleted, `/training` and
+`/match-mode` redirect, and the calendar reads only the player's manual plan
+— production's 28 generated sessions are hidden, not deleted (**Niran to
+decide** delete vs keep, DECISIONS 2026-11-18). Per-row
+`/api/training/sessions` replaces the whole-state save that would have
+deleted them. Week and Month render one date-keyed list. "Log a result"
+opens the real result form; /matches rebuilt (labels, 44px, no gradients,
+Seeded delete dialog + Undo); Today's check-in is one drawer with a
+check-in history page; Results + Tournament checker are a "Tools" group;
+overlays render in a portal (the check-in Save button was under the phone
+tab bar). New guards: no-native-dialogs, plural, gradients, calendar one
+source; training-no-autogen rewritten to "stays deleted".
 **2026-11-18 — PR B (app side, in progress).** /family rebuilt to Board 22
 (KPIs, UTR trend chart with the lib/fit.ts estimate, budget bars, recent
 expenses, targets, "For you this week") and the Family paywall (B4) on the
@@ -894,7 +982,10 @@ ranked week-1 list in `docs/TODO.md`.
    reconcile the paid bullis.org membership.
 3. **Supabase Auth settings**: custom SMTP (Google Workspace,
    support@seededtennis.com, 80/hour), leaked-password protection, minimum
-   password length. Re-test one real signup end to end.
+   password length. Re-test one real signup end to end. For PR C's C30:
+   enable the Google provider on STAGING (steps in
+   `~/seeded-evidence/production-sweep-1/C30-google.md`) so the Google
+   sign-in can be run end to end before it ships.
 4. **The people who asked to be deleted under the old flow** (HANDOFF §J
    step 7) — a real deletion by hand, with their confirmation. And the
    privacy policy that names processors and retention, reviewed by an adult
@@ -942,7 +1033,11 @@ ranked week-1 list in `docs/TODO.md`.
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the
    highest-value data task: every band rests on unsourced team ranges.
-9. **Delete Legacy (P1-UX-2) and `generatePersonalizedPlan()`.**
+9. **Delete Legacy (P1-UX-2).** `generatePersonalizedPlan()`, the /training
+   planner and Match mode are deleted (2026-11-18). Open from that pass:
+   Niran's call on production's 28 hidden generated sessions; the
+   parent-login gradient (auth pass); `ModalShell` needs the same portal
+   fix as Drawer.
 10. **Observability** — no error tracking or alerting exists; the billing
     failure is what that looks like in practice.
 

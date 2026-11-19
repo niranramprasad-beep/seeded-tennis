@@ -5,38 +5,35 @@
 // former lib/data/index.ts's roadmap/training-plan exports, lib/supabase/
 // utr.ts, lib/supabase/recruiting-checklist.ts, and daily_checkins' slice
 // of lib/supabase/features.ts — same bodies, moved, not rewritten.
-import type { Player, RoadmapYear, School, TrainingPlan } from "@/lib/types";
-import { MILESTONES_BEFORE_GRADE, REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade } from "@/lib/time";
+import type { Player, RoadmapYear, TrainingPlan } from "@/lib/types";
+import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
+import { getCurrentGrade, getSummerBeforeGradeYear, isCalendarDateKey, localDateKey, ordinalGrade, startOfLocalDay } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
-import { getSchoolsBySlugs } from "./schools";
 import { trainingPlans as trainingPlansData } from "./plan-data-training-plans";
 import type { Tables } from "./database.types";
 
 /* ---------------------------------------------------------------- roadmap */
 
-// Pure derivation. Given a player and their resolved target schools, produce a
+// Pure derivation. Given a player and their plan goal, produce a
 // checkpoint-by-checkpoint UTR roadmap. Each checkpoint is the SUMMER BEFORE a
-// grade (the recruiting-relevant window), and the goal UTR is the highest
-// minimum-competitive bar among the targets — already gender-correct because the
-// targets come from the matching men's/women's program data.
+// grade (the recruiting-relevant window), on the straight line from today's
+// rating to the goal at the summer before senior year.
+//
+// The goal comes from lib/fit.ts `resolvePlanGoal` — the one the player set,
+// or the typical-growth estimate every screen already prints. It used to be
+// the floor of the HARDEST target school, so every checkpoint (and /today's
+// "Next checkpoint") moved whenever a target was added: 8.90 → 9.0 → 9.50,
+// and a default plan needing 3.9 UTR a year (C11, 2026-11-18).
 export function buildRoadmap(
-  player: Player,
-  targets: Pick<School, "minCompetitiveUTR">[]
+  player: Pick<Player, "currentUTR" | "graduationYear">,
+  goalUTR: number,
+  now: Date = new Date()
 ): RoadmapYear[] {
-  // Fallback goal when no targets are chosen: aim ~2.5 above today, capped at
-  // a realistic top-of-college-tennis level for each gender (real UTR scale).
-  const genderCap = REALISTIC_UTR_CEILING[player.gender];
-  const goalUTR =
-    targets.length > 0
-      ? Math.max(...targets.map((s) => s.minCompetitiveUTR))
-      : Math.min(player.currentUTR + 2.5, genderCap);
-
-  const startGrade = Math.min(getCurrentGrade(player.graduationYear), 12);
+  const startGrade = Math.min(getCurrentGrade(player.graduationYear, now), 12);
 
   // Upcoming summers: before each remaining grade. The final target is always
   // due by the summer before senior year, not during senior year or college.
@@ -47,13 +44,17 @@ export function buildRoadmap(
   // The goal UTR must be reached by the SUMMER BEFORE SENIOR YEAR (the summer
   // before 12th grade) — the key recruiting window — then held through to
   // college. So we ramp to the goal at the grade-12 checkpoint, not at college.
-  const goalIndex = grades.indexOf(12);
+  // Progress is by TIME, so every checkpoint sits on one straight line from
+  // today to the goal — the line the chart draws. Rounded to the hundredth,
+  // the precision a UTR has.
+  const goalTime = new Date(getSummerBeforeGradeYear(player.graduationYear, 12), 5, 1).getTime();
+  const nowTime = now.getTime();
   return grades.map((g, i) => {
-    const progress = goalIndex < 0 ? 1 : Math.min(1, (i + 1) / (goalIndex + 1));
-    const utrTarget =
-      Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 10) /
-      10;
     const calendarYear = getSummerBeforeGradeYear(player.graduationYear, g);
+    const at = new Date(calendarYear, 5, 1).getTime();
+    const progress = goalTime <= nowTime ? 1 : Math.min(1, Math.max(0, (at - nowTime) / (goalTime - nowTime)));
+    const utrTarget =
+      Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 100) / 100;
     const tournamentsNeeded = 10 + i * 2;
 
     return {
@@ -71,14 +72,6 @@ export function buildRoadmap(
   });
 }
 
-export async function getRoadmap(
-  player: Player,
-  overrideSlugs?: string[]
-): Promise<RoadmapYear[]> {
-  const slugs = overrideSlugs ?? player.targetSchoolSlugs;
-  const targets = await getSchoolsBySlugs(slugs);
-  return Promise.resolve(buildRoadmap(player, targets));
-}
 
 /* ------------------------------------------------------ training catalog */
 // Static "which plan fits your current UTR" recommendation catalog behind
@@ -193,7 +186,7 @@ export function validateUtrEntryInput(input: NewUtrEntryInput): string | null {
   if (!Number.isFinite(input.utr) || input.utr < UTR_MIN || input.utr > UTR_MAX) {
     return `UTR must be between ${UTR_MIN} and ${UTR_MAX}.`;
   }
-  if (!input.recordedAt || Number.isNaN(Date.parse(input.recordedAt))) {
+  if (!isCalendarDateKey(input.recordedAt)) {
     return "Enter a valid date.";
   }
   return null;
@@ -320,14 +313,20 @@ function mapCheckin(row: Tables<"daily_checkins">): DailyCheckin {
   };
 }
 
-export async function loadDailyCheckins(subject: DataSubject = "self", signal?: AbortSignal): Promise<DailyCheckin[]> {
+/** The player's check-ins for the last `days` days (31 by default — what
+ * Today's heatmap needs; the check-in history page asks for more). */
+export async function loadDailyCheckins(
+  subject: DataSubject = "self",
+  signal?: AbortSignal,
+  days = 31
+): Promise<DailyCheckin[]> {
   const supabase = getSupabase();
   const id = await getUserId();
   if (!supabase || !id) return [];
   let query = supabase
     .from("daily_checkins")
     .select("*")
-    .gte("checkin_date", localDateKey(new Date(Date.now() - 31 * 86400000)))
+    .gte("checkin_date", localDateKey(new Date(Date.now() - days * 86400000)))
     .order("checkin_date", { ascending: true });
   // `my_family_code()`, not `p.family_code`: the latter is NULL for anyone
   // who joined with a code, so a joined parent saw only their own rows
@@ -378,7 +377,7 @@ export async function saveDailyCheckin(input: {
 export function calculateStreak(checkins: DailyCheckin[]): number {
   const dates = new Set(checkins.map((c) => c.date));
   let streak = 0;
-  const cursor = new Date(`${localDateKey()}T00:00:00`);
+  const cursor = startOfLocalDay(new Date());
   while (dates.has(localDateKey(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);

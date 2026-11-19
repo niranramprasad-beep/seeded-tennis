@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { localDateKey } from "@/lib/time";
+import { utrInputValue } from "@/lib/utils";
 import type { MatchRecord } from "@/lib/db/events";
 
 const SURFACES: MatchRecord["surface"][] = ["hard", "clay", "grass", "indoor"];
@@ -47,7 +48,7 @@ export function SundayCheckinDrawer({
   onClose: () => void;
   onSave: (input: SundayCheckinSaveInput) => void;
 }) {
-  const [utr, setUtr] = useState(currentUtr.toFixed(1));
+  const [utr, setUtr] = useState(utrInputValue(currentUtr));
   const [logMatch, setLogMatch] = useState(false);
   const [matchDate, setMatchDate] = useState(localDateKey());
   const [result, setResult] = useState<"win" | "loss">("win");
@@ -58,7 +59,7 @@ export function SundayCheckinDrawer({
 
   useEffect(() => {
     if (!open) return;
-    setUtr(currentUtr.toFixed(1));
+    setUtr(utrInputValue(currentUtr));
     setLogMatch(false);
     setMatchDate(localDateKey());
     setResult("win");
@@ -178,7 +179,7 @@ export function SundayCheckinDrawer({
                 <input
                   value={score}
                   onChange={(event) => setScore(event.target.value)}
-                  placeholder="6-4, 6-2"
+                  placeholder="e.g. 6-4, 6-2"
                   className="h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
                 />
               </label>

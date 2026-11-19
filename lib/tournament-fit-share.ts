@@ -28,7 +28,8 @@ export function travelHoursForPill(pill: TravelPill): number {
 
 export interface ShareableFitState {
   name: string;
-  level: FitLevel;
+  /** null = not chosen yet. The checker no longer pre-selects a level (C15). */
+  level: FitLevel | null;
   /** null = "use whatever UTR the opener has" (their own profile, if any). */
   playerUtr: number | null;
   travel: TravelPill;
@@ -49,7 +50,7 @@ const PARAM = {
 export function encodeTournamentFitShareParams(state: ShareableFitState): URLSearchParams {
   const params = new URLSearchParams();
   if (state.name.trim()) params.set(PARAM.name, state.name.trim());
-  params.set(PARAM.level, state.level);
+  if (state.level) params.set(PARAM.level, state.level);
   if (state.playerUtr != null && Number.isFinite(state.playerUtr)) {
     params.set(PARAM.utr, state.playerUtr.toFixed(2));
   }

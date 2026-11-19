@@ -16,7 +16,7 @@ const COLUMNS: {
     links: [
       { href: "/schools", label: "Browse schools" },
       { href: "/roadmap", label: "Roadmap" },
-      { href: "/training", label: "Training calendar" },
+      { href: "/events", label: "Training calendar" },
       { href: "/tournament-fit", label: "Tournament fit" },
       { href: "/coaches", label: "Coach outreach" },
     ],

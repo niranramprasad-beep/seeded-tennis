@@ -5,12 +5,12 @@ import Link from "next/link";
 import type { Gender, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { schoolUtrRange, utrToPct } from "@/lib/school-fit";
-import { buildDiagnosticFitReport, playerUtrText, projectionTargetLabel, type FitView } from "@/lib/fit";
+import { buildDiagnosticFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
 import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagnostic";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn } from "@/lib/utils";
-import { RECRUITING_TIMING_NOTE, EARLY_DECISION_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/growth";
+import { cn, formatPlayerUtr, formatUtrEstimate, plural } from "@/lib/utils";
+import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/growth";
 import { type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { DiagnosticSaveForm } from "@/components/seeded/onboarding/diagnostic/diagnostic-save";
@@ -87,7 +87,7 @@ export function DiagnosticFitReport({
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-6 px-4 pb-16 pt-8 sm:px-6">
         <section className="min-w-0 flex-[999_1_640px]">
           <p className="m-0 text-sm text-stone">
-            {GENDER_LABEL[gender]} · {today != null ? <>UTR <span className="font-mono">{playerUtrText(today)}</span></> : "No UTR yet"}
+            {GENDER_LABEL[gender]} · {today != null ? <>UTR <span className="font-mono">{formatPlayerUtr(today)}</span></> : "No UTR yet"}
             {values.gradYear != null ? ` · Class of ${values.gradYear}` : ""}
             {values.gpa != null ? ` · GPA ${answers.gpaText.trim()}` : ""}{" "}
             <button
@@ -191,13 +191,16 @@ export function DiagnosticFitReport({
             )}
             {/* "Projected to the summer before senior year" is only true
                 when a projection was made. */}
-            <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
-              {projection?.isEstimate ? `${RECRUITING_TIMING_NOTE} ` : ""}
-              {projection?.basis === "typical-growth"
-                ? `Add a rating from 6 or 12 months ago (Change answers) to use ${parent ? "your player's" : "your"} own pace instead of typical growth. `
-                : ""}
-              {EARLY_DECISION_NOTE}
-            </p>
+            {/* No early-decision line here: the diagnostic's result screen,
+                one click before this one, already says it (C16 — once). */}
+            {(projection?.isEstimate || projection?.basis === "typical-growth") && (
+              <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
+                {projection?.isEstimate ? `${RECRUITING_TIMING_NOTE} ` : ""}
+                {projection?.basis === "typical-growth"
+                  ? `Add a rating from 6 or 12 months ago (Change answers) to use ${parent ? "your player's" : "your"} own pace instead of typical growth.`
+                  : ""}
+              </p>
+            )}
           </section>
 
           {report && report.counts.reach + total === 0 && (
@@ -289,8 +292,8 @@ export function DiagnosticFitReport({
                           youPct={utrToPct(judging)}
                           caption={
                             projectedView
-                              ? `Summer ${report.utr.year} ${projection?.display ?? ""} (estimate) · today ${today != null ? playerUtrText(today) : ""} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                              : `${parent ? "Player" : "You"} ${playerUtrText(judging)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                              ? `Summer ${report.utr.year} ${projection?.display ?? ""} (estimate) · today ${today != null ? formatPlayerUtr(today) : ""} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                              : `${parent ? "Player" : "You"} ${formatPlayerUtr(judging)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                           }
                           low={range.min}
                           median={(range.min + range.max) / 2}
@@ -322,7 +325,7 @@ export function DiagnosticFitReport({
       </div>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">
         Fit bands use {parent ? "the" : "your"} UTR and each program&apos;s roster range:{" "}
-        {filtered.length} programs for {GENDER_LABEL[gender]} in the catalog.
+        {plural(filtered.length, "program", "programs")} for {GENDER_LABEL[gender]} in the catalog.
       </p>
     </div>
   );

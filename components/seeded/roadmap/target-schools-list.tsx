@@ -86,7 +86,7 @@ export function TargetSchoolsList({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Add a target school…"
           aria-label="Search schools to add to your target list"
-          className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus"
+          className="h-11 w-full rounded-md border border-input bg-card pl-9 pr-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-10 sm:text-sm"
         />
         {matches.length > 0 && (
           <ul className="absolute z-10 mt-1 w-full rounded-md border border-line bg-card py-1 shadow-card">
@@ -169,9 +169,10 @@ export function TargetSchoolsList({
                     starred={isStarred(s.slug)}
                     onToggle={() => toggleStar(s.slug, s.shortName)}
                     label={s.shortName}
-                    className="h-7 w-7"
+                    className="sm:h-7 sm:w-7"
                   />
-                  <Link href={`/schools/${s.slug}`} className="block min-h-6 truncate leading-6 text-ink hover:text-grass">
+                  {/* 44px tall on phones (C29); the star keeps its 44px too. */}
+                  <Link href={`/schools/${s.slug}`} className="flex min-h-11 min-w-11 items-center truncate text-ink hover:text-grass sm:block sm:min-h-6 sm:min-w-0 sm:leading-6">
                     {s.shortName}
                   </Link>
                 </div>

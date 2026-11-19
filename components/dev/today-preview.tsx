@@ -9,7 +9,8 @@ import {
   type SundayCheckinSaveInput,
 } from "@/components/dashboard/sunday-checkin-drawer";
 import { createUtrEntry } from "@/lib/db/plan";
-import { generatePrepPlan, saveMatch } from "@/lib/db/events";
+import { parseLocalDate } from "@/lib/time";
+import { saveMatch } from "@/lib/db/events";
 
 // Internal tool only — pixel-checks /today's real action-list/chart/targets
 // rendering without signing in through real auth (local dev shares
@@ -62,7 +63,7 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
   const [sundayStatus, setSundayStatus] = useState<"idle" | "saving" | "error">("idle");
   const [sundayError, setSundayError] = useState("");
 
-  const actualPoints = utrEntries.map((e) => ({ date: new Date(`${e.recordedAt}T00:00:00`), utr: e.utr }));
+  const actualPoints = utrEntries.map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr }));
   const targetPoints = [
     { date: now, utr: player.currentUTR },
     { date: new Date(now.getFullYear() + 1, 5, 1), utr: 11.2 },
@@ -95,17 +96,10 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
       });
 
       if (input.match) {
-        const prepPlan = generatePrepPlan({
-          weaknesses: player.weaknesses,
-          surface: input.match.surface,
-          currentUtr: input.utr,
-          opponentUtr: null,
-        });
         await saveMatch({
           matchDate: input.match.matchDate,
           opponent: input.match.opponent,
           surface: input.match.surface,
-          prepPlan,
           result: input.match.result,
           score: input.match.score,
           notificationRequested: false,
@@ -132,6 +126,8 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         tier="player"
         player={player}
         targetUTR={11.2}
+        estimatePath={[]}
+        goalUtr={11.2}
         utrStatus="idle"
         utrError=""
         actualPoints={actualPoints}
@@ -139,12 +135,14 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         UTRTrajectoryChart={UTRTrajectoryChart}
         weeklyHours={0}
         weekSessions={[]}
-        plannerState={null}
         targetSchools={targetSchools}
         setUtrDrawerOpen={() => {}}
         setCheckinDrawerOpen={() => {}}
         sundayCheckinDue
         setSundayCheckinOpen={setSundayCheckinOpen}
+        planGoal={{ value: 11.2, source: "chosen", estimate: null }}
+        goalPace={null}
+        onUseEstimateGoal={() => {}}
       />
       <SundayCheckinDrawer
         open={sundayCheckinOpen}

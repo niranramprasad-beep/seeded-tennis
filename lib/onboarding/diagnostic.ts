@@ -13,7 +13,7 @@ import {
   getCurrentGrade,
   getCurrentSchoolYear,
   getDefaultCommitDate,
-  localDateString,
+  toLocalDateString,
   monthYearLabel,
   shiftLocalMonths,
 } from "@/lib/time";
@@ -203,7 +203,7 @@ export function pastRatingMonthLabel(monthsAgo: number, now: Date = new Date()):
 /** The local calendar date a past rating is recorded at: the same day of
  * the month, `monthsAgo` months back (clamped to a shorter month). */
 export function pastRatingDate(monthsAgo: number, now: Date = new Date()): string {
-  return localDateString(shiftLocalMonths(now, -monthsAgo));
+  return toLocalDateString(shiftLocalMonths(now, -monthsAgo));
 }
 
 /** Class of {this year's seniors} … four years on. Computed, never typed:
@@ -297,7 +297,7 @@ export function diagnosticUtrEntries(a: DiagnosticAnswers, now: Date = new Date(
   if (v.utrSixMonthsAgo != null) {
     rows.push({ utr: v.utrSixMonthsAgo, recordedAt: pastRatingDate(6, now), note: "About 6 months ago (from sign-up)" });
   }
-  rows.push({ utr: v.utrToday, recordedAt: localDateString(now), note: "Starting UTR" });
+  rows.push({ utr: v.utrToday, recordedAt: toLocalDateString(now), note: "Starting UTR" });
   return rows;
 }
 

@@ -33,7 +33,7 @@ export const MatchesBodySchema = z.discriminatedUnion("kind", [
     opponentUtr: z.number().nullable().optional(),
     tournamentName: z.string().optional(),
     surface: z.enum(["hard", "clay", "grass", "indoor"]),
-    prepPlan: PrepPlanSchema,
+    prepPlan: PrepPlanSchema.optional(),
     notificationRequested: z.boolean().optional(),
     result: z.enum(["win", "loss"]).nullable().optional(),
     score: z.string().optional(),

@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
-import type { SchoolLite } from "@/lib/types";
+import type { RoadmapYear, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { buildRoadmap } from "@/lib/db/plan";
+import { usePlanGoal, type UsePlanGoalResult } from "@/lib/hooks/use-plan-goal";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { Reveal } from "@/components/shared/reveal";
 import { SpotlightCard } from "@/components/shared/spotlight-card";
 import { useDesign } from "@/lib/context/design-context";
 import { SeededRoadmapLayout } from "@/components/seeded/roadmap/seeded-roadmap-layout";
-import { formatUTR, cn, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 
 // recharts only loads once this chart actually renders, on the client.
 const UTRLineChart = dynamic(
@@ -64,12 +64,14 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
     [schools, whatIf]
   );
 
-  const roadmap = useMemo(
-    () => buildRoadmap(player, targetSchools),
-    [player, targetSchools]
-  );
-
-  const goalUTR = roadmap[roadmap.length - 1]?.utrTarget ?? player.currentUTR;
+  // One goal for /plan and /today (lib/hooks/use-plan-goal.ts): the one the
+  // player set, or the typical-growth estimate. No longer the hardest
+  // target's floor — adding a target must not move the plan (C11).
+  const planGoal = usePlanGoal(player);
+  const roadmap = planGoal.roadmap;
+  // null with no real UTR: the 0 sentinel must never print as a goal
+  // ("From Not tracked to 0.00", "Your goal UTR 0.00", a "Target 0.0" chart).
+  const goalUTR = hasRealUtr(player.currentUTR) ? (planGoal.goal?.value ?? null) : null;
 
   const chartData = useMemo(
     () => [
@@ -111,6 +113,7 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
     chartData,
     pickerSchools,
     toggle,
+    planGoal,
   };
 
   return design === "seeded" ? (
@@ -126,11 +129,14 @@ export interface RoadmapLayoutProps {
   openStage: number | null;
   setOpenStage: (i: number | null) => void;
   targetSchools: SchoolLite[];
-  roadmap: ReturnType<typeof buildRoadmap>;
-  goalUTR: number;
+  roadmap: RoadmapYear[];
+  /** Null when the player has no real UTR (or no goal) — Legacy shows the
+   * honest no-UTR state instead of a number. */
+  goalUTR: number | null;
   chartData: { label: string; utr: number }[];
   pickerSchools: SchoolLite[];
   toggle: (slug: string) => void;
+  planGoal: UsePlanGoalResult;
 }
 
 function LegacyRoadmapLayout({
@@ -150,16 +156,22 @@ function LegacyRoadmapLayout({
       <Reveal className="max-w-2xl">
         <span className="eyebrow text-gold">Your roadmap</span>
         <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-          From {formatUtrOrNotTracked(player.currentUTR)} to{" "}
-          <span className="serif-accent text-grass">{formatUTR(goalUTR)}</span>,
-          year by year.
+          {goalUTR != null ? (
+            <>
+              From {formatUtrOrNotTracked(player.currentUTR)} to{" "}
+              <span className="serif-accent text-grass">{formatPlayerUtr(goalUTR)}</span>,
+              year by year.
+            </>
+          ) : (
+            "Your plan starts with your UTR."
+          )}
         </h1>
         <p className="mt-3 text-pretty leading-relaxed text-stone">
           Every target is set for the{" "}
           <span className="font-medium text-ink">summer before</span> that grade —
-          the window that actually matters for recruiting — and tuned so you clear
-          the most demanding school on your list. Adjust your what-if picks below
-          and watch the plan re-tune.
+          the window that actually matters for recruiting — on a straight line to
+          your goal: the one you set on the Seeded plan, or where typical growth
+          puts you by the summer before senior year.
         </p>
       </Reveal>
 
@@ -172,26 +184,36 @@ function LegacyRoadmapLayout({
             <h2 className="text-lg font-medium text-ink">UTR trajectory</h2>
           </div>
           <div className="mt-4">
-            <UTRLineChart
-              key={whatIf.join("-")}
-              data={chartData}
-              target={goalUTR}
-              height={280}
-            />
+            {goalUTR != null ? (
+              <UTRLineChart
+                key={whatIf.join("-")}
+                data={chartData}
+                target={goalUTR}
+                height={280}
+              />
+            ) : (
+              <p className="rounded-xl bg-cream/70 px-4 py-6 text-sm text-stone">
+                Not tracked yet. Log your UTR on Today and your year-by-year targets appear here.
+              </p>
+            )}
           </div>
         </Card>
         </Reveal>
 
         <Reveal index={2}>
         <Card className="flex h-full flex-col justify-center bg-grass p-6 text-on-primary shadow-glow">
-          <p className="text-sm text-on-primary/80">Goal UTR to be competitive</p>
+          <p className="text-sm text-on-primary/80">Your goal UTR</p>
           <div className="mt-1 text-6xl font-light">
-            <AnimatedNumber key={goalUTR} value={goalUTR} decimals={1} />
+            {goalUTR != null ? (
+              <AnimatedNumber key={goalUTR} value={goalUTR} decimals={2} />
+            ) : (
+              <span className="text-3xl font-semibold">Not tracked</span>
+            )}
           </div>
           <p className="mt-3 text-sm text-on-primary/80">
-            {hasRealUtr(player.currentUTR)
-              ? `+${formatUTR(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
-              : "Log a UTR to see the gap from where you are today"}
+            {goalUTR != null
+              ? `+${formatPlayerUtr(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
+              : "Log a UTR to set a goal and see the gap from where you are today."}
           </p>
           <div className="mt-4 flex flex-wrap gap-1.5">
             {targetSchools.map((s) => (
@@ -268,7 +290,7 @@ function LegacyRoadmapLayout({
                     <AnimatedNumber
                       key={`${i}-${year.utrTarget}`}
                       value={year.utrTarget}
-                      decimals={1}
+                      decimals={2}
                     />
                   </div>
                 </div>

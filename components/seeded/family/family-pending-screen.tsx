@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { plural } from "@/lib/utils";
 import { Clock } from "lucide-react";
 import {
   cancelMyFamilyRequest,
@@ -28,10 +29,10 @@ import { readMyPendingJoinCode, rememberMyPendingJoinCode } from "@/lib/db/email
 function sinceLabel(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} minutes ago`;
+  if (mins < 60) return `${plural(mins, "minute", "minutes")} ago`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} hours ago`;
-  return `${Math.round(hours / 24)} days ago`;
+  if (hours < 24) return `${plural(hours, "hour", "hours")} ago`;
+  return `${plural(Math.round(hours / 24), "day", "days")} ago`;
 }
 
 export function FamilyPendingScreen({
@@ -123,12 +124,12 @@ export function FamilyPendingScreen({
 
         {!reentering && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <SeededButton className="min-h-[38px]" disabled={busy} onClick={remind}>
+            <SeededButton className="min-h-11 sm:min-h-[38px]" disabled={busy} onClick={remind}>
               {busy ? "…" : "Remind them"}
             </SeededButton>
             <SeededButton
               variant="secondary"
-              className="min-h-[38px]"
+              className="min-h-11 sm:min-h-[38px]"
               disabled={busy}
               onClick={() => {
                 setReentering(true);
@@ -167,12 +168,12 @@ export function FamilyPendingScreen({
             />
             {codeError && <p className="mt-1.5 text-sm text-error">{codeError}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
-              <SeededButton className="min-h-[38px]" disabled={busy} onClick={submitNewCode}>
+              <SeededButton className="min-h-11 sm:min-h-[38px]" disabled={busy} onClick={submitNewCode}>
                 {busy ? "Checking…" : "Use this code"}
               </SeededButton>
               <SeededButton
                 variant="ghost"
-                className="min-h-[38px]"
+                className="min-h-11 sm:min-h-[38px]"
                 disabled={busy}
                 onClick={() => {
                   setReentering(false);
@@ -256,7 +257,7 @@ export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
         className="mt-1.5 h-[42px] w-full rounded-md border border-input bg-cream px-3 font-mono text-sm text-ink"
       />
       {error && <p className="mt-1.5 text-sm text-error">{error}</p>}
-      <SeededButton className="mt-3 min-h-[38px]" disabled={busy} onClick={submit}>
+      <SeededButton className="mt-3 min-h-11 sm:min-h-[38px]" disabled={busy} onClick={submit}>
         {busy ? "Checking…" : "Ask to join"}
       </SeededButton>
     </div>

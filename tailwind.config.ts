@@ -113,7 +113,14 @@ const config: Config = {
       },
       animation: {
         "fade-up": "fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both",
-        "fade-in": "fade-in 0.15s ease-out both",
+        // `backwards`, not `both`: an animation that keeps filling forwards
+        // stays "in effect" on opacity, and that makes the route wrapper a
+        // stacking context for ever. Every Drawer inside a page (z-50) was
+        // then painted UNDER the phone header and tab bar (z-40) — the
+        // Tournament Fit drawer's title and close button sat hidden behind
+        // the header at 375px (production sweep C3). At rest the value is
+        // opacity 1 either way.
+        "fade-in": "fade-in 0.15s ease-out backwards",
         float: "float 5s cubic-bezier(0.45, 0, 0.55, 1) infinite",
       },
       boxShadow: {

@@ -15,6 +15,7 @@ import {
   type SchoolFitBand,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
@@ -40,7 +41,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
-import { cn, hasRealUtr } from "@/lib/utils";
+import { cn, formatUtrEstimate, formatUtrFor, hasRealUtr, plural } from "@/lib/utils";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
@@ -154,7 +155,7 @@ export function SeededSchoolsBrowser({
   // those has already loaded this session.
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const realUtrHistory = useMemo(
-    () => (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+    () => (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
     [utrEntries]
   );
 
@@ -544,10 +545,19 @@ export function SeededSchoolsBrowser({
     ...(showFitCol ? ["100px"] : []),
     "minmax(0,2fr)",
     ...(showOpenings ? ["80px"] : []),
-    "90px",
+    "104px",
     ...(showDataCol ? ["110px"] : []),
   ].join(" ");
   const genderLabel = gender === "men" ? "men's" : "women's";
+  // The header counts what the table shows (C25). A remembered filter —
+  // "Saved" most often — used to leave "37 men's programs." above a
+  // one-row table. Filters still persist (a family that narrowed the list
+  // expects it narrowed next visit); the line now says so.
+  const catalogCount = allSchools.filter((s) => s.gender === gender).length;
+  const countLine =
+    visible.length === catalogCount
+      ? `${plural(catalogCount, `${genderLabel} program`, `${genderLabel} programs`)}.`
+      : `Showing ${visible.length} of ${plural(catalogCount, `${genderLabel} program`, `${genderLabel} programs`)}.`;
 
   return (
     <div>
@@ -558,8 +568,8 @@ export function SeededSchoolsBrowser({
               once the report arrived, which wrapped this line on a 320px
               phone and pushed the whole page down 24px (CLS 0.13). The Sort
               control below already says what the order is. */}
-          <p className="mt-1.5 text-stone">
-            {ranked.length} {genderLabel} programs.
+          <p className="mt-1.5 text-stone" aria-live="polite">
+            {countLine}
           </p>
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
@@ -850,7 +860,7 @@ export function SeededSchoolsBrowser({
                 <EstimateChip className="normal-case tracking-normal" label="Team range: estimate" />
               </span>
               {showOpenings && <span>Openings</span>}
-              <span title={ACADEMIC_RANK_SOURCE_LABEL}>Acad.</span>
+              <span title={ACADEMIC_RANK_SOURCE_LABEL}>Academics</span>
               {showDataCol && <span>Data</span>}
             </div>
             {visible.map((s, index) => {
@@ -951,19 +961,24 @@ export function SeededSchoolsBrowser({
                       // The team range is real data and shows either way.
                       caption={
                         judgingUtr === null
-                          ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
-                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${judgingUtr.toFixed(1)} · ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+                          ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${formatUtrFor(judgingUtr, report?.utr.isProjected ?? false)} · ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
                       you={judgingUtr}
+                      youIsEstimate={report?.utr.isProjected ?? false}
                       youLabel={projectedYouLabel(report?.utr, viewingAsParent ? (subjectName ?? "Player") : null)}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
                     )}
-                    <DataChip status="updated">{ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}</DataChip>
+                    {/* A label, not a control: plain text, so "Top 25"
+                        doesn't read as a pill you can press (C25). */}
+                    <span className="whitespace-nowrap text-sm text-stone">
+                      {ACADEMIC_TIER_LABEL[academicTier(s.usNewsRanking)]}
+                    </span>
                     {showDataCol && (
                       <DataChip status={dataVerificationChip(s).status}>{dataVerificationChip(s).label}</DataChip>
                     )}
@@ -985,9 +1000,9 @@ export function SeededSchoolsBrowser({
                       {explanation.gapToFloor != null && explanation.gapToMedian != null && (
                         <p className="mt-1.5 text-stone">
                           Gap to team floor: {explanation.gapToFloor > 0 ? "+" : ""}
-                          {explanation.gapToFloor.toFixed(1)} · Gap to team median:{" "}
+                          {formatUtrEstimate(explanation.gapToFloor)} · Gap to team median:{" "}
                           {explanation.gapToMedian > 0 ? "+" : ""}
-                          {explanation.gapToMedian.toFixed(1)}
+                          {formatUtrEstimate(explanation.gapToMedian)}
                         </p>
                       )}
                       {explanation.nextBand && (
@@ -1003,8 +1018,12 @@ export function SeededSchoolsBrowser({
                           region, and realistically in reach today.
                         </p>
                       )}
+                      {/* One sentence (C16). This printed both of
+                          explainSchoolFit()'s "…aren't tracked yet — this
+                          isn't factored into your band." notes back to back. */}
                       <p className="mt-1.5 text-xs text-stone-light">
-                        {explanation.playersLeaving} {explanation.academics}
+                        Roster openings and academic admit ranges aren&apos;t tracked yet, so neither
+                        changes this band.
                       </p>
                     </div>
                   )}
@@ -1035,6 +1054,7 @@ export function SeededSchoolsBrowser({
             utr={report.utr}
             who={viewingAsParent ? subjectName : null}
             className="mt-3"
+            withEarlyDecisionNote
             after="Team UTR ranges are our estimates, not published rosters."
           />
         ) : (
@@ -1088,9 +1108,9 @@ export function SeededSchoolsBrowser({
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <dt className="text-stone-light">Avg roster UTR (est.)</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{s.avgRosterUTR.toFixed(1)}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.avgRosterUTR)}</dd>
                   <dt className="text-stone-light">Min competitive UTR (est.)</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{s.minCompetitiveUTR.toFixed(1)}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.minCompetitiveUTR)}</dd>
                   <dt className="text-stone-light">U.S. News academic rank</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>
                 </dl>

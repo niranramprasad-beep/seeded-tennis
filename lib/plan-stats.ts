@@ -3,6 +3,7 @@
 // is fabricated when history is thin, callers get `null` instead of a
 // guessed value.
 import type { UtrEntry } from "@/lib/db/plan";
+import { parseLocalDate } from "@/lib/time";
 import type { MatchRecord } from "@/lib/db/events";
 
 const MS_PER_DAY = 86_400_000;
@@ -28,11 +29,11 @@ export function utrDeltaWithBaseline(
 ): UtrDeltaWithBaseline | null {
   if (entries.length === 0) return null;
   const sorted = [...entries].sort(
-    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+    (a, b) => parseLocalDate(a.recordedAt).getTime() - parseLocalDate(b.recordedAt).getTime()
   );
   const latest = sorted[sorted.length - 1];
   const cutoff = now.getTime() - months * 30 * MS_PER_DAY;
-  const baseline = [...sorted].reverse().find((e) => new Date(e.recordedAt).getTime() <= cutoff);
+  const baseline = [...sorted].reverse().find((e) => parseLocalDate(e.recordedAt).getTime() <= cutoff);
   if (!baseline) return null;
   return {
     delta: Math.round((latest.utr - baseline.utr) * 100) / 100,

@@ -7,12 +7,262 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR C review follow-ups: hidden sessions, goals below today, Undo's timestamp
+
+**/events shows every session a player put there, not only the new manual
+plan's.** A session is shown when its plan is the manual plan, or is named
+exactly "My sessions" (the plan the old calendar's withGuaranteedPlan()
+created, metadata {}), or the session was created more than a minute after
+its plan. Generator rows — written in the same instant as their plan — stay
+hidden, as before. The one-minute rule is a heuristic, chosen because a
+generator writes a plan and its sessions together and a person cannot; the
+reviewer's read-only check found all 28 production sessions created with
+their plans. *Undo:* make isPlayerAddedSession() (lib/db/training.ts)
+return only the metadata check.
+
+**A chosen plan goal must be above today's rating.** Rejected, not allowed
+with a note: a goal at or below the current UTR puts every checkpoint
+behind the player and the pace warning reads 0/yr, which says nothing
+useful. The editor says "Your goal needs to be above your current UTR,
+5.95." (planGoalInputError, lib/fit.ts). A goal saved earlier that the
+player has since reached is not deleted; /plan says "You've reached your
+6.20 goal. Set a higher one, or use the estimate." *Undo:* drop the second
+check in planGoalInputError.
+
+**Known, not changed: Undo restores a deleted row with a new created_at.**
+Undo re-inserts the result or session the player just deleted (same
+fields, a fresh row), so its created_at is the time of the Undo. Nothing
+sorts or filters by created_at on these screens, and for a session it does
+not change visibility (an Undo is a new row in the manual plan). Recorded
+so nobody reads the timestamp as the original entry time.
+
+**The nav "Tools" group is unchanged pending sign-off** on the CLAUDE.md
+"5-item nav" wording (Results and Tournament checker sit in a secondary
+group under the five).
+
+---
+
+## 2026-11-18 — PR C sweep: tournament checker, outreach board, schools
+
+**The tournament checker gives no verdict until the level and the entry fee
+are in** (C15). No level is pre-selected any more, and a blank fee no longer
+scores as "$0 / match". A fee of 0 is accepted as an answer (a free event).
+Travel cost stays optional. The rule is `verdictBlockers()` in
+lib/tournament-fit.ts. *Undo:* default `level` back to `"L4"` and drop the
+blocker check in the view.
+
+**/events' Upcoming card uses the same rule** (fixed when the sweep's three
+branches were merged): an entry saved without a fee shows "No verdict" and
+"To see a verdict, add the entry fee." instead of "Good fit"/"Skip it". The
+same change fixed a crash: with no UTR logged the card read a verdict from
+an empty map (`fits.get(id)!`) and /events threw for any player with a
+saved tournament.
+
+**The /schools header counts what the table shows** (C25) — "Showing 4 of 37
+men's programs." when a filter is on — and filters still persist across
+visits. Chosen over not persisting the filter: a family that narrowed the
+list to Saved expects it narrowed next time; what was wrong was the header
+claiming 37. *Undo:* print `ranked.length` again in seeded-schools-browser.
+
+**Outreach shows every saved target on the board, in Researching when it has
+no outreach row** (C13). No row is written just by viewing; one is written
+the first time the family moves the card, sets a reminder, or marks it sent.
+**Fit-band chips are gone from pipeline cards** (C28): the band lives on
+/schools and the school page; on the board it read as a second status.
+
+**The route wrapper's fade-in no longer fills forwards** (tailwind.config.ts,
+`backwards` instead of `both`). Filling forwards kept the wrapper a stacking
+context for ever, so every in-page Drawer (z-50) painted under the phone
+header and tab bar (z-40): the Add-to-events drawer's title and close
+button were hidden at 375px. Visually identical at rest. *Undo:* `both`.
+
+**C3 root cause, as far as staging can show it.** The save itself works for
+the sweep persona (201 and the row in Upcoming), and staging's API log had
+no tournament_entries request in the 24 hours before — so the report's save
+never left the browser. The drawer's City/State placeholders read
+"Bethesda"/"MD" (an empty form looked filled), Save stopped on one small
+"City is required." line, and the date was pre-filled with today. Now: blank
+date, no data-looking placeholders, per-field errors with focus, a plain-words
+message for every server failure (RLS, rate limit, signed out), INSERT
+instead of upsert for a new entry, and every "tournament-entries" SWR key
+revalidated on success. Production was not inspected (staging only).
+
+---
+
+## 2026-11-18 — PR C numbers: one projection, two decimals, local dates, a real goal
+
+Made in the production sweep's numbers branch. Each is a deliberate change
+a reviewer might otherwise read as a regression.
+
+**ONE projection (C8).** The fit report's `utr` (lib/fit.ts
+`recruitingTimeUtr`, via `buildFitReport`) is the only projected UTR any
+screen prints — whatever rule that function applies (PR B's "One
+projection rule", below, made it use a recent logged pace; merged into PR C
+with nothing here changed: `lib/projection-single-source.test.ts` holds). The
+school page's Pace row used to run its own regression through the logged
+ratings ("8.5 by Jun 1, 2028") two lines above the report's "7.5 for summer
+2028"; /today and /plan shaded that same regression. Now the Pace row
+prints `report.utr.value` and says in words whether the player's logged
+pace reaches this team's floor (read off the band — the 2026-11-16 Reach
+rule is unchanged); both charts shade `projectionPath(report.utr)`, which
+only draws straight lines from today's rating to the report's
+low / value / high and decides nothing. The what-if panel's "My pace" button still extends the
+logged trend: it is a hypothetical the player asks for, labelled as one.
+*Undo:* `explainSchoolFit`'s `pace` block and the two chart components.
+
+**Two decimals for a player's rating, one for estimates (C10, C19).**
+`formatPlayerUtr` (lib/utils.ts) is the only formatter for a rating a
+player logged, typed, emails or exports — 5.95, 5.80, 9.00 — in chips,
+charts, inputs, the tournament checker and the coach email. Estimates —
+the projection, team floors/averages/ranges, gaps to them — stay at one
+decimal (`formatUtrEstimate`): they are rounded to 0.1 in lib/fit.ts on
+purpose, and "7.50" would claim a precision the assumption does not have.
+Plan goals and checkpoints are on the player's own scale and use two.
+`formatUTR` survives as an alias of `formatPlayerUtr` so no caller keeps
+the old "9.0" / "9.50" mix. *Undo:* lib/utils.ts.
+
+**Date-only values are local days (C9).** `toLocalDateString(d)` writes and
+`parseLocalDate("YYYY-MM-DD")` reads every Postgres `date` column;
+`localDateKey` is now the same function. Vitest runs files in worker
+threads, where assigning `process.env.TZ` mid-run does not change the zone,
+so the two-zone proof is a script — `npm run test:tz` (New York, then
+Auckland) — and `lib/local-dates.test.ts` asserts in whichever zone it runs.
+Two existing fixtures used UTC instants as "Sunday"/"Jan 15" and failed in
+Auckland; they now use local times.
+
+**The plan goal (C11).** Default = the fit report's estimate for the
+summer before senior year (`report.utr`, the number every ProjectionNote
+prints), so the default plan needs a realistic pace and adding a target
+never moves it. A
+player can set their own goal on /plan; it is stored in
+`user_settings.notification_preferences.planGoalUtr` — the same JSON bag
+that already holds the player's other preferences — so no migration, and it
+is in the account export with the rest of `user_settings`. An unrealistic
+chosen goal shows the same warning on /plan and /today
+(`GoalPaceWarning`, rule `goalPaceNeedsWarning`), offering the estimate
+back. Checkpoints now sit on a straight line in time to the goal (they
+moved in equal grade steps). *Undo:* `buildRoadmap`'s old target-floor goal
+in lib/db/plan.ts and `usePlanGoal`.
+
+**"Show realistic targets" (C5) — kept, made real.** It keeps targets whose
+floor the estimate reaches (the report's recruiting-time band is Target or
+Likely), read from the report without the what-if override, and is only
+offered when it would hide something. It moved from the pace warning (which
+the new default goal rarely shows) to the target list's header.
+
+**Today's next steps (C12).** When there are no coach actions, or some
+targets are off track, Today lists up to three steps that link to features
+that exist: log your UTR (drawer), add targets you're on track for
+(/schools), log a match result (/events), check a tournament
+(/tournament-fit). The headline never says "caught up" over them.
+
+**"Top D1 programs often decide earlier, during junior year." lives on the
+/schools list only (C16).** Niran's 2026-11-16 call that the line exists
+somewhere a player will see it is kept: /schools is where a player chooses
+programs. It is gone from Today, Plan, the school page and /family. The
+pre-auth fit report still prints it beside the timing note; that screen is
+onboarding's rebuild (board 20) and was left to it. The NCAA contact-period
+caveat on /plan's timeline is said once, at the top of the card.
+
+**Copy (C24).** /plan has an H1 "Plan" (the player's name is now an H2).
+"Top (drawn)" → "Top of range". The school page no longer says "#1 of the
+D1 men's programs in Seeded on our combined score" — it was a ranking only
+Seeded uses; the U.S. News rank stays. "Live data, your own account." is
+gone from Today and Plan.
+
+**Charts (C21).** Both charts draw in a viewBox as wide as their column, so
+12px text stays 12px at 320 and labels are anchored inside the edges; the
+y-axis covers every logged rating; /plan's checkpoint labels sit above-left
+of each diamond, off the rising dashed line.
+
+---
+
+## 2026-11-18 — PR C sweep: one manual calendar, no Match mode, a Tools group
+
+Made in the production sweep (items C1, C2, C6, C7, C14, C17, C18, C20,
+C26, C27). Each is a deliberate change a reviewer might read as a regression.
+
+**The training calendar shows only sessions the player added by hand.**
+`workout_sessions.training_plan_id` is NOT NULL, so "sessions with no plan"
+cannot exist; the brief's `training_plan_id is null` was not expressible.
+Instead a player's own sessions go into ONE `training_plans` row per player
+with `metadata = {"kind":"manual"}`, created on first add, and the calendar
+reads only that plan (lib/db/training.ts). Production was checked read-only
+first: 28 sessions in 5 plans, every plan generator-named ("6h personalized
+recruiting week", "UTR build week", "5.5 UTR build week", "10h personalized
+recruiting week", and an empty "Regular Training") — so no hand-made session
+is hidden by this. **No data migration was written.** The 28 rows are hidden,
+not deleted; deleting them is Niran's call (one `delete from training_plans
+where not metadata @> '{"kind":"manual"}'` — cascades to their sessions —
+after a backup). *Undo:* read every plan again in `loadTrainingSessions`.
+
+**Writes are per row, never a whole-state save.** `/api/training/planner`
+re-upserted every plan and deleted every session not in the state it was
+sent. With generated rows filtered out of the UI, the first ordinary save
+would have deleted all of them — a data decision made by accident. It and
+`/api/training/templates` are deleted; `/api/training/sessions` creates,
+updates and deletes single rows, each filtered by owner AND manual plan.
+
+**Session types are a fixed list** (lib/training/session-types.ts), in
+tokens. The old page let a player invent types into
+`user_settings.notification_preferences.session_types`; that data is left in
+place and unused. An unknown type shows as "Tennis".
+
+**Week and Month render one list, grouped by real date.** Month used to
+group by weekday — a "recurring template" — so generated rows dotted every
+day while Week (by real date) showed none.
+
+**Match mode is deleted; `/match-mode` redirects to `/matches`.** Its only
+feature was a prep plan Seeded wrote from a template (warm-up, tactics,
+packing list) — generated content, which CLAUDE.md rules out — plus a
+"remind me" flag that sends nothing. `generatePrepPlan()` went with it; a
+logged match stores an empty `prep_plan` (the column is NOT NULL). /events'
+"Log a result" opens the same form /matches uses
+(components/matches/match-result-form.tsx). *Undo:* git history.
+
+**`/training` redirects to `/events` for both designs**, and /events no
+longer has a Legacy tab view. Legacy users see the Seeded events page.
+
+**A secondary "Tools" group under the five** (C26): Results and Tournament
+checker, in the sidebar, the avatar menu on phones (the bottom bar stays
+five) and ⌘K. CLAUDE.md's 5-item rule is about the primary nav and is
+unchanged in substance; its line now says so. The sidebar's dark-mode
+toggle is gone — Settings → Appearance is the one place.
+
+**Today's "History" link is now "Check-in history" → `/today/check-ins`**
+(C7), a new page: a 12-week heatmap and every check-in, newest first, from
+real `daily_checkins` rows. It pointed at /events, which shows none.
+`loadDailyCheckins` gained an optional `days` argument for it.
+
+**Overlays render in a portal** (components/ui/portal.tsx). The staging run
+found the check-in drawer's Save button under the phone tab bar at 320px:
+every page sits in AppShell's animated wrapper, a stacking context, so a
+z-50 drawer could not rise above the z-40 bars. The Drawer, the Seeded
+dialog and the Toast now render on `document.body`; the toast sits above the
+tab bar on phones. `ModalShell` (components/seeded/family/budget-modals.tsx)
+was not changed — it is the family pass's file — and has the same issue.
+
+**Every native confirm/alert/prompt is gone** (C6) and banned by
+`lib/no-native-dialogs.test.ts`. Deleting a result asks in the Seeded dialog
+and then offers Undo (re-saves the same record). Deleting a session has no
+confirm, only Undo — it is one tap to restore, the same rows by id.
+
+**Gradients are banned on Seeded screens** (C17,
+`lib/design-system-v2.test.ts`), with five allow-listed files. One is a
+real open violation: `components/auth/parent-login-form.tsx` (glass card,
+gradient button on /parent-login), left to the onboarding/auth pass.
+
+**`plural(n, one, many)`** in lib/utils.ts is the one way a count meets a
+noun; `lib/plural.test.ts` scans for hand-rolled `${n} …s`.
+
+---
+
 ## 2026-11-18 — One projection rule for onboarding and the app
 
 **Decision.** The "UTR at the summer before senior year" is decided in one
 place, `recruitingTimeUtr()` in `lib/fit.ts`, and both the signed-in app
-(`buildFitReport` → `useFitReport`, the parent chart's `projectedUtrOn` /
-`projectionReachDate`) and the onboarding diagnostic (`diagnosticProjection`,
+(`buildFitReport` → `useFitReport`, the parent chart's `projectionReachDate`;
+its line is PR C's `projectionPath` since the numbers merge) and the onboarding diagnostic (`diagnosticProjection`,
 now a thin wrapper) call it:
 
 1. Summer before senior year begun → today's rating.
@@ -83,7 +333,10 @@ the pace in Avery's logged ratings" instead.)*
 **The estimate prints one decimal ("≈ 9.1 estimate"), logged UTRs two.**
 lib/fit.ts rounds projections to one decimal on purpose and ProjectionNote
 on the same page prints it that way; two would claim precision the
-assumption does not have. Logged ratings use the new `formatUtr2`.
+assumption does not have. Logged ratings use `formatPlayerUtr` (this entry
+first named PR B's own `formatUtr2`; PR C's numbers merge made the two one
+function, and moved the "target schools start at" floor to
+`formatUtrEstimate`, one decimal, like every other team number).
 
 **Dropped from /family: "Needs a parent decision", the family members card
 and the top scope line.** Not on Board 22. Members live in Settings; the

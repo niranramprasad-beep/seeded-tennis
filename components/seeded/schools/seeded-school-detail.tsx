@@ -22,7 +22,7 @@ import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { projectionTargetLabel } from "@/lib/fit";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { formatDate } from "@/lib/time";
+import { formatDate, parseLocalDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
@@ -30,7 +30,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -56,7 +56,7 @@ function signed(value: number): string {
 // file's own earlier invention, before the real mockup existed. Removed to
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
-export function SeededSchoolDetail({ school, nationalRank, programType, allSchools }: Props) {
+export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   const { player, isAuthed, hydrated } = usePlayer();
   const isParent = player.role === "parent";
   const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
@@ -103,7 +103,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   );
   const explanationInput = useMemo(
     () => ({
-      utrHistory: (utrEntries ?? []).map((e) => ({ date: new Date(e.recordedAt), utr: e.utr })),
+      utrHistory: (utrEntries ?? []).map((e) => ({ date: parseLocalDate(e.recordedAt), utr: e.utr })),
       graduationYear: subject.graduationYear,
       gender: subject.gender,
       catalog: allSchools,
@@ -121,7 +121,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const fitReady =
     (!isParent || (familyMembersData !== undefined && plan !== undefined)) && utrEntries !== undefined;
 
-  const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
+  // `estimate`: the Pace row prints the report's own projection — ONE
+  // number for the summer before senior year on this card (C8).
+  const explanation = explainSchoolFit(subjectUtr, school, {
+    ...explanationInput,
+    band: reportBand,
+    estimate: report?.utr ?? null,
+  });
   // The gaps, the chip and the range bar's marker all use the rating that
   // judged the band — the same one the /schools row shows — so the two pages
   // print the same "Gap to team average" for the same school.
@@ -146,19 +152,31 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // for a remembered parent: they are never drawn, so nothing disappears.
   const playerOnlyUntilHydrated = hydrated ? undefined : "pre-session-player-only";
 
-  // Two projections can appear on this card, and they answer different
-  // questions: the rating that judges the band is an estimate at TYPICAL
-  // growth; this row extends the pace in the player's own logged ratings to
-  // the same date, which is what splits Reach from Out of range. Each says
-  // which it is.
+  // C8: this row used to extend a regression through the logged ratings
+  // and print "8.5 by Jun 1, 2028" two lines above the ProjectionNote's
+  // "7.5 for summer 2028" — two projections for one date. It now prints the
+  // report's estimate (the same number), and says what the logged pace
+  // means for THIS school's band in words: that is what splits Reach from
+  // Out of range, and it never needs a second number.
+  const whose = subjectFirst ? `${subjectFirst}'s` : "your";
+  const pace = explanation.pace;
   const paceDescription =
-    explanation.pace.status === "ready"
-      ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} ${judging?.isProjected ? `by ${formatDate(explanation.pace.byDate)}` : "today"}`
-      : explanation.pace.status === "insufficient-history"
-        ? explanation.pace.message
-        : subjectFirst
-          ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
-          : "Log a UTR to see your pace.";
+    pace.status !== "ready"
+      ? subjectFirst
+        ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
+        : "Log a UTR to see your pace."
+      : !pace.isProjected
+        ? `Judged on ${whose} rating today, ${formatPlayerUtr(pace.projectedUTR)}: the summer before senior year has begun.`
+        : `Estimated ${formatUtrEstimate(pace.projectedUTR)} by ${formatDate(pace.byDate)}.` +
+          (pace.loggedPaceReachesFloor === true
+            ? ` The pace in ${whose} logged ratings reaches this team's floor by then.`
+            : pace.loggedPaceReachesFloor === false
+              ? ` The pace in ${whose} logged ratings doesn't reach this team's floor by then.`
+              : explanation.band === "reach"
+                ? subjectFirst
+                  ? ` Three logged ratings will show whether ${whose} own pace reaches the floor.`
+                  : " Log 3 ratings to see whether your own pace reaches the floor."
+                : "");
 
   const fitSkeleton = (
     <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
@@ -167,7 +185,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
     </div>
   );
   const fitCards = (
-  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
+  // Each card as tall as its own content: stretched to "Why this band",
+  // the roster card held ~260px of nothing (sweep C22).
+  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
@@ -182,7 +202,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           label="UTR"
           description={
             judging.isProjected
-              ? `${projectedYouLabel(judging, subjectFirst)} ${judging.value.toFixed(1)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${(subjectUtr as number).toFixed(1)}`
+              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${formatPlayerUtr(subjectUtr as number)}`
               : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
           }
           chip={
@@ -234,19 +254,38 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
           youPct={judgingValue != null ? utrToPct(judgingValue) : null}
           caption={
             judgingValue != null
-              ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
+              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrFor(judgingValue, judging?.isProjected ?? false)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
               : subjectFirst
-                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
-                : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
+                ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
+                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`
           }
           low={range.min}
           median={school.avgRosterUTR}
           high={range.max}
           you={judgingValue}
+          youIsEstimate={judging?.isProjected ?? false}
           youLabel={projectedYouLabel(judging, subjectFirst)}
         />
       </div>
       <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>
+
+      {/* "Academics and cost" was its own card in the row below, two
+          sentences in a box sized to its taller neighbour, while this card
+          held a single range bar beside the much taller "Why this band"
+          (C22, board 23 rule 5). One card now carries both. */}
+      <div className="mt-6 border-t border-line pt-5">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-grass" aria-hidden />
+          <h3 className="text-base font-semibold text-ink">Academics and cost</h3>
+        </div>
+        <p className="mt-2.5 text-sm text-stone">
+          {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
+              was jargon about a Seeded-only ranking. The rank a family can
+              check is the U.S. News one. */}
+          {academicRankSentence(school.usNewsRanking)} Seeded has no cost or aid figures; ask the
+          school&apos;s financial aid office.
+        </p>
+      </div>
     </div>
   </div>
   );
@@ -322,47 +361,35 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
 
         {fitSection}
 
-        <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-2">
-          <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+        {/* Coaching staff is the only card left in this row, so it spans the
+            width: the finder on the left, the next step on the right. The
+            one-sentence "Recruiting timeline" card that once sat beside it
+            is gone (design system v2 rule 5): the "Why this band" card's
+            Timing row already says the same thing. */}
+        <div className="mt-5 grid min-w-0 gap-5 rounded-[10px] border border-line bg-card p-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-end">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-grass" />
-              <h2 className="text-base font-semibold text-ink">Academics and cost</h2>
-            </div>
-            <p className="mt-2.5 text-sm text-stone">
-              {academicRankSentence(school.usNewsRanking)} #{nationalRank} of the {school.division}{" "}
-              {programType.toLowerCase()} programs in Seeded on our combined score, which mixes
-              academics and team level.
-            </p>
-            <p className="mt-3 text-sm text-stone">
-              Seeded has no cost or aid figures. Ask the school&apos;s financial aid office.
-            </p>
-          </div>
-
-          <div className="flex min-w-0 flex-col rounded-[10px] border border-line bg-card p-[22px]">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-grass" />
+              <User className="h-4 w-4 text-grass" aria-hidden />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
             <StaffDirectoryHint school={school} className="mt-2.5" />
-            {/* The one-sentence "Recruiting timeline" card that sat beside this
-                one is gone (design system v2 rule 5): the "Why this band"
-                card's Timing row already says the same thing. */}
-            {!isParent && outreach && !alreadyContacted && (
-              <p className="mb-3.5 mt-2 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
-            )}
-            {/* Outreach is the player's: a parent opening /outreach is
-                bounced to /family, and Seeded never writes to a coach on a
-                player's behalf. */}
-            {!isParent && (
+          </div>
+          {/* Outreach is the player's: a parent opening /outreach is
+              bounced to /family, and Seeded never writes to a coach on a
+              player's behalf. */}
+          {!isParent && (
+            <div className={cn("min-w-0", playerOnlyUntilHydrated)}>
+              {outreach && !alreadyContacted && (
+                <p className="mb-2.5 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
+              )}
               <Link
                 href={`/outreach?school=${school.slug}`}
-                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full", playerOnlyUntilHydrated)}
+                className={cn(seededButtonVariants({ variant: "secondary" }), "w-full")}
               >
                 Draft an email to the head coach
               </Link>
-            )}
-          </div>
-
+            </div>
+          )}
         </div>
       </div>
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>

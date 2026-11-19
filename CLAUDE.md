@@ -69,7 +69,7 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   **`lib/auth.ts`'s `familyCode: profile.family_code` must stay the raw column.** It is round-tripped back through `writeCurrentPlayerProfile()`, and 022/030/035's trigger rejects any client change to `family_code` with 42501 — substituting a joiner's real code there would make renaming yourself in Settings fail for every member who joined with a code.
   **Never restore the old `playerMember?.currentUtr ?? player.currentUTR` fallback** — it papered over the read gap by rendering the signed-in PARENT's own placeholder UTR of 7 as if it were the player's. `lib/family-utr-honesty.test.ts` fails the build if it returns.
   Still open and deliberately NOT in 036: `is_parent_member()` grants season-budget writes to any approved joiner regardless of `role`, so a sibling player can write the budget. Fix is to mirror 033's pattern; see `docs/TODO.md`. Check `pg_policies`, not this file.
-- **PR B migrations 041–045 are on STAGING (2026-11-18/19)**; production gets them on Niran's go, before PR B merges (GO-SEQUENCE §3b, HANDOFF §J Steps 16–20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- **PR B migrations 041–045 are ON PRODUCTION as of 2026-11-19** (ledger 47; each probed as real users in rolled-back transactions, results in `~/seeded-evidence/rollout-2026-11-19/`), applied on Niran's go before PR B (#6) merged the same day (GO-SEQUENCE §3b, HANDOFF §J Steps 16–20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line. PR B = niranramprasad-beep/seeded-tennis#6 (→ main), PR C = #7 (stacked on PR B). **044 nulls the roster's player stats for families without the Family plan.** 043's proof must be FRESH and for the CURRENT address (`request_email_verification()` then `mark_email_verified()`; an `auth.users` trigger records email changes) — an independent review moved verification to an unproven address with the first version.
   - **045: one Family plan unlocks ONE family — the payer's home family (`home_family_code()`, the same rule as `my_family_code()`, which now calls it) — and a family holds at most 4 players and 2 parents.** `join_family` returns `family_full`; `approve_family_join` raises `family_full_<role>`; existing members are never removed. The numbers live in `FAMILY_PLAN_MAX_PLAYERS` / `FAMILY_PLAN_MAX_PARENTS` (lib/types) and `lib/family-plan-scope.test.ts` pins them to the SQL. A new family-wide unlock must go through `family_has_tier`, never a raw `subscription_tier = 'family'` check.
   - **042 locks the Family plan in RLS.** A family is unlocked when ANY member (either membership shape) is on `family` — narrowed by 045 to a member whose HOME family it is. Locked = no member reads another member's rows (restrictive `family_plan_required` on every table whose SELECT uses `shares_approved_family_with`) and nobody reads/writes `season_budgets`/`budget_expenses`/`parent_reports`/`encouragement_notes` (a parent keeps reading notes they wrote). A new cross-member read policy MUST get the same ceiling — `lib/db/family-plan-lock.test.ts` fails the build otherwise. Ask the database with `lib/db/family-plan.ts`; API routes call `refuseUnlessFamilyPlan()`. `family_members()` still returns `current_utr`/`target_school_slugs` to a free family (owner's call: the roster stays open).
   - **043: parents prove their email before join/approve/consent** (`42501 verify_email_required`; players never). The proof is a session whose JWT `amr` is `otp`/`magiclink`/`recovery`/`email/signup`, or a verified Google identity — **never `auth.users.email_confirmed_at`, which production auto-confirms at sign-up.** `email_verified_for` must equal the current auth email, so an email change un-verifies.
@@ -133,13 +133,23 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   `/methodology`, in `lib/school-fit.ts`. Reach-vs-Out-of-range uses a
   real UTR-trajectory projection, never a static snapshot.
 - **"Leaving" counts, never "open spots."** Real grad-year math only.
-- **5-item nav**: Today, Plan, Schools, Outreach, Events. Settings/Family
-  live under the avatar menu.
+- **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
+  nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
+  Tournament checker) in the sidebar, the avatar menu on phones and ⌘K
+  (docs/DECISIONS.md, 2026-11-18; **approved by Niran 2026-11-19**). Tools is not a sixth primary item; the
+  phone bottom bar stays exactly five. Settings/Family live under the avatar
+  menu; the theme toggle lives only in Settings → Appearance.
 - **Friends and badges are removed, product-wide.** Don't resurrect
   either without being explicitly asked.
-- **No auto-generated training plans — manual calendar only.** (Currently
-  violated by the training setup wizard — see HANDOFF TODO #2, not fixed
-  yet, don't treat the existing wizard as the intended design.)
+- **No auto-generated training plans — manual calendar only.** True in code
+  since 2026-11-18: the /training planner, its generator and templates,
+  Match mode's prep-plan generator and the whole-state planner save are
+  deleted; `lib/training-no-autogen.test.ts` fails the build if any return.
+  The calendar reads only sessions in the player's manual plan
+  (`training_plans.metadata = {"kind":"manual"}`, lib/db/training.ts).
+  **Production still holds 28 generated sessions in 5 plans — hidden, not
+  deleted. Niran decided 2026-11-19: keep them hidden, do NOT delete; revisit
+  on or after 2026-12-19** (DECISIONS 2026-11-19, TODO).
 - **Gmail = compose-link only.** Never the Gmail API, never inbox access,
   never auto-send.
 - **UTR = profile link + manual check-in only.** Never fetch or scrape

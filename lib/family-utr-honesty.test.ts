@@ -87,7 +87,7 @@ describe("no fabricated UTR reaches a family screen", () => {
     const overview = readFileSync(join(REPO, "components/seeded/family/seeded-family-overview.tsx"), "utf8");
     expect(overview).toMatch(/buildParentDashboard\(/);
     expect(overview).toMatch(/currentUtr: facts\.currentUtr/);
-    expect(overview).not.toMatch(/formatUTR|formatUtr2|\.toFixed\(/);
+    expect(overview).not.toMatch(/formatUTR|formatUtr2|formatPlayerUtr|formatUtrEstimate|formatUtrFor|\.toFixed\(/);
     expect(utrKpi([], null, new Date()).value).toBe("No UTR yet");
     expect(utrKpi([], 0, new Date()).value).toBe("No UTR yet");
     for (const file of [

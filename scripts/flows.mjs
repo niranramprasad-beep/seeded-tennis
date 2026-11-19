@@ -115,8 +115,8 @@ const FLOWS = {
     await go(s.page, "/family/budget");
     await s.page.getByRole("button", { name: /^Add expense$/ }).first().click();
     await s.page.waitForTimeout(500);
-    await s.page.fill('input[placeholder="Duke Tennis Camp"]', "Restring (flow test)");
-    await s.page.fill('input[placeholder="380"]', "42");
+    await s.page.getByLabel("Description").fill("Restring (flow test)");
+    await s.page.getByLabel("Cost").fill("42");
     await s.page.getByRole("button", { name: /^Add expense$/ }).last().click();
     await s.page.waitForTimeout(2500);
     const t = await text(s.page);

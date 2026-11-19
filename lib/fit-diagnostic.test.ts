@@ -12,7 +12,7 @@ import {
   yearsUntilRecruiting,
 } from "./fit";
 import { REALISTIC_UTR_CEILING } from "./config/recruiting";
-import { localDateString, shiftLocalMonths } from "./time";
+import { toLocalDateString, shiftLocalMonths } from "./time";
 import type { SchoolLite } from "./types";
 
 // The /onboarding diagnostic's projection (board 20), which since 2026-11-18
@@ -91,7 +91,7 @@ describe("diagnosticProjection", () => {
     })!;
     expect(p.basis).toBe("summer-started");
     expect(p.value).toBe(11);
-    expect(p.display).toBe("11.0");
+    expect(p.display).toBe("11.00");
     expect(p.isEstimate).toBe(false);
     expect(p.monthsToTarget).toBe(0);
     expect(p.note).toBe(SUMMER_STARTED_NOTE);
@@ -127,7 +127,7 @@ describe("diagnosticProjection", () => {
     })!;
     expect(p.basis).toBe("logged-pace");
     expect(p.value).toBe(8);
-    expect(p.display).toBe("8.0");
+    expect(p.display).toBe("8.00");
     expect(p.pacePerMonth).toBeLessThan(0);
     expect(p.note).toBe(
       "Your rating has gone down since November 2025 (−0.08 a month), so this stays at today's UTR."
@@ -250,12 +250,12 @@ describe("buildDiagnosticFitReport: the report bands at the number the card show
 
 describe("month arithmetic and local dates (leap years, short months, time zones)", () => {
   it("clamps to the end of a shorter month instead of rolling into the next", () => {
-    expect(localDateString(shiftLocalMonths(new Date(2026, 7, 31), -6))).toBe("2026-02-28");
-    expect(localDateString(shiftLocalMonths(new Date(2028, 7, 31), -6))).toBe("2028-02-29"); // leap
-    expect(localDateString(shiftLocalMonths(new Date(2028, 1, 29), -12))).toBe("2027-02-28");
-    expect(localDateString(shiftLocalMonths(new Date(2027, 2, 31), -1))).toBe("2027-02-28");
-    expect(localDateString(shiftLocalMonths(new Date(2026, 0, 15), -6))).toBe("2025-07-15"); // across a year
-    expect(localDateString(shiftLocalMonths(new Date(2026, 4, 31), -6))).toBe("2025-11-30");
+    expect(toLocalDateString(shiftLocalMonths(new Date(2026, 7, 31), -6))).toBe("2026-02-28");
+    expect(toLocalDateString(shiftLocalMonths(new Date(2028, 7, 31), -6))).toBe("2028-02-29"); // leap
+    expect(toLocalDateString(shiftLocalMonths(new Date(2028, 1, 29), -12))).toBe("2027-02-28");
+    expect(toLocalDateString(shiftLocalMonths(new Date(2027, 2, 31), -1))).toBe("2027-02-28");
+    expect(toLocalDateString(shiftLocalMonths(new Date(2026, 0, 15), -6))).toBe("2025-07-15"); // across a year
+    expect(toLocalDateString(shiftLocalMonths(new Date(2026, 4, 31), -6))).toBe("2025-11-30");
   });
 
   // A test worker cannot change its own time zone (ICU reads TZ once), so
@@ -272,7 +272,7 @@ describe("month arithmetic and local dates (leap years, short months, time zones
   const probe = buildSync({
     stdin: {
       contents: `
-        import { localDateString, shiftLocalMonths } from "@/lib/time";
+        import { toLocalDateString, shiftLocalMonths } from "@/lib/time";
         import { projectionTargetDate } from "@/lib/fit";
         import { pastRatingDate, pastRatingMonthLabel, diagnosticUtrEntries, EMPTY_ANSWERS } from "@/lib/onboarding/diagnostic";
         const lateEvening = new Date(2026, 10, 18, 23, 30, 0);
@@ -280,13 +280,13 @@ describe("month arithmetic and local dates (leap years, short months, time zones
         const leapEdge = new Date(2028, 7, 31, 23, 59, 0);
         console.log(JSON.stringify({
           offset: new Date(2026, 10, 18).getTimezoneOffset(),
-          late: localDateString(lateEvening),
+          late: toLocalDateString(lateEvening),
           lateMinus6: pastRatingDate(6, lateEvening),
           lateLabel6: pastRatingMonthLabel(6, lateEvening),
           lateLabel12: pastRatingMonthLabel(12, lateEvening),
-          midnightMinus12: localDateString(shiftLocalMonths(justAfterMidnight, -12)),
+          midnightMinus12: toLocalDateString(shiftLocalMonths(justAfterMidnight, -12)),
           leapMinus6: pastRatingDate(6, leapEdge),
-          target: localDateString(projectionTargetDate(2030)),
+          target: toLocalDateString(projectionTargetDate(2030)),
           entries: diagnosticUtrEntries(
             { ...EMPTY_ANSWERS, role: "player", utrTodayText: "8.25", utrSixMonthsText: "7.9", utrYearText: "7.4" },
             lateEvening
