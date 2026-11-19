@@ -12,6 +12,7 @@ import { GoalPaceWarning } from "./goal-pace-warning";
 import { TargetSchoolsList } from "./target-schools-list";
 import { ClosestSchoolsCard } from "./closest-schools";
 import { RecruitingChecklistCard } from "./recruiting-checklist";
+import { opponentLine } from "@/components/matches/result-display";
 import { closestSchoolsByUtrGap, summerBeforeSeniorYear, type SchoolFitProjectionInput } from "@/lib/school-fit";
 import { isRealisticTarget, projectionPath } from "@/lib/fit";
 import { formatShortDate, parseLocalDate } from "@/lib/time";
@@ -355,9 +356,11 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             <div className="mt-3.5 flex flex-col gap-2.5 text-sm">
               {recentMatches.map((m) => (
                 <div key={m.id} className="flex items-center justify-between gap-2">
+                  {/* The shared opponent line: the opponent's name when the
+                      player gave one ("vs Alex Kim (8.20)"). This card read
+                      "vs opponent 6.10" over a named opponent (C14). */}
                   <span className="truncate text-ink">
-                    {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} vs{" "}
-                    {m.opponentUtr != null ? `opponent ${formatPlayerUtr(m.opponentUtr)}` : m.opponent || "opponent"}
+                    {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} {opponentLine(m) ?? "vs —"}
                     {m.tournamentName ? ` · ${m.tournamentName}` : ""}
                   </span>
                   <span className="shrink-0 font-mono text-stone">{m.score || "—"}</span>
@@ -365,7 +368,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
               ))}
             </div>
           )}
-          <Link href="/events?tab=matches" className="mt-3.5 inline-block">
+          <Link href="/matches" className="mt-3.5 inline-block">
             <SeededButton variant="secondary">Log a result</SeededButton>
           </Link>
         </div>
