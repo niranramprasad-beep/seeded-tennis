@@ -38,7 +38,10 @@
 -- * family_member_cap(role) / family_member_count(code, role): 4 players,
 --   2 parents; counted over APPROVED members in either membership shape,
 --   one per person. Internal.
--- * join_family(): before creating a PENDING row, returns
+-- * join_family(): refuses an account with no profile row (22023
+--   'profile_required' — it has no role, so it could otherwise dodge the cap
+--   and 043's parent check by creating its profile after approval). Before
+--   creating a PENDING row, returns
 --   {"status":"family_full","role":...,"limit":...} if the family already
 --   holds the cap for the caller's role. RETURNS rather than raises, like
 --   every other expected outcome here, so the attempt log commits (023's
@@ -142,7 +145,8 @@ language sql
 immutable
 set search_path = public
 as $$
-  select case p_role when 'player' then 4 when 'parent' then 2 else null end
+  -- Fails CLOSED: an unknown or NULL role gets no places (review, 2026-11-19).
+  select case p_role when 'player' then 4 when 'parent' then 2 else 0 end
 $$;
 revoke all on function public.family_member_cap(text) from public, anon, authenticated;
 grant execute on function public.family_member_cap(text) to service_role;
@@ -193,6 +197,17 @@ begin
   -- and 043's "verify your email first" raise.
   if v_user is null then
     raise exception 'Sign in first.' using errcode = '28000';
+  end if;
+
+  -- 045 (review, 2026-11-19): an account with NO profile row has no role, so
+  -- it skipped both the cap (no role, no limit) and 043's parent email check
+  -- (not a 'parent' yet) — then created its profile as a player or parent
+  -- AFTER being approved. parent_accounts.user_id references auth.users, not
+  -- profiles, so nothing else stops it. The app always writes the profile
+  -- first, so this refuses no real sign-up. Raised before the attempt is
+  -- logged or the code looked up: the caller learns nothing about the code.
+  if not exists (select 1 from public.profiles where id = v_user) then
+    raise exception 'profile_required' using errcode = '22023';
   end if;
 
   if exists (select 1 from public.profiles where id = v_user and role = 'parent')
@@ -285,6 +300,10 @@ begin
     where user_id = p_parent_user_id and family_code = v_code and status = 'pending'
   ) then
     select role into v_their_role from public.profiles where id = p_parent_user_id;
+    -- No profile = no role = not countable: never approve it (see join_family).
+    if v_their_role is null then
+      raise exception 'profile_required' using errcode = '22023';
+    end if;
     v_cap := public.family_member_cap(v_their_role);
     if v_cap is not null and public.family_member_count(v_code, v_their_role) >= v_cap then
       raise exception '%', 'family_full_' || v_their_role using errcode = 'P0001';

@@ -237,7 +237,8 @@ export function SignupFlow({
       gender,
       country,
       role: isParentSignup ? "parent" : "player",
-      familyCode: result.familyCode,
+      // 045: a refused join leaves them in no family.
+      familyCode: result.joinStatus === "family_full" ? undefined : result.familyCode,
       targetSchoolSlugs: [],
       weaknesses: [],
       tournamentsPlayed: 0,
@@ -322,6 +323,7 @@ export function SignupFlow({
       <AuthCard title="This family is full">
         <FamilyFullNotice
           message={familyFull}
+          waitingForConsent={needsParentConsent}
           onContinue={() => router.replace(isParentSignup ? "/family" : "/onboarding")}
         />
       </AuthCard>

@@ -11,9 +11,14 @@ import { SeededButton } from "@/components/seeded/ui/button";
 export function FamilyFullNotice({
   message,
   onContinue,
+  waitingForConsent = false,
 }: {
   message: string;
   onContinue: () => void;
+  /** An under-13 player whose account is inert until an adult in a family
+   * consents (030). Joining a family was their only route to that, so "use
+   * Seeded on your own" would be untrue for them. */
+  waitingForConsent?: boolean;
 }) {
   return (
     <div>
@@ -21,7 +26,9 @@ export function FamilyFullNotice({
         {message}
       </p>
       <p className="mt-2 text-[15px] leading-relaxed text-stone">
-        Your account is ready. You can use Seeded on your own in the meantime.
+        {waitingForConsent
+          ? "Your account is saved, but it can't be used until a parent or guardian in your family approves it. Email us at the address above and a person will help."
+          : "Your account is ready. You can use Seeded on your own in the meantime."}
       </p>
       <SeededButton type="button" variant="primary" className="mt-5 w-full" onClick={onContinue}>
         Continue

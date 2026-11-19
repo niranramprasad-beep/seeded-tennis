@@ -184,7 +184,11 @@ export function CompleteOAuthSignup() {
   if (familyFull) {
     return (
       <AuthCard title="This family is full">
-        <FamilyFullNotice message={familyFull.message} onContinue={() => router.replace(familyFull.next)} />
+        <FamilyFullNotice
+          message={familyFull.message}
+          waitingForConsent={needsParentConsent}
+          onContinue={() => router.replace(familyFull.next)}
+        />
       </AuthCard>
     );
   }

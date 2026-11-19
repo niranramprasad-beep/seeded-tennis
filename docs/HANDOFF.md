@@ -3026,6 +3026,22 @@ nobody in two families. **So 045 changes no one's access on the day.**
 | PB5 with 7 players inserted over the cap | roster 7 rows (nobody removed); 8th join `family_full` |
 | `authenticated` calls `home_family_code` / `family_member_count` / `family_member_cap` | **42501** ×3 |
 
+**Independent review, 2026-11-19 — one HIGH, fixed in this same file and
+re-probed (staging got it as the delta `045b_family_cap_requires_profile`;
+production runs only the fixed 045, once):** an account with NO profile row
+has no role, so it skipped the cap (`family_member_cap(NULL)` was NULL) and
+043's parent check, could be approved by calling the RPC directly, and then
+created its profile as a player. Now `join_family` raises 22023
+`profile_required` before anything is logged, `approve_family_join` refuses a
+pending account with no profile, and the cap fails closed (`else 0`).
+
+| re-probe (rolled back) | result |
+|---|---|
+| auth user with no profile: `join_family('FAKEFAM-PB1')` | **22023 `profile_required`**; attempts logged 0; parent_accounts rows 0 |
+| pending row for that account: PB1 player approves it | **22023 `profile_required`**; row still pending |
+| `family_member_cap(NULL)` / `('coach')` | 0 / 0 |
+| control: same account after creating its profile joins | `pending` |
+
 The rollback below was itself run on staging inside a rolled-back
 transaction: helpers gone, the four functions back to their pre-045 bodies
 (043's email check kept), grants intact, and a payer approved into a second
