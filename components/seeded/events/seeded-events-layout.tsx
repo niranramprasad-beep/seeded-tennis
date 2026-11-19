@@ -25,8 +25,10 @@ export interface SeededEventsLayoutProps {
 
 // /events: the player's own schedule. The calendar is full width (it was
 // squeezed into a 400px column — Mon–Thu visible, the rest behind a
-// sideways scroll); tournaments and results sit below it, side by side and
-// the same height. "Add session" is the screen's one green button.
+// sideways scroll); tournaments and results sit below it, side by side, each
+// as tall as its own content — stretched to match, a two-result card was a
+// tall empty box beside a long tournament list (sweep C22). "Add session" is
+// the screen's one green button.
 // The mockup's "Recruiting" camp-invite row has no data source anywhere, so
 // it is not drawn.
 export function SeededEventsLayout({
@@ -69,7 +71,7 @@ export function SeededEventsLayout({
         />
       </div>
 
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div className="mt-5 grid gap-5 md:grid-cols-2 md:items-start">
         <UpcomingTournamentsCard entries={tournamentEntries} playerUtr={player.currentUTR} onMarkEntered={onMarkEntered} />
         <RecentResultsCard matches={matches} />
       </div>
