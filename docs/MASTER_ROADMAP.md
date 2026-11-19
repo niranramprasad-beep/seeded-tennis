@@ -13,6 +13,19 @@
 
 ## Executive status
 
+**2026-11-18 — one-run build: PR B (#6) and PR C (#7) open, nothing merged,
+nothing on production.** PR B: diagnostic onboarding (board 20), parent
+dashboard (board 22), Family plan lock (042 + 044, RLS), billing page,
+parent email verification (043), one projection rule shared by onboarding
+and the app. PR C: production sweep C1–C30 — 29 fixed and proved by
+`scripts/sweep-c.mjs`, C30 (Google end-to-end) blocked on enabling Google on
+staging; catalog expansion plan (`docs/CATALOG_EXPANSION.md`). **Waiting on
+Niran:** S1 (migrations 041–044 to production, GO-SEQUENCE §3b, backup
+first), S2 (hide vs delete production's 28 generated workout sessions), comps
+(one production parent, `025d6b77…`, will see the paywall), the nav "Tools"
+group sign-off, "one Family plan unlocks many families", Supabase redirect
+URL for `/auth/verified`, and Google on staging (C30).
+
 **2026-11-18 — PR C verified by script, and the review's fixes (no
 migrations, not pushed).** `scripts/sweep-c.mjs` checks C1–C30 against a
 production build on staging as the sweep persona and writes
