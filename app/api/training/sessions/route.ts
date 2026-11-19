@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
-import { createTrainingSessions, deleteTrainingSessions, updateTrainingSession } from "@/lib/db/training";
+import {
+  TrainingWriteError,
+  createTrainingSessions,
+  deleteTrainingSessions,
+  trainingSaveErrorMessage,
+  updateTrainingSession,
+} from "@/lib/db/training";
 import { TrainingSessionsBodySchema } from "@/lib/api-schemas/training-sessions";
 
 // The one write path for the player's own training calendar (/events).
@@ -38,9 +44,15 @@ export async function POST(req: Request) {
     else await deleteTrainingSessions(parsed.data.ids, writeCtx);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save your session. Try again." },
-      { status: 500 }
-    );
+    // Plain words only — never the database's text. An RLS refusal (42501)
+    // is usually an under-13 account still waiting for a parent's consent;
+    // say so when the caller's own profile shows it.
+    let consentPending = false;
+    if (err instanceof TrainingWriteError && err.code === "42501") {
+      const { data } = await ctx.supabase.from("profiles").select("consent_status").eq("id", ctx.user.id).maybeSingle();
+      consentPending = data?.consent_status === "pending";
+    }
+    const status = err instanceof TrainingWriteError && err.code === "42501" ? 403 : err instanceof TrainingWriteError && err.code === "not_found" ? 404 : 500;
+    return NextResponse.json({ error: trainingSaveErrorMessage(err, consentPending) }, { status });
   }
 }

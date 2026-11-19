@@ -158,18 +158,20 @@ describe("no path in the app auto-generates a training plan", () => {
     }
   });
 
-  it("the training data layer writes one row at a time, inside the manual plan", () => {
+  it("the training data layer writes one row at a time, only to sessions the calendar shows", () => {
     const src = strippedSource("lib/db/training.ts");
     // The old whole-state save deleted every session it was not handed:
     // `.not("id", "in", …)`. With generated rows hidden from the UI, one
     // ordinary save would have deleted them all.
     expect(src).not.toMatch(/\.not\(\s*["']id["']\s*,\s*["']in["']/);
-    // Every update and delete is scoped to the manual plan as well as the owner.
+    // Every update and delete first reads the visible rows (the same rule
+    // the calendar renders from) and touches only those ids.
     const writes = [...src.matchAll(/\.(update|delete)\(/g)].length;
-    const scoped = [...src.matchAll(/\.in\(\s*["']training_plan_id["']\s*,\s*planIds\s*\)/g)].length;
-    expect(writes).toBeGreaterThan(0);
-    // One scoped read, plus one per update/delete.
-    expect(scoped).toBeGreaterThanOrEqual(writes + 1);
+    const gated = [...src.matchAll(/await visibleSessionRows\(ctx\.supabase, ctx\.userId\)/g)].length;
+    expect(writes).toBe(2);
+    expect(gated).toBeGreaterThanOrEqual(writes);
+    expect(src).toMatch(/\.filter\(\(row\) => isPlayerAddedSession\(row, /);
+    // New sessions still go into the one manual plan.
     expect(src).toMatch(/contains\(\s*["']metadata["']\s*,\s*MANUAL_PLAN_METADATA\s*\)/);
   });
 
