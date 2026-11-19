@@ -131,7 +131,7 @@ export function EditBudgetModal({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           className={fieldClass()}
-          placeholder="Fall 2026"
+          placeholder="e.g. Fall season"
         />
       </label>
       <label className="mt-4 block">
@@ -143,7 +143,6 @@ export function EditBudgetModal({
             onChange={(e) => setTotal(e.target.value)}
             inputMode="decimal"
             className={cn(fieldClass(), "pl-6")}
-            placeholder="3000"
           />
         </div>
       </label>
@@ -252,7 +251,7 @@ export function AddExpenseModal({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           className={fieldClass()}
-          placeholder="Duke Tennis Camp"
+          placeholder="e.g. Summer camp"
         />
       </label>
 
@@ -266,7 +265,6 @@ export function AddExpenseModal({
               onChange={(e) => setAmount(e.target.value)}
               inputMode="decimal"
               className={cn(fieldClass(), "pl-6")}
-              placeholder="380"
             />
           </div>
         </label>

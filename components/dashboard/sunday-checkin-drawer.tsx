@@ -179,7 +179,7 @@ export function SundayCheckinDrawer({
                 <input
                   value={score}
                   onChange={(event) => setScore(event.target.value)}
-                  placeholder="6-4, 6-2"
+                  placeholder="e.g. 6-4, 6-2"
                   className="h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-grass/30"
                 />
               </label>

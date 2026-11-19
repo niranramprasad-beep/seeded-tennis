@@ -115,6 +115,8 @@ describe("C12 — Today never says 'caught up' over an off-track player", () => 
   it("on track with real actions: no filler steps", () => {
     expect(buildNextSteps({ hasUtr: true, targetCount: 3, onTrackCount: 3, matchesThisWeek: 1, actionCount: 2 })).toEqual([]);
     expect(todayHeadline(2, 0)).toBe("2 things move your recruiting this week.");
+    // reviewer: "1 thing move your recruiting" — a hand-rolled plural
+    expect(todayHeadline(1, 0)).toBe("1 thing moves your recruiting this week.");
   });
 
   it("every step links to a page that exists", () => {

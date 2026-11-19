@@ -188,7 +188,8 @@ export function buildNextSteps(input: NextStepsInput): NextStep[] {
 /** The headline beside the action list — it must not say "caught up" while
  * the player is off track or has steps waiting. */
 export function todayHeadline(actionCount: number, nextStepCount: number): string {
-  if (actionCount > 0) return `${actionCount} thing${actionCount === 1 ? "" : "s"} move your recruiting this week.`;
+  // plural() for the count; the verb agrees with it ("1 thing moves").
+  if (actionCount > 0) return `${plural(actionCount, "thing", "things")} ${actionCount === 1 ? "moves" : "move"} your recruiting this week.`;
   if (nextStepCount > 0) return `Here ${nextStepCount === 1 ? "is a next step" : `are ${nextStepCount} next steps`} for this week.`;
   return "You're all caught up this week.";
 }

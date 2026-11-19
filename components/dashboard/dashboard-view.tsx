@@ -768,7 +768,7 @@ function UtrLogDrawer({
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Example: new singles result after L4 Bethesda draw"
+            placeholder="e.g. what changed since your last rating"
             className="min-h-[104px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
           />
         </label>

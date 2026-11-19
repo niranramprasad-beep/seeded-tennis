@@ -349,7 +349,6 @@ function UtrInput({
         onChange={(e) => onChange(e.target.value)}
         inputMode="decimal"
         autoComplete="off"
-        placeholder="8.25"
         aria-invalid={visibleError ? true : undefined}
         aria-describedby={[describedBy, visibleError ? errorId : null].filter(Boolean).join(" ") || undefined}
         className="mt-1.5 h-16 w-full rounded-lg border border-input bg-card px-4 font-mono text-[32px] tabular-nums text-ink placeholder:text-stone-light focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-[invalid=true]:border-error"
@@ -593,7 +592,6 @@ function QuestionBody({
               onChange={(e) => set({ gpaText: e.target.value })}
               inputMode="decimal"
               autoComplete="off"
-              placeholder="3.6"
               aria-invalid={error ? true : undefined}
               aria-describedby={[helpId, error ? "diag-gpa-error" : null].filter(Boolean).join(" ")}
               className="mt-1.5 h-16 w-full rounded-lg border border-input bg-card px-4 font-mono text-[32px] tabular-nums text-ink placeholder:text-stone-light focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-[invalid=true]:border-error"
