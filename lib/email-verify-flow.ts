@@ -20,6 +20,7 @@
 // remembers). localStorage, not sessionStorage, because the link usually
 // opens in a NEW tab, and PKCE already requires the same browser.
 
+import { familyFullMessage } from "@/lib/types";
 import { safeRedirectPath } from "@/lib/config/auth";
 import type { JoinFamilyResult } from "@/lib/db/family-join";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
@@ -227,6 +228,9 @@ export function joinOutcomeFor(result: Pick<JoinFamilyResult, "status" | "messag
       return { kind: "error", message: "That’s already your own family." };
     case "rate_limited":
       return { kind: "error", message: "Too many tries. Wait an hour and try again." };
+    case "family_full":
+      // 045: the message names the cap and the support address.
+      return { kind: "error", message: result.message ?? familyFullMessage("player") };
     default:
       return { kind: "error", message: result.message ?? "Could not do that right now." };
   }

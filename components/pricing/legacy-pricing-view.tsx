@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import {
+  FAMILY_PLAN_SCOPE_LABEL,
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   formatTierPrice,
   yearlyAsMonthlyLabel,
@@ -93,7 +94,7 @@ function plansFor(c: CatalogCounts): Plan[] {
   {
     tier: "family",
     name: "Family",
-    tagline: "For the parent who pays and wants to see progress.",
+    tagline: `${FAMILY_PLAN_SCOPE_LABEL}.`,
     highlights: [
       "Everything in Player",
       "Parent dashboard — a read-only view of your player's progress",

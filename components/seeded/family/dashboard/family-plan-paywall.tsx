@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { FAMILY_PLAN_MAX_PARENTS, FAMILY_PLAN_MAX_PLAYERS } from "@/lib/types";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
 import { DashboardBody } from "./dashboard-body";
@@ -44,8 +45,8 @@ export function FamilyPlanPaywall({ page, childFirst }: { page: PaywallPage; chi
           <p className={L.EYEBROW}>Family plan</p>
           <h1 className={L.H1}>{HEADLINE[page](childFirst)}</h1>
           <p className={cn(L.PILL_ROW, "max-w-2xl text-[15px] text-stone")}>
-            Family adds a read-only parent dashboard, the season budget and a weekly family report, for everyone in
-            your family.
+            Family adds a read-only parent dashboard, the season budget and a weekly family report for your family,
+            up to {FAMILY_PLAN_MAX_PLAYERS} players and {FAMILY_PLAN_MAX_PARENTS} parents.
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">

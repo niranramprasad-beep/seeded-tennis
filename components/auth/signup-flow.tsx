@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Users, UserPlus } from "lucide-react";
-import type { Player, PlayerGender, FamilyRole } from "@/lib/types";
+import { familyFullMessage, type Player, type PlayerGender, type FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signUp } from "@/lib/auth";
 import {
@@ -25,6 +25,7 @@ import {
 import { ChipRadioGroup } from "./chip-radio-group";
 import { CheckEmailCard } from "./check-email";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { FamilyFullNotice } from "./family-full-notice";
 import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
@@ -96,6 +97,8 @@ export function SignupFlow({
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
+  // 045: the family already holds 4 players / 2 parents.
+  const [familyFull, setFamilyFull] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -254,6 +257,12 @@ export function SignupFlow({
       return;
     }
 
+    // 045: the family is at its cap. The account exists and is signed in.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "family_full") {
+      setFamilyFull(familyFullMessage(isParentSignup ? "parent" : "player"));
+      return;
+    }
+
     if (effectiveFamilyMode === "create" && result.familyCode) {
       // Includes a parent who just created the family: the code IS the thing
       // they came for, since it is what their player signs up with.
@@ -303,6 +312,17 @@ export function SignupFlow({
           bare
           code={verifyJoinCode}
           onJoined={() => router.replace("/family")}
+        />
+      </AuthCard>
+    );
+  }
+
+  if (familyFull) {
+    return (
+      <AuthCard title="This family is full">
+        <FamilyFullNotice
+          message={familyFull}
+          onContinue={() => router.replace(isParentSignup ? "/family" : "/onboarding")}
         />
       </AuthCard>
     );

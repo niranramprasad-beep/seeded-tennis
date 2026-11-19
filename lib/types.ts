@@ -1,3 +1,5 @@
+import { SUPPORT_EMAIL } from "@/lib/config/contact";
+
 // Shared domain types for Seeded.
 // These intentionally mirror what a future Supabase schema would return,
 // so swapping the data layer means changing lib/db/schools.ts (or lib/db/plan.ts) only.
@@ -73,6 +75,24 @@ export const TIER_PRICE_USD: Record<SubscriptionTier, Record<BillingInterval, nu
   player: { monthly: 12, yearly: 99 },
   family: { monthly: 19, yearly: 159 },
 };
+
+// Migration 045 (owner decision 2026-11-19, docs/DECISIONS.md): a Family
+// plan unlocks ONE family — the one the paying account belongs to — and a
+// family holds at most this many players and parent accounts. The database
+// enforces both (family_member_cap(), join_family(), approve_family_join());
+// lib/family-plan-scope.test.ts fails the build if these drift from it.
+export const FAMILY_PLAN_MAX_PLAYERS = 4;
+export const FAMILY_PLAN_MAX_PARENTS = 2;
+
+/** "For one family: up to 4 players and 2 parents" — /pricing's one wording. */
+export const FAMILY_PLAN_SCOPE_LABEL =
+  `For one family: up to ${FAMILY_PLAN_MAX_PLAYERS} players and ${FAMILY_PLAN_MAX_PARENTS} parents`;
+
+/** What someone over the cap is told, by join or by approval. */
+export function familyFullMessage(role: "player" | "parent"): string {
+  const n = role === "player" ? FAMILY_PLAN_MAX_PLAYERS : FAMILY_PLAN_MAX_PARENTS;
+  return `This family already has ${n} ${role}s. Contact ${SUPPORT_EMAIL}`;
+}
 
 /** "$12" / "$99" — no cents, because none of the prices have any. */
 export function formatTierPrice(tier: SubscriptionTier, interval: BillingInterval): string {

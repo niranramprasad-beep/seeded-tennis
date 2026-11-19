@@ -1445,3 +1445,40 @@ server, 169 phantom tap targets, blank screenshots from never scrolling, and
 a horizontal-scroll report on a page that does not scroll. Every one would
 have been reported as a product defect. Measure the thing a user
 experiences: try to scroll, rather than reading `scrollWidth`.
+
+## 2026-11-19 — One Family plan covers one family: up to 4 players and 2 parents
+
+**Owner's decision (Niran), final.** 042 unlocked a family when ANY approved
+member held the Family plan, and a member counts in every family they are
+approved in — so one subscription could unlock any number of families (the
+PR B review proved it on staging with a payer approved into a second family).
+
+**Decided: RESTRICT.**
+- A Family plan unlocks exactly one family: the one the paying account
+  currently belongs to (`home_family_code()`: its own `family_code`, else its
+  earliest approved link — the same rule as `my_family_code()`, which now
+  calls it). A payer who leaves takes the unlock with them.
+- A family holds at most **4 players and 2 parent accounts**. Over the cap
+  the extra account cannot join or be approved, and is told "This family
+  already has 4 players. Contact support@seededtennis.com". **Existing
+  members are never removed**, even in a family already over the cap.
+- Enforced in the database (migration 045: `family_has_tier`, `join_family`,
+  `approve_family_join`), not in the screens. /pricing, the Family card, the
+  compare table, the FAQ, the paywall and /privacy say "For one family: up to
+  4 players and 2 parents", from constants `lib/family-plan-scope.test.ts`
+  pins to the SQL.
+
+**Not decided here:** whether support can raise a family's cap. Today nothing
+can, short of a migration; "Contact support" means a person reads the email.
+
+## 2026-11-19 — Rollout decisions (S2, comps, nav)
+
+- **S2:** production's 28 generator-made workout sessions stay hidden (PR C),
+  not deleted. Revisit on or after 2026-12-19.
+- **Comps:** none. Family NIRAN-0LK2 is the owner's own test family and is
+  expected to see the paywall.
+- **Nav:** the "Tools" group (Results, Tournament checker) under the five
+  primary items is approved.
+- **`/auth/verified`:** covered by the existing `https://seededtennis.com/**`
+  redirect allow-list entry in Supabase Auth; no dashboard change.
+
