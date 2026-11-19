@@ -15,12 +15,13 @@ disposable ones set on staging first (see `docs/FINAL_PASS_REPORT.md`).
 
 | script | what it does |
 |---|---|
-| `site-audit.mjs <pass>` | Every route enumerated from `app/` (school slugs from the build) × personas × widths × themes. Records status, final path, h1s, meta, small targets/text, horizontal scroll, CLS, LCP, axe, console errors, failed requests, a screenshot. Passes: `tier1`, `widths`, `browsers`, `extras` (legacy theme, reduced motion, 200% zoom). |
+| `site-audit.mjs <pass>` | Every route enumerated from `app/` (school slugs from the build) × personas × widths × themes. Records status, final path, h1s, meta, small targets/text, horizontal scroll, CLS, LCP, axe, console errors, failed requests, a screenshot. Passes: `tier1`, `widths`, `browsers`, `extras` (legacy theme, reduced motion, 200% zoom), `narrow` (every route at 320 and 375; also records taps under 44px and content left under the fixed phone tab bar, which audit-summary reports for phone widths). |
 | `audit-summary.mjs <pass>` | Groups a pass's `results.jsonl` into findings by kind. |
 | `flows.mjs` | End-to-end flows (signup → onboarding → report, family join/approve/consent, budget, export, delete account, checkout return states). |
 | `keyboard-audit.mjs` | Tab order, visible focus, skip link, dialog focus traps. |
 | `persona-walk.mjs` | Walks each persona and records every number the app shows about the same player, to catch screens that disagree. |
 | `lighthouse-run.mjs` | Lighthouse (mobile) on every public route. Run with nothing else hitting the server. |
+| `sweep-c.mjs [C1 C9 …]` | PR C's production sweep, C1–C30, as the sweep persona against a production build on :3500 (`SWEEP_BASE` overrides). One concrete assertion per item (DOM text, counts, writes that land, no native dialogs anywhere, no sideways scroll, labels, two-decimal ratings), browser in America/New_York, evidence shots at 1440 and 375. Writes `~/seeded-evidence/production-sweep-1/SWEEP.md` (`SWEEP_OUT` overrides the file name) and folds in the C29 phone-sweep counts from `phone-before/` and `phone/`. Writes to staging as the persona — the header lists every row. |
 | `cls-sources.mjs <email> <route> [width]` | One page, one signed-in persona: every layout shift with the elements that moved and their before/after boxes. Use it when site-audit reports CLS > 0.05. |
 | `ui-audit.mjs` | Older four-width screenshot/axe pass from the launch polish work. |
 

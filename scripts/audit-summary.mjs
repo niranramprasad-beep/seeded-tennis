@@ -23,6 +23,10 @@ for (const r of rows) {
   for (const j of r.junk ?? []) add("rendered junk", r, j);
   if (r.smallTargetCount) add("target < 24px", r, `${r.smallTargetCount}: ${r.smallTargets.slice(0, 3).join(" | ")}`);
   if (r.smallTextCount) add("actionable text < 14px", r, `${r.smallTextCount}: ${r.smallText.slice(0, 3).join(" | ")}`);
+  // Phone-only checks (site-audit's narrow pass): 44px taps, and content
+  // that ends under the fixed tab bar.
+  if (r.width < 768 && r.smallTapCount) add("phone tap target < 44px", r, `${r.smallTapCount}: ${r.smallTaps.slice(0, 3).join(" | ")}`);
+  if (r.width < 768 && r.underBar?.length) add("content under the phone tab bar", r, r.underBar.slice(0, 2).join(" | "));
   for (const l of r.badLinks ?? []) add("bad link", r, JSON.stringify(l));
   if (r.imgsNoAlt?.length) add("img without alt", r, r.imgsNoAlt.join(","));
   if (r.h1 !== undefined && r.h1 !== 1 && !/\.(txt|xml)$/.test(r.route)) add(`h1 count ${r.h1}`, r, r.h1Text ?? "");

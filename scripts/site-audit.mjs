@@ -285,6 +285,7 @@ async function measure(page) {
     }
     const interactive = [...document.querySelectorAll("a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],summary")].filter(vis);
     const smallTargets = [];
+    const smallTaps = [];
     const smallText = [];
     for (const el of interactive) {
       if (srOnly(el) || inRunningText(el)) continue;
@@ -303,6 +304,12 @@ async function measure(page) {
       if ((Math.max(r.width, hr.width) < 24 || Math.max(r.height, hr.height) < 24) && !pad) {
         smallTargets.push(`${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30)}" ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
+      // Phone tap targets (Apple HIG / WCAG 2.5.5 AAA): 44px, measured the
+      // same way (the larger of the control and its label). Only reported
+      // for phone widths by audit-summary.
+      if (Math.max(r.width, hr.width) < 44 - 0.5 || Math.max(r.height, hr.height) < 44 - 0.5) {
+        if (!pad) smallTaps.push(`${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30)}" ${Math.round(Math.max(r.width, hr.width))}x${Math.round(Math.max(r.height, hr.height))}`);
+      }
       const fs = parseFloat(getComputedStyle(el).fontSize);
       const label = (el.textContent || "").trim();
       if (label && fs < 14) smallText.push(`${el.tagName.toLowerCase()} "${label.slice(0, 30)}" ${fs}px`);
@@ -319,11 +326,13 @@ async function measure(page) {
       (l.target === "_blank" && !/noopener|noreferrer/.test(l.rel))
     );
     const imgsNoAlt = [...document.querySelectorAll("img")].filter((i) => !i.hasAttribute("alt")).map((i) => i.src.slice(-60));
-    // Actually try to scroll sideways.
+    // Actually try to scroll sideways. "instant": globals.css may set
+    // scroll-behavior: smooth, and a smooth scroll has not moved yet when
+    // the next line reads scrollX.
     const y = window.scrollY;
-    window.scrollTo(5000, y);
+    window.scrollTo({ left: 5000, top: y, behavior: "instant" });
     const hScroll = window.scrollX > 0 ? window.scrollX : 0;
-    window.scrollTo(0, y);
+    window.scrollTo({ left: 0, top: y, behavior: "instant" });
     // Content past the right edge that NO scroll container owns. The page
     // clips sideways rather than scrolling, so hScroll alone reads 0 for a
     // card pushed to 609px on a 375px phone (verifier H3/H4, 2026-11-16).
@@ -344,7 +353,37 @@ async function measure(page) {
       clipped.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.split(" ").slice(0, 2).join(".") : ""} right=${Math.round(r.right)}`);
       if (clipped.length >= 5) break;
     }
+    // Anything hidden under a fixed bottom bar (the phone tab bar): scroll to
+    // the very bottom, then the last piece of real content must end above
+    // the bar's top edge.
+    const underBar = [];
+    const bars = [...document.querySelectorAll("body *")].filter((e) => {
+      const cs = getComputedStyle(e);
+      const r = e.getBoundingClientRect();
+      return cs.position === "fixed" && r.height > 30 && r.height < 120 && Math.abs(r.bottom - window.innerHeight) < 2 && r.width >= window.innerWidth * 0.9;
+    });
+    if (bars.length) {
+      const barTop = Math.min(...bars.map((b) => b.getBoundingClientRect().top));
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+      const leaves = [...document.querySelectorAll("main *, footer *")].filter((e) => {
+        if (e.children.length) return false;
+        if (bars.some((b) => b.contains(e))) return false;
+        const cs = getComputedStyle(e);
+        if (cs.position === "fixed" || cs.visibility === "hidden") return false;
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && (e.textContent.trim() || /^(BUTTON|INPUT|A|svg|IMG)$/i.test(e.tagName));
+      });
+      for (const e of leaves) {
+        const r = e.getBoundingClientRect();
+        if (r.bottom > barTop + 1 && r.top < window.innerHeight) underBar.push(`${e.tagName.toLowerCase()} "${e.textContent.trim().slice(0, 30)}" bottom=${Math.round(r.bottom)} bar=${Math.round(barTop)}`);
+        if (underBar.length >= 4) break;
+      }
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
     return {
+      underBar,
+      smallTaps: smallTaps.slice(0, 40),
+      smallTapCount: smallTaps.length,
       // What actually rendered. A signed-in user's stored theme overrides the
       // one this harness puts in localStorage (DesignPreferenceSync), and the
       // first tier-1 run recorded "dark" captures that had rendered light.
