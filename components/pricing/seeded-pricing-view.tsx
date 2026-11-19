@@ -243,11 +243,11 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 approved), CLAUDE.md's parent-write rule, and PR B's gate:
                 /family, /family/budget and /family/weekly-reports show the
                 Family paywall unless my_family_has_tier('family') — a plan
-                held by anyone in the family (lib/db/family-plan.ts). */}
+                held by a member whose HOME family it is (045; lib/db/family-plan.ts). */}
             <Faq question="Does a parent need the Family plan?">
               Yes, for the parent tools. The parent dashboard, the season budget and the weekly family
-              report need the Family plan, and anyone in the family can buy it: the player or a
-              parent. A parent uses their own parent account and joins with the family code, and a
+              report need the Family plan, and the player or a parent can buy it, from an account
+              whose own family this is. A parent uses their own parent account and joins with the family code, and a
               family member approves them. The parent can edit the budget and send notes; everything
               else is read-only.
             </Faq>
@@ -255,9 +255,10 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 the family the paying account belongs to (home_family_code),
                 and join_family / approve_family_join refuse past the caps. */}
             <Faq question="How many people does one Family plan cover?">
-              {FAMILY_PLAN_SCOPE_LABEL}. The plan unlocks the family that the paying account belongs
-              to, and only that family. If that account leaves the family, the family goes back to
-              Free; nothing is deleted. A family that&apos;s full can&apos;t take another player or
+              {FAMILY_PLAN_SCOPE_LABEL}. The plan unlocks the paying account&apos;s own family, and
+              only that one, even if the account also belongs to another family. If the paying
+              account is removed from the family, the family goes back to Free unless someone else in
+              it pays; nothing is deleted. A family that&apos;s full can&apos;t take another player or
               parent. Contact {SUPPORT_EMAIL} if you need more.
             </Faq>
             <Faq question="Where do the numbers come from?">

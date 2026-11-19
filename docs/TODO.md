@@ -15,6 +15,14 @@ Last updated 2026-11-19.
   2026-11-19: RESTRICT** — one plan unlocks the payer's home family only, and a
   family holds at most 4 players and 2 parents. Migration 045 (HANDOFF §J
   Step 20); copy on /pricing, the paywall and /privacy.
+- **045 follow-ups (review 2026-11-19, LOW, not fixed):** (1) the
+  confirmation-required sign-in path (`lib/auth.ts`, `ensureSupabaseProfile`
+  on first login) ignores `joinStatus`, so a `family_full` or
+  `verify_email_required` there says nothing — production auto-confirms, so it
+  is rarely reached; (2) a joiner who was already PENDING when the family
+  filled up gets no message — only the approver sees `family_full`; (3) support
+  has no way to raise one family's cap short of a migration, and an under-13
+  refused by a full family can only reach consent through support.
 - **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
   staging, and `<site>/auth/verified` added to Supabase Auth → URL
   Configuration → Redirect URLs on staging and production BEFORE 043 ships.

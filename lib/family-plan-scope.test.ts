@@ -100,6 +100,51 @@ describe("045: the caps", () => {
   });
 });
 
+describe("045: review findings (2026-11-19) stay fixed", () => {
+  it("an account with no profile row cannot join or be approved (it has no role to cap)", () => {
+    const join = latest("join_family");
+    const noProfile = join.search(/if\s+not\s+exists\s*\(\s*select\s+1\s+from\s+public\.profiles\s+where\s+id\s*=\s*v_user\s*\)\s*then\s+raise\s+exception\s+'profile_required'/);
+    expect(noProfile).toBeGreaterThan(-1);
+    // Before 043's email check and before anything is logged or looked up.
+    expect(noProfile).toBeLessThan(join.search(/verify_email_required/));
+    expect(noProfile).toBeLessThan(join.search(/insert\s+into\s+public\.family_join_attempts/));
+
+    const approve = latest("approve_family_join");
+    const nullRole = approve.search(/if\s+v_their_role\s+is\s+null\s+then\s+raise\s+exception\s+'profile_required'/);
+    expect(nullRole).toBeGreaterThan(-1);
+    expect(nullRole).toBeLessThan(approve.search(/family_member_cap\s*\(\s*v_their_role\s*\)/));
+  });
+
+  it("the cap fails closed for an unknown role", () => {
+    expect(latest("family_member_cap")).toMatch(/else\s+0\s+end/);
+  });
+
+  it("join and approve serialise on the SAME per-family lock, taken before counting", () => {
+    const key = /pg_advisory_xact_lock\s*\(\s*hashtext\s*\(\s*'seeded\.family:'\s*\|\|\s*(p_code|v_code)\s*\)\s*\)/;
+    const join = latest("join_family");
+    const approve = latest("approve_family_join");
+    expect(join).toMatch(key);
+    expect(approve).toMatch(key);
+    expect(join.search(key)).toBeLessThan(join.search(/family_member_count\s*\(/));
+    expect(approve.search(key)).toBeLessThan(approve.search(/family_member_count\s*\(/));
+  });
+
+  it("family_member_count is not callable by clients (it would count any family's members)", () => {
+    const sql = latest("family_member_count");
+    expect(sql).toMatch(/revoke\s+all\s+on\s+function\s+public\.family_member_count\(text,\s*text\)\s+from\s+public\s*,\s*anon\s*,\s*authenticated/);
+    expect(sql).not.toMatch(/grant\s+execute\s+on\s+function\s+public\.family_member_count\([^)]*\)\s+to\s+[^;]*authenticated/);
+  });
+
+  it("home_family_code prefers the account's own family_code over a joined family", () => {
+    const sql = latest("home_family_code");
+    const own = sql.search(/select\s+p\.family_code\s+from\s+public\.profiles/);
+    const joined = sql.search(/select\s+pa\.family_code\s+from\s+public\.parent_accounts/);
+    expect(own).toBeGreaterThan(-1);
+    expect(joined).toBeGreaterThan(own);
+    expect(sql).toMatch(/coalesce\s*\(\s*\(\s*select\s+p\.family_code/);
+  });
+});
+
 describe("045: what people are told", () => {
   it("uses the owner's wording", () => {
     expect(FAMILY_PLAN_SCOPE_LABEL).toBe("For one family: up to 4 players and 2 parents");
