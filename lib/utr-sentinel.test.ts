@@ -114,4 +114,13 @@ describe("onboarding never records a rating the player did not choose", () => {
     expect(src).toMatch(/step === 0\s*\?\s*utr != null \|\| noUtrYet/);
     expect(src).toMatch(/currentUTR: noUtrYet \|\| utr == null \? 0 : utr/);
   });
+
+  it("Legacy /plan never prints the sentinel as a goal (reviewer finding, PR C)", () => {
+    // goalUTR fell back to player.currentUTR: "From Not tracked to 0.00",
+    // "Your goal UTR 0.00" and a "Target 0.0" chart for a no-UTR player.
+    const src = readFileSync("components/roadmap/roadmap-view.tsx", "utf8");
+    expect(src).toMatch(/const goalUTR = hasRealUtr\(player\.currentUTR\) \? \(planGoal\.goal\?\.value \?\? null\) : null;/);
+    expect(src).not.toMatch(/goal\?\.value \?\? player\.currentUTR/);
+    expect(src).toMatch(/goalUTR != null \?/);
+  });
 });
