@@ -5,6 +5,7 @@
 // /events is the one real page that renders all three (recent results,
 // upcoming tournaments, training calendar), which is why they're
 // consolidated here rather than split further.
+import { isCalendarDateKey } from "@/lib/time";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
@@ -296,14 +297,7 @@ export interface NewTournamentEntryInput {
 /** A real calendar date written as YYYY-MM-DD — what `<input type="date">`
  *  produces and what the `event_date date` column stores. Checked from its
  *  parts, never `new Date("YYYY-MM-DD")` (that reads it as UTC midnight). */
-export function isCalendarDateKey(value: string | null | undefined): boolean {
-  if (!value) return false;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const local = new Date(y, mo - 1, d);
-  return local.getFullYear() === y && local.getMonth() === mo - 1 && local.getDate() === d;
-}
+export { isCalendarDateKey } from "@/lib/time";
 
 /**
  * The exact `tournament_entries` row a save sends. Pure, so the columns are

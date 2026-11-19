@@ -21,9 +21,25 @@ function walk(dir: string, out: string[] = []): string[] {
 const strip = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 
-/** window.confirm(…), confirm(…), globalThis.alert (…), self.prompt(…) —
- * but not a method of something else (`dialog.confirm()`, `onConfirm(`). */
-export const NATIVE_DIALOG = /(?:\b(?:window|globalThis|self)\s*\.\s*|(?<![\w.$]))(?:confirm|alert|prompt)\s*\(/;
+const DIALOG = "(?:confirm|alert|prompt)";
+const GLOBAL = "(?:window|globalThis|self)";
+/** Every way to reach a native dialog, not a method of something else
+ * (`dialog.confirm()`, `onConfirm(`):
+ *  - a bare call: confirm(…), alert (…)
+ *  - ANY reference through the global, called or not: window.confirm(…),
+ *    `const c = window.confirm`, `(0, window.alert)(…)`, globalThis.prompt
+ *  - bracket access: window["confirm"], self['alert'], window[`prompt`]
+ *  - destructuring: const { confirm } = window
+ * (The second to fourth were added after the PR C review showed the first
+ * version only caught a direct call.) */
+export const NATIVE_DIALOG = new RegExp(
+  [
+    `(?<![\\w.$])${DIALOG}\\s*\\(`,
+    `\\b${GLOBAL}\\s*\\.\\s*${DIALOG}\\b`,
+    `\\b${GLOBAL}\\s*\\[\\s*["'\`]${DIALOG}["'\`]\\s*\\]`,
+    `\\{[^}]*\\b${DIALOG}\\b[^}]*\\}\\s*=\\s*${GLOBAL}\\b`,
+  ].join("|")
+);
 
 describe("no native browser dialogs", () => {
   it("the detector catches every spelling (self-test)", () => {
@@ -34,10 +50,30 @@ describe("no native browser dialogs", () => {
       "const name = prompt('Name?');",
       "globalThis.alert (x)",
       "self.prompt(x)",
+      // the PR C review's bypasses
+      'window["confirm"]("Delete?")',
+      "if (!self['alert']) return;",
+      "window[`prompt`]('x')",
+      "const c = window.confirm; c('Delete?');",
+      "(0, window.alert)('x')",
+      "const ask = globalThis.prompt",
+      "const { confirm } = window;",
+      "const { alert: say } = globalThis;",
     ]) {
       expect(NATIVE_DIALOG.test(s), s).toBe(true);
     }
-    for (const s of ["onConfirm()", "dialog.confirm()", "handleConfirm(x)", "<ConfirmDialog", "setAlert(true)", "confirmDelete()"]) {
+    for (const s of [
+      "onConfirm()",
+      "dialog.confirm()",
+      "handleConfirm(x)",
+      "<ConfirmDialog",
+      "setAlert(true)",
+      "confirmDelete()",
+      "window.confirmed = true",
+      'const { confirmLabel } = props;',
+      "role=\"alert\"",
+      "windowConfirm()",
+    ]) {
       expect(NATIVE_DIALOG.test(s), s).toBe(false);
     }
   });

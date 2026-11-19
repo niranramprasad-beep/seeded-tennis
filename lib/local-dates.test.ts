@@ -86,16 +86,22 @@ function stripComments(src: string): string {
 }
 
 // Every Postgres `date` column, by its camelCase field and its raw name.
+// `date` / `scheduled_date` too: a training session's and a check-in's day
+// (the PR C review found `new Date(x.date)` slipped past the first list).
 const DATE_ONLY_FIELDS =
-  "recordedAt|matchDate|eventDate|checkinDate|expenseDate|commitmentDate|recorded_at|match_date|event_date|checkin_date|expense_date|commitment_date";
+  "date|scheduledDate|recordedAt|matchDate|eventDate|checkinDate|expenseDate|commitmentDate|scheduled_date|recorded_at|match_date|event_date|checkin_date|expense_date|commitment_date";
 
 const BANNED: { name: string; re: RegExp }[] = [
-  { name: "toISOString().slice(0, 10) — the UTC day", re: /toISOString\(\)\s*\.\s*(slice|substring|substr)\(\s*0\s*,\s*10\s*\)/ },
-  { name: 'toISOString().split("T")[0] — the UTC day', re: /toISOString\(\)\s*\.\s*split\(\s*["'`]T["'`]\s*\)/ },
+  { name: "toISOString()/toJSON().slice(0, 10) — the UTC day", re: /(toISOString|toJSON)\(\)\s*\.\s*(slice|substring|substr)\(\s*0\s*,\s*10\s*\)/ },
+  { name: 'toISOString()/toJSON().split("T")[0] — the UTC day', re: /(toISOString|toJSON)\(\)\s*\.\s*split\(\s*["'`]T["'`]\s*\)/ },
   { name: 'new Date("YYYY-MM-DD") — UTC midnight', re: /new Date\(\s*["'`]\d{4}-\d{2}-\d{2}["'`]\s*\)/ },
   {
     name: "new Date(<date column>) — UTC midnight; use parseLocalDate",
     re: new RegExp(`new Date\\(\\s*[\\w.?!\\]\\[]*\\.(${DATE_ONLY_FIELDS})\\s*\\)`),
+  },
+  {
+    name: "Date.parse(<date column>) — UTC midnight, and accepts non-days; use isCalendarDateKey / parseLocalDate",
+    re: new RegExp(`Date\\.parse\\(\\s*[\\w.?!\\]\\[]*\\.(${DATE_ONLY_FIELDS})\\s*\\)`),
   },
 ];
 
@@ -124,10 +130,24 @@ describe("guard: date-only values are never parsed or written as UTC", () => {
       'const d = new Date("2026-11-18");',
       "const d = new Date(lastLoggedUtr.recordedAt);",
       "const d = new Date(m.matchDate);",
+      // the PR C review's bypasses
+      "const d = new Date(session.date);",
+      "const d = new Date(row.scheduled_date);",
+      "if (Number.isNaN(Date.parse(input.expenseDate))) return;",
+      "if (Number.isNaN(Date.parse(input.recordedAt))) return;",
+      "const k = new Date().toJSON().slice(0, 10);",
+      'const k = d.toJSON().split("T")[0];',
     ];
     for (const p of probes) expect(BANNED.some((b) => b.re.test(p)), p).toBe(true);
     // ...and leaves the right ones alone.
-    for (const ok of ["parseLocalDate(e.recordedAt)", "new Date(row.created_at)", "new Date(entry.updatedAt)"]) {
+    for (const ok of [
+      "parseLocalDate(e.recordedAt)",
+      "new Date(row.created_at)",
+      "new Date(entry.updatedAt)",
+      "Date.parse(plan.created_at)",
+      "new Date(update.dateMs)",
+      "isCalendarDateKey(input.expenseDate)",
+    ]) {
       expect(BANNED.some((b) => b.re.test(ok)), ok).toBe(false);
     }
   });

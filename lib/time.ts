@@ -209,6 +209,19 @@ export function formatShortDate(input: Date | string): string {
  * all change in one sweep. Same function. */
 export const localDateKey = toLocalDateString;
 
+/** True for a real "YYYY-MM-DD" calendar day — what a date input produces
+ *  and what a Postgres `date` column stores. Checked from its parts, never
+ *  with `new Date(x)` / `Date.parse(x)` (both read it as UTC midnight, and
+ *  Date.parse also accepts "Feb 30" style strings and timestamps). */
+export function isCalendarDateKey(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const local = new Date(y, mo - 1, d);
+  return local.getFullYear() === y && local.getMonth() === mo - 1 && local.getDate() === d;
+}
+
 /**
  * The same local calendar day `months` months away (negative = earlier),
  * clamped to the end of a shorter month: Aug 31 minus 6 months is Feb 28 —

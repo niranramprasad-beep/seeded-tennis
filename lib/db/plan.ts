@@ -7,7 +7,7 @@
 // of lib/supabase/features.ts — same bodies, moved, not rewritten.
 import type { Player, RoadmapYear, TrainingPlan } from "@/lib/types";
 import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
-import { getCurrentGrade, getSummerBeforeGradeYear, localDateKey, ordinalGrade, startOfLocalDay } from "@/lib/time";
+import { getCurrentGrade, getSummerBeforeGradeYear, isCalendarDateKey, localDateKey, ordinalGrade, startOfLocalDay } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
@@ -186,7 +186,7 @@ export function validateUtrEntryInput(input: NewUtrEntryInput): string | null {
   if (!Number.isFinite(input.utr) || input.utr < UTR_MIN || input.utr > UTR_MAX) {
     return `UTR must be between ${UTR_MIN} and ${UTR_MAX}.`;
   }
-  if (!input.recordedAt || Number.isNaN(Date.parse(input.recordedAt))) {
+  if (!isCalendarDateKey(input.recordedAt)) {
     return "Enter a valid date.";
   }
   return null;
