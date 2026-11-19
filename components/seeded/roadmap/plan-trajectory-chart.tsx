@@ -187,8 +187,9 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
           const ly = fitsLeft ? Math.max(PAD_TOP - 6, cy - 10) : Math.min(BASELINE - 4, cy + 22);
           return (
             <g key={c.date.getTime()}>
-              {/* The diamond is 14px; the group around it carries a 44px
-                  transparent hit area, so a phone tap lands (C29). */}
+              {/* The diamond is 14px; the group around it carries a 56-unit
+                  transparent hit area — the chart scales down on a phone, and
+                  56 units is still 44px at 320 (C29). */}
               <g
                 className="cursor-pointer"
                 role="button"
@@ -202,7 +203,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
                   }
                 }}
               >
-                <rect x={cx - 22} y={cy - 22} width="44" height="44" fill="transparent" />
+                <rect x={cx - 28} y={cy - 28} width="56" height="56" fill="transparent" />
                 <rect
                   x={cx - 7}
                   y={cy - 7}

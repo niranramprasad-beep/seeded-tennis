@@ -185,7 +185,9 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
     </div>
   );
   const fitCards = (
-  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
+  // Each card as tall as its own content: stretched to "Why this band",
+  // the roster card held ~260px of nothing (sweep C22).
+  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
