@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useDialog } from "@/lib/hooks/use-dialog";
+import { Portal } from "@/components/ui/portal";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +57,10 @@ export function DeleteAccountDialog({
   const panelRef = useRef<HTMLDivElement>(null);
   useDialog(open, close, panelRef, { closeOnEscape: !submitting });
 
+  // On document.body (components/ui/portal.tsx): inside the page's animated
+  // wrapper the phone header and tab bar drew over this dialog.
   return (
+    <Portal>
     <AnimatePresence>
       {open && (
         <>
@@ -80,7 +84,7 @@ export function DeleteAccountDialog({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
+            className="pointer-events-auto max-h-[calc(86dvh-16px)] w-full max-w-md overflow-y-auto rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-account-title"
@@ -152,5 +156,6 @@ export function DeleteAccountDialog({
         </>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }

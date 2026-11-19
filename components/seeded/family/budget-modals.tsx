@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { useDialog } from "@/lib/hooks/use-dialog";
+import { Portal } from "@/components/ui/portal";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,11 @@ export function ModalShell({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useDialog(open, onClose, panelRef);
+  // Rendered into document.body, like the shared Drawer/Dialog/Toast: inside
+  // AppShell's animated wrapper (a stacking context) the phone header and
+  // tab bar drew OVER this modal and covered its Save button.
   return (
+    <Portal>
     <AnimatePresence>
       {open && (
         <>
@@ -55,7 +60,9 @@ export function ModalShell({
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               ref={panelRef}
               tabIndex={-1}
-              className="pointer-events-auto w-full max-w-md overflow-hidden rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
+              // Scrolls inside itself when a phone is shorter than the form
+              // (320×568 with the keyboard up), instead of running off-screen.
+              className="pointer-events-auto max-h-[calc(86dvh-16px)] w-full max-w-md overflow-y-auto rounded-[18px] border border-line bg-card p-6 shadow-seeded-3 focus:outline-none"
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
@@ -66,6 +73,7 @@ export function ModalShell({
         </>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }
 
@@ -121,7 +129,7 @@ export function EditBudgetModal({
         <h2 id="edit-budget-title" className="text-lg font-semibold text-ink">
           Edit season budget
         </h2>
-        <button onClick={onClose} aria-label="Close" className="text-stone-light hover:text-ink">
+        <button onClick={onClose} aria-label="Close" className="-m-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-light hover:text-ink">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -223,7 +231,7 @@ export function AddExpenseModal({
         <h2 id="add-expense-title" className="text-lg font-semibold text-ink">
           Add expense
         </h2>
-        <button onClick={onClose} aria-label="Close" className="text-stone-light hover:text-ink">
+        <button onClick={onClose} aria-label="Close" className="-m-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-light hover:text-ink">
           <X className="h-5 w-5" />
         </button>
       </div>
