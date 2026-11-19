@@ -209,9 +209,24 @@ describe("each screen reads the one projection", () => {
       }
       return acc;
     };
+    // components/charts/ included: Legacy /today's chart ran its own
+    // regression until the PR C review (buildUtrChartSeries →
+    // computeUtrProjection). Only the dev harness is exempt.
     const offenders = walk("components")
-      .filter((f) => !f.startsWith("components/charts/") && !f.startsWith("components/dev/"))
-      .filter((f) => /\bcomputeUtrProjection\b/.test(code(f)));
-    expect(offenders, "Seeded screens take projections from lib/fit.ts").toEqual([]);
+      .filter((f) => !f.startsWith("components/dev/"))
+      .filter((f) => /\bcomputeUtrProjection\b|\.predict\(|upperBound\(|lowerBound\(/.test(code(f)));
+    expect(offenders, "every screen takes its projection from lib/fit.ts").toEqual([]);
+  });
+
+  it("Legacy /today: the chart series and summary read projectionPath(report.utr), never a fit of their own", () => {
+    const lib = code("lib/utr-projection.ts");
+    for (const fn of ["buildUtrChartSeries", "buildUtrSummaryLine"]) {
+      const start = lib.indexOf(`export function ${fn}(`);
+      const body = lib.slice(start, lib.indexOf("\n}\n", start));
+      expect(body, fn).toMatch(/estimatePath/);
+      expect(body, fn).not.toMatch(/computeUtrProjection|\.predict\(|toFixed\(1\)/);
+    }
+    expect(code("components/charts/utr-trajectory-chart.tsx")).toMatch(/buildUtrChartSeries\(\{[^}]*estimatePath/);
+    expect(code("components/dashboard/dashboard-view.tsx")).toMatch(/projectionPath\(\{\s*estimate: fitReport\?\.utr/);
   });
 });

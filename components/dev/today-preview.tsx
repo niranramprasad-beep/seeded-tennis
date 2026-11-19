@@ -126,6 +126,8 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         tier="player"
         player={player}
         targetUTR={11.2}
+        estimatePath={[]}
+        goalUtr={11.2}
         utrStatus="idle"
         utrError=""
         actualPoints={actualPoints}

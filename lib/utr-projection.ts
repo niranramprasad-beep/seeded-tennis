@@ -4,9 +4,9 @@
 // the player's own current UTR as the single "today" anchor when there's no
 // history yet).
 
-import { getCurrentGrade } from "@/lib/time";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import type { PlayerGender } from "@/lib/types";
+import type { UtrEstimatePoint } from "@/lib/fit";
+import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
 export interface UtrDataPoint {
   date: Date;
@@ -149,19 +149,25 @@ export function gradeStandingName(grade: number): string {
   return GRADE_STANDING[grade] ?? `${grade}th-grade`;
 }
 
-/** "At your current pace, you'll reach 8.2 by fall of junior year. Your target is 9.0." */
+/**
+ * "Estimated 6.6 by Jun 2028, the summer before senior year. Your goal is 9.25."
+ *
+ * Reads the ONE projection — `projectionPath(report.utr)` from lib/fit.ts —
+ * and never fits a line of its own. (It used to run computeUtrProjection over
+ * the logged history, so Legacy /today printed a different number from every
+ * other screen, and `targetUTR.toFixed(1)` printed a chosen 9.25 as "9.3".)
+ * Null when there is no estimate to state.
+ */
 export function buildUtrSummaryLine(input: {
-  projection: UtrProjection | null;
-  graduationYear: number;
-  targetUTR: number;
-  today?: Date;
+  estimatePath: UtrEstimatePoint[];
+  /** The plan goal, or null when there is none (never the 0 sentinel). */
+  goalUtr: number | null;
 }): string | null {
-  if (!input.projection) return null;
-  const today = input.today ?? new Date();
-  const milestoneDate = nextFallDate(today);
-  const standing = gradeStandingName(getCurrentGrade(input.graduationYear, milestoneDate));
-  const predicted = Math.round(input.projection.predict(milestoneDate) * 10) / 10;
-  return `At your current pace, you'll reach ${predicted.toFixed(1)} by fall of ${standing} year. Your target is ${input.targetUTR.toFixed(1)}.`;
+  const end = input.estimatePath[input.estimatePath.length - 1];
+  if (!end) return null;
+  const when = end.date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const goal = input.goalUtr != null && input.goalUtr > 0 ? ` Your goal is ${formatPlayerUtr(input.goalUtr)}.` : "";
+  return `Estimated ${formatUtrEstimate(end.value)} by ${when}, the summer before senior year.${goal}`;
 }
 
 export type UtrRangeOption = "3M" | "6M" | "1Y" | "ALL";
@@ -180,17 +186,19 @@ export interface BuildUtrSeriesInput {
   actualEntries: UtrDataPoint[];
   /** Real roadmap checkpoints (from buildRoadmap), used for the target line. */
   targetPoints: UtrDataPoint[];
+  /**
+   * `projectionPath({ estimate: report.utr, … })` — lib/fit.ts's one
+   * projection, the same path /today and /plan shade on the Seeded design.
+   * Empty when there is no estimate (no real UTR, or the summer has begun).
+   */
+  estimatePath: UtrEstimatePoint[];
   range: UtrRangeOption;
-  /** Caps the projected line at this player's realistic UTR ceiling. Falls
-   * back to the higher of the two gender caps when omitted. */
-  gender?: PlayerGender;
   today?: Date;
 }
 
 export interface BuiltUtrSeries {
   rows: UtrChartRow[];
   hasProjection: boolean;
-  projection: UtrProjection | null;
 }
 
 function startOfDay(date: Date): Date {
@@ -201,8 +209,8 @@ function addMonths(date: Date, months: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
 }
 
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function rangeStartDate(
@@ -263,10 +271,6 @@ export function buildUtrChartSeries(input: BuildUtrSeriesInput): BuiltUtrSeries 
     (a, b) => a.date.getTime() - b.date.getTime()
   );
   const start = rangeStartDate(input.range, sortedActual, today);
-  const projection = computeUtrProjection(
-    sortedActual,
-    input.gender ? { ceiling: REALISTIC_UTR_CEILING[input.gender] } : undefined
-  );
   const horizon = projectionHorizon(input.range, today, input.targetPoints);
 
   const rows = new Map<number, UtrChartRow>();
@@ -275,35 +279,51 @@ export function buildUtrChartSeries(input: BuildUtrSeriesInput): BuiltUtrSeries 
     rows.set(key, { ...(rows.get(key) ?? { dateMs: key }), ...patch });
   };
 
+  // A logged rating keeps its two decimals: 5.95 is 5.95 on the chart and in
+  // its tooltip, never 6.0 (C10).
   sortedActual
     .filter((p) => p.date >= start)
-    .forEach((p) => upsert(p.date, { actual: round1(p.utr) }));
+    .forEach((p) => upsert(p.date, { actual: round2(p.utr) }));
 
-  const lastActual = sortedActual[sortedActual.length - 1];
-  if (projection && lastActual) {
-    // Seed the dashed line at the same point the solid line ends, so there's
-    // no visual gap between "actual" and "projected".
-    upsert(lastActual.date, {
-      projected: round1(lastActual.utr),
-      projLower: round1(lastActual.utr),
-      projUpper: round1(lastActual.utr),
-    });
-    monthlyStepsBetween(lastActual.date, horizon).forEach((date) =>
-      upsert(date, {
-        projected: round1(projection.predict(date)),
-        projLower: round1(projection.lowerBound(date)),
-        projUpper: round1(projection.upperBound(date)),
-      })
-    );
+  // The projection is the report's path, cut at the chart's right edge.
+  const path = input.estimatePath;
+  const inView = path.filter((p) => p.date >= start && p.date <= horizon);
+  const last = path[path.length - 1];
+  if (last && last.date > horizon && path[0].date <= horizon) {
+    const edge = estimateAt(path, horizon);
+    if (edge) inView.push(edge);
   }
+  inView.forEach((p) =>
+    upsert(p.date, {
+      projected: round2(p.value),
+      projLower: round2(p.low),
+      projUpper: round2(p.high),
+    })
+  );
 
   input.targetPoints
     .filter((p) => p.date >= start && p.date <= horizon)
-    .forEach((p) => upsert(p.date, { target: round1(p.utr) }));
+    .forEach((p) => upsert(p.date, { target: round2(p.utr) }));
 
   return {
     rows: Array.from(rows.values()).sort((a, b) => a.dateMs - b.dateMs),
-    hasProjection: Boolean(projection),
-    projection,
+    hasProjection: inView.length > 0,
   };
+}
+
+/** The path's value on `date`, interpolated between its points (the same
+ * arithmetic as lib/fit.ts estimateOnDate, which this file cannot import at
+ * runtime without a cycle). */
+function estimateAt(path: UtrEstimatePoint[], date: Date): UtrEstimatePoint | null {
+  const t = date.getTime();
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (t >= a.date.getTime() && t <= b.date.getTime()) {
+      const f = (t - a.date.getTime()) / (b.date.getTime() - a.date.getTime() || 1);
+      const lerp = (x: number, y: number) => x + (y - x) * f;
+      return { date, low: lerp(a.low, b.low), value: lerp(a.value, b.value), high: lerp(a.high, b.high) };
+    }
+  }
+  return null;
 }

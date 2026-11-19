@@ -20,7 +20,7 @@ import {
   type UtrDataPoint,
   type UtrRangeOption,
 } from "@/lib/utr-projection";
-import type { PlayerGender } from "@/lib/types";
+import type { UtrEstimatePoint } from "@/lib/fit";
 import { cn, formatPlayerUtr } from "@/lib/utils";
 
 const RANGE_OPTIONS: { value: UtrRangeOption; label: string }[] = [
@@ -35,9 +35,11 @@ interface UTRTrajectoryChartProps {
   actualEntries: UtrDataPoint[];
   /** Real roadmap checkpoints (from buildRoadmap). */
   targetPoints: UtrDataPoint[];
-  graduationYear: number;
-  targetUTR: number;
-  gender: PlayerGender;
+  /** projectionPath(report.utr) — the one projection every screen draws.
+   * This chart fits no line of its own. Empty when there is no estimate. */
+  estimatePath: UtrEstimatePoint[];
+  /** The plan goal; null when there is none. */
+  goalUtr: number | null;
   height?: number;
 }
 
@@ -78,23 +80,19 @@ function ChartTooltip({ active, payload, c }: any) {
 export function UTRTrajectoryChart({
   actualEntries,
   targetPoints,
-  graduationYear,
-  targetUTR,
-  gender,
+  estimatePath,
+  goalUtr,
   height = 340,
 }: UTRTrajectoryChartProps) {
   const c = useThemeColors();
   const [range, setRange] = useState<UtrRangeOption>("ALL");
 
-  const { rows, hasProjection, projection } = useMemo(
-    () => buildUtrChartSeries({ actualEntries, targetPoints, range, gender }),
-    [actualEntries, targetPoints, range, gender]
+  const { rows, hasProjection } = useMemo(
+    () => buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range }),
+    [actualEntries, targetPoints, estimatePath, range]
   );
 
-  const summary = useMemo(
-    () => buildUtrSummaryLine({ projection, graduationYear, targetUTR }),
-    [projection, graduationYear, targetUTR]
-  );
+  const summary = useMemo(() => buildUtrSummaryLine({ estimatePath, goalUtr }), [estimatePath, goalUtr]);
 
   const allValues = rows.flatMap((r) =>
     [r.actual, r.projected, r.projLower, r.projUpper, r.target].filter(
@@ -220,13 +218,11 @@ export function UTRTrajectoryChart({
           {summary}
         </p>
       ) : (
-        !hasProjection && (
+        !hasProjection &&
+        actualEntries.length === 0 && (
           <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-cream/70 px-4 py-3 text-sm text-stone">
             <Sparkles className="h-4 w-4 shrink-0 text-leaf-accent" />
-            <span>
-              Log {Math.max(0, 3 - actualEntries.length)} more result
-              {Math.max(0, 3 - actualEntries.length) === 1 ? "" : "s"} to unlock your projection line.
-            </span>
+            <span>Log your UTR to see where it is headed.</span>
           </div>
         )
       )}

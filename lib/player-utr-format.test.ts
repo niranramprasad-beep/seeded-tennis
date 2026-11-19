@@ -104,7 +104,9 @@ function stripComments(src: string): string {
 // Receivers that are a PLAYER's rating. `.toFixed(1)` on any of these rounds
 // a real rating. Team fields (avgRosterUTR, minCompetitiveUTR, a range's
 // min/max, a draw's average) are estimates and may keep one decimal.
-const PLAYER_RATING = /\b(currentUTR|currentUtr|playerUtr|subjectUtr|utrNum|opponentUtr|shownUtr|effectiveUtr|hypotheticalUTR|goalUtr|utr)\b/;
+// targetUTR / goalUTR / goal(.value): the plan goal is a rating the player
+// CHOSE — a 9.25 printed "9.3" (lib/utr-projection.ts, reviewer finding).
+const PLAYER_RATING = /\b(currentUTR|currentUtr|playerUtr|subjectUtr|utrNum|opponentUtr|shownUtr|effectiveUtr|hypotheticalUTR|goalUtr|goalUTR|targetUTR|targetUtr|goal|utr)\b/;
 const TEAM_FIELD = /avgRosterUTR|minCompetitiveUTR|drawUtr|typicalFieldUtr|range\.(min|max)/;
 
 /** The expression a `.toFixed(1)` is called on — back to the nearest
@@ -148,6 +150,9 @@ describe("guard: no player rating is rounded to one decimal", () => {
       ": utr || subjectUtr.toFixed(1);",
       "You're ${playerUtr.toFixed(1)} today",
       "today ${(subjectUtr as number).toFixed(1)}",
+      "Your target is ${input.targetUTR.toFixed(1)}.",
+      "Goal ${goal.value.toFixed(1)}",
+      "your ${goalUTR.toFixed(1)} goal",
     ];
     for (const line of shipped) {
       const m = /\.toFixed\(\s*1\s*\)/.exec(line)!;

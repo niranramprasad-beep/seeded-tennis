@@ -17,7 +17,8 @@ import type { SchoolLite, WeekdayShort } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
-import type { PlanGoal } from "@/lib/fit";
+import { projectionPath, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
+import { useFitReport } from "@/lib/hooks/use-fit-report";
 import type { GoalPace } from "@/lib/school-fit";
 import { Toast } from "@/components/seeded/ui/toast";
 import { AuthGate } from "@/components/shared/auth-gate";
@@ -165,6 +166,20 @@ function DashboardInner({ schools }: DashboardViewProps) {
   const roadmap = planGoal.roadmap;
 
   const targetUTR = planGoal.goal?.value ?? player.currentUTR;
+  // Legacy /today's chart draws the SAME projection as every Seeded screen:
+  // projectionPath(report.utr). It used to fit its own regression
+  // (buildUtrChartSeries → computeUtrProjection) and print a different number.
+  const fitReport = useFitReport({ player, schools: targetSchools });
+  const estimatePath = useMemo(
+    () =>
+      projectionPath({
+        estimate: fitReport?.utr,
+        currentUtr: hasRealUtr(player.currentUTR) ? player.currentUTR : null,
+        graduationYear: player.graduationYear,
+        now,
+      }),
+    [fitReport?.utr, player.currentUTR, player.graduationYear, now]
+  );
   const firstName = player.name.trim().split(/\s+/)[0] || "";
   const [savedToast, setSavedToast] = useState<string | null>(null);
 
@@ -287,6 +302,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
     tier,
     player,
     targetUTR,
+    estimatePath,
+    goalUtr: planGoal.goal?.value ?? null,
     utrStatus,
     utrError,
     actualPoints,
@@ -350,6 +367,10 @@ export interface DashboardLayoutProps {
   tier: ReturnType<typeof useTier>["tier"];
   player: ReturnType<typeof usePlayer>["player"];
   targetUTR: number;
+  /** projectionPath(report.utr): the one projection, for the Legacy chart. */
+  estimatePath: UtrEstimatePoint[];
+  /** The plan goal, or null — never the 0 sentinel. */
+  goalUtr: number | null;
   utrStatus: "idle" | "loading" | "saving" | "error";
   utrError: string;
   actualPoints: { date: Date; utr: number }[];
@@ -380,6 +401,8 @@ function LegacyDashboardLayout({
   utrError,
   actualPoints,
   targetPoints,
+  estimatePath,
+  goalUtr,
   UTRTrajectoryChart,
   weeklyHours,
   weekSessions,
@@ -446,9 +469,8 @@ function LegacyDashboardLayout({
                 <UTRTrajectoryChart
                   actualEntries={actualPoints}
                   targetPoints={targetPoints}
-                  graduationYear={player.graduationYear}
-                  targetUTR={targetUTR}
-                  gender={player.gender}
+                  estimatePath={estimatePath}
+                  goalUtr={goalUtr}
                 />
               </div>
             </Card>
