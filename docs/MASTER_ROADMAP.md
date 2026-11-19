@@ -57,7 +57,7 @@ manual plan's; session-save errors are plain words; Legacy /today draws
 the one projection and prints a chosen goal with two decimals; Legacy /plan
 never prints a 0.00 goal; a goal at or below today's rating is rejected;
 the native-dialog and local-date guards catch the bypasses the review found.
-Still open: the nav Tools group awaits sign-off on CLAUDE.md's 5-item line;
+The nav Tools group was approved 2026-11-19. Still open:
 the tab bar's 11px labels (mockup) and a ~0.07 CLS the harness sees on
 phone /today that cls-sources.mjs cannot reproduce.
 

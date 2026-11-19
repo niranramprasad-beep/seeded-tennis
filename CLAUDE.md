@@ -136,7 +136,7 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
 - **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
   nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
   Tournament checker) in the sidebar, the avatar menu on phones and ⌘K
-  (docs/DECISIONS.md, 2026-11-18). Tools is not a sixth primary item; the
+  (docs/DECISIONS.md, 2026-11-18; **approved by Niran 2026-11-19**). Tools is not a sixth primary item; the
   phone bottom bar stays exactly five. Settings/Family live under the avatar
   menu; the theme toggle lives only in Settings → Appearance.
 - **Friends and badges are removed, product-wide.** Don't resurrect
@@ -148,7 +148,8 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
   The calendar reads only sessions in the player's manual plan
   (`training_plans.metadata = {"kind":"manual"}`, lib/db/training.ts).
   **Production still holds 28 generated sessions in 5 plans — hidden, not
-  deleted. Whether to delete them is Niran's call** (DECISIONS 2026-11-18).
+  deleted. Niran decided 2026-11-19: keep them hidden, do NOT delete; revisit
+  on or after 2026-12-19** (DECISIONS 2026-11-19, TODO).
 - **Gmail = compose-link only.** Never the Gmail API, never inbox access,
   never auto-send.
 - **UTR = profile link + manual check-in only.** Never fetch or scrape
