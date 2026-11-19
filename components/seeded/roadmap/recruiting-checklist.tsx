@@ -55,7 +55,7 @@ export function RecruitingChecklistCard({
           <button
             type="button"
             onClick={() => setShowHidden((v) => !v)}
-            className="text-xs font-semibold text-grass"
+            className="inline-flex min-h-11 items-center text-xs font-semibold text-grass sm:min-h-0"
           >
             {showHidden ? "Hide hidden items" : `Show ${hiddenItems.length} hidden`}
           </button>
@@ -106,7 +106,7 @@ export function RecruitingChecklistCard({
           }}
           placeholder="Add your own task…"
           aria-label="Add a custom checklist item"
-          className="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus"
+          className="h-11 flex-1 rounded-md border border-input bg-card px-3 text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-9 sm:text-sm"
         />
         <button
           type="button"
@@ -114,7 +114,7 @@ export function RecruitingChecklistCard({
           disabled={!draft.trim()}
           aria-label="Add item"
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line text-stone transition-colors hover:text-ink",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line text-stone transition-colors hover:text-ink sm:h-9 sm:w-9",
             !draft.trim() && "cursor-not-allowed opacity-40"
           )}
         >
@@ -139,9 +139,9 @@ function ChecklistRow({
   return (
     <li className="flex flex-col gap-1 border-b border-line pb-2.5 last:border-b-0 last:pb-0">
       <div className="flex items-start gap-2.5">
-        {/* 24px hit area around the native box (WCAG 2.5.8). Named by the
+        {/* 44px hit area on phones, 24px from sm (WCAG 2.5.8) around the native box. Named by the
             item itself; checked/unchecked is announced by the checkbox. */}
-        <label className="-my-0.5 -ml-1 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center">
+        <label className="-my-2.5 -ml-2.5 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center sm:-my-0.5 sm:-ml-1 sm:h-6 sm:w-6">
           <input
             type="checkbox"
             checked={item.completed}
@@ -175,7 +175,7 @@ function ChecklistRow({
           type="button"
           onClick={() => (item.isCustom ? onRemoveItem(item.id) : onToggleHidden(item.id))}
           aria-label={item.isCustom ? `Remove ${item.label}` : item.hidden ? `Unhide ${item.label}` : `Hide ${item.label}`}
-          className="-my-1 -mr-1 flex h-6 w-6 shrink-0 items-center justify-center text-stone-light transition-colors hover:text-ink"
+          className="-my-2.5 -mr-2.5 flex h-11 w-11 shrink-0 items-center justify-center text-stone-light transition-colors hover:text-ink sm:-my-1 sm:-mr-1 sm:h-6 sm:w-6"
         >
           {item.isCustom ? (
             <X className="h-3.5 w-3.5" />

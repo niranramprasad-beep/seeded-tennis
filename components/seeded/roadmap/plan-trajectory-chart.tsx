@@ -187,15 +187,9 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
           const ly = fitsLeft ? Math.max(PAD_TOP - 6, cy - 10) : Math.min(BASELINE - 4, cy + 22);
           return (
             <g key={c.date.getTime()}>
-              <rect
-                x={cx - 7}
-                y={cy - 7}
-                width="14"
-                height="14"
-                fill="rgb(var(--c-gold))"
-                stroke={selected === i ? "rgb(var(--c-ink))" : "transparent"}
-                strokeWidth="2"
-                transform={`rotate(45 ${cx} ${cy})`}
+              {/* The diamond is 14px; the group around it carries a 44px
+                  transparent hit area, so a phone tap lands (C29). */}
+              <g
                 className="cursor-pointer"
                 role="button"
                 tabIndex={0}
@@ -207,7 +201,19 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
                     setSelected(selected === i ? null : i);
                   }
                 }}
-              />
+              >
+                <rect x={cx - 22} y={cy - 22} width="44" height="44" fill="transparent" />
+                <rect
+                  x={cx - 7}
+                  y={cy - 7}
+                  width="14"
+                  height="14"
+                  fill="rgb(var(--c-gold))"
+                  stroke={selected === i ? "rgb(var(--c-ink))" : "transparent"}
+                  strokeWidth="2"
+                  transform={`rotate(45 ${cx} ${cy})`}
+                />
+              </g>
               <text x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
                 {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(c.utr)}</tspan>
               </text>

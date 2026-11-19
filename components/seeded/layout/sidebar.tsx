@@ -216,7 +216,8 @@ export function SeededSidebar() {
 
       {/* Mobile top bar — avatar menu only, nav itself is the bottom tab bar */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
-        <Link href={homeHref} className="flex items-center gap-2">
+        {/* 44px tall: the phone sweep measured this link at 28px (C29). */}
+        <Link href={homeHref} className="flex min-h-11 items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
@@ -375,13 +376,17 @@ function SeededAvatarTrigger({
   onClick: () => void;
 }) {
   return (
+    // The circle stays 36px; the button around it is the 44px tap target
+    // (the phone sweep measured 36×36, C29).
     <button
       onClick={onClick}
       aria-expanded={open}
       aria-label="Account menu"
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 font-sans text-xs font-semibold text-grass"
+      className="-mr-1 flex h-11 w-11 items-center justify-center rounded-full"
     >
-      {initialOf(player.name)}
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 font-sans text-xs font-semibold text-grass">
+        {initialOf(player.name)}
+      </span>
     </button>
   );
 }

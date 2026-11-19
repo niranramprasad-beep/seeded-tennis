@@ -146,7 +146,7 @@ export function UpcomingTournamentsCard({
                       // button (design system v2 rule 1, sweep C20).
                       <SeededButton
                         variant="secondary"
-                        className="min-h-[38px] px-4"
+                        className="min-h-11 px-4 sm:min-h-[38px]"
                         onClick={() => onMarkEntered(t.id)}
                       >
                         {t.id === firstGoodFitId ? "Enter" : "Save"}
@@ -155,7 +155,7 @@ export function UpcomingTournamentsCard({
                   ) : (
                     <SeededButton
                       variant="secondary"
-                      className="min-h-[38px] px-4"
+                      className="min-h-11 px-4 sm:min-h-[38px]"
                       onClick={() => setOpenWhyId(isWhyOpen ? null : t.id)}
                       aria-expanded={isWhyOpen}
                     >

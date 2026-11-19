@@ -111,7 +111,7 @@ export function WhatIfPanel({
               if (!Number.isNaN(v)) setCustom(v);
             }}
             className={cn(
-              "h-8 w-[72px] rounded-md border border-input bg-card px-2 font-mono text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus",
+              "h-11 w-[84px] rounded-md border border-input bg-card px-2 font-mono text-base text-ink focus:outline-none focus:ring-2 focus:ring-focus sm:h-8 sm:w-[72px] sm:text-sm",
               activePaceMode === "custom" && "border-grass"
             )}
           />
@@ -145,7 +145,7 @@ function PaceButton({
       disabled={disabled}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 items-center whitespace-nowrap rounded-pill border px-3 text-[13px] font-semibold transition-colors",
+        "inline-flex h-11 items-center whitespace-nowrap rounded-pill border px-3.5 text-[13px] font-semibold transition-colors sm:h-8 sm:px-3",
         active ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone",
         disabled && "cursor-not-allowed opacity-40"
       )}

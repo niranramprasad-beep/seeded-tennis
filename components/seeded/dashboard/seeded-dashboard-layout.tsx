@@ -256,10 +256,11 @@ export function SeededDashboardLayout({
           <h2 className="text-base font-semibold text-ink">Your targets</h2>
           <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
           {targetSchools.length > 0 ? (
-            <ul className="mt-3 flex flex-col gap-2.5 text-sm">
+            <ul className="mt-3 flex flex-col gap-0.5 text-sm sm:gap-2.5">
               {targetSchools.slice(0, 6).map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2">
-                  <Link href={`/schools/${s.slug}`} className="inline-flex min-h-6 items-center truncate text-ink hover:text-grass">
+                  {/* 44px tall on phones, the full row wide (C29). */}
+                  <Link href={`/schools/${s.slug}`} className="inline-flex min-h-11 min-w-0 flex-1 items-center truncate text-ink hover:text-grass sm:min-h-6 sm:flex-none">
                     {s.shortName}
                   </Link>
                   {fitReport?.bandBySlug.get(s.slug) && <FitBadge band={fitReport.bandBySlug.get(s.slug)!} />}
@@ -268,7 +269,7 @@ export function SeededDashboardLayout({
             </ul>
           ) : (
             <p className="mt-3 text-sm text-stone">
-              No target schools yet. <Link href="/schools" className="font-semibold text-grass">Browse schools</Link>
+              No target schools yet. <Link href="/schools" className="inline-flex min-h-11 items-center font-semibold text-grass sm:min-h-0">Browse schools</Link>
             </p>
           )}
         </div>
