@@ -20,6 +20,8 @@ const MOCK_PLAYER: Player = {
   tournamentsPlayed: 6,
   tournamentsGoal: 12,
   onboarded: true,
+  birthMonth: null,
+  enrollmentTerm: null,
   utrProfileLink: "app.utrsports.net/profiles/MC2024",
 };
 

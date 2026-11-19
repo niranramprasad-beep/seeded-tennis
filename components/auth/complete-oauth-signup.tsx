@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import type { FamilyRole, PlayerGender } from "@/lib/types";
+import { familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, hasSeededProfile } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/config/auth";
@@ -13,9 +13,21 @@ import {
   parentConsentRequired,
 } from "@/lib/config/consent";
 import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
+import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { FamilyFullNotice } from "./family-full-notice";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
+import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
+import { usePlayer } from "@/lib/context/player-context";
+import {
+  clearPendingAnswers,
+  readPendingAnswers,
+  signupGradeFor,
+  type DiagnosticAnswers,
+} from "@/lib/onboarding/diagnostic";
+import { saveDiagnosticToAccount } from "@/lib/onboarding/save-diagnostic";
 
 // The second half of a Google signup.
 //
@@ -48,8 +60,13 @@ export function CompleteOAuthSignup() {
   const [grade, setGrade] = useState(10);
   const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
   const [joinCode, setJoinCode] = useState("");
+  const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
+  // 045: the family already holds 4 players / 2 parents.
+  const [familyFull, setFamilyFull] = useState<{ message: string; next: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<DiagnosticAnswers | null>(null);
+  const { beginSession } = usePlayer();
 
   // Prefill the name Google gave us, and bounce anyone who does not belong
   // here: no session → /login, profile already there → straight in.
@@ -65,6 +82,20 @@ export function CompleteOAuthSignup() {
       const meta = data.user.user_metadata as { full_name?: string; name?: string } | null;
       if (!cancelled) {
         setName((meta?.full_name ?? meta?.name ?? "").toString());
+        // Arrived from the /onboarding diagnostic: everything they already
+        // answered is filled in, so nothing is asked twice. A parent's
+        // answers were about their player, so only the role carries over —
+        // never the player's birth year onto the parent's own account.
+        const carried = readPendingAnswers();
+        if (carried) {
+          setPending(carried);
+          setRole(carried.role ?? "player");
+          if (carried.role === "player") {
+            if (carried.birthYear != null) setBirthYear(carried.birthYear);
+            if (carried.gender) setGender(carried.gender);
+            if (carried.gradYear != null) setGrade(signupGradeFor(carried.gradYear));
+          }
+        }
         setChecking(false);
       }
     })();
@@ -103,12 +134,76 @@ export function CompleteOAuthSignup() {
       family:
         effectiveFamilyMode === "join" ? { mode: "join", code: joinCode } : { mode: "create" },
     });
-    setSubmitting(false);
-
     // Hand-written in lib/auth.ts (ensureSupabaseProfile), never raw.
-    if (!result.ok) return setError(result.error ?? "Something went wrong. Try again.");
-    router.replace(next ?? (isParent ? "/family" : "/onboarding"));
+    if (!result.ok) {
+      setSubmitting(false);
+      return setError(result.error ?? "Something went wrong. Try again.");
+    }
+
+    // 043. A Google identity whose verified email is the account's counts as
+    // confirmed, so this is rare — but if join_family() still asks, it is a
+    // step, not a failure: the profile exists, and the code is kept.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
+      setSubmitting(false);
+      void rememberMyPendingJoinCode(joinCode);
+      return setVerifyJoinCode(joinCode.trim().toUpperCase());
+    }
+
+    // 045: the family is at its cap. The profile exists; the diagnostic
+    // answers below are still saved for a player (the account is theirs
+    // whether or not the family has room), then the notice says why before
+    // they go on.
+    const familyFullText =
+      effectiveFamilyMode === "join" && result.joinStatus === "family_full"
+        ? familyFullMessage(isParent ? "parent" : "player")
+        : null;
+
+    // The diagnostic's answers, written to the account just created — only
+    // for a player who is still a player here and is not waiting on a
+    // parent's consent (an under-13 account can write nothing until then).
+    const carried = pending;
+    clearPendingAnswers();
+    if (carried && carried.role === "player" && !isParent && !needsParentConsent) {
+      const saved = await saveDiagnosticToAccount({
+        ...carried,
+        birthYear,
+        gender,
+      });
+      setSubmitting(false);
+      if (saved.player) beginSession(saved.player);
+      if (!saved.ok) return setError(saved.error);
+      if (familyFullText) return setFamilyFull({ message: familyFullText, next: next ?? "/today" });
+      return router.replace(next ?? "/today");
+    }
+    setSubmitting(false);
+    const destination = next ?? (isParent ? "/family" : "/onboarding");
+    if (familyFullText) return setFamilyFull({ message: familyFullText, next: destination });
+    router.replace(destination);
   };
+
+  if (familyFull) {
+    return (
+      <AuthCard title="This family is full">
+        <FamilyFullNotice
+          message={familyFull.message}
+          waitingForConsent={needsParentConsent}
+          onContinue={() => router.replace(familyFull.next)}
+        />
+      </AuthCard>
+    );
+  }
+
+  if (verifyJoinCode) {
+    return (
+      <AuthCard title={VERIFY_COPY.joinTitle("your family")}>
+        <VerifyEmailToJoin
+          bare
+          code={verifyJoinCode}
+          onJoined={() => router.replace("/family")}
+        />
+      </AuthCard>
+    );
+  }
 
   if (checking) {
     return (
@@ -126,7 +221,11 @@ export function CompleteOAuthSignup() {
   return (
     <AuthCard
       title="Finish setting up"
-      subtitle="Google told us who you are. Seeded needs a little more before your account works."
+      subtitle={
+        pending?.role === "player"
+          ? "We kept your answers from the questions. Check them, then finish."
+          : "Google told us who you are. Seeded needs a little more before your account works."
+      }
       error={error}
       errorId={ERROR_ID}
     >

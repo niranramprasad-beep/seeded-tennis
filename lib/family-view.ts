@@ -1,5 +1,36 @@
 import type { FamilyMember } from "@/lib/db/family";
+import type { FamilyPlanStatus } from "@/lib/db/family-plan";
 import type { Player, PlayerGender } from "@/lib/types";
+
+/**
+ * Whether the roster's player stats are hidden by the Family plan.
+ *
+ * Migration 044 returns another member's current_utr, grade,
+ * graduation_year, target_school_slugs and gender as NULL unless the family
+ * is on the Family plan. A NULL there therefore means one of two things —
+ * "nobody entered it" or "your plan does not include it" — and a screen that
+ * says "hasn't logged a UTR yet" to a free parent whose child has a rating is
+ * saying something untrue. `undefined` while the plan status is loading.
+ * Fails closed exactly like familyPlanStatusFor(): an error reads as locked.
+ */
+export function rosterStatsLocked(
+  plan: Pick<FamilyPlanStatus, "unlocked" | "reason"> | undefined
+): boolean | undefined {
+  if (!plan) return undefined;
+  return !plan.unlocked && plan.reason === "free";
+}
+
+/** What a parent screen says when it has no rating for the player. */
+export function missingPlayerUtrPhrase(playerFirst: string, locked: boolean | undefined): string {
+  return locked
+    ? `${playerFirst}’s rating shows with the Family plan`
+    : `${playerFirst} hasn’t logged a UTR yet`;
+}
+
+/** What a parent screen says when it has no class year for the player. */
+export function missingClassYearPhrase(locked: boolean | undefined): string {
+  return locked ? "Class year shows with the Family plan" : "Class year not set";
+}
 
 // The rule that /family's three views kept getting wrong, as a function.
 //
@@ -94,6 +125,29 @@ export function pickFamilyPlayer<
     if (ta !== tb) return ta - tb;
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   })[0];
+}
+
+/**
+ * Board 22's sidebar note, under the parent nav. The same claim as
+ * `parentScopeSentence`, shorter: a parent writes the budget and notes
+ * (RLS: is_parent_member, 033) and nothing else.
+ */
+export function parentSidebarNote(playerFirst: string | null): string {
+  if (!playerFirst) return "No player has joined your family yet. You can edit the budget and send notes.";
+  return `You're viewing ${playerFirst}'s account. You can edit the budget and send notes. Everything else is ${playerFirst}'s.`;
+}
+
+/**
+ * Said on /family when the family has more than one player, so the choice
+ * pickFamilyPlayer() made is visible rather than silent. Null otherwise.
+ */
+export function multiPlayerNote(
+  members: readonly { role: string }[],
+  shownFirst: string
+): string | null {
+  const players = members.filter((m) => m.role === "player").length;
+  if (players < 2) return null;
+  return `Your family has ${players} players. This page shows ${shownFirst}, who joined first.`;
 }
 
 /** "Bailey Post035" -> "Bailey P." — how a parent's settings refer to a

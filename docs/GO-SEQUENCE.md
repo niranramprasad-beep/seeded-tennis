@@ -98,6 +98,23 @@ once the v1 code is live, and the code merges after it.
 After step 14c: re-run the schema fingerprint; production should now match
 staging.
 
+### 3b. PR B migrations
+
+**PR B — 041, 042, 043, 044, 045 (041–044 written 2026-11-18, 045 on
+2026-11-19; rehearsed on staging).** Run after the steps above are live and before the PR B code
+merges, each on Niran's explicit go. Detail, staging probe results and the
+pasteable rollbacks: `docs/HANDOFF.md` §J Steps 16–20.
+
+| # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
+|---|---|---|---|---|
+| 16 | 041 (onboarding fields) | as a real user: `birth_month` null → 5 ok, 5 → 6 **42501**; `enrollment_term = 'winter'` **23514**; an app-shaped profile upsert ok | a month can be changed, or an ordinary save fails | §J Step 16 block (trigger first, then columns) |
+| 17 | **042** (Family plan lock) | **pre-flight: count the families that will lock (§J Step 17 query) — they lose /family data at commit; that is the owner's decision.** Then, as real users: a free parent reads **0** of the player's `utr_entries` and a budget insert is **42501**; a Family-tier family (parent-paid AND player-paid) reads everything; `family_members()` still returns the roster for a free family | a free member reads another member's rows, or a paid family cannot | §J Step 17 block (policies, then functions) |
+| 18 | **043** (parent email verification) | **dashboard first: add `<site>/auth/verified` to Auth redirect URLs.** As real users: an unverified parent's approve / consent / join → **42501 `verify_email_required`**; a player's approve unaffected; client `update ... email_verified_at` / `email_verify_requested_at` → **42501**; `request_email_verification()` → `allowed`, then `mark_email_verified()` with an `otp` amr OLDER than the request → **false**; `trigger seeded_note_auth_email_change` exists on `auth.users` | a player is refused, a client can set any of the four columns, an amr older than the request verifies, or the `auth.users` trigger did not create | §J Step 18 block (restore RPCs + trigger, then drop the auth.users trigger, the two new functions, the table and the columns) |
+| 19 | 044 (roster respects the Family plan; needs 042) | as real users: a free family's parent gets the roster's names/roles/status but **NULL** `current_utr`, `grade`, `graduation_year`, `target_school_slugs`, `gender` for the player; a Family-tier family (parent-paid AND player-paid) gets them; a pending joiner still gets 0 rows; `family_members()` grants = authenticated/postgres/service_role only | a free member sees another member's stats, a paid family loses them, or the row count changes | §J Step 19 block (restore 038's body; before 042's rollback) |
+| 20 | **045** (one Family plan = one family; 4 players / 2 parents; needs 042 + 043) | **pre-flight (read-only): every Family-tier payer's home family is the family they pay for, and no family is over either cap** (§J Step 20 query; 2026-11-19: 2 payers, both at home, 0 over). Then as real users: a payer approved into a SECOND family does not unlock it (that family's parent: `my_family_has_tier('family')` false, 0 of the player's `utr_entries`); the payer's home family stays unlocked; the 5th player's `join_family` → `family_full`; the 3rd parent's → `family_full`; approving either → **P0001 `family_full_<role>`**; clients calling `home_family_code` / `family_member_count` / `family_member_cap` → **42501** | a paid family locks, a second family unlocks, a 5th player or 3rd parent gets in, or a client can call the helpers | §J Step 20 block (restore 026/042/043 bodies, then drop the three helpers; before 044's rollback) |
+
+---
+
 ## 4. Code: merge the PR (5 min + deploy)
 
 `main` and `v1`: `main` was merged into `v1` (`0cea97e`) and

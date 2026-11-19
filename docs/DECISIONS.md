@@ -7,6 +7,166 @@ Newest first.
 
 ---
 
+## 2026-11-18 — One projection rule for onboarding and the app
+
+**Decision.** The "UTR at the summer before senior year" is decided in one
+place, `recruitingTimeUtr()` in `lib/fit.ts`, and both the signed-in app
+(`buildFitReport` → `useFitReport`, the parent chart's `projectedUtrOn` /
+`projectionReachDate`) and the onboarding diagnostic (`diagnosticProjection`,
+now a thin wrapper) call it:
+
+1. Summer before senior year begun → today's rating.
+2. A real logged rating 5–13 months old (local calendar days, inclusive; the
+   one closest to 12 months among those ≥ 9 months old, else the one closest
+   to 6) → the player's own pace, `(today − past) / months`, carried to
+   June 1 of grad − 1, capped at `REALISTIC_UTR_CEILING`, never below today
+   (a falling rating is held). One value, no slow/fast range. Labelled by
+   `loggedPaceAssumption()`: "At your logged pace (+0.25 a month since May
+   2026)."
+3. Otherwise → the typical-growth estimate with its existing label.
+
+The diagnostic's answers become dated ratings at the same local dates
+sign-up writes them to `utr_entries`, so for the same moment the card and
+the app give the same number (`lib/fit-onboarding-consistency.test.ts`).
+
+**Why.** Before this, a player who answered the diagnostic saw one summer
+number (their own pace), signed up, and the app showed another (typical
+growth). One number before and after sign-up is the point of the
+diagnostic. And a junior with no history is never banded at today's rating —
+the bug `recruitingTimeUtr` first existed to fix.
+
+**Deliberate deviation from board 20.** The board says "No past rating → use
+today's rating and say so." The diagnostic now shows the typical-growth
+estimate instead, because that is what the app will show the moment they
+sign up, and because banding a 13-year-old at today's rating is the original
+bug. The board's "say so" is kept by the label ("Assumes typical growth of
+1.0 UTR per year.") and by the report's prompt to add a past rating. The
+falling-rating case (decision 3 of the B1 entry below) is kept, now inside
+rule 2.
+
+**What changes for existing players.** Anyone with an entry 5–13 months old
+now sees their own pace. Staging persona (a) (8.70, Class of 2031, Feb 8
+2026 at 8.20): summer-2030 estimate 12.2 → 11.0. `fake-sweep-player` (5.95,
+Class of 2029): 7.5 → 6.6 on Nov 18 (its 13-month entry), 6.5 from Nov 19
+(its 5-month entry). The window slides: as a rating ages past 13 months the
+estimate falls back to typical growth until the player logs again.
+
+**Synthetic lines are never a pace.** The homepage passes the realistic-pace
+line (P1-FIT-4) as `projectionInput`; `syntheticUtrHistoryFor()` now marks
+its points `synthetic: true` and `loggedPaceFor()` skips them, so a visitor
+is never told an assumed line is "your logged pace".
+
+**Undo.** In `recruitingTimeUtr`, delete the `loggedPaceFor` branch (rule 2)
+and restore `diagnosticProjection`'s own pace arithmetic from `23d792a`.
+`lib/fit-onboarding-consistency.test.ts` will fail — that is the
+inconsistency the B1 entry's "Known inconsistency" paragraph describes
+coming back; delete it in the same commit. Revert the /methodology paragraph.
+
+---
+
+## 2026-11-18 — PR B: /family to Board 22, and the Family paywall (app side)
+
+**Budget bars: one limit, not one per category.** Board 22 shows per-category
+bars with "Near limit" / "Over by $X" chips and "Gear is $60 over. Lessons
+has $380 left…". `season_budgets` holds one total per family and
+`budget_expenses` has three categories (entries, travel, camps) with no
+limits, so only the season total carries a status; category bars show their
+share of the total and no chip. `lib/parent-dashboard.ts` already handles
+per-category limits (the board's sentence is a test case) — add a
+`category_limits` column and pass it to `seasonBudgetView()`. *Undo:* n/a.
+
+**"At a typical pace", not "At this pace".** The estimate is lib/fit.ts's
+typical-growth assumption, not the child's own trend, so the caption says so. *(Since "One projection rule", above: when the child has a logged
+rating 5–13 months old the line IS their own pace, and the caption says "At
+the pace in Avery's logged ratings" instead.)*
+
+**The estimate prints one decimal ("≈ 9.1 estimate"), logged UTRs two.**
+lib/fit.ts rounds projections to one decimal on purpose and ProjectionNote
+on the same page prints it that way; two would claim precision the
+assumption does not have. Logged ratings use the new `formatUtr2`.
+
+**Dropped from /family: "Needs a parent decision", the family members card
+and the top scope line.** Not on Board 22. Members live in Settings; the
+scope sentence is the sidebar note (and a line at the foot of the page on
+phones). The join-requests/consent card stays on /family on every plan —
+approving an under-13 must never be behind a paywall.
+
+**Settings is in the parent's main nav** (Board 22's five items); the ⌘K
+palette lists it once.
+
+**The paywall's Example preview runs sample rows through the real
+builders** (`components/seeded/family/dashboard/sample-model.ts`): no real
+school is named, the preview is hidden from assistive tech and inert, and it
+wears a dashed "Example" chip. *Undo:* drop the `<section>` in
+family-plan-paywall.tsx.
+## 2026-11-18 — /onboarding diagnostic (PR B, B1): four calls
+
+Made while building board 20. Each one is a place a reviewer could read the
+behaviour as a mistake.
+
+**1. A parent's answers about their player are never stored.** A parent who
+fills in the diagnostic sees the result and the fit report from their
+answers, and can create THEIR OWN account (role parent, own name, own birth
+year, start or join a family). Nothing they said about the player — UTR,
+past ratings, grad year, birthday, GPA, start term — is written anywhere:
+`diagnosticPlayerProfile()` throws for a parent and `diagnosticUtrEntries()`
+returns nothing. The parent gets the family code and is told, on screen,
+that the player answers for themselves (about 90 seconds) when they join
+with it. Considered and rejected:
+- *Write them to the parent's profile* — board 22 and CLAUDE.md: a parent's
+  profile holds no UTR or player stats. The player's birth year on the
+  parent's row would also make the parent's own account read as under 13
+  (birth_year is write-once and drives `consent_status`).
+- *Hold them somewhere and hand them to the player when they join* — needs a
+  new table or column with its own RLS, retention and deletion story, for a
+  minor's data the minor never entered. Not in this PR's scope (no
+  migrations), and the privacy policy would have to describe it.
+- *Keep them in the browser for the player* — the player usually signs up
+  on another device; on a shared one it would leave a child's ratings in
+  storage for whoever is next.
+*Undo:* a later PR that adds a "pending player profile" with its own RLS;
+`diagnosticPlayerProfile` is the one place to change.
+
+**2. The diagnostic projects from the player's OWN pace, and its fit report
+uses that number.** *(Superseded the same day by "One projection rule for
+onboarding and the app", above: the app now uses the same rule, and a player
+with no past rating sees the labelled typical-growth estimate.)* Board 20: pace = (today − year ago)/12 or (today − 6
+months ago)/6 per month, carried to June 1 of grad − 1; no past rating, or
+the summer already started, → today's rating, and the card says so.
+`diagnosticProjection()` in lib/fit.ts; the fit report after it is built by
+`buildDiagnosticFitReport()` with that projection as its recruiting rating,
+so the "Projected UTR" card and every band on the next screen are one
+number. Consequence: a player with NO past rating gets a report judged at
+today's rating (the "Today" view only), where the old pre-auth report
+assumed typical growth of 1.0/yr. That is what the board specifies, and it
+is the more honest of the two (no assumed growth is shown as theirs).
+**Known inconsistency, not fixed here:** after sign-up, the app's own fit
+report (`useFitReport`) still projects at typical growth, so a player who
+gave past ratings can see a different summer number in the app than the
+diagnostic showed. Fixing it means deciding, app-wide, whether logged pace
+replaces typical growth — a product call bigger than onboarding.
+*Undo:* drop `recruitingUtr` from the `buildFitReport` call in
+`buildDiagnosticFitReport`.
+
+**3. A rating that went DOWN is not carried forward.** If the past rating is
+higher than today's, the projection is today's rating and the note says
+"The rating went down, so this stays at today's UTR." Board 20 does not
+cover it; extrapolating a dip (injury, a hard season) into a lower
+"projection" would tell a 13-year-old their pace is a decline. *Undo:* the
+`pacePerMonth < 0` branch in `diagnosticProjection`.
+
+**4. No separate slim header; the header CTA is hidden on /onboarding.**
+Board 20 draws a slim header (logo, progress, Sign in). Board 23 and the
+2026-11-16 decision say ONE header on every route — /onboarding had no
+`<header>` at all once and lost its navigation for search visitors. So the
+shared header stays and the progress strip ("Question N of 9 · About 90
+seconds" + bar) sits under it. The header's green "Get my free fit report"
+links to the page you are on and was a second green button beside
+Continue (rule 1), so `SeededNav` leaves it out on /onboarding only.
+*Undo:* `NO_CTA_ROUTES` in `components/seeded/layout/nav.tsx`.
+
+---
+
 ## 2026-11-16 — Design system v2: one footer, Legacy only in Settings, fewer caveats
 
 Made in PR A (`fix/ui-polish-1`) to put `docs/DESIGN_MOCKUP_SPEC_V2.md`
@@ -61,7 +221,28 @@ word "parent" or "player", no id or name — so the head script can mark
 `html[data-role]` before React runs and a placeholder can be the right
 height for a parent or a player. Cleared on sign-out. It is a layout hint,
 never an access decision (RLS and route-access decide access). *Undo:*
-`rememberRole` in lib/context/player-context.tsx and the head script.
+`rememberRole` in lib/layout-hints.ts and the head script.
+
+*Extended 2026-11-18:* **/schools also remembers its last shape
+(`seeded.schools.shape` = `fit` | `nofit` | `prompt`)**, read by the head
+script into `html[data-schools-shape]` (only alongside a session). The
+pre-session placeholders assumed every account HAS a fit, so the three that
+never get one jumped when the smaller content landed: a player with no UTR
+(CLS 0.149 at 1440), a parent in a free family (0.078 at 375), a parent with
+no linked player yet (0.151 at 1440). Three values, not fit/no-fit: a parent
+can land on either the no-rating parent block (`nofit`, a longer sentence
+than the fit one) or the "Enter your UTR" banner (`prompt`, no linked
+player), and the two differ by up to 40px. `prompt` needs no placeholder —
+the pre-session render already is that banner, so CSS just un-hides it.
+The page stores the shape once it has resolved; the player context also
+stores a player's from their own rating at sign-in, so a player's first
+/schools load is right too. A parent's first load after sign-in still
+assumes `fit` (the roster is what decides it), so only that one load can
+shift. Same rules as the role: a layout word, no id/name/rating; cleared on
+sign-out; a stale value costs one shift. Measured on a production build
+(scripts/cls-sources.mjs, CLS_WARM=1): every persona ≤ 0.0216 at 320/375/1440.
+*Undo:* lib/layout-hints.ts's `SCHOOLS_SHAPE_KEY` users, the head script's
+`data-schools-shape`, and the `data-schools-shape` rules in globals.css.
 
 **Focus ring:** court green on light, lime on dark, via one `--c-focus`
 token and one global `:focus-visible` rule (rule 8). Before, Seeded buttons
@@ -1011,3 +1192,40 @@ server, 169 phantom tap targets, blank screenshots from never scrolling, and
 a horizontal-scroll report on a page that does not scroll. Every one would
 have been reported as a product defect. Measure the thing a user
 experiences: try to scroll, rather than reading `scrollWidth`.
+
+## 2026-11-19 — One Family plan covers one family: up to 4 players and 2 parents
+
+**Owner's decision (Niran), final.** 042 unlocked a family when ANY approved
+member held the Family plan, and a member counts in every family they are
+approved in — so one subscription could unlock any number of families (the
+PR B review proved it on staging with a payer approved into a second family).
+
+**Decided: RESTRICT.**
+- A Family plan unlocks exactly one family: the one the paying account
+  currently belongs to (`home_family_code()`: its own `family_code`, else its
+  earliest approved link — the same rule as `my_family_code()`, which now
+  calls it). A payer who leaves takes the unlock with them.
+- A family holds at most **4 players and 2 parent accounts**. Over the cap
+  the extra account cannot join or be approved, and is told "This family
+  already has 4 players. Contact support@seededtennis.com". **Existing
+  members are never removed**, even in a family already over the cap.
+- Enforced in the database (migration 045: `family_has_tier`, `join_family`,
+  `approve_family_join`), not in the screens. /pricing, the Family card, the
+  compare table, the FAQ, the paywall and /privacy say "For one family: up to
+  4 players and 2 parents", from constants `lib/family-plan-scope.test.ts`
+  pins to the SQL.
+
+**Not decided here:** whether support can raise a family's cap. Today nothing
+can, short of a migration; "Contact support" means a person reads the email.
+
+## 2026-11-19 — Rollout decisions (S2, comps, nav)
+
+- **S2:** production's 28 generator-made workout sessions stay hidden (PR C),
+  not deleted. Revisit on or after 2026-12-19.
+- **Comps:** none. Family NIRAN-0LK2 is the owner's own test family and is
+  expected to see the paywall.
+- **Nav:** the "Tools" group (Results, Tournament checker) under the five
+  primary items is approved.
+- **`/auth/verified`:** covered by the existing `https://seededtennis.com/**`
+  redirect allow-list entry in Supabase Auth; no dashboard change.
+

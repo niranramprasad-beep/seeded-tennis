@@ -168,6 +168,37 @@ const chosen = only.length ? PERSONAS.filter((p) => only.includes(p.id)) : PERSO
 const browser = await chromium.launch({ executablePath: CHROME });
 const report = { at: new Date().toISOString(), base: BASE, personas: [] };
 
+/** Drive /onboarding's diagnostic to its fit report. Every action has a
+ *  short timeout and is forced: the option rows are labels over hidden
+ *  inputs, and a missed click must not hang the whole walk. */
+async function answerDiagnostic(page) {
+  const T = { timeout: 3000, force: true };
+  const tryDo = async (fn) => { try { await fn(); return true; } catch { return false; } };
+  for (let i = 0; i < 18; i++) {
+    const see = page.getByText(/see my fit report/i);
+    if (await see.count()) {
+      await tryDo(() => see.first().click(T));
+      await page.waitForTimeout(1500);
+      return;
+    }
+    const heading = (await tryDo(async () => {})) && (await page.locator("main h1, main h2").first().innerText({ timeout: 2000 }).catch(() => ""));
+    if (/who.?s filling/i.test(heading)) await tryDo(() => page.getByText(/i.?m the player/i).first().click(T));
+    for (const sel of await page.locator("main select").all()) {
+      const opts = await sel.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean)).catch(() => []);
+      if (opts.length && !(await sel.inputValue().catch(() => ""))) await tryDo(() => sel.selectOption(opts[Math.min(1, opts.length - 1)], { timeout: 3000 }));
+    }
+    if (/start college|plan to start/i.test(heading)) await tryDo(() => page.getByText(/fall after/i).first().click(T));
+    const skip = page.getByRole("button", { name: /^skip/i });
+    const cont = page.getByRole("button", { name: /^continue/i });
+    const optional = /ago|around|gpa/i.test(heading);
+    if (optional && (await skip.count())) await tryDo(() => skip.first().click(T));
+    else if ((await cont.count()) && (await cont.first().isEnabled().catch(() => false))) await tryDo(() => cont.first().click(T));
+    else if (await skip.count()) await tryDo(() => skip.first().click(T));
+    else return;
+    await page.waitForTimeout(300);
+  }
+}
+
 for (const persona of chosen) {
   const entry = { ...persona, screens: {}, problems: [] };
 
@@ -201,6 +232,12 @@ for (const persona of chosen) {
         }, mode);
         await page.goto(BASE + path, { waitUntil: "domcontentloaded", timeout: 45000 });
         await page.waitForTimeout(1200);
+        // Since PR B, /onboarding is a nine-question diagnostic (board 20):
+        // the prefilled link lands on question 1, not on a report. Answer it
+        // the way this persona would — player, keep every prefilled answer,
+        // skip the optional past ratings, pick a birth month/year and a
+        // start term — then open the report the walk measures.
+        if (name === "fit-report") await answerDiagnostic(page);
 
         if (width === 1440 && mode === "light") {
           entry.screens[name] = await facts(page);

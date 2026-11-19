@@ -354,3 +354,34 @@ describe("copy guard reads sentences the way the screen shows them", () => {
     });
   }
 });
+
+describe("the tournament fit checker is not a paid perk", () => {
+  // Billing listed "Unlimited · tournament fit checks" under BOTH paid plans.
+  // Nothing limits the checker on Free — it is a public page doing client-
+  // side maths (pricing-data's ALWAYS_FREE_FEATURES) — so "unlimited" on a
+  // paid plan implied a Free limit that does not exist. Removed 2026-11-18.
+  //
+  // Scanned on comment-stripped RAW source, not the decoded text the guards
+  // above use: the claim lived in JSX attributes (<Tile value="Unlimited"
+  // label="tournament fit checks" />), and decoding strips whole tags, so the
+  // BANNED list could never have seen it. If Free ever gets a real limit,
+  // delete this block in the same commit that adds the limit.
+  const PERK = /\btournament fit checks\b|\bunlimited\b[^\n]{0,60}\btournament fit\b/i;
+
+  it("the detector catches the old attribute spelling (self-test)", () => {
+    expect(PERK.test('<Tile value="Unlimited" label="tournament fit checks" />')).toBe(true);
+    expect(PERK.test("Unlimited tournament fit checks")).toBe(true);
+    expect(PERK.test('{ group: "Planning", label: "Tournament fit checker" }')).toBe(false);
+  });
+
+  it("no source calls tournament fit checks a counted or paid perk", () => {
+    const offenders = ROOTS.flatMap((r) => sourceFiles(r)).filter((f) =>
+      PERK.test(
+        readFileSync(f, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^[ \t]*\/\/.*$/gm, "")
+      )
+    );
+    expect(offenders).toEqual([]);
+  });
+});

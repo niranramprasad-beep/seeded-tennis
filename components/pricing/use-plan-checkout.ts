@@ -9,16 +9,13 @@ import { getSupabase } from "@/lib/supabase/client";
 
 // The checkout wiring both pricing designs share, moved here unchanged from
 // pricing-view.tsx's choose()/manageBilling() so the Seeded and Legacy cards
-// cannot drift into two behaviours. components/seeded/settings/
-// billing-content.tsx mirrors manageBilling()'s URL.
+// cannot drift into two behaviours.
 
 async function getAccessToken(): Promise<string | undefined> {
   const supabase = getSupabase();
   const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
   return data.session?.access_token;
 }
-
-export const WHOP_MEMBERSHIPS_URL = "https://whop.com/@me/settings/memberships/";
 
 export interface PlanButtonState {
   /** Signed in AND on exactly this tier. */
@@ -45,7 +42,7 @@ export function usePlanCheckout(interval: BillingInterval) {
 
   // Only ever called for a genuine upgrade, or by a signed-out visitor — the
   // button is disabled for the current tier and anything below it. Switching
-  // down happens on Whop's own membership page via manageBilling().
+  // down happens on Whop, reached from /settings/billing via manageBilling().
   const choose = async (t: SubscriptionTier) => {
     // Signed-out visitors need an account first — nothing to bill yet. Except
     // on Free, where the free thing is the fit report: take them to it.
@@ -75,8 +72,12 @@ export function usePlanCheckout(interval: BillingInterval) {
     }
   };
 
+  // /settings/billing, never Whop directly: only that page knows whether
+  // this person is the one who pays. A player whose parent pays, sent
+  // straight to Whop, gets "You do not have access to this page on this
+  // account. Press continue to switch accounts." (lib/billing-links.test.ts)
   const manageBilling = () => {
-    window.location.href = WHOP_MEMBERSHIPS_URL;
+    router.push("/settings/billing");
   };
 
   const buttonState = (planTier: SubscriptionTier, planName: string): PlanButtonState => {

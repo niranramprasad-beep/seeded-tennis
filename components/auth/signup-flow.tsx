@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Users, UserPlus } from "lucide-react";
-import type { Player, PlayerGender, FamilyRole } from "@/lib/types";
+import { familyFullMessage, type Player, type PlayerGender, type FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signUp } from "@/lib/auth";
 import {
@@ -24,6 +24,10 @@ import {
 } from "./auth-card";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { CheckEmailCard } from "./check-email";
+import { VerifyEmailToJoin } from "./verify-email-prompt";
+import { FamilyFullNotice } from "./family-full-notice";
+import { VERIFY_COPY } from "@/lib/email-verify-flow";
+import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +96,9 @@ export function SignupFlow({
   const [error, setError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
+  const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
+  // 045: the family already holds 4 players / 2 parents.
+  const [familyFull, setFamilyFull] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -230,14 +237,32 @@ export function SignupFlow({
       gender,
       country,
       role: isParentSignup ? "parent" : "player",
-      familyCode: result.familyCode,
+      // 045: a refused join leaves them in no family.
+      familyCode: result.joinStatus === "family_full" ? undefined : result.familyCode,
       targetSchoolSlugs: [],
       weaknesses: [],
       tournamentsPlayed: 0,
       tournamentsGoal: 12,
       onboarded: isParentSignup,
+      birthMonth: null,
+      enrollmentTerm: null,
     };
     beginSession(player);
+
+    // 043: join_family() refuses a PARENT who hasn't confirmed their email.
+    // The account was created and is signed in — this is one more step,
+    // not a failed sign-up. Keep the code so nothing is re-typed.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "verify_email_required") {
+      void rememberMyPendingJoinCode(joinCode);
+      setVerifyJoinCode(joinCode.trim().toUpperCase());
+      return;
+    }
+
+    // 045: the family is at its cap. The account exists and is signed in.
+    if (effectiveFamilyMode === "join" && result.joinStatus === "family_full") {
+      setFamilyFull(familyFullMessage(isParentSignup ? "parent" : "player"));
+      return;
+    }
 
     if (effectiveFamilyMode === "create" && result.familyCode) {
       // Includes a parent who just created the family: the code IS the thing
@@ -276,6 +301,32 @@ export function SignupFlow({
           Go to sign in
         </SeededButton>
       </CheckEmailCard>
+    );
+  }
+
+  // Signed up and signed in as a parent, and the join is waiting on an email
+  // confirmation (043). A calm step, never an error.
+  if (verifyJoinCode) {
+    return (
+      <AuthCard title={VERIFY_COPY.joinTitle("your family")}>
+        <VerifyEmailToJoin
+          bare
+          code={verifyJoinCode}
+          onJoined={() => router.replace("/family")}
+        />
+      </AuthCard>
+    );
+  }
+
+  if (familyFull) {
+    return (
+      <AuthCard title="This family is full">
+        <FamilyFullNotice
+          message={familyFull}
+          waitingForConsent={needsParentConsent}
+          onContinue={() => router.replace(isParentSignup ? "/family" : "/onboarding")}
+        />
+      </AuthCard>
     );
   }
 
@@ -690,7 +741,7 @@ function FamilyModeChoice({
   );
 }
 
-function FamilyCodeBox({ code }: { code: string }) {
+export function FamilyCodeBox({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-cream p-4">

@@ -3,11 +3,38 @@
 Short, ordered, and about *what happens next*. `docs/MASTER_ROADMAP.md`
 stays the full picture with acceptance criteria; this file is the queue.
 
-Last updated 2026-11-16.
+Last updated 2026-11-19.
 
 ---
 
 ## WEEK 1 — ranked (written by the 2026-11-15 overnight pass)
+
+**Open after PR B (2026-11-18) — Niran's calls or dashboard steps:**
+
+- ~~**One Family subscription unlocks any number of families.**~~ **Decided
+  2026-11-19: RESTRICT** — one plan unlocks the payer's home family only, and a
+  family holds at most 4 players and 2 parents. Migration 045 (HANDOFF §J
+  Step 20); copy on /pricing, the paywall and /privacy.
+- **045 follow-ups (review 2026-11-19, LOW, not fixed):** (1) the
+  confirmation-required sign-in path (`lib/auth.ts`, `ensureSupabaseProfile`
+  on first login) ignores `joinStatus`, so a `family_full` or
+  `verify_email_required` there says nothing — production auto-confirms, so it
+  is rarely reached; (2) a joiner who was already PENDING when the family
+  filled up gets no message — only the approver sees `family_full`; (3) support
+  has no way to raise one family's cap short of a migration, and an under-13
+  refused by a full family can only reach consent through support.
+- **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
+  staging, and `<site>/auth/verified` added to Supabase Auth → URL
+  Configuration → Redirect URLs on staging and production BEFORE 043 ships.
+- **Email budget:** every parent who wants to approve or consent will need one
+  verification email; production's custom SMTP allows 80/hour for the whole
+  project, shared with password resets. Supabase Auth's own rate limits are the
+  only real cap on `signInWithOtp` (the `email_verify` bucket limits Seeded's
+  own path only).
+- **Production's 28 generated workout sessions** (5 training_plans, 3 users)
+  are hidden by PR C, not deleted. **Decided 2026-11-19: keep them hidden; do
+  not delete. Revisit on or after 2026-12-19** (30 days): if nobody has asked
+  for them, propose deletion again with a backup.
 
 **Billing honesty — needs Niran's call (found 2026-11-16 rebuilding /pricing):
 the Family plan unlocks nothing the code enforces.** `FEATURE_TIER`

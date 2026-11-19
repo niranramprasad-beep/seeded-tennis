@@ -1,4 +1,4 @@
-import type { FamilyRole, Player, PlayerGender } from "@/lib/types";
+import { ENROLLMENT_TERMS, type EnrollmentTerm, type FamilyRole, type Player, type PlayerGender } from "@/lib/types";
 import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
@@ -6,6 +6,7 @@ import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } fro
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
 import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
+import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 
 export { isSupabaseConfigured };
 
@@ -23,6 +24,10 @@ export interface AccountInput {
    * is never read from the request body. Optional only so the pre-030 call
    * sites and tests keep compiling — the signup form always sends it. */
   birthYear?: number | null;
+  /** Migration 041. Month of birth, 1-12 — never a day. Optional: the
+   * current signup form does not ask for it yet, and a null is filled in
+   * once later (the 041 trigger makes it write-once after that). */
+  birthMonth?: number | null;
 }
 
 export type FamilyChoice =
@@ -123,6 +128,10 @@ export const AUTH_ERROR_MESSAGES = {
   providerUnavailable:
     "Google sign-in isn't available right now. Use your email and password instead.",
   serverError: "Something went wrong on our side. Try again in a moment.",
+  // Migration 043: a parent must prove they own their email (a link we
+  // send) before they can join a family, approve someone, or give consent.
+  // The sending code is lib/db/email-verification.ts sendVerificationLink().
+  verifyEmailRequired: VERIFY_EMAIL_REQUIRED_MESSAGE,
   unknown: "Something went wrong. Try again in a moment.",
 } as const;
 
@@ -160,6 +169,12 @@ export function friendlyAuthError(message: unknown): string {
 
   if (isNetworkFailureMessage(raw) || m.includes("authretryablefetcherror")) {
     return AUTH_ERROR_MESSAGES.network;
+  }
+  // 043's stable message from join_family / approve_family_join /
+  // grant_parent_consent. Checked before anything else that could match a
+  // 42501, because the next step here is specific: verify, then retry.
+  if (m.includes("verify_email_required")) {
+    return AUTH_ERROR_MESSAGES.verifyEmailRequired;
   }
   if (
     m.includes("rate limit") ||
@@ -282,6 +297,7 @@ export async function signUp(
           grade: input.grade,
           role: input.role,
           birth_year: input.birthYear ?? null,
+          birth_month: input.birthMonth ?? null,
           family_code: familyCode,
           family_mode: family.mode,
         },
@@ -315,12 +331,16 @@ export async function signUp(
     grade: input.grade,
     role: input.role,
     birthYear: input.birthYear ?? null,
+    birthMonth: input.birthMonth ?? null,
     familyCode,
     familyMode: family.mode,
   });
   if (!profileResult.ok) return profileResult;
 
-  return { ok: true, familyCode };
+  // joinStatus carried through: a parent refused with verify_email_required
+  // (043) has a working account and one step left, and the sign-up screen
+  // must show that step rather than drop them on an empty /family.
+  return { ok: true, familyCode, joinStatus: profileResult.joinStatus };
 }
 
 // Starts Google OAuth via Supabase. This calls the real Supabase API — it's
@@ -379,6 +399,8 @@ export async function completeOAuthProfile(input: {
   gender: PlayerGender;
   grade: number;
   birthYear: number | null;
+  /** Migration 041 — optional, see AccountInput.birthMonth. */
+  birthMonth?: number | null;
   role: FamilyRole;
   family: FamilyChoice;
 }): Promise<AuthResult> {
@@ -406,6 +428,7 @@ export async function completeOAuthProfile(input: {
     gender: input.gender,
     grade: input.grade,
     birthYear: input.birthYear,
+    birthMonth: input.birthMonth ?? null,
     role: input.role,
     familyCode,
     familyMode: input.family.mode,
@@ -467,6 +490,11 @@ export async function signIn(
       const gender = (metadata.gender ?? emptyPlayer.gender) as PlayerGender;
       const country = String(metadata.country ?? emptyPlayer.country);
       const role = (metadata.role ?? emptyPlayer.role) as FamilyRole;
+      // signUp() stores both in user_metadata for exactly this path (a
+      // confirmation-required signup whose profile is created at first
+      // login). Without birth_year the 033 trigger refuses the insert.
+      const birthYear = toIntOrNull(metadata.birth_year);
+      const birthMonth = toBirthMonthOrNull(metadata.birth_month);
       const created = await ensureSupabaseProfile({
         userId: data.user.id,
         email: data.user.email ?? email,
@@ -475,6 +503,8 @@ export async function signIn(
         gender,
         grade,
         role,
+        birthYear,
+        birthMonth,
         familyCode,
         familyMode: (metadata.family_mode === "join" ? "join" : "create") as
           | "create"
@@ -599,7 +629,74 @@ export async function updatePassword(newPassword: string): Promise<AuthResult> {
   }
 }
 
-function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
+function toIntOrNull(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  return Number.isInteger(n) ? n : null;
+}
+
+function toBirthMonthOrNull(value: unknown): number | null {
+  const n = toIntOrNull(value);
+  return n != null && n >= 1 && n <= 12 ? n : null;
+}
+
+function toEnrollmentTermOrNull(value: unknown): EnrollmentTerm | null {
+  return (ENROLLMENT_TERMS as readonly string[]).includes(value as string)
+    ? (value as EnrollmentTerm)
+    : null;
+}
+
+/** The auth-user facts isEmailVerifiedFor() reads. Structural, so it accepts
+ * a supabase-js `User` without importing its type here. */
+export interface EmailVerificationAuthFacts {
+  email?: string | null;
+  identities?: Array<{
+    provider?: string;
+    identity_data?: Record<string, unknown> | null;
+  }> | null;
+}
+
+/**
+ * Migration 043, mirrored for the UI: has this account PROVEN it owns its
+ * current email?
+ *
+ * The database decides (email_is_verified(), which join_family /
+ * approve_family_join / grant_parent_consent call); this only lets a screen
+ * know whether to offer "Confirm your email" before the person hits the
+ * 42501. Same two halves as the SQL:
+ *   1. profiles.email_verified_at is set AND email_verified_for is the
+ *      account's CURRENT email (case-insensitive) — a later email change
+ *      un-verifies, on purpose;
+ *   2. or a Google identity whose verified email is the account's email.
+ * NEVER auth.users.email_confirmed_at: production auto-confirms at sign-up,
+ * so it is stamped for every account and proves nothing.
+ */
+export function isEmailVerifiedFor(
+  profile: { email_verified_at?: string | null; email_verified_for?: string | null } | null | undefined,
+  user: EmailVerificationAuthFacts | null | undefined
+): boolean {
+  const email = (user?.email ?? "").trim().toLowerCase();
+  if (!email) return false;
+  if (
+    profile?.email_verified_at &&
+    typeof profile.email_verified_for === "string" &&
+    profile.email_verified_for.trim().toLowerCase() === email
+  ) {
+    return true;
+  }
+  return (user?.identities ?? []).some((identity) => {
+    if (identity?.provider !== "google") return false;
+    const data = identity.identity_data ?? {};
+    const identityEmail = typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
+    const verified = data.email_verified === true || data.email_verified === "true";
+    return verified && identityEmail === email;
+  });
+}
+
+function mapProfileToPlayer(
+  profile: any,
+  fallbackEmail: string,
+  authUser?: EmailVerificationAuthFacts | null
+): Player {
   const graduationYear = resolveGraduationYear(profile) ?? emptyPlayer.graduationYear;
   return {
     ...emptyPlayer,
@@ -644,6 +741,11 @@ function mapProfileToPlayer(profile: any, fallbackEmail: string): Player {
     utrProfileLink: profile.utr_profile_link ?? emptyPlayer.utrProfileLink,
     gpa: profile.gpa != null ? Number(profile.gpa) : null,
     deletionRequestedAt: profile.deletion_requested_at ?? null,
+    // Migration 041. Absent columns (an unmigrated database) read as null.
+    birthMonth: toBirthMonthOrNull(profile.birth_month),
+    enrollmentTerm: toEnrollmentTermOrNull(profile.enrollment_term),
+    // Migration 043. See isEmailVerifiedFor() — never email_confirmed_at.
+    emailVerified: isEmailVerifiedFor(profile, authUser ?? { email: fallbackEmail }),
   };
 }
 
@@ -666,7 +768,7 @@ export async function getCurrentPlayer(): Promise<Player | null> {
   if (profileError) throw new Error(profileError.message);
   if (!profile) return null;
 
-  const player = mapProfileToPlayer(profile, userData.user.email ?? "");
+  const player = mapProfileToPlayer(profile, userData.user.email ?? "", userData.user);
 
   // One-time migration: a legacy row stored only `grade`. Persist the
   // derived graduationYear now so future loads read it directly instead of
@@ -784,8 +886,17 @@ export interface PlayerWriteContext {
  * `err.message` in its JSON response, same convention as every other
  * lib/db/* write function); resolves on success.
  */
+/** A Player as the profile route hands it over. birthMonth and
+ * enrollmentTerm may be ABSENT (an older client's body never had them), and
+ * absent must stay absent: it means "leave the stored value alone", which is
+ * not the same as null ("clear it"). */
+export type PlayerProfileWrite = Omit<Player, "birthMonth" | "enrollmentTerm"> & {
+  birthMonth?: number | null;
+  enrollmentTerm?: Player["enrollmentTerm"];
+};
+
 export async function writeCurrentPlayerProfile(
-  player: Player,
+  player: PlayerProfileWrite,
   ctx: PlayerWriteContext
 ): Promise<void> {
   const base = {
@@ -839,6 +950,16 @@ export async function writeCurrentPlayerProfile(
     utr_profile_link: linkCheck.valid ? linkCheck.normalized || null : null,
     gpa: player.gpa ?? null,
     deletion_requested_at: player.deletionRequestedAt ?? null,
+    // Migration 041. birth_month is WRITE-ONCE (the 041 trigger refuses any
+    // change once set), so it is sent only when the Player carries a value:
+    // either the first fill-in or the stored value round-tripped unchanged.
+    // Sending null would be a "change" once a month is stored.
+    ...(player.birthMonth != null ? { birth_month: player.birthMonth } : {}),
+    // Client-writable; sent only when the Player actually has the field, so
+    // a Player built before 041 never wipes a stored term.
+    ...(player.enrollmentTerm !== undefined ? { enrollment_term: player.enrollmentTerm } : {}),
+    // email_verified_at / email_verified_for are NEVER written here (043:
+    // privileged, set only by mark_email_verified()).
   });
 
   if (error?.code === "42703") {
@@ -861,6 +982,8 @@ async function ensureSupabaseProfile(input: {
   /** P0-8: written on INSERT only. The trigger turns it into
    * consent_status, and makes it write-once afterwards. */
   birthYear?: number | null;
+  /** Migration 041: written on INSERT when known; write-once afterwards. */
+  birthMonth?: number | null;
   familyCode: string;
   familyMode: "create" | "join";
 }): Promise<AuthResult> {
@@ -898,6 +1021,7 @@ async function ensureSupabaseProfile(input: {
       gender: input.gender,
       role: input.role,
       birth_year: input.birthYear ?? null,
+      birth_month: input.birthMonth ?? null,
       family_code: input.familyCode,
       graduation_year: graduationYear,
       commitment_date: getDefaultCommitDate(graduationYear),
@@ -933,6 +1057,7 @@ async function ensureSupabaseProfile(input: {
     gender: input.gender,
     role: input.role,
     birth_year: input.birthYear ?? null,
+    birth_month: input.birthMonth ?? null,
     graduation_year: graduationYear,
     commitment_date: getDefaultCommitDate(graduationYear),
     tournaments_goal: 12,
@@ -946,7 +1071,14 @@ async function ensureSupabaseProfile(input: {
   // the UI drops them on the pending screen, which offers "Wrong code?
   // Re-enter". Failing here would strand someone with an account they
   // cannot get back into.
-  if (join.status === "invalid" || join.status === "own_family" || join.status === "rate_limited") {
+  if (
+    join.status === "invalid" ||
+    join.status === "own_family" ||
+    join.status === "rate_limited" ||
+    // 045: the family is at its cap. Not a failed sign-up either — the
+    // account exists; the screen shows join.message.
+    join.status === "family_full"
+  ) {
     return { ok: true, familyCode: input.familyCode, joinStatus: join.status };
   }
   if (join.status === "error") {

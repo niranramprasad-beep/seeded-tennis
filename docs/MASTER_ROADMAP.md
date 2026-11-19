@@ -13,6 +13,81 @@
 
 ## Executive status
 
+**2026-11-19 — PR B: migration 045, one Family plan = one family (owner's
+decision).** A Family plan now unlocks only the payer's home family
+(`home_family_code()`, the rule `my_family_code()` already used), and a family
+holds at most 4 players and 2 parents — `join_family` returns `family_full`,
+`approve_family_join` raises `family_full_<role>`, nobody is ever removed.
+Probed on staging as real roles with two mutants that each let the refused
+case through; rollback rehearsed. Production pre-flight (read-only): both
+Family payers are at home, no family over a cap, so nobody's access changes on
+the day. /pricing, the Family card, compare table, FAQ, paywall and /privacy
+say "For one family: up to 4 players and 2 parents". Closes TODO "one plan
+unlocks many families". HANDOFF §J Step 20; DECISIONS 2026-11-19.
+
+**2026-11-18 — PR B (app side, in progress).** /family rebuilt to Board 22
+(KPIs, UTR trend chart with the lib/fit.ts estimate, budget bars, recent
+expenses, targets, "For you this week") and the Family paywall (B4) on the
+three parent routes — the "Billing honesty" gap below closes once the
+database half lands with it. Parent CLS cases from PR A addressed (one
+skeleton per route at every loading stage; the school page hides player-only
+controls for a remembered parent before hydration). Not yet measured with a
+signed-in persona. /schools CLS for accounts with no fit (no-UTR player,
+free-family parent, parent with no linked player) fixed by remembering the
+page's last shape (DECISIONS, "remembered role"): 0.08–0.15 → ≤ 0.0003 on a
+production build; a parent's first /schools load after sign-in can still shift.
+**2026-11-18 — PR B, B6 screens + migration 044 (STAGING ONLY, branch
+`b6-ui`).** 044: `family_members()` returns `current_utr`, `grade`,
+`graduation_year`, `target_school_slugs`, `gender` as NULL unless the family
+is on the Family plan (own row excepted) — the roster was a side door round
+042's paywall. Rows and the approval/consent columns unchanged. Guarded by
+`lib/db/family-roster-shape.test.ts` (structural, 8 mutants); HANDOFF §J
+Step 19, GO-SEQUENCE §3b row 19. Parent /schools, /schools/[slug] and the
+Settings linked-players card now say "shows with the Family plan" instead of
+"hasn't logged a UTR yet" / "Class year not set" for a locked family
+(`rosterStatsLocked()`), and `/privacy` says the five details need the plan.
+B6 screens: the parent join step at sign-up (email + Google) treats
+`verify_email_required` as a step ("Confirm your email to join your family",
+Send the link, "I've confirmed — try again", code kept); /family's code
+forms the same; the approval / consent card asks an unverified parent to
+verify BEFORE the button and turns a 42501 into the same prompt; a
+dismissible fixed-position banner for any unverified account (never on auth
+pages or onboarding); `/auth/verified` finishes a remembered join and
+bounces back to the stored path. Rules: `lib/email-verify-flow.ts`, tested in
+`lib/email-verify-flow.test.ts`. Not verified end to end with a real inbox.
+**2026-11-18 — PR B, database half (migrations 041–043; STAGING ONLY).**
+041: `profiles.birth_month` (write-once, month + year only) and
+`enrollment_term` for the diagnostic onboarding. 042: **the Family plan is
+now enforced in RLS** — a family is unlocked when any member (parent or
+player, either membership shape) is on Family; otherwise no member reads
+another's rows and nobody reads/writes the budget, notes or reports
+(restrictive `family_plan_required` on 10 tables; the roster and the
+join/approve/consent RPCs stay open). This closes "the Family plan unlocks
+nothing the code enforces" from PR A. 043: parents must prove their email
+(a magic link; `email_confirmed_at` is useless because production
+auto-confirms) before join/approve/consent — `42501 verify_email_required`;
+players never. **043 was fixed the same day after a review broke it on
+staging** (verify A by link → switch the auth email to B → mark again → B
+counted as verified → under-13 consent): the proof is now bound to a
+recorded request (`request_email_verification()`) for the current address,
+the amr timestamp must follow it within the hour, and an email change blocks
+verification for 24 h (`auth_email_changes`, via a trigger on `auth.users`).
+The fixed 043 file is what production runs; staging got the delta as
+`043b_fresh_email_verification`. Same review, also fixed in PR B: the
+onboarding diagnostic's parent join silently dropped a
+`verify_email_required` join; the banner (now parents only) claimed a
+confirmed email was needed for password resets; `/api/profile` coerced an
+absent `enrollmentTerm` to null and wiped the stored term; the no-math guard
+missed aliased UTRs and `Math.*`; the paywall Example's budget didn't add
+up; and `/auth/verified` would submit a pending join code stored by a
+different account in the same browser. App contracts: `lib/db/family-plan.ts`,
+`lib/db/email-verification.ts`, `/auth/verified`. Guard tests (mutation-
+tested): `lib/db/family-plan-lock.test.ts`,
+`lib/db/email-verification-gate.test.ts`, `lib/db/onboarding-fields.test.ts`.
+Staging probes and pasteable rollbacks: HANDOFF §J Steps 16–18; order:
+GO-SEQUENCE §3b. **Not on production; each needs Niran's go.** Personas:
+`docs/STAGING_PERSONAS.md`.
+
 **2026-11-16 — PR A `fix/ui-polish-1` (Design System v2, no migrations).**
 Board 23's rules site-wide with guard tests (`lib/design-system-v2.test.ts`:
 banned badge copy, raw hex, lime button fills, focus ring, primary-button
@@ -824,8 +899,45 @@ ranked week-1 list in `docs/TODO.md`.
    step 7) — a real deletion by hand, with their confirmation. And the
    privacy policy that names processors and retention, reviewed by an adult
    or a lawyer.
-5. **Parent dashboard upgrade** (TODO week 1 #1).
+5. **Parent dashboard upgrade** (TODO week 1 #1) — **app side built in PR B
+   (2026-11-18), not merged**: Board 22 at /family from
+   `lib/parent-dashboard.ts`, and the Family-plan paywall on /family,
+   /family/budget and /family/weekly-reports via `loadFamilyPlanStatus()`.
+   Ships only with the database half (`my_family_has_tier`, the tier-gated
+   RLS); per-category budget limits need a column (DECISIONS 2026-11-18).
 6. **Premium diagnostic onboarding** (TODO week 1 #2).
+5. **Parent dashboard upgrade** (TODO week 1 #1).
+6. **Premium diagnostic onboarding** (TODO week 1 #2) — **built in PR B
+   (B1), 2026-11-18, not merged.** /onboarding is board 20: nine questions,
+   result, fit report, sign-up that keeps every answer (email and Google).
+   Projection = `diagnosticProjection()` in lib/fit.ts (the player's own
+   pace); guard `lib/onboarding-ui-no-math.test.ts`. Depends on the DB
+   half of PR B (`profiles.birth_month`, `profiles.enrollment_term`, wired in
+   `writeCurrentPlayerProfile`/`mapProfileToPlayer`) — until that lands the
+   two answers are carried on `Player` but not stored. **Open:** the signed-in
+   app still projects at typical growth (1.0/yr), so a player who gave past
+   ratings sees a different "summer before senior year" number after
+   sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
+5. **Parent dashboard upgrade** (TODO week 1 #1). PR B's database half
+   (041–044) is on staging; it ships with the PR B UI, after Niran's go on
+   GO-SEQUENCE §3b (044 after 042). Before 043 ships: add
+   `<site>/auth/verified` to the Supabase Auth redirect allow-list, and do
+   one real magic-link check on staging with an inbox you control (HANDOFF
+   §J Step 18) — the B6 screens' send → open → bounce-back path has only
+   been exercised in tests, and the fixed 043 additionally relies on the
+   real amr `timestamp`, the JWT `email` claim, and GoTrue firing the new
+   `auth.users` trigger, none yet seen on a real link session. The
+   `email_verify` bucket limits only Seeded's path; the project's email
+   budget rests on Supabase Auth's rate limits (a dashboard setting).
+6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
+   two answers are carried on `Player` but not stored. **Fixed on
+   `unify-projection` (2026-11-18, not merged):** one rule in
+   `recruitingTimeUtr()` for the diagnostic and the app — the player's own
+   pace from a logged rating 5–13 months old, else typical growth — so the
+   summer number is the same before and after sign-up
+   (`lib/fit-onboarding-consistency.test.ts`; DECISIONS "One projection rule
+   for onboarding and the app"). Players with such an entry see their
+   estimate move (staging persona (a): 12.2 → 11.0).
 7. **Role-gate the player tables' INSERT policies** + make
    `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
 8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the

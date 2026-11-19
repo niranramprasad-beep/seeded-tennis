@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getProfileRoleAndFamily, getRequestScopedSupabase } from "@/lib/api-auth";
+import {
+  getProfileRoleAndFamily,
+  getRequestScopedSupabase,
+  refuseUnlessFamilyPlan,
+} from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { saveSeasonBudget } from "@/lib/db/family";
 
@@ -25,6 +29,11 @@ export async function POST(req: Request) {
   // closed — see lib/rate-limit.ts.
   const limited = await rateLimited(ctx.supabase, "budget_write");
   if (limited) return limited;
+
+  // B4 / migration 042: the season budget is Family-plan data. RLS refuses a
+  // locked family's write regardless; this turns that into a sentence.
+  const locked = await refuseUnlessFamilyPlan(ctx);
+  if (locked) return locked;
 
   const json = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(json);

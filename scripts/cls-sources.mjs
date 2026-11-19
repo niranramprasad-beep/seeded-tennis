@@ -8,21 +8,31 @@
 // layout-shift entry with its source elements' before/after x, y, width and
 // height. site-audit.mjs gives the CLS number; this tells you what moved.
 // Found every /schools shift fixed in PR A (fix/ui-polish-1).
+//
+// CLS_BASE overrides the server (default http://localhost:3100). CLS_WARM=1
+// loads the route once before the measured load, so anything the page
+// remembers about itself (seeded.schools.fit) is stored, as it would be for
+// anyone who has opened the page before.
 import { chromium } from "playwright-core";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 const HOME = process.env.HOME;
 const PASSWORD = readFileSync(join(HOME, "seeded-evidence/overnight/.persona-pass"), "utf8").trim();
 const CHROME = join(HOME, "Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell");
+const BASE = process.env.CLS_BASE ?? "http://localhost:3100";
 const [email, route, width] = [process.argv[2], process.argv[3], Number(process.argv[4] ?? 375)];
 const browser = await chromium.launch({ executablePath: CHROME });
 const ctx = await browser.newContext({ viewport: { width, height: 812 } });
 const page = await ctx.newPage();
-await page.goto("http://localhost:3100/login");
+await page.goto(BASE + "/login");
 await page.fill('input[type="email"]', email);
 await page.fill('input[type="password"]', PASSWORD);
 await Promise.all([page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 45000 }), page.click('button[type="submit"]')]);
 await page.waitForTimeout(2500);
+if (process.env.CLS_WARM === "1") {
+  await page.goto(BASE + route, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2500);
+}
 await page.addInitScript(() => {
   window.__shifts = [];
   new PerformanceObserver((l) => {
@@ -35,7 +45,7 @@ await page.addInitScript(() => {
     }
   }).observe({ type: "layout-shift", buffered: true });
 });
-await page.goto("http://localhost:3100" + route, { waitUntil: "networkidle" });
+await page.goto(BASE + route, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 const shifts = await page.evaluate(() => window.__shifts);
 console.log(JSON.stringify({ total: +shifts.reduce((a, s) => a + s.value, 0).toFixed(4), shifts }, null, 1));

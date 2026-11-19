@@ -24,7 +24,17 @@ import {
 // and to onboarding when the session exists but the tennis profile is unfinished.
 // When Supabase itself is unreachable, this never redirects to /login — an
 // unreachable backend must never look like "you're signed out".
-export function AuthGate({ children }: { children: ReactNode }) {
+export function AuthGate({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  /** What shows while the session resolves (or a redirect is pending). A
+   *  page that has a skeleton passes it, so the wait and the page's own
+   *  loading state are the same boxes and nothing jumps between them
+   *  (design system v2 rule 6). Defaults to the spinner. */
+  fallback?: ReactNode;
+}) {
   const { isAuthed, hydrated, player, connectionError, retryConnection } = usePlayer();
 
   // P0-8. A pending-consent account can read nothing, so every page it opens
@@ -140,6 +150,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     player.role !== "parent" && isPlayerBlockedPath(pathname);
 
   if (!hydrated || !isAuthed || blockedForOnboarding || blockedForParent || blockedForPlayer) {
+    if (fallback) return <>{fallback}</>;
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <motion.span

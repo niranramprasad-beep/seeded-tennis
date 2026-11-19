@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { writeCurrentPlayerProfile } from "@/lib/auth";
-import { PlayerBodySchema } from "@/lib/api-schemas/profile";
+import { PlayerBodySchema, playerWriteFromBody } from "@/lib/api-schemas/profile";
 import {
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_RANK,
@@ -94,11 +94,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    await writeCurrentPlayerProfile(parsed.data, {
-      supabase: ctx.supabase,
-      userId: ctx.user.id,
-      userEmail: ctx.user.email ?? null,
-    });
+    // parsed.data as-is: an ABSENT birthMonth / enrollmentTerm stays
+    // undefined, so writeCurrentPlayerProfile leaves the stored value alone.
+    // (Coercing absent to null here once let an older client's body wipe a
+    // stored enrollment term; lib/profile-route-absent-fields.test.ts.)
+    await writeCurrentPlayerProfile(
+      playerWriteFromBody(parsed.data),
+      {
+        supabase: ctx.supabase,
+        userId: ctx.user.id,
+        userEmail: ctx.user.email ?? null,
+      }
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

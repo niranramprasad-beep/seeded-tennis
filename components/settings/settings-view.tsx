@@ -132,7 +132,7 @@ function LegacySettingsView() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {tier !== "free" && (
-              <Button variant="outline" size="md" onClick={() => router.push("/pricing")}>
+              <Button variant="outline" size="md" onClick={() => router.push("/settings/billing")}>
                 Manage billing
               </Button>
             )}

@@ -13,6 +13,9 @@
 //      pricing-data.test.ts fails the build at runtime too.
 
 import {
+  FAMILY_PLAN_MAX_PARENTS,
+  FAMILY_PLAN_MAX_PLAYERS,
+  FAMILY_PLAN_SCOPE_LABEL,
   FEATURE_TIER,
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_PRICE_USD,
@@ -163,7 +166,9 @@ export function planCards(counts: CatalogCounts): PlanCard[] {
     {
       tier: "family",
       name: TIER_NAME.family,
-      tagline: "For the parent who wants to follow along.",
+      // Migration 045: one plan, one family, capped. The database enforces
+      // both halves (family_has_tier, join_family, approve_family_join).
+      tagline: `${FAMILY_PLAN_SCOPE_LABEL}.`,
       features: [
         "Everything in Player",
         "Parent dashboard, read-only",
@@ -225,7 +230,7 @@ export type CompareCell = { kind: "check"; included: boolean } | { kind: "text";
 export interface CompareRow {
   label: string;
   /** Which FEATURE_TIER key this row came from; null for ungated rows. */
-  source: GatedFeature | "target-limit" | null;
+  source: GatedFeature | "target-limit" | "family-size" | null;
   cells: Record<SubscriptionTier, CompareCell>;
 }
 
@@ -263,6 +268,23 @@ export function compareGroups(): { group: CompareGroup; rows: CompareRow[] }[] {
       for (const label of display.rows) {
         rows.push({ label, source: key, cells: checkCells(FEATURE_TIER[key]) });
       }
+    }
+
+    if (group === "Family") {
+      // 045: what one Family plan covers. The caps come from lib/types, which
+      // lib/family-plan-scope.test.ts pins to the migration.
+      rows.push({
+        label: "Family size",
+        source: "family-size",
+        cells: {
+          free: { kind: "check", included: false },
+          player: { kind: "check", included: false },
+          family: {
+            kind: "text",
+            value: `1 family: ${FAMILY_PLAN_MAX_PLAYERS} players, ${FAMILY_PLAN_MAX_PARENTS} parents`,
+          },
+        },
+      });
     }
 
     return { group, rows };

@@ -3,23 +3,26 @@
 import { useState } from "react";
 import type { Player, SubscriptionTier } from "@/lib/types";
 import type { FamilyMember } from "@/lib/db/family";
-import type { MembershipSnapshot } from "@/lib/db/settings";
+import type { BillingViewState } from "@/lib/billing-view";
 import { emptyPlayer } from "@/lib/data/user";
 import { PlayerContext } from "@/lib/context/player-context";
 import { TierContext } from "@/lib/context/tier-context";
 import { SeededSettingsShell } from "@/components/seeded/settings/seeded-settings-shell";
 import { BillingContent } from "@/components/seeded/settings/billing-content";
 
-// Internal tool only — pixel-checks /settings/billing's real card content
-// against every tier (Free/Player/Family) without signing in through real
-// auth or ever hitting Supabase/Whop (local dev shares production's
-// Supabase project — see CLAUDE.md). Both PlayerContext and TierContext
-// are faked directly (same trick as settings-preview.tsx), and
-// familyMembers/membership are passed as plain mock props straight into
-// BillingContent — the one real network call this page would normally
-// make (loadFamilyMembers(), loadMembershipSnapshot()) never fires here.
-// Not a route meant to ship; see app/dev/billing-preview/page.tsx (404s in
-// prod).
+// Internal tool only — renders /settings/billing's real card content in
+// every state (app/dev/billing-preview/page.tsx builds them on the server
+// with the real describePaidPlan()) without signing in through real auth or
+// ever calling Supabase/Whop (local dev must not sign in to real accounts —
+// see CLAUDE.md). PlayerContext and TierContext are faked directly, the
+// same trick as settings-preview.tsx. 404s in production builds.
+
+export interface BillingPreviewState {
+  id: string;
+  label: string;
+  view: BillingViewState;
+}
+
 const MOCK_PLAYER: Player = {
   ...emptyPlayer,
   name: "Maya Chen",
@@ -34,24 +37,20 @@ const MOCK_PLAYER: Player = {
 
 const MOCK_FAMILY_MEMBERS: FamilyMember[] = [
   { id: "p1", name: "Maya Chen", email: "maya@example.com", role: "player", currentUtr: 10.75, graduationYear: 2028, onboarded: true },
-  { id: "p2", name: "Wei Chen", email: "wei@example.com", role: "parent", currentUtr: 0, graduationYear: null, onboarded: true },
+  { id: "p2", name: "Wei Chen", email: "wei@example.com", role: "parent", currentUtr: null, graduationYear: null, onboarded: true },
 ];
 
-const MOCK_MEMBERSHIP: MembershipSnapshot = {
-  status: "active",
-  currentPeriodEnd: "2027-09-14",
-  cancelAtPeriodEnd: false,
-  manageUrl: null,
-};
+function tierOf(view: BillingViewState): SubscriptionTier {
+  if (view.kind === "free") return "free";
+  if (view.kind === "payer") return view.plan.tier;
+  return view.tier;
+}
 
-const TIERS: { value: SubscriptionTier; label: string }[] = [
-  { value: "free", label: "Free" },
-  { value: "player", label: "Player" },
-  { value: "family", label: "Family" },
-];
-
-export function BillingPreview() {
-  const [tier, setTier] = useState<SubscriptionTier>("family");
+export function BillingPreview({ states }: { states: BillingPreviewState[] }) {
+  const [id, setId] = useState(states[0]?.id);
+  const [retrying, setRetrying] = useState(false);
+  const current = states.find((s) => s.id === id) ?? states[0];
+  const tier = tierOf(current.view);
 
   return (
     <PlayerContext.Provider
@@ -72,36 +71,38 @@ export function BillingPreview() {
         value={{
           tier,
           hydrated: true,
-          setTier,
+          setTier: () => {},
           canAccess: () => true,
           isPaid: tier !== "free",
           isFamily: tier === "family",
-          // The harness drives the tier from local state; there is no
-          // database read to re-run.
           refresh: async () => {},
         }}
       >
-        <div className="flex items-center gap-2 border-b border-line bg-cream px-6 py-3 text-sm">
-          <span className="font-semibold text-ink">Dev preview — tier:</span>
-          {TIERS.map((t) => (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-cream px-6 py-3 text-sm">
+          <span className="font-semibold text-ink">Dev preview — state:</span>
+          {states.map((s) => (
             <button
-              key={t.value}
+              key={s.id}
               type="button"
-              onClick={() => setTier(t.value)}
+              aria-pressed={s.id === current.id}
+              onClick={() => setId(s.id)}
               className={`rounded-pill border px-3 py-1 text-xs font-semibold ${
-                tier === t.value ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
+                s.id === current.id ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
               }`}
             >
-              {t.label}
+              {s.label}
             </button>
           ))}
         </div>
         <SeededSettingsShell active="billing" onTabChange={() => {}}>
           <BillingContent
-            player={MOCK_PLAYER}
-            tier={tier}
+            view={current.view}
             familyMembers={MOCK_FAMILY_MEMBERS}
-            membership={tier === "free" ? null : MOCK_MEMBERSHIP}
+            onRetry={() => {
+              setRetrying(true);
+              window.setTimeout(() => setRetrying(false), 800);
+            }}
+            retrying={retrying}
           />
         </SeededSettingsShell>
       </TierContext.Provider>

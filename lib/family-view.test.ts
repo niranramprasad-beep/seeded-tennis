@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   firstNameLastInitial,
+  multiPlayerNote,
   parentScopeSentence,
+  parentSidebarNote,
   pickFamilyPlayer,
   resolveFamilyPlayerFacts,
 } from "./family-view";
@@ -132,5 +134,19 @@ describe("how a parent's screens name people", () => {
 
   it("with no player yet, says so instead of describing nobody", () => {
     expect(parentScopeSentence("Drew", null)).toMatch(/No player has joined/);
+  });
+
+  it("the sidebar note names the child and the two things a parent can write (Board 22)", () => {
+    expect(parentSidebarNote("Bailey")).toBe(
+      "You're viewing Bailey's account. You can edit the budget and send notes. Everything else is Bailey's."
+    );
+    expect(parentSidebarNote(null)).toMatch(/No player has joined/);
+  });
+
+  it("a two-player family is told which child the page shows", () => {
+    const one = [{ role: "player" }, { role: "parent" }];
+    const two = [{ role: "player" }, { role: "player" }, { role: "parent" }];
+    expect(multiPlayerNote(one, "Bailey")).toBeNull();
+    expect(multiPlayerNote(two, "Bailey")).toBe("Your family has 2 players. This page shows Bailey, who joined first.");
   });
 });

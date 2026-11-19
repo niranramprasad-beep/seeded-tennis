@@ -2,55 +2,75 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/api-auth";
 import { getWhop } from "@/lib/whop";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { describePaidPlan } from "@/lib/billing-plan";
+import type { BillingLookup } from "@/lib/billing-view";
+import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
 
-// Read-only companion to /settings/billing — never mutates anything. Looks
-// up the signed-in user's whop_membership_id (written only by the webhook,
-// never by the client) and, if one exists, fetches the live membership from
-// Whop for the few fields Supabase doesn't store: renewal date and the
-// per-membership manage_url (Whop's own hosted billing portal link — see
-// Membership.d.ts's doc comment: "URL where the buyer can sign in to manage
-// billing"). Nothing here can change a subscription; retrieve() is a GET.
+// Read-only companion to /settings/billing — never mutates anything.
+//
+// Reads the signed-in user's OWN profile row (by id) for
+// `whop_membership_id`, which only the webhook and the post-checkout sync
+// write, and only onto the BUYER's profile (lib/whop-sync.ts). So:
+//
+//   no membership id  → { kind: "none" }: this person does not pay. The page
+//                       does not send them to Whop, where they would only be
+//                       told "You do not have access to this page on this
+//                       account."
+//   Whop unanswerable → { kind: "unreachable" }: never "none" and never a
+//                       downgrade — not being able to ask is not an answer.
+//   otherwise         → { kind: "found" }: the plan they ACTUALLY pay for,
+//                       from the membership's own plan id (describePaidPlan),
+//                       not today's price table.
+//
+// Nothing here can change a subscription; memberships.retrieve() is a GET.
+// It never reads another user's profile: who pays for a family is not
+// something this route can learn without doing so, and it does not try.
 export async function GET(req: Request) {
   const user = await getAuthedUser(req);
   if (!user) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
 
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    return NextResponse.json({ membership: null });
-  }
+  const respond = (lookup: BillingLookup) => NextResponse.json({ lookup });
 
-  const { data: profile } = await admin
+  const admin = getSupabaseAdmin();
+  if (!admin) return respond({ kind: "unreachable" });
+
+  const { data: profile, error } = await admin
     .from("profiles")
-    .select("whop_membership_id")
+    .select("subscription_tier, whop_membership_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (error) return respond({ kind: "unreachable" });
 
   const membershipId = profile?.whop_membership_id as string | null | undefined;
-  if (!membershipId) {
-    return NextResponse.json({ membership: null });
-  }
+  if (!membershipId) return respond({ kind: "none" });
 
   const whop = getWhop();
-  if (!whop) {
-    return NextResponse.json({ membership: null });
-  }
+  if (!whop) return respond({ kind: "unreachable" });
+
+  const rawTier = profile?.subscription_tier as string | null | undefined;
+  const profileTier: SubscriptionTier | undefined =
+    rawTier && rawTier in TIER_RANK ? (rawTier as SubscriptionTier) : undefined;
 
   try {
     const membership = await whop.memberships.retrieve({ id: membershipId });
-    return NextResponse.json({
-      membership: {
+    const plan = describePaidPlan(
+      // `variant_id` is the plan id on the current API version — see the
+      // webhook's notes on why `plan_id` / `plan.id` are not.
+      membership.variant_id,
+      {
         status: membership.status,
         currentPeriodEnd: membership.current_period_end,
         cancelAtPeriodEnd: membership.cancel_at_period_end,
-        manageUrl: membership.manage_url,
       },
-    });
+      { profileTier }
+    );
+    return respond({ kind: "found", plan, manageUrl: membership.manage_url });
   } catch {
-    // A deleted/unreachable membership (or a Whop API hiccup) should never
-    // break the billing page — it just falls back to the tier-only view
-    // (no renewal date, generic portal link) the same as a free account.
-    return NextResponse.json({ membership: null });
+    // A Whop hiccup, a rotated key, or a membership Whop no longer returns.
+    // The page says "We can't reach Whop right now. Your plan is still
+    // active." and offers a retry — it never claims the plan is gone.
+    return respond({ kind: "unreachable" });
   }
 }

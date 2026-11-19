@@ -11,7 +11,13 @@ import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint"
 import { loadCoachOutreach } from "@/lib/db/outreach";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
-import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
+import {
+  missingPlayerUtrPhrase,
+  pickFamilyPlayer,
+  resolveFamilyPlayerFacts,
+  rosterStatsLocked,
+} from "@/lib/family-view";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { projectionTargetLabel } from "@/lib/fit";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
@@ -66,6 +72,13 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   const familyMembers = familyMembersData ?? [];
   const familyPlayer = isParent ? pickFamilyPlayer(familyMembers) : undefined;
   const facts = resolveFamilyPlayerFacts(familyPlayer, player);
+  // 044: a free family's roster carries no player stats. Without the plan
+  // status, a NULL rating would read as "no UTR logged" — untrue for
+  // a child who has one.
+  const { data: plan } = useSWR<FamilyPlanStatus>(isParent ? "family-plan-status" : null, () =>
+    loadFamilyPlanStatus()
+  );
+  const statsLocked = isParent ? rosterStatsLocked(plan) : false;
   const subjectUtr = facts.currentUtr;
   const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || "Your player" : null;
   const subject = {
@@ -95,8 +108,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       gender: subject.gender,
       catalog: allSchools,
       subjectName: subjectFirst,
+      ratingHidden: statsLocked === true && subjectUtr == null,
     }),
-    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst]
+    [utrEntries, subject.graduationYear, subject.gender, allSchools, subjectFirst, statsLocked, subjectUtr]
   );
 
   // The fit card waits for WHO (a parent's family roster) and for the
@@ -104,7 +118,8 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // either arrived judged the parent's own empty profile, then the child;
   // and banded Reach, then Out of range — visible as rows vanishing and
   // reappearing (measured CLS 0.13 at 320 for persona f).
-  const fitReady = (!isParent || familyMembersData !== undefined) && utrEntries !== undefined;
+  const fitReady =
+    (!isParent || (familyMembersData !== undefined && plan !== undefined)) && utrEntries !== undefined;
 
   const explanation = explainSchoolFit(subjectUtr, school, { ...explanationInput, band: reportBand });
   // The gaps, the chip and the range bar's marker all use the rating that
@@ -122,6 +137,14 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
   // is the new one, both wired to the same toggleStar call.
   const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
   const saved = isStarred(school.slug);
+  // Before the session resolves, `player.role` is the default ("player"),
+  // so the star, "Save to targets" and "Draft an email" render — and then
+  // vanish for a parent once their role arrives. At 320px that removed a
+  // wrapped header row and moved the page under the reader (PR A, persona
+  // f: CLS 0.089). The head script already marks html[data-role] from the
+  // remembered role, so until hydration these carry a class that CSS hides
+  // for a remembered parent: they are never drawn, so nothing disappears.
+  const playerOnlyUntilHydrated = hydrated ? undefined : "pre-session-player-only";
 
   // Two projections can appear on this card, and they answer different
   // questions: the rating that judges the band is an estimate at TYPICAL
@@ -133,7 +156,9 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
       ? `At the pace in ${subjectFirst ? `${subjectFirst}'s` : "your"} logged ratings: ${explanation.pace.projectedUTR.toFixed(1)} ${judging?.isProjected ? `by ${formatDate(explanation.pace.byDate)}` : "today"}`
       : explanation.pace.status === "insufficient-history"
         ? explanation.pace.message
-        : "Log a UTR to see your pace.";
+        : subjectFirst
+          ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
+          : "Log a UTR to see your pace.";
 
   const fitSkeleton = (
     <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
@@ -211,7 +236,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             judgingValue != null
               ? `${projectedYouLabel(judging, subjectFirst)} ${judgingValue.toFixed(1)} · team ${range.min.toFixed(1)}–${range.max.toFixed(1)}`
               : subjectFirst
-                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${subjectFirst} hasn't logged a UTR yet`
+                ? `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
                 : `Team ${range.min.toFixed(1)}–${range.max.toFixed(1)} · add your UTR to compare`
           }
           low={range.min}
@@ -255,6 +280,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
                   starred={saved}
                   onToggle={() => toggleStar(school.slug, school.shortName)}
                   label={school.shortName}
+                  className={playerOnlyUntilHydrated}
                 />
               )}
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
@@ -286,6 +312,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
               <SeededButton
                 variant={saved ? "secondary" : "primary"}
                 onClick={() => toggleStar(school.slug, school.shortName)}
+                className={playerOnlyUntilHydrated}
               >
                 {saved ? "Saved to targets" : "Save to targets"}
               </SeededButton>
@@ -329,7 +356,7 @@ export function SeededSchoolDetail({ school, nationalRank, programType, allSchoo
             {!isParent && (
               <Link
                 href={`/outreach?school=${school.slug}`}
-                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full")}
+                className={cn(seededButtonVariants({ variant: "secondary" }), "mt-auto w-full", playerOnlyUntilHydrated)}
               >
                 Draft an email to the head coach
               </Link>

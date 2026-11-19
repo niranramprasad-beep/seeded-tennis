@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { formatTierPrice } from "@/lib/types";
+import { FAMILY_PLAN_MAX_PARENTS, FAMILY_PLAN_MAX_PLAYERS, formatTierPrice } from "@/lib/types";
 import { getCatalogCounts } from "@/lib/db/schools";
 import { PricingView } from "@/components/pricing/pricing-view";
 
@@ -12,7 +12,8 @@ export const metadata: Metadata = {
   title: "Pricing — Seeded",
   description:
     `Your first fit report is free. Player is ${formatTierPrice("player", "monthly")}/month or ` +
-    `${formatTierPrice("player", "yearly")}/year; Family adds a parent view for ` +
+    `${formatTierPrice("player", "yearly")}/year; Family adds a parent view for one family ` +
+    `(up to ${FAMILY_PLAN_MAX_PLAYERS} players and ${FAMILY_PLAN_MAX_PARENTS} parents) for ` +
     `${formatTierPrice("family", "monthly")}/month or ${formatTierPrice("family", "yearly")}/year. ` +
     `Cancel any time.`,
   alternates: { canonical: "/pricing" },

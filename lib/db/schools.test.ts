@@ -34,6 +34,8 @@ const player: Player = {
   tournamentsPlayed: 5,
   tournamentsGoal: 12,
   onboarded: true,
+  birthMonth: null,
+  enrollmentTerm: null,
 };
 
 describe("combinedScore", () => {

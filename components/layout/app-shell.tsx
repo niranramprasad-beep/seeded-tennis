@@ -13,6 +13,7 @@ import { SeededSidebar } from "@/components/seeded/layout/sidebar";
 import { CommandPalette } from "@/components/seeded/shared/command-palette";
 import { CheckoutSync } from "@/components/shared/checkout-sync";
 import { AccountDeletedNotice } from "@/components/shared/account-deleted-notice";
+import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { cn } from "@/lib/utils";
 import { isPrivateRoute } from "@/lib/seo/private-routes";
 
@@ -201,6 +202,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             inside <main> so app routes give it the sidebar margin. */}
         <Footer />
       </main>
+      {/* B6: fixed-position, drawn after mount, so it can never push the
+          page. Renders nothing unless signed in with an unconfirmed email. */}
+      {showApp && <VerifyEmailBanner />}
     </>
   );
 }

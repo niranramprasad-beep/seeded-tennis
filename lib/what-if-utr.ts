@@ -127,7 +127,8 @@ export interface SyntheticHistoryInput {
  * exact fit keeps the uncertainty band at its floor rather than inventing
  * spread. These points are never shown to the player, never stored, and
  * never mixed with their real entries — they exist only to express a
- * what-if in the shape classifySchoolFit reads.
+ * what-if in the shape classifySchoolFit reads. Each is marked
+ * `synthetic: true`, so recruitingTimeUtr() never reads one as a logged pace.
  */
 export function syntheticUtrHistoryFor(input: SyntheticHistoryInput): UtrDataPoint[] {
   const now = input.now ?? new Date();
@@ -142,6 +143,7 @@ export function syntheticUtrHistoryFor(input: SyntheticHistoryInput): UtrDataPoi
     return [1, 0.5, 0].map((yearsAgo) => ({
       date: new Date(now.getTime() - yearsAgo * MS_PER_YEAR),
       utr: input.targetUTR,
+      synthetic: true as const,
     }));
   }
 
@@ -149,6 +151,7 @@ export function syntheticUtrHistoryFor(input: SyntheticHistoryInput): UtrDataPoi
   return [1, 0.5, 0].map((yearsAgo) => ({
     date: new Date(now.getTime() - yearsAgo * MS_PER_YEAR),
     utr: input.currentUTR - slopePerYear * yearsAgo,
+    synthetic: true as const,
   }));
 }
 
