@@ -13,6 +13,16 @@
 
 ## Executive status
 
+**2026-11-19 — Rollout: 041–045 on production; PR B (#6) merged.** Backup
+first (pg_dump + JSON snapshot in `~/seeded-backups/`), then each migration in
+its own transaction with its ledger row (production ledger 42 → 47), each
+followed by GO-SEQUENCE's probe as real users in a rolled-back transaction —
+all passed, nothing rolled back, no probe residue. 042 locked 5 families, of
+which only NIRAN-0LK2 (the owner's test family) has more than one member.
+PR B deployed (`dpl_E5AxjbACRiSmUGSBdydZ7RwC7mBZ`), every public route 200,
+0 runtime errors. PR C (#7) merges next. Report:
+`~/seeded-evidence/rollout-2026-11-19/REPORT.md`.
+
 **2026-11-19 — PR B: migration 045, one Family plan = one family (owner's
 decision).** A Family plan now unlocks only the payer's home family
 (`home_family_code()`, the rule `my_family_code()` already used), and a family
