@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlanGoal } from "@/lib/fit";
+import { planGoalInputError, type PlanGoal } from "@/lib/fit";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
@@ -10,11 +10,15 @@ import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 // goal goes back to where typical growth puts the player (lib/fit.ts).
 export function PlanGoalEditor({
   goal,
+  currentUtr,
   onSave,
   onCancel,
   className,
 }: {
   goal: PlanGoal;
+  /** Today's rating; a goal must be above it (docs/DECISIONS.md). Null or
+   * the 0 sentinel when the player has none — then any 1–16.5 goal is fine. */
+  currentUtr: number | null;
   onSave: (value: number | null) => Promise<void>;
   onCancel: () => void;
   className?: string;
@@ -37,8 +41,10 @@ export function PlanGoalEditor({
 
   const submit = () => {
     const v = Number(draft);
-    if (!Number.isFinite(v) || v < 1 || v > 16.5) {
-      setError("Enter a UTR between 1.00 and 16.50.");
+    // Range, and above today's rating (lib/fit.ts planGoalInputError).
+    const problem = planGoalInputError(v, currentUtr);
+    if (problem) {
+      setError(problem);
       return;
     }
     void save(Math.round(v * 100) / 100);

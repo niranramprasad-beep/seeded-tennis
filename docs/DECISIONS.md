@@ -7,6 +7,41 @@ Newest first.
 
 ---
 
+## 2026-11-18 — PR C review follow-ups: hidden sessions, goals below today, Undo's timestamp
+
+**/events shows every session a player put there, not only the new manual
+plan's.** A session is shown when its plan is the manual plan, or is named
+exactly "My sessions" (the plan the old calendar's withGuaranteedPlan()
+created, metadata {}), or the session was created more than a minute after
+its plan. Generator rows — written in the same instant as their plan — stay
+hidden, as before. The one-minute rule is a heuristic, chosen because a
+generator writes a plan and its sessions together and a person cannot; the
+reviewer's read-only check found all 28 production sessions created with
+their plans. *Undo:* make isPlayerAddedSession() (lib/db/training.ts)
+return only the metadata check.
+
+**A chosen plan goal must be above today's rating.** Rejected, not allowed
+with a note: a goal at or below the current UTR puts every checkpoint
+behind the player and the pace warning reads 0/yr, which says nothing
+useful. The editor says "Your goal needs to be above your current UTR,
+5.95." (planGoalInputError, lib/fit.ts). A goal saved earlier that the
+player has since reached is not deleted; /plan says "You've reached your
+6.20 goal. Set a higher one, or use the estimate." *Undo:* drop the second
+check in planGoalInputError.
+
+**Known, not changed: Undo restores a deleted row with a new created_at.**
+Undo re-inserts the result or session the player just deleted (same
+fields, a fresh row), so its created_at is the time of the Undo. Nothing
+sorts or filters by created_at on these screens, and for a session it does
+not change visibility (an Undo is a new row in the manual plan). Recorded
+so nobody reads the timestamp as the original entry time.
+
+**The nav "Tools" group is unchanged pending sign-off** on the CLAUDE.md
+"5-item nav" wording (Results and Tournament checker sit in a secondary
+group under the five).
+
+---
+
 ## 2026-11-18 — PR C sweep: tournament checker, outreach board, schools
 
 **The tournament checker gives no verdict until the level and the entry fee

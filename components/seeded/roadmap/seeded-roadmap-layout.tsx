@@ -307,9 +307,17 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             </span>
           )}
         </div>
+        {/* A goal saved earlier that today's rating has since reached: say
+            so, rather than plotting checkpoints behind the player. */}
+        {goal && !editingGoal && goal.source === "chosen" && hasRealUtr(player.currentUTR) && player.currentUTR >= goal.value && (
+          <p role="status" className="mt-2 text-sm text-stone">
+            You&apos;ve reached your {formatPlayerUtr(goal.value)} goal. Set a higher one, or use the estimate.
+          </p>
+        )}
         {editingGoal && goal && (
           <PlanGoalEditor
             goal={goal}
+            currentUtr={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
             onSave={async (v) => {
               await planGoal.setGoal(v);
               setEditingGoal(false);

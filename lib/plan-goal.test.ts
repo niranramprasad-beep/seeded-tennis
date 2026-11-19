@@ -183,3 +183,22 @@ describe("C16 / C24 — said once, said plainly", () => {
     expect(readFileSync("components/seeded/roadmap/seeded-roadmap-layout.tsx", "utf8")).toMatch(/<h1[^>]*>Plan<\/h1>/);
   });
 });
+
+describe("a chosen goal must be above today's rating (decision 2026-11-18)", () => {
+  it("planGoalInputError", async () => {
+    const { planGoalInputError } = await import("./fit");
+    expect(planGoalInputError(6.6, 5.95)).toBeNull();
+    expect(planGoalInputError(5.95, 5.95)).toBe("Your goal needs to be above your current UTR, 5.95.");
+    expect(planGoalInputError(5.5, 5.95)).toMatch(/above your current UTR/);
+    expect(planGoalInputError(0.5, 5.95)).toBe("Enter a UTR between 1.00 and 16.50.");
+    expect(planGoalInputError(17, null)).toBe("Enter a UTR between 1.00 and 16.50.");
+    // no real rating yet (null or the 0 sentinel): any goal in range
+    expect(planGoalInputError(3, null)).toBeNull();
+    expect(planGoalInputError(3, 0)).toBeNull();
+  });
+
+  it("the /plan editor uses it, and a passed goal is said out loud", () => {
+    expect(readFileSync("components/seeded/roadmap/plan-goal-editor.tsx", "utf8")).toMatch(/planGoalInputError\(v, currentUtr\)/);
+    expect(readFileSync("components/seeded/roadmap/seeded-roadmap-layout.tsx", "utf8")).toMatch(/You&apos;ve reached your/);
+  });
+});

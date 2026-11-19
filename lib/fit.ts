@@ -347,6 +347,20 @@ export function resolvePlanGoal(input: {
   return { value: estimate, source: "estimate", estimate };
 }
 
+/**
+ * Why a goal the player typed can't be saved, or null when it can. A goal is
+ * a rating not reached yet: one at or below today's rating would put every
+ * checkpoint behind the player (docs/DECISIONS.md, 2026-11-18). With no real
+ * rating (null / the 0 sentinel) any 1–16.5 goal is accepted.
+ */
+export function planGoalInputError(value: number, currentUtr: number | null | undefined): string | null {
+  if (!Number.isFinite(value) || value < 1 || value > 16.5) return "Enter a UTR between 1.00 and 16.50.";
+  if (currentUtr != null && currentUtr > 0 && Math.round(value * 100) <= Math.round(currentUtr * 100)) {
+    return `Your goal needs to be above your current UTR, ${formatPlayerUtr(currentUtr)}.`;
+  }
+  return null;
+}
+
 /* ==========================================================================
  * REALISTIC TARGETS (/plan's "Show realistic targets")
  * ==========================================================================
