@@ -13,6 +13,13 @@
 
 ## Executive status
 
+**2026-11-20 — Rollout: 049 on production; PR #11 and docs PR #10 merged.**
+Backup first, 049 in one transaction with its ledger row (production ledger
+49 → 50, 2026-11-20 04:58 UTC), probed as real users before and after the
+merge; post-deploy 0 stray 12s. PR #11 (`e099051`) deployed; 22 routes 200,
+0 runtime errors. Report: `~/seeded-evidence/no-invented-goal/REPORT.md`.
+The entry below was written before the run.
+
 **2026-11-20 — fix/no-invented-goal (NOT merged; migration 049 on STAGING
 only).** `profiles.tournaments_goal` was a hardcoded 12 for every account
 (production 8/8 = 12/0). Migration **049** makes it nullable with no
