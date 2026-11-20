@@ -29,6 +29,7 @@ export const emptyPlayer: Player = {
   // Not 12. Nobody is asked for a number at sign-up, so there is none
   // (migration 049; lib/no-invented-goal.test.ts).
   tournamentsPlanned: null,
+  tournamentsPlannedSeason: null,
   onboarded: false,
   homeArea: "",
   utrProfileLink: "",

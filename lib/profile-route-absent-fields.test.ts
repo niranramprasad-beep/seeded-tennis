@@ -110,5 +110,30 @@ describe("tournaments planned (049)", () => {
     for (const bad of [-1, 61, 2.5]) {
       expect(PlayerBodySchema.safeParse({ ...bodyWithout(), tournamentsPlanned: bad }).success).toBe(false);
     }
+    for (const bad of ["autumn-2026", "fall-26", ""]) {
+      expect(PlayerBodySchema.safeParse({ ...bodyWithout(), tournamentsPlannedSeason: bad }).success).toBe(false);
+    }
+  });
+
+  it("the season is written with the count, and cleared with it", async () => {
+    const a = captureUpsert();
+    await writeCurrentPlayerProfile(
+      playerWriteFromBody({ ...bodyWithout(), tournamentsPlanned: 8, tournamentsPlannedSeason: "fall-2026" }),
+      a.ctx
+    );
+    expect(a.rows[0]).toMatchObject({ tournaments_goal: 8, tournaments_planned_season: "fall-2026" });
+
+    // Cleared: the season goes too, even if a stale one was sent.
+    const b = captureUpsert();
+    await writeCurrentPlayerProfile(
+      playerWriteFromBody({ ...bodyWithout(), tournamentsPlanned: null, tournamentsPlannedSeason: "fall-2026" }),
+      b.ctx
+    );
+    expect(b.rows[0]).toMatchObject({ tournaments_goal: null, tournaments_planned_season: null });
+
+    // An old client sends neither: neither column is touched.
+    const c = captureUpsert();
+    await writeCurrentPlayerProfile(playerWriteFromBody(bodyWithout("tournamentsPlanned", "tournamentsPlannedSeason")), c.ctx);
+    expect(c.rows[0]).not.toHaveProperty("tournaments_planned_season");
   });
 });

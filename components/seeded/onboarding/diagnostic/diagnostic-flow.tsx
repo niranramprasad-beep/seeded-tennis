@@ -7,7 +7,7 @@ import { diagnosticProjection, projectionTargetDate, projectionTargetLabel } fro
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import {
   EMPTY_ANSWERS,
-  QUESTION_COUNT,
+  questionCountFor,
   RESULT_STEP,
   STEP,
   canContinue,
@@ -140,7 +140,10 @@ export function SeededDiagnosticOnboarding({
   }
 
   const isResult = step === RESULT_STEP;
-  const questionNumber = Math.min(step + 1, QUESTION_COUNT);
+  // A parent is asked one question fewer (no tournaments planned), so the
+  // count follows the role: "of 9" for a parent, "of 10" for a player.
+  const questionCount = questionCountFor(answers.role);
+  const questionNumber = Math.min(step + 1, questionCount);
   const headingId = `diag-q-${view}-${step}`;
   const enterContinues = view === "questions" && !isResult;
 
@@ -149,24 +152,24 @@ export function SeededDiagnosticOnboarding({
       <div className="mx-auto max-w-[1200px] px-4 pt-6 sm:px-6">
         <div className="mx-auto flex max-w-[420px] flex-col items-center text-center">
           <p className="m-0 text-sm font-semibold text-ink">
-            {isResult || view === "save" ? "Your result" : `Question ${questionNumber} of ${QUESTION_COUNT}`}
+            {isResult || view === "save" ? "Your result" : `Question ${questionNumber} of ${questionCount}`}
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-stone">About 90 seconds</p>
           <div
             role="progressbar"
             aria-label="Onboarding progress"
             aria-valuemin={1}
-            aria-valuemax={QUESTION_COUNT}
-            aria-valuenow={isResult || view === "save" ? QUESTION_COUNT : questionNumber}
+            aria-valuemax={questionCount}
+            aria-valuenow={isResult || view === "save" ? questionCount : questionNumber}
             aria-valuetext={
-              isResult || view === "save" ? `All ${QUESTION_COUNT} questions answered` : `Question ${questionNumber} of ${QUESTION_COUNT}`
+              isResult || view === "save" ? `All ${questionCount} questions answered` : `Question ${questionNumber} of ${questionCount}`
             }
             className="mt-2.5 h-1.5 w-full overflow-hidden rounded-pill bg-grass-50"
           >
             <div
               className="h-full rounded-pill bg-grass transition-[width] duration-300 motion-reduce:transition-none"
               style={{
-                width: `${((isResult || view === "save" ? QUESTION_COUNT : questionNumber) / QUESTION_COUNT) * 100}%`,
+                width: `${((isResult || view === "save" ? questionCount : questionNumber) / questionCount) * 100}%`,
               }}
             />
           </div>

@@ -178,6 +178,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   if (mobile) {
     return (
       <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
+        {/* The same disclosure as the desktop card: these starting values
+            are an example, not the visitor's (and only fields they change
+            are sent on — lib/home-calculator.ts). */}
+        <p className="text-xs text-stone">Example values. Change them to yours.</p>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniField label="UTR">
             <input

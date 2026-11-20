@@ -106,6 +106,10 @@ export const COMPONENT_RULES: Rule[] = [
     why: "a progress ratio against a profile field — the denominator must be something the player set",
     pattern: /Math\.max\(\s*1\s*,\s*player\.\w+\s*\)/,
   },
+  {
+    why: "read the planned count through plannedThisSeason(): a count from an earlier season must show as Not set (049)",
+    pattern: /\.tournamentsPlanned\b/,
+  },
 ];
 
 export function violations(src: string, file: string): string[] {
@@ -130,6 +134,15 @@ describe("no invented tournament goal (049)", () => {
   it("no live file brings back the invented goal, the old names, or a profile read of played", () => {
     const found = FILES.flatMap((f) => violations(readFileSync(f, "utf8"), f));
     expect(found).toEqual([]);
+  });
+
+  it("every screen that shows the planned count goes through plannedThisSeason()", () => {
+    for (const f of [
+      join("components", "parents", "parent-dashboard-view.tsx"),
+      join("components", "seeded", "settings", "profile-card.tsx"),
+    ]) {
+      expect(readFileSync(f, "utf8")).toContain("plannedThisSeason(");
+    }
   });
 
   it("the signup inserts in lib/auth.ts send no tournaments_goal at all", () => {
@@ -164,6 +177,16 @@ describe("the detectors catch what shipped before 049", () => {
     ],
     ["components/cost/cost-calculator-view.tsx", "calculator default", "    tournamentsPerYear: player.tournamentsGoal || 0,\n"],
     ["lib/db/plan.ts", "roadmap per-year count", "    const tournamentsNeeded = 10 + i * 2;\n"],
+    [
+      "components/parents/parent-dashboard-view.tsx",
+      "a planned count shown without its season",
+      "{player.tournamentsPlanned == null ? \"Not set\" : player.tournamentsPlanned}",
+    ],
+    [
+      "components/seeded/settings/profile-card.tsx",
+      "settings prefilled from a stale season",
+      "useState(player.tournamentsPlanned != null ? String(player.tournamentsPlanned) : \"\")",
+    ],
   ];
   for (const [file, label, src] of shipped) {
     it(`catches ${label}`, () => {

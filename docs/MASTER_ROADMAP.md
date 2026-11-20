@@ -18,7 +18,9 @@ only).** `profiles.tournaments_goal` was a hardcoded 12 for every account
 (production 8/8 = 12/0). Migration **049** makes it nullable with no
 default, clears every stored value, CHECK 0–60; `tournaments_played` is no
 longer read or written (played is counted from `tournament_entries` marked
-Played in the current season). The app calls it `tournamentsPlanned`
+Played in the current season); a new `tournaments_planned_season` column
+(same file) ties the count to the season it was set for, so last season's
+plan shows as "Not set". The app calls it `tournamentsPlanned`
 ("Tournaments planned this season"): optional last diagnostic question
 (players), Settings → Profile field, "Not set"/"Not tracked" everywhere
 else — no default, no progress bar. A sweep for other invented numbers

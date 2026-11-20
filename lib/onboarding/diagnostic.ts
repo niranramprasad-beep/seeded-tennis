@@ -22,7 +22,7 @@ import {
 } from "@/lib/time";
 import { parentConsentRequired } from "@/lib/config/consent";
 import { isUsableUtr } from "@/lib/fit";
-import { parseTournamentsPlannedText } from "@/lib/tournaments-planned";
+import { parseTournamentsPlannedText, stampTournamentsPlanned } from "@/lib/tournaments-planned";
 
 export type DiagnosticRole = FamilyRole;
 
@@ -40,8 +40,14 @@ export const STEP = {
   result: 10,
 } as const;
 
-/** "Question N of 10". The result is not a question. */
+/** "Question N of 10" for a player. The result is not a question. */
 export const QUESTION_COUNT = 10;
+
+/** How many questions THIS person is asked: a parent is never asked the
+ * last one (tournaments planned), so their progress reads "of 9". */
+export function questionCountFor(role: DiagnosticRole | null): number {
+  return role === "parent" ? QUESTION_COUNT - 1 : QUESTION_COUNT;
+}
 export const RESULT_STEP = STEP.result;
 const OPTIONAL = new Set<number>([STEP.utrSixMonths, STEP.utrYear, STEP.gpa, STEP.tournaments]);
 
@@ -376,7 +382,7 @@ export function diagnosticUtrEntries(a: DiagnosticAnswers, now: Date = new Date(
  * writeCurrentPlayerProfile() stores as NULL. Refuses a parent's answers:
  * a parent's profile holds no UTR or player stats (board 22, DECISIONS).
  */
-export function diagnosticPlayerProfile(base: Player, a: DiagnosticAnswers): Player {
+export function diagnosticPlayerProfile(base: Player, a: DiagnosticAnswers, now: Date = new Date()): Player {
   const v = diagnosticValues(a);
   if (v.role !== "player") throw new Error("Only a player's own answers are saved to their profile.");
   const graduationYear = v.gradYear ?? base.graduationYear;
@@ -390,7 +396,10 @@ export function diagnosticPlayerProfile(base: Player, a: DiagnosticAnswers): Pla
     gpa: v.gpa,
     // Only an answer replaces what the account holds: skipping the question
     // keeps the stored value (NULL for a new account — never a default).
-    tournamentsPlanned: v.tournamentsPlanned ?? base.tournamentsPlanned,
+    // An answer is stamped with the season it is for (049).
+    ...(v.tournamentsPlanned != null
+      ? stampTournamentsPlanned(v.tournamentsPlanned, now)
+      : { tournamentsPlanned: base.tournamentsPlanned, tournamentsPlannedSeason: base.tournamentsPlannedSeason }),
     birthMonth: v.birthMonth,
     enrollmentTerm: v.enrollmentTerm,
     onboarded: true,

@@ -28,11 +28,12 @@ import {
   type EncouragementNote,
   type FamilyMember,
 } from "@/lib/db/family";
-import { loadMatches, loadTournamentEntries, type MatchRecord, type TournamentEntry } from "@/lib/db/events";
+import { loadMatches, loadTournamentEntriesOrThrow, type MatchRecord, type TournamentEntry } from "@/lib/db/events";
 import {
   TOURNAMENTS_PLANNED_LABEL,
   TOURNAMENTS_PLANNED_NOT_SET,
   countPlayedThisSeason,
+  plannedThisSeason,
 } from "@/lib/tournaments-planned";
 import Link from "next/link";
 import { useDesign } from "@/lib/context/design-context";
@@ -109,9 +110,13 @@ function LegacyParentDashboard() {
     : player.role === "player"
     ? ("self" as const)
     : null;
-  const { data: tournamentEntries = [] } = useSWR<TournamentEntry[]>(
-    entriesSubject ? ["tournament-entries", subjectKey(entriesSubject)] : null,
-    () => loadTournamentEntries(entriesSubject!)
+  // No `= []` default: while the entries load, and if the read fails, there
+  // is no count — "0 played" would be a number nobody measured. A distinct
+  // key from the shared "tournament-entries" cache, whose loader turns a
+  // failed read into [] (lib/db/events.ts).
+  const entries = useSWR<TournamentEntry[]>(
+    entriesSubject ? ["tournament-entries-strict", subjectKey(entriesSubject)] : null,
+    () => loadTournamentEntriesOrThrow(entriesSubject!)
   );
   const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
     "encouragement-notes",
@@ -152,7 +157,11 @@ function LegacyParentDashboard() {
   // does not return it (037's enumerated list), so it is "Not tracked" here,
   // never a default and never a progress bar against one (049).
   const viewerIsPlayer = !playerMember && player.role === "player";
-  const playedThisSeason = playerFacts.hasLinkedPlayer ? countPlayedThisSeason(tournamentEntries) : null;
+  const playedThisSeason =
+    playerFacts.hasLinkedPlayer && entries.data && !entries.error ? countPlayedThisSeason(entries.data) : null;
+  const playedLoading = playerFacts.hasLinkedPlayer && entriesSubject != null && entries.isLoading;
+  // Only a count set for THIS season (049's tournaments_planned_season).
+  const plannedNow = viewerIsPlayer ? plannedThisSeason(player) : null;
 
   return (
     <div className="mx-auto max-w-content container-px py-12">
@@ -218,14 +227,24 @@ function LegacyParentDashboard() {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-stone">Tournaments played this season</span>
                 <span className="font-medium text-ink">
-                  {playedThisSeason == null ? "Not tracked" : playedThisSeason}
+                  {playedLoading ? (
+                    <span
+                      role="status"
+                      aria-label="Loading"
+                      className="inline-block h-4 w-6 animate-pulse rounded bg-line align-middle"
+                    />
+                  ) : playedThisSeason == null ? (
+                    "Not tracked"
+                  ) : (
+                    playedThisSeason
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-stone">{TOURNAMENTS_PLANNED_LABEL}</span>
                 <span className="font-medium text-ink">
                   {viewerIsPlayer ? (
-                    player.tournamentsPlanned == null ? (
+                    plannedNow == null ? (
                       <>
                         {TOURNAMENTS_PLANNED_NOT_SET} ·{" "}
                         <Link href="/settings/profile" className="text-grass underline-offset-2 hover:underline">
@@ -233,7 +252,7 @@ function LegacyParentDashboard() {
                         </Link>
                       </>
                     ) : (
-                      player.tournamentsPlanned
+                      plannedNow
                     )
                   ) : (
                     "Not tracked"

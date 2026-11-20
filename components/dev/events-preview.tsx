@@ -29,6 +29,7 @@ const MOCK_PLAYER: Player = {
   targetSchoolSlugs: [],
   weaknesses: [],
   tournamentsPlanned: null,
+  tournamentsPlannedSeason: null,
   onboarded: true,
   birthMonth: null,
   enrollmentTerm: null,

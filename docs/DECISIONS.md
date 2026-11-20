@@ -21,6 +21,21 @@ Calls made without asking (the owner was unreachable):
 - **`tournaments_played` is kept, not dropped**, and no longer read or
   written. Dropping it is a separate cleanup (TODO).
 - **CHECK 0–60.** A sanity ceiling, not a target.
+- **The count carries its season** (`profiles.tournaments_planned_season`,
+  review M2, in the same 049 file): stamped with `seasonKey()` when the
+  player sets it, NULL when cleared; a count for any other season shows as
+  "Not set" (player) / "Not tracked" (parent). No pairing CHECK, so the old
+  app's seasonless 12 in the deploy window is accepted (and shows Not set);
+  HANDOFF §J Step 23's post-deploy verify re-clears those.
+- **Parents are not asked team or grade at email sign-up** (review L2); every
+  sign-up path writes the shared `PARENT_ROW_GENDER` ("male") /
+  `PARENT_ROW_GRADE` (10) to a parent's own row, which no screen shows.
+  Google sign-up used "female" before; now the same as the others.
+- **The diagnostic's "Question N of M" follows the role** (10 for a player,
+  9 for a parent). The phone homepage calculator says "Example values.
+  Change them to yours." The legacy parent dashboard's played count shows a
+  skeleton while loading and "Not tracked" if the read fails (a throwing
+  loader, `loadTournamentEntriesOrThrow`), never a 0 nobody measured.
 - **"This season" = the app's existing season** (`currentSeason()`: fall
   Aug–Nov, winter Dec–Feb, spring Mar–May, summer Jun–Jul). New
   `seasonKey()` makes winter one season across the new year. Played this

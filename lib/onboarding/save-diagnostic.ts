@@ -64,7 +64,7 @@ export async function saveDiagnosticToAccount(
     };
   }
 
-  const next = diagnosticPlayerProfile(base, answers);
+  const next = diagnosticPlayerProfile(base, answers, now);
   if (!(await saveCurrentPlayer(next))) {
     return {
       ok: false,

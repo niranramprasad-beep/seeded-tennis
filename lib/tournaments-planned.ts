@@ -42,6 +42,35 @@ export function toTournamentsPlannedOrNull(raw: unknown): number | null {
   return Number.isInteger(v) && v >= 0 && v <= TOURNAMENTS_PLANNED_MAX ? v : null;
 }
 
+/** lib/time.ts seasonKey()'s shape, mirrored by 049's CHECK on
+ * profiles.tournaments_planned_season. */
+export const SEASON_KEY_PATTERN = /^(fall|winter|spring|summer)-[0-9]{4}$/;
+
+export function isSeasonKey(v: unknown): v is string {
+  return typeof v === "string" && SEASON_KEY_PATTERN.test(v);
+}
+
+/** The count, ONLY if it was set for the season `now` is in. A count from
+ * an earlier season is "Not set" now: a fall plan must not sit next to a
+ * winter played-count that has reset to 0. Every screen reads the planned
+ * count through this (lib/no-invented-goal.test.ts). */
+export function plannedThisSeason(
+  p: { tournamentsPlanned: number | null; tournamentsPlannedSeason: string | null },
+  now: Date = new Date()
+): number | null {
+  if (p.tournamentsPlanned == null) return null;
+  return p.tournamentsPlannedSeason === seasonKey(now) ? p.tournamentsPlanned : null;
+}
+
+/** What to save when the player sets (or clears) the count: the value plus
+ * the season it is for — NULL for both when cleared. */
+export function stampTournamentsPlanned(
+  value: number | null,
+  now: Date = new Date()
+): { tournamentsPlanned: number | null; tournamentsPlannedSeason: string | null } {
+  return { tournamentsPlanned: value, tournamentsPlannedSeason: value == null ? null : seasonKey(now) };
+}
+
 export function formatTournamentsPlanned(v: number | null | undefined): string {
   return v == null ? TOURNAMENTS_PLANNED_NOT_SET : String(v);
 }

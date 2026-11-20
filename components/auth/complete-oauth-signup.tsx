@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
+import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, hasSeededProfile } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/config/auth";
@@ -132,8 +132,10 @@ export function CompleteOAuthSignup() {
     const result = await completeOAuthProfile({
       name: name.trim(),
       country,
-      gender: gender ?? "female",
-      grade: grade ?? PARENT_ROW_GRADE,
+      // A player's own answers (required above); a parent is never shown
+      // them and gets the shared PARENT_ROW_* values, as every sign-up path.
+      gender: !isParent && gender ? gender : PARENT_ROW_GENDER,
+      grade: !isParent && grade != null ? grade : PARENT_ROW_GRADE,
       birthYear,
       role,
       family:

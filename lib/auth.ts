@@ -4,7 +4,7 @@ import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
-import { toTournamentsPlannedOrNull } from "@/lib/tournaments-planned";
+import { isSeasonKey, toTournamentsPlannedOrNull } from "@/lib/tournaments-planned";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
 import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
@@ -558,6 +558,7 @@ function buildPlayerFromAuthProfile(input: {
     targetSchoolSlugs: [],
     weaknesses: [],
     tournamentsPlanned: null,
+    tournamentsPlannedSeason: null,
     onboarded: false,
   };
 }
@@ -730,6 +731,9 @@ function mapProfileToPlayer(
     // NULL stays null ("Not set"). profiles.tournaments_played is not read:
     // no screen ever wrote it (049's header).
     tournamentsPlanned: toTournamentsPlannedOrNull(profile.tournaments_goal),
+    tournamentsPlannedSeason: isSeasonKey(profile.tournaments_planned_season)
+      ? profile.tournaments_planned_season
+      : null,
     onboarded: Boolean(profile.onboarded),
     // home_area/utr_profile_link/gpa/deletion_requested_at (migration
     // 014_profile_fields_and_deletion.sql) are read safely even before that
@@ -938,10 +942,14 @@ export interface PlayerWriteContext {
  * enrollmentTerm and tournamentsPlanned may be ABSENT (an older client's
  * body never had them), and absent must stay absent: it means "leave the
  * stored value alone", which is not the same as null ("clear it"). */
-export type PlayerProfileWrite = Omit<Player, "birthMonth" | "enrollmentTerm" | "tournamentsPlanned"> & {
+export type PlayerProfileWrite = Omit<
+  Player,
+  "birthMonth" | "enrollmentTerm" | "tournamentsPlanned" | "tournamentsPlannedSeason"
+> & {
   birthMonth?: number | null;
   enrollmentTerm?: Player["enrollmentTerm"];
   tournamentsPlanned?: number | null;
+  tournamentsPlannedSeason?: string | null;
 };
 
 export async function writeCurrentPlayerProfile(
@@ -976,7 +984,18 @@ export async function writeCurrentPlayerProfile(
     // route's schema) can never write the invented 12 back.
     // tournaments_played is never written: played is counted from
     // tournament_entries, not stored on the profile.
-    ...(player.tournamentsPlanned !== undefined ? { tournaments_goal: player.tournamentsPlanned } : {}),
+    // The season goes with it (049): the one the client stamped, or NULL —
+    // always NULL when the count is cleared, so a stale season never
+    // outlives its count. A count saved without a season reads as Not set.
+    ...(player.tournamentsPlanned !== undefined
+      ? {
+          tournaments_goal: player.tournamentsPlanned,
+          tournaments_planned_season:
+            player.tournamentsPlanned != null && isSeasonKey(player.tournamentsPlannedSeason)
+              ? player.tournamentsPlannedSeason
+              : null,
+        }
+      : {}),
     onboarded: player.onboarded,
   };
 

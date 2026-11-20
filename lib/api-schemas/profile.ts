@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ENROLLMENT_TERMS } from "@/lib/types";
-import { TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-planned";
+import { SEASON_KEY_PATTERN, TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-planned";
 
 // Shape validated by app/api/profile's route handler before it ever calls
 // writeCurrentPlayerProfile (lib/auth.ts) — the single highest-traffic
@@ -30,6 +30,9 @@ export const PlayerBodySchema = z.object({
   // tournamentsGoal / tournamentsPlayed keys are no longer in the schema, so
   // a stale client's invented 12 is stripped here and never written.
   tournamentsPlanned: z.number().int().min(0).max(TOURNAMENTS_PLANNED_MAX).nullable().optional(),
+  // The season the count is for (seasonKey(), e.g. "fall-2026"); 049's
+  // CHECK on profiles.tournaments_planned_season is the real rule.
+  tournamentsPlannedSeason: z.string().regex(SEASON_KEY_PATTERN).nullable().optional(),
   onboarded: z.boolean(),
   homeArea: z.string().optional(),
   utrProfileLink: z.string().optional(),

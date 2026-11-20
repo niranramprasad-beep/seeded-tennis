@@ -11,6 +11,7 @@ import {
   firstStep,
   gradYearOptions,
   isOptionalStep,
+  questionCountFor,
   parseGpaText,
   parsePendingAnswers,
   parseUtrText,
@@ -183,6 +184,19 @@ describe("what a player's answers save as", () => {
     expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "8" }).tournamentsPlanned).toBe(8);
     expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "0" }).tournamentsPlanned).toBe(0);
     expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "99" }).tournamentsPlanned).toBeNull();
+  });
+
+  it("an answer is stamped with the season it is for (049); a skip leaves both unset", () => {
+    const answered = diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "8" }, NOW);
+    expect(answered).toMatchObject({ tournamentsPlanned: 8, tournamentsPlannedSeason: "fall-2026" });
+    const skipped = diagnosticPlayerProfile(emptyPlayer, full, NOW);
+    expect(skipped).toMatchObject({ tournamentsPlanned: null, tournamentsPlannedSeason: null });
+  });
+
+  it("the progress count follows the role: a parent is asked one question fewer", () => {
+    expect(questionCountFor("player")).toBe(10);
+    expect(questionCountFor("parent")).toBe(9);
+    expect(questionCountFor(null)).toBe(10);
   });
 
   it("no UTR → the 0 sentinel (stored as NULL) and NO entries — never a placeholder", () => {

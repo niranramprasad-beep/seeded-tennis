@@ -9,6 +9,8 @@ import {
   TOURNAMENTS_PLANNED_LABEL,
   TOURNAMENTS_PLANNED_MAX,
   parseTournamentsPlannedText,
+  plannedThisSeason,
+  stampTournamentsPlanned,
 } from "@/lib/tournaments-planned";
 import { SeededButton } from "@/components/seeded/ui/button";
 
@@ -49,9 +51,12 @@ export function ProfileCard({
   const [utrProfileLink, setUtrProfileLink] = useState(player.utrProfileLink ?? "");
   const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
   const [gpa, setGpa] = useState(player.gpa != null ? String(player.gpa) : "");
-  const [tournamentsPlanned, setTournamentsPlanned] = useState(
-    player.tournamentsPlanned != null ? String(player.tournamentsPlanned) : ""
-  );
+  // A count saved for an earlier season shows blank ("Not set"): it was
+  // a plan for a season that is over (049's tournaments_planned_season).
+  const [tournamentsPlanned, setTournamentsPlanned] = useState(() => {
+    const current = plannedThisSeason(player);
+    return current != null ? String(current) : "";
+  });
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
   const isPlayer = player.role === "player";
   const [saved, setSaved] = useState(false);
@@ -84,7 +89,8 @@ export function ProfileCard({
       utrProfileLink: linkCheck.normalized ?? "",
       gpa: parsedGpa != null && !Number.isNaN(parsedGpa) ? parsedGpa : null,
       // Blank = "Not set" (null). A parent's own row is left alone.
-      ...(isPlayer ? { tournamentsPlanned: planned.value } : {}),
+      // Stamped with the season it is for; both NULL when cleared.
+      ...(isPlayer ? stampTournamentsPlanned(planned.value) : {}),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);

@@ -585,6 +585,7 @@ export type Database = {
           subscription_tier: string
           target_school_slugs: string[]
           tournaments_goal: number | null
+          tournaments_planned_season: string | null
           tournaments_played: number
           updated_at: string
           username: string | null
@@ -625,6 +626,7 @@ export type Database = {
           subscription_tier?: string
           target_school_slugs?: string[]
           tournaments_goal?: number | null
+          tournaments_planned_season?: string | null
           tournaments_played?: number
           updated_at?: string
           username?: string | null
@@ -665,6 +667,7 @@ export type Database = {
           subscription_tier?: string
           target_school_slugs?: string[]
           tournaments_goal?: number | null
+          tournaments_planned_season?: string | null
           tournaments_played?: number
           updated_at?: string
           username?: string | null

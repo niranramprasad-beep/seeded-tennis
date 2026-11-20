@@ -27,4 +27,10 @@ describe("the homepage calculator never pre-answers onboarding with its example 
     expect(src).toContain("onboardingQueryFor(");
     expect(src).not.toMatch(/new URLSearchParams\(\{\s*utr/);
   });
+
+  it("both cards say their starting values are an example", () => {
+    const src = readFileSync(join("components", "seeded", "home", "seeded-home-view.tsx"), "utf8");
+    expect(src).toContain("Example output. Counts depend on your inputs."); // desktop
+    expect(src).toContain("Example values. Change them to yours."); // phone
+  });
 });
