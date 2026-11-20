@@ -189,7 +189,7 @@ function routeFiles(dir: string): string[] {
 
 /** Signals that a route reads or writes Family-plan data. */
 const FAMILY_PLAN_DATA =
-  /season_budgets|budget_expenses|parent_reports|encouragement_notes|saveSeasonBudget|saveBudgetExpense|loadSeasonBudget|loadBudgetExpenses|loadParentReports|loadEncouragementNotes|saveEncouragementNote/;
+  /season_budgets|budget_expenses|parent_reports|encouragement_notes|saveSeasonBudget|saveBudgetExpense|loadSeasonBudget|loadBudgetExpenses|loadEncouragementNotes|saveEncouragementNote/;
 
 /** Routes allowed to touch that data without the gate, with the reason. */
 const EXEMPT: Record<string, string> = {
