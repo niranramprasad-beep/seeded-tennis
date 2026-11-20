@@ -7,6 +7,38 @@ Newest first.
 
 ---
 
+## 2026-11-20 (night) — Review-ready run: docs, repo hygiene (PR-DOCS)
+
+- **Archive, don't delete.** Eleven single-session reports moved to
+  `docs/archive/` with `git mv` (history kept) and a one-line-per-file index.
+  Root `REVAMP_REPORT.md`, `UI_AUDIT.md` and `SUPABASE_SETUP.md` went too;
+  `SUPABASE_SETUP.md` was mostly wrong (OpenAI key, run 001–005 by hand), so
+  its still-true parts are in the root README instead.
+- **HANDOFF keeps §J and §K only.** §A–I were a 2026-11-10 snapshot (stack,
+  routes, "known bugs: none") that nothing links to; they moved to
+  `docs/archive/HANDOFF_HISTORY.md`. §J's anchors are unchanged, so
+  GO-SEQUENCE's links still work.
+- **CLAUDE.md: reordered, not rewritten.** Current state + branches first,
+  then the rules, then the long incident notes under "Enforced invariants and
+  their history". No rule was dropped; two stale lines were corrected (local
+  dev now points at staging; the coach-field note after P0-3).
+- **The README does not contain staging's publishable key.** It is public by
+  design (every Preview deployment ships it), but the example env files stay
+  placeholder-only (R7 checks they hold no value over 20 characters), and a
+  reviewer gets it from the maintainer. Typecheck, lint, tests and the build
+  need no env at all, which the README says.
+- **`engines.node` is `>=24`, `.nvmrc` is 24.** CI and Vercel run 24; an
+  upper bound would warn on newer local Node for no benefit.
+- **CI also runs `npm run test:tz`** and triggers only on `main` (`v1` is
+  retired). One job, so branch protection's required check (`verify`) is
+  unchanged.
+- **Eight remote branches already merged into `main` were deleted** (list in
+  `~/seeded-evidence/review-ready/r11-repo/branches.md`). Kept: `main`, `v1`
+  (has commits not on `main`; archive of the launch line), `macbook-backup`
+  (archive) and PR E's branch.
+
+---
+
 ## 2026-11-20 (night) — Review-ready run: migration 050, budget writes parent-only
 
 Calls made without asking (the owner was asleep; the run was pre-approved for

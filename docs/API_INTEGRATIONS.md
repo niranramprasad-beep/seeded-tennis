@@ -1,44 +1,54 @@
 # Seeded — API Routes & Integrations
 
+Current as of 2026-11-20 (13 `route.ts` files under `app/api`).
+
 ## Internal routes (`app/api`)
-| Route | Method | Auth | Client | Validation | Notes |
-|---|---|---|---|---|---|
-| `/api/profile` | POST | bearer | request-scoped | zod `PlayerBodySchema` | Accepts `role`/`family_code` — remove (S-1) |
-| `/api/utr-entries` | POST | bearer | request-scoped | zod | add outlier flag |
-| `/api/matches` | POST | bearer | request-scoped | zod | |
-| `/api/outreach` | POST | bearer | request-scoped | zod discriminated union | RLS requires family tier |
-| `/api/family/budget`, `/expenses` | POST | bearer | request-scoped | zod | parent-only via RLS |
-| `/api/account/deletion` | POST | bearer | request-scoped | zod | soft delete only — no job |
-| `/api/training/planner`, `/templates` | POST | bearer | request-scoped | zod | POST-V1 feature |
-| `/api/whop/checkout` | POST | bearer | Whop SDK | tier enum | redirect to legacy `/dashboard` |
-| `/api/whop/membership` | GET | bearer | service role + Whop | — | trusts `profiles.whop_membership_id` (S-1) |
-| `/api/whop/webhook` | POST | Whop signature | service role | SDK unwrap | idempotency guard for stale events — good |
 
-Every route: returns `err.message` on 500 — replace with generic text (S-10).
+Every route except the webhook needs a Supabase bearer token. "Request-scoped"
+= an anon-key client carrying that token, so RLS applies
+(`lib/api-auth.ts`). Rate limits are enforced in Postgres by a trigger on the
+table (migration 034); most routes only peek so they can answer 429 first; `account_deletion`, `data_export` and `whop_checkout` are counted by the route (`ROUTE_COUNTED_BUCKETS`, lib/rate-limit.ts).
 
-### Removed (P1-SEC-1, P1-SEC-5)
-- **`/api/training/copilot`** (Gemini) — deleted. It was authed-only with no
-  tier check, no rate limit and no input cap on a paid provider call, it
-  returned raw provider errors to the client, and its prompt instructed the
-  model to "make a reasonable default choice" and write training sessions —
-  which also broke the "no auto-generated training plans" rule. Deleted with
-  `components/training/training-copilot.tsx` and the action-apply handlers in
-  `training-view.tsx` that turned model JSON into real session writes.
-- **`/api/stripe/{checkout,portal,webhook}`** and `lib/stripe.ts` — deleted.
-  Billing is Whop only; these were live endpoints for an unused path. The
-  `profiles.stripe_*` columns remain until a cleanup migration — no code
-  reads them.
-- The `stripe` and `@google/genai` packages were uninstalled, and both key
-  families removed from `.env.example`. **Revoke the Gemini key at Google and
-  the Stripe secret key in Stripe** — removing the env var does not
-  invalidate the credential.
+| Route | Method | Client | Validation | Notes |
+|---|---|---|---|---|
+| `/api/profile` | POST | request-scoped | zod `PlayerBodySchema` | Body carries `role`/`familyCode` for shape, but the database refuses any change to privileged columns (022 trigger, 42501). Free accounts capped at 3 targets (024/040) |
+| `/api/utr-entries` | POST | request-scoped | zod | Self-reported UTR; range 1–16.5 enforced by a DB CHECK |
+| `/api/matches` | POST | request-scoped | zod | Parents refused (`refuseParentPlayerDataWrite`) |
+| `/api/outreach` | POST | request-scoped | zod discriminated union | Parents refused; RLS needs `has_tier('player')` |
+| `/api/training/sessions` | POST | request-scoped | zod | The player's manual calendar only; parents refused |
+| `/api/family/budget`, `/api/family/budget/expenses` | POST | request-scoped | zod | `refuseUnlessFamilyPlan()`; RLS: parent role + approved member (050) + Family plan (042) |
+| `/api/account/deletion` | POST | request-scoped | zod | Calls `delete_my_account()` (029) — deletes the caller only |
+| `/api/account/export` | GET | request-scoped | — | Full JSON export; a test fails the build when a table is neither exported nor excluded with a reason |
+| `/api/whop/checkout` | POST | request-scoped + Whop SDK | zod | Return URL pinned to the site / preview origin, never a request header (S-11) |
+| `/api/whop/sync` | POST | request-scoped, then service role | — | Post-checkout sync of the buyer's membership |
+| `/api/whop/membership` | GET | service role (caller's own row by id) + Whop | — | Read-only; never reads another user's profile |
+| `/api/whop/webhook` | POST | service role | Whop signature (`unwrapWebhook`) | Ignores stale/out-of-order events |
+
+**Open (S-10):** six routes — profile, utr-entries, matches, outreach,
+family/budget, family/budget/expenses — still return the raw Postgres error
+text on a 500. Export, deletion and training do not.
+
+Removed: `/api/training/copilot` (Gemini), `/api/training/planner`,
+`/api/training/templates`, `/api/stripe/*`. History:
+`docs/MASTER_ROADMAP.md` (P1-SEC-1, P1-SEC-5) and CLAUDE.md (no
+auto-generated training plans).
 
 ## External
-- **Supabase** — Auth + Postgres. Keys: publishable (client), service role (server webhooks only).
-- **Whop** — plans `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY`; webhook events `membership.activated|updated|deactivated` with `metadata.supabase_user_id`. Prices are hardcoded in 3 places (`pricing-view.tsx`, webhook `TIER_PRICE_USD`, `paid-gate.tsx`).
-- **GA4** — client tag + Measurement Protocol purchase event on activation.
-- ~~**Gemini**~~ — removed (P1-SEC-1). V1 ships no AI feature. Any future one
-  must meet the AI rules in `/CLAUDE.md` before it goes back in.
-- ~~**Stripe**~~ — removed (P1-SEC-5). Whop is the only billing path.
-- **Gmail** — compose URL only (`https://mail.google.com/mail/?view=cm&to=…`). Never the API. Never auto-send.
-- **UTR** — profile link stored, never fetched.
+- **Supabase** — Auth + Postgres. Publishable/anon key in the browser;
+  service-role key on the server only (the three Whop routes).
+- **Whop** — the only billing provider. Prices live only in
+  `TIER_PRICE_USD` (`lib/types.ts`): Player $12/mo or $99/yr, Family $19/mo
+  or $159/yr. Plan ids come from `WHOP_PLAN_*` env vars (`lib/whop.ts`); the
+  legacy `WHOP_PLAN_PLAYER` / `WHOP_PLAN_FAMILY` plans are resolve-only.
+  Webhook events `membership.activated|updated|deactivated`
+  (`lib/whop-payload.ts`). Dashboard-side webhook setup is the owner's —
+  `docs/HANDOFF.md` §K.
+- **GA4** — client tag in production, plus a Measurement Protocol purchase
+  event from the webhook on activation (`lib/ga4-server.ts`).
+- **Gmail** — compose URL only (`https://mail.google.com/mail/?view=cm…`).
+  Never the API, never inbox access, never auto-send.
+- **UTR** — the player's profile link is stored and shown. Never fetched or
+  scraped.
+- **No AI provider, no Stripe, no email/push sender.** Seeded sends no email
+  or notifications. The old Gemini and Stripe keys still need revoking at the
+  provider (CLAUDE.md).

@@ -1,5 +1,5 @@
 // End-to-end journeys on a PRODUCTION build against STAGING, as the
-// persona accounts (docs/FINAL_PASS_REPORT.md). Each flow prints what it
+// persona accounts (docs/archive/FINAL_PASS_REPORT.md). Each flow prints what it
 // saw; assertions that fail print FAIL and the flow continues, so one run
 // shows everything that is wrong.
 //

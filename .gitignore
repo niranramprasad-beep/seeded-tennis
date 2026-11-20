@@ -40,3 +40,17 @@ supabase/.temp/
 # ~/seeded-evidence/polish/ (README there explains how to read it).
 # Regenerate with: node scripts/ui-audit.mjs <label> <light|dark>
 docs/screenshots/
+
+# Tracked on purpose: placeholders only (names, no values). Everything else
+# matching .env* above stays ignored, including .env.local.prod-backup.
+!.env.example
+!.env.local.example
+
+# Never commit credentials, dumps or browser auth state.
+*.prod-backup
+*.key
+*.dump
+*.p12
+playwright/.auth/
+**/storageState*.json
+*.auth.json

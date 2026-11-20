@@ -1,140 +1,149 @@
 # Seeded — Security Checklist
 
-Audited 2026-11-10 against the code (`audit-base` = `c8d48ec`) and the live
-Supabase project. "Confirmed live" = verified with SQL against the real
-database, not inferred from migration files.
+Current as of 2026-11-20. Read before touching auth, RLS, profiles, family,
+billing or any API route. Production runs every migration through 050
+except 048, so every fix below that names a migration is **live on
+production**. The database is the source of truth: check `pg_policies`,
+`has_function_privilege` and `list_migrations`, not this file.
 
-P0 = deployment blocker · P1 = fix before launch · P2 = soon · P3 = later
+P0 = deployment blocker · P1 = before launch · P2 = soon · P3 = later
 
-## Findings
+## Open
 
 | ID | Sev | Finding | Status |
 |---|---|---|---|
-| S-1 | **P0** | Users can UPDATE their own `subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*` (column grants + no trigger, confirmed live). Paywall bypass incl. server-side `has_tier()`. | **Fixed on STAGING (022), tested. Still open on production.** 5/5 attack attempts blocked with `42501`; legitimate edits still work. |
-| S-2 | **P0** | `families` SELECT policy is `true` for all authenticated users (confirmed live) + self-settable `family_code` + `parent_accounts` insert only checks `user_id` → any user can join any family and read a minor's profile/UTR/matches/outreach and write the budget. Codes are `NAME-XXXX` from `Math.random()`. | **Fixed on STAGING (023), tested. Still open on production.** Members-only `families` read; join goes through `join_family()`; a join is *pending* until a member approves; rate-limited to 5/hr; `generate_family_code()` uses `gen_random_bytes`. **Breaks `lib/auth.ts` — see docs/TODO.md item 1.** |
-| S-3 | **P0** | Prod and dev share one Supabase project; prod code is already incompatible with live schema. | Open (P0-5/P0-6) |
-| S-4 | P1 | `/api/training/copilot`: authed-only, no tier check, no rate limit, unbounded input, returns raw provider errors, model told to make changes on its own. | **Fixed (P1-SEC-1)** — route, component and action handlers deleted; `@google/genai` uninstalled. **Key still needs revoking at Google.** |
-| S-5 | P1 | `profiles_discovery_read` exposes the full row (email, GPA, grade, family_code, stripe ids) of `privacy_level='public'` profiles to every signed-in user (1 live row). | **Fixed on STAGING (027), tested. Still open on production.** Policy dropped outright: V1 has no public-profile surface, so the rule is now "your own row, plus a family that has approved you". `badges`/`friendships` locked in the same pass (same leak, one table over). Stranger sees 1 row (their own); approved parent still reads the child, the family and the UTR history. |
-| S-6 | P1 | No rate limiting on any route; Supabase leaked-password protection disabled (advisor). | **Partly fixed on STAGING (028), tested.** Every write route now consumes a Postgres-backed, per-user, per-bucket hourly limit and returns a friendly 429 with `Retry-After`; the limiter fails CLOSED. **Login, signup and password reset are NOT covered and cannot be from app code** — the browser calls Supabase Auth directly, so no Seeded route or middleware is on that path. Those need Supabase's own per-IP limits and leaked-password protection, both project settings (Niran). |
-| S-7 | P1 | No security headers (CSP, frame-ancestors, referrer, permissions). | **Fixed on `v1`, verified against a production build.** `next.config.mjs` sets CSP, HSTS (2 years, subdomains, no `preload` — that is an owner's decision), `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`. Verified with `next build && next start`: all headers present, zero CSP violations across `/`, `/onboarding`, `/signup`, `/parent-signup`. **Partial, deliberately:** `script-src` keeps `'unsafe-inline'` because removing it needs per-request nonces, which need middleware, and `main`'s middleware is currently the maintenance page. It still blocks every off-origin script host. Nonce upgrade = P2. |
-| S-8 | P1 | Dead Stripe endpoints `/api/stripe/*` are live. | **Fixed (P1-SEC-5)** — routes and `lib/stripe.ts` deleted; `stripe` uninstalled. **The Stripe secret key still needs revoking in Stripe** (Niran, 2026-11-11). |
-| S-9 | P1 | SECURITY DEFINER helpers callable via `/rest/v1/rpc/*` by `authenticated` (advisor). `is_family_member(code)` acts as a code-validity oracle until S-2 is fixed. | **Reviewed and partly fixed on STAGING (027).** `are_friends()` dropped; `current_family_code()` and `generate_family_code()` revoked from `authenticated`. The remaining 17 are each justified in the inventory below — **and the four used inside RLS policies CANNOT be revoked**: Postgres checks EXECUTE on a policy's functions against the querying role, so revoking fails the policy closed. Tested, not assumed (see 027's header). The oracle concern is retired: 023 made a valid code worthless without approval and rate-limited guessing to 5/hour. |
-| S-10 | P2 | API routes return `err.message` from Supabase/Gemini to the client (schema/provider detail leakage). Return generic messages, log details server-side. | Open |
-| S-11 | P2 | `/api/whop/checkout` builds `redirect_url` from the request `Origin` header. Whop restricts redirects to configured domains, but pin it to `NEXT_PUBLIC_SITE_URL` anyway. | **Fixed on `v1` (2026-11-15 overnight).** Production returns to `https://seededtennis.com`; a Vercel preview to its own `https://$VERCEL_URL`; never a request header. A Whop error is now caught and returned as a 502 with a sentence instead of an empty 500. |
-| S-12 | P2 | Under-13 gate is client-only; birth year isn't stored. | **Fixed on STAGING (030 + 031), tested.** Birth year is stored; `consent_status` is derived by the trigger from it and never accepted from the request body; `birth_year` is write-once from the client (the bypass: edit your birth year, get re-derived as `not_required`); a `pending` account reads and writes nothing but its own profile row via RESTRICTIVE policies on 21 tables. 24/24 on the attack + happy-path suite. **No verification of adulthood exists or is claimed** — the consent copy says so. |
-| S-13 | P3 | `are_friends()`, `friendships`, `badges` are dead but present. | Open |
-| S-15 | P1 | **Found 2026-11-14 on staging.** The first `join_family()` logged each attempt and then RAISED for an invalid code. Raising rolls the function's own work back to its savepoint — and under PostgREST each RPC is its own transaction — so the attempt row vanished with the exception and the rate limiter counted zero failures. Brute force was effectively unlimited. | **Fixed** — expected outcomes now RETURN a status so the attempt row commits; only auth and rate-limit raise. Retested: 5 logged, blocked at attempt 6. |
-| S-16 | P1 | **Found 2026-11-14 on staging.** With 022+023 applied, an APPROVED parent could not read their child's data at all. The family-read policies keyed off `current_family_code()` — the reader's own `profiles.family_code` — and the only way a parent ever got that set was by writing it to their own profile, which is exactly the hole 022 closes. The legitimate path and the attack were the same mechanism. | **Fixed** — `utr_entries_select_family` and `family_members_read` now use `is_family_member()`, which requires an APPROVED link. Strictly safer than before. Retested: approved parent reads; pending link and unlinked stranger both read nothing. |
-| S-14 | P1 | **Third-party harm, not self-harm:** the catalog shipped invented coach addresses at real university domains (`dwhitfield@stanford.edu`), prefilled as the outreach recipient. A minor clicking "Open in Gmail" would send a real message to a real domain's mail server, addressed to someone who doesn't exist, asserting invented facts about that program. Also exposed invented names, hometowns and UTRs of fictional "recent recruits" presented as real juniors. | **Fixed (P0-3)** — fields deleted from the type and all 68 entries; recipient is user-typed and validated; `schools-catalog-honesty.test.ts` fails the build on re-add |
+| S-10 / S-20 | P2 | Six API routes return raw Postgres error text on a 500 (profile, utr-entries, matches, outreach, family/budget, family/budget/expenses), leaking constraint/column names. | Open. Export, deletion and training already return generic text. |
+| S-7 (part) | P2 | CSP `script-src` keeps `'unsafe-inline'`. | Open. Dropping it needs per-request nonces, which need middleware. There is no `middleware.ts` now. |
+| S-13 | P3 | `badges` / `friendships` tables still exist. | Locked (RLS on, no policies, 027) — nobody can read or write them. Dropping them is cleanup. |
+| Approver | P2 (MEDIUM) | Any approved member may approve a joiner, and "parent" is a role chosen at sign-up, so a player can create a second account as a parent, approve it themselves and write the budget. | Open — `docs/TODO.md` "Who may approve a parent joiner". Not closed by 050. |
+| Auth | P1 | Login / signup / password-reset rate limits and leaked-password protection. | **Cannot be fixed in app code** — the browser calls Supabase Auth directly. Supabase project settings, owner's. Current setting not verified for this doc. |
+| Keys | P1 | The removed Gemini and Stripe keys must be revoked at the provider (deleting an env var does not invalidate a credential). | Owner's; open per CLAUDE.md. |
+| P0-8 | P0 | Privacy policy listing processors and retention, reviewed by an adult or lawyer. People who asked to be deleted under the old soft-delete flow are owed a real deletion by hand (query in HANDOFF §J step 7). | Open; not Claude's to write. |
+| Deps | P2 | `npm audit --omit=dev` | Not reviewed for this doc. |
 
-| S-17 | **CRITICAL** | **Found 2026-11-15 by an independent review.** 022 locks `family_code` on UPDATE but its INSERT branch leaves it alone, and `profiles_insert_own` only checks `id = auth.uid()`. Since `is_family_member()` reads `profiles.family_code` directly, any signed-up account with no profile row yet could INSERT one carrying **someone else's family code and `role='parent'`** and become an approved member in one statement — the minor's name, email, birth year, GPA, UTR and full history; every member's email and `consent_status` including an under-13 sibling's; parent-level **write** on the season budget. **The whole 023/026 pending-approval design was bypassed.** The only thing holding the door was `lib/auth.ts` choosing not to do it — and a comment in that file asserted the database would reject it, which it would not. | **Fixed on STAGING (032), attack-tested twice** (once by the reviewer, once by me). A `family_code` on INSERT is allowed only when no profile and no `parent_accounts` row already holds it. Create / join / update all verified unaffected. |
-| S-18 | P1 | **Found 2026-11-15.** The under-13 gate is skipped by *omitting* `birth_year`: `consent_required_for_birth_year(null)` is false, so the row lands `not_required` and `account_active()` is true — and all 21 of 030's restrictive policies hang off `account_active()`. | **Not fixed — deliberate.** Requiring `birth_year` at the DB layer would break signup entirely if any path forgets to send it, which is a worse failure than the one it prevents. It is also the inherent limit of self-declared age: a child who lies defeats any such gate, which is why the privacy policy says we cannot verify. **A product and legal call, belonging with P0-8.** Recommended: make it NOT NULL for new rows once every signup path is confirmed to send it. |
-| S-19 | P2 | **Found 2026-11-15.** `findProfileIdByEmail` passed a **Whop-supplied** email to PostgREST `.ilike()` as a *pattern*, so `%` and `_` were wildcards. A membership bought as `%@gmail.com` would attach a paid tier to a stranger's account, and the `limit(2)` ambiguity check does not catch it — a pattern matching exactly one row looks like a clean match. | **Fixed on `v1`.** Wildcards escaped rather than switching to `.eq()`, because the match must stay case-insensitive (`profiles.email` is written from the signup form verbatim). Regression test added, with a stub that implements real LIKE semantics so the test is not tautological. |
-| S-20 | P2 | **Found 2026-11-15.** Eight API routes return raw Postgres `err.message` to the client, leaking constraint and column names. Export and deletion deliberately do not. | Open — S-10 already covers this; these eight are the exception that proves the control exists. |
-| S-21 | P2 | **Found 2026-11-15.** Rate limiting is advisory: PostgREST is reachable directly with the same bearer token, so a client can write to any table without passing through `consume_rate_limit`. 024's comment already concedes this for `profiles`; it is true of every table. | Open. Real fix is Vercel Firewall or routing all writes through `/api/*` with PostgREST table grants revoked. |
+### Known, accepted, and worth knowing
+- **`family_members()` returns 15 profile-derived columns about other
+  members** by design. That enumerated list is the cross-user surface and
+  `/privacy` lists it.
+- **`profile_row_exists(uuid)`** (035) is callable by `authenticated` and
+  answers "does a profile exist for this id" for any id — an existence
+  oracle. Ids are unguessable and 035's upsert guard needs it.
+- **The rate-limit bypass is a session GUC** (`seeded.bypass_rate_limit`).
+  No browser can set it (PostgREST exposes no `set_config`), but anything
+  that ever runs attacker-chosen SQL as `authenticated` turns the limiter
+  off.
+- **Self-declared age.** A child who lies about their birth year defeats
+  any age gate; nothing claims to verify adulthood, and the copy says so.
 
-## S-9: every RPC `authenticated` can call, and why (2026-11-14)
+## Fixed (all on production)
 
-`anon` and `PUBLIC` have EXECUTE on none of these — 018 + 020, verified live
-(no `=X/` entry in any `proacl`). This table is the whole answer to "revoke
-EXECUTE unless it truly needs it": each row either cannot be revoked without
-breaking RLS, or is a call the app makes.
-
-| RPC | Who can call | Why it must stay |
+| ID | What it was | Fix |
 |---|---|---|
-| `is_family_member(code)` | authenticated | **Cannot revoke.** Used by the SELECT policies on `families`, `profiles`, `utr_entries`, `matches`, `coach_outreach`, `tournament_entries`, `daily_checkins`, `cost_calculations`, `parent_accounts`, `family_codes`, `encouragement_notes`, `parent_reports`, `season_budgets`, `budget_expenses`. Only answers about the caller. |
-| `is_parent_member(code)` | authenticated | **Cannot revoke.** `season_budgets` / `budget_expenses` write policies. Since 050: true only when the caller's own `profiles.role = 'parent'` AND they are an approved member (either shape). |
-| `has_tier(tier)` | authenticated | **Cannot revoke.** Write policies on `coach_outreach` and the five training tables. |
-| `account_active()` | authenticated | **Cannot revoke.** The restrictive consent policy on 21 tables (030). |
-| `consent_required_for_birth_year(year)` | authenticated | **Cannot revoke.** Called by `protect_privileged_profile_columns()`, which is SECURITY INVOKER and so runs as the caller. |
-| `join_family(code)` | authenticated | App: signup and "wrong code? re-enter". Rate-limited 5/hour, logs every attempt. |
-| `approve_family_join(id)` | authenticated | App: the approve button. Requires an approved membership of the same family. |
-| `deny_family_join(id)` | authenticated | App: the deny button. Same check. |
-| `remove_family_member(id)` | authenticated | App: the family roster. Cannot evict the creator or yourself. |
-| `remind_family_approval()` | authenticated | App: "Remind them". 1/hour. Bumps a timestamp; sends nothing. |
-| `cancel_my_family_request()` | authenticated | App: re-entering a different code. Own row only. |
-| `my_family_code()` | authenticated | App + other RPCs. Answers only about the caller. |
-| `my_pending_family_request()` | authenticated | App: the waiting screen. Discloses a first name, only to someone holding a pending row for that family. |
-| `family_members()` | authenticated | App: the roster and the approval card. Returns nothing to a non-member. |
-| `my_consent_state()` | authenticated | App: a pending-consent account can read nothing else, so this is the only way it can learn why. Own row only. |
-| `grant_parent_consent(id)` | authenticated | App: the consent button. Requires a `parent` role, an active own account, and approved membership of the child's family. |
-| `family_code_is_taken(code)` | ~~authenticated~~ | **Revoke-only helper added by 032.** SECURITY DEFINER because 022's trigger is SECURITY INVOKER and an inline `exists(...)` would be filtered by RLS and silently return false — a trap worth remembering. Returns a boolean and nothing else. |
-| `consume_rate_limit(bucket)` | authenticated | App: every write route. Takes no limit argument — the policy is inside the function, so a caller cannot raise its own ceiling. |
-| `delete_my_account()` | authenticated | App: Delete account. **Takes no arguments** — reads `auth.uid()`, so it can only ever delete its caller. |
-| `current_family_code()` | ~~authenticated~~ | **Revoked (027).** No policy and no code calls it after 027. |
-| `generate_family_code()` | ~~authenticated~~ | **Revoked (027).** The app generates codes client-side; leaving this callable let anyone probe the code space without touching the rate limiter. |
-| `are_friends(a,b)` | — | **Dropped (027).** Friends are removed product-wide. |
-| `set_updated_at()`, `rls_auto_enable()`, `protect_privileged_profile_columns()`, `enforce_free_tier_target_limit()` | — | Trigger functions. Already revoked from `authenticated`. |
+| S-1 | Users could UPDATE their own `subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*` — paywall bypass. | 022 trigger (extended by 030, 032, 033, 035, 041, 043). Client writes to privileged columns raise 42501; `lib/db/email-verification-gate.test.ts` pins the list. |
+| S-2 | Every family code was readable and self-settable; any user could join any family. | 023 + 026: members-only `families`, joins only through `join_family()`, pending until approved, rate-limited, random codes. |
+| S-3 | One Supabase project for local, preview and production. | Staging `gnlcpnsweqbtwpaqhqqg` reads by Preview + Development + local; production `tfpjssmhiptbwigarxpx` by Production only. |
+| S-4 | Gemini copilot route: no tier check, no rate limit, raw errors, model wrote sessions. | Deleted (P1-SEC-1). V1 ships no AI. |
+| S-5 | `profiles_discovery_read` exposed full rows of "public" profiles. | Dropped (027). After 037 an approved member reads exactly one `profiles` row — their own. |
+| S-6 / S-21 | No rate limits; then limits only on our routes, bypassable via PostgREST. | 028 + 034: a trigger on every client-writable table enforces per-user hourly limits in Postgres, fails closed; routes only peek for a friendly 429. |
+| S-7 | No security headers. | `next.config.mjs`: CSP, HSTS (2y, subdomains, no preload), `X-Frame-Options: DENY`, nosniff, Referrer-Policy, Permissions-Policy, COOP. (Nonce part still open, above.) |
+| S-8 | Dead Stripe endpoints live. | Deleted (P1-SEC-5); Whop is the only billing path. |
+| S-9 | SECURITY DEFINER helpers callable via `/rpc`. | Reviewed; `are_friends()` dropped, `current_family_code()` / `generate_family_code()` revoked (027). Inventory below. |
+| S-11 | Whop checkout return URL built from the `Origin` header. | Pinned to the site (or the preview's own origin). |
+| S-12 | Under-13 gate was client-only. | 030 + 031: `birth_year` stored and write-once; `consent_status` derived by trigger; a pending account is inert (restrictive `account_active()` policy on 21 tables). |
+| S-14 | Catalog shipped invented coach emails at real university domains. | Fields deleted (P0-3); recipient is user-typed; `schools-catalog-honesty.test.ts` guards it. |
+| S-15 | `join_family()` raised after logging, so the attempt log rolled back and brute force was unlimited. | Expected outcomes RETURN a status; only auth and rate-limit raise. |
+| S-16 | After 022+023, an approved parent couldn't read their child at all. | Family reads re-keyed on approved membership; later 036's `shares_approved_family_with()`. |
+| S-17 | A first profile INSERT could carry someone else's `family_code` + `role='parent'`, bypassing approval. | 032: a `family_code` on INSERT only when no profile or link already holds it. |
+| S-18 | Omitting `birth_year` skipped the under-13 gate. | 033: `birth_year` required on a client profile INSERT. |
+| S-19 | Whop-supplied email used as an `ilike` pattern (`%` wildcards). | Wildcards escaped; regression test with real LIKE semantics. |
+| — | Joined parents couldn't write; joiners' rows were stamped `family_code = NULL`. | 036 `stamp_family_code` trigger + both-shape membership. |
+| — | Any approved member could write notes / reports / the budget. | Notes parent-only (033); client `parent_reports` insert dropped (039); budget parent-only (050). |
+| — | Family data readable without paying. | 042/044/045: Family plan gates cross-member reads, budget, notes and reports, for one home family, max 4 players + 2 parents. |
+| — | Parents could join/approve/consent with an unproven email. | 043: fresh proof for the current address (`request_email_verification()` → `mark_email_verified()`); never `email_confirmed_at`. |
 
-## Supabase security advisors on staging (2026-11-14)
+## SECURITY DEFINER functions callable by `authenticated`
 
-Three findings. One is Niran's; two are deliberate.
+From the migration files (verify live with `has_function_privilege`).
+`anon` and `PUBLIC` are revoked on all of them.
 
-| Advisor | Level | Decision |
-|---|---|---|
-| `auth_leaked_password_protection` | WARN | **Not fixed — cannot be, from here.** A project setting (Dashboard → Authentication). Listed as Niran's item in the roadmap and in HANDOFF §J's "After". |
-| `authenticated_security_definer_function_executable` × 18 | WARN | **Reviewed, accepted, documented** — the table above. The count rose 17 → 18 on 2026-11-15; the eighteenth is `family_code_is_taken()` from migration 032. Four of the eighteen are load-bearing for RLS and revoking them fails the policies closed; the rest are calls the app makes. |
-| `rls_enabled_no_policy` × 4 (`badges`, `friendships`, `family_join_attempts`, `rate_limit_events`) | INFO | **Not fixed, because it is the intended state.** RLS on with no policy means `authenticated` can neither read nor write. The lint exists to catch "you forgot to add policies"; here the absence IS the policy. `badges`/`friendships` are removed features (S-13); the other two are abuse-control tables that only SECURITY DEFINER functions touch. |
+**Used inside RLS policies — cannot be revoked** (Postgres checks EXECUTE
+against the querying role, so revoking fails the policy closed; tested on
+staging 2026-11-14): `is_family_member`, `is_parent_member` (since 050:
+caller's own `role = 'parent'` + approved member), `has_tier`,
+`account_active`, `consent_required_for_birth_year`,
+`shares_approved_family_with`, `shares_family_plan_with`, `family_has_tier`.
 
-## What's done well (keep it)
-- Writes go through zod-validated routes with a request-scoped, RLS-respecting client (`lib/api-auth.ts`), not the service role.
-- Whop webhook verifies signatures on raw bytes and guards against stale/out-of-order events.
-- `anon` EXECUTE on SECURITY DEFINER helpers was properly revoked (migration 020 + two live-only fixes).
-- No secrets in git (`git ls-files` shows only `.env.example`, `.env.local.example`).
+**Called by the app:** `join_family`, `approve_family_join`,
+`deny_family_join`, `remove_family_member`, `leave_family`,
+`remind_family_approval` (sends nothing; bumps a timestamp),
+`cancel_my_family_request`, `my_family_code`, `my_pending_family_request`,
+`family_members`, `my_family_has_tier`, `my_consent_state`,
+`grant_parent_consent`, `request_email_verification`,
+`mark_email_verified`, `consume_rate_limit`, `peek_rate_limit`,
+`rate_limit_for_bucket`, `delete_my_account` (no arguments — can only delete
+its caller), `profile_row_exists`, `family_code_is_taken` (granted in 032;
+returns a boolean only).
+
+**Not callable by `authenticated`:** `current_family_code`,
+`generate_family_code` (027), `home_family_code`, `family_member_cap`,
+`family_member_count`, `email_is_verified`, `family_account_holder`, and
+the trigger functions (`protect_privileged_profile_columns`,
+`stamp_family_code`, `enforce_write_rate_limit`,
+`enforce_free_tier_target_limit`, `note_auth_email_change`,
+`set_updated_at`). `are_friends` is dropped.
+
+## Supabase advisors (accepted, with reasons)
+- `authenticated_security_definer_function_executable` — accepted; each is
+  in the inventory above.
+- `rls_enabled_no_policy` on `badges`, `friendships`,
+  `family_join_attempts`, `rate_limit_events` — intended: RLS on with no
+  policy means no client access; only SECURITY DEFINER functions touch the
+  last two.
+- `auth_leaked_password_protection` — a project setting (owner's).
+
+Re-run `get_advisors(security)` before any release; the counts above are
+not re-measured for this doc.
+
+## Done well (keep it)
+- RLS is enabled on all 26 `public` tables.
+- Writes go through zod-validated routes with a request-scoped,
+  RLS-respecting client (`lib/api-auth.ts`), not the service role. The
+  service role is used only by the three Whop routes.
+- Whop webhook verifies signatures on raw bytes and ignores stale events.
+- Only `.env.example` and `.env.local.example` are tracked, both
+  placeholders.
 - `/dev/*` previews call `notFound()` in production.
-- RLS is enabled on all 23 public tables (confirmed live).
-
-## Checklist before any launch
-- [x] S-1 trigger applied on **staging**, attack-tested → **still to apply on prod** (HANDOFF §J step 2)
-- [x] S-2 join flow via RPC, `families` members-only, applied on **staging**, attack-tested → **still to apply on prod** (HANDOFF §J step 3)
-- [x] `lib/auth.ts` updated to call `join_family()` — done on `v1`, HANDOFF §J step 4b
-- [ ] Stranger-account test: cannot read any other user's rows in any table (script in QA_CHECKLIST.md §RLS)
-- [ ] Service-role key only in Production env on Vercel; never `NEXT_PUBLIC_*`
-- [x] Rate limits on every `/api/*` write route and family join/remind (028, 023, 026) — **staging only**
-- [ ] Rate limits on signup, login, password reset — **not possible in app code**; Supabase Auth project settings (Niran)
-- [ ] Leaked password protection on; minimum password length ≥ 8
-- [x] Security headers set and verified against a production build (S-7) — enforcing, not report-only; `script-src` still carries `'unsafe-inline'`
-- [ ] Nonce-based CSP (drops `'unsafe-inline'`) — needs middleware, P2
-- [x] Copilot + Stripe routes removed (P1-SEC-1, P1-SEC-5)
-- [ ] **Revoke the removed credentials at the provider**, not just in Vercel: the AI key at Google, the Stripe secret key in Stripe, and rotate the Whop key. Deleting an env var does not invalidate a credential — it stays live at the provider until revoked. Niran took all three on 2026-11-11; the var names are deliberately not listed here or in `.env.example` any more, because nothing in the codebase reads them.
-- [x] `get_advisors(security)` on staging: no ERROR; 2 accepted WARNs + 4 accepted INFOs, each recorded above with a reason
-- [ ] Real account deletion and data export live on production (P0-8, HANDOFF §J steps 7–8)
-- [ ] Privacy policy and terms reviewed by an adult/lawyer — **still the open half of P0-8.** The mechanisms are built; the document that describes them to a parent is not, and that is not Claude's to write
-- [ ] Dependency audit: `npm audit --omit=dev` reviewed
 
 ## Rules for future changes
-- Never authorize in the client. A UI gate (`PaidGate`, `AuthGate`) is cosmetic; the RLS policy or route check is the real gate.
-- Any new column on `profiles` that affects money, role, or family access must be added to the 022 trigger.
-- After any REVOKE, verify with `has_function_privilege` / `information_schema.column_privileges` — Postgres grants to PUBLIC by default.
+- Never authorize in the client. `AuthGate` / `PaidGate` are cosmetic; the
+  RLS policy or route check is the real gate.
+- Any new `profiles` column that affects money, role, family access or
+  verification goes into the 022 trigger list.
+- Never scope a family query by `profiles.family_code` and never read
+  another user's `profiles` row — use `lib/db/family-scope.ts`.
+- A new cross-member read policy needs the Family-plan ceiling
+  (`lib/db/family-plan-lock.test.ts`); a new family-wide unlock goes
+  through `family_has_tier`.
+- After any REVOKE, verify with `has_function_privilege` /
+  `information_schema.column_privileges` — Postgres grants to PUBLIC by
+  default, and restoring a dropped SECURITY DEFINER function re-grants it.
+- When verifying as a user in the SQL editor, `set local role
+  authenticated` — `postgres` bypasses RLS.
 - Never use the service-role client for a user-initiated write.
-- Treat every string from the client, the database, or an AI model as untrusted in prompts and in HTML.
-- A function that logs an attempt and then RAISEs loses the log. Postgres rolls a
-  PL/pgSQL block back to its savepoint on exception, and PostgREST wraps each RPC
-  in its own transaction. If you are counting failures, RETURN a status for the
-  expected failures — only raise for things you do not need to record (S-15).
-- When you close a privilege-escalation hole, check what was *legitimately* using
-  the same mechanism. In S-16 the parent-read feature and the parent-impersonation
-  attack were the identical code path; fixing one silently broke the other, and
-  only an end-to-end happy-path test caught it.
-- **A function used inside an RLS policy must stay EXECUTE-able by the querying
-  role.** Postgres checks the privilege against whoever runs the query, not
-  against the policy's or the table's owner, so "revoke EXECUTE from
-  `authenticated`" on an RLS helper fails the policy closed and breaks the
-  feature. Tested on staging, 2026-11-14 — do not re-litigate it from the
-  advisor's wording.
-- **A rate limiter in process memory is not one.** Vercel runs many instances
-  and cold-starts them; a module-scope Map multiplies every limit by the
-  instance count and resets to zero on deploy. Counters go in Postgres.
-- **Never let the client pass its own limit.** `consume_rate_limit(bucket)`
-  takes a bucket and nothing else; the numbers live inside the function. Any
-  signature with a `limit` argument is decorative.
-- **Prefer a RESTRICTIVE policy to editing N permissive ones.** The consent
-  gate adds one policy per table instead of rewriting ~70 existing ones, so
-  no existing rule had to be re-reasoned about and removing the gate is
-  dropping policies rather than restoring them.
-- **Derive, never accept, a field that decides access.** `consent_status` is
-  computed by the trigger from `birth_year`; and because that makes
-  `birth_year` the thing that decides, it is write-once from the client.
-  Closing the first hole without the second would have left a one-request
-  bypass.
-- Treat invented data as a security finding when it leaves the app: an address we made up is a message sent to a real third party, and a fabricated "fact" about a real institution is a statement a minor makes in their own name. Outbound recipients are always user-supplied and validated.
+- A function that logs an attempt and then RAISEs loses the log (S-15).
+  RETURN a status for expected failures.
+- When closing a privilege-escalation hole, check what legitimately used the
+  same mechanism (S-16).
+- A rate limiter in process memory is not one; counters go in Postgres, and
+  the client never passes its own limit.
+- Prefer one RESTRICTIVE policy to editing N permissive ones.
+- Derive, never accept, a field that decides access — and make its input
+  write-once.
+- Invented data that leaves the app is a security finding: outbound
+  recipients are always user-supplied and validated.
+
+## History
+The full 2026-11-10 audit text, the staging-era statuses and the
+2026-11-14/15 test counts are in git history for this file and in
+`docs/archive/SECURITY_REVIEW_INDEPENDENT.md`,
+`docs/archive/VERIFICATION.md` and `docs/archive/OVERNIGHT_REPORT.md`.

@@ -11,6 +11,13 @@
 
 ---
 
+**How to read this file (2026-11-20).** *Executive status* below is a
+dated log, newest first — the top entry is current. **NEXT 10 TASKS** at the
+very end is the current plan. Everything between them (scores, P0–P3 lists,
+task tables) is the 2026-11-10 audit's task list with each item's outcome
+marked inline; treat it as the record of how V1 was made safe, not as the
+open list. Open items live in NEXT 10 and `docs/TODO.md`.
+
 ## Executive status
 
 **2026-11-20 (night) — Migration 048 on production; PR E merging with the flag OFF.**
@@ -18,6 +25,15 @@ Backup, apply (23:55 UTC, ledger 51 → 52), fingerprint identical to staging, p
 (rolled back). No catalog data imported to production; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`
 unset in every Vercel environment. Review fix: the most recently ENTERED range is current, so a
 wrong source date can be corrected. Follow-ups in docs/TODO.md (before the flag goes on).
+
+**2026-11-20 (night) — PR-DOCS: the repo reads true for a first-time
+reviewer.** README rewritten from the code and lockfile; new
+`docs/REVIEWER_GUIDE.md` and `docs/README.md` (map); eleven dated reports
+moved to `docs/archive/` with an index; HANDOFF §A–I archived (§J/§K stay);
+CLAUDE.md gets a "Current state" block, the real branch flow (`v1` retired)
+and its incident history moved below the rules; stale claims fixed across
+the living docs; CI also runs the time-zone suite; PR template; `.nvmrc`;
+`.gitignore` hardened. NEXT 10 rewritten for after the review.
 
 **2026-11-20 night — PR-QUALITY (`chore/code-quality`; no
 behaviour change, no migration).** Code-quality pass only. Zero `as any` left
@@ -113,7 +129,7 @@ verdict only from the draw average. D6 /settings/{profile,account,family,
 billing,privacy}, Settings → Family (members, approve/decline, cap, leave).
 D7 sweep. D8 perf: 10 serial auth round trips → 1, fonts 12 → 3 files,
 signed-out app routes redirect before JS; signed-in content < 2 s
-(`docs/perf/audit-2-perf.md`). Migrations **046** (`leave_family()`) and
+(`docs/archive/audit-2-perf.md`). Migrations **046** (`leave_family()`) and
 **047** (status 'played') — GO-SEQUENCE §3c, HANDOFF §J Steps 21–22.
 New guards: `lib/pace-cap.test.ts`, `lib/pace-honesty.test.ts`,
 `lib/fit-pace-shapes.test.ts`, `lib/db/coach-email.test.ts`,
@@ -314,7 +330,7 @@ membership, the $0 promo purchase, a parent's read-only view, and a
 persona-(a) fit report signed in.
 
 **2026-11-15 overnight "every pixel" pass (in progress — see
-`docs/FINAL_PASS_REPORT.md`).** A parent's Settings is now about the parent
+`docs/archive/FINAL_PASS_REPORT.md`).** A parent's Settings is now about the parent
 and five player-data routes refuse parents; every family-readable loader
 names its subject (the last pass's CRITICAL generalised: parent screens
 pooled siblings' and parents' rows); the cost calculator's per-school
@@ -1073,80 +1089,32 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 
 # NEXT 10 TASKS
 
-Rewritten 2026-11-16 by the overnight "every pixel" pass. 1–4 are Niran's
-(they need production or a dashboard); 5 onward are code, and are the
-ranked week-1 list in `docs/TODO.md`.
+Rewritten 2026-11-20 (night), for after the developer review on 2026-11-21.
+The launch list this replaces (production rollout, PR B, PR D, 049, Legacy)
+is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
+Production runs every migration through 050 except 048.
 
-1. **GO: the production rollout** — `docs/GO-SEQUENCE.md` (backup →
-   snapshot → 18 migrations in the rehearsed order with their stops → PR
-   merge → prove 200, not 503). Long-form verify/rollback per step is
-   HANDOFF §J. Highest-risk step is 030 + 031 (pre-flight: every profile
-   `consent_status = 'not_required'`). The PR text is
-   `docs/PR-v1-to-main.md`.
-2. **Billing: the Whop webhook has never delivered** (two real payments,
-   buyer still on `free`). Code side fixed on `v1`; dashboard steps are
-   HANDOFF §K. After the merge: send a test webhook (expect 200) and
-   reconcile the paid bullis.org membership.
-3. **Supabase Auth settings**: custom SMTP (Google Workspace,
-   support@seededtennis.com, 80/hour), leaked-password protection, minimum
-   password length. Re-test one real signup end to end. For PR C's C30:
-   enable the Google provider on STAGING (steps in
-   `~/seeded-evidence/production-sweep-1/C30-google.md`) so the Google
-   sign-in can be run end to end before it ships.
-4. **The people who asked to be deleted under the old flow** (HANDOFF §J
-   step 7) — a real deletion by hand, with their confirmation. And the
-   privacy policy that names processors and retention, reviewed by an adult
-   or a lawyer.
-5. **Parent dashboard upgrade** (TODO week 1 #1) — **app side built in PR B
-   (2026-11-18), not merged**: Board 22 at /family from
-   `lib/parent-dashboard.ts`, and the Family-plan paywall on /family,
-   /family/budget and /family/weekly-reports via `loadFamilyPlanStatus()`.
-   Ships only with the database half (`my_family_has_tier`, the tier-gated
-   RLS); per-category budget limits need a column (DECISIONS 2026-11-18).
-6. **Premium diagnostic onboarding** (TODO week 1 #2).
-5. **Parent dashboard upgrade** (TODO week 1 #1).
-6. **Premium diagnostic onboarding** (TODO week 1 #2) — **built in PR B
-   (B1), 2026-11-18, not merged.** /onboarding is board 20: nine questions,
-   result, fit report, sign-up that keeps every answer (email and Google).
-   Projection = `diagnosticProjection()` in lib/fit.ts (the player's own
-   pace); guard `lib/onboarding-ui-no-math.test.ts`. Depends on the DB
-   half of PR B (`profiles.birth_month`, `profiles.enrollment_term`, wired in
-   `writeCurrentPlayerProfile`/`mapProfileToPlayer`) — until that lands the
-   two answers are carried on `Player` but not stored. **Open:** the signed-in
-   app still projects at typical growth (1.0/yr), so a player who gave past
-   ratings sees a different "summer before senior year" number after
-   sign-up than the diagnostic showed them (docs/DECISIONS.md, 2026-11-18).
-5. **Parent dashboard upgrade** (TODO week 1 #1). PR B's database half
-   (041–044) is on staging; it ships with the PR B UI, after Niran's go on
-   GO-SEQUENCE §3b (044 after 042). Before 043 ships: add
-   `<site>/auth/verified` to the Supabase Auth redirect allow-list, and do
-   one real magic-link check on staging with an inbox you control (HANDOFF
-   §J Step 18) — the B6 screens' send → open → bounce-back path has only
-   been exercised in tests, and the fixed 043 additionally relies on the
-   real amr `timestamp`, the JWT `email` claim, and GoTrue firing the new
-   `auth.users` trigger, none yet seen on a real link session. The
-   `email_verify` bucket limits only Seeded's path; the project's email
-   budget rests on Supabase Auth's rate limits (a dashboard setting).
-6. **Premium diagnostic onboarding** (TODO week 1 #2) — columns ready (041).
-   two answers are carried on `Player` but not stored. **Fixed on
-   `unify-projection` (2026-11-18, not merged):** one rule in
-   `recruitingTimeUtr()` for the diagnostic and the app — the player's own
-   pace from a logged rating 5–13 months old, else typical growth — so the
-   summer number is the same before and after sign-up
-   (`lib/fit-onboarding-consistency.test.ts`; DECISIONS "One projection rule
-   for onboarding and the app"). Players with such an entry see their
-   estimate move (staging persona (a): 12.2 → 11.0).
-7. **Role-gate the player tables' INSERT policies** + make
-   `is_parent_member()` role-aware (TODO week 1 #3–4, one migration).
-8. **P1-DATA-1 — real roster import** (migration 012, reserved). Still the
-   highest-value data task: every band rests on unsourced team ranges.
-9. **Delete Legacy (P1-UX-2).** `generatePersonalizedPlan()`, the /training
-   planner and Match mode are deleted (2026-11-18). Open from that pass:
-   Niran's call on production's 28 hidden generated sessions; the
-   parent-login gradient (auth pass); `ModalShell` needs the same portal
-   fix as Drawer.
-10. **Observability** — no error tracking or alerting exists; the billing
-    failure is what that looks like in practice.
+1. **Decide who may approve a parent joiner**, then close the second-account
+   route to budget writes (docs/TODO.md "Who may approve a parent joiner";
+   found by the 050 review). One migration, 033's pattern.
+2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
+   enter ranges by hand from official rosters in `/admin/team-ranges`, then
+   turn the flag on. Every band still rests on labelled estimates until then.
+3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (~79
+   sites); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
+4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*).
+5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
+   V1 ships no AI; this needs its own privacy-policy section first.
+6. **Wire the recruiting checklist into Today.**
+7. **Weekly email** — needs a real sending path (none exists; "Remind them"
+   only re-sorts). Copy must not promise it before then.
+8. **File splits**: `lib/fit.ts`, `lib/auth.ts`, the schools browser,
+   `signup-flow.tsx`, the dashboard view (boundaries in REVIEWER_GUIDE §9).
+9. **Public SEO school pages** once ranges are sourced.
+10. **Observability** — no error tracking or alerting exists beyond Vercel
+    runtime logs; the billing incident is what that looks like.
 
-**Production is in maintenance mode** (`main` @ `d059006`, verified live
-503) until step 1.
+Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
+limits and leaked-password protection are plan settings); an adult/lawyer
+review of the privacy policy.

@@ -14,7 +14,7 @@
 //   node scripts/persona-walk.mjs a c        # just those
 //
 // Usage note: this walks SIGNED-OUT journeys. Personas (f) and (g) need a
-// session and are driven separately — see docs/FINAL_PASS_REPORT.md.
+// session and are driven separately — see docs/archive/FINAL_PASS_REPORT.md.
 
 import { chromium } from "playwright-core";
 import { mkdirSync, writeFileSync } from "node:fs";

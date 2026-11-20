@@ -590,7 +590,7 @@ hydration, or to accept it and drop the page's sitemap priority.
   whether `family_members()` should return the planned count (a parent sees
   "Not tracked" today because 037's enumerated list excludes it).
 - Public LCP is still 2.7–3.3 s on most routes (target 2.5): ~285 KB of JS
-  before first paint. Next steps in `docs/perf/audit-2-perf.md` (async
+  before first paint. Next steps in `docs/archive/audit-2-perf.md` (async
   `getSupabase()`, framer-motion `LazyMotion`). Re-measure production after
   merge with `scripts/perf-lighthouse.mjs`.
 - Family dashboard pace wording ("At the pace in X's logged ratings") has no

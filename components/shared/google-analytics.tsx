@@ -43,7 +43,7 @@ export function GoogleAnalytics() {
 
   return (
     <>
-      {/* lazyOnload, not afterInteractive (D8, docs/perf/audit-2-perf.md):
+      {/* lazyOnload, not afterInteractive (D8, docs/archive/audit-2-perf.md):
           afterInteractive makes Next emit a <link rel=preload> for this
           ~180 KB script at the top of every document, so a phone fetched
           analytics at high priority alongside the fonts and CSS the first
