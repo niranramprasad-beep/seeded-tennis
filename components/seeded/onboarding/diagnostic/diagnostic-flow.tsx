@@ -26,7 +26,11 @@ import {
   type DiagnosticAnswers,
   type DiagnosticRole,
 } from "@/lib/onboarding/diagnostic";
-import { MONTH_NAMES } from "@/lib/time";
+import { MONTH_NAMES, currentSeason } from "@/lib/time";
+import {
+  TOURNAMENTS_PLANNED_LABEL,
+  parseTournamentsPlannedText,
+} from "@/lib/tournaments-planned";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { DiagnosticAside } from "./diagnostic-aside";
 import { DiagnosticSaveForm } from "./diagnostic-save";
@@ -117,6 +121,7 @@ export function SeededDiagnosticOnboarding({
     if (step === STEP.utrSixMonths) set({ utrSixMonthsText: "" });
     if (step === STEP.utrYear) set({ utrYearText: "" });
     if (step === STEP.gpa) set({ gpaText: "" });
+    if (step === STEP.tournaments) set({ tournamentsPlannedText: "" });
     setStep((s) => stepAfter(s, answers, prefilledSet));
   };
 
@@ -154,7 +159,7 @@ export function SeededDiagnosticOnboarding({
             aria-valuemax={QUESTION_COUNT}
             aria-valuenow={isResult || view === "save" ? QUESTION_COUNT : questionNumber}
             aria-valuetext={
-              isResult || view === "save" ? "All 9 questions answered" : `Question ${questionNumber} of ${QUESTION_COUNT}`
+              isResult || view === "save" ? `All ${QUESTION_COUNT} questions answered` : `Question ${questionNumber} of ${QUESTION_COUNT}`
             }
             className="mt-2.5 h-1.5 w-full overflow-hidden rounded-pill bg-grass-50"
           >
@@ -632,6 +637,43 @@ function QuestionBody({
               className="mt-1.5 h-16 w-full rounded-lg border border-input bg-card px-4 font-mono text-[32px] tabular-nums text-ink placeholder:text-stone-light focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-[invalid=true]:border-error"
             />
             <p id="diag-gpa-error" role={error ? "alert" : undefined} className="m-0 mt-1.5 min-h-[20px] text-sm text-error-strong">
+              {error ?? ""}
+            </p>
+          </div>
+        </>
+      );
+    }
+    case STEP.tournaments: {
+      // Players only (stepAfter passes over it for a parent). Optional:
+      // Skip leaves it "Not set" — Seeded never fills in a number.
+      const { error } = parseTournamentsPlannedText(answers.tournamentsPlannedText);
+      return (
+        <>
+          <QuestionHeading id={headingId} ref={headingRef}>
+            How many tournaments do you plan to play this season?
+          </QuestionHeading>
+          <Help id={helpId}>
+            Optional. A rough count for this {currentSeason()} is fine. You can change it in Settings.
+          </Help>
+          <div className="mt-6 max-w-[320px]">
+            <label htmlFor="diag-tournaments" className="block text-[13px] font-medium text-stone">
+              {TOURNAMENTS_PLANNED_LABEL}
+            </label>
+            <input
+              id="diag-tournaments"
+              value={answers.tournamentsPlannedText}
+              onChange={(e) => set({ tournamentsPlannedText: e.target.value })}
+              inputMode="numeric"
+              autoComplete="off"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={[helpId, error ? "diag-tournaments-error" : null].filter(Boolean).join(" ")}
+              className="mt-1.5 h-16 w-full rounded-lg border border-input bg-card px-4 font-mono text-[32px] tabular-nums text-ink placeholder:text-stone-light focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-[invalid=true]:border-error"
+            />
+            <p
+              id="diag-tournaments-error"
+              role={error ? "alert" : undefined}
+              className="m-0 mt-1.5 min-h-[20px] text-sm text-error-strong"
+            >
               {error ?? ""}
             </p>
           </div>

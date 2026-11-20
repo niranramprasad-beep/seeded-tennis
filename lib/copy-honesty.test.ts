@@ -332,11 +332,11 @@ const BANNED: { pattern: RegExp; why: string }[] = [
   },
   {
     pattern: /My goal is \S+ tournaments?|happy to send the schedule/i,
-    why: "tournaments_goal is a hardcoded signup default (12), not a goal the player set",
+    why: "tournaments_goal was a hardcoded signup default (12) until 049; it is now an optional count most players never set, and the coach email does not state it (D3)",
   },
   {
     pattern: /so far this season/i,
-    why: "tournaments_played is a column default no screen writes, not a count the player entered",
+    why: "tournaments_played is a column default no screen writes (049 stopped reading it), not a count the player entered",
   },
   {
     pattern: /high on my list/i,

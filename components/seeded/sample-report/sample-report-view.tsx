@@ -107,7 +107,7 @@ export function SampleReportView() {
           Maya&rsquo;s week
         </h1>
         <p className="mt-3 text-base leading-relaxed text-stone">
-          Real activity for Nov 2 – Nov 8. On her Overview: on track for 6 of 12 targets.
+          Example activity for Nov 2 – Nov 8. On her Overview: on track for 6 of 12 targets.
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

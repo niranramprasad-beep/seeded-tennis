@@ -75,3 +75,40 @@ describe("an older client's body never wipes enrollment_term or birth_month", ()
     expect(src).toMatch(/writeCurrentPlayerProfile\(\s*playerWriteFromBody\(parsed\.data\)/);
   });
 });
+
+/* Migration 049: tournamentsPlanned follows the same absent -> untouched
+ * rule, and a client built before 049 — whose body carries
+ * `tournamentsGoal: 12, tournamentsPlayed: 0` — can never write the
+ * invented 12 back: the schema strips the old keys. */
+describe("tournaments planned (049)", () => {
+  it("an old client's tournamentsGoal: 12 is stripped and nothing is written", async () => {
+    const parsed = PlayerBodySchema.safeParse({
+      ...bodyWithout("tournamentsPlanned"),
+      tournamentsGoal: 12,
+      tournamentsPlayed: 0,
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data).not.toHaveProperty("tournamentsGoal");
+    const { rows, ctx } = captureUpsert();
+    await writeCurrentPlayerProfile(playerWriteFromBody(parsed.data), ctx);
+    expect(rows[0]).not.toHaveProperty("tournaments_goal");
+    expect(rows[0]).not.toHaveProperty("tournaments_played");
+  });
+
+  it("null clears it (Not set); a number is written as given", async () => {
+    const a = captureUpsert();
+    await writeCurrentPlayerProfile(playerWriteFromBody({ ...bodyWithout(), tournamentsPlanned: null }), a.ctx);
+    expect(a.rows[0]).toHaveProperty("tournaments_goal", null);
+    const b = captureUpsert();
+    await writeCurrentPlayerProfile(playerWriteFromBody({ ...bodyWithout(), tournamentsPlanned: 8 }), b.ctx);
+    expect(b.rows[0]).toHaveProperty("tournaments_goal", 8);
+    expect(b.rows[0]).not.toHaveProperty("tournaments_played");
+  });
+
+  it("the schema refuses what 049's CHECK refuses", () => {
+    for (const bad of [-1, 61, 2.5]) {
+      expect(PlayerBodySchema.safeParse({ ...bodyWithout(), tournamentsPlanned: bad }).success).toBe(false);
+    }
+  });
+});

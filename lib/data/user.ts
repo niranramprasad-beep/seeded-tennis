@@ -26,8 +26,9 @@ export const emptyPlayer: Player = {
   role: "player",
   targetSchoolSlugs: [],
   weaknesses: [],
-  tournamentsPlayed: 0,
-  tournamentsGoal: 12,
+  // Not 12. Nobody is asked for a number at sign-up, so there is none
+  // (migration 049; lib/no-invented-goal.test.ts).
+  tournamentsPlanned: null,
   onboarded: false,
   homeArea: "",
   utrProfileLink: "",

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Users, UserPlus } from "lucide-react";
-import { familyFullMessage, type Player, type PlayerGender, type FamilyRole } from "@/lib/types";
+import { PARENT_ROW_GRADE, familyFullMessage, type Player, type PlayerGender, type FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signUp } from "@/lib/auth";
 import {
@@ -104,8 +104,12 @@ export function SignupFlow({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [country, setCountry] = useState("United States");
-  const [gender, setGender] = useState<PlayerGender>("male");
-  const [grade, setGrade] = useState(10);
+  // Team and grade start UNANSWERED, like the birth year below. They used
+  // to start on "Male" and 10th grade, so a player who did not touch them
+  // was stored as a 10th-grade men's player — a class year and a team
+  // Seeded picked, that every timeline and fit band then ran on.
+  const [gender, setGender] = useState<PlayerGender | null>(null);
+  const [grade, setGrade] = useState<number | null>(null);
   // P0-8. Year only, never a full date of birth — see lib/config/consent.ts.
   // Starts empty rather than at a plausible default: a prefilled birth year
   // is a guess the product would then act on.
@@ -182,6 +186,8 @@ export function SignupFlow({
     e.preventDefault();
     setError(null);
     if (!isPlausibleBirthYear(birthYear)) return setError("Choose the year you were born.");
+    if (!isParentSignup && gender == null) return setError("Choose a gender.");
+    if (!isParentSignup && grade == null) return setError("Choose your grade in school.");
     go(1);
   };
 
@@ -207,8 +213,11 @@ export function SignupFlow({
         email,
         password,
         country,
-        gender,
-        grade,
+        // A parent who left these blank: their OWN row's values, which no
+        // screen shows (a parent's profile holds no player stats). The
+        // same values /parent-signup sends.
+        gender: gender ?? "male",
+        grade: grade ?? PARENT_ROW_GRADE,
         birthYear,
         role: isParentSignup ? "parent" : "player",
       },
@@ -227,22 +236,22 @@ export function SignupFlow({
       return;
     }
 
-    const graduationYear = getGradYearFromGrade(grade);
+    const graduationYear = getGradYearFromGrade(grade ?? PARENT_ROW_GRADE);
     const player: Player = {
       name,
       // No UTR until the player enters one (lib/data/user.ts).
       currentUTR: 0,
       graduationYear,
       commitmentDate: getDefaultCommitDate(graduationYear),
-      gender,
+      gender: gender ?? "male",
       country,
       role: isParentSignup ? "parent" : "player",
       // 045: a refused join leaves them in no family.
       familyCode: result.joinStatus === "family_full" ? undefined : result.familyCode,
       targetSchoolSlugs: [],
       weaknesses: [],
-      tournamentsPlayed: 0,
-      tournamentsGoal: 12,
+      // Sign-up never asks, so "Not set" (049) — never a default count.
+      tournamentsPlanned: null,
       onboarded: isParentSignup,
       birthMonth: null,
       enrollmentTerm: null,

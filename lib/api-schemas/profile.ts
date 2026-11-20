@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ENROLLMENT_TERMS } from "@/lib/types";
+import { TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-planned";
 
 // Shape validated by app/api/profile's route handler before it ever calls
 // writeCurrentPlayerProfile (lib/auth.ts) — the single highest-traffic
@@ -24,8 +25,11 @@ export const PlayerBodySchema = z.object({
   familyCode: z.string().optional(),
   targetSchoolSlugs: z.array(z.string()),
   weaknesses: z.array(z.enum(["forehand", "backhand", "serve", "fitness", "mental"])),
-  tournamentsPlayed: z.number(),
-  tournamentsGoal: z.number(),
+  // "Tournaments planned this season" (049): a whole number 0–60 or null
+  // ("Not set"). Optional: ABSENT = leave the stored value alone. The old
+  // tournamentsGoal / tournamentsPlayed keys are no longer in the schema, so
+  // a stale client's invented 12 is stripped here and never written.
+  tournamentsPlanned: z.number().int().min(0).max(TOURNAMENTS_PLANNED_MAX).nullable().optional(),
   onboarded: z.boolean(),
   homeArea: z.string().optional(),
   utrProfileLink: z.string().optional(),
@@ -46,7 +50,7 @@ export type PlayerBody = z.infer<typeof PlayerBodySchema>;
 
 /**
  * The validated body, as writeCurrentPlayerProfile takes it. An ABSENT
- * birthMonth / enrollmentTerm stays undefined — "leave the stored value
+ * birthMonth / enrollmentTerm / tournamentsPlanned stays undefined — "leave the stored value
  * alone" — and is never coerced to null ("clear it"): an older client that
  * never sent enrollmentTerm must not wipe the term a newer one saved.
  */

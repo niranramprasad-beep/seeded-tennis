@@ -5,6 +5,11 @@ import { Check } from "lucide-react";
 import type { Player, PlayerGender } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
+import {
+  TOURNAMENTS_PLANNED_LABEL,
+  TOURNAMENTS_PLANNED_MAX,
+  parseTournamentsPlannedText,
+} from "@/lib/tournaments-planned";
 import { SeededButton } from "@/components/seeded/ui/button";
 
 const inputClass =
@@ -24,7 +29,10 @@ const TEAM_OPTIONS: { value: PlayerGender; label: string }[] = [
 // school grad year / Team / Home area / UTR profile link / Unweighted GPA,
 // all real fields on the `profiles` row (name/graduation_year/gender are
 // pre-existing columns; home_area/utr_profile_link/gpa are new in
-// migration 014_profile_fields_and_deletion.sql). A local draft is kept so
+// migration 014_profile_fields_and_deletion.sql). Plus one field the
+// mockup does not show: "Tournaments planned this season" (players only,
+// optional — blank is "Not set"), the only place after onboarding to set
+// the count migration 049 stopped inventing (docs/DECISIONS.md). A local draft is kept so
 // "Save changes" commits everything at once rather than autosaving every
 // keystroke.
 export function ProfileCard({
@@ -41,6 +49,11 @@ export function ProfileCard({
   const [utrProfileLink, setUtrProfileLink] = useState(player.utrProfileLink ?? "");
   const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
   const [gpa, setGpa] = useState(player.gpa != null ? String(player.gpa) : "");
+  const [tournamentsPlanned, setTournamentsPlanned] = useState(
+    player.tournamentsPlanned != null ? String(player.tournamentsPlanned) : ""
+  );
+  const [tournamentsError, setTournamentsError] = useState<string | null>(null);
+  const isPlayer = player.role === "player";
   const [saved, setSaved] = useState(false);
 
   const years = gradYearOptions();
@@ -56,6 +69,12 @@ export function ProfileCard({
       return;
     }
     setUtrLinkError(null);
+    const planned = parseTournamentsPlannedText(tournamentsPlanned);
+    if (isPlayer && planned.error) {
+      setTournamentsError(planned.error);
+      return;
+    }
+    setTournamentsError(null);
     const parsedGpa = gpa.trim() === "" ? null : Number(gpa);
     onSave({
       name: name.trim(),
@@ -64,6 +83,8 @@ export function ProfileCard({
       homeArea: homeArea.trim(),
       utrProfileLink: linkCheck.normalized ?? "",
       gpa: parsedGpa != null && !Number.isNaN(parsedGpa) ? parsedGpa : null,
+      // Blank = "Not set" (null). A parent's own row is left alone.
+      ...(isPlayer ? { tournamentsPlanned: planned.value } : {}),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -143,6 +164,28 @@ export function ProfileCard({
             placeholder="0.0 to 4.0"
           />
         </label>
+        {isPlayer && (
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-stone">{TOURNAMENTS_PLANNED_LABEL}</span>
+            <input
+              className={inputClass}
+              value={tournamentsPlanned}
+              onChange={(e) => {
+                setTournamentsPlanned(e.target.value);
+                if (tournamentsError) setTournamentsError(null);
+              }}
+              inputMode="numeric"
+              placeholder={`Not set · 0 to ${TOURNAMENTS_PLANNED_MAX}`}
+              aria-invalid={tournamentsError ? true : undefined}
+              aria-describedby={tournamentsError ? "settings-tournaments-error" : undefined}
+            />
+            {tournamentsError && (
+              <p id="settings-tournaments-error" className="mt-1.5 text-sm text-error">
+                {tournamentsError}
+              </p>
+            )}
+          </label>
+        )}
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3">

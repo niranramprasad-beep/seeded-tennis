@@ -1,5 +1,8 @@
-// The /onboarding diagnostic (design board 20): nine questions, one per
-// screen, then a result. Everything here is pure — the screen renders it,
+// The /onboarding diagnostic (design board 20): ten questions, one per
+// screen, then a result. Board 20 shows nine; the tenth (tournaments
+// planned this season, optional, players only) was added 2026-11-20 with
+// migration 049 so the planned count is the player's own answer, never the
+// old hardcoded 12 — see docs/DECISIONS.md. Everything here is pure — the screen renders it,
 // lib/fit.ts does every piece of UTR arithmetic, and lib/onboarding/
 // save-diagnostic.ts writes it to an account.
 //
@@ -19,6 +22,7 @@ import {
 } from "@/lib/time";
 import { parentConsentRequired } from "@/lib/config/consent";
 import { isUsableUtr } from "@/lib/fit";
+import { parseTournamentsPlannedText } from "@/lib/tournaments-planned";
 
 export type DiagnosticRole = FamilyRole;
 
@@ -32,13 +36,14 @@ export const STEP = {
   birth: 6,
   enrollment: 7,
   gpa: 8,
-  result: 9,
+  tournaments: 9,
+  result: 10,
 } as const;
 
-/** "Question N of 9". The result is not a question. */
-export const QUESTION_COUNT = 9;
+/** "Question N of 10". The result is not a question. */
+export const QUESTION_COUNT = 10;
 export const RESULT_STEP = STEP.result;
-const OPTIONAL = new Set<number>([STEP.utrSixMonths, STEP.utrYear, STEP.gpa]);
+const OPTIONAL = new Set<number>([STEP.utrSixMonths, STEP.utrYear, STEP.gpa, STEP.tournaments]);
 
 export function isOptionalStep(step: number): boolean {
   return OPTIONAL.has(step);
@@ -58,6 +63,10 @@ export interface DiagnosticAnswers {
   birthYear: number | null;
   enrollmentTerm: EnrollmentTerm | null;
   gpaText: string;
+  /** "Tournaments planned this season" (049). Optional; blank = Not set.
+   * Asked of a player only — a parent's answers are never saved to a
+   * profile, so asking a parent would collect a number that goes nowhere. */
+  tournamentsPlannedText: string;
 }
 
 export const EMPTY_ANSWERS: DiagnosticAnswers = {
@@ -72,6 +81,7 @@ export const EMPTY_ANSWERS: DiagnosticAnswers = {
   birthYear: null,
   enrollmentTerm: null,
   gpaText: "",
+  tournamentsPlannedText: "",
 };
 
 /* --------------------------------------------------------------- parsing */
@@ -109,6 +119,7 @@ export interface DiagnosticValues {
   birthYear: number | null;
   enrollmentTerm: EnrollmentTerm | null;
   gpa: number | null;
+  tournamentsPlanned: number | null;
 }
 
 export function diagnosticValues(a: DiagnosticAnswers): DiagnosticValues {
@@ -124,6 +135,7 @@ export function diagnosticValues(a: DiagnosticAnswers): DiagnosticValues {
     birthYear: a.birthYear,
     enrollmentTerm: a.enrollmentTerm,
     gpa: parseGpaText(a.gpaText).value,
+    tournamentsPlanned: a.role === "player" ? parseTournamentsPlannedText(a.tournamentsPlannedText).value : null,
   };
 }
 
@@ -149,6 +161,8 @@ export function isAnswered(step: number, a: DiagnosticAnswers): boolean {
       return a.enrollmentTerm != null;
     case STEP.gpa:
       return parseGpaText(a.gpaText).value != null;
+    case STEP.tournaments:
+      return parseTournamentsPlannedText(a.tournamentsPlannedText).value != null;
     default:
       return true;
   }
@@ -164,6 +178,16 @@ function skipsPastRatings(step: number, a: DiagnosticAnswers): boolean {
   return a.noUtrYet && (step === STEP.utrSixMonths || step === STEP.utrYear);
 }
 
+/** The planned-tournaments question is a player's own: never shown to a
+ * parent (their answers are not saved to any profile). */
+function skipsForRole(step: number, a: DiagnosticAnswers): boolean {
+  return step === STEP.tournaments && a.role !== "player";
+}
+
+function skipped(step: number, a: DiagnosticAnswers): boolean {
+  return skipsPastRatings(step, a) || skipsForRole(step, a);
+}
+
 /**
  * The step after `step`. "I don't have a UTR yet" skips both past-rating
  * questions. Steps answered by the homepage calculator's link (`prefilled`)
@@ -174,7 +198,7 @@ export function stepAfter(step: number, a: DiagnosticAnswers, prefilled: Readonl
   let n = step + 1;
   while (
     n < RESULT_STEP &&
-    (skipsPastRatings(n, a) || (prefilled.has(n) && isAnswered(n, a)))
+    (skipped(n, a) || (prefilled.has(n) && isAnswered(n, a)))
   ) {
     n++;
   }
@@ -183,7 +207,7 @@ export function stepAfter(step: number, a: DiagnosticAnswers, prefilled: Readonl
 
 export function stepBefore(step: number, a: DiagnosticAnswers): number {
   let n = step - 1;
-  while (n > 0 && skipsPastRatings(n, a)) n--;
+  while (n > 0 && skipped(n, a)) n--;
   return Math.max(n, 0);
 }
 
@@ -364,6 +388,9 @@ export function diagnosticPlayerProfile(base: Player, a: DiagnosticAnswers): Pla
     commitmentDate: getDefaultCommitDate(graduationYear),
     gender: v.gender ?? base.gender,
     gpa: v.gpa,
+    // Only an answer replaces what the account holds: skipping the question
+    // keeps the stored value (NULL for a new account — never a default).
+    tournamentsPlanned: v.tournamentsPlanned ?? base.tournamentsPlanned,
     birthMonth: v.birthMonth,
     enrollmentTerm: v.enrollmentTerm,
     onboarded: true,
@@ -417,6 +444,7 @@ export function parsePendingAnswers(raw: string | null, now: Date = new Date()):
           ? x.enrollmentTerm
           : null,
       gpaText: typeof x.gpaText === "string" ? x.gpaText : "",
+      tournamentsPlannedText: typeof x.tournamentsPlannedText === "string" ? x.tournamentsPlannedText : "",
     };
     return answers.role ? answers : null;
   } catch {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { familyFullMessage, type Player } from "@/lib/types";
+import { PARENT_ROW_GRADE, familyFullMessage, type Player } from "@/lib/types";
 import { emptyPlayer } from "@/lib/data/user";
 import { usePlayer } from "@/lib/context/player-context";
 import { FamilyFullNotice } from "@/components/auth/family-full-notice";
@@ -295,7 +295,7 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
         // values /parent-signup sends (signup-flow.tsx's defaults) — NOT the
         // player's team or grade, which are player stats (board 22).
         gender: "male",
-        grade: 10,
+        grade: PARENT_ROW_GRADE,
         birthYear,
         role: "parent",
       },

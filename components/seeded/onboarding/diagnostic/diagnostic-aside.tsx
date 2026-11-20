@@ -39,6 +39,12 @@ export function DiagnosticAside({
     ],
     ["Starts college", answers.enrollmentTerm ? ENROLLMENT_LABEL[answers.enrollmentTerm] : "—"],
     ["GPA", answers.gpaText.trim() || "—", true],
+    // Players only — a parent is never asked (lib/onboarding/diagnostic.ts).
+    ...(answers.role === "player"
+      ? ([["Tournaments planned", answers.tournamentsPlannedText.trim() || "—", true]] as Array<
+          [string, string, boolean?]
+        >)
+      : []),
   ];
 
   return (

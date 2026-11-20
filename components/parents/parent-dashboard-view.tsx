@@ -19,7 +19,6 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadDailyCheckins, type DailyCheckin } from "@/lib/db/plan";
 import {
@@ -29,7 +28,13 @@ import {
   type EncouragementNote,
   type FamilyMember,
 } from "@/lib/db/family";
-import { loadMatches, type MatchRecord } from "@/lib/db/events";
+import { loadMatches, loadTournamentEntries, type MatchRecord, type TournamentEntry } from "@/lib/db/events";
+import {
+  TOURNAMENTS_PLANNED_LABEL,
+  TOURNAMENTS_PLANNED_NOT_SET,
+  countPlayedThisSeason,
+} from "@/lib/tournaments-planned";
+import Link from "next/link";
 import { useDesign } from "@/lib/context/design-context";
 import { getCurrentGrade } from "@/lib/time";
 import { formatUTR } from "@/lib/utils";
@@ -94,6 +99,20 @@ function LegacyParentDashboard() {
     subjectId ? ["matches", subjectKey({ userId: subjectId })] : null,
     () => loadMatches({ userId: subjectId! })
   );
+  // "Played this season" is counted from the player's own tournament
+  // entries marked Played (047) — never from profiles.tournaments_played,
+  // a column default no screen ever wrote (049). The player's entries when
+  // there is a linked player; the viewer's own only when the viewer IS the
+  // player.
+  const entriesSubject = subjectId
+    ? { userId: subjectId }
+    : player.role === "player"
+    ? ("self" as const)
+    : null;
+  const { data: tournamentEntries = [] } = useSWR<TournamentEntry[]>(
+    entriesSubject ? ["tournament-entries", subjectKey(entriesSubject)] : null,
+    () => loadTournamentEntries(entriesSubject!)
+  );
   const { data: notes = [], mutate: mutateNotes } = useSWR<EncouragementNote[]>(
     "encouragement-notes",
     () => loadEncouragementNotes()
@@ -127,9 +146,13 @@ function LegacyParentDashboard() {
   const grade = graduationYear == null ? null : getCurrentGrade(graduationYear);
   const completedMatches = matches.filter((m) => m.result).length;
   const upcomingMatches = matches.filter((m) => !m.result).slice(0, 3);
-  const tournamentPct = Math.round(
-    (player.tournamentsPlayed / Math.max(1, player.tournamentsGoal)) * 100
-  );
+  // The viewer is the player only when no player row came back and their
+  // own role is player (resolveFamilyPlayerFacts' rule). Then their own
+  // planned count is theirs to show. A parent can't read it: family_members()
+  // does not return it (037's enumerated list), so it is "Not tracked" here,
+  // never a default and never a progress bar against one (049).
+  const viewerIsPlayer = !playerMember && player.role === "player";
+  const playedThisSeason = playerFacts.hasLinkedPlayer ? countPlayedThisSeason(tournamentEntries) : null;
 
   return (
     <div className="mx-auto max-w-content container-px py-12">
@@ -191,21 +214,37 @@ function LegacyParentDashboard() {
                 your own account.
               </p>
             )}
-            <div className="mt-5 border-t-hairline border-line pt-5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-stone">Tournament season</span>
+            <div className="mt-5 space-y-2 border-t-hairline border-line pt-5 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-stone">Tournaments played this season</span>
                 <span className="font-medium text-ink">
-                  {playerMember ? (
-                    "Not tracked"
+                  {playedThisSeason == null ? "Not tracked" : playedThisSeason}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-stone">{TOURNAMENTS_PLANNED_LABEL}</span>
+                <span className="font-medium text-ink">
+                  {viewerIsPlayer ? (
+                    player.tournamentsPlanned == null ? (
+                      <>
+                        {TOURNAMENTS_PLANNED_NOT_SET} ·{" "}
+                        <Link href="/settings/profile" className="text-grass underline-offset-2 hover:underline">
+                          Set it
+                        </Link>
+                      </>
+                    ) : (
+                      player.tournamentsPlanned
+                    )
                   ) : (
-                    <>
-                      {player.tournamentsPlayed}
-                      <span className="text-stone-light">/{player.tournamentsGoal}</span>
-                    </>
+                    "Not tracked"
                   )}
                 </span>
               </div>
-              <Progress value={tournamentPct} className="mt-3" />
+              {playerMember && (
+                <p className="text-xs text-stone-light">
+                  {firstName} sets the planned count in Settings. It isn&rsquo;t shared to the family view.
+                </p>
+              )}
             </div>
           </Card>
 

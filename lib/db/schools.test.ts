@@ -31,8 +31,7 @@ const player: Player = {
   role: "player",
   targetSchoolSlugs: [],
   weaknesses: [],
-  tournamentsPlayed: 5,
-  tournamentsGoal: 12,
+  tournamentsPlanned: null,
   onboarded: true,
   birthMonth: null,
   enrollmentTerm: null,
@@ -140,7 +139,7 @@ describe("buildCoachEmail", () => {
   // never gave us and that may be flatly untrue.
   it("invents no results and no schedule description when nothing is logged", () => {
     const email = buildCoachEmail(
-      { ...player, tournamentsPlayed: 0, tournamentsGoal: 0 },
+      { ...player, tournamentsPlanned: 0 },
       school,
       []
     );
@@ -154,8 +153,10 @@ describe("buildCoachEmail", () => {
   // D3 (2026-11-19): this test used to REQUIRE "I've played 5 tournaments so
   // far this season." But no screen writes profiles.tournaments_played — it
   // is a column default — so the number was never the player's. Inverted.
-  it("never states a tournament count: tournaments_played is not something the player entered", () => {
-    const email = buildCoachEmail({ ...player, tournamentsPlayed: 5 }, school, []);
+  // Since 049 the Player has no played count at all; the planned count (5
+  // here) must not turn into one either.
+  it("never states a tournament count", () => {
+    const email = buildCoachEmail({ ...player, tournamentsPlanned: 5 }, school, []);
     expect(email.body).not.toMatch(/tournaments? so far|I've played \d/);
     expect(email.body).not.toContain("5 tournaments");
   });
@@ -188,8 +189,8 @@ describe("buildCoachEmail", () => {
   // screen lets anyone change, so EVERY player's email said 12 (D3,
   // 2026-11-19). This test used to require that sentence; it now forbids it.
   it("makes no scheduling promise and states no tournament goal", () => {
-    for (const tournamentsGoal of [0, 12]) {
-      const email = buildCoachEmail({ ...player, tournamentsGoal }, school);
+    for (const tournamentsPlanned of [null, 0, 12]) {
+      const email = buildCoachEmail({ ...player, tournamentsPlanned }, school);
       expect(email.body).not.toMatch(/I'll be at|play in front of your staff/);
       expect(email.body).not.toMatch(/My goal is|send the schedule/);
       expect(email.body).not.toMatch(/\b12\b/);

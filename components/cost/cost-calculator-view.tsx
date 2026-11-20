@@ -23,15 +23,42 @@ import { cn } from "@/lib/utils";
 
 /** `embedded`: rendered inside another page (the family budget) that owns
  *  the page's one <h1> — the calculator's title drops to an <h3>. */
-export function CostCalculatorView({ schools, embedded = false }: { schools: SchoolLite[]; embedded?: boolean }) {
+/** `playerGraduationYear`: the player's real class year, when the page
+ *  knows it (the family budget passes the family player's). Omitted, it is
+ *  the signed-in user's own — only if they ARE the player; a parent's own
+ *  profile row holds no class year of theirs worth projecting from. */
+export function CostCalculatorView({
+  schools,
+  embedded = false,
+  playerGraduationYear,
+}: {
+  schools: SchoolLite[];
+  embedded?: boolean;
+  playerGraduationYear?: number | null;
+}) {
   return (
     <AuthGate>
-      <CostCalculatorInner schools={schools} embedded={embedded} />
+      <CostCalculatorInner schools={schools} embedded={embedded} playerGraduationYear={playerGraduationYear} />
     </AuthGate>
   );
 }
 
-function CostCalculatorInner({ schools, embedded }: { schools: SchoolLite[]; embedded: boolean }) {
+/** Years of junior tennis left, counting this school year, from a REAL class
+ *  year — or 0 (an empty input) without one. */
+export function yearsRemainingFor(graduationYear: number | null, now: Date = new Date()): number {
+  if (graduationYear == null) return 0;
+  return Math.max(1, 12 - getCurrentGrade(graduationYear, now) + 1);
+}
+
+function CostCalculatorInner({
+  schools,
+  embedded,
+  playerGraduationYear,
+}: {
+  schools: SchoolLite[];
+  embedded: boolean;
+  playerGraduationYear?: number | null;
+}) {
   const Heading = embedded ? "h3" : "h1";
   const { design } = useDesign();
   const isSeeded = design === "seeded";
@@ -45,11 +72,15 @@ function CostCalculatorInner({ schools, embedded }: { schools: SchoolLite[]; emb
   // rate, $1,200 of equipment and $550 a tournament — Seeded's guesses —
   // and the page's headline total was computed from them before the family
   // had typed anything. A total made of our numbers is not their cost.
-  // Years remaining and tournaments per year come from the player's own
-  // profile (class year, tournament goal) when those exist.
+  // Years remaining comes from the PLAYER's real class year when there is
+  // one. Tournaments per year starts empty: it used to start at the
+  // profile's tournaments_goal, which was a hardcoded 12 for every account
+  // (049), and "planned this season" is not a per-year count anyway.
+  const graduationYear =
+    playerGraduationYear !== undefined ? playerGraduationYear : player.role === "player" ? player.graduationYear : null;
   const [inputs, setInputs] = useState<CostInputs>({
-    yearsRemaining: Math.max(1, 12 - getCurrentGrade(player.graduationYear) + 1),
-    tournamentsPerYear: player.tournamentsGoal || 0,
+    yearsRemaining: yearsRemainingFor(graduationYear),
+    tournamentsPerYear: 0,
     coachingHoursPerWeek: 0,
     lessonRate: 0,
     equipmentBudgetPerYear: 0,
@@ -178,7 +209,9 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
   // digit (so "-5" became "05"). Keeping the raw text locally lets an
   // in-progress value like "-" or "12." sit as typed; it only commits
   // upward once it's actually a complete, valid number.
-  const [text, setText] = useState(String(value));
+  // 0 shows as an EMPTY field ("Not set"), not a "0" that reads like a
+  // number the family entered.
+  const [text, setText] = useState(value === 0 ? "" : String(value));
 
   // No dependency array on purpose: this must re-check on every render, not
   // just when `value` changes from its PREVIOUS value. Typing two different
@@ -200,6 +233,7 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
         type="text"
         inputMode="decimal"
         value={text}
+        placeholder="Not set"
         onChange={(event) => {
           const next = event.target.value;
           if (!/^-?\d*\.?\d*$/.test(next)) return;
