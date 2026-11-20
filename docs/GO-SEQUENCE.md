@@ -143,7 +143,7 @@ the other creates or changes; checked by grep of both files and of
 | # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
 |---|---|---|---|---|
 | 24 | **050** (budget writes parent-only; PR-SEC. **RUN ON PRODUCTION 2026-11-20 23:20:46 UTC**, backup `~/seeded-backups/prod-20261120-1820-pre050.dump`, ledger 50 → 51) | pre-flight: count budget rows (report any written by a non-parent; never change them — 0/0 on 2026-11-20). Verify: `probe-050.sql` as `authenticated` (rolled back) — players, pending, free-family and other-family parents refused; approved parents allowed; 0 residue | a real approved parent is refused | §J Step 24 block |
-| 25 | **048** (catalog tables, PR E #9; flag stays OFF) | see §J Step 25 | anon/players can write, or RLS off on any new table | §J Step 25 block |
+| 25 | **048** (catalog tables, PR E #9; flag stays OFF. **RUN ON PRODUCTION 2026-11-20 23:55:04 UTC**, backup `~/seeded-backups/prod-20261120-1854-pre048.dump`, ledger 51 → 52) | fingerprint equals staging; real-role probe (§J Step 25) | anon/players can write, or RLS off on any new table | §J Step 25 block |
 
 ## 4. Code: merge the PR (5 min + deploy)
 

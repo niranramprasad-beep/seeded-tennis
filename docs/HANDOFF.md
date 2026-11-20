@@ -3453,6 +3453,27 @@ comment on function public.is_parent_member(text) is null;
 ```
 Only roll back if a probe proves 050 itself is wrong (a real parent refused).
 
+### Step 25 — migration 048 (catalog tables; PR E)
+
+**RUN ON PRODUCTION 2026-11-20 23:55:04 UTC** on the overnight pre-approved
+GO, after a backup (`~/seeded-backups/prod-20261120-1854-pre048.dump`), and
+after 050 (independent of it). Ledger 51 → 52. Evidence:
+`~/seeded-evidence/review-ready/r8-catalog/`.
+
+Verify: production's fingerprint (RLS flags, policies, table and column
+grants, constraints, `is_app_admin` body + ACL) equals staging's; probe as
+real roles in a rolled-back block — anon/player writes to all four tables
+42501, `app_admins` unreadable, a player cannot self-grant admin, a valid
+admin insert is stamped `entered_by = auth.uid()`, future-dated or spoofed
+`entered_by` refused, no DELETE. 0 residue. Nothing is imported to
+production; the flag `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` stays unset.
+
+Rollback (nothing else references these objects):
+```sql
+drop table if exists public.team_ranges, public.program_class_counts, public.programs, public.app_admins;
+drop function if exists public.is_app_admin();
+```
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

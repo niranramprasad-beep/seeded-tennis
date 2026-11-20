@@ -13,6 +13,12 @@
 
 ## Executive status
 
+**2026-11-20 (night) — Migration 048 on production; PR E merging with the flag OFF.**
+Backup, apply (23:55 UTC, ledger 51 → 52), fingerprint identical to staging, probed as real roles
+(rolled back). No catalog data imported to production; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`
+unset in every Vercel environment. Review fix: the most recently ENTERED range is current, so a
+wrong source date can be corrected. Follow-ups in docs/TODO.md (before the flag goes on).
+
 **2026-11-20 night — PR-QUALITY (`chore/code-quality`; no
 behaviour change, no migration).** Code-quality pass only. Zero `as any` left
 in app/lib/components (three test stubs now `as unknown as
