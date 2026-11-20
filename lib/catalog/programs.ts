@@ -91,11 +91,19 @@ export function daysSince(iso: string, now: Date): number {
 
 /* --------------------------------------------------------------- ranges */
 
-/** The newest range on record (by its source date, then entry time). */
+/** The range entered most recently (entry time, then source date).
+ *
+ * Ranges cannot be edited or deleted from any client — a correction is a new
+ * row. Ordering by entry time is what makes that work: a range saved with a
+ * wrong (too late) source date is corrected by entering the right one, which
+ * then becomes current. Ordering by source date first (the first version)
+ * made such a mistake uncorrectable from the admin page (independent review,
+ * 2026-11-20). The source date is still shown beside the number and still
+ * drives staleness. */
 export function currentRange(program: Pick<ImportedProgram, "ranges">): TeamRange | null {
   if (program.ranges.length === 0) return null;
   return [...program.ranges].sort(
-    (a, b) => b.sourceDate.localeCompare(a.sourceDate) || b.createdAt.localeCompare(a.createdAt)
+    (a, b) => b.createdAt.localeCompare(a.createdAt) || b.sourceDate.localeCompare(a.sourceDate)
   )[0];
 }
 

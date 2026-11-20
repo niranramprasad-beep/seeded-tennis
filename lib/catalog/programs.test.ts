@@ -88,11 +88,16 @@ describe("no range, no level — the gate", () => {
     }
   });
 
-  it("the newest range wins, by source date then entry time", () => {
-    const older = range({ low: 5, sourceDate: "2026-09-01" });
+  it("the most recently ENTERED range wins (a correction is a new row)", () => {
+    const older = range({ low: 5, sourceDate: "2026-09-01", createdAt: "2026-09-02T00:00:00Z" });
     const newer = range({ low: 6.5, sourceDate: "2026-10-01", createdAt: "2026-10-01T00:00:00Z" });
     const sameDayLater = range({ low: 6.6, sourceDate: "2026-10-01", createdAt: "2026-10-02T00:00:00Z" });
     expect(currentRange({ ranges: [older, newer, sameDayLater] })?.low).toBe(6.6);
+    // Saved by mistake with a source date that is too late, then corrected
+    // with the true, earlier date: the correction is current.
+    const mistake = range({ low: 9, sourceDate: "2026-11-15", createdAt: "2026-11-15T10:00:00Z" });
+    const correction = range({ low: 7, sourceDate: "2026-11-01", createdAt: "2026-11-15T10:05:00Z" });
+    expect(currentRange({ ranges: [mistake, correction] })?.low).toBe(7);
   });
 
   it("shows the source and date beside the number", () => {
