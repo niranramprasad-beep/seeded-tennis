@@ -7,6 +7,31 @@ Newest first.
 
 ---
 
+## 2026-11-20 (night) — Review-ready run: migration 050, budget writes parent-only
+
+Calls made without asking (the owner was asleep; the run was pre-approved for
+this migration):
+- **Fix the function, not the six policies.** `is_parent_member()` is used by
+  exactly six policies, all budget writes, and by no function (checked on
+  production). Narrowing it is the smallest change and the one place a future
+  reader looks. Undo: §J Step 24 rollback.
+- **Budget writes do not need 043's email proof.** 043 guards actions that
+  change who is in a family or consent on a minor's behalf (join, approve,
+  under-13 consent). A budget write changes neither, is visible to the whole
+  family, and every approved joiner parent already proved their email to join.
+  Requiring it would refuse an approved creator-parent who has never been
+  asked to verify, for no gain in what anyone can see. Revisit if the budget
+  ever carries payment details.
+- **The Family-plan lock stays a separate RESTRICTIVE policy** (042/045), not
+  folded into the function. Two gates that are each testable beat one that
+  does both.
+- **Production had 0 budget rows**, so there were no non-parent rows to report
+  and nothing was changed.
+- **The /privacy disclosure was deleted, not reworded**, in the same commit
+  (TODO's instruction), and the effective date moved to 2026-11-20.
+
+---
+
 ## 2026-11-20 — fix/no-invented-goal: no invented tournament goal (migration 049) and the numbers sweep
 
 Calls made without asking (the owner was unreachable):

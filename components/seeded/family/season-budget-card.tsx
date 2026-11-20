@@ -46,8 +46,8 @@ export function SeasonBudgetCard({
    * passes compact=false for the complete list. */
   compact?: boolean;
   /** Mirrors canEditBudget(player.role) from lib/family-budget.ts, which
-   * migration 019_rls_policy_hardening.sql's tightened RLS also enforces
-   * server-side — a player account can view the real spend data below but
+   * RLS also enforces server-side (is_parent_member, role-aware since
+   * migration 050) — a player account can view the real spend data below but
    * never mutate it. Required (no default) so every call site has to
    * decide explicitly rather than silently inheriting "editable". */
   canEdit: boolean;

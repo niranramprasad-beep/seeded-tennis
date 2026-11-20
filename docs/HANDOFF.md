@@ -3406,6 +3406,53 @@ alter table public.profiles alter column tournaments_goal set not null;
 commit;
 ```
 
+### Step 24 — migration 050 (budget writes are parent-only; PR-SEC)
+
+**RUN ON PRODUCTION 2026-11-20 23:20:46 UTC** (18:20 ET) on the overnight
+pre-approved GO, after a backup (`~/seeded-backups/prod-20261120-1820-pre050.dump`).
+Ledger 50 → 51. Evidence: `~/seeded-evidence/review-ready/r4-rls/`.
+
+What: `is_parent_member(code)` now requires the caller's own
+`profiles.role = 'parent'` AND `is_family_member(code)`. Before, any approved
+`parent_accounts` row (players included) passed, so a sibling player could
+write `season_budgets` / `budget_expenses`. The six write policies are not
+re-created; they call the function. 042's `family_plan_required` and 030's
+`account_active_required` (both RESTRICTIVE) are unchanged.
+
+Pre-flight (read-only): `select count(*) from season_budgets` and
+`budget_expenses` — any row whose writer is not a parent is REPORTED, never
+changed (2026-11-20: 0 and 0, so nothing to report).
+
+Verify, as `authenticated` + JWT claims in a rolled-back block (the probe in
+the evidence folder builds its own PROBE050-* fixtures): sibling player and
+account-holder player → 42501 / 0 rows on all six writes; pending parent,
+free-family parent, other-family parent → refused; approved parents (verified
+or not, either membership shape, family unlocked by a parent or a player) →
+allowed. Then: 0 probe rows left.
+
+Rollback (pasteable; rehearsed on staging — restores production's pre-050
+body, normalised md5 `95ba6e4c…`):
+```sql
+create or replace function public.is_parent_member(target_family_code text)
+returns boolean language sql stable security definer set search_path = public
+as $fn$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.family_code = target_family_code and p.role = 'parent'
+  )
+  or exists (
+    select 1 from public.parent_accounts pa
+    where pa.user_id = auth.uid() and pa.family_code = target_family_code and pa.status = 'approved'
+  )
+$fn$;
+revoke all on function public.is_parent_member(text) from public;
+revoke all on function public.is_parent_member(text) from anon;
+grant execute on function public.is_parent_member(text) to authenticated;
+grant execute on function public.is_parent_member(text) to service_role;
+comment on function public.is_parent_member(text) is null;
+```
+Only roll back if a probe proves 050 itself is wrong (a real parent refused).
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

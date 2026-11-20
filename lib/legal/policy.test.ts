@@ -122,6 +122,15 @@ describe("the claims still match the code", () => {
     expect(text, "the old, false claim").not.toMatch(
       /read-only everywhere except the season budget/
     );
+    // 050 made the budget parent-only in the database. The pre-050
+    // disclosure ("any approved member ... can edit it, including a player")
+    // must not survive it, and the parent-only claim must be backed by the
+    // migration that enforces it.
+    expect(text, "pre-050 disclosure").not.toMatch(/including a player/);
+    expect(text).toMatch(/only an account marked as a parent can write the budget/);
+    expect(read("supabase", "migrations", "050_budget_writes_parents_only.sql")).toMatch(
+      /p\.role = 'parent'/
+    );
   });
 
   it("names every processor the code actually uses", () => {
