@@ -30,3 +30,33 @@ export async function loadMySignInInfo(): Promise<SignInInfo> {
       : "unknown";
   return { email: data.user.email ?? null, method };
 }
+
+/**
+ * The signed-in account's own birth year, or null when it has none on file
+ * (or the read fails). For the signed-in /onboarding diagnostic, which shows
+ * it rather than asking again: `birth_year` is write-once from the client
+ * (033), so a year picked there could never be saved anyway.
+ *
+ * A single-row read of the caller's OWN profile by `.eq("id", …)` — the only
+ * shape lib/db/family-scope.test.ts allows on `profiles`.
+ */
+export async function loadMyBirthYear(): Promise<number | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return null;
+  const { data, error } = await supabase.from("profiles").select("birth_year").eq("id", uid).maybeSingle();
+  if (error || !data) return null;
+  const year = (data as { birth_year: number | null }).birth_year;
+  return typeof year === "number" ? year : null;
+}
+
+/** The signed-in account's own auth id, or null. Used to find "you" in the
+ * family roster, which family_members() returns with everyone in it. */
+export async function loadMyUserId(): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}

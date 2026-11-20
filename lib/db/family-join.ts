@@ -295,3 +295,43 @@ export async function loadMyFamilyCode(signal?: AbortSignal): Promise<string | n
   if (error) return null;
   return (data as string | null) ?? null;
 }
+
+export type LeaveFamilyResult =
+  | { ok: true }
+  | { ok: false; reason: "account_holder" | "not_in_family" | "error"; message: string };
+
+/** Shown when leave_family() refuses the family's account holder. */
+export const ACCOUNT_HOLDER_CANNOT_LEAVE_MESSAGE =
+  "You're this family's account holder, so you can't leave it. Everyone else joined through you.";
+
+/** Maps leave_family()'s answer. Exported for the unit test. */
+export function leaveFamilyOutcome(error: { code?: string; message?: string } | null): LeaveFamilyResult {
+  if (!error) return { ok: true };
+  const text = error.message ?? "";
+  if (text.includes("account_holder_cannot_leave")) {
+    return { ok: false, reason: "account_holder", message: ACCOUNT_HOLDER_CANNOT_LEAVE_MESSAGE };
+  }
+  if (text.includes("not_in_a_family")) {
+    return { ok: false, reason: "not_in_family", message: "You're not in a family right now." };
+  }
+  if (error.code === RATE_LIMITED) {
+    return { ok: false, reason: "error", message: "Too many changes at once. Try again later." };
+  }
+  // Never surface a raw Postgres message to the user.
+  return { ok: false, reason: "error", message: "Could not leave the family. Try again." };
+}
+
+/**
+ * Leaves the caller's own family (migration 046, leave_family()). Takes no
+ * argument, so it can only ever act on the signed-in account — removing
+ * someone ELSE is remove_family_member(), which refuses the caller. The
+ * account holder is refused; under-13 consent resets to pending when the
+ * caller has no family left; a Family plan the caller pays for stops
+ * covering this family (045). See the migration's header.
+ */
+export async function leaveFamily(): Promise<LeaveFamilyResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, reason: "error", message: "Not configured." };
+  const { error } = await supabase.rpc("leave_family");
+  return leaveFamilyOutcome(error);
+}
