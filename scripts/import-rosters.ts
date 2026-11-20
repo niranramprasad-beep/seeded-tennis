@@ -2,13 +2,15 @@
 //
 //   npx vite-node --config vitest.config.ts scripts/import-rosters.ts -- \
 //     --checked-on 2026-11-19 [--file docs/data/official_rosters_2026-27.tsv] \
-//     [--expected expected-programs.tsv] [--upsert]
+//     [--expected expected-programs.tsv] [--upsert] [--emit-sql out.sql]
 //
 // Without --upsert it only reads: it writes the JSON summary and rewrites
 // the generated block of docs/catalog/phase-1-import.md. With --upsert it
 // also writes programs + program_class_counts to the database named by
 // SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) using SUPABASE_SERVICE_ROLE_KEY
-// — and refuses outright if that is production.
+// — and refuses outright if that is production. With --emit-sql it writes
+// the same rows as one SQL transaction instead, for a staging SQL session
+// when no service-role key is available.
 //
 // What it never does: store or print a player's name or hometown, fetch
 // anything from the web, touch team_ranges (ranges are entered by the owner,
@@ -22,6 +24,7 @@ import { getSchools } from "../lib/db/schools";
 import { parseExpectedTsv, parseRosterTsv, RosterFileError, type ProgramDraft } from "../lib/catalog/roster-import";
 import { buildImportSummary, renderImportReport, spliceReport } from "../lib/catalog/import-report";
 import { assertSafeImportTarget } from "../lib/catalog/import-target";
+import { buildImportSql } from "../lib/catalog/import-sql";
 import { toTeamRange, TEAM_RANGE_COLUMNS } from "../lib/db/programs";
 import type { TeamRange } from "../lib/catalog/programs";
 
@@ -34,6 +37,7 @@ interface Args {
   checkedOn: string | null;
   expected: string | null;
   upsert: boolean;
+  emitSql: string | null;
   allowRef: string | null;
   summary: string;
   report: string | null;
@@ -45,6 +49,7 @@ function parseArgs(argv: string[]): Args {
     checkedOn: null,
     expected: null,
     upsert: false,
+    emitSql: null,
     allowRef: null,
     summary: SUMMARY_FILE,
     report: REPORT_FILE,
@@ -61,6 +66,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--checked-on") args.checkedOn = next();
     else if (a === "--expected") args.expected = next();
     else if (a === "--upsert") args.upsert = true;
+    else if (a === "--emit-sql") args.emitSql = next();
     else if (a === "--allow-ref") args.allowRef = next();
     else if (a === "--summary") args.summary = next();
     else if (a === "--report") args.report = next();
@@ -181,6 +187,12 @@ async function main() {
     const client = createClient<Database>(url, key, { auth: { persistSession: false } });
     rangesBySlug = await upsertPrograms(client, parsed.programs, args.checkedOn);
     console.log(`import-rosters: upserted ${parsed.programs.length} program(s) to ${new URL(url).host}.`);
+  }
+
+  if (args.emitSql) {
+    if (parsed.failed) fail("over the 5% row-error limit: no SQL written.");
+    writeFileSync(resolve(args.emitSql), buildImportSql(parsed.programs, args.checkedOn));
+    console.log(`import-rosters: wrote ${args.emitSql} (STAGING ONLY; ${parsed.programs.length} programs)`);
   }
 
   const summary = buildImportSummary({

@@ -37,7 +37,10 @@ describe("parseRosterTsv on the fake fixture", () => {
       "test-college-a-women",
       "test-college-b-men",
       "test-college-b-women",
-      "test-college-c-men",
+    ]);
+    // Test College C has a row but no players: not imported, reported.
+    expect(r.notRetrieved).toEqual([
+      { slug: "test-college-c-men", conference: "Patriot League", school: "Test College C", gender: "men" },
     ]);
     expect(bySlug["test-college-a-women"].division).toBe("D3");
     expect(bySlug["test-college-b-women"].division).toBe("D1");
@@ -66,11 +69,10 @@ describe("parseRosterTsv on the fake fixture", () => {
     expect(r.unknownLabels).toEqual({ "Fr/So": 1, "2031": 1 });
   });
 
-  it("keeps a program whose roster listed nobody, with zero players", () => {
-    const cm = bySlug["test-college-c-men"];
-    expect(cm.playersListed).toBe(0);
-    expect(cm.finalYearCount).toBe(0);
-    expect(cm.headCoach).toBeNull();
+  it("does not import a program whose roster listed nobody (it would read \"0 seniors\")", () => {
+    expect(bySlug["test-college-c-men"]).toBeUndefined();
+    expect(r.notRetrieved.map((p) => p.slug)).toEqual(["test-college-c-men"]);
+    expect(r.errors.map((e) => e.line)).not.toContain(21); // not a row error either
   });
 
   it("never carries a player name or hometown anywhere in its output", () => {
@@ -106,7 +108,7 @@ describe("parseRosterTsv refuses what it cannot read", () => {
   it("row-level problems are errors with reasons, not guesses", () => {
     const rows = [
       "UAA\tTest College Z\tCoed\t\t\t2026-27\tPlayer 1\tSr\tTest Town\t",
-      "UAA\tTest College Z\tWomen\t\t\t2026\tPlayer 2\tSr\tTest Town\t",
+      "UAA\tTest College Z\tWomen\t\t\tFall 2026\tPlayer 2\tSr\tTest Town\t",
       "UAA\tTest College Z\tWomen\t\tnot-a-url\t2026-27\tPlayer 3\tSr\tTest Town\t",
       "\tTest College Z\tWomen\t\t\t2026-27\tPlayer 4\tSr\tTest Town\t",
       "UAA\tTest College Z\tWomen\t\t\t2026-27\tPlayer 5\tSr\tTest Town\t\textra",
@@ -175,10 +177,115 @@ describe("slugs and the missing-program list", () => {
   it("names expected programs that are not in the file", () => {
     const r = parseRosterTsv(FIXTURE);
     const missing = missingPrograms(parseExpectedTsv(EXPECTED), r.programs);
-    expect(missing).toEqual([{ conference: "Patriot League", school: "Test College E", gender: "women" }]);
+    // C is in the file but has no roster, so it is not imported either.
+    expect(missing).toEqual([
+      { conference: "Patriot League", school: "Test College C", gender: "men" },
+      { conference: "Patriot League", school: "Test College E", gender: "women" },
+    ]);
   });
 
   it("rejects an expected list without the required columns", () => {
     expect(() => parseExpectedTsv("School\nTest College A\n")).toThrow(RosterFileError);
+  });
+});
+
+/* What the real 2026-27 roster file broke, pinned with synthetic rows. */
+describe("shapes found in the real roster file", () => {
+  const row = (cells: Partial<Record<(typeof ROSTER_COLUMNS)[number], string>>) =>
+    ROSTER_COLUMNS.map((c) => cells[c] ?? "").join("\t");
+  const base = { Conference: "UAA", School: "Test College Z", Gender: "W", RosterURL: "https://example.com/z" };
+
+  it("a placeholder row with a blank season and no player is 'not retrieved', not an error", () => {
+    const r = parseRosterTsv(
+      [HEADER, row({ ...base, Notes: "Roster page failed to load; e.g. Player 9 on the 2026-27 roster" })].join("\n")
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.programs).toEqual([]);
+    expect(r.notRetrieved).toEqual([
+      { slug: "test-college-z-women", conference: "UAA", school: "Test College Z", gender: "women" },
+    ]);
+    // The Notes cell (which on the real file names players) never leaks.
+    expect(JSON.stringify(r)).not.toMatch(/Player 9|failed to load/);
+    expect(r.failed).toBe(false);
+  });
+
+  it("a placeholder row next to real rows for the same team is ignored", () => {
+    const r = parseRosterTsv(
+      [HEADER, row(base), row({ ...base, SeasonShown: "2026-27", Player: "Player 1", Class: "Sr." })].join("\n")
+    );
+    expect(r.notRetrieved).toEqual([]);
+    expect(r.programs).toHaveLength(1);
+    expect(r.programs[0].finalYearCount).toBe(1);
+  });
+
+  it("a single spring year ('2026') is the 2025-26 season, flagged", () => {
+    const r = parseRosterTsv(
+      [HEADER, row({ ...base, SeasonShown: "2026", Player: "Player 1", Class: "Sr." }), row({ ...base, SeasonShown: "2026", Player: "Player 2", Class: "Fr." })].join("\n")
+    );
+    expect(r.errors).toEqual([]);
+    const p = r.programs[0];
+    expect(p.seasonShown).toBe("2025-26");
+    expect(p.seasonFromSpringYear).toBe(true);
+    expect(p.finalYearCount).toBe(1); // a 2025-26 senior is class 2026
+    expect(p.classCounts).toEqual({ 2026: 1, 2029: 1 });
+  });
+
+  it("'2025-2026' and '2026-2027' are read like '2025-26'", () => {
+    const r = parseRosterTsv(
+      [HEADER, row({ ...base, SeasonShown: "2026-2027", Player: "Player 1", Class: "Jr." })].join("\n")
+    );
+    expect(r.programs[0]).toMatchObject({ seasonShown: "2026-27", seasonFromSpringYear: false });
+  });
+
+  it("a roster with no class column counts its players, all as unknown", () => {
+    const rows = [1, 2, 3].map((i) => row({ ...base, SeasonShown: "2025-26", Player: `Player ${i}`, Class: "" }));
+    const r = parseRosterTsv([HEADER, ...rows].join("\n"));
+    expect(r.programs[0]).toMatchObject({ playersListed: 3, unknownClassCount: 3, finalYearCount: 0 });
+    expect(r.unknownLabels).toEqual({ "(blank)": 3 });
+  });
+
+  it("a blank hometown does not make two different players a duplicate", () => {
+    const r = parseRosterTsv(
+      [HEADER, row({ ...base, SeasonShown: "2026-27", Player: "Player 1", Class: "Sr." }), row({ ...base, SeasonShown: "2026-27", Player: "Player 2", Class: "Sr." })].join("\n")
+    );
+    expect(r.programs[0]).toMatchObject({ playersListed: 2, duplicatesDropped: 0 });
+  });
+});
+
+describe("the real 2026-27 roster file", () => {
+  const path = join(__dirname, "..", "..", "docs", "data", "official_rosters_2026-27.tsv");
+  const real = parseRosterTsv(readFileSync(path, "utf8"));
+
+  it("imports with no row errors", () => {
+    expect(real.rowsRead).toBe(1947);
+    expect(real.errors).toEqual([]);
+    expect(real.failed).toBe(false);
+  });
+
+  it("imports 179 teams and reports the 10 whose roster was not retrieved", () => {
+    expect(real.programs).toHaveLength(179);
+    expect(real.notRetrieved.map((p) => p.slug).sort()).toEqual(
+      [
+        "brown-men", "carnegie-mellon-men", "carnegie-mellon-women", "dartmouth-men", "george-mason-men",
+        "george-mason-women", "princeton-women", "richmond-men", "st-bonaventure-men", "st-bonaventure-women",
+      ].sort()
+    );
+  });
+
+  it("leaves only labels that genuinely cannot be read as unknown", () => {
+    // "Rs." names no year; the blanks are one roster that prints no class column.
+    expect(real.unknownLabels).toEqual({ "Rs.": 1, "(blank)": 10 });
+  });
+
+  it("never carries a player name, hometown or note into its output", () => {
+    const out = JSON.stringify(real);
+    // Every Player / Hometown / Notes cell in the file, read from the file
+    // itself so no name is copied into this test.
+    const lines = readFileSync(path, "utf8").split(/\r?\n/).slice(1).filter(Boolean);
+    const cols = ["Player", "Hometown", "Notes"].map((c) => ROSTER_COLUMNS.indexOf(c as (typeof ROSTER_COLUMNS)[number]));
+    const cells = new Set(lines.flatMap((l) => cols.map((i) => (l.split("\t")[i] ?? "").trim())).filter((v) => v.length >= 5));
+    expect(cells.size).toBeGreaterThan(1500);
+    const leaked = [...cells].filter((v) => out.includes(v));
+    expect(leaked).toEqual([]);
   });
 });

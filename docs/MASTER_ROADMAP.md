@@ -13,6 +13,19 @@
 
 ## Executive status
 
+**2026-11-20 — PR E (#9): the real roster file imported to STAGING only;
+not merged, nothing on production.** `docs/data/official_rosters_2026-27.tsv`
+(1,947 rows, rosters read 2026-11-08): 0 row errors after fixing what the real
+file broke (teams with no roster, a bare "2026" season, "Fr. '30" labels, a
+roster with no class column, 18 teams already in the 68-program catalog under
+longer names). 179 teams imported, 10 named in the file with no roster, 2 on
+the conferences' own lists but absent (Saint Louis M/W; list with sources in
+`docs/data/expected_programs_2026-27.tsv`). Staging verified by md5 against
+the parser. No team ranges exist, so every imported team reads "Level not
+rated yet" and none reaches a fit band; P1-DATA-1 now needs ranges entered at
+`/admin/team-ranges`, starting from the 20 listed in
+`docs/catalog/phase-1-import.md`. Flag off in production; 048 not there.
+
 **2026-11-19 — PR D (fix/audit-2): the owner's signed-in production audit.**
 D0 (owner-approved production cleanup: 3 test rows deleted, owner's
 `current_utr` back to 5.80; JSON in `~/seeded-evidence/fix-audit-2/`).

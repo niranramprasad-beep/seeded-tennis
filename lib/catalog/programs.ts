@@ -188,6 +188,15 @@ export function finalYearDisplay(program: ImportedProgram, now: Date): FinalYear
   if (program.playersListed === 0) {
     return { text: "Not tracked", notes: ["The roster listed no players when it was read."], tracked: false };
   }
+  if (program.unknownClassCount >= program.playersListed) {
+    // Every class label was unreadable (one real roster prints no class
+    // column at all). "0 seniors" would be a claim; this is unknown.
+    const notes = ["The roster page listed no class years we could read, so seniors can't be counted."];
+    if (rosterIsFromEarlierSeason(program, now)) {
+      notes.push(`This is the ${program.seasonShown} roster, not the current season's.`);
+    }
+    return { text: "Not tracked", notes, tracked: false };
+  }
   const n = finalYearCountFor(program);
   const who = n === 1 ? "senior" : "seniors";
   const text = `${n} ${who} on the ${program.seasonShown} roster, checked ${formatIsoDate(program.sourceDate)}`;

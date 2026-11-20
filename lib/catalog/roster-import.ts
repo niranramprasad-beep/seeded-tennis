@@ -29,7 +29,7 @@
 //   * Spellings were not hand-checked. School names are stored as written;
 //     the report lists every distinct school so a person can read it over.
 
-import { finalYearClass, graduationClassYear, parseSeason } from "./class-year";
+import { finalYearClass, graduationClassYear, parseRosterSeason } from "./class-year";
 
 export type CatalogDivision = "D1" | "D2" | "D3" | "NAIA" | "JUCO";
 export type CatalogGender = "men" | "women";
@@ -99,6 +99,22 @@ export interface ProgramDraft {
   duplicatesDropped: number;
   /** Program-level fields that differed between this program's rows. */
   inconsistentFields: string[];
+  /** The roster printed a single spring year ("2026"), read as 2025-26. */
+  seasonFromSpringYear: boolean;
+}
+
+/**
+ * A program the file names but has no player rows for: its roster page did
+ * not load, was blocked, or rendered no table when it was read. Not imported
+ * — a program with no roster would read "0 seniors", which is not known.
+ * Reported as missing. The file's Notes cell is never copied here (on this
+ * file it can quote player names); the reason is fixed text.
+ */
+export interface NotRetrievedProgram {
+  slug: string;
+  conference: string;
+  school: string;
+  gender: CatalogGender;
 }
 
 export interface ParseResult {
@@ -112,6 +128,8 @@ export interface ParseResult {
   errorRate: number;
   /** True when errorRate > MAX_ERROR_RATE: the CLI must not upsert. */
   failed: boolean;
+  /** In the file with no player rows: not imported, reported as missing. */
+  notRetrieved: NotRetrievedProgram[];
 }
 
 export class RosterFileError extends Error {}
@@ -156,6 +174,7 @@ interface Group {
   labels: string[];
   seen: Set<string>;
   duplicates: number;
+  springYear: boolean;
 }
 
 function tally(map: Map<string, number>, value: string) {
@@ -202,6 +221,7 @@ export function parseRosterTsv(text: string): ParseResult {
 
   const errors: RowError[] = [];
   const groups = new Map<string, Group>();
+  const placeholders = new Map<string, NotRetrievedProgram>();
   const unknownLabels: Record<string, number> = {};
   let rowsRead = 0;
   let rowsUsed = 0;
@@ -239,7 +259,17 @@ export function parseRosterTsv(text: string): ParseResult {
       continue;
     }
     const seasonRaw = cell("SeasonShown");
-    if (!parseSeason(seasonRaw)) {
+    const season = parseRosterSeason(seasonRaw);
+    const player = cell("Player");
+    if (!player && !cell("Class")) {
+      // A placeholder: the file names the program but its roster was not
+      // retrieved. Season may be blank. Not a row error; not imported.
+      const slug = programSlug(school, gender);
+      if (!placeholders.has(slug)) placeholders.set(slug, { slug, conference, school, gender });
+      rowsUsed++;
+      continue;
+    }
+    if (!season) {
       errors.push({ line, reason: `SeasonShown "${seasonRaw}" is not a season like 2026-27` });
       continue;
     }
@@ -261,16 +291,22 @@ export function parseRosterTsv(text: string): ParseResult {
         labels: [],
         seen: new Set(),
         duplicates: 0,
+        springYear: false,
       };
       groups.set(key, group);
     }
     tally(group.values.HeadCoach, cell("HeadCoach"));
     tally(group.values.RosterURL, url);
-    tally(group.values.SeasonShown, parseSeason(seasonRaw)!.label);
+    tally(group.values.SeasonShown, season.label);
+    if (season.fromSpringYear) group.springYear = true;
     rowsUsed++;
 
-    const player = cell("Player");
-    if (!player) continue; // program row with no player listed
+    if (!player) {
+      // A class with no name is still a listed player (some pages render
+      // the class column but drop names). Count it; nothing to dedupe on.
+      group.labels.push(cell("Class"));
+      continue;
+    }
     // In-memory only: identifies an exact duplicate row. Never stored.
     const identity = `${player.toLowerCase()}\u0000${cell("Class").toLowerCase()}\u0000${cell("Hometown").toLowerCase()}`;
     if (group.seen.has(identity)) {
@@ -301,8 +337,13 @@ export function parseRosterTsv(text: string): ParseResult {
       continue;
     }
     const g = gs[0];
+    if (g.labels.length === 0) {
+      placeholders.set(slug, { slug, conference: g.conference, school: g.school, gender: g.gender });
+      continue;
+    }
+    placeholders.delete(slug); // the program has real rows after all
     const seasonLabel = mostCommon(g.values.SeasonShown)!;
-    const season = parseSeason(seasonLabel)!;
+    const season = parseRosterSeason(seasonLabel)!;
     const inconsistentFields = (["HeadCoach", "RosterURL", "SeasonShown"] as const).filter(
       (f) => [...g.values[f].keys()].filter(Boolean).length > 1
     );
@@ -336,6 +377,7 @@ export function parseRosterTsv(text: string): ParseResult {
       finalYearCount: classCounts[finalYearClass(season.startYear)] ?? 0,
       duplicatesDropped: g.duplicates,
       inconsistentFields,
+      seasonFromSpringYear: g.springYear,
     });
   }
 
@@ -356,6 +398,9 @@ export function parseRosterTsv(text: string): ParseResult {
     unknownLabels,
     errorRate,
     failed: rowsRead === 0 || errorRate > MAX_ERROR_RATE,
+    notRetrieved: [...placeholders.values()]
+      .filter((p) => !programs.some((d) => d.slug === p.slug))
+      .sort((a, b) => a.conference.localeCompare(b.conference) || a.school.localeCompare(b.school) || a.gender.localeCompare(b.gender)),
   };
 }
 

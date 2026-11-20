@@ -3,6 +3,7 @@ import {
   currentSeasonStartYear,
   finalYearClass,
   graduationClassYear,
+  parseRosterSeason,
   parseSeason,
   plausibleClassYear,
   seasonStartYearForIsoDate,
@@ -162,5 +163,52 @@ describe("the season under way on a date", () => {
     expect(seasonStartYearForIsoDate("2026-08-01")).toBe(2026);
     expect(seasonStartYearForIsoDate("Nov 19")).toBeNull();
     expect(seasonStartYearForIsoDate("2026-13-01")).toBeNull();
+  });
+});
+
+describe("labels found on the real 2026-27 rosters", () => {
+  const S = 2026;
+  it("reads a year label and an explicit year written together when they agree", () => {
+    expect(graduationClassYear("Fr. '30", S)).toBe(2030);
+    expect(graduationClassYear("So. '29", S)).toBe(2029);
+    expect(graduationClassYear("Jr. '28", S)).toBe(2028);
+    expect(graduationClassYear("Sr. '27", S)).toBe(2027);
+    expect(graduationClassYear("Sr. 2027", S)).toBe(2027);
+  });
+
+  it("refuses a combined label that contradicts itself", () => {
+    expect(graduationClassYear("Fr. '28", S)).toBeNull();
+    expect(graduationClassYear("Sr. '30", S)).toBeNull();
+    expect(graduationClassYear("Fr/So '30", S)).toBeNull();
+  });
+
+  it("still refuses a redshirt marker with no year", () => {
+    expect(graduationClassYear("Rs.", S)).toBeNull();
+  });
+
+  it("reads the other spellings the file uses", () => {
+    expect(graduationClassYear("Fy.", S)).toBe(2030);
+    expect(graduationClassYear("FY", S)).toBe(2030);
+    expect(graduationClassYear("First Year", S)).toBe(2030);
+    expect(graduationClassYear("1st", S)).toBe(2030);
+    expect(graduationClassYear("4th", S)).toBe(2027);
+    expect(graduationClassYear("5th", S)).toBe(2027);
+    expect(graduationClassYear("R-Sr.", S)).toBe(2027);
+    expect(graduationClassYear("Gr.", S)).toBe(2027);
+  });
+});
+
+describe("parseRosterSeason", () => {
+  it("reads a single spring year as the season that spring ends", () => {
+    expect(parseRosterSeason("2026")).toEqual({ startYear: 2025, label: "2025-26", fromSpringYear: true });
+    expect(parseRosterSeason("Spring 2026")).toEqual({ startYear: 2025, label: "2025-26", fromSpringYear: true });
+  });
+  it("is parseSeason for everything else, and parseSeason stays strict", () => {
+    expect(parseRosterSeason("2026-27")).toEqual({ startYear: 2026, label: "2026-27" });
+    expect(parseRosterSeason("2025-2026")).toEqual({ startYear: 2025, label: "2025-26" });
+    expect(parseRosterSeason("Fall 2026")).toBeNull();
+    expect(parseRosterSeason("")).toBeNull();
+    expect(parseRosterSeason(null)).toBeNull();
+    expect(parseSeason("2026")).toBeNull();
   });
 });

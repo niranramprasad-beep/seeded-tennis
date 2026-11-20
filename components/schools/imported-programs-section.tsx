@@ -12,8 +12,10 @@
 // entered a sourced range; merging rated ones into the banded list above is
 // a later phase. No player name exists in the data to show.
 
+import { withoutLegacyDuplicates } from "@/lib/catalog/legacy-match";
 import { finalYearDisplay, rangeDisplay, type ImportedProgram } from "@/lib/catalog/programs";
 import { loadImportedPrograms } from "@/lib/db/programs";
+import { getSchoolsLite } from "@/lib/db/schools";
 
 function byConference(programs: ImportedProgram[]): [string, ImportedProgram[]][] {
   const groups = new Map<string, ImportedProgram[]>();
@@ -69,7 +71,11 @@ function ProgramRow({ program, now }: { program: ImportedProgram; now: Date }) {
 }
 
 export async function ImportedProgramsSection() {
-  const programs = await loadImportedPrograms();
+  const [imported, legacy] = await Promise.all([loadImportedPrograms(), getSchoolsLite()]);
+  // A team already in the main list above (Middlebury, Johns Hopkins, the
+  // Ivies...) is not listed a second time here.
+  const programs = withoutLegacyDuplicates(imported, legacy);
+  const alreadyListed = imported.length - programs.length;
   if (programs.length === 0) return null;
   const now = new Date();
 
@@ -83,6 +89,9 @@ export async function ImportedProgramsSection() {
         added one program at a time, with its source and date; until then it reads &ldquo;Level not
         rated yet&rdquo; and the program gets no fit band. &ldquo;Seniors&rdquo; counts every player
         in their final season on that roster, including graduate students and 5th-years.
+        {alreadyListed > 0
+          ? ` ${alreadyListed} team${alreadyListed === 1 ? " is" : "s are"} already in the list above and ${alreadyListed === 1 ? "isn't" : "aren't"} repeated here.`
+          : null}
       </p>
 
       <div className="mt-6 space-y-4">

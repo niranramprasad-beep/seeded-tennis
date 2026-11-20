@@ -130,6 +130,15 @@ export function graduationClassYear(label: string | null | undefined, seasonStar
     return plausibleClassYear(year, seasonStartYear) ? year : null;
   }
 
+  // Both at once: "Fr. '30", "Sr. 2027". Read each half; use the year only
+  // when the two agree, otherwise the label contradicts itself -> unknown.
+  const combined = text.match(/^(.+?)\s+('\d{2}|\d{4})$/);
+  if (combined) {
+    const byYear = graduationClassYear(combined[1], seasonStartYear);
+    const explicitYear = graduationClassYear(combined[2], seasonStartYear);
+    return byYear !== null && byYear === explicitYear ? byYear : null;
+  }
+
   // Redshirt: strip the prefix, map by the eligibility year that follows.
   // A trailing "(rs)" / " rs" is the same marker written after.
   const token = text.replace(REDSHIRT_SUFFIX, "").replace(REDSHIRT_PREFIX, "").trim();
@@ -163,6 +172,8 @@ export interface Season {
   startYear: number;
   /** Canonical "2026-27". */
   label: string;
+  /** Set by parseRosterSeason when the roster printed a single spring year. */
+  fromSpringYear?: true;
 }
 
 /**
@@ -206,4 +217,22 @@ export function seasonStartYearForIsoDate(iso: string): number | null {
   const month = Number(m[2]);
   if (month < 1 || month > 12) return null;
   return month >= 8 ? year : year - 1;
+}
+
+/**
+ * A college TENNIS roster's season. As parseSeason, plus a bare year: tennis
+ * crowns its champions in the spring, so a page titled "2026 Men's Tennis
+ * Roster" is the spring-2026 team, the 2025-26 season. That reading only
+ * ever makes a roster look OLDER (its seniors have finished), never newer,
+ * so an error in it cannot overstate seniors leaving. Kept out of
+ * parseSeason, which stays strict for every other caller.
+ */
+export function parseRosterSeason(raw: string | null | undefined): Season | null {
+  const strict = parseSeason(raw);
+  if (strict || typeof raw !== "string") return strict;
+  const m = raw.normalize("NFKC").trim().match(/^(?:spring\s+)?(\d{4})$/i);
+  if (!m) return null;
+  const end = Number(m[1]);
+  const season = parseSeason(`${end - 1}-${end}`);
+  return season ? { ...season, fromSpringYear: true } : null;
 }

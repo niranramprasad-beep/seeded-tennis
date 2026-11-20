@@ -127,6 +127,23 @@ describe("final-year line", () => {
     expect(d.text).toBe("Not tracked");
     expect(d.tracked).toBe(false);
   });
+
+  it("says Not tracked, never '0 seniors', when no class label could be read", () => {
+    const d = finalYearDisplay(program({ playersListed: 10, unknownClassCount: 10, classCounts: [] }), NOW);
+    expect(d.tracked).toBe(false);
+    expect(d.text).toBe("Not tracked");
+    expect(d.text).not.toMatch(/0 seniors/);
+    expect(d.notes[0]).toMatch(/no class years we could read/);
+  });
+
+  it("still counts when only some labels were unreadable", () => {
+    const d = finalYearDisplay(
+      program({ playersListed: 10, unknownClassCount: 9, classCounts: [{ classYear: 2027, players: 1 }] }),
+      NOW
+    );
+    expect(d.tracked).toBe(true);
+    expect(d.notes.join(" ")).toMatch(/9 of 10/);
+  });
 });
 
 describe("dates do not move with the time zone", () => {
