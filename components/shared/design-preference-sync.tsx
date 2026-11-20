@@ -43,7 +43,7 @@ export function DesignPreferenceSync() {
     });
     // Only re-run this pull if auth/hydration state changes, not on every
     // design/seededMode change (that's the write-through effect below).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time pull per auth/hydration change; writes are the next effect
   }, [playerHydrated, designHydrated, isAuthed]);
 
   useEffect(() => {

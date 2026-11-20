@@ -1,4 +1,4 @@
-import { BarChart3, Compass, Mail, Route, School } from "lucide-react";
+import { Compass, Mail, Route, School } from "lucide-react";
 
 // Shared copy/content for both Legacy's and Seeded's home page compositions
 // (components/home/legacy-home-view.tsx, components/seeded/home/*) — kept
@@ -39,5 +39,3 @@ export const LOOP: [string, string][] = [
   ["Train", "Build the week around the actual gap."],
   ["Track", "Log check-ins, matches, and coach replies."],
 ];
-
-export { BarChart3 };

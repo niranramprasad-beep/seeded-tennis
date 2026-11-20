@@ -43,7 +43,7 @@ breaking RLS, or is a call the app makes.
 | RPC | Who can call | Why it must stay |
 |---|---|---|
 | `is_family_member(code)` | authenticated | **Cannot revoke.** Used by the SELECT policies on `families`, `profiles`, `utr_entries`, `matches`, `coach_outreach`, `tournament_entries`, `daily_checkins`, `cost_calculations`, `parent_accounts`, `family_codes`, `encouragement_notes`, `parent_reports`, `season_budgets`, `budget_expenses`. Only answers about the caller. |
-| `is_parent_member(code)` | authenticated | **Cannot revoke.** `season_budgets` / `budget_expenses` write policies. |
+| `is_parent_member(code)` | authenticated | **Cannot revoke.** `season_budgets` / `budget_expenses` write policies. Since 050: true only when the caller's own `profiles.role = 'parent'` AND they are an approved member (either shape). |
 | `has_tier(tier)` | authenticated | **Cannot revoke.** Write policies on `coach_outreach` and the five training tables. |
 | `account_active()` | authenticated | **Cannot revoke.** The restrictive consent policy on 21 tables (030). |
 | `consent_required_for_birth_year(year)` | authenticated | **Cannot revoke.** Called by `protect_privileged_profile_columns()`, which is SECURITY INVOKER and so runs as the caller. |

@@ -10,7 +10,7 @@
 // `await` these) so swapping the body for a real `supabase.from("schools")`
 // query later needs no call-site changes.
 
-import type { Division, Gender, Player, School, SchoolLite } from "@/lib/types";
+import type { Division, Player, School, SchoolLite } from "@/lib/types";
 import { formatDate, getCurrentGrade, ordinalGrade } from "@/lib/time";
 import { formatPlayerUtr } from "@/lib/utils";
 
@@ -106,10 +106,6 @@ export async function getSchool(slug: string): Promise<School | undefined> {
 export async function getSchoolsBySlugs(slugs: string[]): Promise<School[]> {
   const set = new Set(slugs);
   return resolve(schoolsData.filter((s) => set.has(s.slug)));
-}
-
-export async function getSchoolsByGender(gender: Gender): Promise<School[]> {
-  return resolve(schoolsData.filter((s) => s.gender === gender));
 }
 
 export async function getConferences(): Promise<string[]> {

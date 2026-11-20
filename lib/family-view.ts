@@ -163,13 +163,11 @@ export function firstNameLastInitial(name: string | null | undefined): string {
  * The parent's one-line story, used on every parent screen.
  *
  * What a parent may write is decided by RLS, and this sentence must match
- * it: `season_budgets` / `budget_expenses` (is_parent_member) and
- * `encouragement_notes` (033: role = 'parent' AND approved). Nothing of the
- * player's — profile, results, plan, outreach, events — is writable by
- * another account; every one of those tables checks `user_id = auth.uid()`.
- * The budget is shared rather than parent-only, because is_parent_member()
- * also admits a player who joined with the code (docs/TODO.md week 1); the
- * budget page says so where it matters.
+ * it: `season_budgets` / `budget_expenses` (is_parent_member, role-aware
+ * since 050) and `encouragement_notes` (033). Both require the writer's own
+ * role = 'parent' AND approved membership. Nothing of the player's —
+ * profile, results, plan, outreach, events — is writable by another account;
+ * every one of those tables checks `user_id = auth.uid()`.
  */
 export function parentScopeSentence(parentFirst: string, playerFirst: string | null): string {
   if (!playerFirst) {

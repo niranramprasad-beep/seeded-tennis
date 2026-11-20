@@ -195,7 +195,7 @@ export function parseBillingLookup(body: unknown): BillingLookup {
 }
 
 /** Only ever send someone to Whop itself. */
-export function isWhopUrl(url: string): boolean {
+function isWhopUrl(url: string): boolean {
   try {
     const u = new URL(url);
     return u.protocol === "https:" && (u.hostname === "whop.com" || u.hostname.endsWith(".whop.com"));

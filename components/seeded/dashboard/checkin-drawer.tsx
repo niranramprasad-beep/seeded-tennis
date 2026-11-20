@@ -11,7 +11,7 @@ import { localDateKey } from "@/lib/time";
 import { cn, plural } from "@/lib/utils";
 import { CheckinHeatmap } from "./checkin-heatmap";
 
-export const FOCUS_AREAS: { id: FocusArea; label: string }[] = [
+const FOCUS_AREAS: { id: FocusArea; label: string }[] = [
   { id: "forehand", label: "Forehand" },
   { id: "backhand", label: "Backhand" },
   { id: "serve", label: "Serve" },

@@ -25,9 +25,9 @@ import { safeRedirectPath } from "@/lib/config/auth";
 import type { JoinFamilyResult } from "@/lib/db/family-join";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 
-export const VERIFY_RETURN_KEY = "seeded.verify.return";
-export const PENDING_JOIN_KEY = "seeded.verify.joinCode";
-export const BANNER_DISMISSED_KEY = "seeded.verify.bannerDismissed";
+const VERIFY_RETURN_KEY = "seeded.verify.return";
+const PENDING_JOIN_KEY = "seeded.verify.joinCode";
+const BANNER_DISMISSED_KEY = "seeded.verify.bannerDismissed";
 
 /** Where /auth/verified sends someone when nothing was remembered. */
 export const DEFAULT_VERIFY_RETURN = "/today";
@@ -154,7 +154,7 @@ export function dismissVerifyBanner(): void {
 
 /** Pages the banner never appears on: signing in or up, the auth landing
  *  pages, password reset, and onboarding. */
-export const VERIFY_BANNER_HIDDEN_PREFIXES = [
+const VERIFY_BANNER_HIDDEN_PREFIXES = [
   "/auth",
   "/login",
   "/signup",
@@ -164,7 +164,7 @@ export const VERIFY_BANNER_HIDDEN_PREFIXES = [
   "/onboarding",
 ] as const;
 
-export function isVerifyBannerHiddenOn(pathname: string): boolean {
+function isVerifyBannerHiddenOn(pathname: string): boolean {
   return VERIFY_BANNER_HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

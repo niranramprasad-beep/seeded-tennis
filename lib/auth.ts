@@ -1,6 +1,7 @@
-import { ENROLLMENT_TERMS, type EnrollmentTerm, type FamilyRole, type Player, type PlayerGender } from "@/lib/types";
-import { getAuthedUser, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { ENROLLMENT_TERMS, type EnrollmentTerm, type FamilyRole, type Player, type PlayerGender, type Weakness } from "@/lib/types";
+import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/db/database.types";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
@@ -8,8 +9,6 @@ import { isSeasonKey, toTournamentsPlannedOrNull } from "@/lib/tournaments-plann
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
 import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
-
-export { isSupabaseConfigured };
 
 export interface AccountInput {
   name: string;
@@ -61,7 +60,7 @@ export interface AuthResult {
 const FAMILY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const FAMILY_CODE_LENGTH = 12;
 
-export function generateFamilyCode(_name?: string): string {
+function generateFamilyCode(_name?: string): string {
   const bytes = new Uint8Array(FAMILY_CODE_LENGTH);
   globalThis.crypto.getRandomValues(bytes);
   let out = "";
@@ -80,7 +79,6 @@ const NOT_CONFIGURED_MESSAGE =
 
 function notConfiguredResult(): AuthResult {
   if (process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console
     console.error(`[seeded/auth] ${NOT_CONFIGURED_MESSAGE}`);
   }
   return { ok: false, error: NOT_CONFIGURED_MESSAGE };
@@ -694,7 +692,7 @@ export function isEmailVerifiedFor(
 }
 
 function mapProfileToPlayer(
-  profile: any,
+  profile: Tables<"profiles">,
   fallbackEmail: string,
   authUser?: EmailVerificationAuthFacts | null
 ): Player {
@@ -727,7 +725,7 @@ function mapProfileToPlayer(
     targetSchoolSlugs:
       (profile.target_school_slugs as string[] | null) ??
       emptyPlayer.targetSchoolSlugs,
-    weaknesses: profile.weaknesses ?? emptyPlayer.weaknesses,
+    weaknesses: (profile.weaknesses as Weakness[] | null) ?? emptyPlayer.weaknesses,
     // NULL stays null ("Not set"). profiles.tournaments_played is not read:
     // no screen ever wrote it (049's header).
     tournamentsPlanned: toTournamentsPlannedOrNull(profile.tournaments_goal),

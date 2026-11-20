@@ -45,7 +45,7 @@ export function CostCalculatorView({
 
 /** Years of junior tennis left, counting this school year, from a REAL class
  *  year — or 0 (an empty input) without one. */
-export function yearsRemainingFor(graduationYear: number | null, now: Date = new Date()): number {
+function yearsRemainingFor(graduationYear: number | null, now: Date = new Date()): number {
   if (graduationYear == null) return 0;
   return Math.max(1, 12 - getCurrentGrade(graduationYear, now) + 1);
 }
@@ -221,7 +221,7 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
   // silently skip the resync and leave the invalid text on screen. The
   // guard inside (only setState when the two actually disagree) is what
   // keeps this from looping forever, not a dependency array.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs every render on purpose (see above); the inner guard stops the loop
   useEffect(() => {
     if (Number(text) !== value) setText(String(value));
   });

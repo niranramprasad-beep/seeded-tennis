@@ -86,7 +86,7 @@ export function layoutOverlaps<T extends Timed>(sessions: T[]) {
     }));
 }
 
-export function rangesOverlap(a: Timed, b: Timed): boolean {
+function rangesOverlap(a: Timed, b: Timed): boolean {
   const aStart = timeToMinutes(a.startTime);
   const bStart = timeToMinutes(b.startTime);
   return aStart < bStart + b.duration && bStart < aStart + a.duration;

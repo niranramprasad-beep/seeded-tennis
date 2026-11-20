@@ -116,7 +116,7 @@ export function LegacyHomeView({
               <div className="relative mx-auto max-w-md lg:max-w-none">
                 <Parallax offset={16}>
                   <div className="overflow-hidden rounded-[32px] border-hairline border-line shadow-lift">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- intrinsic-size hero inside a parallax wrapper; next/image would change its layout */}
                     <img
                       src="/images/hero-celebration.jpg"
                       alt="Tennis player mid-match, full extension on a forehand"

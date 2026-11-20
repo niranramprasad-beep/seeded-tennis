@@ -7,6 +7,31 @@ Newest first.
 
 ---
 
+## 2026-11-20 (night) — Review-ready run: migration 050, budget writes parent-only
+
+Calls made without asking (the owner was asleep; the run was pre-approved for
+this migration):
+- **Fix the function, not the six policies.** `is_parent_member()` is used by
+  exactly six policies, all budget writes, and by no function (checked on
+  production). Narrowing it is the smallest change and the one place a future
+  reader looks. Undo: §J Step 24 rollback.
+- **Budget writes do not need 043's email proof.** 043 guards actions that
+  change who is in a family or consent on a minor's behalf (join, approve,
+  under-13 consent). A budget write changes neither, is visible to the whole
+  family, and every approved joiner parent already proved their email to join.
+  Requiring it would refuse an approved creator-parent who has never been
+  asked to verify, for no gain in what anyone can see. Revisit if the budget
+  ever carries payment details.
+- **The Family-plan lock stays a separate RESTRICTIVE policy** (042/045), not
+  folded into the function. Two gates that are each testable beat one that
+  does both.
+- **Production had 0 budget rows**, so there were no non-parent rows to report
+  and nothing was changed.
+- **The /privacy disclosure was deleted, not reworded**, in the same commit
+  (TODO's instruction), and the effective date moved to 2026-11-20.
+
+---
+
 ## 2026-11-20 — fix/no-invented-goal: no invented tournament goal (migration 049) and the numbers sweep
 
 Calls made without asking (the owner was unreachable):
@@ -370,9 +395,11 @@ and then offers Undo (re-saves the same record). Deleting a session has no
 confirm, only Undo — it is one tap to restore, the same rows by id.
 
 **Gradients are banned on Seeded screens** (C17,
-`lib/design-system-v2.test.ts`), with five allow-listed files. One is a
+`lib/design-system-v2.test.ts`), with five allow-listed files. One was a
 real open violation: `components/auth/parent-login-form.tsx` (glass card,
-gradient button on /parent-login), left to the onboarding/auth pass.
+gradient button on /parent-login). That file was unused (/parent-login
+redirects to /login) and was deleted in PR-QUALITY (2026-11-20); the
+allow-list now has four entries.
 
 **`plural(n, one, many)`** in lib/utils.ts is the one way a count meets a
 noun; `lib/plural.test.ts` scans for hand-rolled `${n} …s`.
@@ -1101,7 +1128,9 @@ flaking again, find out why first.
 ## 2026-11-15 — `playwright-core` + axe as devDependencies, driving the installed Chrome
 
 **Decision.** Added `playwright-core@1.49.1`, `@axe-core/playwright@4.10.1`
-and `axe-core@4.10.2` as devDependencies, installed with
+and `axe-core@4.10.2` as devDependencies (`@axe-core/playwright` was removed
+on 2026-11-20 in PR-QUALITY: nothing in the repo imports it; the scripts
+inject `axe-core`'s own file), installed with
 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` and pointed at the Chrome already on
 the machine (`channel: "chrome"`).
 

@@ -13,6 +13,45 @@
 
 ## Executive status
 
+**2026-11-20 night — PR-QUALITY (`chore/code-quality`; no
+behaviour change, no migration).** Code-quality pass only. Zero `as any` left
+in app/lib/components (three test stubs now `as unknown as
+SupabaseClient<Database>`; the four Recharts tooltips use `TooltipProps`;
+`mapProfileToPlayer` takes `Tables<"profiles">`). `eslint-disable`: 5 unused
+ones removed (no-console ×4, no-control-regex), 1 fixed (tournament-fit
+`blockers` memoised and listed), 9 kept with a same-line `--` reason.
+`.eslintrc.json` gains `root: true`; `npm run lint` is `next lint
+--max-warnings=0` and reports 0. npm scripts call `next`/`tsc`/`vitest`
+directly (the `Coding:Projects` workaround is gone; README line dropped).
+Dead code: 6 unused component files deleted (incl. the unused
+`parent-login-form.tsx`, so its OPEN gradient allow-list entry in
+`lib/design-system-v2.test.ts` is gone too), 8 dead data functions deleted
+(notification/public-page prefs, `loadParentReports`, `uploadMatchVideo`,
+`getSchoolsByGender`, `getTargetSchools`), 52 exports made module-private,
+unused imports removed. `@axe-core/playwright` removed (zero imports).
+`npm audit`: 24 → 23 (brace-expansion patch bump); `--omit=dev` reports 0 —
+everything left is dev-only (vitest 1.x needs a major; lighthouse's
+puppeteer chain has no non-breaking fix). `scripts/README.md` now gives a run
+command and target for all 12 scripts. Report:
+`~/seeded-evidence/review-ready/r6-quality/R6_REPORT.md`.
+
+**2026-11-20 (night) — Migration 050 on production: the season budget is
+parent-only.** `is_parent_member()` now requires the writer's own
+`profiles.role = 'parent'` AND approved membership (033's pattern), closing
+the known gap where a sibling player could write the budget. Staging
+rehearsal (before/after + rollback), fresh backup, production 23:20 UTC
+(ledger 50 → 51), probed as real roles in rolled-back blocks; production had
+0 budget rows. Guard `lib/db/budget-parent-only.test.ts` (mutation-tested).
+`/privacy` disclosure removed. PR-SEC. Evidence:
+`~/seeded-evidence/review-ready/r4-rls/`.
+
+**2026-11-20 — Rollout: 049 on production; PR #11 and docs PR #10 merged.**
+Backup first, 049 in one transaction with its ledger row (production ledger
+49 → 50, 2026-11-20 04:58 UTC), probed as real users before and after the
+merge; post-deploy 0 stray 12s. PR #11 (`e099051`) deployed; 22 routes 200,
+0 runtime errors. Report: `~/seeded-evidence/no-invented-goal/REPORT.md`.
+The entry below was written before the run.
+
 **2026-11-20 — PR E (#9): the real roster file imported to STAGING only;
 not merged, nothing on production.** `docs/data/official_rosters_2026-27.tsv`
 (1,947 rows, rosters read 2026-11-08): 0 row errors after fixing what the real
@@ -402,11 +441,9 @@ and one broke every profile write in the app *while rolling back*. See `docs/HAN
   Attack-tested on staging in both directions — stranger, pending member,
   other family, removed member — plus the two write paths and the rollback.
   `docs/DECISIONS.md`, §J step 13.
-- **Still open, deliberately not in 036: `is_parent_member()` grants
-  season-budget writes to any approved joiner regardless of `role`**, so a
-  sibling player can write the budget. A write-authorisation change nobody
-  asked for does not belong in the launch migration. Fix (mirror 033's
-  pattern) in `docs/TODO.md`.
+- ~~Still open, deliberately not in 036: `is_parent_member()` grants
+  season-budget writes to any approved joiner regardless of `role`.~~
+  **Fixed by migration 050 (2026-11-20)**, mirroring 033's pattern.
 - **`/sample-report` reports no First Contentful Paint**, so Lighthouse and
   PageSpeed score it 0 even though the page renders correctly. A measurement
   anomaly on a marketing page, with a bisect plan in `docs/TODO.md`.

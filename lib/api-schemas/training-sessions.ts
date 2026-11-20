@@ -17,7 +17,7 @@ export function isRealDateKey(value: string): boolean {
 /** The longest series one add can create, and the most rows one call may touch. */
 export const MAX_SESSIONS_PER_WRITE = 12;
 
-export const TrainingSessionSchema = z.object({
+const TrainingSessionSchema = z.object({
   id: z.string().uuid(),
   date: z.string().refine(isRealDateKey, "Pick a date."),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Pick a start time."),

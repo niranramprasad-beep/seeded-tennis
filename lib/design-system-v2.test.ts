@@ -298,8 +298,6 @@ const GRADIENT_ALLOWED: Record<string, string> = {
   "components/pricing/legacy-pricing-view.tsx": "the Legacy pricing page; Seeded renders seeded-pricing-view.tsx",
   "components/shared/glow-orb.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
   "components/shared/spotlight-card.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
-  "components/auth/parent-login-form.tsx":
-    "OPEN: a real Seeded violation (glass card + gradient button on /parent-login). Auth belongs to the onboarding pass running in parallel; flagged in the sweep C17 report rather than edited here",
 };
 
 const APP_ROUTE_EXTRA_DIRS = ["components/matches", "components/dashboard"];

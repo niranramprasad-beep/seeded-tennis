@@ -237,19 +237,6 @@ export async function deleteMatch(id: string, ctx?: EventsWriteContext): Promise
   if (error) throw new Error(error.message);
 }
 
-export async function uploadMatchVideo(file: File): Promise<string | null> {
-  const supabase = getSupabase();
-  const id = await userId();
-  if (!supabase || !id) return null;
-  const path = `${id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]+/g, "-")}`;
-  const { error } = await supabase.storage.from("match-videos").upload(path, file, {
-    upsert: true,
-  });
-  if (error) throw new Error(error.message);
-  const { data } = await supabase.storage.from("match-videos").createSignedUrl(path, 60 * 60 * 24 * 7);
-  return data?.signedUrl ?? path;
-}
-
 /* --------------------------------------------------------- tournament entries */
 // Real storage for tournaments a family is tracking, has entered or has
 // played — the "Upcoming tournaments" list on /events. Backed by
@@ -259,7 +246,6 @@ export async function uploadMatchVideo(file: File): Promise<string | null> {
 export {
   TOURNAMENT_STATUSES,
   tournamentStatusLabel,
-  isCommittedStatus,
   type TournamentEntryStatus,
 } from "@/lib/tournament-status";
 

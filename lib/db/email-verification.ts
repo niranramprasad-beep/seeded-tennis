@@ -49,7 +49,7 @@ export {
 type RequestResult = { allowed: true; email: string } | { allowed: false; reason: string };
 
 /** request_email_verification()'s jsonb, or null when it is not that shape. */
-export function parseVerificationRequest(data: unknown): RequestResult | null {
+function parseVerificationRequest(data: unknown): RequestResult | null {
   if (!data || typeof data !== "object") return null;
   const d = data as { allowed?: unknown; email?: unknown; reason?: unknown };
   if (d.allowed === true && typeof d.email === "string" && d.email) return { allowed: true, email: d.email };
@@ -160,10 +160,10 @@ export type MarkEmailVerifiedResult ="verified" | "not-proven" | "rate-limited";
 
 /** 043 raises this (errcode 53400) when its own profile write is refused by
  *  the profile_write limit. */
-export const EMAIL_VERIFY_RATE_LIMITED = "email_verify_rate_limited";
+const EMAIL_VERIFY_RATE_LIMITED = "email_verify_rate_limited";
 
 /** Which kind of failure a mark_email_verified() error is. */
-export function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
+function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
   const e = (error ?? {}) as { code?: unknown; message?: unknown };
   const limited =
     e.code === "53400" || (typeof e.message === "string" && e.message.includes(EMAIL_VERIFY_RATE_LIMITED));
