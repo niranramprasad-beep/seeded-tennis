@@ -151,6 +151,17 @@ export function currentSeason(date: Date = new Date()): Season {
   return month >= 7 && month <= 10 ? "fall" : month >= 11 || month <= 1 ? "winter" : month <= 4 ? "spring" : "summer";
 }
 
+/** One specific season, e.g. "fall-2026". Winter spans the new year:
+ * December 2026 and January–February 2027 are both "winter-2027", so a
+ * date in December and one in January land in the SAME season. Use this to
+ * ask "is this date in the current season?" — comparing currentSeason()
+ * alone would count last year's fall as this fall. */
+export function seasonKey(date: Date = new Date()): string {
+  const season = currentSeason(date);
+  const year = season === "winter" && date.getMonth() === 11 ? date.getFullYear() + 1 : date.getFullYear();
+  return `${season}-${year}`;
+}
+
 /* --------------------------------------------------------------------------
  * DATE-ONLY VALUES ARE LOCAL DATES. ALWAYS.
  * --------------------------------------------------------------------------

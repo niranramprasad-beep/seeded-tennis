@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
 import { ChevronDown } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
@@ -126,6 +127,16 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   const [gradYear, setGradYear] = useState(() => gradYearOptions()[1] ?? getCurrentSchoolYear());
   const [gender, setGender] = useState<Gender>("women");
   const [gpa, setGpa] = useState("3.7");
+  // The starting values above are an EXAMPLE (the card says so) — they are
+  // not the visitor's. /onboarding treats every query value as an answer
+  // and skips that question, then saves it to the new account. So only a
+  // field the visitor actually changed travels: clicking straight through
+  // used to pre-answer onboarding with UTR 9.4, GPA 3.7, women's and a
+  // grad year Seeded picked — and the phone card, which has no GPA field,
+  // sent a GPA the visitor never saw.
+  const [touched, setTouched] = useState<ReadonlySet<CalculatorField>>(() => new Set());
+  const touch = (field: CalculatorField) =>
+    setTouched((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
 
   const utrNum = parseFloat(utr) || 0;
   const filtered = useMemo(
@@ -162,21 +173,23 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   const counts = report?.counts ?? { reach: 0, target: 0, likely: 0, outOfRange: 0 };
   const total = report?.inRange ?? 0;
 
-  const query = new URLSearchParams({
-    utr,
-    gradYear: String(gradYear),
-    gender,
-    gpa,
-  }).toString();
+  const query = onboardingQueryFor({ utr, gradYear: String(gradYear), gender, gpa }, touched);
 
   if (mobile) {
     return (
       <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
+        {/* The same disclosure as the desktop card: these starting values
+            are an example, not the visitor's (and only fields they change
+            are sent on — lib/home-calculator.ts). */}
+        <p className="text-xs text-stone">Example values. Change them to yours.</p>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniField label="UTR">
             <input
               value={utr}
-              onChange={(e) => setUtr(e.target.value)}
+              onChange={(e) => {
+                setUtr(e.target.value);
+                touch("utr");
+              }}
               className="h-12 rounded-lg border border-input px-3 font-mono text-base tabular-nums text-ink"
               inputMode="decimal"
             />
@@ -184,7 +197,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           <MiniField label="Grad year">
             <select
               value={gradYear}
-              onChange={(e) => setGradYear(Number(e.target.value))}
+              onChange={(e) => {
+                setGradYear(Number(e.target.value));
+                touch("gradYear");
+              }}
               className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
             >
               {gradYearOptions().map((y) => (
@@ -198,7 +214,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <MiniField label="Team">
           <select
             value={gender}
-            onChange={(e) => setGender(e.target.value as Gender)}
+            onChange={(e) => {
+              setGender(e.target.value as Gender);
+              touch("gender");
+            }}
             className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
           >
             {GENDER_OPTIONS.map((g) => (
@@ -209,7 +228,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           </select>
         </MiniField>
         <Link
-          href={`/onboarding?${query}`}
+          href={query ? `/onboarding?${query}` : "/onboarding"}
           className="flex min-h-[52px] items-center justify-center rounded-[10px] bg-grass font-sans text-base font-semibold text-on-primary hover:bg-grass-600"
         >
           See my schools
@@ -231,7 +250,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <MiniField label="Current UTR">
           <input
             value={utr}
-            onChange={(e) => setUtr(e.target.value)}
+            onChange={(e) => {
+              setUtr(e.target.value);
+              touch("utr");
+            }}
             className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
@@ -239,7 +261,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <MiniField label="Grad year">
           <select
             value={gradYear}
-            onChange={(e) => setGradYear(Number(e.target.value))}
+            onChange={(e) => {
+              setGradYear(Number(e.target.value));
+              touch("gradYear");
+            }}
             className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             {gradYearOptions().map((y) => (
@@ -252,7 +277,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <MiniField label="Team">
           <select
             value={gender}
-            onChange={(e) => setGender(e.target.value as Gender)}
+            onChange={(e) => {
+              setGender(e.target.value as Gender);
+              touch("gender");
+            }}
             className="h-11 rounded-md border border-input bg-card px-2.5 text-base text-ink"
           >
             {GENDER_OPTIONS.map((g) => (
@@ -265,7 +293,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         <MiniField label="Unweighted GPA">
           <input
             value={gpa}
-            onChange={(e) => setGpa(e.target.value)}
+            onChange={(e) => {
+              setGpa(e.target.value);
+              touch("gpa");
+            }}
             className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
@@ -279,7 +310,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       {/* Secondary on purpose (design system v2 rule 1): beside it, the hero
           copy's "Get my free fit report" is the screen's one green button. */}
       <Link
-        href={`/onboarding?${query}`}
+        href={query ? `/onboarding?${query}` : "/onboarding"}
         className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
       >
         See my {total || "—"} schools
@@ -349,7 +380,10 @@ const CAPABILITY_CARDS = [
   {
     title: "Plan",
     body: "Your UTR now vs where your target teams need you by the summer before senior year, with checkpoints each season.",
-    caption: "You 9.4 · Emory range 9.1–10.6",
+    // An example, and said so. This named a real program ("Emory range
+    // 9.1–10.6") with a range no source backs — roster UTRs are unsourced
+    // estimates (UTR_RANGE_SOURCE_LABEL) — as a fact (2026-11-20).
+    caption: "Example · you 9.4 · target team 9.1–10.6",
   },
   {
     title: "Compete smarter",
@@ -386,7 +420,8 @@ function WhatItDoes() {
                 </>
               )}
               {c.title === "Compete smarter" && (
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-stone">Example</span>
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
                     Good fit · L3 Richmond
                   </span>
@@ -396,7 +431,8 @@ function WhatItDoes() {
                 </div>
               )}
               {c.title === "Reach out on time" && (
-                <div className="mt-5 flex flex-wrap gap-1.5 text-[13px]">
+                <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[13px]">
+                  <span className="text-xs text-stone">Example</span>
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
                     Emailed 8
                   </span>

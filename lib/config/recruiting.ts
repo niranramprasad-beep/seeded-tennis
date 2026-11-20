@@ -72,18 +72,21 @@ export const D3_OFFICIAL_VISIT_YEAR_OFFSET = 1;
 // than hardcoding "no restriction" prose in more than one place.
 export const D3_UNOFFICIAL_VISITS_UNRESTRICTED = true;
 
-// Default verbal-commitment target shown on the roadmap: September 1 of
-// senior year. A realistic planning target, not a hard rule.
+// Default verbal-commitment target: September 1 of senior year. A realistic
+// planning target, not a hard rule. Written to profiles.commitment_date at
+// sign-up; as of 2026-11-20 no screen displays it (audit for 049).
 export const DEFAULT_COMMIT_MONTH = 9; // September (1-indexed)
 export const DEFAULT_COMMIT_DAY = 1;
 export const DEFAULT_COMMIT_BEFORE_GRADE = 12;
 
 // Roadmap milestones, keyed by the grade the summer precedes — e.g. "10"
 // means "the summer before 10th grade". 13 means the summer before college.
+// No counts: "Bank 6+ sectional results" and "2+ national L1/L2 events"
+// were targets with no source behind the number (removed 2026-11-20).
 export const MILESTONES_BEFORE_GRADE: Record<number, string[]> = {
   9: [
     "Lock in a year-round training base",
-    "Bank 6+ sectional results before the season",
+    "Start banking sectional results",
     "Have a dependable second serve",
   ],
   10: [
@@ -92,7 +95,7 @@ export const MILESTONES_BEFORE_GRADE: Record<number, string[]> = {
     "Start a realistic target-school shortlist",
   ],
   11: [
-    "Be ready for 2+ national L1/L2 events this year",
+    "Be ready for national L1/L2 events your level fits",
     "NCAA contact opens June 15 — have your email ready",
     "Take unofficial visits to top-choice campuses",
   ],

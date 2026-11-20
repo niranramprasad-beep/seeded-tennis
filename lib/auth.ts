@@ -4,6 +4,7 @@ import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { emptyPlayer } from "@/lib/data/user";
 import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } from "@/lib/time";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
+import { isSeasonKey, toTournamentsPlannedOrNull } from "@/lib/tournaments-planned";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
 import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
@@ -556,8 +557,8 @@ function buildPlayerFromAuthProfile(input: {
     familyCode: input.familyCode,
     targetSchoolSlugs: [],
     weaknesses: [],
-    tournamentsPlayed: 0,
-    tournamentsGoal: 12,
+    tournamentsPlanned: null,
+    tournamentsPlannedSeason: null,
     onboarded: false,
   };
 }
@@ -727,10 +728,12 @@ function mapProfileToPlayer(
       (profile.target_school_slugs as string[] | null) ??
       emptyPlayer.targetSchoolSlugs,
     weaknesses: profile.weaknesses ?? emptyPlayer.weaknesses,
-    tournamentsPlayed: Number(
-      profile.tournaments_played ?? emptyPlayer.tournamentsPlayed
-    ),
-    tournamentsGoal: Number(profile.tournaments_goal ?? emptyPlayer.tournamentsGoal),
+    // NULL stays null ("Not set"). profiles.tournaments_played is not read:
+    // no screen ever wrote it (049's header).
+    tournamentsPlanned: toTournamentsPlannedOrNull(profile.tournaments_goal),
+    tournamentsPlannedSeason: isSeasonKey(profile.tournaments_planned_season)
+      ? profile.tournaments_planned_season
+      : null,
     onboarded: Boolean(profile.onboarded),
     // home_area/utr_profile_link/gpa/deletion_requested_at (migration
     // 014_profile_fields_and_deletion.sql) are read safely even before that
@@ -935,13 +938,18 @@ export interface PlayerWriteContext {
  * `err.message` in its JSON response, same convention as every other
  * lib/db/* write function); resolves on success.
  */
-/** A Player as the profile route hands it over. birthMonth and
- * enrollmentTerm may be ABSENT (an older client's body never had them), and
- * absent must stay absent: it means "leave the stored value alone", which is
- * not the same as null ("clear it"). */
-export type PlayerProfileWrite = Omit<Player, "birthMonth" | "enrollmentTerm"> & {
+/** A Player as the profile route hands it over. birthMonth,
+ * enrollmentTerm and tournamentsPlanned may be ABSENT (an older client's
+ * body never had them), and absent must stay absent: it means "leave the
+ * stored value alone", which is not the same as null ("clear it"). */
+export type PlayerProfileWrite = Omit<
+  Player,
+  "birthMonth" | "enrollmentTerm" | "tournamentsPlanned" | "tournamentsPlannedSeason"
+> & {
   birthMonth?: number | null;
   enrollmentTerm?: Player["enrollmentTerm"];
+  tournamentsPlanned?: number | null;
+  tournamentsPlannedSeason?: string | null;
 };
 
 export async function writeCurrentPlayerProfile(
@@ -970,8 +978,24 @@ export async function writeCurrentPlayerProfile(
     commitment_date: player.commitmentDate,
     target_school_slugs: player.targetSchoolSlugs,
     weaknesses: player.weaknesses,
-    tournaments_played: player.tournamentsPlayed,
-    tournaments_goal: player.tournamentsGoal,
+    // "Tournaments planned this season" (049): the player's number or NULL
+    // ("Not set"), sent only when the body carries the field — so a client
+    // built before 049 (which posted tournamentsGoal: 12, stripped by the
+    // route's schema) can never write the invented 12 back.
+    // tournaments_played is never written: played is counted from
+    // tournament_entries, not stored on the profile.
+    // The season goes with it (049): the one the client stamped, or NULL —
+    // always NULL when the count is cleared, so a stale season never
+    // outlives its count. A count saved without a season reads as Not set.
+    ...(player.tournamentsPlanned !== undefined
+      ? {
+          tournaments_goal: player.tournamentsPlanned,
+          tournaments_planned_season:
+            player.tournamentsPlanned != null && isSeasonKey(player.tournamentsPlannedSeason)
+              ? player.tournamentsPlannedSeason
+              : null,
+        }
+      : {}),
     onboarded: player.onboarded,
   };
 
@@ -1074,7 +1098,9 @@ async function ensureSupabaseProfile(input: {
       family_code: input.familyCode,
       graduation_year: graduationYear,
       commitment_date: getDefaultCommitDate(graduationYear),
-      tournaments_goal: 12,
+      // No tournaments_goal: sign-up never asks for one, so the column's
+      // NULL (049) is the truth. The diagnostic writes the player's answer
+      // afterwards through writeCurrentPlayerProfile().
       onboarded: input.role === "parent",
     });
     if (profileError) return { ok: false, error: "Could not save your profile. Try again." };
@@ -1109,7 +1135,7 @@ async function ensureSupabaseProfile(input: {
     birth_month: input.birthMonth ?? null,
     graduation_year: graduationYear,
     commitment_date: getDefaultCommitDate(graduationYear),
-    tournaments_goal: 12,
+    // No tournaments_goal — see the create branch above.
     onboarded: input.role === "parent",
   });
   if (profileError) return { ok: false, error: "Could not save your profile. Try again." };

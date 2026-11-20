@@ -556,9 +556,13 @@ Options are to server-render the pre-auth flow as the default and swap after
 hydration, or to accept it and drop the page's sitemap priority.
 
 ## From PR D (2026-11-19)
-- `tournaments_goal` defaults to 12 and nobody is ever asked; the parent
-  dashboard ("played/12"), the cost calculator and `emptyPlayer` still use
-  it, and nothing writes `tournaments_played`. Ask for it or show "Not tracked".
+- ~~`tournaments_goal` defaults to 12 and nobody is ever asked~~ — DONE on
+  `fix/no-invented-goal` (migration 049, 2026-11-20): nullable, no default,
+  every stored 12 cleared; asked (optional) in the diagnostic and Settings →
+  Profile; played is counted from `tournament_entries`. Still open from it:
+  drop the unused `profiles.tournaments_played` column (049 left it); decide
+  whether `family_members()` should return the planned count (a parent sees
+  "Not tracked" today because 037's enumerated list excludes it).
 - Public LCP is still 2.7–3.3 s on most routes (target 2.5): ~285 KB of JS
   before first paint. Next steps in `docs/perf/audit-2-perf.md` (async
   `getSupabase()`, framer-motion `LazyMotion`). Re-measure production after

@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
-import { CalendarDays, Check, Flag, Sparkles, TrendingUp, Trophy } from "lucide-react";
+import { Check, Flag, Sparkles, TrendingUp } from "lucide-react";
 import type { RoadmapYear, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
@@ -57,7 +56,6 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
 function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
   const [whatIf, setWhatIf] = useState<string[]>(player.targetSchoolSlugs);
-  const [openStage, setOpenStage] = useState<number | null>(0);
 
   const targetSchools = useMemo(
     () => schools.filter((s) => whatIf.includes(s.slug)),
@@ -105,8 +103,6 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   const layoutProps: RoadmapLayoutProps = {
     player,
     whatIf,
-    openStage,
-    setOpenStage,
     targetSchools,
     roadmap,
     goalUTR,
@@ -126,8 +122,6 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
 export interface RoadmapLayoutProps {
   player: ReturnType<typeof usePlayer>["player"];
   whatIf: string[];
-  openStage: number | null;
-  setOpenStage: (i: number | null) => void;
   targetSchools: SchoolLite[];
   roadmap: RoadmapYear[];
   /** Null when the player has no real UTR (or no goal) — Legacy shows the
@@ -142,8 +136,6 @@ export interface RoadmapLayoutProps {
 function LegacyRoadmapLayout({
   player,
   whatIf,
-  openStage,
-  setOpenStage,
   targetSchools,
   roadmap,
   goalUTR,
@@ -298,61 +290,11 @@ function LegacyRoadmapLayout({
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-2 rounded-xl bg-cream/60 px-3 py-2 text-sm text-ink">
-                  <Trophy className="h-4 w-4 text-leaf-accent" />
-                  {year.tournamentsNeeded} tournaments
-                </div>
-
-                <button
-                  onClick={() => setOpenStage(openStage === i ? null : i)}
-                  className="mt-3 w-full rounded-xl border-[0.5px] border-line bg-card px-3 py-3 text-left transition-all hover:border-grass/40 hover:bg-grass-50 focus:outline-none focus:ring-2 focus:ring-grass/30"
-                  aria-expanded={openStage === i}
-                >
-                  <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.1em] text-stone-light">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    Tournament volume
-                  </span>
-                  <span className="mt-3 flex flex-wrap items-center gap-1.5">
-                    {Array.from({ length: Math.min(12, year.tournamentsNeeded) }).map((_, dotIndex) => (
-                      <span
-                        key={dotIndex}
-                        title={`${tournamentMix(year.tournamentsNeeded)[dotIndex % tournamentMix(year.tournamentsNeeded).length]} recommendation`}
-                        className="rounded-full bg-leaf-accent/80"
-                        style={{
-                          width: 8 + Math.min(10, year.tournamentsNeeded) * 0.55,
-                          height: 8 + Math.min(10, year.tournamentsNeeded) * 0.55,
-                        }}
-                      />
-                    ))}
-                  </span>
-                </button>
-
-                {openStage === i && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="mt-3 overflow-hidden rounded-xl bg-grass-50 p-3"
-                  >
-                    <p className="text-xs font-medium text-ink">
-                      Recommended mix
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {tournamentMix(year.tournamentsNeeded).map((level) => (
-                        <span
-                          key={level}
-                          className="rounded-pill bg-card px-2.5 py-1 text-xs font-medium text-stone"
-                        >
-                          {level}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs leading-relaxed text-stone">
-                      Play enough volume to generate coach-relevant results, but
-                      keep the highest-level events near your peak training windows.
-                    </p>
-                  </motion.div>
-                )}
-
+                {/* A per-year "N tournaments" count, a "Tournament volume" dot
+                    row and a "Recommended mix" of USTA levels used to sit
+                    here. The count was `10 + i * 2` (lib/db/plan.ts) — a
+                    number no source and no player gave — and the mix was
+                    picked from it. Removed 2026-11-20 with migration 049. */}
                 <div className="mt-4 flex-1">
                   <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.1em] text-stone-light">
                     <Flag className="h-3 w-3" />
@@ -377,11 +319,4 @@ function LegacyRoadmapLayout({
       </div>
     </div>
   );
-}
-
-function tournamentMix(count: number): string[] {
-  if (count >= 12) return ["USTA L2", "USTA L3", "USTA L4", "ITF J30", "showcase"];
-  if (count >= 9) return ["USTA L3", "USTA L4", "USTA L5", "regional showcase"];
-  if (count >= 6) return ["USTA L4", "USTA L5", "USTA L6"];
-  return ["USTA L5", "USTA L6", "local match play"];
 }

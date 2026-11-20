@@ -6,7 +6,7 @@ import { OnboardingPageSwitch } from "@/components/seeded/onboarding/onboarding-
 export const metadata: Metadata = {
   title: "Your free fit report — Seeded",
   description:
-    "Nine quick questions, about 90 seconds. See which college tennis programs are a realistic Reach, Target or Likely fit, with no account needed.",
+    "Up to ten quick questions, about 90 seconds. See which college tennis programs are a realistic Reach, Target or Likely fit, with no account needed.",
   alternates: { canonical: "/onboarding" },
 };
 

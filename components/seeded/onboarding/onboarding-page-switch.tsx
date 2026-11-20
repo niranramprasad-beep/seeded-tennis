@@ -14,7 +14,7 @@ import { SeededDiagnosticOnboarding } from "@/components/seeded/onboarding/diagn
 // /onboarding, for every visitor (PR D, D2).
 //
 //   signed out (and before the session check lands)
-//                 the public diagnostic (board 20): nine questions, a result,
+//                 the public diagnostic (board 20): ten questions (049 added the last), a result,
 //                 a fit report and an inline sign-up that keeps every answer.
 //                 Rendered BEFORE the session check too: the server has no
 //                 session, and a crawler that does not run JavaScript must

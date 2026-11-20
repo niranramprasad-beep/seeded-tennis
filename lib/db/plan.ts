@@ -48,20 +48,18 @@ export function buildRoadmap(
   // the precision a UTR has.
   const goalTime = new Date(getSummerBeforeGradeYear(player.graduationYear, 12), 5, 1).getTime();
   const nowTime = now.getTime();
-  return grades.map((g, i) => {
+  return grades.map((g) => {
     const calendarYear = getSummerBeforeGradeYear(player.graduationYear, g);
     const at = new Date(calendarYear, 5, 1).getTime();
     const progress = goalTime <= nowTime ? 1 : Math.min(1, Math.max(0, (at - nowTime) / (goalTime - nowTime)));
     const utrTarget =
       Math.round((player.currentUTR + (goalUTR - player.currentUTR) * progress) * 100) / 100;
-    const tournamentsNeeded = 10 + i * 2;
 
     return {
       calendarYear,
       gradeLabel: `By summer before ${ordinalGrade(g)} grade`,
       shortLabel: `${ordinalGrade(g)}`,
       utrTarget,
-      tournamentsNeeded,
       milestones: MILESTONES_BEFORE_GRADE[g] ?? [
         "Keep building your UTR steadily",
         "Stay active on the tournament circuit",

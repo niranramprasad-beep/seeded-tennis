@@ -16,6 +16,6 @@ export function HomeDesignSwitch({
   return design === "seeded" ? (
     <SeededHomeView schools={schools} />
   ) : (
-    <LegacyHomeView marqueeSchools={marqueeSchools} />
+    <LegacyHomeView marqueeSchools={marqueeSchools} programCount={schools.length} />
   );
 }
