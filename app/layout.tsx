@@ -7,6 +7,11 @@ import { ScrollProgress } from "@/components/shared/scroll-progress";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { GoogleAnalytics } from "@/components/shared/google-analytics";
+import { SIGNED_IN_ONLY_PREFIXES } from "@/lib/route-access";
+
+// Inlined into the head script below (it runs before any bundle, so it
+// cannot import). Built from the one list AppShell also reads.
+const SIGNED_IN_ONLY_JSON = JSON.stringify(SIGNED_IN_ONLY_PREFIXES);
 
 // ---------------------------------------------------------------------------
 // Fonts are SELF-HOSTED. Do not move these back to next/font/google.
@@ -29,6 +34,20 @@ import { GoogleAnalytics } from "@/components/shared/google-analytics";
 //
 // To update a face: re-download the latin woff2 from the Google Fonts CSS
 // API and replace the file. Do not add a family here without adding its file.
+//
+// PRELOADING (D8, docs/perf/audit-2-perf.md). next/font preloads every file
+// of every family declared in the root layout, on every page. With six
+// families that was TWELVE <link rel=preload> font files (313 KB) at the
+// top of every document, all fetched at high priority ahead of the page's
+// own JS — on a slow-4G phone they were most of the gap between first paint
+// (~0.9 s) and LCP (2.7–3.6 s). Only the three faces the Seeded design
+// paints above the fold on most pages are preloaded now: Inter (body),
+// Inter Tight (headlines), JetBrains Mono (numerals). Everything else has
+// `preload: false`: its @font-face is still declared, and the browser
+// fetches a file only when something on the page actually renders in it —
+// Cormorant's 400 italic on the few pages with a `serif-accent` word, and
+// the Legacy concept-theme faces only under those opt-in themes. The visual
+// design is unchanged; only the download order is.
 
 const inter = localFont({
   src: "./fonts/Inter-Variable.woff2",
@@ -55,6 +74,9 @@ const jetbrainsMono = localFont({
   src: "./fonts/JetBrainsMono-Variable.woff2",
   weight: "100 800",
   variable: "--font-jetbrains-mono",
+  // Preloaded on purpose: tried `preload: false` (2026-11-19) — the file was
+  // still fetched before first paint on every measured page and FCP got
+  // ~150 ms worse. Keep it with Inter and Inter Tight.
   display: "swap",
 });
 
@@ -70,6 +92,7 @@ const cormorant = localFont({
     { path: "./fonts/CormorantGaramond-600italic.woff2", weight: "600", style: "italic" },
   ],
   variable: "--font-cormorant",
+  preload: false,
   display: "swap",
 });
 
@@ -78,6 +101,7 @@ const spaceGrotesk = localFont({
   src: "./fonts/SpaceGrotesk-Variable.woff2",
   weight: "300 700",
   variable: "--font-space-grotesk",
+  preload: false,
   display: "swap",
 });
 
@@ -89,6 +113,7 @@ const plexMono = localFont({
     { path: "./fonts/IBMPlexMono-600.woff2", weight: "600", style: "normal" },
   ],
   variable: "--font-plex-mono",
+  preload: false,
   display: "swap",
 });
 
@@ -124,10 +149,15 @@ export default function RootLayout({
             saved, so a public route lays out as the app from first paint
             (see the pre-session rules at the end of globals.css), plus
             html[data-role] and html[data-schools-shape] from the layout
-            hints in lib/layout-hints.ts — only alongside a session. */}
+            hints in lib/layout-hints.ts — only alongside a session.
+            Last (D8): a browser holding NO saved session that opened a
+            signed-in-only route (lib/route-access.ts) is sent to /login
+            right here — where AuthGate would send it anyway, after React,
+            the session check and /login's chunks had all loaded. A browser
+            that holds a session is never redirected by this. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var syncRaw=localStorage.getItem('seeded.mode.system');var sync=syncRaw===null?true:syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.+-auth-token$/.test(k)){document.documentElement.setAttribute('data-session','1');var r=localStorage.getItem('seeded.role');if(r==='parent'||r==='player'){document.documentElement.setAttribute('data-role',r);}var sh=localStorage.getItem('seeded.schools.shape');if(sh==='fit'||sh==='nofit'||sh==='prompt'){document.documentElement.setAttribute('data-schools-shape',sh);}break;}}if(localStorage.getItem('seeded.sidebar.collapsed')==='1'){document.documentElement.setAttribute('data-sidebar-collapsed','1');}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var syncRaw=localStorage.getItem('seeded.mode.system');var sync=syncRaw===null?true:syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}var s=0;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.+-auth-token$/.test(k)){s=1;document.documentElement.setAttribute('data-session','1');var r=localStorage.getItem('seeded.role');if(r==='parent'||r==='player'){document.documentElement.setAttribute('data-role',r);}var sh=localStorage.getItem('seeded.schools.shape');if(sh==='fit'||sh==='nofit'||sh==='prompt'){document.documentElement.setAttribute('data-schools-shape',sh);}break;}}if(localStorage.getItem('seeded.sidebar.collapsed')==='1'){document.documentElement.setAttribute('data-sidebar-collapsed','1');}if(!s){var p=location.pathname,a=${SIGNED_IN_ONLY_JSON};for(var j=0;j<a.length;j++){if(p===a[j]||p.indexOf(a[j]+'/')===0){location.replace('/login');break;}}}}catch(e){}})();`,
           }}
         />
       </head>

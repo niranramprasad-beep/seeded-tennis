@@ -16,6 +16,7 @@ import { AccountDeletedNotice } from "@/components/shared/account-deleted-notice
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { cn } from "@/lib/utils";
 import { isPrivateRoute } from "@/lib/seo/private-routes";
+import { isSignedInOnlyPath } from "@/lib/route-access";
 
 // Link/sidebar navigation already lands at the top (Next's default), but
 // browser back/forward tries to RESTORE the scroll position you left a page
@@ -52,13 +53,11 @@ function useScrollToTopOnRouteChange(pathname: string) {
 // so they also need it before the session check — otherwise they shift by
 // the header's height on load (measured: CLS 0.06 on /auth/callback and the
 // 404 page at 375).
-const APP_ONLY_PREFIXES = [
-  "/today", "/plan", "/outreach", "/events", "/family", "/settings", "/matches",
-  "/match-mode", "/dashboard", "/roadmap", "/training", "/coaches", "/cost-calculator",
-];
+// The app-only list lives in lib/route-access.ts (SIGNED_IN_ONLY_PREFIXES),
+// shared with the head script's early /login redirect.
 function rendersPublicNavBeforeSession(pathname: string): boolean {
   if (!isPrivateRoute(pathname)) return true;
-  return !APP_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return !isSignedInOnlyPath(pathname);
 }
 
 export function AppShell({ children }: { children: ReactNode }) {

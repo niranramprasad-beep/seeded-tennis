@@ -11,6 +11,7 @@ import {
 } from "react";
 import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { takeRestoredTier } from "@/lib/auth";
 import { usePlayer } from "./player-context";
 
 // Demo-mode-only fallback for when Supabase isn't configured at all (no env
@@ -49,7 +50,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
   // Extracted from the effect so `refresh()` can run exactly the same read
   // rather than a second, subtly different copy of it.
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, fresh = false) => {
       const aborted = () => signal?.aborted ?? false;
       const supabase = getSupabase();
       if (!supabase || !isAuthed) {
@@ -73,6 +74,22 @@ export function TierProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // D8: the session restore (PlayerProvider) has just read this user's
+      // whole profile row, tier included. Use that instead of a second
+      // round trip that every PaidGate page sat behind. Display only —
+      // PaidGate is cosmetic and RLS is the gate. refresh() (after a
+      // checkout) always goes to the database.
+      if (!fresh) {
+        const restored = takeRestoredTier(userId);
+        if (restored !== undefined) {
+          if (!aborted()) {
+            setTierState(restored && restored in TIER_RANK ? (restored as SubscriptionTier) : "free");
+            setHydrated(true);
+          }
+          return;
+        }
+      }
+
       let query = supabase.from("profiles").select("subscription_tier").eq("id", userId);
       if (signal) query = query.abortSignal(signal);
       const { data } = await query.maybeSingle();
@@ -94,7 +111,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
   }, [load, playerHydrated]);
 
   const refresh = useCallback(async () => {
-    await load();
+    await load(undefined, true);
   }, [load]);
 
   // Local-only override — used by the dev tier switcher (development builds
