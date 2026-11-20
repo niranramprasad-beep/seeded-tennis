@@ -118,7 +118,7 @@ pasteable rollbacks: `docs/HANDOFF.md` §J Steps 16–20.
 
 ### 3c. PR D migrations
 
-**PR D (fix/audit-2) — 046, 047 (written 2026-11-19, rehearsed on staging).**
+**PR D (fix/audit-2) — 046, 047 (written 2026-11-19, rehearsed on staging). RUN ON PRODUCTION 2026-11-20 03:42–03:43 UTC, on Niran's go, after a backup (`~/seeded-backups/prod-20261119-2215-prePRD.dump`); both verifies passed, before and after the merge; nothing rolled back. Ledger 47 → 49. PR D (#8) merged right after.**
 Both before the PR D code merges, each on Niran's go, after a backup. 047 is
 REQUIRED before the merge: the new /events status control writes 'played',
 which production refuses (23514) until it runs. Detail: `docs/HANDOFF.md` §J
