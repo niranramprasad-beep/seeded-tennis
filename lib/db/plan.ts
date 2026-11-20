@@ -5,7 +5,7 @@
 // former lib/data/index.ts's roadmap/training-plan exports, lib/supabase/
 // utr.ts, lib/supabase/recruiting-checklist.ts, and daily_checkins' slice
 // of lib/supabase/features.ts — same bodies, moved, not rewritten.
-import type { Player, RoadmapYear, TrainingPlan } from "@/lib/types";
+import type { Player, RoadmapYear } from "@/lib/types";
 import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
 import { getCurrentGrade, getSummerBeforeGradeYear, isCalendarDateKey, localDateKey, ordinalGrade, startOfLocalDay } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
@@ -13,7 +13,6 @@ import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
-import { trainingPlans as trainingPlansData } from "./plan-data-training-plans";
 import type { Tables } from "./database.types";
 
 /* ---------------------------------------------------------------- roadmap */
@@ -72,23 +71,6 @@ export function buildRoadmap(
   });
 }
 
-
-/* ------------------------------------------------------ training catalog */
-// Static "which plan fits your current UTR" recommendation catalog behind
-// /training's legacy view — distinct from the real per-user training
-// PLANNER (training_plans/workout_sessions tables, lib/db/events.ts), which
-// is the player's own editable weekly calendar, not a recommendation.
-
-export async function getTrainingPlans(): Promise<TrainingPlan[]> {
-  return Promise.resolve(trainingPlansData);
-}
-
-export async function getTrainingPlanForUTR(utr: number): Promise<TrainingPlan> {
-  const nearest = trainingPlansData.reduce((best, plan) =>
-    Math.abs(plan.utrLevel - utr) < Math.abs(best.utrLevel - utr) ? plan : best
-  );
-  return Promise.resolve(nearest);
-}
 
 /* ------------------------------------------------------------ utr history */
 

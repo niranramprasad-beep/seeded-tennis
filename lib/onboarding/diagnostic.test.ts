@@ -17,6 +17,8 @@ import {
   playerNeedsParent,
   prefillFromSearchParams,
   serializePendingAnswers,
+  signedInDiagnosticStart,
+  minimumStep,
   stepAfter,
   stepBefore,
   type DiagnosticAnswers,
@@ -190,5 +192,57 @@ describe("answers carried across the Google redirect", () => {
     )!;
     expect(odd.birthMonth).toBeNull();
     expect(odd.gender).toBeNull();
+  });
+});
+
+describe("signed in, not onboarded yet (D2)", () => {
+  const account = { ...emptyPlayer, gender: "female" as const, graduationYear: 2029, birthMonth: null };
+
+  it("fills what the account already answers and starts at the first open question", () => {
+    const start = signedInDiagnosticStart(account, 2011, undefined, NOW);
+    expect(start.answers.role).toBe("player");
+    expect(start.answers.gender).toBe("female");
+    expect(start.answers.gradYear).toBe(2029);
+    expect(start.answers.birthYear).toBe(2011);
+    expect(start.answers.birthMonth).toBeNull();
+    expect(start.prefilled).toEqual([STEP.role, STEP.team, STEP.gradYear]);
+    // Never a rating it was not given.
+    expect(start.answers.utrTodayText).toBe("");
+    expect(firstStep(start.answers, new Set(start.prefilled))).toBe(STEP.utrToday);
+    // The birth question is still asked: the month is new.
+    expect(stepAfter(STEP.gradYear, start.answers, new Set(start.prefilled))).toBe(STEP.birth);
+  });
+
+  it("keeps the homepage calculator's rating, but the account wins on team and class year", () => {
+    const fromUrl = prefillFromSearchParams({ utr: "8.25", gender: "men", gradYear: "2028" }, NOW);
+    const start = signedInDiagnosticStart(account, 2011, fromUrl, NOW);
+    expect(start.answers.utrTodayText).toBe("8.25");
+    expect(start.answers.gender).toBe("female");
+    expect(start.answers.gradYear).toBe(2029);
+    expect(start.prefilled).toContain(STEP.utrToday);
+  });
+
+  it("does not invent a class year outside the offered options, or a birth year it was not given", () => {
+    const start = signedInDiagnosticStart({ ...account, graduationYear: 1999 }, null, undefined, NOW);
+    expect(start.answers.gradYear).toBeNull();
+    expect(start.answers.birthYear).toBeNull();
+    expect(start.prefilled).not.toContain(STEP.gradYear);
+  });
+
+  it("Back stops at the team question: an existing account cannot change its role", () => {
+    expect(minimumStep(true)).toBe(STEP.team);
+    expect(minimumStep(false)).toBe(STEP.role);
+  });
+
+  it("saves only the player's own fields — never the birth year (write-once) or a privileged column", () => {
+    const start = signedInDiagnosticStart(account, 2011, undefined, NOW);
+    const answers = { ...start.answers, birthMonth: 4, utrTodayText: "7.5", enrollmentTerm: "fall_after_grad" as const };
+    const saved = diagnosticPlayerProfile({ ...emptyPlayer, familyCode: "FAKE-1" }, answers);
+    expect(saved.onboarded).toBe(true);
+    expect(saved.birthMonth).toBe(4);
+    expect(saved.currentUTR).toBe(7.5);
+    expect(saved.familyCode).toBe("FAKE-1");
+    expect(saved.role).toBe("player");
+    expect(Object.keys(saved)).not.toContain("birthYear");
   });
 });

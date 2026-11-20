@@ -273,6 +273,51 @@ export function prefillFromSearchParams(
   return { answers, prefilled };
 }
 
+/**
+ * A SIGNED-IN player who has not finished onboarding yet (a new Google
+ * sign-up, or an email sign-up that left before the questions). Their
+ * account already answers some of the diagnostic: they are a player (a
+ * parent account is created onboarded and never gets here), and sign-up
+ * asked their team, grade and birth year. Those steps are filled from the
+ * profile and passed over going forward — still reachable with Back, except
+ * the role, which an existing account cannot change.
+ *
+ * `fromUrl` is the homepage calculator's prefill; the account wins where
+ * both answer, because the account is what the save writes to.
+ *
+ * `birthYear` is the account's own `birth_year`, write-once from the client
+ * (033): the diagnostic shows it and never offers to change it.
+ */
+export function signedInDiagnosticStart(
+  account: Pick<Player, "gender" | "graduationYear" | "birthMonth">,
+  birthYear: number | null,
+  fromUrl: { answers: DiagnosticAnswers; prefilled: number[] } = { answers: EMPTY_ANSWERS, prefilled: [] },
+  now: Date = new Date()
+): { answers: DiagnosticAnswers; prefilled: number[] } {
+  const answers: DiagnosticAnswers = { ...fromUrl.answers, role: "player" };
+  const prefilled = new Set<number>(fromUrl.prefilled);
+  prefilled.add(STEP.role);
+
+  if (account.gender === "male" || account.gender === "female") {
+    answers.gender = account.gender;
+    prefilled.add(STEP.team);
+  }
+  if (gradYearOptions(now).includes(account.graduationYear)) {
+    answers.gradYear = account.graduationYear;
+    prefilled.add(STEP.gradYear);
+  }
+  if (birthYear != null) answers.birthYear = birthYear;
+  if (account.birthMonth != null) answers.birthMonth = account.birthMonth;
+  if (answers.birthYear != null && answers.birthMonth != null) prefilled.add(STEP.birth);
+
+  return { answers, prefilled: [...prefilled].sort((a, b) => a - b) };
+}
+
+/** The first step Back can reach. A signed-in account is a player already. */
+export function minimumStep(signedIn: boolean): number {
+  return signedIn ? STEP.team : STEP.role;
+}
+
 /* --------------------------------------------------------------- saving */
 
 export interface DiagnosticUtrEntry {

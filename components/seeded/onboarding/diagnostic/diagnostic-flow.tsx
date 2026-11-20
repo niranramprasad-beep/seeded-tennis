@@ -15,6 +15,7 @@ import {
   firstStep,
   gradYearOptions,
   isOptionalStep,
+  minimumStep,
   parseGpaText,
   parseUtrText,
   pastRatingMonthLabel,
@@ -29,6 +30,7 @@ import { MONTH_NAMES } from "@/lib/time";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { DiagnosticAside } from "./diagnostic-aside";
 import { DiagnosticSaveForm } from "./diagnostic-save";
+import { SignedInDiagnosticSave } from "./diagnostic-save-signed-in";
 import { DiagnosticFitReport } from "@/components/seeded/onboarding/seeded-pre-auth-onboarding";
 import { cn } from "@/lib/utils";
 
@@ -47,10 +49,17 @@ export function SeededDiagnosticOnboarding({
   schools,
   initialAnswers = EMPTY_ANSWERS,
   prefilled = [],
+  signedIn = false,
 }: {
   schools: SchoolLite[];
   initialAnswers?: DiagnosticAnswers;
   prefilled?: number[];
+  /** A signed-in player who has not finished onboarding (D2). The role is
+   * fixed ("player" — a parent account is created onboarded), the birth
+   * year is the account's own and shown read-only (write-once, 033), and
+   * the result saves to their profile instead of creating an account.
+   * Start it from lib/onboarding/diagnostic.ts signedInDiagnosticStart(). */
+  signedIn?: boolean;
 }) {
   const prefilledSet = useMemo(() => new Set(prefilled), [prefilled]);
   const [answers, setAnswers] = useState<DiagnosticAnswers>(initialAnswers);
@@ -93,9 +102,16 @@ export function SeededDiagnosticOnboarding({
     if (!canContinue(step, answers)) return;
     setStep((s) => stepAfter(s, answers, prefilledSet));
   };
+  const minStep = minimumStep(signedIn);
+  // The account's birth year, when it has one, is fixed: birth_year is
+  // write-once from the client, so the question shows it rather than asks.
+  const [lockedBirthYear] = useState(() => (signedIn ? initialAnswers.birthYear : null));
+  // birth_month is write-once too (041): a month already on the account is
+  // shown, never offered for change (the save would be refused, 42501).
+  const [lockedBirthMonth] = useState(() => (signedIn ? initialAnswers.birthMonth : null));
   const back = () => {
     if (view === "save") return setView("questions");
-    setStep((s) => stepBefore(s, answers));
+    setStep((s) => Math.max(minStep, stepBefore(s, answers)));
   };
   const skip = () => {
     if (step === STEP.utrSixMonths) set({ utrSixMonthsText: "" });
@@ -109,6 +125,7 @@ export function SeededDiagnosticOnboarding({
       <DiagnosticFitReport
         schools={schools}
         answers={answers}
+        signedIn={signedIn}
         onEdit={() => {
           setView("questions");
           setStep(RESULT_STEP);
@@ -199,6 +216,7 @@ export function SeededDiagnosticOnboarding({
                 programCount={values.gender ? schools.filter((s) => s.gender === programGenderFor(values.gender!)).length : schools.length}
                 onReport={() => setView("report")}
                 onSave={() => setView("save")}
+                signedIn={signedIn}
               />
             ) : (
               <QuestionBody
@@ -207,6 +225,8 @@ export function SeededDiagnosticOnboarding({
                 headingRef={headingRef}
                 answers={answers}
                 set={set}
+                lockedBirthYear={lockedBirthYear}
+                lockedBirthMonth={lockedBirthMonth}
                 onNoUtr={() => {
                   const cleared = { ...answers, noUtrYet: true, utrTodayText: "", utrSixMonthsText: "", utrYearText: "" };
                   setAnswers(cleared);
@@ -217,7 +237,7 @@ export function SeededDiagnosticOnboarding({
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
-            {(step > 0 || view === "save") && (
+            {(step > minStep || view === "save") && (
               <SeededButton type="button" variant="secondary" onClick={back}>
                 Back
               </SeededButton>
@@ -367,6 +387,8 @@ function QuestionBody({
   answers,
   set,
   onNoUtr,
+  lockedBirthYear = null,
+  lockedBirthMonth = null,
 }: {
   step: number;
   headingId: string;
@@ -374,6 +396,10 @@ function QuestionBody({
   answers: DiagnosticAnswers;
   set: (patch: Partial<DiagnosticAnswers>) => void;
   onNoUtr: () => void;
+  /** Signed in with a birth year on file: shown, not asked. */
+  lockedBirthYear?: number | null;
+  /** Signed in with a birth month on file: shown, not asked. */
+  lockedBirthMonth?: number | null;
 }) {
   const parent = answers.role === "parent";
   const helpId = useId();
@@ -496,7 +522,11 @@ function QuestionBody({
       );
     case STEP.birth: {
       const under13 = playerNeedsParent(answers);
-      const note = under13
+      const note = lockedBirthYear != null && lockedBirthMonth != null
+        ? "Already on your account."
+        : lockedBirthYear != null
+        ? "Your birth year is already on your account, so only the month is new."
+        : under13
         ? parent
           ? "Under 13, so you create the account and your player joins with your family code."
           : "You're under 13, so a parent or guardian creates the account. You can still see your fit report."
@@ -514,7 +544,8 @@ function QuestionBody({
                 value={answers.birthMonth ?? ""}
                 onChange={(e) => set({ birthMonth: e.target.value ? Number(e.target.value) : null })}
                 aria-describedby={helpId}
-                className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
+                disabled={lockedBirthMonth != null}
+                className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink disabled:bg-cream disabled:text-stone"
               >
                 <option value="">Month</option>
                 {MONTH_NAMES.map((m, i) => (
@@ -530,9 +561,13 @@ function QuestionBody({
                 value={answers.birthYear ?? ""}
                 onChange={(e) => set({ birthYear: e.target.value ? Number(e.target.value) : null })}
                 aria-describedby={helpId}
-                className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink"
+                disabled={lockedBirthYear != null}
+                className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink disabled:bg-cream disabled:text-stone"
               >
                 <option value="">Year</option>
+                {lockedBirthYear != null && !playerBirthYearOptions().includes(lockedBirthYear) && (
+                  <option value={lockedBirthYear}>{lockedBirthYear}</option>
+                )}
                 {playerBirthYearOptions().map((y) => (
                   <option key={y} value={y}>
                     {y}
@@ -544,7 +579,7 @@ function QuestionBody({
           <p
             className={cn(
               "m-0 mt-4 max-w-[440px] rounded-lg px-4 py-3 text-sm leading-snug",
-              under13
+              under13 && lockedBirthYear == null
                 ? "border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]"
                 : "bg-cream text-stone"
             )}
@@ -616,6 +651,7 @@ function ResultBody({
   programCount,
   onReport,
   onSave,
+  signedIn = false,
 }: {
   headingId: string;
   headingRef: React.Ref<HTMLHeadingElement>;
@@ -624,6 +660,7 @@ function ResultBody({
   programCount: number;
   onReport: () => void;
   onSave: () => void;
+  signedIn?: boolean;
 }) {
   const parent = answers.role === "parent";
   const summer =
@@ -645,10 +682,16 @@ function ResultBody({
         <SeededButton type="button" onClick={onReport}>
           See my fit report
         </SeededButton>
-        <SeededButton type="button" variant="secondary" onClick={onSave}>
-          Save it with a free account
-        </SeededButton>
-        <p className="m-0 text-center text-[13px] text-stone">No card. We never sell player data.</p>
+        {signedIn ? (
+          <SignedInDiagnosticSave answers={answers} variant="secondary" />
+        ) : (
+          <>
+            <SeededButton type="button" variant="secondary" onClick={onSave}>
+              Save it with a free account
+            </SeededButton>
+            <p className="m-0 text-center text-[13px] text-stone">No card. We never sell player data.</p>
+          </>
+        )}
       </div>
     </>
   );

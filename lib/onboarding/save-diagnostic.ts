@@ -25,10 +25,31 @@ export type SaveDiagnosticResult =
   | { ok: true; player: Player }
   | { ok: false; player: Player | null; error: string };
 
+/** Who is saving. "new-account" = right after sign-up (the account exists,
+ * so the failure copy says so); "existing-account" = a signed-in player
+ * finishing the diagnostic on /onboarding, who was never told anything was
+ * "ready". Only the wording differs. */
+export type SaveDiagnosticContext = "new-account" | "existing-account";
+
+const FAILURE_COPY: Record<SaveDiagnosticContext, { load: string; profile: string; utr: string }> = {
+  "new-account": {
+    load: "Your account is ready, but we couldn't load it to save your answers. Sign in and try again.",
+    profile: "Your account is ready, but your answers didn't save. You can add them in Settings.",
+    utr: "Your account is ready, but a UTR didn't save. You can log it again from your account.",
+  },
+  "existing-account": {
+    load: "We couldn't load your account to save your answers. Try again.",
+    profile: "Your answers didn't save. Try again.",
+    utr: "Your profile is saved, but a UTR didn't save. You can log it again from your account.",
+  },
+};
+
 export async function saveDiagnosticToAccount(
   answers: DiagnosticAnswers,
-  now: Date = new Date()
+  now: Date = new Date(),
+  context: SaveDiagnosticContext = "new-account"
 ): Promise<SaveDiagnosticResult> {
+  const copy = FAILURE_COPY[context];
   let base: Player | null = null;
   try {
     base = await getCurrentPlayer();
@@ -39,7 +60,7 @@ export async function saveDiagnosticToAccount(
     return {
       ok: false,
       player: null,
-      error: "Your account is ready, but we couldn't load it to save your answers. Sign in and try again.",
+      error: copy.load,
     };
   }
 
@@ -48,7 +69,7 @@ export async function saveDiagnosticToAccount(
     return {
       ok: false,
       player: base,
-      error: "Your account is ready, but your answers didn't save. You can add them in Settings.",
+      error: copy.profile,
     };
   }
 
@@ -59,7 +80,7 @@ export async function saveDiagnosticToAccount(
       return {
         ok: false,
         player: next,
-        error: "Your account is ready, but a UTR didn't save. You can log it again from your account.",
+        error: copy.utr,
       };
     }
   }

@@ -103,16 +103,22 @@ describe("the 0 sentinel never reaches Postgres", () => {
 });
 
 describe("onboarding never records a rating the player did not choose", () => {
-  // The signed-in onboarding defaulted the slider to 7 and saved it on an
-  // untouched Continue — a "Starting UTR" of 7.0 in the player's history and
-  // "My UTR is 7.0" in their coach email.
-  it("starts with no rating, and step 1 needs a rating or an explicit 'none yet'", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const src = readFileSync(join(__dirname, "..", "components/onboarding/onboarding-flow.tsx"), "utf8");
-    expect(src).toMatch(/useState<number \| null>\(player\.currentUTR > 0 \? player\.currentUTR : null\)/);
-    expect(src).toMatch(/step === 0\s*\?\s*utr != null \|\| noUtrYet/);
-    expect(src).toMatch(/currentUTR: noUtrYet \|\| utr == null \? 0 : utr/);
+  // The legacy signed-in onboarding defaulted the slider to 7 and saved it
+  // on an untouched Continue — a "Starting UTR" of 7.0 in the player's
+  // history and "My UTR is 7.0" in their coach email. That flow is deleted
+  // (PR D, D2); signed-in players now get the diagnostic, which is checked
+  // here instead: its UTR question needs a typed rating or an explicit
+  // "none yet", and "none yet" writes the 0 sentinel, never a number.
+  it("the signed-in diagnostic needs a rating or an explicit 'none yet', and 'none yet' saves no rating", async () => {
+    const d = await import("@/lib/onboarding/diagnostic");
+    const { emptyPlayer } = await import("@/lib/data/user");
+    const start = d.signedInDiagnosticStart(emptyPlayer, 2010);
+    expect(start.answers.utrTodayText).toBe("");
+    expect(d.canContinue(d.STEP.utrToday, start.answers)).toBe(false);
+    const none = { ...start.answers, noUtrYet: true, enrollmentTerm: "not_sure" as const };
+    expect(d.canContinue(d.STEP.utrToday, none)).toBe(true);
+    expect(d.diagnosticPlayerProfile({ ...emptyPlayer, currentUTR: 7 }, none).currentUTR).toBe(0);
+    expect(d.diagnosticUtrEntries(none)).toEqual([]);
   });
 
   it("Legacy /plan never prints the sentinel as a goal (reviewer finding, PR C)", () => {

@@ -217,7 +217,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
           </h2>
           <div className="divide-y divide-line rounded-xl border border-line bg-card">
             {/* Seeded design only: /onboarding renders the fit report before
-                any session check (onboarding-page-switch.tsx). */}
+                any session check (seeded/onboarding/onboarding-page-switch.tsx). */}
             <Faq question="Is the fit report really free?">
               Yes. Answer the questions and you see your fit report, with no card and no account.
               Make a free account to save it and track up to {FREE_TIER_TARGET_SCHOOL_LIMIT} target
