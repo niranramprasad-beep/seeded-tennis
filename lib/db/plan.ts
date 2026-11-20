@@ -356,10 +356,19 @@ export async function saveDailyCheckin(input: {
   return mapCheckin(data);
 }
 
-export function calculateStreak(checkins: DailyCheckin[]): number {
+/**
+ * Consecutive LOCAL days with a check-in, ending today — or ending yesterday
+ * when today has not been logged yet. A streak only breaks once a whole day
+ * has been missed: at 9 am, before today's check-in, yesterday's 12-day run
+ * still reads 12, not 0. `now` is injectable for tests.
+ */
+export function calculateStreak(checkins: DailyCheckin[], now: Date = new Date()): number {
   const dates = new Set(checkins.map((c) => c.date));
   let streak = 0;
-  const cursor = startOfLocalDay(new Date());
+  const cursor = startOfLocalDay(now);
+  // Today not logged yet: the run (if any) is still alive and ends yesterday.
+  // setDate, not "minus 24h", so a daylight-saving day is still one day.
+  if (!dates.has(localDateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
   while (dates.has(localDateKey(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);

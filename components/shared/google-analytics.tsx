@@ -43,9 +43,17 @@ export function GoogleAnalytics() {
 
   return (
     <>
+      {/* lazyOnload, not afterInteractive (D8, docs/perf/audit-2-perf.md):
+          afterInteractive makes Next emit a <link rel=preload> for this
+          ~180 KB script at the top of every document, so a phone fetched
+          analytics at high priority alongside the fonts and CSS the first
+          paint needs. Nothing is lost by waiting for `load`: the inline
+          snippet below still runs early and defines gtag() as a push onto
+          window.dataLayer, so page_view calls made before this file
+          arrives are queued and sent when it does. */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
       <Script id="google-analytics-init" strategy="afterInteractive">
         {`
