@@ -85,7 +85,9 @@ export function SampleReportView() {
       <header className="border-b border-line bg-cream">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-3.5">
           <div className="flex flex-wrap items-center gap-3">
-            <Link href="/" className="font-seeded text-xl font-bold text-ink">
+            {/* min-h-11 (44px): a phone tap target. The CTA beside it is
+                already 44px, so the header height does not change. */}
+            <Link href="/" className="inline-flex min-h-11 items-center font-seeded text-xl font-bold text-ink">
               Seeded
             </Link>
             <DataChip status="estimated">Sample report · example family</DataChip>

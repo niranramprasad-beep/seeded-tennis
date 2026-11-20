@@ -101,11 +101,57 @@ describe("calculateStreak", () => {
     expect(streak).toBe(2);
   });
 
-  it("is 0 when today hasn't been logged, even with a long prior streak", () => {
+  // A streak only breaks after a missed FULL day. Before today's check-in,
+  // a run ending yesterday is still alive and still counts.
+  it("still counts a streak ending yesterday when today isn't logged yet", () => {
     const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    expect(calculateStreak([checkin(todayKey(yesterday))])).toBe(0);
+    const daysAgo = (n: number) => {
+      const d = new Date(now);
+      d.setDate(now.getDate() - n);
+      return todayKey(d);
+    };
+    expect(calculateStreak([checkin(daysAgo(1))])).toBe(1);
+    expect(calculateStreak([checkin(daysAgo(1)), checkin(daysAgo(2)), checkin(daysAgo(3))])).toBe(3);
+  });
+
+  it("is 0 once a whole day has been missed", () => {
+    const now = new Date();
+    const twoDaysAgo = new Date(now);
+    twoDaysAgo.setDate(now.getDate() - 2);
+    const threeDaysAgo = new Date(now);
+    threeDaysAgo.setDate(now.getDate() - 3);
+    expect(calculateStreak([checkin(todayKey(twoDaysAgo)), checkin(todayKey(threeDaysAgo))])).toBe(0);
+  });
+
+  // Local dates, pinned clocks: one minute after local midnight and one
+  // minute before it, plus a run that crosses a daylight-saving change
+  // (US: 2026-03-08 / 2026-11-01; Auckland: 2026-04-05 / 2026-09-27). Run
+  // under TZ=America/New_York and TZ=Pacific/Auckland as well as the
+  // default — the keys are local, so each zone must agree with itself.
+  it("uses LOCAL days at both edges of the day and across DST", () => {
+    const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min);
+    const key = (y: number, m: number, d: number) => localDateKey(new Date(y, m - 1, d, 12));
+
+    // 00:01 on Nov 20, nothing logged today: Nov 17–19 still count.
+    const run = [key(2026, 11, 19), key(2026, 11, 18), key(2026, 11, 17)].map(checkin);
+    expect(calculateStreak(run, at(2026, 11, 20, 0, 1))).toBe(3);
+    // 23:59 the same day — still not logged, still 3.
+    expect(calculateStreak(run, at(2026, 11, 20, 23, 59))).toBe(3);
+    // 00:01 on Nov 21: Nov 20 was missed entirely, so the streak is broken.
+    expect(calculateStreak(run, at(2026, 11, 21, 0, 1))).toBe(0);
+    // Logged today too → 4.
+    expect(calculateStreak([...run, checkin(key(2026, 11, 20))], at(2026, 11, 20, 23, 59))).toBe(4);
+
+    // Across both zones' DST changes: every day Feb 28 – Apr 10 logged.
+    const days: DailyCheckin[] = [];
+    for (let d = new Date(2026, 1, 28, 12); d <= new Date(2026, 3, 10, 12); d.setDate(d.getDate() + 1)) {
+      days.push(checkin(localDateKey(d)));
+    }
+    expect(days.length).toBe(42);
+    // Mar 10, logged today: Feb 28 + Mar 1–10, across the US change on Mar 8.
+    expect(calculateStreak(days, at(2026, 3, 10, 8, 0))).toBe(11);
+    // Apr 11, not logged yet: the whole run, across Auckland's on Apr 5.
+    expect(calculateStreak(days, at(2026, 4, 11, 8, 0))).toBe(42);
   });
 });
 

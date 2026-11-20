@@ -35,6 +35,10 @@ export function useDialog(
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
+    // Overflow only — deliberately NO compensating padding-right. The
+    // scrollbar's width is reserved permanently by `scrollbar-gutter:
+    // stable` on <html> (app/globals.css), so hiding it here moves nothing;
+    // adding padding as well would shift the page the other way.
     document.body.style.overflow = "hidden";
 
     // Focus the first control inside the panel once it has mounted (the
