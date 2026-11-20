@@ -26,6 +26,36 @@ rated yet" and none reaches a fit band; P1-DATA-1 now needs ranges entered at
 `/admin/team-ranges`, starting from the 20 listed in
 `docs/catalog/phase-1-import.md`. Flag off in production; 048 not there.
 
+**2026-11-20 — fix/no-invented-goal (NOT merged; migration 049 on STAGING
+only).** `profiles.tournaments_goal` was a hardcoded 12 for every account
+(production 8/8 = 12/0). Migration **049** makes it nullable with no
+default, clears every stored value, CHECK 0–60; `tournaments_played` is no
+longer read or written (played is counted from `tournament_entries` marked
+Played in the current season); a new `tournaments_planned_season` column
+(same file) ties the count to the season it was set for, so last season's
+plan shows as "Not set". The app calls it `tournamentsPlanned`
+("Tournaments planned this season"): optional last diagnostic question
+(players), Settings → Profile field, "Not set"/"Not tracked" everywhere
+else — no default, no progress bar. A sweep for other invented numbers
+removed the Legacy roadmap's `10 + i * 2` tournament counts, the Legacy
+homepage's invented fit panel, unsourced milestone counts, the homepage
+calculator's example values leaking into onboarding as answers, and
+sign-up's pre-selected team/grade. Events calendar heading → "Schedule".
+049 must be on production BEFORE this merges — GO-SEQUENCE §3c row 23,
+HANDOFF §J Step 23. Guards: `lib/no-invented-goal.test.ts`,
+`lib/tournaments-planned.test.ts`, `lib/home-calculator.test.ts`,
+`lib/no-default-answers.test.ts`. Decisions: `docs/DECISIONS.md` 2026-11-20.
+
+**2026-11-20 — Rollout: 046 + 047 on production; PR D (#8) merged.** Backup
+first, then each migration in its own transaction with its ledger row
+(production ledger 47 → 49), each probed as real users in a rolled-back
+transaction — all passed, no residue; same result after the merge. Production
+`leave_family()` matches staging byte-for-byte (comments/whitespace ignored).
+PR D deployed (`dpl_7KYwcLwBUZLB1FB35YvHLQBsqcmG`), every public route 200,
+0 runtime errors, signed-out app routes redirect to /login before JS. PR E
+(#9, catalog phase 1) is open and NOT merged; its input roster file is
+missing. Report: `~/seeded-evidence/fix-audit-2/REPORT.md`.
+
 **2026-11-19 — PR D (fix/audit-2): the owner's signed-in production audit.**
 D0 (owner-approved production cleanup: 3 test rows deleted, owner's
 `current_utr` back to 5.80; JSON in `~/seeded-evidence/fix-audit-2/`).
@@ -499,7 +529,8 @@ settings, and the product problem — P1-DATA-1.
   rendering of the area the player actually ticked — that florid detail was
   invented data about the player, just harder to spot than an invented coach.
   Forward-looking statements now derive from `tournamentsGoal` and are omitted
-  entirely when it's 0. The "To" field work (empty, user-typed, validated,
+  entirely when it's 0. (Superseded: D3 removed them, and 049 replaced
+  `tournamentsGoal` with the player-entered `tournamentsPlanned`.) The "To" field work (empty, user-typed, validated,
   staff-directory link, Gmail gated) landed with P0-3.
   Tests: 8 cases in `lib/db/schools.test.ts` asserting the absence of each
   removed claim, plus the degenerate-input case (no orphaned punctuation or

@@ -3317,6 +3317,93 @@ alter table public.tournament_entries add constraint tournament_entries_status_c
 commit;
 ```
 
+### Step 23 — migration 049 (tournaments planned, not invented; fix/no-invented-goal)
+
+`profiles.tournaments_goal` becomes nullable with NO default; every stored
+value is set to NULL (all are the invented 12 — production 8 of 8 profiles
+= 12/0 on 2026-11-20); CHECK `null or between 0 and 60`. NEW nullable column
+`tournaments_planned_season text` (CHECK null or `^(fall|winter|spring|summer)-[0-9]{4}$`,
+lib/time.ts `seasonKey()`), written with the count; a count whose season is
+not the current one shows as "Not set". No pairing CHECK on purpose: the old
+app sends `tournaments_goal = 12` with no season on every save during the
+deploy window, and a pairing CHECK would refuse those saves.
+`tournaments_played` is untouched (the app stops reading/writing it).
+Production runs the ONE file; staging has it as two ledger rows (049 and the
+additive 049b, added after review).
+MUST be on production before the fix/no-invented-goal code merges: the new
+code reads NULL as "Not set" and a player who clears the field sends NULL,
+which the pre-049 NOT NULL refuses (23502).
+
+Pre-flight (read-only): `select tournaments_goal, tournaments_played,
+count(*) from public.profiles group by 1, 2;` — expect only 12/0. STOP if
+any other value exists: someone chose it, so clear only the 12s instead.
+
+Verify:
+```sql
+select is_nullable, column_default from information_schema.columns
+ where table_schema = 'public' and table_name = 'profiles' and column_name = 'tournaments_goal';
+-- YES, NULL
+select pg_get_constraintdef(oid) from pg_constraint where conname = 'profiles_tournaments_goal_check';
+-- CHECK (((tournaments_goal IS NULL) OR ((tournaments_goal >= 0) AND (tournaments_goal <= 60))))
+select count(*) filter (where tournaments_goal is not null) from public.profiles;  -- 0
+select data_type, is_nullable, column_default from information_schema.columns
+ where table_schema = 'public' and table_name = 'profiles' and column_name = 'tournaments_planned_season';
+-- text, YES, NULL
+select pg_get_constraintdef(oid) from pg_constraint where conname = 'profiles_tournaments_planned_season_check';
+-- CHECK (((tournaments_planned_season IS NULL) OR (tournaments_planned_season ~ '^(fall|winter|spring|summer)-[0-9]{4}$'::text)))
+```
+Then as a real user (`set local role authenticated` + `request.jwt.claims`,
+inside `begin … rollback`): an app-shaped upsert of the caller's own row
+with `tournaments_goal` 8 + `tournaments_planned_season` 'fall-2026' →
+stored `8 / fall-2026`; with NULL/NULL → stored NULL/NULL; an old-app-shaped
+upsert (`tournaments_goal` 12, no season) → accepted, `12 / NULL`; goal -1
+or 61 → **23514**; season 'autumn-2026' → **23514**; an UPDATE of another
+user's row → 0 rows.
+
+**Post-deploy verify (M1) — right after the new code is live:**
+```sql
+select count(*) from public.profiles where tournaments_goal is not null;
+select count(*) from public.profiles where tournaments_goal = 12 and tournaments_planned_season is null;
+```
+Between 049 and the new code going live, the OLD app writes
+`tournaments_goal = 12` (no season) on every profile save. The new app never
+writes a count without a season, so any row with 12 and no season is the
+old default. Re-clear it with the migration's own statement:
+```sql
+update public.profiles set tournaments_goal = null, tournaments_planned_season = null
+ where tournaments_goal = 12 and tournaments_planned_season is null;
+```
+(A player who really chose 12 after the deploy has a season stamped and is
+not touched. Even uncleared, a seasonless count already renders "Not set".)
+
+Staging (gnlcpnsweqbtwpaqhqqg, 2026-11-20; ledger now ends 048, 047, 049,
+049b): before 32/32 profiles = 12/0; after `YES / default=NULL`, the CHECK
+above, `32 unset / 0 set`. As `fake-a-player@example.com` (current_user
+`authenticated`): upsert 8 → `8`; upsert NULL → `NULL`; rows visible `1`;
+UPDATE `fake-a-sibling` → `0` rows; upsert -1 → `23514
+profiles_tournaments_goal_check`; UPDATE 61 → `23514`. After 049b: season
+column `text / YES / default=NULL`, its CHECK as above, 0 non-null rows of
+32; upsert 8 + 'fall-2026' → `8 / fall-2026`; upsert NULL/NULL → `NULL /
+NULL`; old-app-shaped upsert 12 with no season → `12 / NULL`; rows visible
+`1`; UPDATE `fake-a-sibling` goal 5 + 'fall-2026' → `0` rows; season
+'autumn-2026' → `23514 profiles_tournaments_planned_season_check`; goal -1
+with a valid season → `23514 profiles_tournaments_goal_check`. After
+rollback both rows NULL / NULL.
+
+Rollback (RE-INVENTS the 12 — NOT NULL needs a value; roll the app back
+first):
+```sql
+begin;
+alter table public.profiles drop constraint if exists profiles_tournaments_planned_season_check;
+alter table public.profiles drop column if exists tournaments_planned_season;
+update public.profiles set tournaments_goal = 12 where tournaments_goal is null;
+alter table public.profiles drop constraint if exists profiles_tournaments_goal_check;
+alter table public.profiles add constraint profiles_tournaments_goal_check check (tournaments_goal >= 0);
+alter table public.profiles alter column tournaments_goal set default 12;
+alter table public.profiles alter column tournaments_goal set not null;
+commit;
+```
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

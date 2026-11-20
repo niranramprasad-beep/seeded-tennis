@@ -53,10 +53,9 @@ const base: Player = {
   currentUTR: 9.42,
   targetSchoolSlugs: [school.slug],
   weaknesses: ["serve", "fitness"],
-  // Not entered by the player (signup default / column default). Set to
-  // distinctive values so any leak into the draft is visible.
-  tournamentsGoal: 12,
-  tournamentsPlayed: 7,
+  // A distinctive value so any leak into the draft is visible. Since 049
+  // the player CAN enter this, but the draft still does not state it (D3).
+  tournamentsPlanned: 7,
 };
 
 const results: CoachEmailResult[] = [
@@ -255,9 +254,9 @@ describe("no untraceable sentence can appear", () => {
     }
   });
 
-  it("tournaments_goal and tournaments_played have no effect on the draft", () => {
-    const a = buildCoachEmail({ ...base, tournamentsGoal: 0, tournamentsPlayed: 0 }, school, []);
-    const b = buildCoachEmail({ ...base, tournamentsGoal: 12, tournamentsPlayed: 30 }, school, []);
+  it("tournaments planned has no effect on the draft", () => {
+    const a = buildCoachEmail({ ...base, tournamentsPlanned: null }, school, []);
+    const b = buildCoachEmail({ ...base, tournamentsPlanned: 30 }, school, []);
     expect(b).toEqual(a);
   });
 

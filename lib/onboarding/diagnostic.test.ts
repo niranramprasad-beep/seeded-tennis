@@ -10,6 +10,8 @@ import {
   diagnosticValues,
   firstStep,
   gradYearOptions,
+  isOptionalStep,
+  questionCountFor,
   parseGpaText,
   parsePendingAnswers,
   parseUtrText,
@@ -82,9 +84,31 @@ describe("navigation", () => {
     const withRole = { ...answers, role: "player" as const };
     expect(stepAfter(STEP.role, withRole, set)).toBe(STEP.utrSixMonths); // team + UTR prefilled
     expect(stepAfter(STEP.utrYear, withRole, set)).toBe(STEP.birth); // grad year prefilled
-    expect(stepAfter(STEP.enrollment, withRole, set)).toBe(RESULT_STEP); // GPA prefilled
+    expect(stepAfter(STEP.enrollment, withRole, set)).toBe(STEP.tournaments); // GPA prefilled
+    expect(stepAfter(STEP.tournaments, withRole, set)).toBe(RESULT_STEP);
     // ...and Back still reaches them.
     expect(stepBefore(STEP.utrSixMonths, withRole)).toBe(STEP.utrToday);
+  });
+
+  it("tournaments planned is the last question, optional, and a player's only", () => {
+
+    expect(isOptionalStep(STEP.tournaments)).toBe(true);
+    expect(STEP.tournaments).toBe(RESULT_STEP - 1);
+    const p = player();
+    expect(stepAfter(STEP.gpa, p, none)).toBe(STEP.tournaments);
+    expect(stepBefore(RESULT_STEP, p)).toBe(STEP.tournaments);
+    // A parent's answers are never saved to a profile, so they are not asked.
+    const parent = { ...p, role: "parent" as const };
+    expect(stepAfter(STEP.gpa, parent, none)).toBe(RESULT_STEP);
+    expect(stepBefore(RESULT_STEP, parent)).toBe(STEP.gpa);
+    expect(diagnosticValues({ ...parent, tournamentsPlannedText: "8" }).tournamentsPlanned).toBeNull();
+    // Continue needs a whole number 0-60; blank is a Skip, not an answer.
+    expect(canContinue(STEP.tournaments, p)).toBe(false);
+    expect(canContinue(STEP.tournaments, player({ tournamentsPlannedText: "8" }))).toBe(true);
+    expect(canContinue(STEP.tournaments, player({ tournamentsPlannedText: "0" }))).toBe(true);
+    for (const bad of ["-1", "61", "8.5", "abc", "1e1"]) {
+      expect(canContinue(STEP.tournaments, player({ tournamentsPlannedText: bad }))).toBe(false);
+    }
   });
 
   it("prefill ignores anything that does not parse — ?utr=0 is not a rating", () => {
@@ -150,8 +174,29 @@ describe("what a player's answers save as", () => {
       gpa: 3.6,
       birthMonth: 3,
       enrollmentTerm: "spring_after_grad",
+      tournamentsPlanned: null,
       onboarded: true,
     });
+  });
+
+  it("tournaments planned: the answer when given, Not set (null) when skipped — never a default", () => {
+    expect(diagnosticPlayerProfile(emptyPlayer, full).tournamentsPlanned).toBeNull();
+    expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "8" }).tournamentsPlanned).toBe(8);
+    expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "0" }).tournamentsPlanned).toBe(0);
+    expect(diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "99" }).tournamentsPlanned).toBeNull();
+  });
+
+  it("an answer is stamped with the season it is for (049); a skip leaves both unset", () => {
+    const answered = diagnosticPlayerProfile(emptyPlayer, { ...full, tournamentsPlannedText: "8" }, NOW);
+    expect(answered).toMatchObject({ tournamentsPlanned: 8, tournamentsPlannedSeason: "fall-2026" });
+    const skipped = diagnosticPlayerProfile(emptyPlayer, full, NOW);
+    expect(skipped).toMatchObject({ tournamentsPlanned: null, tournamentsPlannedSeason: null });
+  });
+
+  it("the progress count follows the role: a parent is asked one question fewer", () => {
+    expect(questionCountFor("player")).toBe(10);
+    expect(questionCountFor("parent")).toBe(9);
+    expect(questionCountFor(null)).toBe(10);
   });
 
   it("no UTR → the 0 sentinel (stored as NULL) and NO entries — never a placeholder", () => {
@@ -176,7 +221,7 @@ describe("what a player's answers save as", () => {
 
 describe("answers carried across the Google redirect", () => {
   it("round-trips, and expires after an hour", () => {
-    const a = player({ utrTodayText: "9", gradYear: 2030, birthYear: 2011, birthMonth: 2 });
+    const a = player({ utrTodayText: "9", gradYear: 2030, birthYear: 2011, birthMonth: 2, tournamentsPlannedText: "6" });
     const raw = serializePendingAnswers(a, NOW);
     expect(parsePendingAnswers(raw, new Date(NOW.getTime() + 59 * 60 * 1000))).toEqual(a);
     expect(parsePendingAnswers(raw, new Date(NOW.getTime() + 61 * 60 * 1000))).toBeNull();

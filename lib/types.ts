@@ -204,6 +204,18 @@ export type SchoolLite = School;
 export type PlayerGender = "male" | "female";
 export type FamilyRole = "player" | "parent";
 
+/** The grade written to a PARENT's own profile row at sign-up. The row has
+ * NOT NULL player-shaped columns (graduation_year), but a parent's profile
+ * holds no player stats and no screen shows these (board 22). A fixed,
+ * documented value — never used for a player, who must choose a grade. */
+export const PARENT_ROW_GRADE = 10;
+
+/** The gender written to a PARENT's own profile row at sign-up, for the
+ * same reason as PARENT_ROW_GRADE: a NOT NULL player-shaped column no
+ * screen shows for a parent. One value for every sign-up path (email,
+ * Google, the diagnostic) — they used to disagree ("male" vs "female"). */
+export const PARENT_ROW_GENDER: PlayerGender = "male";
+
 /** When the player plans to start college (migration 041,
  * profiles.enrollment_term). Mirrors the column's CHECK constraint. */
 export const ENROLLMENT_TERMS = ["fall_after_grad", "spring_after_grad", "not_sure"] as const;
@@ -223,8 +235,15 @@ export interface Player {
   familyCode?: string;
   targetSchoolSlugs: string[];
   weaknesses: Weakness[];
-  tournamentsPlayed: number;
-  tournamentsGoal: number;
+  // "Tournaments planned this season" (profiles.tournaments_goal, 049).
+  // The player's own number or null ("Not set") — never a default. There is
+  // no tournamentsPlayed: "played this season" is counted from the player's
+  // tournament_entries marked Played (lib/tournaments-planned.ts).
+  tournamentsPlanned: number | null;
+  // The season that count is for (profiles.tournaments_planned_season, 049),
+  // as lib/time.ts seasonKey() spells it. A count for any other season is
+  // shown as "Not set" — read it through plannedThisSeason().
+  tournamentsPlannedSeason: string | null;
   onboarded: boolean;
   // Profile tab fields on /settings (migration 014_profile_fields_and_
   // deletion.sql: profiles.home_area/utr_profile_link/gpa). Optional so
@@ -280,6 +299,5 @@ export interface RoadmapYear {
   gradeLabel: string; // e.g. "By summer before 11th grade"
   shortLabel: string; // compact label for charts, e.g. "Pre-11"
   utrTarget: number;
-  tournamentsNeeded: number;
   milestones: string[];
 }

@@ -56,7 +56,8 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
   // parent's placeholder UTR, which here decided each entered tournament's
   // fit chip — "bad fit" verdicts computed from a rating nobody entered.
   // buildSeasonBudgetSummary now takes null and omits the verdict instead.
-  const currentUTR = resolveFamilyPlayerFacts(playerMember, player).currentUtr;
+  const playerFacts = resolveFamilyPlayerFacts(playerMember, player);
+  const currentUTR = playerFacts.currentUtr;
   const seasonLabel = seasonBudget?.seasonLabel ?? seasonTitle(now);
   const totalBudget = seasonBudget?.totalBudget ?? 0;
 
@@ -121,7 +122,9 @@ export function SeededFamilyBudgetView({ schools }: { schools: SchoolLite[] }) {
           Seeded holds no cost-of-attendance or athletic-aid figures, so it does not estimate them.
         </p>
         <div className="-mx-5 mt-2 sm:-mx-8 lg:-mx-10">
-          <CostCalculatorView schools={schools} embedded />
+          {/* The PLAYER's class year (not the signed-in parent's own row),
+              so "Years remaining" starts from a real date or stays empty. */}
+          <CostCalculatorView schools={schools} embedded playerGraduationYear={playerFacts.graduationYear} />
         </div>
       </div>
     </div>

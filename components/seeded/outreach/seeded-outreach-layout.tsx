@@ -154,7 +154,11 @@ export function SeededOutreachLayout({
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6" aria-busy="true">
+      // Distinct keys: React would otherwise REUSE the skeleton's divs for
+      // the board (same type, same position), and a reused node that grows
+      // from 224×36 to the full board counts as a layout shift (CLS 0.108 at
+      // 1440). Newly inserted nodes don't.
+      <div key="outreach-loading" className="flex flex-col gap-6" aria-busy="true">
         <p className="sr-only" role="status">Loading your outreach…</p>
         <div className="h-9 w-56 animate-pulse rounded-lg bg-line/50 motion-reduce:animate-none" aria-hidden />
         <div className="min-h-[60vh] animate-pulse rounded-xl bg-line/40 motion-reduce:animate-none" aria-hidden />
@@ -163,7 +167,7 @@ export function SeededOutreachLayout({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div key="outreach-ready" className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-[-0.02em] text-ink">Outreach</h1>

@@ -73,7 +73,7 @@ export function EventsCalendarCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="calendar-heading" className="text-lg font-semibold text-ink">
-            Training
+            Schedule
           </h2>
           <div className="inline-flex rounded-lg border border-line p-0.5" role="group" aria-label="Calendar view">
             {(["week", "month"] as const).map((v) => (

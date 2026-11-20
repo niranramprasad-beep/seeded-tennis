@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
+import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, hasSeededProfile } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/config/auth";
@@ -56,8 +56,11 @@ export function CompleteOAuthSignup() {
   const [role, setRole] = useState<FamilyRole>("player");
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [country, setCountry] = useState("United States");
-  const [gender, setGender] = useState<PlayerGender>("female");
-  const [grade, setGrade] = useState(10);
+  // Team and grade start unanswered for a player (they used to start on
+  // "Women's" and 10th grade — answers Seeded picked). A parent is never
+  // shown them; their own row gets PARENT_ROW_GRADE, which no screen shows.
+  const [gender, setGender] = useState<PlayerGender | null>(null);
+  const [grade, setGrade] = useState<number | null>(null);
   const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
   const [joinCode, setJoinCode] = useState("");
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
@@ -115,6 +118,8 @@ export function CompleteOAuthSignup() {
     setError(null);
     if (!name.trim()) return setError("Enter your name.");
     if (!isPlausibleBirthYear(birthYear)) return setError("Choose the year you were born.");
+    if (!isParent && gender == null) return setError("Choose a team.");
+    if (!isParent && grade == null) return setError("Choose your grade in school.");
     if (effectiveFamilyMode === "join" && !joinCode.trim()) {
       return setError(
         needsParentConsent
@@ -127,8 +132,10 @@ export function CompleteOAuthSignup() {
     const result = await completeOAuthProfile({
       name: name.trim(),
       country,
-      gender,
-      grade,
+      // A player's own answers (required above); a parent is never shown
+      // them and gets the shared PARENT_ROW_* values, as every sign-up path.
+      gender: !isParent && gender ? gender : PARENT_ROW_GENDER,
+      grade: !isParent && grade != null ? grade : PARENT_ROW_GRADE,
       birthYear,
       role,
       family:

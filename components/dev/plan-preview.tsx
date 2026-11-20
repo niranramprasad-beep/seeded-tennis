@@ -17,8 +17,8 @@ const MOCK_PLAYER: Player = {
   role: "player",
   targetSchoolSlugs: [],
   weaknesses: [],
-  tournamentsPlayed: 6,
-  tournamentsGoal: 12,
+  tournamentsPlanned: null,
+  tournamentsPlannedSeason: null,
   onboarded: true,
   birthMonth: null,
   enrollmentTerm: null,
@@ -26,8 +26,8 @@ const MOCK_PLAYER: Player = {
 };
 
 const MOCK_ROADMAP: RoadmapYear[] = [
-  { calendarYear: 2026, gradeLabel: "By summer before 11th grade", shortLabel: "Pre-11", utrTarget: 9.7, tournamentsNeeded: 8, milestones: [] },
-  { calendarYear: 2027, gradeLabel: "By summer before 12th grade", shortLabel: "Pre-12", utrTarget: 9.9, tournamentsNeeded: 10, milestones: [] },
+  { calendarYear: 2026, gradeLabel: "By summer before 11th grade", shortLabel: "Pre-11", utrTarget: 9.7, milestones: [] },
+  { calendarYear: 2027, gradeLabel: "By summer before 12th grade", shortLabel: "Pre-12", utrTarget: 9.9, milestones: [] },
 ];
 
 export function PlanPreview({ targetSchools }: { targetSchools: SchoolLite[] }) {
@@ -35,8 +35,6 @@ export function PlanPreview({ targetSchools }: { targetSchools: SchoolLite[] }) 
     <SeededRoadmapLayout
       player={{ ...MOCK_PLAYER, targetSchoolSlugs: targetSchools.map((s) => s.slug) }}
       whatIf={targetSchools.map((s) => s.slug)}
-      openStage={null}
-      setOpenStage={() => {}}
       targetSchools={targetSchools}
       roadmap={MOCK_ROADMAP}
       goalUTR={9.9}

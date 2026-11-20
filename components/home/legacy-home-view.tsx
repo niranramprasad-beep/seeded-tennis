@@ -19,13 +19,19 @@ import { CountUpOnView } from "@/components/shared/count-up-on-view";
 import { SchoolMarquee } from "@/components/home/school-marquee";
 import { CinematicBand } from "@/components/home/cinematic-band";
 import { FitFinderTeaser } from "@/components/home/fit-finder-teaser";
-import { RecruitingFitPanel } from "@/components/home/recruiting-fit-panel";
 import { CAPABILITIES, METHODOLOGY, LOOP } from "./home-content";
 
 // Extracted verbatim out of app/page.tsx so Seeded (components/seeded/
 // home/seeded-home-view.tsx) can get a genuinely different composition
 // without touching this one — zero JSX changes from the original page.
-export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[] }) {
+export function LegacyHomeView({
+  marqueeSchools,
+  programCount,
+}: {
+  marqueeSchools: SchoolLite[];
+  /** The real catalog size (it was a literal 67 while the catalog held 68). */
+  programCount: number;
+}) {
   return (
     <>
       <div className="bg-cream text-ink">
@@ -82,10 +88,10 @@ export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
                   <div className="grid grid-cols-3 divide-x divide-line">
                     <div className="px-1 first:pl-0 sm:px-4">
                       <p className="font-serif text-3xl text-grass sm:text-4xl">
-                        <CountUpOnView value={67} className="font-serif text-3xl text-grass sm:text-4xl" />
+                        <CountUpOnView value={programCount} className="font-serif text-3xl text-grass sm:text-4xl" />
                       </p>
                       <p className="mt-1.5 whitespace-nowrap text-[9px] font-semibold uppercase tracking-normal text-stone sm:text-xs sm:tracking-[0.14em]">
-                        programs ranked
+                        programs compared
                       </p>
                     </div>
                     {[
@@ -254,7 +260,12 @@ export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
 
         {/* ---------------------------------------------- METHODOLOGY */}
         <section className="border-b-hairline border-line bg-card">
-          <div className="mx-auto grid max-w-content gap-12 container-px py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+          {/* The right column held RecruitingFitPanel: a second, private fit
+              model (division bands of 10.8/9.2/7.8, made-up growth rates,
+              a 72/28 tennis/GPA weighting) printing a 4–98 "confidence
+              score". None of it was sourced, and it disagreed with
+              lib/school-fit.ts — the one fit path. Deleted 2026-11-20. */}
+          <div className="mx-auto grid max-w-content gap-12 container-px py-20">
             <div>
               <Reveal>
                 <span className="eyebrow text-grass">Our methodology</span>
@@ -278,9 +289,6 @@ export function LegacyHomeView({ marqueeSchools }: { marqueeSchools: SchoolLite[
               </div>
             </div>
 
-            <Reveal index={1} step={0.1}>
-              <RecruitingFitPanel />
-            </Reveal>
           </div>
         </section>
 
