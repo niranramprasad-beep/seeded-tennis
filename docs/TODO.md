@@ -64,8 +64,8 @@ polish PR (Niran, 2026-11-16):**
 - **B. Parents cannot insert player-data rows under their own account.**
   Role-gate the INSERT policies on utr_entries, matches, tournament_entries,
   coach_outreach, daily_checkins and the other player tables
-  (`profiles.role = 'player'` in WITH CHECK, mirroring 033), and make
-  `is_parent_member()` role-aware. Today the app's routes refuse it (403),
+  (`profiles.role = 'player'` in WITH CHECK, mirroring 033).
+  (`is_parent_member()` became role-aware in 050, 2026-11-20.) Today the app's routes refuse it (403),
   but PostgREST allows it. Same item as 3 below, promoted.
 
 1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the
@@ -99,8 +99,7 @@ polish PR (Niran, 2026-11-16):**
    `profiles.role = 'player'` in the WITH CHECK of utr_entries, matches,
    tournament_entries, coach_outreach, the training tables, daily_checkins.
    Attack-test a parent refused and a player allowed, on staging first.
-4. **`is_parent_member()` role-aware** (already item #1 under Billing below
-   — unchanged; a joined sibling player can write the budget).
+4. ~~**`is_parent_member()` role-aware**~~ — DONE, migration 050 (2026-11-20).
 5. **Delete `generatePersonalizedPlan()`** (already listed below).
 6. **Onboarding's Grade and gender defaults.** Tonight made the UTR an
    explicit choice; the same signed-in onboarding still preselects 10th
@@ -303,7 +302,7 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       not what the rule was written about, but decide it deliberately rather
       than by omission.
 
-- [ ] **WEEK 1, ITEM #1 — make `is_parent_member()` role-aware.** Niran's
+- [x] **DONE 2026-11-20 (migration 050, PR-SEC) — WEEK 1, ITEM #1 — make `is_parent_member()` role-aware.** Kept below for the record. Niran's
       call on 2026-11-15: not a launch blocker, disclosed in `/privacy`
       instead, no migration on launch day. `is_parent_member()` returns true
       for any approved `parent_accounts` row regardless of `profiles.role`,
@@ -469,7 +468,34 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
-## Still open: `is_parent_member()` is flatter than its name
+## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
+
+**MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
+chosen at sign-up and any approved member may approve a join
+(`approve_family_join`, 026/045; a player approver needs no email proof). So
+a sibling player can create a second account as a parent, request to join,
+approve it themselves, and write the budget from it. Reproduced on staging
+by the independent verifier (rolled back). Limits: the account is visible on
+the roster and counts against the 2-parent cap (045).
+Not fixed tonight because the obvious fix — only a parent may approve a
+parent — breaks families whose only approved member is a player (a player
+creates the family, then the parent joins). Options: (a) a parent joiner
+needs a parent approver when one exists, else the account holder; (b) the
+account holder must approve parents; (c) show "added by <name>" on the
+roster and the budget. Decide, then mirror 033's pattern in a migration.
+
+## TRUNCATE is granted to anon/authenticated on the budget tables (pre-existing, LOW)
+
+Found by the same review: `anon` and `authenticated` hold TRUNCATE on
+`season_budgets` and `budget_expenses` (Supabase's default grants), and
+TRUNCATE ignores RLS. PostgREST cannot issue it, so it is reachable only
+from a direct SQL session — the same caveat as S-5 (c). Revoking TRUNCATE
+(and REFERENCES/TRIGGER) from anon/authenticated on every public table is a
+cheap, low-risk migration; do it with the next one.
+
+## DONE (050, 2026-11-20): `is_parent_member()` is flatter than its name
+
+_Fixed by `supabase/migrations/050_budget_writes_parents_only.sql`; the `/privacy` disclosure was deleted in the same commit. History below._
 
 Deliberately left out of 036 — a write-authorisation change nobody asked for
 does not belong in the launch migration.
