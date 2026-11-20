@@ -13,7 +13,7 @@
 | API | Vitest + `fetch` against `next start` on staging | 401 without token, 400 on bad body, 200 on good body, no raw error text |
 | E2E | Playwright (add) | the 20 journeys below, desktop 1440 + mobile 390 |
 | Visual | Playwright screenshots vs mockups for the 5 main screens | catch 1–3px regressions the audit found |
-| A11y | `@axe-core/playwright` | zero serious/critical |
+| A11y | `axe-core`, injected by `scripts/site-audit.mjs` / `scripts/ui-audit.mjs` | zero serious/critical |
 | Data | SQL checks on import (DATA_QUALITY.md) | duplicates, ranges, freshness |
 
 ## Critical journeys (each must pass on staging before launch)

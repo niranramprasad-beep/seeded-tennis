@@ -22,8 +22,6 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Because this project currently lives in a folder named `Coding:Projects`, the npm scripts call Next and TypeScript through `node node_modules/...` so the app runs reliably on macOS.
-
 ## Environment variables
 
 Add these to `.env.local` locally and to Vercel Project Settings for production:

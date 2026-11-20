@@ -132,7 +132,7 @@ export interface NextStepsInput {
   actionCount: number;
 }
 
-export const MAX_NEXT_STEPS = 3;
+const MAX_NEXT_STEPS = 3;
 
 export function buildNextSteps(input: NextStepsInput): NextStep[] {
   const offTrack = input.targetCount > 0 && input.onTrackCount < input.targetCount;

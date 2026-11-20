@@ -5,7 +5,6 @@ import Link from "next/link";
 import { signInWithGoogle } from "@/lib/auth";
 import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
 import { SeededButton } from "@/components/seeded/ui/button";
-import { cn } from "@/lib/utils";
 
 // The shared shell for /login, /signup, /parent-signup, /reset-password and
 // /auth/complete — Board 21 of docs/DESIGN_MOCKUP_SPEC_V2.md: a centred card
@@ -35,7 +34,7 @@ export const authInputClass =
 
 /** The id a field's hint or inline error is rendered under, so the input can
  * point at it with aria-describedby. */
-export const fieldHintId = (htmlFor: string) => `${htmlFor}-hint`;
+const fieldHintId = (htmlFor: string) => `${htmlFor}-hint`;
 
 /** aria-describedby for an input inside AuthField: its hint/error, plus any
  * extra ids (the form's error banner, say). Undefined when there is none. */

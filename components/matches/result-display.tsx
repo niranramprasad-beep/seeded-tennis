@@ -7,7 +7,7 @@ import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 
 /** Opponent UTR with two decimals (8.20, 9.00) — lib/utils.ts
  * formatPlayerUtr, the one formatter for a logged rating. */
-export function opponentUtrLabel(v: number | null): string | null {
+function opponentUtrLabel(v: number | null): string | null {
   return hasRealUtr(v) ? formatPlayerUtr(v) : null;
 }
 

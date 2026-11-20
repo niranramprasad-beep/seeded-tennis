@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  type TooltipProps,
 } from "recharts";
 import { useThemeColors } from "@/lib/context/theme-context";
 import { formatPlayerUtr } from "@/lib/utils";
@@ -25,7 +26,7 @@ interface UTRLineChartProps {
   showAxis?: boolean;
 }
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border-[0.5px] border-line bg-card px-3 py-2 shadow-lift">

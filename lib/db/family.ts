@@ -8,7 +8,6 @@ import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { isCalendarDateKey, resolveGraduationYear } from "@/lib/time";
 import { narrowLiteral, narrowOptionalLiteral } from "./narrow";
 import {
-  approvedFamilyMemberIds,
   loadFamilyRosterRows,
   resolveMyFamilyCode,
 } from "./family-scope";
@@ -27,11 +26,6 @@ async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<
   if (!id) return { id: null, profile: null };
   const { data: profileData } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
   return { id, profile: profileData };
-}
-
-async function profile(): Promise<Tables<"profiles"> | null> {
-  const { profile: p } = await userIdAndProfile();
-  return p;
 }
 
 /** id + profile + the family the user ACTUALLY belongs to.
@@ -112,40 +106,6 @@ export async function loadFamilyMembers(signal?: AbortSignal): Promise<FamilyMem
       gender: narrowOptionalLiteral(row.gender, GENDERS),
       createdAt: row.joined_at ?? undefined,
     }));
-}
-
-/* ----------------------------------------------------------- parent reports */
-
-export interface ParentReport {
-  id: string;
-  month: string;
-  title: string;
-  summary: Record<string, unknown>;
-  publicUrl: string;
-  storagePath: string;
-  createdAt: string;
-}
-
-function mapReport(row: Tables<"parent_reports">): ParentReport {
-  return {
-    id: row.id,
-    month: row.month,
-    title: row.title,
-    summary: (row.summary as Record<string, unknown>) ?? {},
-    publicUrl: row.public_url ?? "",
-    storagePath: row.storage_path ?? "",
-    createdAt: row.created_at,
-  };
-}
-
-export async function loadParentReports(signal?: AbortSignal): Promise<ParentReport[]> {
-  const supabase = getSupabase();
-  const { familyCode } = await familyScope(signal);
-  if (!supabase || !familyCode) return [];
-  let query = supabase.from("parent_reports").select("*").eq("family_code", familyCode).order("month", { ascending: false });
-  if (signal) query = query.abortSignal(signal);
-  const { data } = await query;
-  return (data ?? []).map(mapReport);
 }
 
 /* ------------------------------------------------------ encouragement notes */

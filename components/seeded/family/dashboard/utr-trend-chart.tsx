@@ -15,7 +15,7 @@ import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 // measured rather than scaled from a viewBox, so the labels stay 11–12px on
 // a 320px phone instead of shrinking to 5px.
 
-export const CHART_HEIGHT = 240;
+const CHART_HEIGHT = 240;
 const LABEL_FONT = "var(--font-inter)";
 const NUMBER_FONT = "var(--font-mono-active)";
 const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

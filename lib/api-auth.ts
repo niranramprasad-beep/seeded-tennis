@@ -83,7 +83,7 @@ export async function getProfileRoleAndFamily(
 }
 
 /** The sentence a locked family gets from a Family-plan API route. */
-export const FAMILY_PLAN_LOCKED_MESSAGE =
+const FAMILY_PLAN_LOCKED_MESSAGE =
   "The season budget and family reports are part of the Family plan. Upgrade to Family to use them.";
 
 /**

@@ -23,7 +23,7 @@ export const TOURNAMENTS_PLANNED_NOT_SET = "Not set";
  * ceiling on what can be stored — not a target anyone is steered towards. */
 export const TOURNAMENTS_PLANNED_MAX = 60;
 
-export const TOURNAMENTS_PLANNED_ERROR = `Enter a whole number from 0 to ${TOURNAMENTS_PLANNED_MAX}.`;
+const TOURNAMENTS_PLANNED_ERROR = `Enter a whole number from 0 to ${TOURNAMENTS_PLANNED_MAX}.`;
 
 /** Typed text → the count. Empty is not an error: it is "Not set". */
 export function parseTournamentsPlannedText(text: string): { value: number | null; error: string | null } {

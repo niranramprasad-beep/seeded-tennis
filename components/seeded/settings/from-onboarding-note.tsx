@@ -1,7 +1,7 @@
 // Shown on /settings/profile when /onboarding sent an already-onboarded
 // account here (D2). The questions are for setting a profile up once; after
 // that, this page is where it changes.
-export const FROM_ONBOARDING_NOTE = "Update your profile here";
+const FROM_ONBOARDING_NOTE = "Update your profile here";
 
 export function FromOnboardingNote() {
   return (

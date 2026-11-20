@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node node_modules/next/dist/bin/next dev",
-    "build": "node node_modules/next/dist/bin/next build",
-    "start": "node node_modules/next/dist/bin/next start",
-    "lint": "node node_modules/next/dist/bin/next lint",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "node node_modules/vitest/vitest.mjs run",
-    "test:tz": "TZ=America/New_York node node_modules/vitest/vitest.mjs run && TZ=Pacific/Auckland node node_modules/vitest/vitest.mjs run"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:tz": "TZ=America/New_York vitest run && TZ=Pacific/Auckland vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
@@ -29,7 +29,6 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.1",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

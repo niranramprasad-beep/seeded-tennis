@@ -314,9 +314,6 @@ export function SeededSchoolsBrowser({
   });
 
   const judgingUtr: number | null = report?.utr.value ?? null;
-  const subjectTodayUtr: number | null = viewingAsParent
-    ? (playerFacts.currentUtr ?? null)
-    : youUtr;
   const hasFit = report != null;
 
   const bandFor = useCallback(
@@ -359,7 +356,7 @@ export function SeededSchoolsBrowser({
     if (!slug) return;
     if ((g === "men" || g === "women") && g !== gender) setGender(g);
     setCompareSlugs((prev) => (prev.includes(slug) ? prev : [...prev, slug]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only read of the ?compare= deep link
   }, []);
 
   // Restores division/region/academics/search/sort/chip from a previous
@@ -394,7 +391,7 @@ export function SeededSchoolsBrowser({
       // Ignore malformed localStorage and keep the default filters.
     }
     setFiltersHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only restore from localStorage; re-running would undo the user's edits
   }, []);
 
   // Persists on every change, once restore above has actually run. Keeping
