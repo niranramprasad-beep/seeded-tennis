@@ -10,6 +10,10 @@ inside a transaction you roll back. Remember that `postgres` (the editor's
 default role) bypasses RLS, so a count taken without the role switch proves
 nothing.
 
+This file was written 2026-11-18 and last edited 2026-11-20; the account
+list has not been re-read from staging since. Query `auth.users` /
+`profiles` on staging before relying on a specific row.
+
 ## PR B set (seeded 2026-11-18 for migrations 041–043)
 
 ids are `00000000-0000-0000-0000-0000000b0NNN`, shown as the last four.
@@ -35,6 +39,11 @@ What each one is for:
   approves to show "a player approving is never asked to verify".
 - **PB2 / PB3** — unlocked from either side. Both parents read the player's
   UTR history and the budget, and can add expenses and notes.
+- **Budget writes are parent-only since migration 050 (2026-11-20).** The
+  players b0202 and b0301 — b0301 even though they hold and pay for the
+  Family plan — read the budget but a budget or expense insert is refused
+  42501. The same holds for any member of the older sets whose
+  `profiles.role` is `player`. Notes have been parent-only since 033.
 - **PB4** — the parent must verify before approving the child (which also
   records consent). `approve_family_join('…0b0402')` as b0401 →
   `42501 verify_email_required` until `request_email_verification()` has

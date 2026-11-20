@@ -1,4 +1,4 @@
-// D8 perf audit (docs/perf/audit-2-perf.md): how long a SIGNED-IN user waits
+// D8 perf audit (docs/archive/audit-2-perf.md): how long a SIGNED-IN user waits
 // for real content on the app routes, desktop, no throttling (broadband).
 // Run against a production build whose .env.local points at STAGING:
 //

@@ -1,71 +1,81 @@
 # Seeded — QA Checklist & Testing Strategy
 
-## Current state
-- 382 Vitest unit tests across 28 files — all pass (verified 2026-11-10, 10s).
-- `next lint` clean. `tsc --noEmit` fails only on stale `.next/types/app/friends` (deleted route) — clean `.next` before typechecking.
-- Zero integration, RLS, API, E2E, accessibility, or visual tests. No CI.
+## Current state (2026-11-20)
+- **Vitest:** 106 test files, 1522 tests. Many are build-failing guards for
+  product rules (copy honesty, no invented school data, no invented goal,
+  UTR sentinel, fit-band consistency, family scope, Family-plan lock,
+  budget parent-only, no auto-generated training). CLAUDE.md names each one
+  next to its rule.
+- **CI:** `.github/workflows/ci.yml`, job `verify` — typecheck, lint, tests,
+  build, plus the suite again in two time zones (`npm run test:tz`:
+  America/New_York and Pacific/Auckland) — on pull requests to and pushes
+  to `main`. `main` requires a green `verify` to merge.
+- **Locally, before saying something works:**
+  `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run`
+  (a stale `.next` can fail the typecheck on deleted routes).
+- **Not automated:** RLS, API-against-a-server, E2E, visual and a11y tests
+  are not in CI. RLS is probed by hand as real users on staging (below);
+  `scripts/` holds ad-hoc Playwright / Lighthouse / axe runs
+  (`scripts/README.md`).
 
-## Strategy (minimum that actually protects launch)
+## Strategy
 | Layer | Tool | What |
 |---|---|---|
-| Unit | Vitest (exists) | fit classifier, projection, email builder, schemas |
-| RLS | SQL scripts run against **staging** with `set role authenticated; set request.jwt.claims = …` | every table: stranger can't read/write; family member can read; parent can write budget only; privileged profile columns locked |
-| API | Vitest + `fetch` against `next start` on staging | 401 without token, 400 on bad body, 200 on good body, no raw error text |
-| E2E | Playwright (add) | the 20 journeys below, desktop 1440 + mobile 390 |
-| Visual | Playwright screenshots vs mockups for the 5 main screens | catch 1–3px regressions the audit found |
-| A11y | `axe-core`, injected by `scripts/site-audit.mjs` / `scripts/ui-audit.mjs` | zero serious/critical |
-| Data | SQL checks on import (DATA_QUALITY.md) | duplicates, ranges, freshness |
+| Unit + guards | Vitest (in CI) | fit classifier, projection, coach email, schemas, honesty guards |
+| RLS | SQL on **staging** as a real user, in a rolled-back transaction | stranger reads nothing; family reads only with the Family plan; only parents write budget/notes; privileged profile columns locked |
+| API | Vitest: request-body schemas (`lib/api-schemas/*.test.ts`) today; no tests against a running server yet | 401 without token, 400 on bad body, 429 when limited, no raw error text |
+| E2E / visual / a11y | `scripts/` (Playwright, axe), not in CI | journeys below, desktop 1440 + mobile 390 |
+| Data | Import checks (DATA_QUALITY.md) | duplicates, ranges, freshness |
 
-## Critical journeys (each must pass on staging before launch)
+## Critical journeys (on a Preview deployment, which reads staging)
 1. Landing page loads, header doesn't wrap, every CTA goes somewhere real
-2. Signup (13+) → confirmation email → login
-3. Login with wrong password shows a clear error; correct password lands on `/today`
+2. Signup (13+) → login
+3. Wrong password shows a clear error; correct password lands on `/today`
 4. Logout clears session; back button doesn't show private data
-5. Password reset email → new password works
-6. Onboarding: under-13 routed to parent signup (server-enforced)
-7. Profile edit saves; privileged fields can't be changed (S-1 test)
-8. Today shows the real UTR and no flash of wrong empty state
+5. Password reset → new password works
+6. Onboarding: under-13 routed to a parent; the account stays inert until an adult in the family consents (030)
+7. Profile edit saves; privileged fields can't be changed (42501)
+8. Today shows the real UTR, or "Not tracked" when none is logged — never 0 or 7
 9. Schools search, filter, sort; "You {UTR}" equals the player's real UTR
 10. Filters persist and the band chip counts equal the rows shown
 11. School page: same band as on `/schools` and `/plan` for the same player
-12. Roster range shows source + date or "Not tracked"
-13. No coach name/email/recruit appears unless sourced
-14. UTR entry: log, edit, outlier warning
-15. Save school to targets and remove it
-16. (AI) Copilot route returns 404 for V1
-17. Family: parent joins only with approval; parent can't edit player data; parent can edit budget; player can't
-18. Errors: kill network → friendly error + retry, no stack text
-19. Mobile 390px: no clipped tables, tab bar works, no horizontal scroll
-20. Unauthorized: stranger account can't read another user's rows via REST (script)
+12. Roster range shows "Unverified estimate" or "Not tracked"
+13. No coach name/email/recruit appears anywhere
+14. UTR entry: log, edit, delete
+15. Save a school to targets and remove it; Free stops at 3
+16. Coach email: Copy/Gmail disabled while any `[` or `]` placeholder remains
+17. Family: a joiner lands pending; approval works; a parent must verify their email before joining/approving; without the Family plan members see the roster but not each other's data; only parents can edit the budget; a player can't
+18. Leave family works; the account holder can't leave
+19. Errors: kill network → friendly error + retry, no stack text
+20. Mobile 390px: no clipped tables, five-item bottom bar, no horizontal scroll
+21. Stranger account can't read another user's rows via REST (script below)
 
-## RLS test skeleton (run on staging only)
+## RLS probe skeleton (staging only)
 ```sql
 begin;
-set local role authenticated;
-set local request.jwt.claims = '{"sub":"<stranger uuid>","role":"authenticated"}';
-select count(*) from utr_entries where user_id = '<victim uuid>';   -- expect 0
-update profiles set subscription_tier='family' where id = '<stranger uuid>'; -- expect 42501
-select count(*) from families;                                        -- expect only own
+set local role authenticated;  -- mandatory: postgres bypasses RLS
+select set_config('request.jwt.claims',
+  '{"sub":"<stranger uuid>","role":"authenticated"}', true);
+select count(*) from utr_entries where user_id = '<victim uuid>';        -- expect 0
+update profiles set subscription_tier = 'family' where id = '<stranger uuid>'; -- expect 42501
+select count(*) from profiles;                                             -- expect 1 (own row)
 rollback;
 ```
+Fake accounts and families to use: `docs/STAGING_PERSONAS.md`.
 
-## Copy/claims review (P0-7) — every launch
+## Copy/claims review — every launch
 
-Mostly automated now. `npx vitest run lib/copy-honesty.test.ts` scans every
-shipped `.ts`/`.tsx` under `components/` and `app/` for the nine phrasings
-removed in P0-7 and fails the build if one returns. Comments may still quote
-the old copy — that's the record of why it went — so only live code is
-checked.
+Mostly automated: `lib/copy-honesty.test.ts` scans shipped `.ts`/`.tsx` under
+`components/` and `app/` for phrasings removed in P0-7 and fails the build if
+one returns. **When a claim becomes true, delete its entry from that test in
+the same commit** — never reword around it.
 
-**When a claim becomes true, delete its entry from that test in the same
-commit that makes it true.** Never reword the copy to slip past the pattern;
-that's how a claim comes back wearing a different hat.
-
-The check can't judge copy nobody has written yet, so on every launch still
-read the rendered pages and ask:
-- [ ] Does every number on screen have a real source, or say it's an estimate / "Not tracked"?
-- [ ] Is anything written in the present tense that is actually planned? ("Sunday email" and "public recruiting page" both arrived that way — intentions described as features.)
-- [ ] Does any control write a value that nothing reads? A toggle wired to nothing is a claim too.
-- [ ] Deletion copy matches what deletion actually does (today: sets a flag; a person actions it)
-- [ ] Pricing features list matches what each tier unlocks in RLS
-- [ ] Catalog counts quoted in prose match the real catalog (the honesty test guards the *fields*; counts in copy are still manual)
+The test can't judge copy nobody has written yet, so still read the rendered
+pages and ask:
+- [ ] Does every number have a real source, or say it's an estimate / "Not tracked"?
+- [ ] Is anything in the present tense actually only planned? (The old "Sunday email" and "public recruiting page" arrived that way.)
+- [ ] Does any control write a value nothing reads?
+- [ ] Does anything imply Seeded sends email or notifications? It sends none ("Remind them" only re-sorts a request).
+- [ ] Deletion copy matches what `delete_my_account()` does (deletes the caller's data)
+- [ ] Pricing features match what each tier unlocks in RLS (Player: outreach + training writes, unlimited targets; Family: family sharing, budget, notes)
+- [ ] Catalog counts quoted in prose match the real catalog

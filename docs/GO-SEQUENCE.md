@@ -167,7 +167,7 @@ Promote to Production (instant). Database changes do not roll back with
 it; under the OLD code you must also run 024's rollback (old code writes
 outreach at Family tier) and leave 028/034 in place (§J Step 15).
 
-## 6. Live checks (20 min) — see the handoff list in `docs/FINAL_PASS_REPORT.md`
+## 6. Live checks (20 min) — see the handoff list in `docs/archive/FINAL_PASS_REPORT.md`
 
 Public routes 200, headers, robots/sitemap, persona-(a)-shaped fit report
 consistent, a signup confirmation email arrives (Google Workspace SMTP,

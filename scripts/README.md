@@ -11,7 +11,7 @@ into the repo.
 Signed-in passes read the persona password from
 `~/seeded-evidence/overnight/.persona-pass`. The persona passwords are
 scrambled at the end of every pass, so a signed-in run needs fresh
-disposable ones set on staging first (see `docs/FINAL_PASS_REPORT.md`).
+disposable ones set on staging first (see `docs/archive/FINAL_PASS_REPORT.md`).
 
 **Every script targets a local build (`localhost`) whose `.env.local` points
 at staging, and signs in only as disposable staging personas. None of them
