@@ -3319,6 +3319,8 @@ commit;
 
 ### Step 23 — migration 049 (tournaments planned, not invented; fix/no-invented-goal)
 
+**RAN ON PRODUCTION 2026-11-20 04:58 UTC** (ledger 49 → 50), after a backup; verified before and after PR #11 merged. Check `list_migrations`, not this line.
+
 `profiles.tournaments_goal` becomes nullable with NO default; every stored
 value is set to NULL (all are the invented 12 — production 8 of 8 profiles
 = 12/0 on 2026-11-20); CHECK `null or between 0 and 60`. NEW nullable column
