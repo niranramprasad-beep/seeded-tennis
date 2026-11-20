@@ -8,6 +8,8 @@ import {
 } from "@/lib/db/schools";
 import { SchoolsBrowser } from "@/components/schools/schools-browser";
 import { SchoolsHeader } from "@/components/seeded/schools/seeded-schools-header";
+import { ImportedProgramsSection } from "@/components/schools/imported-programs-section";
+import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
 
 export const metadata: Metadata = {
   title: "College tennis programs by UTR fit — Seeded",
@@ -38,6 +40,9 @@ export default async function SchoolsPage() {
             divisions={divisions}
           />
         </div>
+
+        {/* Catalog phase 1 (048). Off by default; off = this page unchanged. */}
+        {CATALOG_PHASE1_ENABLED ? <ImportedProgramsSection /> : null}
       </div>
     </>
   );
