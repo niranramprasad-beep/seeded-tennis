@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, CheckCircle2 } from "lucide-react";
 import type { School } from "@/lib/types";
+import { coachEmailActionState } from "@/lib/db/schools";
 import type { OutreachStatus, OutreachStatusMapDated } from "@/lib/db/outreach";
 import { REMIND_ME_AFTER_DAYS } from "@/lib/db/outreach";
 import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
@@ -64,6 +65,10 @@ export interface SeededOutreachLayoutProps {
   setBody: (v: string) => void;
   copied: boolean;
   copyAll: () => void;
+  /** "New email": select this target school and replace the editor's
+   * contents with a freshly built draft for it. Writes nothing — the stage
+   * only moves when the player says so ("Mark sent"). */
+  startNewEmail: (slug: string) => void;
   setStatus: (slug: string, status: OutreachStatus | null) => void;
   setReminder: (slug: string) => void;
   outreachError: string;
@@ -95,6 +100,7 @@ export function SeededOutreachLayout({
   setBody,
   copied,
   copyAll,
+  startNewEmail,
   setStatus,
   setReminder,
   outreachError,
@@ -106,6 +112,11 @@ export function SeededOutreachLayout({
   loading = false,
 }: SeededOutreachLayoutProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Bumped on every "New email" pick; the effect below brings the editor on
+  // screen once the new draft has rendered.
+  const [newEmailTick, setNewEmailTick] = useState(0);
+  const editorRef = useRef<HTMLElement>(null);
+  const toRef = useRef<HTMLInputElement>(null);
   const bySlug = (slug: string) => targetSchools.find((s) => s.slug === slug);
   const selectedSchool = selectedSlug ? bySlug(selectedSlug) : undefined;
   const currentStatus = selectedSchool ? statuses[selectedSchool.slug]?.status : undefined;
@@ -113,8 +124,27 @@ export function SeededOutreachLayout({
   // Only complain once they've actually typed something — an empty field on a
   // fresh draft is the expected starting state, not an error.
   const recipientInvalid = recipient.trim().length > 0 && !recipientValid;
+  // The one gate for Copy and Open in Gmail (lib/db/schools.ts). A draft with
+  // a [bracket] still in it never leaves Seeded.
+  const actions = coachEmailActionState({ subject, body, recipientValid });
 
-  const notStarted = targetSchools.filter((s) => !statuses[s.slug]);
+  useEffect(() => {
+    if (newEmailTick === 0) return;
+    const reduce =
+      typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    editorRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    toRef.current?.focus({ preventScroll: true });
+  }, [newEmailTick]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen]);
+
   const emailedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "emailed").length;
   const repliedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "replied").length;
   const dueCount = targetSchools.filter((s) => {
@@ -145,22 +175,39 @@ export function SeededOutreachLayout({
         <div className="relative">
           {/* Secondary: the editor's "Mark sent" below is this screen's one
               green button (design system v2 rule 1). */}
-          <SeededButton variant="secondary" onClick={() => setPickerOpen((v) => !v)} disabled={notStarted.length === 0}>
+          {/* Every target school, whatever its stage — a follow-up to an
+              emailed coach is a new email too. This used to list only schools
+              with no outreach row at all and wrote a "researching" row on
+              pick; see startNewEmail in coaches-view.tsx for the full story. */}
+          <SeededButton
+            variant="secondary"
+            onClick={() => setPickerOpen((v) => !v)}
+            aria-expanded={pickerOpen}
+            aria-controls="outreach-new-email-picker"
+          >
             New email
           </SeededButton>
-          {pickerOpen && notStarted.length > 0 && (
-            <div className="absolute right-0 top-full z-10 mt-2 w-64 rounded-lg border border-line bg-card p-2 shadow-card">
-              {notStarted.map((s) => (
+          {pickerOpen && (
+            <div
+              id="outreach-new-email-picker"
+              className="absolute right-0 top-full z-10 mt-2 max-h-80 w-64 overflow-y-auto rounded-lg border border-line bg-card p-2 shadow-card"
+            >
+              <p className="px-2.5 pb-1.5 pt-1 text-xs text-ink/60">Start a fresh draft to</p>
+              {targetSchools.map((s) => (
                 <button
                   key={s.slug}
+                  type="button"
                   onClick={() => {
-                    setStatus(s.slug, "researching");
-                    setSelectedSlug(s.slug);
+                    startNewEmail(s.slug);
                     setPickerOpen(false);
+                    setNewEmailTick((t) => t + 1);
                   }}
-                  className="block w-full rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-grass-50"
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-grass-50"
                 >
-                  {s.shortName}
+                  <span className="truncate">{s.shortName}</span>
+                  <span className="shrink-0 text-xs text-ink/60">
+                    {STAGES.find((st) => st.key === boardStageFor(s.slug, statuses))?.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -278,7 +325,11 @@ export function SeededOutreachLayout({
 
       {/* The editor gets the page's full width (C22): it was a 448px aside
           with a 9-row message box, at 1440 and on phones alike. */}
-      <section className="w-full rounded-xl border border-line bg-card p-5 sm:p-6" aria-label="Email editor">
+      <section
+        ref={editorRef}
+        className="w-full scroll-mt-6 rounded-xl border border-line bg-card p-5 sm:p-6"
+        aria-label="Email editor"
+      >
         {!selectedSchool ? (
           <EmptyState
             title="No email selected."
@@ -300,6 +351,7 @@ export function SeededOutreachLayout({
                     To
                   </label>
                   <input
+                    ref={toRef}
                     id="outreach-to"
                     type="email"
                     inputMode="email"
@@ -347,7 +399,8 @@ export function SeededOutreachLayout({
                 <StaffDirectoryHint school={selectedSchool} />
                 <p className="mt-3 text-xs text-ink/60">
                   The draft uses only what you&rsquo;ve logged and the program&rsquo;s name, division
-                  and conference. Edit it before you send. Seeded never sends for you.
+                  and conference. Parts in [brackets] are yours to write. Edit it before you send.
+                  Seeded never sends for you.
                 </p>
               </div>
             </div>
@@ -356,15 +409,15 @@ export function SeededOutreachLayout({
               <div className="flex flex-wrap items-center gap-2">
                 <SeededButton
                   variant="secondary"
-                  disabled={!recipientValid}
-                  aria-describedby={recipientValid ? undefined : "outreach-gmail-reason"}
+                  disabled={!actions.gmail.enabled}
+                  aria-describedby={actions.gmail.enabled ? undefined : "outreach-gmail-reason"}
                   onClick={() => {
                     // Real Gmail web compose deep link — never the Gmail API,
                     // never sent on the player's behalf. Opens a normal
                     // pre-filled compose window in a new tab for the player to
                     // review and send themselves. The recipient is whatever the
                     // player typed above; we never supply one.
-                    if (!recipientValid) return;
+                    if (!actions.gmail.enabled) return;
                     const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
                       recipient.trim()
                     )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -373,7 +426,12 @@ export function SeededOutreachLayout({
                 >
                   Open in Gmail
                 </SeededButton>
-                <SeededButton variant="ghost" onClick={copyAll}>
+                <SeededButton
+                  variant="ghost"
+                  onClick={copyAll}
+                  disabled={!actions.copy.enabled}
+                  aria-describedby={actions.copy.enabled ? undefined : "outreach-gmail-reason"}
+                >
                   {copied ? (
                     <>
                       <CheckCircle2 className="h-4 w-4" aria-hidden /> Copied
@@ -401,12 +459,18 @@ export function SeededOutreachLayout({
                   )}
                 </div>
               </div>
-              {!recipientValid && (
+              {actions.copy.reason ? (
+                // The draft itself isn't ready: both buttons are off, and
+                // this says why (a [bracket] still in it, or no message).
+                <p id="outreach-gmail-reason" role="status" className="text-xs font-medium text-ink/80">
+                  {actions.copy.reason}
+                </p>
+              ) : !actions.gmail.enabled ? (
                 <p id="outreach-gmail-reason" className="text-xs text-ink/60">
                   Paste the coach&rsquo;s email in To to open Gmail. Or use Copy and paste the draft
                   into any email app.
                 </p>
-              )}
+              ) : null}
             </div>
 
             {currentStatus === "replied" && (
