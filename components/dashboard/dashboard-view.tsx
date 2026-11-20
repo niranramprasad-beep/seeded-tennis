@@ -124,6 +124,18 @@ function DashboardInner({ schools }: DashboardViewProps) {
     () => loadMatches()
   );
   const [utrDrawerOpen, setUtrDrawerOpen] = useState(false);
+  // /today?utr=1 opens the UTR drawer: /schools' "Enter my UTR" lands here
+  // for a signed-in player (D2 sends onboarded players away from /onboarding,
+  // and Settings has no rating field). Read once on mount, then the query is
+  // dropped so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("utr") !== "1") return;
+    setUtrDrawerOpen(true);
+    url.searchParams.delete("utr");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, []);
   const [checkinDrawerOpen, setCheckinDrawerOpen] = useState(false);
   const [sundayCheckinOpen, setSundayCheckinOpen] = useState(false);
   const [sundayStatus, setSundayStatus] = useState<"idle" | "saving" | "error">("idle");

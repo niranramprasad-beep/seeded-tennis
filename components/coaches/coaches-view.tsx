@@ -340,7 +340,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           emails to each coach.
         </p>
         <Link
-          href="/onboarding"
+          href="/schools"
           className={cn(buttonVariants({ variant: "primary", size: "md" }), "mt-6")}
         >
           Choose schools
