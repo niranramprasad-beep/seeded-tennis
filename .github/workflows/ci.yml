@@ -6,8 +6,8 @@ name: CI
 # on every change — until this workflow existed, nothing did.
 #
 # Required check for merging into main: the `verify` job below.
-# Branch protection is a repo setting, not a file; see docs/DEPLOYMENT_CHECKLIST.md
-# for the exact settings to enable.
+# Branch protection is a repo setting, not a file; docs/DEPLOYMENT_CHECKLIST.md
+# lists the settings (PR required, status check `verify` required).
 
 # Every PR into main and every push to main. (`v1` was retired after the
 # 2026-11-16 launch merge.)

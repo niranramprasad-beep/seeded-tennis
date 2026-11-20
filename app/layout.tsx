@@ -35,7 +35,7 @@ const SIGNED_IN_ONLY_JSON = JSON.stringify(SIGNED_IN_ONLY_PREFIXES);
 // To update a face: re-download the latin woff2 from the Google Fonts CSS
 // API and replace the file. Do not add a family here without adding its file.
 //
-// PRELOADING (D8, docs/perf/audit-2-perf.md). next/font preloads every file
+// PRELOADING (D8, docs/archive/audit-2-perf.md). next/font preloads every file
 // of every family declared in the root layout, on every page. With six
 // families that was TWELVE <link rel=preload> font files (313 KB) at the
 // top of every document, all fetched at high priority ahead of the page's

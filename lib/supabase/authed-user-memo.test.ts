@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { __resetVerifiedUserForTests, getAuthedUser } from "./client";
 
-// D8 (docs/perf/audit-2-perf.md): every loader used to make its own
+// D8 (docs/archive/audit-2-perf.md): every loader used to make its own
 // /auth/v1/user round trip, serialised behind supabase-js's auth lock — ten
 // of them on one /today load. getAuthedUser() now shares ONE server check
 // per access token. These pin the parts of that which matter for

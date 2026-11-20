@@ -7,7 +7,7 @@ Current as of 2026-11-20 (13 `route.ts` files under `app/api`).
 Every route except the webhook needs a Supabase bearer token. "Request-scoped"
 = an anon-key client carrying that token, so RLS applies
 (`lib/api-auth.ts`). Rate limits are enforced in Postgres by a trigger on the
-table (migration 034); the routes only peek so they can answer 429 first.
+table (migration 034); most routes only peek so they can answer 429 first; `account_deletion`, `data_export` and `whop_checkout` are counted by the route (`ROUTE_COUNTED_BUCKETS`, lib/rate-limit.ts).
 
 | Route | Method | Client | Validation | Notes |
 |---|---|---|---|---|

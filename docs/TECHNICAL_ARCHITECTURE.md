@@ -40,7 +40,7 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
   limit check → zod parse → write → JSON.
 - Most reads go straight from the browser through the anon-key client + RLS.
 - Rate limits are enforced in Postgres by a trigger on every client-writable
-  table (migration 034); routes only `peek` so they can return a friendly 429.
+  table (migration 034); most routes only `peek` so they can return a friendly 429; three buckets (account deletion, data export, Whop checkout) are counted by the route itself (`ROUTE_COUNTED_BUCKETS` in lib/rate-limit.ts).
 - The service-role client (`lib/supabase/admin.ts`) is used only by
   `/api/whop/webhook`, `/api/whop/sync` and `/api/whop/membership`.
 - No background jobs, no cron (`vercel.json` has none), no queue.

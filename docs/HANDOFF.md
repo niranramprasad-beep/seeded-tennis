@@ -1,6 +1,6 @@
 # Seeded — Handoff
 
-**What this file is now (2026-11-21):** the production rollout runbook.
+**What this file is now (2026-11-20):** the production rollout runbook.
 - **§J** is the step-by-step plan for every production migration (Steps 1–24:
   migrations 022–050), each with its pre-flight, verify-as-real-roles and a
   pasteable rollback. `docs/GO-SEQUENCE.md` is the one-page order that points
@@ -21,11 +21,18 @@
 
 ## J. Production rollout plan — P0-1, P0-2, P1-PRICE-1 (written 2026-11-14)
 
-Everything below is **already applied and tested on staging**
+> **Status (2026-11-20):** every step below has since RUN ON PRODUCTION —
+> Steps 1–15 on 2026-11-16 (launch), 16–20 on 2026-11-19, 21–23 on
+> 2026-11-20, Step 24 (050) on 2026-11-20 night. The two paragraphs that
+> follow were written on 2026-11-14, before any of it, and are kept as the
+> plan of record; they do not describe production today. Production state:
+> `list_migrations` on `tfpjssmhiptbwigarxpx`, and docs/GO-SEQUENCE.md.
+
+*(As written 2026-11-14:)* Everything below is **already applied and tested on staging**
 (`gnlcpnsweqbtwpaqhqqg`), never on production. Production
 (`tfpjssmhiptbwigarxpx`) is untouched by this work.
 
-**Current production state:** serving the maintenance page since
+**Production state on 2026-11-14:** serving the maintenance page since
 2026-11-14 (`main` @ `d059006`, verified live: 503 + `Retry-After: 3600` +
 `X-Robots-Tag: noindex` on `/`, `/schools` and `/api/profile`). Users are
 not hitting the app, which is what makes this rollout low-risk — but it

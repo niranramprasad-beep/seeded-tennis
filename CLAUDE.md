@@ -1,6 +1,6 @@
 # Seeded — notes for Claude
 
-## Current state (2026-11-21)
+## Current state (2026-11-20, night)
 - Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
 - Production database: every migration through **050** except 048 (ledger 51 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Staging `gnlcpnsweqbtwpaqhqqg` is ahead by design (048, rehearsal re-runs). `.env.local` and Vercel Preview point at it.
@@ -11,7 +11,7 @@
 ## Branches
 **Branch from `main`, open a PR into `main`.** `main` = production and is
 protected: a PR and a green `verify` are required. Merge only after CI passes
-and Niran says go (or a run he pre-approved says so) — `main` auto-deploys to
+and Niran says go in the current turn — `main` auto-deploys to
 seededtennis.com with no staging gate, which is why that gate is a person.
 Migrations go to production *before* the code that needs them (GO-SEQUENCE).
 
@@ -26,7 +26,7 @@ pre-redesign commits that never landed — don't merge it.
 3. `docs/DATA_QUALITY.md` — before touching schools, rosters, UTR, or fit math.
 4. `docs/TECHNICAL_ARCHITECTURE.md`, `docs/DATABASE_SPEC.md` — how it's built.
 5. `docs/QA_CHECKLIST.md`, `docs/DEPLOYMENT_CHECKLIST.md` — before shipping.
-6. `docs/HANDOFF.md` — long-form history and route table (see its correction banner).
+6. `docs/HANDOFF.md` — §J, the per-migration production runbook with rollbacks. The old long-form history and route table are in `docs/archive/HANDOFF_HISTORY.md`.
 
 ## Always
 - Update `docs/MASTER_ROADMAP.md` in the same commit as the work: status, new findings, NEXT 10.
@@ -85,9 +85,8 @@ pre-redesign commits that never landed — don't merge it.
   row with an arbitrary `title` and `public_url` that the family page then
   renders. Named for a rule its body did not implement, exactly like the
   `encouragement_notes_insert_parent` bug 033 fixed. 039 drops the client
-  INSERT; the app only ever read that table, so nothing is lost. Live on
-  production until 039 ships, which is why this bullet now says when it
-  became true.
+  INSERT; the app only ever read that table, so nothing is lost. 039 has been
+  on production since 2026-11-16.
   Corrected 2026-11-15 — this said "read-only except the season budget",
   which omitted `encouragement_notes_insert_parent` and made the privacy
   policy wrong for a while.
@@ -189,7 +188,7 @@ Formerly "Current blockers". Every bullet below is either DONE (with the rule it
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
 - P0-5: DONE 2026-11-16 — the maintenance page is gone. PR niranramprasad-beep/seeded-tennis#4 merged `v1` into `main` (`b16d85b`); `middleware.ts` is absent on `main`, every public route returns 200, the deployed client reads production's Supabase (`tfpjssmhiptbwigarxpx`, 0 staging refs). `main` auto-deploys with no staging gate, so the merge gate is still a person.
-- P0-6: **PARTLY done, and the dangerous half is still open.** Staging is
+- P0-6: DONE (it was "partly done" until local dev moved to staging on 2026-11-15; the history below is why the rule exists). Staging is
   `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone, and Vercel
   **Preview** genuinely reads it (proved by grepping the deployed client
   chunks: staging ref present, production ref absent). Production has its own
@@ -242,7 +241,7 @@ Formerly "Current blockers". Every bullet below is either DONE (with the rule it
   - **Fit bands plan with min(own pace, `PLANNING_PACE_CAP_PER_YEAR` = 1.5/yr)** (lib/fit.ts) — the Reach/Out-of-range split too. The faster line is shown as an "Estimate", never banded. No default plan goal. Guards: `lib/pace-cap.test.ts`, `lib/fit-pace-shapes.test.ts`, `lib/pace-honesty.test.ts`.
   - **Tournament verdicts need the draw's average UTR**; there is no level-to-UTR table (it had no source).
   - **Coach email**: every part names its stored source (`COACH_EMAIL_SOURCES`); Copy/Gmail stay disabled while any `[` or `]` remains (`coachEmailActionState`). `tournaments_goal` (now the player's own optional count, 049) and `tournaments_played` (unused) stay out of anything a coach reads.
-- **Migration 049 is ON PRODUCTION as of 2026-11-20 04:58 UTC** (ledger 50; backup `~/seeded-backups/prod-20261119-2343-pre049.dump`, evidence `~/seeded-evidence/no-invented-goal/`). So production runs **every migration through 049** (048 is the one exception: PR E's catalog tables, staging only until PR E is approved). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- **Migration 049 is ON PRODUCTION as of 2026-11-20 04:58 UTC** (ledger 50; backup `~/seeded-backups/prod-20261119-2343-pre049.dump`, evidence `~/seeded-evidence/no-invented-goal/`). (Since then 050 also shipped — see "Current state" at the top; 048 is PR E's catalog tables, staging only until PR E is approved.) Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
   - **049 removes the invented "12 tournaments".** `profiles.tournaments_goal` is nullable with no default (CHECK null or 0–60) and was cleared for every row. It is stored with `tournaments_planned_season` (`fall|winter|spring|summer-YYYY`), so a count set for one season reads "Not set" in the next. The app calls it `tournamentsPlanned` ("Tournaments planned this season"): optional, set in Settings → Profile or the diagnostic's last question; "Not set" + a link for players, "Not tracked" for parents. **Never give it a default.** Guard: `lib/no-invented-goal.test.ts`.
   - `tournaments_played` is no longer read or written; "played this season" is counted from tournaments with status `'played'` (047).
 - **"Remind them" sends nothing** — Seeded has no email or push. It bumps a timestamp that re-sorts the request. Don't let copy imply otherwise.

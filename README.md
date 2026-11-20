@@ -28,8 +28,9 @@ Versions are the ones resolved in `package-lock.json`.
 ## Architecture in six bullets
 
 - **App Router.** Pages in `app/` are server components where possible;
-  API routes are route handlers in `app/api/*` (every write route is
-  rate-limited in Postgres and validated with zod).
+  API routes are route handlers in `app/api/*`. User write routes are
+  rate-limited in Postgres and validate their body with zod; the Whop
+  webhook is authenticated by its signature instead.
 - **Row Level Security is the security boundary.** Every table in `public`
   has RLS on. UI gates such as `AuthGate` and `PaidGate` are cosmetic — the
   database refuses what a user may not do. See
@@ -74,7 +75,9 @@ Open http://localhost:3000. Without Supabase variables the public pages work
 and sign-in shows a "not connected to Supabase" message. To sign in, fill
 the two public Supabase values in `.env.local` with **staging's** project
 URL and publishable key (ask the maintainer; they are the same values every
-Vercel Preview deployment ships to the browser).
+Vercel Preview deployment ships to the browser), then **sign up** a new,
+clearly-fake account (an `@example.com` address) — the existing staging
+personas have no usable password by design.
 
 ### Environment variables
 
@@ -91,7 +94,8 @@ Every variable the code reads (`grep -rn "process.env" app lib components`):
 | `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY` | server | Legacy plans still subscribed — resolve-only, never sold | Old subscribers' tier can't be mapped |
 | `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | public | Shows "Continue with Google" when `true` | Email/password sign-in only |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` | public / server | Google Analytics (production only) | No analytics |
-| `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` | public | Feature flag for the expanded school catalog (off in production) | Flag off |
+| `VERCEL_URL`, `VERCEL_ENV` | set by Vercel | On a Preview deployment, Whop checkout returns to that preview's URL | Checkout returns to https://seededtennis.com |
+| `SEEDED_LOCAL_HTTP_AUDIT` | local only | Lets the audit scripts load a local production build over plain HTTP (drops `upgrade-insecure-requests` from the CSP) | Normal CSP |
 
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` is read only as a fallback name for the
 publishable key. Server-only values must never appear in client code, logs,
@@ -135,8 +139,8 @@ rm -rf .next && npm run typecheck && npm run lint && npm test && npm run test:tz
   migration and on production after it. Recorded in
   [docs/HANDOFF.md](docs/HANDOFF.md) §J and `docs/GO-SEQUENCE.md`.
 
-CI (`.github/workflows/ci.yml`, job **verify**) runs on every pull request and
-every push to `main`: install → typecheck → lint → tests (UTC) → tests in
+CI (`.github/workflows/ci.yml`, job **verify**) runs on every pull request
+into `main` and every push to `main`: install → typecheck → lint → tests (UTC) → tests in
 New York and Auckland → build.
 
 ## Database and migrations
@@ -168,7 +172,7 @@ Rollback to the previous deployment, or a revert PR.
   (tier, role, family code, billing ids, email-verification state).
 - Family data is visible only inside an approved family, and only on the
   Family plan; under-13 accounts are inert until a parent consents.
-- Every write API route is rate-limited in Postgres and fails closed.
+- User write API routes are rate-limited in Postgres and fail closed.
 - Secrets live only in Vercel and local `.env.local` (git-ignored).
   Details: [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
 

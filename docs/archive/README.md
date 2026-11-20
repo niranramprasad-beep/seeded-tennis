@@ -18,4 +18,4 @@ on that date". For how things are now, start at [../README.md](../README.md).
 | [FINAL_PASS_REPORT.md](FINAL_PASS_REPORT.md) | 2026-11-15 | The "every pixel" final pass before launch | Launch-day checklist results |
 | [PR-v1-to-main.md](PR-v1-to-main.md) | 2026-11-16 | Description of the v1 → main launch PR (#4) | The launch PR's own record |
 | [audit-2-perf.md](audit-2-perf.md) | 2026-11-19 | Performance audit for PR D (signed-in skeleton time) | Before/after numbers for PR D |
-| [HANDOFF_HISTORY.md](HANDOFF_HISTORY.md) | 2026-11-10 → 2026-11-16 | The pure-history sections moved out of `HANDOFF.md` | `HANDOFF.md` and `GO-SEQUENCE.md` link into it |
+| [HANDOFF_HISTORY.md](HANDOFF_HISTORY.md) | 2026-11-10 → 2026-11-16 | The pure-history sections moved out of `HANDOFF.md` | `HANDOFF.md` and `DECISIONS.md` link to it |

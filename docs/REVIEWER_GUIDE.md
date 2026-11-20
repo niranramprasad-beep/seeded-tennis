@@ -64,7 +64,8 @@ key is used only by the three Whop billing routes on the server —
 |---|---|---|---|---|
 | `profiles` | the user | themself only (others' roster comes from `family_members()`, an enumerated column list) | themself, minus privileged columns | 022 trigger refuses client writes to tier, role, family code, billing ids, email-verification state |
 | `utr_entries`, `matches`, `tournament_entries`, `coach_outreach`, `daily_checkins`, `cost_calculations`, `recruiting_checklist_items` | the player | the player; approved family members **only on the Family plan** | the player | `user_id = auth.uid()`; 042 `family_plan_required` ceiling on cross-member reads |
-| `families`, `parent_accounts`, `family_codes` | the family | members | only via `join_family()` / `approve_family_join()` / `leave_family()` RPCs | joiners land **pending** and read nothing until approved (026) |
+| `parent_accounts` | the family | members | only via `join_family()` / `approve_family_join()` / `remove_family_member()` / `leave_family()` RPCs | joiners land **pending** and read nothing until approved (026) |
+| `families`, `family_codes` | the family | members | the creator's browser inserts the family row and its own code row at sign-up (`lib/auth.ts`); a code already taken is refused (032) | joining always goes through `join_family()` (023) |
 | `season_budgets`, `budget_expenses` | the family | approved members on the Family plan | **parents only** (050) | 042 lock + 050 role check |
 | `encouragement_notes` | the parent who wrote it | the family on the Family plan; the author always | parents only (033) | |
 | `training_plans`, `workout_sessions`, … | the player | the player | the player (manual calendar only) | |
@@ -83,7 +84,9 @@ purpose and keys are in [DATABASE_SPEC.md](DATABASE_SPEC.md).
   `parent_accounts` row and a NULL code (writing it was a takeover hole,
   closed in 022/032). Every helper — `my_family_code()`, `is_family_member()`,
   `shares_approved_family_with()` — answers across both shapes
-  ([036](../supabase/migrations/036_family_membership_both_shapes.sql)), and
+  (`is_family_member()` since [023](../supabase/migrations/023_family_join_rpc.sql);
+  the read policies and write stamping since
+  [036](../supabase/migrations/036_family_membership_both_shapes.sql)), and
   the app never scopes by `profiles.family_code`
   ([`family-scope.ts`](../lib/db/family-scope.ts)).
 - **Family-plan lock** ([042](../supabase/migrations/042_family_plan_lock.sql),
@@ -188,9 +191,10 @@ Production ledger: check `list_migrations` (51 rows on 2026-11-20, through
    component per step. Not done yet because each touches guard-tested code
    and deserves its own reviewed PR.
 4. **Catalog team UTR ranges are unverified estimates**, labelled as such.
-   Phase 1 of a sourced catalog (179 programs imported from official roster
-   pages) is behind a flag that is off; ranges must be entered by hand from
-   sources first ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)).
+   Phase 1 of a sourced catalog (PR E, #9: programs imported from official
+   roster pages, behind a feature flag that stays off) adds the tables and an
+   owner-only form; ranges must then be entered by hand from sources
+   ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)).
 5. **Auth rate limits and leaked-password protection are Supabase project
    settings**, not code (the browser calls Supabase Auth directly); they need
    a plan upgrade.
