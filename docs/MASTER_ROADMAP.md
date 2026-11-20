@@ -13,6 +13,16 @@
 
 ## Executive status
 
+**2026-11-20 — Rollout: 046 + 047 on production; PR D (#8) merged.** Backup
+first, then each migration in its own transaction with its ledger row
+(production ledger 47 → 49), each probed as real users in a rolled-back
+transaction — all passed, no residue; same result after the merge. Production
+`leave_family()` matches staging byte-for-byte (comments/whitespace ignored).
+PR D deployed (`dpl_7KYwcLwBUZLB1FB35YvHLQBsqcmG`), every public route 200,
+0 runtime errors, signed-out app routes redirect to /login before JS. PR E
+(#9, catalog phase 1) is open and NOT merged; its input roster file is
+missing. Report: `~/seeded-evidence/fix-audit-2/REPORT.md`.
+
 **2026-11-19 — PR D (fix/audit-2): the owner's signed-in production audit.**
 D0 (owner-approved production cleanup: 3 test rows deleted, owner's
 `current_utr` back to 5.80; JSON in `~/seeded-evidence/fix-audit-2/`).
