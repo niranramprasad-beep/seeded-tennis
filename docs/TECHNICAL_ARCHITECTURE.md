@@ -1,64 +1,104 @@
 # Seeded — Technical Architecture
 
-As built, 2026-11-10 (`audit-base` = `c8d48ec`). `docs/HANDOFF.md` has the
-long-form route table and history; this file is the current architecture
-plus its weaknesses. Diagrams: `docs/diagrams/`.
+Current as of 2026-11-20. `CLAUDE.md` is the authority on status and rules;
+`docs/HANDOFF.md` has the long-form route table and history. Diagrams:
+`docs/diagrams/`.
 
-## Stack
-Next.js 14.2 App Router · React 18 · TypeScript 5.5 · Tailwind 3 ·
-Supabase (Postgres + Auth, `@supabase/supabase-js` only — no SSR helper) ·
-Whop (billing) · Vercel (hosting, Analytics, Speed Insights) · GA4 ·
-Google Gemini (`@google/genai`, copilot only) · zod · Vitest.
-Stripe and OpenAI are referenced but not live.
+## Stack (versions from `package-lock.json`)
+Next.js 15.5.29 App Router · React 18.3.1 · TypeScript 5.9.3 ·
+Tailwind 3.4.19 · Supabase (Postgres + Auth via `@supabase/supabase-js`
+2.106.1; no SSR helper) · Whop (`@whop/sdk` 2.8.1, billing) · zod 4 ·
+Vitest 1.6.1 · Vercel (hosting, Analytics, Speed Insights) · GA4.
+
+No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
 
 ## Frontend
-- 46 routes under `app/`. Almost all pages render client components; auth is checked in the browser by `components/shared/auth-gate.tsx` (no `middleware.ts`, no server session).
-- Two design systems in one codebase: `data-design="legacy"` (`components/*`) and `"seeded"` (`components/seeded/*`), chosen by `localStorage` (`seeded.design`). Redirects from legacy routes are client-side only.
-- Theme: `lib/context/design-context.tsx` (`seeded.mode`, `seeded.mode.system`). Currently flips light/dark between pages in one session — MASTER_ROADMAP P1-UX-1.
-- Contexts: player (profile), tier (subscription), design, sidebar.
-- School catalog is a static TS module (`lib/db/schools-data-*.ts`) imported into client bundles.
+- 56 `page.tsx` routes under `app/` (including `app/dev/*` previews, which
+  call `notFound()` in production). Most pages render client components.
+- Auth is checked in the browser: `components/shared/auth-gate.tsx`, plus a
+  pre-paint script in `app/layout.tsx` that sends a visitor with no stored
+  session away from signed-in-only routes. There is no `middleware.ts` and
+  no server session. `AuthGate` / `PaidGate` are cosmetic; RLS is the gate.
+- Design: the "seeded" design (`components/seeded/*`) is the default. The old
+  design is still in the codebase as an opt-in "Legacy theme"
+  (Settings → Appearance; `lib/context/design-context.tsx`,
+  `localStorage` key `seeded.design`). Old Legacy routes (`/dashboard`,
+  `/coaches`, …) bounce Seeded users to the new ones client-side
+  (`SeededRouteRedirect`); `/training` and `/match-mode` are server
+  redirects to `/events` and `/matches`.
+- Primary nav is five items (Today, Plan, Schools, Outreach, Events) plus a
+  secondary "Tools" group — see CLAUDE.md.
+- School catalog: static TS modules (`lib/db/schools-data-*.ts`, 68
+  programs). Roster UTR ranges are unsourced and labelled "Unverified
+  estimate" (`UTR_RANGE_SOURCE_LABEL`). Database-backed catalog tables
+  (migration 048) exist on staging only — `docs/CATALOG_EXPANSION.md`.
 
 ## Backend
-- Route handlers in `app/api/*` (16 files). Pattern: zod parse → `getRequestScopedSupabase(req)` (fresh anon-key client carrying the user's bearer token, so RLS applies) → write → JSON.
-- Reads mostly happen directly from the browser through the anon-key client + RLS.
-- Service-role client (`lib/supabase/admin.ts`) is used only by the Whop/Stripe webhooks and `/api/whop/membership`.
-- No background jobs, no cron (`vercel.json` has none), no queue, no email sender.
+- Route handlers in `app/api/*` (13 `route.ts` files — see
+  `docs/API_INTEGRATIONS.md`). Pattern: `getRequestScopedSupabase(req)` (an
+  anon-key client carrying the user's bearer token, so RLS applies) → rate
+  limit check → zod parse → write → JSON.
+- Most reads go straight from the browser through the anon-key client + RLS.
+- Rate limits are enforced in Postgres by a trigger on every client-writable
+  table (migration 034); routes only `peek` so they can return a friendly 429.
+- The service-role client (`lib/supabase/admin.ts`) is used only by
+  `/api/whop/webhook`, `/api/whop/sync` and `/api/whop/membership`.
+- No background jobs, no cron (`vercel.json` has none), no queue.
 
 ## Auth & authorization
-- Supabase email/password; Google OAuth button exists but no `/auth/callback` (implicit flow).
-- Session lives in `localStorage` (`sb-<ref>-auth-token`); API calls send it as `Authorization: Bearer`.
-- Roles: `profiles.role` (`player`|`parent`). Family linkage via `family_code`.
-- Tier: `profiles.subscription_tier`, enforced in RLS by `has_tier()` on training and outreach writes.
-- **Weak point:** all three of role, family_code, and tier are user-writable today (SECURITY_CHECKLIST S-1, S-2).
+- Supabase Auth: email/password, plus Google OAuth via `/auth/callback`.
+  The session lives in `localStorage`; API calls send it as
+  `Authorization: Bearer`.
+- Roles: `profiles.role` (`player` | `parent`). Tier:
+  `profiles.subscription_tier`, set only by the Whop sync (service role).
+- Privileged `profiles` columns (`role`, `family_code`,
+  `subscription_tier`, `whop_membership_id`, `stripe_*`, `email_verified_*`)
+  cannot be changed by the client — trigger from migration 022, extended
+  since. Family membership changes only through RPCs (`join_family`,
+  `approve_family_join`, `leave_family`, …). Details:
+  `docs/SECURITY_CHECKLIST.md`, `docs/diagrams/family-access-flow.md`.
 
 ## External services
 | Service | Use | Failure behavior |
 |---|---|---|
 | Supabase | DB + auth | App unusable; pages show errors |
-| Whop | Checkout, membership webhook, billing portal links | Billing page falls back to tier-only view; webhook 500 if unconfigured |
-| GA4 Measurement Protocol | Purchase events from webhook | Fire-and-forget |
-| Gemini | Legacy training copilot | 500 with raw error text |
-| Gmail | `mailto`-style compose URL only | n/a — no API |
+| Whop | Checkout, membership webhook, membership sync | Billing page falls back to the stored tier |
+| GA4 | Client tag (production only) + Measurement Protocol purchase event from the webhook | Fire-and-forget |
+| Gmail | Compose link only (`mail.google.com/mail/?view=cm…`) | n/a — no API, no inbox access, no auto-send |
+| UTR | The player's profile link, stored and shown | n/a — never fetched or scraped |
 
-## AI architecture
-One feature: `/api/training/copilot`, Gemini `gemini-flash-latest`, JSON-schema constrained output validated by zod. No rate limit, no tier gate, no input caps. Recommended: remove for V1 (MASTER_ROADMAP P1-SEC-1).
+## Environments
+| | Supabase project | Vercel |
+|---|---|---|
+| Production | `tfpjssmhiptbwigarxpx` | Production (`main`) |
+| Staging | `gnlcpnsweqbtwpaqhqqg` | Preview + Development; local `.env.local` |
 
-## Data pipelines
-None. Roster data is hand-edited TS. The planned pipeline is in DATA_QUALITY.md (migration 012).
+Production runs every migration through 050 except 048 (staging only).
+Check `list_migrations` on the project, not this file.
 
-## Deployment
-GitHub `niranramprasad-beep/seeded-tennis` → Vercel project `seeded-tennis` (team `niranramprasad-3534s-projects`). `main` auto-deploys to production (currently `df8a2df`). Other branches get preview deployments — **which use the same production Supabase project**. No CI.
+## CI and deployment
+GitHub `niranramprasad-beep/seeded-tennis` → Vercel project `seeded-tennis`.
+`.github/workflows/ci.yml`, job `verify`: typecheck, lint, tests (also in
+two time zones, `npm run test:tz`), build — on pull requests to and pushes
+to `main`. `main` is protected (PR + green `verify`) and auto-deploys to
+production with no staging gate, so the merge itself is gated by the owner.
 
 ## Monitoring
-Vercel Analytics + Speed Insights + GA4. No error tracking, no alerting. Vercel runtime errors: none in the last 7 days (low traffic).
+Vercel Analytics + Speed Insights + GA4. No error tracking and no alerting.
 
-## Problems, ranked
-1. **Single shared database** for local, preview and production — already caused a production outage (P0-5). Single point of failure for every experiment.
-2. **Client-side authorization model** with user-writable privileged columns (S-1/S-2).
-3. **Two parallel design systems** — every screen exists twice, with different bugs; legacy routes still ship (`/dashboard`, `/coaches`, `/training`, copilot).
-4. **Static catalog in code** — no provenance, can't be updated without a deploy, ships to the browser.
-5. **Business rules duplicated** — prices in 3 files; fit band logic called with different projection inputs in 6 places (cause of P1-FIT-1).
-6. **No server rendering for SEO pages** — school pages have no per-page metadata.
+## Known weaknesses
+1. **Client-side route protection.** Fine for privacy because RLS decides
+   what any query returns, but a page can render briefly before it bounces.
+2. **Legacy design still ships** as an opt-in theme, so some screens exist
+   twice.
+3. **Static catalog in code** — no per-number source, can't be updated
+   without a deploy. Fix in progress (PR E / migration 048).
+4. **Six write routes return raw Postgres error text** on 500
+   (`SECURITY_CHECKLIST` S-10).
+5. **`Player.currentUTR` uses 0 as a "not logged" sentinel** instead of
+   `null` (CLAUDE.md, "The UTR placeholder").
 
 ## What not to change
-The `lib/db/*` + `app/api/*` + zod + request-scoped-client pattern is sound. Keep it; extend it. Don't introduce an ORM, tRPC, or a new auth library to fix the issues above — fix the policies.
+The `lib/db/*` + `app/api/*` + zod + request-scoped-client pattern is sound.
+Keep it; extend it. Don't add an ORM, tRPC, or a new auth library — fix the
+policies.

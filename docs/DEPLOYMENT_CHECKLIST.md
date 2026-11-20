@@ -1,71 +1,66 @@
 # Seeded — Deployment Checklist
 
-## Current setup (verified via Vercel MCP, 2026-11-10)
-- Vercel project `seeded-tennis`, team `niranramprasad-3534s-projects`.
-- Production = `main` @ `df8a2df` ("Remove the badges feature entirely…"). Auto-deploys on push. No staging gate.
-- Preview deployments exist for `codex/identity-overhaul-orange-green-pink` (`c8d48ec`) and `macbook-backup`. They use the **production** Supabase project.
-- `vercel.json`: framework + build command only. No crons, headers, or redirects.
-- No CI. No runtime errors in the last 7 days (very low traffic).
-- **Known production breakage:** `main` writes `coach_outreach.status='contacted'`; live DB CHECK rejects it (migration 011 applied for an unmerged branch). See MASTER_ROADMAP P0-5.
+## Current setup (2026-11-20)
+- GitHub `niranramprasad-beep/seeded-tennis` → Vercel project `seeded-tennis`.
+- **`main` auto-deploys to seededtennis.com. There is no staging gate**, so
+  the merge is gated by a person: only merge after CI passes and the owner
+  says go.
+- **`main` is protected:** a pull request and a green `verify` check are
+  required.
+- CI: `.github/workflows/ci.yml`, job `verify` (typecheck, lint, tests,
+  time-zone tests, build) on pull requests to and pushes to `main`. No
+  deploy step —
+  Vercel's Git integration deploys.
+- `vercel.json`: framework, install and build command only. No crons.
+  Security headers are set in `next.config.mjs`.
 
-## Environments (target)
-| Env | Supabase | Whop | Who deploys |
-|---|---|---|---|
-| Development (local) | staging project | test plans | dev |
-| Preview (PR branches) | staging project | test plans | auto |
-| Production (`main`) | prod project | live plans | merge with green CI + sign-off |
+## Environments
+| Env | Supabase | Who deploys |
+|---|---|---|
+| Development (local) | staging `gnlcpnsweqbtwpaqhqqg` | dev |
+| Preview (PR branches) | staging `gnlcpnsweqbtwpaqhqqg` | Vercel, automatic |
+| Production (`main`) | production `tfpjssmhiptbwigarxpx` | merge with green CI + owner sign-off |
+
+Not verified for this doc: whether Preview uses separate Whop test plans.
+Diff env var **names** between Preview and Production before a billing
+change.
 
 ## Before every production deploy
-- [ ] CI green (typecheck, lint, tests, build)
-- [ ] **`/privacy` and `/terms` are only true AFTER the migrations.** Several
-      sentences on those pages describe RLS that does not exist on production
-      until §J has run — "there is no public profile, no directory, no search
-      for other players" is the sharpest one, because production still has
-      `profiles_discovery_read` and one account with
-      `privacy_level = 'public'`. The tests behind those sentences grep
-      migration FILES; they cannot see a database, and `lib/legal/policy.test.ts`
-      now says so in as many words. **So this is a human gate: never merge the
-      code before the migrations, or the site publishes a false privacy
-      promise with a green build behind it.**
-- [ ] Every migration in this deploy already applied + verified on staging
-- [ ] **For the `v1` → `main` merge specifically:** all sixteen migrations
-      applied first (full order in HANDOFF §J), and the maintenance page gone
-      — **not by reverting the commit on `main`.** `d059006` is not an
-      ancestor of `v1`, so there is nothing to revert, and the plain merge
-      keeps `middleware.ts`: the deploy reports READY and the site still
-      answers 503. Done on `v1` instead (merge `main` in, delete the file in
-      its own commit), so by the time you read this the only thing to check
-      is that `middleware.ts` is absent from the merge result. `024` is the
-      coupled migration — the outreach tier gate and the Free 3-school cap
-      are already in the `v1` code, so merging without it gives Player users
-      an outreach board that fails every write.
-- [ ] Migration order decided: additive DB change first, code second; destructive DB change only after the code that stopped using it is live
-- [ ] `get_advisors` security + performance reviewed on staging
-- [ ] QA journeys 1–20 on the preview URL
-- [ ] Env vars diffed (names only) between Preview and Production
-- [ ] Rollback target noted (previous production deployment ID)
-
-## Branch protection (one-time GitHub setting — P1-OPS-1)
-`.github/workflows/ci.yml` runs typecheck, lint, tests and build, but a
-workflow only *reports*; it blocks nothing by itself. To make it a gate:
-
-Settings → Branches → Add branch ruleset / rule for `main`:
-- [ ] Require a pull request before merging
-- [ ] Require status checks to pass → select **`verify`**
-- [ ] Require branches to be up to date before merging
-- [ ] (optional) Do not allow bypassing the above settings
-
-Note: the maintenance-mode commit was pushed directly to `main` before this
-rule exists. Once the rule is on, direct pushes to `main` stop working — which
-is the point, but it means the `v1` merge must go through a PR.
+- [ ] CI green on the PR
+- [ ] **Migrations first, code second.** Every migration the code depends on
+      is applied to staging, verified as a real user, then applied to
+      production with the owner's sign-off — before the merge. `/privacy`
+      and `/terms` describe RLS; the tests behind those sentences read
+      migration files and cannot see a database, so merging code ahead of
+      its migration publishes a false privacy promise with a green build.
+- [ ] Destructive DB change only after the code that stopped using it is live
+- [ ] `get_advisors` (security + performance) reviewed on staging
+- [ ] QA journeys (`docs/QA_CHECKLIST.md`) on the Preview URL
+- [ ] Env var names diffed between Preview and Production
+- [ ] Rollback target noted (previous production deployment ID) and, for a
+      migration, a fresh production backup plus the written rollback
+      (`docs/HANDOFF.md` §J)
 
 ## Rollback
-1. Vercel → Deployments → previous production deployment → "Promote to Production" (instant; code only).
-2. Database changes do **not** roll back with the code. Every migration needs a written down-path or must be additive.
+1. Vercel → Deployments → previous production deployment → "Promote to
+   Production" (instant; code only).
+2. Database changes do **not** roll back with the code. Use the migration's
+   written rollback from HANDOFF §J — rehearsed ones only.
 3. Note the incident in `docs/CHANGELOG.md`.
 
 ## Environment variables
-See `.env.example` (names + purpose only). Rules: `SUPABASE_SERVICE_ROLE_KEY`, `WHOP_*`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` are Production/Preview server-only; never prefix secrets with `NEXT_PUBLIC_`.
+Names and purpose: `.env.example` (it does not yet list
+`GA4_MEASUREMENT_PROTOCOL_API_SECRET`, which `lib/ga4-server.ts` reads).
+`SUPABASE_SERVICE_ROLE_KEY`, `WHOP_*` and that GA4 secret are server-only; never prefix a secret
+with `NEXT_PUBLIC_`. Keep values out of docs, logs and screenshots.
 
 ## Domains / SSL
-`seededtennis.com` on Vercel (auto TLS). Check the apex + `www` redirect and HSTS after adding security headers.
+`seededtennis.com` on Vercel (auto TLS). HSTS is set in `next.config.mjs`
+(2 years, subdomains, no `preload`). Not re-verified for this doc: the
+apex ↔ `www` redirect.
+
+## History
+The 2026-11-10 setup (no CI, previews on the production database, the
+`coach_outreach.status` outage) and the one-off `v1` → `main` launch
+checklist (maintenance page, sixteen migrations) are in this file's git
+history; the launch itself is recorded in `docs/archive/PR-v1-to-main.md`.

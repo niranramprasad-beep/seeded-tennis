@@ -1,122 +1,94 @@
 # Seeded — Database Spec
 
-Live project `tfpjssmhiptbwigarxpx` (us-west-1). Columns: trust
-`lib/db/database.types.ts` (machine-generated). This file covers purpose,
-access, keys, and risks. Verified against the live DB on 2026-11-10.
+Current as of 2026-11-20. Columns: trust `lib/db/database.types.ts`
+(machine-generated). This file covers purpose, access and the things that
+bite. For live policy text, query `pg_policies` — not this file.
 
-Row counts at audit: 10 `auth.users`, 8 `profiles` (2 auth users have no
-profile row), 6 `families`, 2 `family_codes`, 15 `utr_entries`, 0
-`matches`, 0 `coach_outreach`, 0 `tournament_entries`.
-
-## Tables
-| Table | Purpose | Keys / constraints (live) | RLS summary | Risks |
-|---|---|---|---|---|
-| `profiles` | One per account | PK id → auth.users; FK family_code → families.code | own R/W; approved-family read. **No public read after 027.** Pending-consent accounts see only their own row (030) | 2 orphan auth users. `privacy_level` is now a stored preference nothing reads |
-| `families` | Family code registry | unique code | **SELECT true for all authenticated**; insert any | **S-2** |
-| `family_codes` | Code ↔ player | FK code, FK player_id | members/owner read; owner insert | code guessable |
-| `parent_accounts` | Parent ↔ family | unique(user_id, family_code) | self insert (no approval) | **S-2** |
-| `utr_entries` | Self-reported UTR history | FK user_id | own; family read | no outlier check |
-| `matches` | Match results | FK user_id, family_code | own; family read | — |
-| `coach_outreach` | 6-stage pipeline per school | unique(user_id, school_slug); CHECK status in 6 values | own read; write needs `has_tier('family')`; family read | prod `main` writes `contacted` → rejected (P0-5) |
-| `tournament_entries` | Tracked tournaments | FK user_id | own; family read | — |
-| `training_plans`, `workout_sessions`, `exercises`, `session_exercises`, `saved_templates` | Training calendar | FKs to user; unique(user_id, name) on exercises | own; write needs `has_tier('player')` | POST-V1 feature |
-| `daily_checkins` | Check-ins | unique(user_id, checkin_date) | own; family read | — |
-| `cost_calculations` | Lifetime cost tool | FKs | own; family read | — |
-| `season_budgets`, `budget_expenses` | Season budget | unique(family_code) on budgets; FK created_by/updated_by (NO ACTION) | family read; parent write | blocks user deletion until handled |
-| `recruiting_checklist_items` | Plan checklist state | unique(user_id, item_key) | own | — |
-| `encouragement_notes` | Parent → player notes | FKs | family read; parent insert | — |
-| `parent_reports` | Weekly snapshots | unique(family_code, month) | family read/insert | nothing generates them |
-| `user_settings` | Notification prefs + misc JSON | FK user_id | own | prefs stored, never used |
-| `badges`, `friendships` | Removed features | — | **locked (027): RLS on, no policies** | drop (P3) |
-| `family_join_attempts` | Join attempt log (023) | FK user_id | none — SECURITY DEFINER only | feeds the 5/hour join limit |
-| `rate_limit_events` | API call counters (028) | FK user_id | none — SECURITY DEFINER only | per-user, per-bucket, hourly; self-cleans rows older than a day |
-
-## Functions (SECURITY DEFINER)
-On staging after 031: `set_updated_at`, `current_family_code`,
-`is_family_member`, `is_parent_member`, `has_tier`, `account_active`,
-`join_family`, `approve_family_join`, `deny_family_join`,
-`remove_family_member`, `remind_family_approval`,
-`cancel_my_family_request`, `my_family_code`, `my_pending_family_request`,
-`family_members`, `my_consent_state`, `grant_parent_consent`,
-`generate_family_code`, `consume_rate_limit`, `delete_my_account`.
-`are_friends` is **dropped** (027).
-
-`anon` and `PUBLIC` EXECUTE revoked throughout. Which ones `authenticated`
-may call, and why each one must stay, is the inventory table in
-`docs/SECURITY_CHECKLIST.md` — including the empirical finding that the four
-used inside RLS policies cannot be revoked without failing those policies
-closed.
-
-## Migrations
-
-### Two environments now
-| | project | migrations applied |
+## Two projects
+| | project | migrations |
 |---|---|---|
-| **Production** | `tfpjssmhiptbwigarxpx` | 23 (through `performance_rls_and_indexes`) |
-| **Staging** | `gnlcpnsweqbtwpaqhqqg` | the same 23, **plus** 025, 022, 023, 024, 026, 027, 028, 029, 030, 031 |
+| **Production** | `tfpjssmhiptbwigarxpx` (Vercel Production) | Every repo migration through **050 except 048**. Ledger: 51 rows on 2026-11-20 |
+| **Staging** | `gnlcpnsweqbtwpaqhqqg` (Vercel Preview + Development, local `.env.local`) | Everything production has, plus 048 (PR E catalog tables) |
 
-Staging was built from this repo on 2026-11-14 and verified against
-production with a nine-category schema fingerprint (columns, constraints,
-policies, indexes, triggers, functions, function grants, table grants, RLS
-flags). All nine matched exactly before the new migrations were applied.
+Check `list_migrations` on the project before relying on either row.
+Staging holds only fake accounts — `docs/STAGING_PERSONAS.md`.
 
-### ⚠️ The repo does not reproduce production on its own
-Building a clean database from `0001`…`021` produces a **different**
-`profiles` table from the one in production. Cause: `0001_init.sql` creates
-`profiles` loosely, and `001_initial_saas_schema.sql`'s
-`create table if not exists` is then a no-op — so every NOT NULL, default
-and inline CHECK in that block is silently skipped.
+## Tables (26 in `public`, RLS enabled on every one)
+"Family read" below means: readable by approved members of the owner's
+family (either membership shape, via `shares_approved_family_with()`, 036)
+**and** only while that family is unlocked by the Family plan (restrictive
+`family_plan_required`, 042/045). A pending-consent (under-13) account reads
+and writes almost nothing (restrictive `account_active()` policy on 21
+tables, 030).
 
-Drift found (all now fixed by `025`):
-`current_utr` `numeric` vs `numeric(4,2)` · `name` missing its `''` default ·
-`role`, `target_school_slugs`, `weaknesses` nullable instead of NOT NULL ·
-`profiles_tournaments_played_check` and `profiles_tournaments_goal_check`
-missing · **`profiles_grade_check` as `grade >= 8` instead of `grade >= 1`,
-which rejects any player below 8th grade and breaks the under-13 flow.**
+| Table | Purpose | Access summary |
+|---|---|---|
+| `profiles` | One per account | Own row only — an approved family member reads exactly 1 row, their own (037). Other members' fields come only from `family_members()`, whose columns are enumerated in SQL. Privileged columns are trigger-locked (022 → 043) |
+| `families` | Family code registry | Members-only read (023) |
+| `family_codes` | Code ↔ account holder (anchors `family_account_holder()`) | Members and the holder read; the holder inserts its own row at family creation (policies from 019/021; not re-checked live for this doc) |
+| `parent_accounts` | Joiner ↔ family link, `pending`/`approved` | Written only by `join_family()` / approval RPCs; direct client writes rejected |
+| `family_join_attempts` | Join attempt log (023) | No policies — SECURITY DEFINER only; feeds the join rate limit |
+| `utr_entries` | Self-reported UTR history | Own R/W; family read |
+| `matches` | Match results | Own R/W; family read |
+| `tournament_entries` | Tracked tournaments; status includes `played` (047) | Own R/W; family read |
+| `coach_outreach` | Outreach pipeline per school | Own read; writes need `has_tier('player')` (024); family read |
+| `daily_checkins`, `cost_calculations` | Check-ins; cost tool | Own R/W; family read |
+| `training_plans`, `workout_sessions`, `exercises`, `session_exercises`, `saved_templates` | Training calendar | Own; writes need `has_tier('player')`. The app reads only the manual plan (`metadata = {"kind":"manual"}`). Production still holds 28 hidden generated sessions, kept on purpose (CLAUDE.md) |
+| `season_budgets`, `budget_expenses` | Season budget | Family read; **write = caller's own `role = 'parent'` + approved member (050)**; Family plan required for everything (042) |
+| `encouragement_notes` | Parent → player notes | Insert = parent role + approved member (033); Family plan required (042), except a parent keeps reading notes they wrote |
+| `parent_reports` | Weekly snapshots | Read only; no client insert since 039; Family plan required (042) |
+| `recruiting_checklist_items` | Plan checklist state | Own |
+| `user_settings` | Per-user preferences JSON (design/mode, calendar prefs) in a column still named `notification_preferences` | Own. Seeded sends no notifications |
+| `rate_limit_events` | Write counters (028, 034) | No policies — SECURITY DEFINER only |
+| `auth_email_changes` | When each account's auth email last changed (043) | No client access at all (grants revoked); written by an `auth.users` trigger, read by the email-verification functions |
+| `badges`, `friendships` | Removed features | RLS on, no policies (027) — nobody can read or write. Drop is P3 |
 
-`025_reconcile_profiles_schema_drift.sql` fixes all of it, is fully guarded,
-and is a verified no-op against production.
+## Functions
+SECURITY DEFINER functions are revoked from `anon` and `PUBLIC`. The ones
+`authenticated` may call, and why each must stay, are inventoried in
+`docs/SECURITY_CHECKLIST.md`. Two rules learned the hard way:
+- **A function used inside an RLS policy must keep EXECUTE for
+  `authenticated`**, or the policy fails closed.
+- **Restoring a dropped SECURITY DEFINER function re-grants EXECUTE to
+  PUBLIC and `anon`.** Always follow a fresh `create` with the
+  `revoke`/`grant` pair.
 
-### Live-only migrations — resolved
-P1-OPS-3 recorded two migrations present on production with no repo file.
-Recovered 2026-11-14 by diffing function grants:
-- `set_updated_at_revoke_authenticated_direct_grant` — exactly
-  `revoke execute on function public.set_updated_at() from authenticated;`
-  Now reproduced on staging; function-grant fingerprints match.
-- `rls_auto_enable_revoke_direct_grants` — **no separate content needed.**
-  `020` already performs those revokes, and `rls_auto_enable` is a Supabase
-  *platform* default (it is present on a brand-new empty project and on
-  production identically), not a Seeded object.
+## Migrations: things that bite
 
-### Ordering note
-Production applied `019_rls_policy_hardening` BEFORE
-`018_revoke_anon_execute_security_definer` (timestamps `…205945` vs
-`…205957`), the reverse of the repo's numbering. Staging was built in
-production's order. Applying them in repo-number order instead is believed
-harmless — 018's revokes are independent of 019's policies — but it has not
-been tested, so follow production's order if rebuilding.
+### The repo does not reproduce production from `0001` alone
+Building a clean database from `0001`…`021` produces a different `profiles`
+table: `0001_init.sql` creates it loosely and `001`'s `create table if not
+exists` is then a no-op, so its NOT NULLs, defaults and CHECKs are skipped
+(including `profiles_grade_check` as `grade >= 8`, which breaks the under-13
+flow). `025_reconcile_profiles_schema_drift.sql` fixes all of it and is a
+verified no-op on production. Apply it when building a fresh database.
 
-### Repo files
-`0001`…`021` (no `012` — reserved for the roster import), plus:
-- `022_lock_privileged_profile_columns.sql` — P0-1. **Staging only.**
-- `023_family_join_rpc.sql` — P0-2. **Staging only.** Breaks `lib/auth.ts`; see TODO item 1.
-- `024_tier_gating_outreach_player_free_targets.sql` — P1-PRICE-1. **Staging only.**
-- `025_reconcile_profiles_schema_drift.sql` — the drift above. **Staging only**, no-op on prod.
-- `026_family_approval_flow.sql` — P0-2's approval half. **Staging only.** Ships with 023.
-- `027_narrow_profile_reads_and_rpc_grants.sql` — S-5 + S-9. **Staging only.** Drops `profiles_discovery_read`, locks `badges`/`friendships`, drops `are_friends()`, revokes `current_family_code()` / `generate_family_code()` from `authenticated`.
-- `028_api_rate_limits.sql` — S-6. **Staging only.** New table `rate_limit_events` + `consume_rate_limit(bucket)`.
-- `029_real_account_deletion.sql` — P0-8. **Staging only.** `delete_my_account()`.
-- `030_under13_parent_consent.sql` — P0-8. **Staging only.** Four columns on `profiles`, a rewritten 022 trigger, `account_active()` + a RESTRICTIVE policy on 21 tables, `grant_parent_consent()`, `my_consent_state()`, consent folded into `approve_family_join()`.
-- `031_family_roster_consent.sql` — P0-8. **Staging only.** `family_members()` gains `consent_status`. Ships with 030.
+### Ordering
+Production applied `019` before `018`. Follow production's order when
+rebuilding. There is no `012` (once reserved for a roster import) and no
+`048` on production (PR E, staging only).
 
-Rollout order and per-step rollback: `docs/HANDOFF.md` §J.
+### Live-only migrations
+Production's ledger has two names with no repo file
+(`set_updated_at_revoke_authenticated_direct_grant`,
+`rls_auto_enable_revoke_direct_grants`); both were reconciled on 2026-11-14 (the
+first is one `revoke` now reproduced on staging; the second needs no repo
+content — 020 performs those revokes and `rls_auto_enable` is a Supabase
+platform default).
 
-### Migration history naming
-Production uses `0001`–`006` then timestamps. Staging is all timestamps
-(the MCP assigns them). Names match the repo files, so the two map cleanly
-by name, not by version string.
+### Naming
+Production uses `0001`–`006` then timestamps; staging is all timestamps
+(the MCP assigns them). Map the two by migration name, not version.
+
+### Rollout record
+Order, per-step verification and per-step rollback for 022–050:
+`docs/HANDOFF.md` §J and `docs/GO-SEQUENCE.md`.
 
 ## Conventions
-- Every new table: RLS on, policies `to authenticated`, `(select auth.uid())` form, FK indexes.
-- Every migration: write file → sign-off → staging → verify with advisors + SQL tests → prod. Never edit an applied migration.
+- Every new table: RLS on, policies `to authenticated`, `(select auth.uid())`
+  form, FK indexes. A new cross-member read policy also needs the Family-plan
+  ceiling (`lib/db/family-plan-lock.test.ts` fails the build otherwise).
+- Every migration: file → owner sign-off → staging → verify (advisors, SQL as
+  a real user with `set local role authenticated`) → owner sign-off → prod.
+  Never edit an applied migration.
 - Regenerate `database.types.ts` after every schema change.

@@ -1,19 +1,24 @@
 # Seeded — notes for Claude
 
+## Current state (2026-11-21)
+- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
+- Production database: every migration through **050** except 048 (ledger 51 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Staging `gnlcpnsweqbtwpaqhqqg` is ahead by design (048, rehearsal re-runs). `.env.local` and Vercel Preview point at it.
+- Open: PR E (#9, catalog phase 1, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, off); the parent-approver gap (TODO "Who may approve a parent joiner"); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+- Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
+- New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
+
 ## Branches
-**Work on `v1`.** `main` = production; only merge to `main` after CI passes
-and Niran says go.
+**Branch from `main`, open a PR into `main`.** `main` = production and is
+protected: a PR and a green `verify` are required. Merge only after CI passes
+and Niran says go (or a run he pre-approved says so) — `main` auto-deploys to
+seededtennis.com with no staging gate, which is why that gate is a person.
+Migrations go to production *before* the code that needs them (GO-SEQUENCE).
 
-`v1` is the single line of development (renamed from `docs/production-audit`
-on 2026-11-11). It contained every commit on `main` until the maintenance
-commit landed on `main` alone on 2026-11-14; `main` was merged back into `v1`
-on 2026-11-15 (`0cea97e`) and `middleware.ts` deleted in the commit after it,
-which is the only way the merge down actually removes the 503 — see HANDOFF
-§J step 15. `main` auto-deploys to seededtennis.com with no staging gate,
-which is why that gate is a person.
-
-`origin/macbook-backup` is an archive of six pre-redesign commits that never
-landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
+History: `v1` was the single line of development from 2026-11-11 until the
+launch merge on 2026-11-16 (PR #4, `b16d85b`); since then every change is a
+short-lived branch off `main`. `origin/macbook-backup` is an archive of six
+pre-redesign commits that never landed — don't merge it.
 
 ## Read before coding (in this order)
 1. `docs/MASTER_ROADMAP.md` — status, blockers, and the NEXT 10 TASKS. Work from it.
@@ -23,7 +28,164 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
 5. `docs/QA_CHECKLIST.md`, `docs/DEPLOYMENT_CHECKLIST.md` — before shipping.
 6. `docs/HANDOFF.md` — long-form history and route table (see its correction banner).
 
-## Current blockers (keep in sync with MASTER_ROADMAP)
+## Always
+- Update `docs/MASTER_ROADMAP.md` in the same commit as the work: status, new findings, NEXT 10.
+- Before modifying auth/authorization, read the live policies (`pg_policies`) and the 022 trigger. Never replace RLS with a client-side check — `AuthGate`/`PaidGate` are cosmetic.
+- Run `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run` before saying something works.
+- Use one fit-band path: `classifySchoolFit` must always get a projection that can return "out-of-range".
+- Show "Not tracked" for missing data. Show the source and date next to any roster number.
+- Keep secrets out of code, docs, logs, screenshots, and commits. Names only.
+
+## Never
+- Never invent coach names, emails, recruits, rankings, or UTRs — not even as "placeholder" data in shipped code.
+- Never write privileged `profiles` columns from the client (`subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*`, `email_verified_at`, `email_verified_for`). The trigger list is enforced by `lib/db/email-verification-gate.test.ts`.
+- Never add a feature that promises email/notifications/public pages unless the sending/serving code exists.
+- Never build POST-V1 features while any P0/P1 is open.
+- Never apply a migration to the shared project before staging exists — and never without explicit sign-off.
+
+## Non-negotiable rules
+
+- **No generated or made-up data, anywhere.** Missing real data → an
+  honest empty/"Not tracked" state, never a plausible-looking invention.
+- **No fabricated coach emails or outreach content.** Drafts build from
+  the player's own real logged results. (The catalog's invented coach
+  names/emails were deleted in P0-3; `lib/db/schools-catalog-honesty.test.ts`
+  fails the build if they return.)
+- **4-band fit model**: Likely / Target / Reach / Out of range, per
+  `/methodology`, in `lib/school-fit.ts`. Reach-vs-Out-of-range uses a
+  real UTR-trajectory projection, never a static snapshot.
+- **"Leaving" counts, never "open spots."** Real grad-year math only.
+- **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
+  nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
+  Tournament checker) in the sidebar, the avatar menu on phones and ⌘K
+  (docs/DECISIONS.md, 2026-11-18; **approved by Niran 2026-11-19**). Tools is not a sixth primary item; the
+  phone bottom bar stays exactly five. Settings/Family live under the avatar
+  menu; the theme toggle lives only in Settings → Appearance.
+- **Friends and badges are removed, product-wide.** Don't resurrect
+  either without being explicitly asked.
+- **No auto-generated training plans — manual calendar only.** True in code
+  since 2026-11-18: the /training planner, its generator and templates,
+  Match mode's prep-plan generator and the whole-state planner save are
+  deleted; `lib/training-no-autogen.test.ts` fails the build if any return.
+  The calendar reads only sessions in the player's manual plan
+  (`training_plans.metadata = {"kind":"manual"}`, lib/db/training.ts).
+  **Production still holds 28 generated sessions in 5 plans — hidden, not
+  deleted. Niran decided 2026-11-19: keep them hidden, do NOT delete; revisit
+  on or after 2026-12-19** (DECISIONS 2026-11-19, TODO).
+- **Gmail = compose-link only.** Never the Gmail API, never inbox access,
+  never auto-send.
+- **UTR = profile link + manual check-in only.** Never fetch or scrape
+  UTR data from anywhere.
+- **Parents can write exactly two things: the season budget (and its
+  expenses) and encouragement notes. Everything else is read-only.**
+  Enforced at the RLS layer — **and it was not, until migration 039.**
+  `parent_reports` had a policy called `parent_reports_service_insert` that
+  was granted to `authenticated` with `with check (is_family_member(...))`,
+  so any approved member — a sibling player included — could insert a report
+  row with an arbitrary `title` and `public_url` that the family page then
+  renders. Named for a rule its body did not implement, exactly like the
+  `encouragement_notes_insert_parent` bug 033 fixed. 039 drops the client
+  INSERT; the app only ever read that table, so nothing is lost. Live on
+  production until 039 ships, which is why this bullet now says when it
+  became true.
+  Corrected 2026-11-15 — this said "read-only except the season budget",
+  which omitted `encouragement_notes_insert_parent` and made the privacy
+  policy wrong for a while.
+  That policy's WITH CHECK was `is_family_member(family_code)` — "any
+  approved member", despite the name — so a sibling player could write a
+  note the UI presents as from a parent. **Fixed in migration 033**: the
+  writer's own `profiles.role` must be `'parent'` AND they must be an
+  approved member. Attack-tested both ways on staging.
+  The budget half was flatter than this bullet until **migration 050
+  (2026-11-20)**: `is_parent_member()` granted budget writes to any approved
+  joiner regardless of `role`. It now requires the writer's own role =
+  'parent' AND approved membership, like 033. Attack-tested on staging and
+  production (`~/seeded-evidence/review-ready/r4-rls/`). Check
+  `pg_policies`, not this file, before relying on it.
+  Corrected again 2026-11-15: until migration 036 a parent who JOINED with
+  the code could write **neither** of the two, because the WITH CHECK on both
+  reads the row's `family_code` and the app stamped that from the joiner's
+  own (NULL) `profiles.family_code`. 036 stamps it in the database instead.
+- **Under-13 → a parent creates the account**, checked at onboarding.
+- **The mockups are the source of truth for UI.** Match them exactly;
+  flag anything that looks wrong instead of silently "improving" it.
+- **Never apply a migration, change pricing/Whop config, or push to
+  `main` without explicit, current-turn sign-off.** `main` auto-deploys
+  straight to production with no staging gate.
+- **Local dev points at STAGING, never production.** `.env.local` names the
+  staging project (re-check with a grep for the two project refs before you
+  trust it). Even on staging, never sign in through real auth with a real
+  person's account — use a clearly-fake, disposable `@example.com` account
+  and delete or scramble it after testing. (Until 2026-11-15 local dev shared
+  production's project; that is why this rule exists.)
+
+## Commands
+
+```
+npm run dev          # local dev server, localhost:3000 (reads .env.local = staging)
+npm test             # full Vitest suite (npx vitest run)
+npm run test:tz      # the suite in America/New_York and Pacific/Auckland
+npm run typecheck    # tsc --noEmit
+npm run lint         # next lint
+npm run build        # production build (rm -rf .next first if you hit a
+                     # stale-cache module error — known, not a real bug)
+```
+
+Migrations and Supabase type generation are done via the Supabase MCP's
+`apply_migration` / `generate_typescript_types` tools. **There are two
+projects now:**
+- `gnlcpnsweqbtwpaqhqqg` — **staging.** Safe to apply to. Holds clearly-fake
+  test users and families. After the 2026-11-15 rehearsal that is
+  `fake-*@example.com` and families `FAKEFAM-A1/B2/C3/D4/E5/F6`, seeded to
+  production's shape (8 profiles, 3 double-linked `parent_accounts` rows, one
+  family with 4 profiles on one code). The older `*@test.example` /
+  `TESTFAMILYA` set is gone — Supabase Auth rejects the `.example` TLD, which
+  is why the newer seed uses `example.com`. **No account on staging has a
+  usable password**: the rehearsal's four disposable ones were scrambled to a
+  non-bcrypt string afterwards, so `signInWithPassword` fails for all of them.
+- `tfpjssmhiptbwigarxpx` — **production.** Read-only unless Niran has given
+  current-turn sign-off for a specific migration.
+
+Always apply to staging first and verify with the nine-category schema
+fingerprint before proposing anything for production.
+
+**The repo does not reproduce production from `0001` alone** — see
+`025_reconcile_profiles_schema_drift.sql` and DATABASE_SPEC. If you build a
+fresh database, apply 025 too, and apply 019 before 018 (production's real
+order, which is not the repo's numbering).
+
+## The UTR placeholder — read before touching `Player.currentUTR`
+
+`emptyPlayer.currentUTR` is **0**, and `currentUTR <= 0` means "no rating
+logged yet". It was 7 until 2026-11-15, when an independent review found
+`buildCoachEmail()` rendering **"My UTR is 7.0 (self-reported)"** for a
+player who had never entered one — in an email a minor signs their name to.
+
+Two things to know, both learned the hard way the same night:
+
+1. **0 is an IN-MEMORY sentinel. The database rejects it.**
+   `profiles_current_utr_check` (migration 006, live on production) is
+   `current_utr is null or current_utr between 1 and 16.5`, and
+   `utr_entries_utr_check` is `utr between 1 and 16.5` with no NULL escape.
+   Writing the sentinel raises **23514**. `writeCurrentPlayerProfile()`
+   converts it: `current_utr: player.currentUTR > 0 ? player.currentUTR : null`.
+   **Never write `player.currentUTR` straight to Postgres.**
+   `lib/utr-sentinel.test.ts` fails the build if that conversion is removed.
+2. **Anything DERIVED from the UTR must check `hasRealUtr()` first.** The
+   sentinel is detectable, not harmless: left unchecked it produced "Fit
+   checked against UTR 0.00", a required pace of "7.1/year", a "closest
+   schools" list that was just the catalog's five lowest, a tooltip reading
+   "You 0.0 · Gap to median −12.1", and a training plan called "0.0 UTR
+   build week". Use `hasRealUtr(v)` / `formatUtrOrNotTracked(v)` from
+   `lib/utils.ts` — never `formatUTR` or `.toFixed()` on a raw currentUTR.
+
+The real fix is `Player.currentUTR: number | null`, so the unknown case is
+unrepresentable rather than merely detectable. That is a 79-site change and
+is still open — see `docs/TODO.md`.
+
+## Enforced invariants and their history (keep in sync with MASTER_ROADMAP)
+
+Formerly "Current blockers". Every bullet below is either DONE (with the rule it left behind, which still applies) or names what is still open. The rules in **Always / Never / Non-negotiable** above are the short form; these are the reasons.
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
 - P0-5: DONE 2026-11-16 — the maintenance page is gone. PR niranramprasad-beep/seeded-tennis#4 merged `v1` into `main` (`b16d85b`); `middleware.ts` is absent on `main`, every public route returns 200, the deployed client reads production's Supabase (`tfpjssmhiptbwigarxpx`, 0 staging refs). `main` auto-deploys with no staging gate, so the merge gate is still a person.
@@ -115,154 +277,3 @@ landed. Don't merge it; cherry-pick an idea from it if P1-UX-2 needs one.
     One real quirk remains: `plans.list` needs `account_id`, not
     `company_id`.
 - P1-SEC-1/P1-SEC-5: DONE — the Gemini copilot and Stripe routes are deleted. V1 ships no AI feature. **The Gemini and Stripe keys still need revoking at the provider.**
-
-## Always
-- Update `docs/MASTER_ROADMAP.md` in the same commit as the work: status, new findings, NEXT 10.
-- Before modifying auth/authorization, read the live policies (`pg_policies`) and the 022 trigger. Never replace RLS with a client-side check — `AuthGate`/`PaidGate` are cosmetic.
-- Run `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run` before saying something works.
-- Use one fit-band path: `classifySchoolFit` must always get a projection that can return "out-of-range".
-- Show "Not tracked" for missing data. Show the source and date next to any roster number.
-- Keep secrets out of code, docs, logs, screenshots, and commits. Names only.
-
-## Never
-- Never invent coach names, emails, recruits, rankings, or UTRs — not even as "placeholder" data in shipped code.
-- Never write privileged `profiles` columns from the client (`subscription_tier`, `role`, `family_code`, `whop_membership_id`, `stripe_*`, `email_verified_at`, `email_verified_for`). The trigger list is enforced by `lib/db/email-verification-gate.test.ts`.
-- Never add a feature that promises email/notifications/public pages unless the sending/serving code exists.
-- Never build POST-V1 features while any P0/P1 is open.
-- Never apply a migration to the shared project before staging exists — and never without explicit sign-off.
-
-## Non-negotiable rules
-
-- **No generated or made-up data, anywhere.** Missing real data → an
-  honest empty/"Not tracked" state, never a plausible-looking invention.
-- **No fabricated coach emails or outreach content.** Drafts build from
-  the player's own real logged results. (Coach name/email fields
-  themselves are still unverified seed data — see HANDOFF TODO #1.)
-- **4-band fit model**: Likely / Target / Reach / Out of range, per
-  `/methodology`, in `lib/school-fit.ts`. Reach-vs-Out-of-range uses a
-  real UTR-trajectory projection, never a static snapshot.
-- **"Leaving" counts, never "open spots."** Real grad-year math only.
-- **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
-  nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
-  Tournament checker) in the sidebar, the avatar menu on phones and ⌘K
-  (docs/DECISIONS.md, 2026-11-18; **approved by Niran 2026-11-19**). Tools is not a sixth primary item; the
-  phone bottom bar stays exactly five. Settings/Family live under the avatar
-  menu; the theme toggle lives only in Settings → Appearance.
-- **Friends and badges are removed, product-wide.** Don't resurrect
-  either without being explicitly asked.
-- **No auto-generated training plans — manual calendar only.** True in code
-  since 2026-11-18: the /training planner, its generator and templates,
-  Match mode's prep-plan generator and the whole-state planner save are
-  deleted; `lib/training-no-autogen.test.ts` fails the build if any return.
-  The calendar reads only sessions in the player's manual plan
-  (`training_plans.metadata = {"kind":"manual"}`, lib/db/training.ts).
-  **Production still holds 28 generated sessions in 5 plans — hidden, not
-  deleted. Niran decided 2026-11-19: keep them hidden, do NOT delete; revisit
-  on or after 2026-12-19** (DECISIONS 2026-11-19, TODO).
-- **Gmail = compose-link only.** Never the Gmail API, never inbox access,
-  never auto-send.
-- **UTR = profile link + manual check-in only.** Never fetch or scrape
-  UTR data from anywhere.
-- **Parents can write exactly two things: the season budget (and its
-  expenses) and encouragement notes. Everything else is read-only.**
-  Enforced at the RLS layer — **and it was not, until migration 039.**
-  `parent_reports` had a policy called `parent_reports_service_insert` that
-  was granted to `authenticated` with `with check (is_family_member(...))`,
-  so any approved member — a sibling player included — could insert a report
-  row with an arbitrary `title` and `public_url` that the family page then
-  renders. Named for a rule its body did not implement, exactly like the
-  `encouragement_notes_insert_parent` bug 033 fixed. 039 drops the client
-  INSERT; the app only ever read that table, so nothing is lost. Live on
-  production until 039 ships, which is why this bullet now says when it
-  became true.
-  Corrected 2026-11-15 — this said "read-only except the season budget",
-  which omitted `encouragement_notes_insert_parent` and made the privacy
-  policy wrong for a while.
-  That policy's WITH CHECK was `is_family_member(family_code)` — "any
-  approved member", despite the name — so a sibling player could write a
-  note the UI presents as from a parent. **Fixed in migration 033**: the
-  writer's own `profiles.role` must be `'parent'` AND they must be an
-  approved member. Attack-tested both ways on staging.
-  The budget half was flatter than this bullet until **migration 050
-  (2026-11-20)**: `is_parent_member()` granted budget writes to any approved
-  joiner regardless of `role`. It now requires the writer's own role =
-  'parent' AND approved membership, like 033. Attack-tested on staging and
-  production (`~/seeded-evidence/review-ready/r4-rls/`). Check
-  `pg_policies`, not this file, before relying on it.
-  Corrected again 2026-11-15: until migration 036 a parent who JOINED with
-  the code could write **neither** of the two, because the WITH CHECK on both
-  reads the row's `family_code` and the app stamped that from the joiner's
-  own (NULL) `profiles.family_code`. 036 stamps it in the database instead.
-- **Under-13 → a parent creates the account**, checked at onboarding.
-- **The mockups are the source of truth for UI.** Match them exactly;
-  flag anything that looks wrong instead of silently "improving" it.
-- **Never apply a migration, change pricing/Whop config, or push to
-  `main` without explicit, current-turn sign-off.** `main` auto-deploys
-  straight to production with no staging gate.
-- **Local dev shares production's real Supabase project.** Never sign in
-  through real auth locally without a clearly-fake, disposable account —
-  and delete it (and everything it touched) immediately after testing.
-
-## Commands
-
-```
-npm run dev              # local dev server, localhost:3000
-npx vitest run            # full test suite
-npx tsc --noEmit           # typecheck
-npx next build              # production build (rm -rf .next first if you
-                             # hit a stale-cache module error — known
-                             # flaky issue, not a real bug)
-npx next lint                # lint
-```
-
-Migrations and Supabase type generation are done via the Supabase MCP's
-`apply_migration` / `generate_typescript_types` tools. **There are two
-projects now:**
-- `gnlcpnsweqbtwpaqhqqg` — **staging.** Safe to apply to. Holds clearly-fake
-  test users and families. After the 2026-11-15 rehearsal that is
-  `fake-*@example.com` and families `FAKEFAM-A1/B2/C3/D4/E5/F6`, seeded to
-  production's shape (8 profiles, 3 double-linked `parent_accounts` rows, one
-  family with 4 profiles on one code). The older `*@test.example` /
-  `TESTFAMILYA` set is gone — Supabase Auth rejects the `.example` TLD, which
-  is why the newer seed uses `example.com`. **No account on staging has a
-  usable password**: the rehearsal's four disposable ones were scrambled to a
-  non-bcrypt string afterwards, so `signInWithPassword` fails for all of them.
-- `tfpjssmhiptbwigarxpx` — **production.** Read-only unless Niran has given
-  current-turn sign-off for a specific migration.
-
-Always apply to staging first and verify with the nine-category schema
-fingerprint before proposing anything for production.
-
-**The repo does not reproduce production from `0001` alone** — see
-`025_reconcile_profiles_schema_drift.sql` and DATABASE_SPEC. If you build a
-fresh database, apply 025 too, and apply 019 before 018 (production's real
-order, which is not the repo's numbering).
-
-## The UTR placeholder — read before touching `Player.currentUTR`
-
-`emptyPlayer.currentUTR` is **0**, and `currentUTR <= 0` means "no rating
-logged yet". It was 7 until 2026-11-15, when an independent review found
-`buildCoachEmail()` rendering **"My UTR is 7.0 (self-reported)"** for a
-player who had never entered one — in an email a minor signs their name to.
-
-Two things to know, both learned the hard way the same night:
-
-1. **0 is an IN-MEMORY sentinel. The database rejects it.**
-   `profiles_current_utr_check` (migration 006, live on production) is
-   `current_utr is null or current_utr between 1 and 16.5`, and
-   `utr_entries_utr_check` is `utr between 1 and 16.5` with no NULL escape.
-   Writing the sentinel raises **23514**. `writeCurrentPlayerProfile()`
-   converts it: `current_utr: player.currentUTR > 0 ? player.currentUTR : null`.
-   **Never write `player.currentUTR` straight to Postgres.**
-   `lib/utr-sentinel.test.ts` fails the build if that conversion is removed.
-2. **Anything DERIVED from the UTR must check `hasRealUtr()` first.** The
-   sentinel is detectable, not harmless: left unchecked it produced "Fit
-   checked against UTR 0.00", a required pace of "7.1/year", a "closest
-   schools" list that was just the catalog's five lowest, a tooltip reading
-   "You 0.0 · Gap to median −12.1", and a training plan called "0.0 UTR
-   build week". Use `hasRealUtr(v)` / `formatUtrOrNotTracked(v)` from
-   `lib/utils.ts` — never `formatUTR` or `.toFixed()` on a raw currentUTR.
-
-The real fix is `Player.currentUTR: number | null`, so the unknown case is
-unrepresentable rather than merely detectable. That is a 79-site change and
-is still open — see `docs/TODO.md`.

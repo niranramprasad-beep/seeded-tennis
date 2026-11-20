@@ -11,7 +11,7 @@ into the repo.
 Signed-in passes read the persona password from
 `~/seeded-evidence/overnight/.persona-pass`. The persona passwords are
 scrambled at the end of every pass, so a signed-in run needs fresh
-disposable ones set on staging first (see `docs/FINAL_PASS_REPORT.md`).
+disposable ones set on staging first (see `docs/archive/FINAL_PASS_REPORT.md`).
 
 | script | what it does |
 |---|---|
@@ -24,7 +24,7 @@ disposable ones set on staging first (see `docs/FINAL_PASS_REPORT.md`).
 | `sweep-c.mjs [C1 C9 …]` | PR C's production sweep, C1–C30, as the sweep persona against a production build on :3500 (`SWEEP_BASE` overrides). One concrete assertion per item (DOM text, counts, writes that land, no native dialogs anywhere, no sideways scroll, labels, two-decimal ratings), browser in America/New_York, evidence shots at 1440 and 375. Writes `~/seeded-evidence/production-sweep-1/SWEEP.md` (`SWEEP_OUT` overrides the file name) and folds in the C29 phone-sweep counts from `phone-before/` and `phone/`. Writes to staging as the persona — the header lists every row. |
 | `cls-sources.mjs <email> <route> [width]` | One page, one signed-in persona: every layout shift with the elements that moved and their before/after boxes. Use it when site-audit reports CLS > 0.05. |
 | `ui-audit.mjs` | Older four-width screenshot/axe pass from the launch polish work. |
-| `perf-lighthouse.mjs [routes…]` | D8 perf audit: Lighthouse mobile, N runs per route (`PERF_RUNS`, default 3), median TTFB/FCP/LCP/SI/TBT/CLS plus font files and JS KB, as a markdown table. `PERF_BASE` (default :3100), `PERF_OUT`, `PERF_INSECURE=1` for the h2 proxy. See docs/perf/audit-2-perf.md. |
+| `perf-lighthouse.mjs [routes…]` | D8 perf audit: Lighthouse mobile, N runs per route (`PERF_RUNS`, default 3), median TTFB/FCP/LCP/SI/TBT/CLS plus font files and JS KB, as a markdown table. `PERF_BASE` (default :3100), `PERF_OUT`, `PERF_INSECURE=1` for the h2 proxy. See docs/archive/audit-2-perf.md. |
 | `perf-h2-proxy.mjs <listen> <upstream>` | HTTP/2 + brotli in front of `next start`, so local Lighthouse numbers are comparable with production's (Vercel). |
 | `perf-signed-in.mjs [routes…]` | Signed-in time until real content (no skeleton/spinner, held 300 ms) on the app routes, desktop, plus how many `/auth/v1/user` and REST calls ran first. `PERF_EMAIL` + `PERF_PASS_FILE` (a mode-600 file; never printed), `PERF_LATENCY` adds per-request latency. Staging only. |
 

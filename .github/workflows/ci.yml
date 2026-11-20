@@ -9,11 +9,13 @@ name: CI
 # Branch protection is a repo setting, not a file; see docs/DEPLOYMENT_CHECKLIST.md
 # for the exact settings to enable.
 
+# Every PR into main and every push to main. (`v1` was retired after the
+# 2026-11-16 launch merge.)
 on:
   pull_request:
-    branches: [main, v1]
+    branches: [main]
   push:
-    branches: [main, v1]
+    branches: [main]
 
 # A new push to the same branch/PR makes the in-flight run obsolete.
 concurrency:
@@ -54,8 +56,14 @@ jobs:
 
       # Includes the honesty guards. Each was confirmed to actually fail when
       # its bug is reintroduced — see the notes in MASTER_ROADMAP.
-      - name: Tests
+      - name: Tests (UTC)
         run: npm test
+
+      # Date bugs hide in time zones: the same suite in New York (behind UTC,
+      # where most users are) and Auckland (ahead of UTC, crosses midnight
+      # first). Added 2026-11-20; it was run by hand before every merge.
+      - name: Tests (America/New_York + Pacific/Auckland)
+        run: npm run test:tz
 
       # One attempt. The retry that used to live here existed for the
       # `next/font` Google Fonts flake ("Cannot read properties of null
