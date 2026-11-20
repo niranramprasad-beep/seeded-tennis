@@ -554,3 +554,23 @@ design choice is read from `localStorage`, which is why this cannot be a
 server redirect (see the comment in `components/shared/seeded-route-redirect.tsx`).
 Options are to server-render the pre-auth flow as the default and swap after
 hydration, or to accept it and drop the page's sitemap priority.
+
+## From PR D (2026-11-19)
+- `tournaments_goal` defaults to 12 and nobody is ever asked; the parent
+  dashboard ("played/12"), the cost calculator and `emptyPlayer` still use
+  it, and nothing writes `tournaments_played`. Ask for it or show "Not tracked".
+- Public LCP is still 2.7–3.3 s on most routes (target 2.5): ~285 KB of JS
+  before first paint. Next steps in `docs/perf/audit-2-perf.md` (async
+  `getSupabase()`, framer-motion `LazyMotion`). Re-measure production after
+  merge with `scripts/perf-lighthouse.mjs`.
+- Family dashboard pace wording ("At the pace in X's logged ratings") has no
+  upside sentence; `utrDeltaOverMonths` / `computeMyPaceUTR` are test-only now.
+- An opponent's UTR in a coach-email result sentence is not labelled
+  "(self-reported)".
+- The Events calendar heading still says "Training" though it shows
+  tournaments too (mockup) — needs a design call.
+- A pre-033 account with no `birth_year` can pick one in the signed-in
+  diagnostic but it isn't saved (write-once column).
+- `scripts/sweep-c.mjs` depends on a staging persona password that no longer
+  exists by design; document how to set and scramble one per run.
+
