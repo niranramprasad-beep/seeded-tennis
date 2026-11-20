@@ -3317,6 +3317,54 @@ alter table public.tournament_entries add constraint tournament_entries_status_c
 commit;
 ```
 
+### Step 23 — migration 049 (tournaments planned, not invented; fix/no-invented-goal)
+
+`profiles.tournaments_goal` becomes nullable with NO default; every stored
+value is set to NULL (all are the invented 12 — production 8 of 8 profiles
+= 12/0 on 2026-11-20); CHECK `null or between 0 and 60`.
+`tournaments_played` is untouched (the app stops reading/writing it).
+MUST be on production before the fix/no-invented-goal code merges: the new
+code reads NULL as "Not set" and a player who clears the field sends NULL,
+which the pre-049 NOT NULL refuses (23502).
+
+Pre-flight (read-only): `select tournaments_goal, tournaments_played,
+count(*) from public.profiles group by 1, 2;` — expect only 12/0. STOP if
+any other value exists: someone chose it, so clear only the 12s instead.
+
+Verify:
+```sql
+select is_nullable, column_default from information_schema.columns
+ where table_schema = 'public' and table_name = 'profiles' and column_name = 'tournaments_goal';
+-- YES, NULL
+select pg_get_constraintdef(oid) from pg_constraint where conname = 'profiles_tournaments_goal_check';
+-- CHECK (((tournaments_goal IS NULL) OR ((tournaments_goal >= 0) AND (tournaments_goal <= 60))))
+select count(*) filter (where tournaments_goal is not null) from public.profiles;  -- 0
+```
+Then as a real user (`set local role authenticated` + `request.jwt.claims`,
+inside `begin … rollback`): an app-shaped upsert of the caller's own row
+with `tournaments_goal` 8 → stored 8; with NULL → stored NULL; with -1 or 61
+→ **23514**; an UPDATE of another user's row → 0 rows.
+
+Staging (gnlcpnsweqbtwpaqhqqg, 2026-11-20; ledger now ends 045, 045b, 046,
+048, 047, 049): before 32/32 profiles = 12/0; after `YES / default=NULL`,
+the CHECK above, `32 unset / 0 set`. As `fake-a-player@example.com`
+(current_user `authenticated`): upsert 8 → `8`; upsert NULL → `NULL`; rows
+visible `1`; UPDATE `fake-a-sibling` → `0` rows; upsert -1 → `23514
+profiles_tournaments_goal_check`; UPDATE 61 → `23514`. After rollback both
+rows still NULL/0.
+
+Rollback (RE-INVENTS the 12 — NOT NULL needs a value; roll the app back
+first):
+```sql
+begin;
+update public.profiles set tournaments_goal = 12 where tournaments_goal is null;
+alter table public.profiles drop constraint if exists profiles_tournaments_goal_check;
+alter table public.profiles add constraint profiles_tournaments_goal_check check (tournaments_goal >= 0);
+alter table public.profiles alter column tournaments_goal set default 12;
+alter table public.profiles alter column tournaments_goal set not null;
+commit;
+```
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

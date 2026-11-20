@@ -128,6 +128,7 @@ Steps 21–22.
 |---|---|---|---|---|
 | 21 | 046 (`leave_family()`) | as real users: a joined parent leaves → `{"status":"left"}`, their roster empties, nobody else's rows change; the account holder → **22023 `account_holder_cannot_leave`**; a pending-only account → **22023 `not_in_a_family`**; anon → **42501** | a holder can leave, anyone else's row changes, or anon can execute | `drop function if exists public.leave_family();` |
 | 22 | 047 (tournament status 'played') | `pg_get_constraintdef` lists saved/entered/played; status counts unchanged; as the owner of a row: → 'played' ok, 'planning' **23514**, someone else's row 0 rows | counts change | map 'played' → 'entered', then restore the two-value CHECK (§J Step 22) |
+| 23 | **049** (tournaments planned, not invented; branch `fix/no-invented-goal`, NOT YET RUN on production) | **pre-flight (read-only): every profile is `tournaments_goal = 12` (2026-11-20: 8 of 8).** After: `tournaments_goal` nullable, no default, CHECK null-or-0–60, 0 rows non-null. As a real user: own-row upsert 8 ok, NULL ok, -1 / 61 **23514**; another user's row 0 rows. Must run BEFORE the `fix/no-invented-goal` code merges | any profile holds a value other than 12 before (someone chose it — clear only the 12s), or an ordinary profile save fails after | §J Step 23 block (re-invents 12; roll the app back first) |
 
 ---
 

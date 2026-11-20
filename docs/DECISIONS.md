@@ -7,6 +7,74 @@ Newest first.
 
 ---
 
+## 2026-11-20 — fix/no-invented-goal: no invented tournament goal (migration 049) and the numbers sweep
+
+Calls made without asking (the owner was unreachable):
+- **Every stored `tournaments_goal` is set to NULL**, not only the 12s. All
+  of them are 12 (production 8/8, staging 32/32), and no screen ever let
+  anyone choose a value, so there is nothing real to keep. Undo: 049's
+  rollback (which re-invents 12 — it says so).
+- **The column keeps its name** (`tournaments_goal`); only the app renames it
+  (`Player.tournamentsPlanned`, label "Tournaments planned this season").
+  Renaming the column would touch the export, the types and every rollback
+  for no user-visible gain.
+- **`tournaments_played` is kept, not dropped**, and no longer read or
+  written. Dropping it is a separate cleanup (TODO).
+- **CHECK 0–60.** A sanity ceiling, not a target.
+- **"This season" = the app's existing season** (`currentSeason()`: fall
+  Aug–Nov, winter Dec–Feb, spring Mar–May, summer Jun–Jul). New
+  `seasonKey()` makes winter one season across the new year. Played this
+  season = the player's `tournament_entries` with status 'played' whose
+  `event_date` falls in that season.
+- **The diagnostic gains a tenth question** (optional, last, players only).
+  Board 20 shows nine — this is a deliberate departure from the mockup,
+  flagged here. A parent is not asked: their answers are never saved to a
+  profile, so it would collect a number that goes nowhere. "Question N of
+  10" for a player; a parent's last question is 9. Skipping leaves it NULL.
+- **Settings → Profile gains the field** (players only; blank = Not set).
+  The mockup's Player profile card has six fields; this is a seventh.
+- **A parent sees "Not tracked" for the planned count, not "Not set".**
+  The brief said "Not set", but a parent cannot read it: `family_members()`
+  (037) returns an enumerated column list that excludes it, so "Not set"
+  could be false. The card says the player sets it in Settings and that it
+  isn't shared to the family view. Widening `family_members()` is a
+  security-surface change and was not made (TODO).
+- **The coach email still does not state the planned count** (D3 stands);
+  copy-honesty's patterns stay, their reasons updated.
+- **The cost calculator no longer pre-fills tournaments per year** from the
+  planned count: "this season" is not "per year". Years remaining comes from
+  the PLAYER's real class year (the family budget passes the family
+  player's); a parent's own row is never used. Empty inputs show "Not set".
+- **API compatibility:** `tournamentsPlanned` is optional in the profile
+  schema; absent = leave the stored value alone. A client built before 049
+  posts `tournamentsGoal: 12`, which the schema strips, so it can never write
+  the 12 back. Sign-up sends no `tournaments_goal` at all (so if the app ever
+  deploys before 049, sign-up still works; it would store the old default 12,
+  which is why 049 must run first).
+- **The numbers sweep** (table in the PR report): removed the Legacy
+  roadmap's per-year "N tournaments" (`10 + i * 2`) and its "Recommended
+  mix"; deleted the Legacy homepage's `RecruitingFitPanel` (a private fit
+  model with invented division bands and a 4–98 "confidence score"); the
+  Legacy homepage's "67 programs ranked" is now the real catalog count;
+  "Bank 6+ sectional results" / "2+ national L1/L2 events" lost their
+  numbers; the homepage calculator no longer sends its example values
+  (UTR 9.4, GPA 3.7, women's, a grad year) to /onboarding as answers — only
+  fields the visitor changed travel; sign-up no longer pre-selects a
+  player's team and grade (email: Male/10th; Google: Women's/10th);
+  the homepage's "Emory range 9.1–10.6" caption and the outreach/tournament
+  pills are labelled "Example"; the sample report no longer calls its
+  example data "Real activity". The events calendar heading is "Schedule".
+- Left alone, noted: `PARENT_ROW_GRADE` (10) for a parent's own row (never
+  shown; now one named constant), `emptyPlayer.graduationYear` 2028 and
+  `commitmentDate` (fallbacks; commitment date is stored, never shown —
+  making them nullable is the same 79-site class of change as
+  `currentUTR`), "most players improve 0.5–1.5 a year" (tied to
+  `PLANNING_PACE_CAP_PER_YEAR`, documented as an assumption in
+  lib/config/growth.ts but worded as a fact — a wording pass is
+  recommended), /today's "5 min" estimates.
+
+---
+
 ## 2026-11-19 — PR D (fix/audit-2): the owner's audit decisions, and calls made during the build
 
 Owner's decisions (from the audit brief):
