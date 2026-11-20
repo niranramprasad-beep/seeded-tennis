@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   getProfileRoleAndFamily,
   getRequestScopedSupabase,
+  PARENT_ONLY_BUDGET_MESSAGE,
   refuseUnlessFamilyPlan,
 } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
@@ -51,9 +52,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const { familyCode } = await getProfileRoleAndFamily(ctx.supabase, ctx.user.id);
+  const { role, familyCode } = await getProfileRoleAndFamily(ctx.supabase, ctx.user.id);
   if (!familyCode) {
     return NextResponse.json({ error: "You're not part of a family yet." }, { status: 403 });
+  }
+  // Migration 050: only a parent writes the season budget. RLS refuses
+  // anyone else regardless; this turns the refusal into a 403 and a
+  // sentence instead of a 500 carrying the raw policy error.
+  if (role !== "parent") {
+    return NextResponse.json({ error: PARENT_ONLY_BUDGET_MESSAGE }, { status: 403 });
   }
 
   try {

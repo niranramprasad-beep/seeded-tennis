@@ -468,6 +468,31 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
+## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
+
+**MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
+chosen at sign-up and any approved member may approve a join
+(`approve_family_join`, 026/045; a player approver needs no email proof). So
+a sibling player can create a second account as a parent, request to join,
+approve it themselves, and write the budget from it. Reproduced on staging
+by the independent verifier (rolled back). Limits: the account is visible on
+the roster and counts against the 2-parent cap (045).
+Not fixed tonight because the obvious fix — only a parent may approve a
+parent — breaks families whose only approved member is a player (a player
+creates the family, then the parent joins). Options: (a) a parent joiner
+needs a parent approver when one exists, else the account holder; (b) the
+account holder must approve parents; (c) show "added by <name>" on the
+roster and the budget. Decide, then mirror 033's pattern in a migration.
+
+## TRUNCATE is granted to anon/authenticated on the budget tables (pre-existing, LOW)
+
+Found by the same review: `anon` and `authenticated` hold TRUNCATE on
+`season_budgets` and `budget_expenses` (Supabase's default grants), and
+TRUNCATE ignores RLS. PostgREST cannot issue it, so it is reachable only
+from a direct SQL session — the same caveat as S-5 (c). Revoking TRUNCATE
+(and REFERENCES/TRIGGER) from anon/authenticated on every public table is a
+cheap, low-risk migration; do it with the next one.
+
 ## DONE (050, 2026-11-20): `is_parent_member()` is flatter than its name
 
 _Fixed by `supabase/migrations/050_budget_writes_parents_only.sql`; the `/privacy` disclosure was deleted in the same commit. History below._

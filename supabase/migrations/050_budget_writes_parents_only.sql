@@ -28,8 +28,14 @@
 -- `is_parent_member` is used by exactly six policies, all on these two
 -- tables (checked on production 2026-11-20: pg_policies + pg_proc bodies),
 -- so narrowing it changes nothing else. `profiles.role` is a privileged
--- column (022): a client cannot change its own role, so this cannot be
--- self-granted.
+-- column (022): a client cannot change an EXISTING profile's role.
+-- What 050 does NOT stop (independent review, 2026-11-20): role is chosen
+-- at sign-up, and any approved member may approve a join (026/045). So a
+-- player can create a second account as a 'parent', ask to join, and
+-- approve it themselves; that account can then write the budget. It shows
+-- on the roster and counts against the 2-parent cap. Closing it means
+-- deciding who may approve a parent — docs/TODO.md "Who may approve a
+-- parent joiner".
 --
 -- 043 (parent email proof) deliberately does NOT apply here: see
 -- docs/DECISIONS.md 2026-11-20 "Budget writes do not need 043's proof".
