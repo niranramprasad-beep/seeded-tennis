@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getSchoolsLite } from "@/lib/db/schools";
 import { prefillFromSearchParams } from "@/lib/onboarding/diagnostic";
-import { OnboardingPageSwitch } from "@/components/onboarding/onboarding-page-switch";
+import { OnboardingPageSwitch } from "@/components/seeded/onboarding/onboarding-page-switch";
 
 export const metadata: Metadata = {
   title: "Your free fit report — Seeded",

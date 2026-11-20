@@ -1149,6 +1149,7 @@ export type Database = {
       approve_family_join: { Args: { p_parent_user_id: string }; Returns: Json }
       deny_family_join: { Args: { p_parent_user_id: string }; Returns: Json }
       remove_family_member: { Args: { p_user_id: string }; Returns: Json }
+      leave_family: { Args: never; Returns: Json }
       my_pending_family_request: { Args: never; Returns: Json | null }
       remind_family_approval: { Args: never; Returns: Json }
       cancel_my_family_request: { Args: never; Returns: Json }

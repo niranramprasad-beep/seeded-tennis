@@ -212,6 +212,10 @@ describe("rule 1: one green button per screen", () => {
       max: 4,
       why: "one per branch, never two at once: under-13 link, player submit, parent submit, parent's 'Go to my family'",
     },
+    "components/seeded/onboarding/diagnostic/diagnostic-save-signed-in.tsx": {
+      max: 2,
+      why: "never both: 'Save to my profile', or 'Continue' after a partial save; the result screen passes variant secondary",
+    },
     "components/seeded/events/seeded-events-layout.tsx": { max: 1, why: "Add session (sweep C20)" },
     "components/seeded/events/upcoming-tournaments-card.tsx": { max: 0, why: "it sits on /events, whose one green button is Add session" },
     "components/seeded/events/events-calendar-card.tsx": { max: 0, why: "it sits on /events, whose one green button is Add session" },

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { SubscriptionTier } from "@/lib/types";
+import { FAMILY_PLAN_MAX_PARENTS, FAMILY_PLAN_MAX_PLAYERS, type SubscriptionTier } from "@/lib/types";
 import type { FamilyMember } from "@/lib/db/family";
+import { familyCapCounts } from "@/lib/family-settings";
 import {
   SEE_PRICE_ON_WHOP,
   WHOP_UNREACHABLE_NOTE,
@@ -138,17 +139,27 @@ function PeriodLine({ plan }: { plan: PaidPlanDescription }) {
 function IncludedCard({ tier, familyMembers }: { tier: SubscriptionTier; familyMembers: FamilyMember[] }) {
   // Only what the database actually gates: FREE_TIER_TARGET_SCHOOL_LIMIT
   // (migrations 024/040) is the paid difference in target schools, and the
-  // seats are the real roster from family_members().
+  // seats are the real roster from family_members() (approved members
+  // only), out of 045's caps — the same numbers and the same count as
+  // Settings → Family (lib/family-settings.ts).
+  //
+  // This used to show `players || 1` and a parent tile that could only ever
+  // say 0 or 1: an empty roster read as one player, and a second parent was
+  // never counted.
   if (tier === "family") {
-    const players = familyMembers.filter((m) => m.role === "player").length || 1;
-    const parent = familyMembers.find((m) => m.role === "parent");
+    const counts = familyCapCounts(
+      familyMembers.map((m) => ({ userId: m.id, role: m.role, status: "approved" as const }))
+    );
     return (
       <CardShell title="What's included">
         <div className="mt-4 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-3">
-          <Tile value={String(players)} label={players === 1 ? "player seat used" : "player seats used"} />
           <Tile
-            value={parent ? "1" : "0"}
-            label={parent ? `parent seat · ${parent.name}` : "parent seat · not linked yet"}
+            value={`${counts.players} of ${FAMILY_PLAN_MAX_PLAYERS}`}
+            label="player seats used"
+          />
+          <Tile
+            value={`${counts.parents} of ${FAMILY_PLAN_MAX_PARENTS}`}
+            label="parent seats used"
           />
           <Tile value="Unlimited" label="target schools" />
         </div>

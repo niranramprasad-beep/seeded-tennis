@@ -13,13 +13,15 @@ import { buildAccountDataCsv, downloadTextFile } from "@/lib/data/export-csv";
 import { getText, postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { slugify } from "@/lib/utils";
-import { SeededSettingsShell, type SettingsTabId } from "./seeded-settings-shell";
+import type { SettingsSectionId } from "@/lib/settings-sections";
+import { SeededSettingsShell } from "./seeded-settings-shell";
+import { FromOnboardingNote } from "./from-onboarding-note";
+import { SettingsFamilySection } from "./settings-family-section";
 import { ProfileCard } from "./profile-card";
 // NotificationsCard is deliberately not imported — see P0-7 note below.
 import { AppearanceCard } from "./appearance-card";
 import { PrivacyCard } from "./privacy-card";
 import { AccountCard } from "./account-card";
-import { FamilyCard } from "./family-card";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = {
   free: "Free",
@@ -29,18 +31,26 @@ const TIER_LABEL: Record<SubscriptionTier, string> = {
 
 // Pixel-exact to "17 Settings + account.png". The mockup bundles Player
 // profile / Notifications / Appearance / Privacy + data into one
-// scrollable Profile tab — so that's exactly what the "profile" tab
-// renders. Account/Family/Notifications/Privacy+data each also get their
-// own standalone tab (reusing the SAME card components, not duplicated
-// logic) since the mockup's left nav lists them as separate sections even
-// though it only ever screenshots Profile active. Billing is the one real
-// route among the tabs — SeededSettingsShell links it to /settings/billing
-// instead of a client tab.
-export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
+// scrollable Profile tab — so that's exactly what /settings/profile
+// renders. Account/Family/Privacy+data each also get their own section
+// (reusing the SAME card components, not duplicated logic) since the
+// mockup's left nav lists them as separate sections even though it only
+// ever screenshots Profile active. Every section is its own URL now
+// (lib/settings-sections.ts); /settings/billing is SeededBillingView.
+export function SeededSettingsView({
+  schools,
+  section,
+  fromOnboarding = false,
+}: {
+  schools: SchoolLite[];
+  section: Exclude<SettingsSectionId, "billing">;
+  /** Arrived from /onboarding after already onboarding (D2). */
+  fromOnboarding?: boolean;
+}) {
   const { player, updatePlayer, signOut } = usePlayer();
   const { tier } = useTier();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
+  const activeTab = section;
 
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug));
 
@@ -121,9 +131,10 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
   const savePlayer = (patch: Partial<Player>) => updatePlayer(patch);
 
   return (
-    <SeededSettingsShell active={activeTab} onTabChange={setActiveTab}>
+    <SeededSettingsShell active={activeTab}>
       {activeTab === "profile" && (
         <>
+          {fromOnboarding && <FromOnboardingNote />}
           <ProfileCard player={player} onSave={savePlayer} />
           {/* P0-7: <NotificationsCard> was here. Its five toggles write real
               rows to `user_settings` and nothing ever reads them — Seeded
@@ -155,7 +166,7 @@ export function SeededSettingsView({ schools }: { schools: SchoolLite[] }) {
         />
       )}
 
-      {activeTab === "family" && <FamilyCard player={player} />}
+      {activeTab === "family" && <SettingsFamilySection />}
 
       {activeTab === "privacy" && (
         <PrivacyCard
