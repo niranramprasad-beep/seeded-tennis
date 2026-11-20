@@ -157,7 +157,7 @@ export function useEventsCalendar(
         apply([...sessionsRef.current, ...toRestore]);
         try {
           await createTrainingSessions(toRestore);
-          setToast({ message: "Restored.", variant: "success" });
+          setToast({ message: removed.length > 1 ? "Sessions restored." : "Session restored.", variant: "success" });
         } catch (err) {
           fail(err);
         }

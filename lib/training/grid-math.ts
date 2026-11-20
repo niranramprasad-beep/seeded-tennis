@@ -28,6 +28,29 @@ export function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+/** The week grid's hour axis: "6 am", "12 pm", "4 pm". */
+export function hourLabel(h: number): string {
+  const suffix = h >= 12 && h < 24 ? "pm" : "am";
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve} ${suffix}`;
+}
+
+/**
+ * A stored "HH:MM" start time in the axis's style: "16:00" → "4:00 pm",
+ * "09:30" → "9:30 am", "00:15" → "12:15 am". Sessions printed "16:00" next
+ * to an axis reading "4 pm" (PR D, D7). Anything unparseable is returned
+ * as stored rather than guessed at.
+ */
+export function formatClockTime(time: string): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(time);
+  if (!m) return time;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return time;
+  const [twelve, suffix] = hourLabel(h).split(" ");
+  return `${twelve}:${m[2]} ${suffix}`;
+}
+
 export function minutesToTime(minutes: number): string {
   const clamped = Math.max(0, Math.min(24 * 60 - 1, minutes));
   const h = Math.floor(clamped / 60);

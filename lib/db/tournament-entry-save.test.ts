@@ -102,6 +102,17 @@ describe("buildTournamentEntryRow", () => {
     expect(buildTournamentEntryRow({ ...input, id: "row-9" }, "user-1", null)).toMatchObject({ id: "row-9" });
   });
 
+  it("an edit without a status leaves the stored status alone (never resets Entered to Planning)", () => {
+    expect("status" in buildTournamentEntryRow({ ...input, id: "row-9" }, "user-1", null)).toBe(false);
+    expect(buildTournamentEntryRow({ ...input, id: "row-9", status: "played" }, "user-1", null)).toMatchObject({ status: "played" });
+  });
+
+  it("stores a blank city or state as NULL — both are optional", () => {
+    const row = buildTournamentEntryRow({ ...input, city: "  ", state: undefined }, "user-1", null);
+    expect(row.city).toBeNull();
+    expect(row.state).toBeNull();
+  });
+
   it("every column it sends exists in the generated tournament_entries Insert type", () => {
     const types = readFileSync(join(__dirname, "database.types.ts"), "utf8");
     const block = types.slice(types.indexOf("tournament_entries: {"));

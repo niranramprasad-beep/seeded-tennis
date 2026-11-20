@@ -20,7 +20,6 @@ import {
   LEVELS,
   UTR_MAX,
   UTR_MIN,
-  typicalFieldRange,
   verdictBlockers,
   verdictBlockerSentence,
   type FitLevel,
@@ -36,7 +35,8 @@ import {
 import { SeededButton } from "@/components/seeded/ui/button";
 import { Toast, type ToastVariant } from "@/components/seeded/ui/toast";
 import { Drawer } from "@/components/ui/drawer";
-import { formatShortDate, localDateKey, parseLocalDate } from "@/lib/time";
+import { formatShortDate, parseLocalDate } from "@/lib/time";
+import { toolBackLink } from "@/lib/tool-back-link";
 import { cn, formatPlayerUtr } from "@/lib/utils";
 
 const inputClass =
@@ -60,10 +60,12 @@ const VERDICT_META: Record<
 // Pixel-exact to "14 Tournament fit finder.png" — a genuinely live
 // calculator (no "get the verdict" submit step like the Legacy version
 // below): every keystroke/pill click re-runs the real evaluateTournamentFit
-// engine via useMemo. The mockup's form has no draw-strength or goal-UTR
-// inputs at all, so drawUtr/goalUtr are always passed as null here — that's
-// exactly the "estimate from level" path the engine already has, which is
-// what the "Typical field for this level" note under the Level pills shows.
+// engine via useMemo. MOCKUP DEVIATION (PR D, D5): the mockup's form has no
+// draw-strength input, but the verdict now needs the draw's average UTR —
+// the level-to-UTR table the mockup's "typical field" note relied on had no
+// source and made almost everything "Worth it". So there is one extra field
+// under Level; without it the verdict reads "Not enough info". goalUtr is
+// still passed as null (no goal input).
 // useSearchParams() bails a static page out to client-only rendering, so
 // /tournament-fit (in the sitemap) served the nav, the footer and nothing in
 // between to a crawler. The URL-reading half sits inside a Suspense boundary
@@ -114,6 +116,9 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const [travel, setTravel] = useState<TravelPill>(shared.travel ?? "local");
   const [entryCost, setEntryCost] = useState(shared.entryCost != null ? String(shared.entryCost) : "");
   const [travelCost, setTravelCost] = useState(shared.travelCost != null ? String(shared.travelCost) : "");
+  // The draw's average UTR. The verdict is judged from it (D5); without it
+  // the checker says "Not enough info" rather than guess from the level.
+  const [drawUtrText, setDrawUtrText] = useState(shared.drawUtr != null ? formatPlayerUtr(shared.drawUtr) : "");
   const [utr, setUtr] = useState(shared.playerUtr != null ? formatPlayerUtr(shared.playerUtr) : "");
   // A shared link's UTR is a deliberate snapshot — it should win over the
   // opener's own profile, same reasoning as a manual edit.
@@ -159,34 +164,37 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const travelCostRaw = travelCost !== "" ? Number(travelCost) : null;
   const entryCostNum = entryCostRaw != null && Number.isFinite(entryCostRaw) && entryCostRaw >= 0 ? entryCostRaw : null;
   const travelCostNum = travelCostRaw != null && Number.isFinite(travelCostRaw) && travelCostRaw >= 0 ? travelCostRaw : null;
+  const drawRaw = drawUtrText.trim() !== "" ? Number(drawUtrText) : null;
+  const drawUtrNum = drawRaw != null && Number.isFinite(drawRaw) && drawRaw >= UTR_MIN && drawRaw <= UTR_MAX ? drawRaw : null;
   const tournamentName = name.trim() || "This tournament";
 
-  // No verdict until the level, a rating and the entry fee are all in.
-  const blockers = verdictBlockers({ level, playerUtr, entryCost: entryCostNum });
+  // No verdict until the level, a rating, the entry fee and the draw's
+  // average UTR are all in.
+  const blockers = verdictBlockers({ level, playerUtr, entryCost: entryCostNum, drawUtr: drawUtrNum });
 
   const result = useMemo(
     () =>
-      blockers.length > 0 || level == null || playerUtr == null
+      blockers.length > 0 || level == null || playerUtr == null || drawUtrNum == null
         ? null
         : evaluateTournamentFit({
             name: tournamentName,
             level,
             playerUtr,
             goalUtr: null,
-            drawUtr: null,
+            drawUtr: drawUtrNum,
             travelHours,
             distanceMiles: null,
             entryCost: entryCostNum,
             travelCost: travelCostNum,
           }),
-    // blockers is derived from level/playerUtr/entryCostNum, all listed.
+    // blockers is derived from level/playerUtr/entryCostNum/drawUtrNum, all listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum]
+    [tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum, drawUtrNum]
   );
 
   const meta = result ? VERDICT_META[result.verdict] : null;
   const blurb = result?.reasons[0]?.text ?? "";
-  const field = level && level !== "utr" ? typicalFieldRange(level) : null;
+  const backLink = hydrated ? toolBackLink({ isAuthed, role: player.role }) : null;
 
   const handleShare = async () => {
     const params = encodeTournamentFitShareParams({
@@ -196,6 +204,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
       travel,
       entryCost: entryCostNum,
       travelCost: travelCostNum,
+      drawUtr: drawUtrNum,
     });
     const url = `${window.location.origin}/tournament-fit?${params.toString()}`;
     try {
@@ -211,21 +220,25 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
       setToast({ message: "Sign in to add this tournament to your events.", variant: "error" });
       return;
     }
-    if (level == null) {
-      setToast({ message: "Choose the tournament's level first.", variant: "error" });
-      return;
-    }
+    // The button is disabled until there is a verdict (D7); this is the
+    // belt to that brace.
+    if (!result) return;
     setAddOpen(true);
   };
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <Link href="/events" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-6">
-        <ArrowLeft className="h-4 w-4" />
-        Events
-      </Link>
+      {backLink && (
+        <Link
+          href={backLink.href}
+          className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-6"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          {backLink.label}
+        </Link>
+      )}
 
-      <h1 className="mt-3 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
+      <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
         Is this tournament worth it?
       </h1>
       <p className="mt-2.5 max-w-2xl text-stone">
@@ -268,19 +281,33 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 );
               })}
             </div>
+            {/* No "typical field for this level" range any more: that table
+                had no source (D5). The level only sets the matches to
+                expect and whether long travel is forgiven. */}
             <p className="mt-2 text-[13px] leading-relaxed text-stone">
-              {level == null ? (
-                "Pick the level printed on the event page."
-              ) : level === "utr" ? (
-                "No typical field for UTR events — strength comes entirely from who enters."
-              ) : (
-                <>
-                  {/* The same range the verdict's sentence quotes —
-                      typicalFieldRange() is the one source for both. */}
-                  Typical field for this level:{" "}
-                  <span className="font-mono font-semibold text-ink">UTR {field?.label}</span> (estimate)
-                </>
-              )}
+              {level == null
+                ? "Pick the level printed on the event page."
+                : "The level sets how many matches to expect. How strong the field is comes from the draw's average below."}
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <label htmlFor="tf-draw" className="mb-2 block text-sm font-semibold text-ink">
+              Draw&apos;s average UTR
+            </label>
+            <input
+              id="tf-draw"
+              type="text"
+              inputMode="decimal"
+              value={drawUtrText}
+              onChange={(e) => setDrawUtrText(e.target.value)}
+              aria-describedby="tf-draw-hint"
+              className={cn(inputClass, "max-w-[160px] font-mono tabular-nums")}
+            />
+            <p id="tf-draw-hint" className="mt-2 text-[13px] leading-relaxed text-stone">
+              Average the UTRs on the entry list, or use last year&apos;s draw. The verdict compares it with{" "}
+              {isParent ? `${subjectFirst ?? "your player"}'s` : "your"} UTR.
+              {drawUtrText.trim() !== "" && drawUtrNum == null ? ` UTR runs from ${UTR_MIN} to ${UTR_MAX}.` : ""}
             </p>
           </div>
 
@@ -430,9 +457,12 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               {/* A parent has no events of their own: /events is the
                   player's planner and AuthGate keeps parents out of it.
                   "Add to my events" would write a tournament entry under
-                  the parent's id that the player never sees. */}
+                  the parent's id that the player never sees.
+                  Disabled until there is a verdict (D7): a tournament saved
+                  before the check is done had no draw average and no
+                  verdict. */}
               {player.role !== "parent" && (
-                <SeededButton onClick={handleAddClick}>Add to my events</SeededButton>
+                <SeededButton onClick={handleAddClick} disabled={!result}>Add to my events</SeededButton>
               )}
               <SeededButton variant="secondary" onClick={handleShare}>
                 {isParent ? "Copy a link to this check" : "Share with my coach"}
@@ -456,6 +486,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
             travelHours,
             entryCost: entryCostNum,
             travelCost: travelCostNum,
+            drawUtr: drawUtrNum,
           }}
           onSaved={(entry) => {
             setAddOpen(false);
@@ -498,8 +529,8 @@ function Meter({ label, value, pct }: { label: string; value: string; pct: numbe
 
 type DrawerField = "name" | "date" | "city" | "state";
 
-// The calculator collects no date, city or state, and saveTournamentEntry
-// requires all three, so "Add to my events" opens this drawer for them.
+// The calculator collects no date, so "Add to my events" opens this drawer
+// for it (and the optional city and state).
 //
 // Production sweep C3 ("Save to my events saves nothing, no error"): on
 // staging the write itself succeeds for the sweep persona (201, row in
@@ -526,6 +557,7 @@ function AddToEventsDrawer({
     travelHours: number | null;
     entryCost: number | null;
     travelCost: number | null;
+    drawUtr: number | null;
   };
   onSaved: (entry: TournamentEntry) => void;
 }) {
@@ -562,8 +594,7 @@ function AddToEventsDrawer({
     if (!tName.trim()) errors.name = "Give the tournament a name.";
     if (!eventDate) errors.date = "Pick the tournament's date.";
     else if (!isCalendarDateKey(eventDate)) errors.date = "That isn't a real date.";
-    if (!city.trim()) errors.city = "Add the city.";
-    if (!state.trim()) errors.state = "Add the state.";
+    // City and state are optional (D4): nothing computes from them.
     setFieldErrors(errors);
     const first = (["name", "date", "city", "state"] as DrawerField[]).find((f) => errors[f]);
     if (first) {
@@ -579,7 +610,6 @@ function AddToEventsDrawer({
         city,
         state,
         distanceMiles: null,
-        drawUtr: null,
         goalUtr: null,
       });
       onSaved(saved);
@@ -638,8 +668,8 @@ function AddToEventsDrawer({
           onChange: (e) => setEventDate(e.target.value),
         })}
         <div className="grid grid-cols-2 gap-3">
-          {field("city", "City", { value: city, onChange: (e) => setCity(e.target.value), autoComplete: "address-level2" })}
-          {field("state", "State", { value: state, onChange: (e) => setState(e.target.value), autoComplete: "address-level1" })}
+          {field("city", "City (optional)", { value: city, onChange: (e) => setCity(e.target.value), autoComplete: "address-level2" })}
+          {field("state", "State (optional)", { value: state, onChange: (e) => setState(e.target.value), autoComplete: "address-level1" })}
         </div>
         {formError && (
           <p role="alert" className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">

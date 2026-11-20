@@ -5,6 +5,7 @@ import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { utrToPct } from "@/lib/school-fit";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { cn } from "@/lib/utils";
+import { TOURNAMENT_CHECKER_TOC, TournamentCheckerMethod } from "./tournament-checker-section";
 
 // Illustrative example for the Team ranges section — not a live school, just
 // the same low/median/high numbers the mockup shows, run through the real
@@ -36,6 +37,7 @@ const TOC: { id: string; label: string }[] = [
   { id: "fit-bands", label: "Fit bands" },
   { id: "confidence", label: "Confidence" },
   { id: "what-we-cant-know", label: "What we can't know" },
+  TOURNAMENT_CHECKER_TOC,
   { id: "fixing-mistakes", label: "Fixing mistakes" },
 ];
 
@@ -241,7 +243,11 @@ export function SeededMethodologyView() {
               </p>
             </Section>
 
-            <Section id="fixing-mistakes" number={8} title="Fixing mistakes" last>
+            <Section id={TOURNAMENT_CHECKER_TOC.id} number={8} title={TOURNAMENT_CHECKER_TOC.label}>
+              <TournamentCheckerMethod />
+            </Section>
+
+            <Section id="fixing-mistakes" number={9} title="Fixing mistakes" last>
               {/* P0-7: "within 48 hours" and "note the fix date on the page"
                   were both promises with nothing behind them — no ticketing,
                   no on-call, and no fix-date field on a school. */}

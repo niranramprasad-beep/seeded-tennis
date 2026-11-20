@@ -1,7 +1,7 @@
 "use client";
 
 import type { Player } from "@/lib/types";
-import type { MatchRecord, TournamentEntry } from "@/lib/db/events";
+import type { MatchRecord, TournamentEntry, TournamentEntryStatus } from "@/lib/db/events";
 import type { TrainingSession } from "@/lib/db/training";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { UpcomingTournamentsCard } from "./upcoming-tournaments-card";
@@ -14,7 +14,9 @@ export interface SeededEventsLayoutProps {
   matches: MatchRecord[] | undefined;
   /** undefined while loading. */
   sessions: TrainingSession[] | undefined;
-  onMarkEntered: (id: string) => void;
+  onSetTournamentStatus: (id: string, status: TournamentEntryStatus) => void;
+  onEditTournament: (entry: TournamentEntry) => void;
+  onRemoveTournament: (entry: TournamentEntry) => void;
   /** Opens the session form; a date/time when it came from a calendar slot. */
   onAddSession: (date?: string, time?: string) => void;
   onEditSession: (session: TrainingSession) => void;
@@ -36,7 +38,9 @@ export function SeededEventsLayout({
   tournamentEntries,
   matches,
   sessions,
-  onMarkEntered,
+  onSetTournamentStatus,
+  onEditTournament,
+  onRemoveTournament,
   onAddSession,
   onEditSession,
   onMoveSession,
@@ -66,13 +70,20 @@ export function SeededEventsLayout({
           tournamentEntries={tournamentEntries}
           onAdd={onAddSession}
           onEdit={onEditSession}
+          onOpenTournament={onEditTournament}
           onMove={onMoveSession}
           onResize={onResizeSession}
         />
       </div>
 
       <div className="mt-5 grid gap-5 md:grid-cols-2 md:items-start">
-        <UpcomingTournamentsCard entries={tournamentEntries} playerUtr={player.currentUTR} onMarkEntered={onMarkEntered} />
+        <UpcomingTournamentsCard
+          entries={tournamentEntries}
+          playerUtr={player.currentUTR}
+          onSetStatus={onSetTournamentStatus}
+          onEdit={onEditTournament}
+          onRemove={onRemoveTournament}
+        />
         <RecentResultsCard matches={matches} />
       </div>
     </div>

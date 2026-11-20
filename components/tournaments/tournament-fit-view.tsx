@@ -27,6 +27,7 @@ import {
   UTR_MAX,
   UTR_MIN,
   type FitLevel,
+  NOT_ENOUGH_INFO,
   type FitResult,
 } from "@/lib/tournament-fit";
 
@@ -107,7 +108,14 @@ function LegacyTournamentFitView() {
       return;
     }
     const draw = drawKnown && drawUtr !== "" ? Number(drawUtr) : null;
-    if (draw !== null && (!Number.isFinite(draw) || draw < UTR_MIN || draw > UTR_MAX)) {
+    // No level-to-UTR estimate any more (PR D, D5): the verdict needs the
+    // draw's average.
+    if (draw === null) {
+      setResult(null);
+      setError(NOT_ENOUGH_INFO);
+      return;
+    }
+    if (!Number.isFinite(draw) || draw < UTR_MIN || draw > UTR_MAX) {
       setError("Draw strength must be a UTR between 1.00 and 16.50.");
       return;
     }
@@ -288,8 +296,7 @@ function LegacyTournamentFitView() {
                 </>
               ) : (
                 <p className="rounded-xl bg-cream/70 px-3.5 py-2.5 text-xs leading-relaxed text-stone">
-                  We'll estimate the field from the level — a real draw average is
-                  always more accurate if you can find one.
+                  {NOT_ENOUGH_INFO}
                 </p>
               )}
             </div>
@@ -484,7 +491,7 @@ function VerdictCard({
           <div className="mt-6 space-y-3">
             <ScoreBar
               icon={Swords}
-              label={result.drawEstimated ? "Competition (est. from level)" : "Competition"}
+              label="Competition"
               value={result.competitionScore}
               barClass={meta.bar}
               delay={0.35}

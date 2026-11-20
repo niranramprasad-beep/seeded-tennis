@@ -15,6 +15,8 @@ export default function MatchesError({
       reset={reset}
       title="Couldn't load your match history."
       description="Try again to pull up your logged matches."
+      backHref="/events"
+      backLabel="Back to Events"
     />
   );
 }

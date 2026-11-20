@@ -6,6 +6,7 @@
 // upcoming tournaments, training calendar), which is why they're
 // consolidated here rather than split further.
 import { isCalendarDateKey } from "@/lib/time";
+import { TOURNAMENT_STATUS_VALUES, type TournamentEntryStatus } from "@/lib/tournament-status";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
@@ -250,15 +251,17 @@ export async function uploadMatchVideo(file: File): Promise<string | null> {
 }
 
 /* --------------------------------------------------------- tournament entries */
-// Real storage for tournaments a family is tracking or has entered — the
-// "Upcoming tournaments" list on /events. Backed by `tournament_entries`
-// (migration 013_tournament_entries.sql — not yet applied to the live
-// database, see that file's header, same discipline as
-// 011_outreach_stages.sql). Until the migration is run, loadTournamentEntries
-// degrades to [] the same way every other not-yet-existing table does
-// elsewhere in this file's siblings (loadMatches, loadDailyCheckins).
+// Real storage for tournaments a family is tracking, has entered or has
+// played — the "Upcoming tournaments" list on /events. Backed by
+// `tournament_entries` (migration 013; 'played' added by 047).
 
-export type TournamentEntryStatus = "saved" | "entered";
+// Status values and labels live in lib/tournament-status.ts (pure).
+export {
+  TOURNAMENT_STATUSES,
+  tournamentStatusLabel,
+  isCommittedStatus,
+  type TournamentEntryStatus,
+} from "@/lib/tournament-status";
 
 export interface TournamentEntry {
   id: string;
@@ -284,8 +287,10 @@ export interface NewTournamentEntryInput {
   name: string;
   level: FitLevel;
   eventDate: string;
-  city: string;
-  state: string;
+  /** Optional — blank is stored as NULL. Nothing computes from the place;
+   *  travel time is its own field. */
+  city?: string | null;
+  state?: string | null;
   travelHours?: number | null;
   distanceMiles?: number | null;
   drawUtr?: number | null;
@@ -318,15 +323,17 @@ export function buildTournamentEntryRow(
     name: input.name.trim(),
     level: input.level,
     event_date: input.eventDate,
-    city: input.city.trim(),
-    state: input.state.trim(),
+    city: input.city?.trim() || null,
+    state: input.state?.trim() || null,
     travel_hours: input.travelHours ?? null,
     distance_miles: input.distanceMiles ?? null,
     draw_utr: input.drawUtr ?? null,
     goal_utr: input.goalUtr ?? null,
     entry_cost: input.entryCost ?? null,
     travel_cost: input.travelCost ?? null,
-    status: input.status ?? ("saved" as TournamentEntryStatus),
+    // An edit (id, no status) leaves the stored status alone — the edit form
+    // must never quietly move an Entered tournament back to Planning.
+    ...(input.status || !input.id ? { status: input.status ?? ("saved" as TournamentEntryStatus) } : {}),
   };
 }
 
@@ -377,8 +384,8 @@ export function validateTournamentEntryInput(input: NewTournamentEntryInput): st
   if (!input.name || !input.name.trim()) return "Tournament name is required.";
   if (!LEVELS.some((l) => l.value === input.level)) return "Choose a valid tournament level.";
   if (!isCalendarDateKey(input.eventDate)) return "Enter a valid tournament date.";
-  if (!input.city || !input.city.trim()) return "City is required.";
-  if (!input.state || !input.state.trim()) return "State is required.";
+  // City and state are optional (PR D, D4): nothing in Seeded computes from
+  // the place, and asking for them blocked "Add to my events" for no reason.
 
   const utrFields: [string, number | null | undefined][] = [
     ["Draw UTR", input.drawUtr],
@@ -423,7 +430,7 @@ function mapTournamentEntry(row: Tables<"tournament_entries">): TournamentEntry 
     goalUtr: row.goal_utr == null ? null : Number(row.goal_utr),
     entryCost: row.entry_cost == null ? null : Number(row.entry_cost),
     travelCost: row.travel_cost == null ? null : Number(row.travel_cost),
-    status: row.status === "entered" ? "entered" : "saved",
+    status: narrowLiteral(row.status, TOURNAMENT_STATUS_VALUES, "saved"),
     createdAt: row.created_at,
   };
 }
@@ -514,28 +521,59 @@ export async function saveTournamentEntry(
 }
 
 /**
- * Flips a saved tournament to "entered" (or back to "saved") — the real
- * action behind /events' Enter/Save buttons. A thin update rather than a
- * full saveTournamentEntry() call so toggling status never risks
- * clobbering the rest of a row with stale client state.
+ * Sets a tournament's status — the Planning / Entered / Played control on
+ * /events. A thin update rather than a full saveTournamentEntry() call so
+ * changing status never risks clobbering the rest of a row with stale
+ * client state. Failures throw a TournamentSaveError in plain words.
  */
 export async function setTournamentEntryStatus(id: string, status: TournamentEntryStatus): Promise<void> {
   const supabase = getSupabase();
   const { id: ownerId } = await userIdAndProfile();
-  if (!supabase || !ownerId) return;
+  if (!supabase || !ownerId) {
+    throw new TournamentSaveError("You're signed out. Sign in again to change this tournament.", "signed-out");
+  }
   const { error } = await supabase
     .from("tournament_entries")
     .update({ status })
     .eq("id", id)
     .eq("user_id", ownerId);
-  if (error) throw new Error(error.message);
+  if (error) throw new TournamentSaveError(tournamentSaveErrorMessage(error), error.code ?? null, error.message ?? null);
 }
 
-/** Removes a tracked tournament entirely (not surfaced in /events yet — kept for symmetry with the rest of this module's CRUD). */
+/** Removes a tracked tournament — /events' Remove, whose Undo calls
+ *  restoreTournamentEntry() with the same record. */
 export async function deleteTournamentEntry(id: string): Promise<void> {
   const supabase = getSupabase();
   const { id: ownerId } = await userIdAndProfile();
-  if (!supabase || !ownerId) return;
+  if (!supabase || !ownerId) {
+    throw new TournamentSaveError("You're signed out. Sign in again to remove this tournament.", "signed-out");
+  }
   const { error } = await supabase.from("tournament_entries").delete().eq("id", id).eq("user_id", ownerId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new TournamentSaveError(
+      error.code === "53400"
+        ? tournamentSaveErrorMessage(error)
+        : "Couldn't remove this tournament. Check your connection and try again.",
+      error.code ?? null,
+      error.message ?? null
+    );
+  }
+}
+
+/**
+ * Undo for a removal: re-inserts the same record under the same id and
+ * status. Same pattern as /matches' Undo, which re-saves the deleted match.
+ */
+export async function restoreTournamentEntry(entry: TournamentEntry): Promise<TournamentEntry> {
+  const supabase = getSupabase();
+  const { id: ownerId } = await userIdAndProfile();
+  if (!supabase || !ownerId) {
+    throw new TournamentSaveError("You're signed out. Sign in again to restore this tournament.", "signed-out");
+  }
+  const familyCode = await resolveMyFamilyCode(supabase);
+  const row = buildTournamentEntryRow(entry, ownerId, familyCode);
+  const { data, error } = await supabase.from("tournament_entries").insert(row).select("*").single();
+  if (error) throw new TournamentSaveError(tournamentSaveErrorMessage(error), error.code ?? null, error.message ?? null);
+  if (!data) throw new TournamentSaveError(tournamentSaveErrorMessage({}), null, "no row returned");
+  return mapTournamentEntry(data);
 }
