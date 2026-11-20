@@ -75,8 +75,8 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
 const FIT_BAND_ROWS: { band: FitBand; body: string }[] = [
   { band: "likely", body: "Your rating is at or above the team's estimated average." },
   { band: "target", body: "Your rating is at or above the team's estimated floor, but below its average." },
-  { band: "reach", body: "Below the floor, but the pace in your logged ratings carries you past it by the summer before senior year — or you haven't logged three ratings yet, so we can't show the gap is too big." },
-  { band: "out-of-range", body: "Below the floor, and the pace in your logged ratings doesn't reach it by the summer before senior year." },
+  { band: "reach", body: "Below the floor, but the pace in your logged ratings, at most 1.5 a year, carries you past it by the summer before senior year — or you haven't logged three ratings yet, so we can't show the gap is too big." },
+  { band: "out-of-range", body: "Below the floor, and the pace in your logged ratings, at most 1.5 a year, doesn't reach it by the summer before senior year." },
 ];
 
 export function SeededMethodologyView() {
@@ -150,13 +150,28 @@ export function SeededMethodologyView() {
                 Until the summer before senior year, the rating that decides your band is a projection to June 1 of
                 that summer. If you&apos;ve logged a rating from about 5 to 13 months ago, it carries your own pace
                 forward from that rating (the one closest to a year ago, otherwise the one closest to 6 months ago),
-                capped near the top of college tennis and never below today&apos;s rating &mdash; a rating that went
-                down is held where it is. Without one, it grows today&apos;s rating at a typical pace, the same
-                assumption for everyone. The same rule runs before you sign up and after. It is
+                but never faster than 1.5 UTR a year, capped near the top of college tennis and never below
+                today&apos;s rating &mdash; a rating that went down is held where it is. Without one, it grows
+                today&apos;s rating at a typical pace of 1.0 a year, the same assumption for everyone. The same rule
+                runs before you sign up and after. It is
                 labelled &ldquo;Estimate&rdquo; with its assumption wherever it&apos;s used, and on your fit report you
                 can switch to today&apos;s rating instead. Once that summer has begun, it is simply today&apos;s rating.
                 Top D1 programs often decide earlier, during junior year, so treat the projection as a ceiling on
                 what the summer can show, not a promise.
+              </p>
+              <p className="text-stone">
+                <strong className="text-ink">Why at most 1.5 a year.</strong> Most players improve between 0.5 and
+                1.5 UTR a year, and a few months of fast gains rarely keep going at the same speed &mdash; a jump
+                often comes before a long flat stretch. So when your own pace is faster than 1.5 a year, your bands,
+                fit chips, closest schools and school pages all use the slower number. We still show where your own
+                pace would take you, as a separate line marked &ldquo;Estimate&rdquo; &mdash; for example, &ldquo;At your current pace
+                you&apos;d reach 9.40. We plan with 8.10 because most players improve 0.5&ndash;1.5 a year.&rdquo;
+                That faster line never changes a band. Your pace is shown one way everywhere: UTR gained a year
+                since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.
+              </p>
+              <p className="text-stone">
+                A goal is yours to set on your plan; Seeded never sets one for you. If a goal you set needs more
+                than 1.5 a year to reach by the summer before senior year, the plan says so.
               </p>
             </Section>
 

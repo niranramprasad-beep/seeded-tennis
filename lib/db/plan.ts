@@ -22,8 +22,8 @@ import type { Tables } from "./database.types";
 // grade (the recruiting-relevant window), on the straight line from today's
 // rating to the goal at the summer before senior year.
 //
-// The goal comes from lib/fit.ts `resolvePlanGoal` — the one the player set,
-// or the typical-growth estimate every screen already prints. It used to be
+// The goal comes from lib/fit.ts `resolvePlanGoal` — the one the player set;
+// with no goal there is no roadmap (PR D, D1). It used to be
 // the floor of the HARDEST target school, so every checkpoint (and /today's
 // "Next checkpoint") moved whenever a target was added: 8.90 → 9.0 → 9.50,
 // and a default plan needing 3.9 UTR a year (C11, 2026-11-18).

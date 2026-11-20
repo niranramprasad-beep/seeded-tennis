@@ -65,7 +65,7 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   );
 
   // One goal for /plan and /today (lib/hooks/use-plan-goal.ts): the one the
-  // player set, or the typical-growth estimate. No longer the hardest
+  // player set, or none — never the estimate (PR D, D1). No longer the hardest
   // target's floor — adding a target must not move the plan (C11).
   const planGoal = usePlanGoal(player);
   const roadmap = planGoal.roadmap;
@@ -162,6 +162,8 @@ function LegacyRoadmapLayout({
               <span className="serif-accent text-grass">{formatPlayerUtr(goalUTR)}</span>,
               year by year.
             </>
+          ) : hasRealUtr(player.currentUTR) ? (
+            "Set a goal to plan year by year."
           ) : (
             "Your plan starts with your UTR."
           )}
@@ -170,8 +172,7 @@ function LegacyRoadmapLayout({
           Every target is set for the{" "}
           <span className="font-medium text-ink">summer before</span> that grade —
           the window that actually matters for recruiting — on a straight line to
-          your goal: the one you set on the Seeded plan, or where typical growth
-          puts you by the summer before senior year.
+          the goal you set on the Seeded plan.
         </p>
       </Reveal>
 
@@ -213,7 +214,9 @@ function LegacyRoadmapLayout({
           <p className="mt-3 text-sm text-on-primary/80">
             {goalUTR != null
               ? `+${formatPlayerUtr(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
-              : "Log a UTR to set a goal and see the gap from where you are today."}
+              : hasRealUtr(player.currentUTR)
+                ? "No goal set yet. Set one on your plan to see the gap from where you are today."
+                : "Log a UTR to set a goal and see the gap from where you are today."}
           </p>
           <div className="mt-4 flex flex-wrap gap-1.5">
             {targetSchools.map((s) => (

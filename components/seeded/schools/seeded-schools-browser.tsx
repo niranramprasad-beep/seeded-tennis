@@ -434,8 +434,10 @@ export function SeededSchoolsBrowser({
       else if (hasFit && chip !== "all" && bandFor(s) !== chip) return false;
       return true;
     });
-    return sortSchoolsForSeeded(filtered, safeSort, effectiveUtr, whatIf.whatIfProjection);
-  }, [ranked, region, chip, safeSort, hasFit, effectiveUtr, bandFor, whatIf.whatIfProjection, savedSlugs]);
+    // Gap and band from the report — the rating that judged the chips on
+    // these rows and the chips themselves — so the order matches them.
+    return sortSchoolsForSeeded(filtered, safeSort, judgingUtr ?? effectiveUtr, bandFor);
+  }, [ranked, region, chip, safeSort, hasFit, effectiveUtr, judgingUtr, bandFor, savedSlugs]);
 
   // A materially different list (a filter/sort change) invalidates
   // whatever row the keyboard highlight was pointing at.

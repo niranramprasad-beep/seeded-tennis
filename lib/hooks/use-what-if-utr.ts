@@ -12,9 +12,9 @@ import type { PlayerGender } from "@/lib/types";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import type { SchoolFitProjectionInput } from "@/lib/school-fit";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
+import { recruitingTimeUtr } from "@/lib/fit";
 import {
   clampToRealisticUtr,
-  computeMyPaceUTR,
   computePlusPaceUTR,
   resolveWhatIfDisplay,
   whatIfProjectionFor,
@@ -38,8 +38,13 @@ export interface UseWhatIfUtrResult {
   /** What the UI should render as selected — null until the player picks a
    * pace, so no button is lit next to a number it didn't produce. */
   activePaceMode: WhatIfPaceMode | null;
-  /** null when there are <3 real UTR entries — "My pace" has nothing real to compute from. */
+  /** Where the player's OWN logged pace (lib/fit.ts loggedPaceFor, uncapped)
+   * puts them by the summer before senior year — the same number as the
+   * upside sentence. Null without a logged rating 5–13 months old: "My pace"
+   * then has nothing real to carry forward. */
   myPaceValue: number | null;
+  /** That pace, UTR a year (print with formatPacePerYear). */
+  myPacePerYear: number | null;
   plusPaceValue: number;
   minUTR: number;
   maxUTR: number;
@@ -63,7 +68,13 @@ export function useWhatIfUtr({
   gender,
   utrHistory,
 }: UseWhatIfUtrInput): UseWhatIfUtrResult {
-  const myPaceValue = computeMyPaceUTR({ utrHistory, graduationYear, gender });
+  // ONE pace (PR D, D1): "My pace" is the player's logged pace — the number
+  // /plan's "your pace" tile prints — carried forward uncapped. It used to
+  // extend a regression of its own, a second idea of "your pace". As a
+  // what-if it is the player's explicit choice; untouched, it moves nothing.
+  const own = recruitingTimeUtr({ currentUtr: currentUTR, graduationYear, gender, history: utrHistory });
+  const myPacePerYear = own?.source === "logged-pace" && own.pace ? own.pace.perYear : null;
+  const myPaceValue = myPacePerYear != null && own ? (own.upside?.value ?? own.value) : null;
   const plusPaceValue = computePlusPaceUTR({ currentUTR, graduationYear, gender });
   const defaultMode: WhatIfPaceMode = myPaceValue != null ? "mine" : "plus1.5";
 
@@ -118,6 +129,7 @@ export function useWhatIfUtr({
     hypotheticalUTR,
     paceMode,
     myPaceValue,
+    myPacePerYear,
     plusPaceValue,
     activePaceMode,
     minUTR: REALISTIC_UTR_FLOOR,

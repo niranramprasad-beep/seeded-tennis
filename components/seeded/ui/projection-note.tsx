@@ -1,8 +1,8 @@
 import type { RecruitingTimeUtr } from "@/lib/fit";
-import { projectionTargetLabel } from "@/lib/fit";
+import { paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { formatUtrEstimate } from "@/lib/utils";
+import { cn, formatUtrEstimate } from "@/lib/utils";
 
 /**
  * The one sentence every screen shows when its bands come from the
@@ -58,4 +58,29 @@ export function ProjectionNote({
 export function projectedYouLabel(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string {
   const name = who ?? "You";
   return utr?.isProjected ? `${name} (est. ${projectionTargetLabel(utr.year)})` : name;
+}
+
+/**
+ * The upside, said once beside the plan: "At your current pace you'd reach
+ * 9.40. We plan with 8.10 because most players improve 0.5–1.5 a year."
+ * Renders nothing unless the player's own pace is faster than the planning
+ * cap (lib/fit.ts paceUpsideSentence) — it is shown, never banded.
+ */
+export function PaceUpsideNote({
+  utr,
+  who,
+  className,
+}: {
+  utr: RecruitingTimeUtr | null | undefined;
+  who?: string | null;
+  className?: string;
+}) {
+  const sentence = paceUpsideSentence(utr, who);
+  if (!sentence) return null;
+  return (
+    <p className={cn("text-[13px] leading-relaxed text-stone", className)}>
+      <EstimateChip className="mr-1.5" />
+      {sentence}
+    </p>
+  );
 }

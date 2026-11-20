@@ -35,6 +35,25 @@ export function formatUtrEstimate(value: number): string {
   return value.toFixed(1);
 }
 
+/**
+ * THE formatter for a UTR pace — how fast a rating moves. Two decimals, "a
+ * year", and signed by default: "+1.45 a year", "−0.10 a year". Unsigned
+ * for a pace something NEEDS: "needs about 2.25 a year".
+ *
+ * Re-exported from lib/fit.ts, which owns the one pace number every screen
+ * prints (playerPacePerYear). It lives here only because lib/school-fit.ts
+ * needs it too and cannot import lib/fit.ts (fit imports school-fit). Until
+ * 2026-11-19 the same player read "+1.45 last 6 months", "+1.5/yr" and
+ * "needs 2.25 a year" on three screens (PR D, D1). Guarded by
+ * lib/pace-honesty.test.ts.
+ */
+export function formatPacePerYear(perYear: number, options: { signed?: boolean } = {}): string {
+  const v = Math.round(perYear * 100) / 100;
+  const abs = Math.abs(v).toFixed(2);
+  if (options.signed === false) return `${abs} a year`;
+  return `${v < 0 ? "−" : "+"}${abs} a year`;
+}
+
 /** Picks between the two by what the number IS — for a value that is an
  * estimate before the summer before senior year and the player's real
  * rating after it (lib/fit.ts `RecruitingTimeUtr.isProjected`). */

@@ -6,12 +6,7 @@
 // fit-band math (classifySchoolFit) Legacy's UI has no use for, so they're
 // owned here instead of pushed up into the shared parent.
 import type { SchoolLite } from "@/lib/types";
-import {
-  classifySchoolFit,
-  fitBasis,
-  type SchoolFitBand,
-  type SchoolFitProjectionInput,
-} from "@/lib/school-fit";
+import { classifySchoolFit, fitBasis, type SchoolFitBand } from "@/lib/school-fit";
 
 export type SeededSchoolSort = "default" | "gap" | "fit" | "academics";
 
@@ -50,19 +45,25 @@ export function gapToRelevantBoundary(
  * modes. "default" returns the input array unchanged (the base order the
  * parent already computed). Stable with respect to the input order for
  * ties (Array.prototype.sort is stable in every engine this app ships to).
+ *
+ * `bandFor` is the fit report's band for a school (report.bandBySlug) —
+ * /schools passes it so "Fit (band order)" orders by the very chips on the
+ * rows, which plan with the capped pace (lib/fit.ts). It used to classify
+ * again here on today's rating with an uncapped trend, so the order could
+ * disagree with the chips. Without it, a below-floor school is a Reach.
  */
 export function sortSchoolsForSeeded<T extends SchoolLite>(
   schools: T[],
   sort: SeededSchoolSort,
   utr: number,
-  projection?: SchoolFitProjectionInput
+  bandFor?: (school: T) => SchoolFitBand | null
 ): T[] {
   if (sort === "default") return schools;
 
   const withMeta = schools.map((school) => ({
     school,
     gap: gapToRelevantBoundary(utr, school),
-    band: classifySchoolFit(fitBasis(utr, projection), school),
+    band: bandFor?.(school) ?? classifySchoolFit(fitBasis(utr), school),
   }));
 
   if (sort === "gap") {

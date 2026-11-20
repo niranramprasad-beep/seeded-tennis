@@ -3,7 +3,8 @@
 import { useReducedMotion } from "framer-motion";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import type { UseWhatIfUtrResult } from "@/lib/hooks/use-what-if-utr";
-import { cn, formatPlayerUtr } from "@/lib/utils";
+import { cn, formatPacePerYear, formatPlayerUtr } from "@/lib/utils";
+import { WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR } from "@/lib/what-if-utr";
 
 interface WhatIfPanelProps extends UseWhatIfUtrResult {
   /** The calendar year of the senior-summer milestone, for the headline copy. */
@@ -34,6 +35,7 @@ export function WhatIfPanel({
   hypotheticalUTR,
   activePaceMode,
   myPaceValue,
+  myPacePerYear,
   plusPaceValue,
   minUTR,
   maxUTR,
@@ -95,8 +97,9 @@ export function WhatIfPanel({
         >
           My pace
         </PaceButton>
+        {/* The one pace formatter: "+1.50 a year" (was "+1.5/yr"). */}
         <PaceButton active={activePaceMode === "plus1.5"} onClick={selectPlusPace}>
-          +1.5/yr
+          {formatPacePerYear(WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR)}
         </PaceButton>
         <label className="ml-1 flex items-center gap-1.5 text-xs font-medium text-stone">
           Custom
@@ -119,9 +122,9 @@ export function WhatIfPanel({
       </div>
 
       <p className={cn("mt-2 truncate text-xs text-stone-light", !historyLoaded && "invisible")}>
-        {myPaceValue == null
-          ? "Log 3+ UTR results to unlock My pace."
-          : "My pace extends the trend in your logged ratings."}
+        {myPaceValue == null || myPacePerYear == null
+          ? "My pace needs a UTR you logged about 6 to 12 months ago."
+          : `My pace carries your pace, ${formatPacePerYear(myPacePerYear)}, forward.`}
       </p>
     </div>
   );
