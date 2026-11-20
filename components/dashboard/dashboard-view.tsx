@@ -147,7 +147,13 @@ function DashboardInner({ schools }: DashboardViewProps) {
   // layout's own `now`) — real, not fabricated: it's only ever read against
   // the player's actual logged UTR history below.
   const now = useMemo(() => new Date(), []);
-  const sundayCheckinDue = useMemo(() => isSundayCheckinDue(utrEntries, now), [utrEntries, now]);
+  // Not until the history has loaded: with `[]` standing in for "still
+  // loading", isSundayCheckinDue read "no entry for 7+ days" and the banner
+  // flashed on any weekday, then vanished (CLS 0.086 on /today at 375).
+  const sundayCheckinDue = useMemo(
+    () => !utrFetchLoading && !utrFetchError && isSundayCheckinDue(utrEntries, now),
+    [utrFetchLoading, utrFetchError, utrEntries, now]
+  );
 
   // Mirror SWR's fetch state into the existing status/error pair so the
   // render logic below (and the "saving"/"error" states the save flow

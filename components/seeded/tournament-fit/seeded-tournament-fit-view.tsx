@@ -228,7 +228,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      {backLink && (
+      {backLink ? (
         <Link
           href={backLink.href}
           className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-6"
@@ -236,7 +236,19 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
           <ArrowLeft className="h-4 w-4" aria-hidden />
           {backLink.label}
         </Link>
-      )}
+      ) : !hydrated ? (
+        // Before the session check: a browser with a saved session
+        // (html[data-session], set by the head script) reserves the back
+        // link's row, so the heading doesn't drop 56px when it arrives
+        // (CLS 0.074 at 375). Signed-out browsers never show it.
+        <span
+          aria-hidden
+          className="pre-session-only invisible mb-3 min-h-11 items-center gap-1.5 text-sm font-semibold sm:min-h-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Events
+        </span>
+      ) : null}
 
       <h1 className="font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
         Is this tournament worth it?
