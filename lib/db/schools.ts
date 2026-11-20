@@ -11,7 +11,7 @@
 // query later needs no call-site changes.
 
 import type { Division, Gender, Player, School, SchoolLite } from "@/lib/types";
-import { getCurrentGrade, ordinalGrade } from "@/lib/time";
+import { formatDate, getCurrentGrade, ordinalGrade } from "@/lib/time";
 import { formatPlayerUtr } from "@/lib/utils";
 
 import { mensD1Schools } from "./schools-data-mens";
@@ -159,26 +159,102 @@ export function staffDirectorySearchQuery(
 
 /* ------------------------------------------------------------- coach email */
 
+// P0-3/P0-4/D3: this text is sent by a real minor to a real college coach.
+// Every sentence in it must trace to a stored fact the player entered, or to
+// the school's name/division/conference. The builder therefore does not
+// produce a string; it produces PARTS, and every part names where its words
+// came from. `lib/db/coach-email.test.ts` fails the build if a part has no
+// source, a source outside this list, or text its sources cannot account for.
+//
+// Removed by the D3 audit (2026-11-19), each because nothing stored backs it:
+//   - "I've been following {school} closely, and {division} tennis in the
+//     {conference} is the level I want to be competing at." The player never
+//     told us either thing. Replaced by a [bracketed] part only they can write.
+//   - "My goal is N tournaments this season, and I'm happy to send the
+//     schedule once it's set." `tournaments_goal` is NOT something the player
+//     entered: signup writes a hardcoded 12 (lib/auth.ts) on top of a column
+//     default of 12 (migration 001), and no screen lets anyone change it. Every
+//     player's email said "My goal is 12 tournaments this season".
+//   - "I've played N tournaments so far this season." `tournaments_played`
+//     has the same problem: column default 0 and no screen writes it.
+//   - "{school} is high on my list." Overstated; the stored fact is that the
+//     player picked it as a target school, so that is what the email says.
+//   - "Right now I'm working on {areas}." The stored fact is the player's
+//     answer to onboarding's "What do you want to improve?" (profiles.weaknesses),
+//     so the sentence now says that, not that they are working on it today.
+export const COACH_EMAIL_SOURCES = [
+  "player.name", //                profiles.name
+  "player.graduationYear", //      profiles.graduation_year (grade is derived from it)
+  "player.gender", //              profiles.gender
+  "player.country", //             profiles.country
+  "player.currentUTR", //          profiles.current_utr, self-reported
+  "utr_entries.recorded_at", //    the date the player logged that rating
+  "player.targetSchoolSlugs", //   profiles.target_school_slugs, picked by the player
+  "player.weaknesses", //          profiles.weaknesses, onboarding "What do you want to improve?"
+  "matches", //                    the player's own logged match results
+  "school.name",
+  "school.division",
+  "school.conference",
+  "placeholder", //                a [bracketed] part only the player can write
+  "courtesy", //                   one of COACH_EMAIL_COURTESY_SENTENCES: asserts no fact
+] as const;
+
+export type CoachEmailSource = (typeof COACH_EMAIL_SOURCES)[number];
+
+export interface CoachEmailPart {
+  text: string;
+  sources: readonly CoachEmailSource[];
+}
+
+/** The only sentences allowed to carry the "courtesy" source. Each one is a
+ * greeting, a request or a thank-you — none states a fact about anybody. A
+ * new courtesy sentence goes here, verbatim, or the test fails. */
+export const COACH_EMAIL_COURTESY_SENTENCES = [
+  "Coach,",
+  "I'd welcome the chance to tell you more about my game and to hear what you look for in a recruit.",
+  "Thank you for your time.",
+] as const;
+
+/** Visible stand-ins for what Seeded cannot know. Copy and "Open in Gmail"
+ * stay disabled until every one is replaced (coachEmailActionState). */
+export const COACH_EMAIL_PLACEHOLDERS = {
+  whySchool: "[One sentence about why this school]",
+  result: "[A recent result you're proud of: tournament, round and date]",
+} as const;
+
 export interface CoachEmail {
   subject: string;
   body: string;
+  /** Every piece of the subject, with its sources. `subject` is these joined. */
+  subjectParts: CoachEmailPart[];
+  /** Every sentence and line of the body, with its sources, in order. `body`
+   * is exactly these plus whitespace — nothing reaches it any other way. */
+  parts: CoachEmailPart[];
 }
 
 export interface CoachEmailResult {
   name: string;
   level: string;
   result: string;
+  /** The logged match date ("YYYY-MM-DD"). Optional: without it the sentence
+   * simply names the event, never "this season". */
+  date?: string;
+}
+
+export interface CoachEmailOptions {
+  /** `utr_entries.recorded_at` of the entry that IS the player's current
+   * rating. Pass it only when that entry's value equals `currentUTR`; a date
+   * attached to a different number would be a false statement. */
+  utrRecordedAt?: string | null;
 }
 
 // Plain restatements of the focus areas the player actually picked during
 // onboarding. These used to be far more colorful ("turning my forehand into a
 // genuine point-ending shot from the ad corner", "flattening my backhand to
 // take time away on the deuce side") — but the player never said any of that.
-// They ticked "forehand". Inventing the shot shape, the court side and the
-// tactical intent is the same failure as inventing the coach's name, just
-// harder to spot. Keep these a direct rendering of the selection and nothing
-// more; the player can add their own detail before sending.
-const WEAKNESS_PHRASES: Record<string, string> = {
+// They ticked "forehand". Keep these a direct rendering of the selection and
+// nothing more; the player can add their own detail before sending.
+export const WEAKNESS_PHRASES: Record<string, string> = {
   forehand: "my forehand",
   backhand: "my backhand",
   serve: "my serve",
@@ -186,110 +262,180 @@ const WEAKNESS_PHRASES: Record<string, string> = {
   mental: "the mental side of my game",
 };
 
-// Builds a recruiting email draft.
-//
-// P0-3/P0-4: this text is sent by a real minor to a real college coach, so it
-// may assert ONLY things the player themselves supplied (name, grad year,
-// gender, country, self-reported UTR, their own logged results, their own
-// stated focus areas) plus the school's name, division and conference. It
-// used to open with "Coach {invented surname}", cite an invented conference
-// standing and an invented recruit footprint, and make scheduling promises
-// the player never made. Those are gone; do not reintroduce a sentence here
-// that states a fact the player did not enter.
+function part(text: string, ...sources: CoachEmailSource[]): CoachEmailPart {
+  return { text, sources };
+}
+
+// Builds a recruiting email draft. See the header of this section for the
+// rule and for what was removed; do not add a sentence here without a source.
 export function buildCoachEmail(
   player: Player,
   school: School,
-  results: CoachEmailResult[] = []
+  results: CoachEmailResult[] = [],
+  options: CoachEmailOptions = {}
 ): CoachEmail {
-  const programType = school.gender === "women" ? "women's" : "men's";
+  const programType = player.gender === "female" ? "women's" : "men's";
+  const isTarget = player.targetSchoolSlugs.includes(school.slug);
 
   // A UTR the player never entered must not appear in an email they sign.
-  // `currentUTR <= 0` is this codebase's "not logged yet" convention
-  // (lib/fit.ts, explainSchoolFit's note, lib/data/user.ts). When it is
-  // unknown the sentence, the subject fragment and the signature line are
-  // all omitted — the draft simply does not mention a rating, which is the
-  // honest version and still a usable email.
+  // `currentUTR <= 0` is this codebase's "not logged yet" convention. When it
+  // is unknown the sentence, the subject fragment and the signature line are
+  // all omitted. Two decimals, exactly as logged (C10): 5.95 went to coaches
+  // as "6.0" once.
   const utrKnown = Number.isFinite(player.currentUTR) && player.currentUTR > 0;
-  // Two decimals, exactly as logged (C10): 5.95 went to coaches as "6.0".
   const utr = utrKnown ? `${formatPlayerUtr(player.currentUTR)} (self-reported)` : null;
+  const utrDate = utr && options.utrRecordedAt ? formatDate(options.utrRecordedAt) : null;
 
-  // 1) Results, strictly from what the player logged themselves. With nothing
-  // logged we fall back to their own tournament counts — never a
-  // characterization of the schedule they didn't give us. The old fallback
-  // called it "a full sectional and national schedule", which the player
-  // never said and which may simply be untrue.
-  const top = results.slice(0, 2);
-  const resultsSentence =
-    top.length > 0
-      ? `This season I ${top
-          .map((r) => `${describeResult(r.result)} at the ${[r.level, r.name].filter(Boolean).join(" ")}`)
-          .join(" and ")}.`
-      : player.tournamentsPlayed > 0
-        ? `I've played ${player.tournamentsPlayed} tournament${
-            player.tournamentsPlayed === 1 ? "" : "s"
-          } so far this season.`
-        : "";
+  /* subject */
+  const subjectParts: CoachEmailPart[] = [
+    part(`${player.graduationYear} ${programType} recruit`, "player.graduationYear", "player.gender"),
+  ];
+  if (utr) subjectParts.push(part(`UTR ${utr}`, "player.currentUTR"));
+  subjectParts.push(part(player.name, "player.name"));
+  const subjectTail = isTarget
+    ? part(`interested in ${school.shortName}`, "school.name", "player.targetSchoolSlugs")
+    : part(school.shortName, "school.name");
+  const subject =
+    subjectParts.map((p) => p.text).join(" · ") + ` — ${subjectTail.text}`;
+  subjectParts.push(subjectTail);
 
-  // 2) Interest in the program, stated as the player's own interest. The only
-  // school facts allowed are the ones we can actually stand behind: name,
-  // division and conference. No standing, no recruit footprint, no blurb.
-  const programSentence = `I've been following ${school.shortName} closely, and ${school.division} tennis in the ${school.conference} is the level I want to be competing at.`;
+  /* body, one paragraph per array */
+  const paragraphs: CoachEmailPart[][] = [];
 
-  // 3) The player's own UTR, labeled. Deliberately NOT compared to the
-  // program's "competitive line": that number is an unverified estimate of
-  // ours (see UTR_RANGE_SOURCE_LABEL), and stating it back to the coach whose
-  // roster it describes asserts as fact something we cannot source. The old
-  // version also promised "my roadmap has me closing that gap well before I'd
-  // arrive on campus" — a commitment the player never made, and one the
-  // projection often doesn't support.
-  const utrSentence = utr ? `My UTR is ${utr}.` : "";
+  paragraphs.push([part("Coach,", "courtesy")]);
 
-  // 4) Development focus — only when the player actually selected areas.
+  // Grade is derived from graduation_year and today's date, never stored.
+  const grade = ordinalGrade(getCurrentGrade(player.graduationYear));
+  const article = /^(8|11|18)\D/.test(grade) ? "an" : "a"; // "an 11th-grade", not "a 11th-grade"
+  const intro: CoachEmailPart[] = [
+    part(
+      `I'm ${player.name}, ${article} ${grade}-grade ${programType} player (class of ${player.graduationYear})${
+        player.country && player.country !== "United States" ? ` from ${player.country}` : ""
+      }.`,
+      "player.name",
+      "player.graduationYear",
+      "player.gender",
+      ...(player.country && player.country !== "United States" ? (["player.country"] as const) : [])
+    ),
+  ];
+  // "One of my target schools" only when the player actually picked it.
+  intro.push(
+    isTarget
+      ? part(
+          `I'm reaching out because ${school.shortName} is one of my target schools.`,
+          "school.name",
+          "player.targetSchoolSlugs"
+        )
+      : part(`I'm reaching out about ${school.shortName}.`, "school.name")
+  );
+  paragraphs.push(intro);
+
+  // Why this program: only the player knows. A visible bracket, not a guess.
+  paragraphs.push([part(COACH_EMAIL_PLACEHOLDERS.whySchool, "placeholder")]);
+
+  // Results, strictly from what the player logged. One sentence per result so
+  // each carries its own source. With nothing logged: a bracket, never a
+  // characterization of a season the player didn't describe.
+  const resultParts: CoachEmailPart[] = results.slice(0, 2).map((r) => {
+    const event = [r.level, r.name].filter(Boolean).join(" ");
+    const when = r.date ? ` on ${formatDate(r.date)}` : "";
+    return part(`At the ${event}${when}, I ${describeResult(r.result)}.`, "matches");
+  });
+  if (resultParts.length === 0) {
+    resultParts.push(part(COACH_EMAIL_PLACEHOLDERS.result, "placeholder"));
+  }
+  // The player's own UTR, labelled, and dated when we know the date. Never
+  // compared to the program's "competitive line": that number is an
+  // unverified estimate of ours (UTR_RANGE_SOURCE_LABEL).
+  if (utr) {
+    resultParts.push(
+      utrDate
+        ? part(`My UTR is ${utr}, as of ${utrDate}.`, "player.currentUTR", "utr_entries.recorded_at")
+        : part(`My UTR is ${utr}.`, "player.currentUTR")
+    );
+  }
+  paragraphs.push(resultParts);
+
+  // What the player said they want to improve — only when they picked areas.
   const focus = player.weaknesses.map((w) => WEAKNESS_PHRASES[w]).filter(Boolean);
-  const focusSentence =
-    focus.length > 0 ? `Right now I'm working on ${joinList(focus.slice(0, 2))}.` : "";
+  const closing: CoachEmailPart[] = [];
+  if (focus.length > 0) {
+    closing.push(part(`I want to improve ${joinList(focus)}.`, "player.weaknesses"));
+  }
+  closing.push(part(COACH_EMAIL_COURTESY_SENTENCES[1], "courtesy"));
+  paragraphs.push(closing);
 
-  // 5) Any forward-looking statement must come from a number the player
-  // entered. The old draft asserted "I'll be at several events this spring and
-  // would be glad to play in front of your staff" for every player, including
-  // one with nothing scheduled.
-  const scheduleSentence =
-    player.tournamentsGoal > 0
-      ? ` My goal is ${player.tournamentsGoal} tournament${
-          player.tournamentsGoal === 1 ? "" : "s"
-        } this season, and I'm happy to send the schedule once it's set.`
-      : "";
+  paragraphs.push([part(COACH_EMAIL_COURTESY_SENTENCES[2], "courtesy")]);
 
-  const subject = [
-    `${player.graduationYear} ${programType} recruit`,
-    utr ? `UTR ${utr}` : null,
-    player.name,
-  ]
-    .filter(Boolean)
-    .join(" · ") + ` — interested in ${school.shortName}`;
+  // Signature: one part per line.
+  const signature: CoachEmailPart[] = [part(player.name, "player.name")];
+  signature.push(
+    utr
+      ? part(`UTR ${utr} · Class of ${player.graduationYear}`, "player.currentUTR", "player.graduationYear")
+      : part(`Class of ${player.graduationYear}`, "player.graduationYear")
+  );
 
-  const opening = [resultsSentence, utrSentence].filter(Boolean).join(" ");
+  const body = [
+    ...paragraphs.map((p) => p.map((x) => x.text).join(" ")),
+    signature.map((x) => x.text).join("\n"),
+  ].join("\n\n");
 
-  const body = `Coach,
+  return {
+    subject,
+    body,
+    subjectParts,
+    parts: [...paragraphs.flat(), ...signature],
+  };
+}
 
-I'm ${player.name}, a ${ordinalGrade(getCurrentGrade(player.graduationYear))}-grade ${programType} player (class of ${
-    player.graduationYear
-  })${player.country && player.country !== "United States" ? ` from ${player.country}` : ""}, and I'm reaching out because ${school.shortName} is high on my list.
+/* ------------------------------------------- copy / "Open in Gmail" gating */
 
-${opening}
+const BRACKET = /\[[^\]\n]*\]/g;
 
-${programSentence}
+/** Every [bracketed] span still in the draft, in order. */
+export function bracketedParts(text: string): string[] {
+  return text.match(BRACKET) ?? [];
+}
 
-${focusSentence ? focusSentence + " " : ""}I'd welcome the chance to tell you more about my game, and to hear what you're prioritizing in the class of ${
-    player.graduationYear
-  }.${scheduleSentence}
+export interface CoachEmailActionState {
+  /** Copy: the draft must be complete. */
+  copy: { enabled: boolean; reason: string | null };
+  /** Open in Gmail: the draft must be complete AND have a valid address. */
+  gmail: { enabled: boolean; reason: string | null };
+  /** The bracketed parts still waiting to be replaced. */
+  unresolved: string[];
+}
 
-Thank you for your time.
-
-${player.name}
-${utr ? `UTR ${utr} · ` : ""}Class of ${player.graduationYear}`;
-
-  return { subject, body };
+/**
+ * The ONE place that decides whether a draft may leave Seeded. Both buttons
+ * (Copy and Open in Gmail, in both the Seeded and legacy composers) read it,
+ * and both handlers re-check it before acting, so a disabled-attribute bug
+ * cannot ship a bracket to a coach.
+ */
+export function coachEmailActionState(input: {
+  subject: string;
+  body: string;
+  recipientValid?: boolean;
+}): CoachEmailActionState {
+  const unresolved = [...bracketedParts(input.subject), ...bracketedParts(input.body)];
+  let draftReason: string | null = null;
+  if (input.body.trim().length === 0) {
+    draftReason = "Write a message first.";
+  } else if (unresolved.length > 0) {
+    const n = unresolved.length;
+    draftReason =
+      n === 1
+        ? "Replace the part in [brackets] first, or delete it."
+        : `Replace the ${n} parts in [brackets] first, or delete the ones you don't want to send.`;
+  }
+  const gmailReason =
+    draftReason ??
+    (input.recipientValid ? null : "Paste the coach's email in To to open Gmail.");
+  return {
+    copy: { enabled: draftReason === null, reason: draftReason },
+    gmail: { enabled: gmailReason === null, reason: gmailReason },
+    unresolved,
+  };
 }
 
 function describeResult(result: string): string {
@@ -300,7 +446,7 @@ function describeResult(result: string): string {
   if (r.includes("semi")) return "made the semifinals";
   if (r.includes("quarter")) return "reached the quarterfinals";
   if (r.includes("round of 16") || r.includes("r16")) return "reached the round of 16";
-  if (r === "win" || r === "wins") return "picked up wins";
+  if (r === "win" || r === "wins") return "picked up a win";
   return result.toLowerCase();
 }
 

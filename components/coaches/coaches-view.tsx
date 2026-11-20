@@ -20,6 +20,7 @@ import { FEATURE_TIER, type School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import {
   buildCoachEmail,
+  coachEmailActionState,
   type CoachEmailResult,
 } from "@/lib/db/schools";
 import {
@@ -32,6 +33,7 @@ import {
   type OutreachStatusMapDated,
 } from "@/lib/db/outreach";
 import { loadMatches, type MatchRecord } from "@/lib/db/events";
+import { loadUtrEntries, type UtrEntry } from "@/lib/db/plan";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { Card } from "@/components/ui/card";
@@ -115,16 +117,31 @@ function CoachesInner({ schools }: { schools: School[] }) {
         .map((m) => ({
           name: m.tournamentName,
           level: "",
+          date: m.matchDate || undefined,
           result:
             // Without a real UTR, `>= 0` made EVERY opponent "above your
             // level", which is a claim about the player's standing drawn
             // from the not-tracked sentinel.
             m.opponentUtr && hasRealUtr(player.currentUTR) && m.opponentUtr >= player.currentUTR
               ? `beat a UTR ${formatPlayerUtr(m.opponentUtr)} opponent`
-              : "picked up wins",
+              : // One logged win is one win; this said "picked up wins"
+                // for a single match row.
+                "picked up a win",
         })),
     [matches, player.currentUTR]
   );
+
+  // The date the current rating was logged, so the draft can say "as of"
+  // it. Only when the newest utr_entries row IS the current rating — a date
+  // attached to a different number would be a false statement. Same
+  // "utr-entries" key as the dashboard, so this reuses its cached fetch.
+  const { data: utrEntries = [] } = useSWR<UtrEntry[]>("utr-entries", () => loadUtrEntries());
+  const utrRecordedAt = useMemo(() => {
+    if (!hasRealUtr(player.currentUTR)) return null;
+    const latest = utrEntries[utrEntries.length - 1];
+    if (!latest || Math.abs(latest.utr - player.currentUTR) > 0.001) return null;
+    return latest.recordedAt;
+  }, [utrEntries, player.currentUTR]);
 
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
@@ -186,7 +203,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
 
   useEffect(() => {
     if (!selectedSchool) return;
-    const email = buildCoachEmail(player, selectedSchool, results);
+    const email = buildCoachEmail(player, selectedSchool, results, { utrRecordedAt });
     setSubject(email.subject);
     setBody(email.body);
     setReplyNote(statuses[selectedSchool.slug]?.replyNote ?? "");
@@ -198,7 +215,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
     // whatever's currently in the cache. The note is re-seeded on
     // selectedSchool change, which is the only time it should reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool, player, results]);
+  }, [selectedSchool, player, results, utrRecordedAt]);
 
   const setStatus = async (slug: string, status: OutreachStatus | null) => {
     const previous = statuses;
@@ -262,12 +279,36 @@ function CoachesInner({ schools }: { schools: School[] }) {
 
   const regenerate = () => {
     if (!selectedSchool) return;
-    const email = buildCoachEmail(player, selectedSchool, results);
+    const email = buildCoachEmail(player, selectedSchool, results, { utrRecordedAt });
     setSubject(email.subject);
     setBody(email.body);
   };
 
+  // "New email": a fresh draft for any target school, whatever stage it is
+  // in. It used to (a) list only schools with NO outreach row, so a school
+  // ever touched (a stage move, "Remind me") could never get a new email,
+  // and the button went dead — no reason shown — once every target had a
+  // row; (b) write a "researching" row as a side effect, which changed
+  // nothing visible because row-less targets already sit in Researching
+  // (C13); and (c) swap the editor below the six-column board, off screen,
+  // so nothing on screen appeared to happen. It writes nothing now, always
+  // rebuilds the draft (even for the school already open), and the layout
+  // scrolls the editor into view.
+  const startNewEmail = (slug: string) => {
+    const school = targetSchools.find((s) => s.slug === slug);
+    if (!school) return;
+    setSelectedSlug(slug);
+    const email = buildCoachEmail(player, school, results, { utrRecordedAt });
+    setSubject(email.subject);
+    setBody(email.body);
+    setRecipient("");
+    setCopied(false);
+  };
+
   const copyAll = async () => {
+    // Same gate as the button's disabled state, re-checked here so a draft
+    // with a [bracket] still in it can never reach the clipboard.
+    if (!coachEmailActionState({ subject, body }).copy.enabled) return;
     try {
       await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
       setCopied(true);
@@ -276,6 +317,10 @@ function CoachesInner({ schools }: { schools: School[] }) {
       // ignore
     }
   };
+
+  // The legacy composer has Copy only (no Gmail button); it reads the same
+  // gate the Seeded composer's Copy and Open in Gmail read.
+  const draftActions = coachEmailActionState({ subject, body });
 
   const targetSlugs = targetSchools.map((s) => s.slug);
   const contactedCount = targetSlugs.filter((s) => legacyIsSentOrLater(statuses[s]?.status)).length;
@@ -319,6 +364,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           setBody={setBody}
           copied={copied}
           copyAll={copyAll}
+          startNewEmail={startNewEmail}
           setStatus={setStatus}
           setReminder={setReminder}
           outreachError={outreachError}
@@ -471,7 +517,13 @@ function CoachesInner({ schools }: { schools: School[] }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-3 border-t-[0.5px] border-line bg-cream/50 p-5">
-                <Button variant="primary" size="md" onClick={copyAll}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={copyAll}
+                  disabled={!draftActions.copy.enabled}
+                  aria-describedby={draftActions.copy.enabled ? undefined : "coaches-copy-reason"}
+                >
                   {copied ? (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
@@ -522,6 +574,11 @@ function CoachesInner({ schools }: { schools: School[] }) {
                     ? "Coach replied"
                     : "Mark replied"}
                 </Button>
+                {draftActions.copy.reason && (
+                  <p id="coaches-copy-reason" className="w-full text-xs text-stone">
+                    {draftActions.copy.reason}
+                  </p>
+                )}
                 {outreachError && (
                   <p className="w-full rounded-xl bg-error-bg px-4 py-2.5 text-sm text-error">
                     {outreachError}
