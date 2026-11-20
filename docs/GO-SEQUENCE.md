@@ -134,6 +134,17 @@ Steps 21–22.
 
 ---
 
+### 3d. Review-ready run (2026-11-20 night) — 050, then 048
+
+**050 and 048 are independent** (neither reads, writes or references an object
+the other creates or changes; checked by grep of both files and of
+`pg_proc`/`pg_policies` usage). Apply order: **050 first, then 048.**
+
+| # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
+|---|---|---|---|---|
+| 24 | **050** (budget writes parent-only; PR-SEC. **RUN ON PRODUCTION 2026-11-20 23:20:46 UTC**, backup `~/seeded-backups/prod-20261120-1820-pre050.dump`, ledger 50 → 51) | pre-flight: count budget rows (report any written by a non-parent; never change them — 0/0 on 2026-11-20). Verify: `probe-050.sql` as `authenticated` (rolled back) — players, pending, free-family and other-family parents refused; approved parents allowed; 0 residue | a real approved parent is refused | §J Step 24 block |
+| 25 | **048** (catalog tables, PR E #9; flag stays OFF) | see §J Step 25 | anon/players can write, or RLS off on any new table | §J Step 25 block |
+
 ## 4. Code: merge the PR (5 min + deploy)
 
 `main` and `v1`: `main` was merged into `v1` (`0cea97e`) and

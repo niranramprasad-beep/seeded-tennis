@@ -13,6 +13,16 @@
 
 ## Executive status
 
+**2026-11-20 (night) — Migration 050 on production: the season budget is
+parent-only.** `is_parent_member()` now requires the writer's own
+`profiles.role = 'parent'` AND approved membership (033's pattern), closing
+the known gap where a sibling player could write the budget. Staging
+rehearsal (before/after + rollback), fresh backup, production 23:20 UTC
+(ledger 50 → 51), probed as real roles in rolled-back blocks; production had
+0 budget rows. Guard `lib/db/budget-parent-only.test.ts` (mutation-tested).
+`/privacy` disclosure removed. PR-SEC. Evidence:
+`~/seeded-evidence/review-ready/r4-rls/`.
+
 **2026-11-20 — Rollout: 049 on production; PR #11 and docs PR #10 merged.**
 Backup first, 049 in one transaction with its ledger row (production ledger
 49 → 50, 2026-11-20 04:58 UTC), probed as real users before and after the
@@ -396,11 +406,9 @@ and one broke every profile write in the app *while rolling back*. See `docs/HAN
   Attack-tested on staging in both directions — stranger, pending member,
   other family, removed member — plus the two write paths and the rollback.
   `docs/DECISIONS.md`, §J step 13.
-- **Still open, deliberately not in 036: `is_parent_member()` grants
-  season-budget writes to any approved joiner regardless of `role`**, so a
-  sibling player can write the budget. A write-authorisation change nobody
-  asked for does not belong in the launch migration. Fix (mirror 033's
-  pattern) in `docs/TODO.md`.
+- ~~Still open, deliberately not in 036: `is_parent_member()` grants
+  season-budget writes to any approved joiner regardless of `role`.~~
+  **Fixed by migration 050 (2026-11-20)**, mirroring 033's pattern.
 - **`/sample-report` reports no First Contentful Paint**, so Lighthouse and
   PageSpeed score it 0 even though the page renders correctly. A measurement
   anomaly on a marketing page, with a bisect plan in `docs/TODO.md`.

@@ -21,7 +21,7 @@
 // checked. If you cannot name the file, migration or table that makes it
 // true, it does not go in.
 
-export const POLICY_EFFECTIVE_DATE = "2026-11-15";
+export const POLICY_EFFECTIVE_DATE = "2026-11-20";
 export const POLICY_CONTACT_EMAIL = "support@seededtennis.com";
 
 export interface PolicySection {
@@ -79,16 +79,14 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // attack-tested in both directions (stranger, pending, other family,
     // removed member) rather than asserted.
     //
-    // The budget sentence is new (2026-11-15) and it exists because the
-    // app-layer run proved the gap rather than inferring it: signed in as an
-    // approved PLAYER sibling through real auth, `budget_expenses` INSERT and
-    // `season_budgets` UPDATE both succeeded. `is_parent_member()` returns
-    // true for any approved `parent_accounts` row regardless of
-    // `profiles.role`, which is the same shape of bug 033 fixed for notes and
-    // is still open for budgets (docs/TODO.md). Until it is fixed, the policy
-    // says what the database does. Nothing here should be read as promising
-    // parent-only budgets — the note restriction is called out separately
-    // precisely because it is the only one of the two that holds.
+    // The budget sentence was a disclosure from 2026-11-15 until migration
+    // 050 (2026-11-20): is_parent_member() admitted any approved
+    // parent_accounts row regardless of role, so a sibling PLAYER could write
+    // the budget — proved through real auth, not inferred. 050 makes it
+    // role-aware (caller's own profiles.role = 'parent' AND approved), and the
+    // disclosure was deleted in the same commit rather than reworded, per
+    // docs/TODO.md. Attack-tested both ways on staging and production:
+    // ~/seeded-evidence/review-ready/r4-rls/.
     //
     // The removal sentence below was FALSE when 036 first shipped it, for
     // exactly the users production already has. `remove_family_member()`
@@ -106,7 +104,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // Before that, one family member could read another's whole row — gpa,
     // birth year, billing ids. Say what is shared, not "the profile".
     source:
-      "supabase/migrations/023_family_join_rpc.sql (is_family_member); supabase/migrations/036_family_membership_both_shapes.sql (shares_approved_family_with + six family read policies); supabase/migrations/037_revoke_on_removal_and_narrow_family_reads.sql (remove_family_member clears the profile code; family_members() column list; family_members_read dropped); season_budgets + budget_expenses write policies; supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent); supabase/migrations/042_family_plan_lock.sql (family_plan_required); supabase/migrations/044_roster_respects_family_plan.sql (family_members() stats NULL without the Family plan); supabase/migrations/045_family_plan_one_family_and_caps.sql (one plan, the payer's home family; 4 players / 2 parents)",
+      "supabase/migrations/023_family_join_rpc.sql (is_family_member); supabase/migrations/036_family_membership_both_shapes.sql (shares_approved_family_with + six family read policies); supabase/migrations/037_revoke_on_removal_and_narrow_family_reads.sql (remove_family_member clears the profile code; family_members() column list; family_members_read dropped); season_budgets + budget_expenses write policies; supabase/migrations/050_budget_writes_parents_only.sql (is_parent_member: role = 'parent' AND approved); supabase/migrations/033_parent_notes_and_required_birth_year.sql (encouragement_notes_insert_parent); supabase/migrations/042_family_plan_lock.sql (family_plan_required); supabase/migrations/044_roster_respects_family_plan.sql (family_members() stats NULL without the Family plan); supabase/migrations/045_family_plan_one_family_and_caps.sql (one plan, the payer's home family; 4 players / 2 parents)",
     body: [
       "When the family is on the Family plan, a parent who has been approved into the family can see the player's UTR history, match results, tournaments, check-ins, saved schools and outreach progress. The one who pays can be a parent or the player, as long as this family is the paying account's own family: one Family plan covers one family, up to 4 players and 2 parents, and an account that also belongs to another family unlocks only its own. If the paying account is removed from the family, the family goes back to Free unless someone else in it pays. This works the same whether the parent created the account and the player joined with the code, or the other way round.",
       "Without the Family plan, members of a family see only the list below about each other, minus the five tennis and school details marked in it, and nobody can see or edit the season budget or read the family's notes (a parent can still read the notes they wrote). The database enforces this, not the screen. Nothing is deleted when a family stops paying; it all becomes visible again when someone whose own family it is upgrades.",
@@ -115,8 +113,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       "Everyone in a family can see this about everyone else in it, not only parents about players. A sibling in the same family sees the same list.",
       "Approval is the opt-in, and it is the only one. Someone whose request is still waiting sees nothing at all, and the moment a member is removed from a family they can no longer see anything about anyone in it.",
       "Apart from their own account details and their own cost projections, a parent can write two things: the season budget and its expenses, and short notes to the player. Everything else is read-only — a parent cannot change a player's profile, log results for them, or send anything to a coach on their behalf. The parent_reports table is not written by anyone at all — no feature generates a row, and after migration 039 no signed-in account can insert one either. The weekly family report you can open is computed live from the player's logged data when you open it; it is not stored.",
-      "Only an account marked as a parent can write those notes. A sibling or another player in the family cannot, even once they are approved.",
-      "The season budget is different, and we would rather say so than let you assume otherwise: any approved member of the family can edit it, including a player. If that matters to you, treat the budget as shared with everyone you approve.",
+      "Only an account marked as a parent can write the budget, its expenses or those notes. A sibling or another player in the family cannot, even once they are approved — every member of a family on the Family plan can still see the budget.",
       "Joining a family needs a code AND an approval from someone already in that family. A code on its own gets you nothing.",
       "Asking to join is itself visible, in one direction. While your request is waiting you see nothing of theirs — but they see your name, email and whether you are a player or a parent (and, if their family is on the Family plan, your current UTR, grade, graduation year, gender and tracked schools), so that they know who they are approving. If you type a code that belongs to a family you did not mean to ask, that is what they will have seen. You can withdraw a request, which deletes it.",
     ],
