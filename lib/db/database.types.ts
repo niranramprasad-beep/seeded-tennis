@@ -21,6 +21,26 @@ export type Database = {
   }
   public: {
     Tables: {
+      // 048 — no client access (RLS on, no policies, no grants). The owner
+      // adds themselves in the SQL editor; clients ask is_app_admin().
+      app_admins: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       // 043 — no client access (RLS on, no policies, no grants). Listed so
       // the account-export test classifies it; the app never queries it.
       auth_email_changes: {
@@ -682,6 +702,86 @@ export type Database = {
           },
         ]
       }
+      // 048 — catalog. Public read; written only by the service role
+      // (scripts/import-rosters.ts). No player names are stored anywhere.
+      program_class_counts: {
+        Row: {
+          class_year: number
+          players: number
+          program_id: string
+        }
+        Insert: {
+          class_year: number
+          players: number
+          program_id: string
+        }
+        Update: {
+          class_year?: number
+          players?: number
+          program_id?: string
+        }
+        Relationships: []
+      }
+      programs: {
+        Row: {
+          conference: string
+          created_at: string
+          division: string
+          gender: string
+          head_coach: string | null
+          id: string
+          last_verified: string | null
+          players_listed: number
+          roster_url: string | null
+          school: string
+          season_shown: string
+          season_start_year: number
+          slug: string
+          source_date: string
+          source_url: string | null
+          unknown_class_count: number
+          updated_at: string
+        }
+        Insert: {
+          conference: string
+          created_at?: string
+          division: string
+          gender: string
+          head_coach?: string | null
+          id?: string
+          last_verified?: string | null
+          players_listed?: number
+          roster_url?: string | null
+          school: string
+          season_shown: string
+          season_start_year: number
+          slug: string
+          source_date: string
+          source_url?: string | null
+          unknown_class_count?: number
+          updated_at?: string
+        }
+        Update: {
+          conference?: string
+          created_at?: string
+          division?: string
+          gender?: string
+          head_coach?: string | null
+          id?: string
+          last_verified?: string | null
+          players_listed?: number
+          roster_url?: string | null
+          school?: string
+          season_shown?: string
+          season_start_year?: number
+          slug?: string
+          source_date?: string
+          source_url?: string | null
+          unknown_class_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rate_limit_events: {
         Row: {
           bucket: string
@@ -874,6 +974,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      // 048 — team UTR ranges. Public read of every column EXCEPT entered_by
+      // (column grant), so always name the columns; INSERT by an app admin
+      // only (RLS), never UPDATE/DELETE from a client.
+      team_ranges: {
+        Row: {
+          created_at: string
+          entered_by: string | null
+          high: number
+          id: string
+          low: number
+          middle: number
+          program_id: string
+          source: string
+          source_date: string
+          source_type: string
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          entered_by?: string | null
+          high: number
+          id?: string
+          low: number
+          middle: number
+          program_id: string
+          source: string
+          source_date: string
+          source_type: string
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          entered_by?: string | null
+          high?: number
+          id?: string
+          low?: number
+          middle?: number
+          program_id?: string
+          source?: string
+          source_date?: string
+          source_type?: string
+          source_url?: string | null
+        }
+        Relationships: []
       }
       tournament_entries: {
         Row: {
@@ -1110,6 +1255,7 @@ export type Database = {
     }
     Functions: {
       account_active: { Args: never; Returns: boolean }
+      is_app_admin: { Args: never; Returns: boolean }
       consent_required_for_birth_year: {
         Args: { p_birth_year: number }
         Returns: boolean
