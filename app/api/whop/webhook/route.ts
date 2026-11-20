@@ -52,7 +52,6 @@ import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 /** Server-side only, and deliberately without the email itself: a webhook log
  * line is not a place to write a customer's address. */
 function log(message: string, detail: Record<string, unknown> = {}) {
-  // eslint-disable-next-line no-console
   console.log(`[whop/webhook] ${message}`, JSON.stringify(detail));
 }
 

@@ -7,7 +7,7 @@ import { join } from "node:path";
 // database ends up with, and what production gets at the end of a rollout.
 // Imported only by *.test.ts files.
 
-export const MIGRATIONS_DIR = join(__dirname, "..", "..", "supabase", "migrations");
+const MIGRATIONS_DIR = join(__dirname, "..", "..", "supabase", "migrations");
 
 export interface MigrationFile {
   file: string;

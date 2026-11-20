@@ -128,7 +128,7 @@ function stubClient(response: { data?: unknown; error?: unknown }) {
     },
     calls,
   };
-  return client as any as import("@supabase/supabase-js").SupabaseClient<
+  return client as unknown as import("@supabase/supabase-js").SupabaseClient<
     import("./db/database.types").Database
   > & { calls: string[] };
 }

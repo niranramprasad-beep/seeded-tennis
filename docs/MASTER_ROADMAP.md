@@ -11,7 +11,7 @@
 
 ---
 
-**How to read this file (2026-11-21).** *Executive status* below is a
+**How to read this file (2026-11-20).** *Executive status* below is a
 dated log, newest first — the top entry is current. **NEXT 10 TASKS** at the
 very end is the current plan. Everything between them (scores, P0–P3 lists,
 task tables) is the 2026-11-10 audit's task list with each item's outcome
@@ -29,6 +29,27 @@ and its incident history moved below the rules; stale claims fixed across
 the living docs; CI also runs the time-zone suite; PR template; `.nvmrc`;
 `.gitignore` hardened. NEXT 10 rewritten for after the review.
 
+**2026-11-20 night — PR-QUALITY (`chore/code-quality`; no
+behaviour change, no migration).** Code-quality pass only. Zero `as any` left
+in app/lib/components (three test stubs now `as unknown as
+SupabaseClient<Database>`; the four Recharts tooltips use `TooltipProps`;
+`mapProfileToPlayer` takes `Tables<"profiles">`). `eslint-disable`: 5 unused
+ones removed (no-console ×4, no-control-regex), 1 fixed (tournament-fit
+`blockers` memoised and listed), 9 kept with a same-line `--` reason.
+`.eslintrc.json` gains `root: true`; `npm run lint` is `next lint
+--max-warnings=0` and reports 0. npm scripts call `next`/`tsc`/`vitest`
+directly (the `Coding:Projects` workaround is gone; README line dropped).
+Dead code: 6 unused component files deleted (incl. the unused
+`parent-login-form.tsx`, so its OPEN gradient allow-list entry in
+`lib/design-system-v2.test.ts` is gone too), 8 dead data functions deleted
+(notification/public-page prefs, `loadParentReports`, `uploadMatchVideo`,
+`getSchoolsByGender`, `getTargetSchools`), 52 exports made module-private,
+unused imports removed. `@axe-core/playwright` removed (zero imports).
+`npm audit`: 24 → 23 (brace-expansion patch bump); `--omit=dev` reports 0 —
+everything left is dev-only (vitest 1.x needs a major; lighthouse's
+puppeteer chain has no non-breaking fix). `scripts/README.md` now gives a run
+command and target for all 12 scripts. Report:
+`~/seeded-evidence/review-ready/r6-quality/R6_REPORT.md`.
 
 **2026-11-20 (night) — Migration 050 on production: the season budget is
 parent-only.** `is_parent_member()` now requires the writer's own

@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 import {
   ACCOUNT_EXPORT_OMISSIONS,
   ACCOUNT_EXPORT_TABLES,
@@ -99,7 +101,7 @@ function recordingClient(familyCode: string | null) {
     from: builder,
     rpc: async () => ({ data: familyCode }),
     // Shaped to the one call this module makes, not to the whole client.
-  } as any;
+  } as unknown as SupabaseClient<Database>;
   return { client, queries };
 }
 

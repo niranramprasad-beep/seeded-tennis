@@ -18,7 +18,6 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error(error);
   }, [error]);
 

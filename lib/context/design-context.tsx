@@ -13,8 +13,8 @@ import {
 export type DesignSystemId = "legacy" | "seeded";
 export type SeededMode = "dark" | "light";
 
-export const DESIGN_STORAGE_KEY = "seeded.design";
-export const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
+const DESIGN_STORAGE_KEY = "seeded.design";
+const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
 // Separate from SEEDED_MODE_STORAGE_KEY on purpose: `data-seeded-mode` (and
 // everything CSS keys off) must always hold a concrete "dark"/"light" value,
 // never a third "system" string — see the systemSync doc comment below for

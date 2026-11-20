@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  type TooltipProps,
 } from "recharts";
 import { useThemeColors } from "@/lib/context/theme-context";
 import { formatUtrEstimate } from "@/lib/utils";
@@ -51,7 +52,7 @@ export function RosterDistributionChart({
         />
         <Tooltip
           cursor={{ fill: c.line, fillOpacity: 0.4 }}
-          content={({ active, payload, label }: any) =>
+          content={({ active, payload, label }: TooltipProps<number, string>) =>
             active && payload?.length ? (
               <div className="rounded-xl border-[0.5px] border-line bg-card px-3 py-2 shadow-lift">
                 <p className="text-xs text-stone-light">UTR {label}</p>

@@ -26,12 +26,12 @@ interface Props {
 
 export type SortKey = "combined" | "utr" | "min" | "rank" | "conf";
 
-export const RANK_MAX = 150;
+const RANK_MAX = 150;
 
 const selectClass =
   "h-11 w-full rounded-xl border-[0.5px] border-line bg-card px-3.5 text-sm text-ink transition-colors focus:outline-none focus:ring-2 focus:ring-grass/30";
 
-export const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
+const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
   { key: "combined", label: "Seeded score", hint: "Academics + tennis blend" },
   { key: "utr", label: "Avg UTR", hint: "Average roster UTR" },
   { key: "min", label: "Min UTR", hint: "Minimum competitive UTR" },
@@ -336,7 +336,7 @@ export function SchoolsBrowser({ schools, conferences, states, divisions }: Prop
   );
 }
 
-export function Stat({
+function Stat({
   children,
   active,
 }: {
@@ -355,7 +355,7 @@ export function Stat({
   );
 }
 
-export function mobileValue(s: School, sort: SortKey): string {
+function mobileValue(s: School, sort: SortKey): string {
   switch (sort) {
     case "utr":
       return s.avgRosterUTR.toFixed(1);

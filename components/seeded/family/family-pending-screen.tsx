@@ -192,7 +192,7 @@ export function FamilyPendingScreen({
 
 // A bare family-code entry form, shared by the declined screen and the
 // "you're not in a family" state.
-export function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
+function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
