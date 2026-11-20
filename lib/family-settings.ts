@@ -59,11 +59,20 @@ export function joinedLabel(iso: string | null | undefined, verb: "Joined" | "As
  * change for the rest of the family: they stop seeing you, and a Family plan
  * you pay for stops covering them (045: the unlock follows the payer's home
  * family). */
-export function leaveFamilyConsequences(opts: { viewerPaysForFamily: boolean }): string[] {
+export function leaveFamilyConsequences(opts: {
+  viewerPaysForFamily: boolean;
+  /** 046 resets consent to pending for an under-13 left with no family. */
+  viewerNeedsParentConsent?: boolean;
+}): string[] {
   const lines = [
     "You stop seeing this family's members, and they stop seeing you.",
     "To come back, you'd need the family code and someone in the family to approve you again.",
   ];
+  if (opts.viewerNeedsParentConsent) {
+    lines.push(
+      "Because of your age, your account stops saving anything until a parent in a new family approves you."
+    );
+  }
   if (opts.viewerPaysForFamily) {
     lines.push("Your Family plan stops covering this family. It stays on your account.");
   }

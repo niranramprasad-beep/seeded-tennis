@@ -19,7 +19,8 @@ import {
   type FamilyRosterMember,
   type PendingFamilyRequest,
 } from "@/lib/db/family-join";
-import { loadMyUserId } from "@/lib/db/account";
+import { loadMyBirthYear, loadMyUserId } from "@/lib/db/account";
+import { parentConsentRequired } from "@/lib/config/consent";
 import { approvalNeedsVerification } from "@/lib/email-verify-flow";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 import {
@@ -63,10 +64,13 @@ const FAMILY_KEYS = [
   "billing-family-members",
   "family-plan-status",
   "settings-family-pending",
+  // 046 can reset an under-13 leaver's consent; AuthGate reads this key.
+  "my-consent-state",
 ];
 
 export function SettingsFamilySection() {
-  const { player } = usePlayer();
+  const { player, setPlayerLocal } = usePlayer();
+  const { data: myBirthYear } = useSWR("my-birth-year", loadMyBirthYear);
   const { tier } = useTier();
   const { mutate: mutateKey } = useSWRConfig();
   const viewerIsParent = player.role === "parent";
@@ -125,6 +129,12 @@ export function SettingsFamilySection() {
     }
     setConfirmLeave(false);
     setLeft(true);
+    // 046 may have cleared this account's own profiles.family_code (the
+    // pre-023 double-linked shape). Player.familyCode is the raw column and is
+    // round-tripped on every profile save; leaving the old code in memory
+    // would make the next save a refused privileged change (42501) until a
+    // reload. The database is now authoritative: drop the local copy.
+    setPlayerLocal({ familyCode: undefined });
     await refreshAll();
   };
 
@@ -295,7 +305,10 @@ export function SettingsFamilySection() {
         description={
           <>
             <ul className="list-disc space-y-1 pl-5">
-              {leaveFamilyConsequences({ viewerPaysForFamily: tier === "family" }).map((line) => (
+              {leaveFamilyConsequences({
+                viewerPaysForFamily: tier === "family",
+                viewerNeedsParentConsent: !viewerIsParent && parentConsentRequired(myBirthYear ?? null),
+              }).map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>

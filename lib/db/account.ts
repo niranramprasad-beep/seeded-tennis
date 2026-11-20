@@ -1,4 +1,4 @@
-import { getSupabase } from "@/lib/supabase/client";
+import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 
 // How the signed-in account signs in — for the parent's Settings, which has
 // to say "your password" or "your Google account" truthfully rather than
@@ -43,7 +43,7 @@ export async function loadMySignInInfo(): Promise<SignInInfo> {
 export async function loadMyBirthYear(): Promise<number | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getAuthedUser(supabase);
   const uid = auth.user?.id;
   if (!uid) return null;
   const { data, error } = await supabase.from("profiles").select("birth_year").eq("id", uid).maybeSingle();
@@ -57,6 +57,6 @@ export async function loadMyBirthYear(): Promise<number | null> {
 export async function loadMyUserId(): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getAuthedUser(supabase);
   return data.user?.id ?? null;
 }

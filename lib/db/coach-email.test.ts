@@ -416,3 +416,20 @@ describe('"New email" works for every target school', () => {
     expect(onPick).not.toMatch(/setStatus\(/);
   });
 });
+
+describe("coach email gate: half-deleted placeholders (PR D review)", () => {
+  it("blocks a stray opening bracket", () => {
+    const s = coachEmailActionState({ subject: "Hi", body: "Hello. [One sentence about why this school\nThanks.", recipientValid: true });
+    expect(s.copy.enabled).toBe(false);
+    expect(s.gmail.enabled).toBe(false);
+  });
+  it("blocks a stray closing bracket", () => {
+    const s = coachEmailActionState({ subject: "Hi", body: "Hello. why this school]\nThanks.", recipientValid: true });
+    expect(s.copy.enabled).toBe(false);
+  });
+  it("allows a draft with no brackets", () => {
+    const s = coachEmailActionState({ subject: "Hi", body: "Hello coach.\nThanks.", recipientValid: true });
+    expect(s.copy.enabled).toBe(true);
+    expect(s.gmail.enabled).toBe(true);
+  });
+});

@@ -145,3 +145,19 @@ describe("migration 046: leave_family()", () => {
     expect(sql).toMatch(/ROLLBACK[\s\S]*?drop function if exists public\.leave_family\(\);/);
   });
 });
+
+describe("Settings → Family: review fixes (PR D)", () => {
+  it("warns an under-13 that leaving makes the account inert (046 resets consent)", () => {
+    const lines = leaveFamilyConsequences({ viewerPaysForFamily: false, viewerNeedsParentConsent: true });
+    expect(lines.some((l) => /stops saving anything until a parent/.test(l))).toBe(true);
+    expect(
+      leaveFamilyConsequences({ viewerPaysForFamily: false }).some((l) => /stops saving/.test(l))
+    ).toBe(false);
+  });
+
+  it("after leaving, drops the local family code and refreshes consent", () => {
+    const src = readFileSync(join(process.cwd(), "components/seeded/settings/settings-family-section.tsx"), "utf8");
+    expect(src).toMatch(/setPlayerLocal\(\{ familyCode: undefined \}\)/);
+    expect(src).toMatch(/"my-consent-state"/);
+  });
+});

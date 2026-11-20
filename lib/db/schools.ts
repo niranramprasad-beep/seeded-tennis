@@ -392,9 +392,15 @@ export function buildCoachEmail(
 
 const BRACKET = /\[[^\]\n]*\]/g;
 
-/** Every [bracketed] span still in the draft, in order. */
+/** Every [bracketed] span still in the draft, in order — plus any stray
+ * "[" or "]" left behind when only one end of a placeholder was deleted
+ * ("[One sentence about why this school" would otherwise reach the coach).
+ * A stray bracket is reported as the text from it to the end of its line. */
 export function bracketedParts(text: string): string[] {
-  return text.match(BRACKET) ?? [];
+  const whole = text.match(BRACKET) ?? [];
+  const rest = text.replace(BRACKET, "");
+  const stray = rest.match(/\[[^\n]*|[^\n]*\]/g) ?? [];
+  return [...whole, ...stray.map((t) => t.trim()).filter(Boolean)];
 }
 
 export interface CoachEmailActionState {
