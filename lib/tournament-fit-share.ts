@@ -35,6 +35,9 @@ export interface ShareableFitState {
   travel: TravelPill;
   entryCost: number | null;
   travelCost: number | null;
+  /** The draw's average UTR — the verdict needs it (D5). Optional so older
+   *  callers that never had one still type-check; absent = not entered. */
+  drawUtr?: number | null;
 }
 
 const PARAM = {
@@ -44,6 +47,7 @@ const PARAM = {
   travel: "travel",
   entry: "entry",
   travelCost: "travelCost",
+  draw: "draw",
 } as const;
 
 /** Builds the query string for a shareable /tournament-fit deep link. Omits any field that's empty/null so a partial check still produces a clean URL. */
@@ -60,6 +64,9 @@ export function encodeTournamentFitShareParams(state: ShareableFitState): URLSea
   }
   if (state.travelCost != null && Number.isFinite(state.travelCost)) {
     params.set(PARAM.travelCost, String(state.travelCost));
+  }
+  if (state.drawUtr != null && Number.isFinite(state.drawUtr)) {
+    params.set(PARAM.draw, state.drawUtr.toFixed(2));
   }
   return params;
 }
@@ -101,6 +108,12 @@ export function decodeTournamentFitShareParams(
   if (travelCostRaw !== null) {
     const travelCost = Number(travelCostRaw);
     if (Number.isFinite(travelCost) && travelCost >= 0) out.travelCost = travelCost;
+  }
+
+  const drawRaw = params.get(PARAM.draw);
+  if (drawRaw !== null) {
+    const draw = Number(drawRaw);
+    if (Number.isFinite(draw) && draw >= UTR_MIN && draw <= UTR_MAX) out.drawUtr = draw;
   }
 
   return out;

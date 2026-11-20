@@ -167,6 +167,7 @@ const MOCK_SESSIONS: TrainingSession[] = [
 // per-row writes (lib/db/training.ts), so nothing here reaches Supabase.
 export function EventsPreview() {
   const [sessions, setSessions] = useState<TrainingSession[]>(MOCK_SESSIONS);
+  const [tournaments, setTournaments] = useState<TournamentEntry[]>(MOCK_TOURNAMENTS);
   const [form, setForm] = useState<{ session: TrainingSession | null; date?: string; time?: string } | null>(null);
   const patch = (id: string, p: Partial<TrainingSession>) =>
     setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, ...p } : s)));
@@ -175,10 +176,12 @@ export function EventsPreview() {
     <>
       <SeededEventsLayout
         player={MOCK_PLAYER}
-        tournamentEntries={MOCK_TOURNAMENTS}
+        tournamentEntries={tournaments}
         matches={MOCK_MATCHES}
         sessions={sessions}
-        onMarkEntered={() => {}}
+        onSetTournamentStatus={(id, status) => setTournaments((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)))}
+        onEditTournament={() => {}}
+        onRemoveTournament={(entry) => setTournaments((prev) => prev.filter((t) => t.id !== entry.id))}
         onAddSession={(date, time) => setForm({ session: null, date, time })}
         onEditSession={(session) => setForm({ session })}
         onMoveSession={(id, date, startTime) => patch(id, { date, startTime })}

@@ -1,0 +1,105 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`verdict snapshot — players 4 / 6 / 9 × L1–L7 > with a draw average 0.5 above each player (in range) 1`] = `
+[
+  "4 L1 draw=4.5 → Worth it (96, in-range)",
+  "4 L2 draw=4.5 → Worth it (96, in-range)",
+  "4 L3 draw=4.5 → Worth it (92, in-range)",
+  "4 L4 draw=4.5 → Worth it (88, in-range)",
+  "4 L5 draw=4.5 → Worth it (88, in-range)",
+  "4 L6 draw=4.5 → Worth it (88, in-range)",
+  "4 L7 draw=4.5 → Worth it (82, in-range)",
+  "6 L1 draw=6.5 → Worth it (96, in-range)",
+  "6 L2 draw=6.5 → Worth it (96, in-range)",
+  "6 L3 draw=6.5 → Worth it (92, in-range)",
+  "6 L4 draw=6.5 → Worth it (88, in-range)",
+  "6 L5 draw=6.5 → Worth it (88, in-range)",
+  "6 L6 draw=6.5 → Worth it (88, in-range)",
+  "6 L7 draw=6.5 → Worth it (82, in-range)",
+  "9 L1 draw=9.5 → Worth it (96, in-range)",
+  "9 L2 draw=9.5 → Worth it (96, in-range)",
+  "9 L3 draw=9.5 → Worth it (92, in-range)",
+  "9 L4 draw=9.5 → Worth it (88, in-range)",
+  "9 L5 draw=9.5 → Worth it (88, in-range)",
+  "9 L6 draw=9.5 → Worth it (88, in-range)",
+  "9 L7 draw=9.5 → Worth it (82, in-range)",
+]
+`;
+
+exports[`verdict snapshot — players 4 / 6 / 9 × L1–L7 > with a draw average 1.5 above each player (a stretch: never better than Worth a look) 1`] = `
+[
+  "4 L1 draw=5.5 → Worth a look (69, stretch)",
+  "4 L2 draw=5.5 → Worth a look (69, stretch)",
+  "4 L3 draw=5.5 → Worth a look (69, stretch)",
+  "4 L4 draw=5.5 → Worth a look (69, stretch)",
+  "4 L5 draw=5.5 → Worth a look (69, stretch)",
+  "4 L6 draw=5.5 → Worth a look (69, stretch)",
+  "4 L7 draw=5.5 → Worth a look (69, stretch)",
+  "6 L1 draw=7.5 → Worth a look (69, stretch)",
+  "6 L2 draw=7.5 → Worth a look (69, stretch)",
+  "6 L3 draw=7.5 → Worth a look (69, stretch)",
+  "6 L4 draw=7.5 → Worth a look (69, stretch)",
+  "6 L5 draw=7.5 → Worth a look (69, stretch)",
+  "6 L6 draw=7.5 → Worth a look (69, stretch)",
+  "6 L7 draw=7.5 → Worth a look (69, stretch)",
+  "9 L1 draw=10.5 → Worth a look (69, stretch)",
+  "9 L2 draw=10.5 → Worth a look (69, stretch)",
+  "9 L3 draw=10.5 → Worth a look (69, stretch)",
+  "9 L4 draw=10.5 → Worth a look (69, stretch)",
+  "9 L5 draw=10.5 → Worth a look (69, stretch)",
+  "9 L6 draw=10.5 → Worth a look (69, stretch)",
+  "9 L7 draw=10.5 → Worth a look (69, stretch)",
+]
+`;
+
+exports[`verdict snapshot — players 4 / 6 / 9 × L1–L7 > with a draw average of 6.5 1`] = `
+[
+  "4 L1 draw=6.5 → Skip it (44, too-strong)",
+  "4 L2 draw=6.5 → Skip it (44, too-strong)",
+  "4 L3 draw=6.5 → Skip it (44, too-strong)",
+  "4 L4 draw=6.5 → Skip it (44, too-strong)",
+  "4 L5 draw=6.5 → Skip it (44, too-strong)",
+  "4 L6 draw=6.5 → Skip it (44, too-strong)",
+  "4 L7 draw=6.5 → Skip it (44, too-strong)",
+  "6 L1 draw=6.5 → Worth it (96, in-range)",
+  "6 L2 draw=6.5 → Worth it (96, in-range)",
+  "6 L3 draw=6.5 → Worth it (92, in-range)",
+  "6 L4 draw=6.5 → Worth it (88, in-range)",
+  "6 L5 draw=6.5 → Worth it (88, in-range)",
+  "6 L6 draw=6.5 → Worth it (88, in-range)",
+  "6 L7 draw=6.5 → Worth it (82, in-range)",
+  "9 L1 draw=6.5 → Skip it (44, too-weak)",
+  "9 L2 draw=6.5 → Skip it (44, too-weak)",
+  "9 L3 draw=6.5 → Skip it (44, too-weak)",
+  "9 L4 draw=6.5 → Skip it (44, too-weak)",
+  "9 L5 draw=6.5 → Skip it (44, too-weak)",
+  "9 L6 draw=6.5 → Skip it (44, too-weak)",
+  "9 L7 draw=6.5 → Skip it (44, too-weak)",
+]
+`;
+
+exports[`verdict snapshot — players 4 / 6 / 9 × L1–L7 > without a draw average: never a verdict 1`] = `
+[
+  "4 L1 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L2 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L3 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L4 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L5 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L6 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "4 L7 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L1 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L2 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L3 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L4 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L5 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L6 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "6 L7 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L1 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L2 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L3 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L4 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L5 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L6 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+  "9 L7 draw=—   → Not enough info. Add the draw's average UTR for a real verdict.",
+]
+`;

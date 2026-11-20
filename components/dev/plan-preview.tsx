@@ -44,10 +44,11 @@ export function PlanPreview({ targetSchools }: { targetSchools: SchoolLite[] }) 
       pickerSchools={targetSchools}
       toggle={() => {}}
       planGoal={{
-        goal: { value: 9.9, source: "chosen", estimate: null },
+        goal: { value: 9.9, estimate: null },
         roadmap: MOCK_ROADMAP,
         goalPace: null,
         loaded: true,
+        estimate: null,
         setGoal: async () => {},
       }}
     />

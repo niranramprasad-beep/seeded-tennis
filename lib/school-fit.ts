@@ -53,7 +53,7 @@ import { getSummerBeforeGradeYear, formatDate, localDateKey } from "@/lib/time";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import { academicTier } from "@/lib/school-academics";
 import { regionForState } from "@/lib/school-regions";
-import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPacePerYear, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
 export type SchoolFitBand = Exclude<FitBand, "unverified">;
 
@@ -80,6 +80,14 @@ export interface SchoolFitProjectionInput {
   gender?: PlayerGender;
   /** Injectable for tests; defaults to `new Date()`. */
   now?: Date;
+  /**
+   * The fastest pace the split may carry the trend at, UTR a year, measured
+   * from the latest logged rating. lib/fit.ts sets it to
+   * PLANNING_PACE_CAP_PER_YEAR for every band it builds, so a hot streak can
+   * never make a gap look closeable that the planning pace cannot close.
+   * (It is passed in, not imported: lib/fit.ts imports this module.)
+   */
+  paceCapPerYear?: number;
 }
 
 /** "Summer" = June 1, the same convention plan-trajectory-chart.tsx already
@@ -154,7 +162,16 @@ export function classifySchoolFit(
   // beyond), there's no future window left to project into — evaluate the
   // pace as of right now instead of extrapolating into a date that's gone.
   const evalDate = milestone.getTime() > now.getTime() ? milestone : now;
-  const projected = computed.predict(evalDate);
+  let projected = computed.predict(evalDate);
+  if (projection.paceCapPerYear != null) {
+    // Never faster than the planning cap from the latest logged rating.
+    let latest: UtrDataPoint | null = null;
+    for (const p of projection.utrHistory) if (!latest || p.date.getTime() >= latest.date.getTime()) latest = p;
+    if (latest) {
+      const years = Math.max(0, (evalDate.getTime() - latest.date.getTime()) / MS_PER_YEAR);
+      projected = Math.min(projected, latest.utr + projection.paceCapPerYear * years);
+    }
+  }
   return projected >= school.minCompetitiveUTR ? "reach" : "out-of-range";
 }
 
@@ -364,7 +381,7 @@ function computeNextBandChange(
       byDate,
       requiredPaceUtrPerYear: null,
       paceRead: "no-time-left",
-      message: `The summer before senior year has already passed, so there's no runway left to close the remaining +${gap.toFixed(1)} UTR gap to ${BAND_LABEL[targetBand]}.`,
+      message: `The summer before senior year has already passed, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${BAND_LABEL[targetBand]}.`,
     };
   }
 
@@ -384,7 +401,9 @@ function computeNextBandChange(
     byDate,
     requiredPaceUtrPerYear,
     paceRead,
-    message: `Reaching ${utrNeeded.toFixed(1)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]} — about ${requiredPaceUtrPerYear.toFixed(1)}/year, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}/yr).`,
+    // The pace through formatPacePerYear, the one pace formatter ("needs
+    // about 2.25 a year"); it read "about 2.3/year … 0.5–1.5/yr" (D1).
+    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} a year).`,
   };
 }
 
@@ -617,12 +636,9 @@ export function computeGoalPace(
   return { gap, byDate, requiredPaceUtrPerYear, paceRead: paceReadFor(requiredPaceUtrPerYear) };
 }
 
-/** THE rule for showing the unrealistic-pace warning — /plan and /today
- * both render GoalPaceWarning, which asks this, so the two screens cannot
- * disagree about when a goal is out of reach. */
-export function goalPaceNeedsWarning(pace: GoalPace | null): boolean {
-  return pace != null && (pace.paceRead === "faster-than-realistic" || pace.paceRead === "no-time-left");
-}
+// The rule for showing the unrealistic-pace warning moved to lib/fit.ts
+// (planGoalNeedsPaceWarning) on 2026-11-19: it needs the plan goal (a goal
+// the player set) and the planning cap, both of which live there.
 
 // ---------------------------------------------------------------------
 // "CLOSEST SCHOOLS TO YOU" — real catalog schools ranked by real UTR

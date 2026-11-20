@@ -61,6 +61,11 @@ interface ColumnChip {
   status: DataChipStatus;
   label: string;
 }
+// A signed-in, onboarded player logs a rating in Today's UTR drawer;
+// /onboarding would only send them on to /settings/profile (D2), which has
+// no rating field. Everyone else still starts at the diagnostic.
+const TODAY_UTR_HREF = "/today?utr=1";
+
 const NOT_TRACKED: ColumnChip = { status: "missing", label: "Not tracked" };
 function openingsChip(_s: School): ColumnChip {
   return NOT_TRACKED;
@@ -434,8 +439,10 @@ export function SeededSchoolsBrowser({
       else if (hasFit && chip !== "all" && bandFor(s) !== chip) return false;
       return true;
     });
-    return sortSchoolsForSeeded(filtered, safeSort, effectiveUtr, whatIf.whatIfProjection);
-  }, [ranked, region, chip, safeSort, hasFit, effectiveUtr, bandFor, whatIf.whatIfProjection, savedSlugs]);
+    // Gap and band from the report — the rating that judged the chips on
+    // these rows and the chips themselves — so the order matches them.
+    return sortSchoolsForSeeded(filtered, safeSort, judgingUtr ?? effectiveUtr, bandFor);
+  }, [ranked, region, chip, safeSort, hasFit, effectiveUtr, judgingUtr, bandFor, savedSlugs]);
 
   // A materially different list (a filter/sort change) invalidates
   // whatever row the keyboard highlight was pointing at.
@@ -690,7 +697,7 @@ export function SeededSchoolsBrowser({
               </>
             ) : (
               <Link
-                href={player.role === "parent" ? "/family" : "/onboarding"}
+                href={player.role === "parent" ? "/family" : player.onboarded ? TODAY_UTR_HREF : "/onboarding"}
                 className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
               >
                 {player.role === "parent" ? "Go to Family" : "Enter my UTR"}
@@ -988,7 +995,7 @@ export function SeededSchoolsBrowser({
                       <p className="m-0">
                         Add your UTR and Seeded will explain where you sit against this
                         team&apos;s range and what would move you up a band.{" "}
-                        <Link href="/onboarding" className="font-semibold text-grass underline underline-offset-4 hover:text-grass-700">
+                        <Link href={sessionChecked && player.onboarded ? TODAY_UTR_HREF : "/onboarding"} className="font-semibold text-grass underline underline-offset-4 hover:text-grass-700">
                           Enter my UTR
                         </Link>
                       </p>

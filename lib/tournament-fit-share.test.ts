@@ -83,6 +83,15 @@ describe("encodeTournamentFitShareParams / decodeTournamentFitShareParams", () =
     expect(decoded.travelCost).toBeUndefined();
   });
 
+  it("round-trips the draw's average UTR, and drops one out of range", () => {
+    const encoded = encodeTournamentFitShareParams({ ...full, drawUtr: 9.75 });
+    expect(encoded.get("draw")).toBe("9.75");
+    expect(decodeTournamentFitShareParams(encoded).drawUtr).toBeCloseTo(9.75, 5);
+    expect(encodeTournamentFitShareParams(full).has("draw")).toBe(false);
+    expect(decodeTournamentFitShareParams(new URLSearchParams({ draw: "0.2" })).drawUtr).toBeUndefined();
+    expect(decodeTournamentFitShareParams(new URLSearchParams({ draw: "abc" })).drawUtr).toBeUndefined();
+  });
+
   it("returns an empty object for an empty query string", () => {
     expect(decodeTournamentFitShareParams(new URLSearchParams())).toEqual({});
   });

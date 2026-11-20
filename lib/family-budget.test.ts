@@ -45,6 +45,24 @@ describe("buildSeasonBudgetSummary", () => {
     expect(summary.lineItems[0].id).toBe("1");
   });
 
+  it("counts a Played tournament as spend, like an Entered one (047)", () => {
+    const entries = [
+      entry({ id: "p", status: "played", entryCost: 80, travelCost: 20 }),
+      entry({ id: "e", status: "entered", entryCost: 100, travelCost: 0 }),
+      entry({ id: "s", status: "saved", entryCost: 500, travelCost: 500 }),
+    ];
+    const summary = buildSeasonBudgetSummary({ totalBudget: 1000, playerUtr: 9, entries, expenses: [] });
+    expect(summary.spent).toBe(200);
+    expect(summary.lineItems.map((l) => l.id).sort()).toEqual(["e", "p"]);
+  });
+
+  it("never offers a Played or Entered tournament as a skip decision, and needs the draw's average", () => {
+    const bad = { status: "saved" as const, drawUtr: 3 };
+    expect(pendingSkipDecisions([entry({ id: "played", ...bad, status: "played" })], 9)).toEqual([]);
+    expect(pendingSkipDecisions([entry({ id: "no-draw", status: "saved", drawUtr: null })], 9)).toEqual([]);
+    expect(pendingSkipDecisions([entry({ id: "s", ...bad })], 9).map((d) => d.entry.id)).toEqual(["s"]);
+  });
+
   it("categorizes budget_expenses into the matching spend bucket", () => {
     const expenses = [
       expense({ id: "e1", category: "camps", amount: 380 }),
@@ -176,8 +194,8 @@ describe("shortBadFitReason", () => {
 
 describe("a sibling's tournament is never judged against this player's rating", () => {
   it("counts the sibling's spend but gives it no fit verdict", () => {
-    const mine = entry({ id: "m", status: "entered", userId: "avery", entryCost: 100, travelCost: 0 });
-    const theirs = entry({ id: "s", status: "entered", userId: "riley", entryCost: 50, travelCost: 0 });
+    const mine = entry({ id: "m", status: "entered", userId: "avery", entryCost: 100, travelCost: 0, drawUtr: 9.2 });
+    const theirs = entry({ id: "s", status: "entered", userId: "riley", entryCost: 50, travelCost: 0, drawUtr: 9.2 });
     const summary = buildSeasonBudgetSummary({
       totalBudget: 1000,
       playerUtr: 9,

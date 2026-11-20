@@ -53,7 +53,7 @@ export function SettingsPreview({ targetSchools }: { targetSchools: SchoolLite[]
         signOut: () => {},
       }}
     >
-      <SeededSettingsView schools={targetSchools} />
+      <SeededSettingsView schools={targetSchools} section="profile" />
     </PlayerContext.Provider>
   );
 }

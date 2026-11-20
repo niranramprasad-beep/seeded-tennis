@@ -145,13 +145,23 @@ describe("the budget math refuses to judge fit without a rating", () => {
     expect(summary.remaining).toBe(800);
   });
 
-  it("still produces a real verdict when the UTR is known", () => {
+  it("still produces a real verdict when the UTR and the draw's average are known", () => {
+    const summary = buildSeasonBudgetSummary({
+      totalBudget: 1000,
+      playerUtr: 7.4,
+      entries: [{ ...entry, status: "entered", drawUtr: 7.6 }],
+      expenses: [],
+    });
+    expect(["good", "decent", "bad"]).toContain(summary.lineItems[0].chip);
+  });
+
+  it("gives no verdict without the draw's average UTR (PR D, D5)", () => {
     const summary = buildSeasonBudgetSummary({
       totalBudget: 1000,
       playerUtr: 7.4,
       entries: [{ ...entry, status: "entered" }],
       expenses: [],
     });
-    expect(["good", "decent", "bad"]).toContain(summary.lineItems[0].chip);
+    expect(summary.lineItems[0].chip).toBe("entries");
   });
 });

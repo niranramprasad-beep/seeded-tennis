@@ -7,6 +7,45 @@ Newest first.
 
 ---
 
+## 2026-11-19 — PR D (fix/audit-2): the owner's audit decisions, and calls made during the build
+
+Owner's decisions (from the audit brief):
+- **Bands plan with a conservative pace: min(the player's own pace, 1.5 a
+  year)** — `PLANNING_PACE_CAP_PER_YEAR` in `lib/fit.ts`, the only place the
+  number lives. The faster line is shown as "At your current pace you'd reach
+  X. We plan with Y because most players improve 0.5–1.5 a year." and dashed
+  "Estimate" on the charts; it never touches a band. Undo: set the cap to
+  Infinity (tests will say which screens move).
+- **No default plan goal.** Reverses C11. The pace warning is only for a goal
+  the player set that needs more than the cap.
+- **Signed-in /onboarding:** onboarded → /settings/profile; not onboarded →
+  the new diagnostic in signed-in mode. Legacy flow and rating labels deleted.
+
+Calls made without asking:
+- The Reach / Out-of-range split ALSO plans with the cap. A hot streak no
+  longer keeps a school in Reach. Undo: stop passing `paceCapPerYear` to
+  `classifySchoolFit` in `buildFitReport`.
+- The upside sentence prints two decimals ("8.10"); other estimates keep one.
+- The what-if "My pace" is the player's own logged pace (uncapped) — the
+  same number as the upside — not a separate regression.
+- Tournament verdicts come only from the draw's average UTR vs the player's
+  (in range −0.5…+1.0 → can be "Worth it"; stretch to +2.0 or easy to −1.5 →
+  "Worth a look" at best; further → "Skip it"). The level-to-UTR table had no
+  source and is deleted; without a draw average the checker says "Not enough
+  info". The checker gained a draw-average field the mockup doesn't have.
+- `tournament_entries.status` 'saved' is shown as "Planning"; 047 adds
+  'played' without rewriting rows. Entered and Played both count as spend.
+- The family account holder cannot "Leave family" (046 refuses
+  `account_holder_cannot_leave`); their way out is deleting the account.
+  An under-13 who leaves goes back to consent pending.
+- `tournaments_goal` (always 12, never asked) and `tournaments_played` (never
+  written) are out of the coach email. They still appear elsewhere (TODO).
+- School page cards are equal height again (reverses C22's content height).
+- PR E's input `docs/data/official_rosters_2026-27.tsv` does not exist; PR E
+  ships the importer/schema/form tested on a fake fixture and no numbers.
+
+---
+
 ## 2026-11-18 — PR C review follow-ups: hidden sessions, goals below today, Undo's timestamp
 
 **/events shows every session a player put there, not only the new manual

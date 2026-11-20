@@ -19,7 +19,7 @@ import {
 } from "@/lib/family-view";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { projectionTargetLabel } from "@/lib/fit";
+import { formatPacePerYear, paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
@@ -159,7 +159,15 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   // means for THIS school's band in words: that is what splits Reach from
   // Out of range, and it never needs a second number.
   const whose = subjectFirst ? `${subjectFirst}'s` : "your";
+  const Whose = subjectFirst ? `${subjectFirst}'s` : "Your";
   const pace = explanation.pace;
+  // THE pace number (the report's logged pace, lib/fit.ts) through the one
+  // pace formatter, and — when it is faster than the planning cap — the
+  // upside sentence. Both from the report; nothing is computed here.
+  const ownPace = judging?.source === "logged-pace" && judging.pace ? judging.pace.perYear : null;
+  const paceSentence =
+    (ownPace != null ? ` ${Whose} pace: ${formatPacePerYear(ownPace)}.` : "") +
+    (paceUpsideSentence(judging, subjectFirst) ? ` ${paceUpsideSentence(judging, subjectFirst)}` : "");
   const paceDescription =
     pace.status !== "ready"
       ? subjectFirst
@@ -168,10 +176,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       : !pace.isProjected
         ? `Judged on ${whose} rating today, ${formatPlayerUtr(pace.projectedUTR)}: the summer before senior year has begun.`
         : `Estimated ${formatUtrEstimate(pace.projectedUTR)} by ${formatDate(pace.byDate)}.` +
+          paceSentence +
           (pace.loggedPaceReachesFloor === true
-            ? ` The pace in ${whose} logged ratings reaches this team's floor by then.`
+            ? ` At the pace we plan with, ${whose} logged ratings reach this team's floor by then.`
             : pace.loggedPaceReachesFloor === false
-              ? ` The pace in ${whose} logged ratings doesn't reach this team's floor by then.`
+              ? ` At the pace we plan with, ${whose} logged ratings don't reach this team's floor by then.`
               : explanation.band === "reach"
                 ? subjectFirst
                   ? ` Three logged ratings will show whether ${whose} own pace reaches the floor.`
@@ -185,9 +194,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
     </div>
   );
   const fitCards = (
-  // Each card as tall as its own content: stretched to "Why this band",
-  // the roster card held ~260px of nothing (sweep C22).
-  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+  // Equal-height columns (D7, owner's call 2026-11-19, reversing C22's
+  // content-height cards, which left the two side by side at different
+  // heights). The roster card is a column whose academics block sits at its
+  // foot, so the extra height is space between sections, not under them.
+  <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
@@ -239,7 +250,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       )}
     </div>
 
-    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+    <div className="flex min-w-0 flex-col rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">
           {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
@@ -273,6 +284,9 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           sentences in a box sized to its taller neighbour, while this card
           held a single range bar beside the much taller "Why this band"
           (C22, board 23 rule 5). One card now carries both. */}
+      {/* Takes up the extra height of the equal-height column, so the
+          academics block sits at the foot of the card. */}
+      <div className="hidden flex-1 lg:block" aria-hidden />
       <div className="mt-6 border-t border-line pt-5">
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-grass" aria-hidden />
@@ -410,14 +424,16 @@ function FitDriverRow({
   chip?: string;
 }) {
   return (
-    // Below sm the chip drops under the description: a long chip ("Between
-    // floor and average by summer 2030 (est.)") in an `auto` column pushed
-    // the card to 609px on a 375px phone.
-    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)_auto]">
+    // The chip always sits UNDER the description, at every width. In an
+    // `auto` third column a long chip ("Between floor and average by summer
+    // 2030 (est.)") pushed the card to 609px on a 375px phone, and at 1440
+    // — half a 1200px page — it squeezed the UTR row's description into a
+    // ~150px column of one-word lines (D7).
+    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)]">
       <span className="font-semibold text-ink">{label}</span>
       <span className="min-w-0 text-stone">{description}</span>
       {chip && (
-        <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone sm:col-start-auto sm:whitespace-nowrap">
+        <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
           {chip}
         </span>
       )}

@@ -81,7 +81,7 @@ describe("client: a parent's screens offer no player edit", () => {
   it("/settings sends a parent to the parent's own Settings, in both designs", () => {
     const src = read("components/settings/settings-view.tsx");
     const inner = src.slice(src.indexOf("function SettingsInner"));
-    const parentReturn = inner.indexOf('if (player.role === "parent") return <ParentSettingsView />;');
+    const parentReturn = inner.indexOf('if (player.role === "parent") return <ParentSettingsView section={parentSection} fromOnboarding={fromOnboarding} />;');
     expect(parentReturn).toBeGreaterThan(-1);
     expect(parentReturn).toBeLessThan(inner.indexOf("<SeededSettingsView"));
     expect(parentReturn).toBeLessThan(inner.indexOf("<LegacySettingsView"));

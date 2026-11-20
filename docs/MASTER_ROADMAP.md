@@ -13,6 +13,26 @@
 
 ## Executive status
 
+**2026-11-19 — PR D (fix/audit-2): the owner's signed-in production audit.**
+D0 (owner-approved production cleanup: 3 test rows deleted, owner's
+`current_utr` back to 5.80; JSON in `~/seeded-evidence/fix-audit-2/`).
+D1 bands plan with min(own pace, 1.5/yr) (`PLANNING_PACE_CAP_PER_YEAR`),
+upside shown, never banded; one pace number; no default goal. D2 signed-in
+/onboarding (legacy flow + rating labels deleted). D3 coach email from sourced
+parts, [brackets] block Copy/Gmail, "New email" fixed. D4 tournament
+edit/remove/undo, Planning/Entered/Played, tournaments on the calendar. D5
+verdict only from the draw average. D6 /settings/{profile,account,family,
+billing,privacy}, Settings → Family (members, approve/decline, cap, leave).
+D7 sweep. D8 perf: 10 serial auth round trips → 1, fonts 12 → 3 files,
+signed-out app routes redirect before JS; signed-in content < 2 s
+(`docs/perf/audit-2-perf.md`). Migrations **046** (`leave_family()`) and
+**047** (status 'played') — GO-SEQUENCE §3c, HANDOFF §J Steps 21–22.
+New guards: `lib/pace-cap.test.ts`, `lib/pace-honesty.test.ts`,
+`lib/fit-pace-shapes.test.ts`, `lib/db/coach-email.test.ts`,
+`lib/onboarding-legacy-removed.test.ts`, `lib/family-settings.test.ts`,
+`lib/settings-sections.test.ts`, `lib/head-script-redirect.test.ts`,
+`lib/supabase/authed-user-memo.test.ts`.
+
 **2026-11-19 — Rollout: 041–045 on production; PR B (#6) merged.** Backup
 first (pg_dump + JSON snapshot in `~/seeded-backups/`), then each migration in
 its own transaction with its ledger row (production ledger 42 → 47), each

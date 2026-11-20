@@ -3276,6 +3276,47 @@ parents); `lib/family-plan-scope.test.ts` pins the caps and the SQL order.
       **Gemini** and **Stripe** (their code is deleted; the keys are not).
       Niran's to do, in each provider's dashboard.
 
+### Step 21 — migration 046 (`leave_family()`, PR D / D6)
+
+Settings → Family's "Leave family". Caller-only (no arguments), SECURITY
+DEFINER, `search_path = public`, revoked from public/anon, granted to
+authenticated. Leaves the caller's home family (`my_family_code()`): deletes
+only the caller's `parent_accounts` rows for that code and clears the
+caller's own `profiles.family_code` under `remove_family_member()`'s guard;
+refuses the account holder (`account_holder_cannot_leave`) and a caller with
+no approved family (`not_in_a_family`); an under-13 left with no family goes
+back to `consent_status = 'pending'`. Rows the leaver wrote keep their stamp
+but stop being readable by the family (036 keys on current membership).
+
+Staging probes (2026-11-19, `set local role authenticated` + claims, rolled
+back): joined parent leaves → `left`, roster 3 → 0; double-linked player →
+`left`, own `family_code` cleared; consented under-13 → `left`,
+`consent_reset: true`, other members' links unchanged; holder → 22023
+`account_holder_cannot_leave`; pending-only → 22023 `not_in_a_family`; anon →
+42501.
+
+Rollback: `drop function if exists public.leave_family();`
+
+### Step 22 — migration 047 (tournament status 'played', PR D / D4)
+
+Widens `tournament_entries_status_check` to ('saved','entered','played'). No
+rows rewritten ('saved' displays as "Planning"). MUST be on production before
+the PR D code merges.
+
+Verify: the constraint lists three values; `select status, count(*) from
+tournament_entries group by 1` unchanged; as a row's owner → 'played' ok,
+'planning' 23514, another user's row 0 rows.
+
+Rollback:
+```sql
+begin;
+update public.tournament_entries set status = 'entered' where status = 'played';
+alter table public.tournament_entries drop constraint tournament_entries_status_check;
+alter table public.tournament_entries add constraint tournament_entries_status_check
+  check (status = any (array['saved'::text, 'entered'::text]));
+commit;
+```
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

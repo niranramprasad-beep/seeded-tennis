@@ -14,6 +14,7 @@ import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/gr
 import { type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { DiagnosticSaveForm } from "@/components/seeded/onboarding/diagnostic/diagnostic-save";
+import { SignedInDiagnosticSave } from "@/components/seeded/onboarding/diagnostic/diagnostic-save-signed-in";
 
 // The fit report at the end of the /onboarding diagnostic (board 20, "See my
 // fit report"). Pre-auth: it renders from the answers alone, no account.
@@ -29,10 +30,14 @@ export function DiagnosticFitReport({
   schools,
   answers,
   onEdit,
+  signedIn = false,
 }: {
   schools: SchoolLite[];
   answers: DiagnosticAnswers;
   onEdit: () => void;
+  /** Signed in, not onboarded yet: the aside saves to their own profile
+   * instead of offering a sign-up form for an account they already have. */
+  signedIn?: boolean;
 }) {
   const values = diagnosticValues(answers);
   const gender: Gender = programGenderFor(values.gender ?? "female");
@@ -314,13 +319,21 @@ export function DiagnosticFitReport({
         </section>
 
         <aside className="min-w-0 flex-[1_1_340px] rounded-xl border border-line bg-card p-6">
-          <h2 className="m-0 text-xl text-ink">{parent ? "Make your parent account" : "Save your report"}</h2>
+          <h2 className="m-0 text-xl text-ink">
+            {signedIn ? "Save to your profile" : parent ? "Make your parent account" : "Save your report"}
+          </h2>
           <p className="mb-5 mt-2 text-[15px] leading-[1.5] text-stone">
-            {parent
-              ? "Free. You'll get a family code to give your player."
-              : "Free account. Every answer comes with you, and the bands update each time you log a result."}
+            {signedIn
+              ? "Every answer goes on your profile, and the bands update each time you log a result."
+              : parent
+                ? "Free. You'll get a family code to give your player."
+                : "Free account. Every answer comes with you, and the bands update each time you log a result."}
           </p>
-          <DiagnosticSaveForm answers={answers} idPrefix="report-save" />
+          {signedIn ? (
+            <SignedInDiagnosticSave answers={answers} />
+          ) : (
+            <DiagnosticSaveForm answers={answers} idPrefix="report-save" />
+          )}
         </aside>
       </div>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">

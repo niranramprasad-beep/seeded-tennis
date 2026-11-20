@@ -115,6 +115,20 @@ pasteable rollbacks: `docs/HANDOFF.md` §J Steps 16–20.
 | 19 | 044 (roster respects the Family plan; needs 042) | as real users: a free family's parent gets the roster's names/roles/status but **NULL** `current_utr`, `grade`, `graduation_year`, `target_school_slugs`, `gender` for the player; a Family-tier family (parent-paid AND player-paid) gets them; a pending joiner still gets 0 rows; `family_members()` grants = authenticated/postgres/service_role only | a free member sees another member's stats, a paid family loses them, or the row count changes | §J Step 19 block (restore 038's body; before 042's rollback) |
 | 20 | **045** (one Family plan = one family; 4 players / 2 parents; needs 042 + 043) | **pre-flight (read-only): every Family-tier payer's home family is the family they pay for, and no family is over either cap** (§J Step 20 query; 2026-11-19: 2 payers, both at home, 0 over). Then as real users: a payer approved into a SECOND family does not unlock it (that family's parent: `my_family_has_tier('family')` false, 0 of the player's `utr_entries`); the payer's home family stays unlocked; the 5th player's `join_family` → `family_full`; the 3rd parent's → `family_full`; approving either → **P0001 `family_full_<role>`**; clients calling `home_family_code` / `family_member_count` / `family_member_cap` → **42501** | a paid family locks, a second family unlocks, a 5th player or 3rd parent gets in, or a client can call the helpers | §J Step 20 block (restore 026/042/043 bodies, then drop the three helpers; before 044's rollback) |
 
+
+### 3c. PR D migrations
+
+**PR D (fix/audit-2) — 046, 047 (written 2026-11-19, rehearsed on staging).**
+Both before the PR D code merges, each on Niran's go, after a backup. 047 is
+REQUIRED before the merge: the new /events status control writes 'played',
+which production refuses (23514) until it runs. Detail: `docs/HANDOFF.md` §J
+Steps 21–22.
+
+| # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
+|---|---|---|---|---|
+| 21 | 046 (`leave_family()`) | as real users: a joined parent leaves → `{"status":"left"}`, their roster empties, nobody else's rows change; the account holder → **22023 `account_holder_cannot_leave`**; a pending-only account → **22023 `not_in_a_family`**; anon → **42501** | a holder can leave, anyone else's row changes, or anon can execute | `drop function if exists public.leave_family();` |
+| 22 | 047 (tournament status 'played') | `pg_get_constraintdef` lists saved/entered/played; status counts unchanged; as the owner of a row: → 'played' ok, 'planning' **23514**, someone else's row 0 rows | counts change | map 'played' → 'entered', then restore the two-value CHECK (§J Step 22) |
+
 ---
 
 ## 4. Code: merge the PR (5 min + deploy)

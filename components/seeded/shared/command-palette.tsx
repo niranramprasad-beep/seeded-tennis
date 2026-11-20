@@ -10,8 +10,10 @@ import { useDialog } from "@/lib/hooks/use-dialog";
 import { cn } from "@/lib/utils";
 import {
   PARENT_NAV_LINKS,
+  PARENT_SETTINGS_SECTION_LINKS,
   PARENT_TOOL_LINKS,
   PLAYER_NAV_LINKS,
+  PLAYER_SETTINGS_SECTION_LINKS,
   PLAYER_TOOL_LINKS,
   SETTINGS_LINK,
   type NavLink,
@@ -38,6 +40,10 @@ const PARENT_COMMANDS: Command[] = [...PARENT_NAV_LINKS, ...PARENT_TOOL_LINKS]
   .map(toCommand);
 
 const SHARED_COMMANDS: Command[] = [toCommand(SETTINGS_LINK)];
+// Each Settings section has its own URL (lib/settings-sections.ts), so the
+// palette can go straight to one. Listed after Settings itself.
+const PLAYER_SETTINGS_COMMANDS: Command[] = PLAYER_SETTINGS_SECTION_LINKS.map(toCommand);
+const PARENT_SETTINGS_COMMANDS: Command[] = PARENT_SETTINGS_SECTION_LINKS.map(toCommand);
 
 // Signed-in only — mounted once by AppShell alongside SeededSidebar. Opens
 // on Cmd/Ctrl+K from anywhere, fuzzy-filters the same route list the
@@ -54,8 +60,10 @@ export function CommandPalette() {
   useDialog(open, () => setOpen(false), panelRef);
 
   const commands = useMemo(() => {
-    const roleCommands = player.role === "parent" ? PARENT_COMMANDS : PLAYER_COMMANDS;
-    const all = [...roleCommands, ...SHARED_COMMANDS];
+    const isParent = player.role === "parent";
+    const roleCommands = isParent ? PARENT_COMMANDS : PLAYER_COMMANDS;
+    const settingsCommands = isParent ? PARENT_SETTINGS_COMMANDS : PLAYER_SETTINGS_COMMANDS;
+    const all = [...roleCommands, ...SHARED_COMMANDS, ...settingsCommands];
     // De-dupe by href (Tournament fit/Schools appear in both role lists).
     return Array.from(new Map(all.map((c) => [c.href, c])).values());
   }, [player.role]);

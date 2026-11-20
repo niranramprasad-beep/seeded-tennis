@@ -319,6 +319,33 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern: /by junior year|junior[- ]year (?:estimate|UTR|rating|view|projection)|Junior year:/i,
     why: "the projection is to the summer before senior year — say 'by summer 2030', not 'by junior year'",
   },
+  // D3 (2026-11-19): sentences the coach-email draft put in a minor's mouth
+  // with nothing stored behind them. lib/db/coach-email.test.ts guards the
+  // builder structurally; these keep the phrasings out of every file.
+  {
+    pattern: /following\b.{0,60}\bclosely/i,
+    why: "the coach email claimed the player had been following the program closely; they never said so",
+  },
+  {
+    pattern: /the level I want to be competing at/i,
+    why: "the coach email stated an ambition the player never entered",
+  },
+  {
+    pattern: /My goal is \S+ tournaments?|happy to send the schedule/i,
+    why: "tournaments_goal is a hardcoded signup default (12), not a goal the player set",
+  },
+  {
+    pattern: /so far this season/i,
+    why: "tournaments_played is a column default no screen writes, not a count the player entered",
+  },
+  {
+    pattern: /high on my list/i,
+    why: "overstates the stored fact, which is only that the player picked it as a target school",
+  },
+  {
+    pattern: /Right now I'm working on/i,
+    why: "the player answered 'What do you want to improve?', not what they are working on today",
+  },
 ];
 
 describe("no user-facing copy promises something the code can't do", () => {
@@ -346,6 +373,13 @@ describe("copy guard reads sentences the way the screen shows them", () => {
     ["split across lines", "<p>\n  Projected by junior\n  year, at typical growth\n</p>"],
     ["markup inside", '<p>Projected by{" "}<b>junior year</b></p>'],
     ["projection noun", "<p>Your junior-year projection</p>"],
+    // D3: the coach-email sentences exactly as lib/db/schools.ts spelled them
+    // before they were removed — template slots and all.
+    ["coach email: following closely", "const programSentence = `I've been following ${school.shortName} closely, and ${school.division} tennis in the ${school.conference} is the level I want to be competing at.`;"],
+    ["coach email: tournament goal", "? ` My goal is ${player.tournamentsGoal} tournament${\n player.tournamentsGoal === 1 ? \"\" : \"s\"\n } this season, and I'm happy to send the schedule once it's set.`"],
+    ["coach email: tournaments played", "? `I've played ${player.tournamentsPlayed} tournament${\n  player.tournamentsPlayed === 1 ? \"\" : \"s\"\n} so far this season.`"],
+    ["coach email: focus", "focus.length > 0 ? `Right now I'm working on ${joinList(focus.slice(0, 2))}.` : \"\";"],
+    ["coach email: high on my list", "and I'm reaching out because ${school.shortName} is high on my list."],
   ];
   for (const [label, sample] of spellings) {
     it(`catches ${label}`, () => {

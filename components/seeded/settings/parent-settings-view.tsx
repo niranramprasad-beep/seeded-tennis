@@ -4,14 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Check, Copy, LogOut } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
 import type { SubscriptionTier } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { requestPasswordReset } from "@/lib/auth";
 import { loadMySignInInfo, type SignInInfo } from "@/lib/db/account";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
-import { loadMyFamilyCode } from "@/lib/db/family-join";
 import {
   firstNameLastInitial,
   missingClassYearPhrase,
@@ -24,10 +23,12 @@ import { localDateKey } from "@/lib/time";
 import { downloadTextFile } from "@/lib/data/export-csv";
 import { slugify } from "@/lib/utils";
 import { SeededButton } from "@/components/seeded/ui/button";
-import { SeededSettingsShell, type SettingsTabId } from "./seeded-settings-shell";
+import type { SettingsSectionId } from "@/lib/settings-sections";
+import { SeededSettingsShell } from "./seeded-settings-shell";
+import { FromOnboardingNote } from "./from-onboarding-note";
+import { SettingsFamilySection } from "./settings-family-section";
 import { AppearanceCard } from "./appearance-card";
 import { PrivacyCard } from "./privacy-card";
-import { FamilyMembersCard } from "@/components/seeded/family/family-members-card";
 import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = {
@@ -52,10 +53,17 @@ const inputClass =
 // Server side, /api/profile now writes ONLY `name` for a parent account
 // (it reads the role from the caller's own row, never the body), so this
 // screen is not the only thing standing between a parent and those fields.
-export function ParentSettingsView() {
+export function ParentSettingsView({
+  section = "profile",
+  fromOnboarding = false,
+}: {
+  /** "account" is a player-only section; a parent's lands on Profile. */
+  section?: Exclude<SettingsSectionId, "billing" | "account">;
+  fromOnboarding?: boolean;
+} = {}) {
   const { player, signOut } = usePlayer();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
+  const activeTab = section;
 
   const [downloading, setDownloading] = useState<"everything" | "spreadsheet" | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -105,10 +113,11 @@ export function ParentSettingsView() {
   );
 
   return (
-    <SeededSettingsShell active={activeTab} onTabChange={setActiveTab}>
+    <SeededSettingsShell active={activeTab}>
       <ParentScopeLine />
       {activeTab === "profile" && (
         <>
+          {fromOnboarding && <FromOnboardingNote />}
           <ParentAccountCard
             onSignOut={() => {
               signOut();
@@ -119,7 +128,7 @@ export function ParentSettingsView() {
           <AppearanceCard />
         </>
       )}
-      {activeTab === "family" && <ParentFamilyTab />}
+      {activeTab === "family" && <SettingsFamilySection />}
       {activeTab === "privacy" && privacy}
     </SeededSettingsShell>
   );
@@ -348,49 +357,5 @@ function LinkedPlayersCard() {
         </ul>
       )}
     </section>
-  );
-}
-
-/* ------------------------------------------------------------------ family */
-
-function ParentFamilyTab() {
-  const { data: familyCode } = useSWR<string | null>("my-family-code", () => loadMyFamilyCode());
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    if (!familyCode) return;
-    void navigator.clipboard?.writeText(familyCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  return (
-    <>
-      <section aria-labelledby="family-code-heading" className="rounded-xl border border-line bg-card p-6">
-        <h2 id="family-code-heading" className="text-lg font-semibold text-ink">
-          Family code
-        </h2>
-        <p className="mt-1 text-sm text-stone">
-          Your player (or another parent) enters this when they sign up. Anyone who uses it waits
-          until someone already in the family approves them.
-        </p>
-        <div className="mt-4 flex w-fit items-center gap-3 rounded-lg border border-line bg-cream/50 px-4 py-3">
-          <span className="font-mono text-xl tracking-wider text-grass">
-            {familyCode === undefined ? "…" : familyCode ?? "No family yet"}
-          </span>
-          {familyCode && (
-            <button
-              type="button"
-              onClick={copy}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-grass-50 text-grass transition-colors hover:bg-grass-100"
-              aria-label={copied ? "Family code copied" : "Copy family code"}
-            >
-              {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
-            </button>
-          )}
-        </div>
-      </section>
-      <FamilyMembersCard familyCode={familyCode ?? undefined} />
-    </>
   );
 }

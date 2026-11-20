@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { School } from "@/lib/types";
 import { REMIND_ME_AFTER_DAYS, type OutreachStatusMapDated } from "@/lib/db/outreach";
+import { buildCoachEmail } from "@/lib/db/schools";
+import { emptyPlayer } from "@/lib/data/user";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 
 // Internal tool only — pixel-checks /outreach's real 6-column board without
@@ -70,6 +72,29 @@ export function OutreachPreview({ targetSchools }: { targetSchools: School[] }) 
         copyAll={() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
+        }}
+        startNewEmail={(slug) => {
+          const school = targetSchools.find((s) => s.slug === slug);
+          if (!school) return;
+          // A clearly-fake player, so the real builder (and its [bracket]
+          // gate) can be eyeballed here without signing in.
+          const email = buildCoachEmail(
+            {
+              ...emptyPlayer,
+              name: "Maya Chen",
+              gender: "female",
+              currentUTR: 9.42,
+              targetSchoolSlugs: targetSchools.map((s) => s.slug),
+              weaknesses: ["serve"],
+            },
+            school,
+            [],
+            { utrRecordedAt: "2026-11-02" }
+          );
+          setSelectedSlug(slug);
+          setSubject(email.subject);
+          setBody(email.body);
+          setRecipient("");
         }}
         setStatus={setStatus}
         setReminder={setReminder}

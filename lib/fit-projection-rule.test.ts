@@ -4,7 +4,7 @@ import {
   LOGGED_PACE_MIN_MONTHS,
   LOGGED_PACE_YEAR_AGO_FROM_MONTHS,
   buildFitReport,
-  formatPacePerMonth,
+  formatPacePerYear,
   loggedPaceAssumption,
   loggedPaceFor,
   projectUtrAtRecruiting,
@@ -57,11 +57,14 @@ describe("rule 2: the player's own logged pace", () => {
     expect(r.isProjected).toBe(true);
     expect(r.pace!.months).toBe(12);
     expect(r.pace!.perMonth).toBeCloseTo(1 / 12, 12);
+    expect(r.pace!.perYear).toBeCloseTo(1, 12);
+    expect(r.planningPacePerYear).toBeCloseTo(1, 12); // within the cap: their own pace
+    expect(r.upside).toBeNull();
     expect(r.value).toBe(Math.round((8 + monthsToTarget / 12) * 10) / 10);
     expect(r.low).toBe(r.value);
     expect(r.high).toBe(r.value);
     expect(r.year).toBe(2029);
-    expect(r.assumption).toBe("At your logged pace (+0.08 a month since November 2025).");
+    expect(r.assumption).toBe("At your logged pace (+1.00 a year since November 2025).");
   });
 
   it("prefers a year-ago rating (closest to 12) over a 6-month one", () => {
@@ -116,7 +119,7 @@ describe("rule 2: the player's own logged pace", () => {
     expect(r.low).toBe(8);
     expect(r.high).toBe(8);
     expect(r.assumption).toBe(
-      "Your rating has gone down since November 2025 (−0.10 a month), so this stays at today's UTR."
+      "Your rating has gone down since November 2025 (−1.20 a year), so this stays at today's UTR."
     );
   });
 
@@ -131,7 +134,7 @@ describe("rule 2: the player's own logged pace", () => {
     expect(r.value).toBe(REALISTIC_UTR_CEILING.female);
     expect(r.cappedByCeiling).toBe(true);
     expect(r.assumption).toBe(
-      "At your logged pace (+0.25 a month since November 2025), capped near the top of college tennis."
+      "At your logged pace (+3.00 a year since November 2025), capped near the top of college tennis."
     );
     // The ceiling caps growth; it never pulls a real rating above it down.
     const above = recruitingTimeUtr({ ...base, gender: "female", currentUtr: 13, history: [pt(2025, 11, 18, 12.6)] })!;
@@ -233,24 +236,27 @@ describe("the wording helper", () => {
   const from = pt(2026, 5, 18, 7.5);
 
   it("rising, capped, falling, and someone else's", () => {
-    expect(loggedPaceAssumption({ perMonth: 0.25, from })).toBe("At your logged pace (+0.25 a month since May 2026).");
-    expect(loggedPaceAssumption({ perMonth: 0.4, from }, { capped: true })).toBe(
-      "At your logged pace (+0.40 a month since May 2026), capped near the top of college tennis."
+    expect(loggedPaceAssumption({ perYear: 1.25, from })).toBe("At your logged pace (+1.25 a year since May 2026).");
+    expect(loggedPaceAssumption({ perYear: 1.4, from }, { capped: true })).toBe(
+      "At your logged pace (+1.40 a year since May 2026), capped near the top of college tennis."
     );
-    expect(loggedPaceAssumption({ perMonth: -0.1, from })).toBe(
-      "Your rating has gone down since May 2026 (−0.10 a month), so this stays at today's UTR."
+    expect(loggedPaceAssumption({ perYear: -0.1, from })).toBe(
+      "Your rating has gone down since May 2026 (−0.10 a year), so this stays at today's UTR."
     );
-    expect(loggedPaceAssumption({ perMonth: 0.25, from }, { whose: "Avery's" })).toBe(
-      "At Avery's logged pace (+0.25 a month since May 2026)."
+    expect(loggedPaceAssumption({ perYear: 1.25, from }, { whose: "Avery's" })).toBe(
+      "At Avery's logged pace (+1.25 a year since May 2026)."
     );
-    expect(loggedPaceAssumption({ perMonth: -0.1, from }, { whose: "Avery's" })).toMatch(/^Avery's rating has gone down/);
+    expect(loggedPaceAssumption({ perYear: -0.1, from }, { whose: "Avery's" })).toMatch(/^Avery's rating has gone down/);
   });
 
-  it("formats the pace signed, to two decimals, with no negative zero", () => {
-    expect(formatPacePerMonth(0.0833)).toBe("+0.08");
-    expect(formatPacePerMonth(0)).toBe("+0.00");
-    expect(formatPacePerMonth(-0.001)).toBe("+0.00");
-    expect(formatPacePerMonth(-0.126)).toBe("−0.13");
+  it("formats the pace signed, to two decimals, a year, with no negative zero", () => {
+    expect(formatPacePerYear(1.0)).toBe("+1.00 a year");
+    expect(formatPacePerYear(1.449)).toBe("+1.45 a year");
+    expect(formatPacePerYear(0)).toBe("+0.00 a year");
+    expect(formatPacePerYear(-0.001)).toBe("+0.00 a year");
+    expect(formatPacePerYear(-0.126)).toBe("−0.13 a year");
+    // A pace something NEEDS is unsigned: "needs about 2.25 a year".
+    expect(formatPacePerYear(2.25, { signed: false })).toBe("2.25 a year");
   });
 });
 

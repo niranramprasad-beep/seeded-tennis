@@ -124,6 +124,18 @@ function DashboardInner({ schools }: DashboardViewProps) {
     () => loadMatches()
   );
   const [utrDrawerOpen, setUtrDrawerOpen] = useState(false);
+  // /today?utr=1 opens the UTR drawer: /schools' "Enter my UTR" lands here
+  // for a signed-in player (D2 sends onboarded players away from /onboarding,
+  // and Settings has no rating field). Read once on mount, then the query is
+  // dropped so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("utr") !== "1") return;
+    setUtrDrawerOpen(true);
+    url.searchParams.delete("utr");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, []);
   const [checkinDrawerOpen, setCheckinDrawerOpen] = useState(false);
   const [sundayCheckinOpen, setSundayCheckinOpen] = useState(false);
   const [sundayStatus, setSundayStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -135,7 +147,13 @@ function DashboardInner({ schools }: DashboardViewProps) {
   // layout's own `now`) — real, not fabricated: it's only ever read against
   // the player's actual logged UTR history below.
   const now = useMemo(() => new Date(), []);
-  const sundayCheckinDue = useMemo(() => isSundayCheckinDue(utrEntries, now), [utrEntries, now]);
+  // Not until the history has loaded: with `[]` standing in for "still
+  // loading", isSundayCheckinDue read "no entry for 7+ days" and the banner
+  // flashed on any weekday, then vanished (CLS 0.086 on /today at 375).
+  const sundayCheckinDue = useMemo(
+    () => !utrFetchLoading && !utrFetchError && isSundayCheckinDue(utrEntries, now),
+    [utrFetchLoading, utrFetchError, utrEntries, now]
+  );
 
   // Mirror SWR's fetch state into the existing status/error pair so the
   // render logic below (and the "saving"/"error" states the save flow
@@ -159,8 +177,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
   );
 
   // The same goal and checkpoints /plan shows (lib/hooks/use-plan-goal.ts):
-  // the one the player set, or the typical-growth estimate. It used to be
-  // the hardest target's floor, so "Next checkpoint" jumped whenever a
+  // the one the player set, or none (PR D, D1: never the estimate). It used
+  // to be the hardest target's floor, so "Next checkpoint" jumped whenever a
   // target was added (C11).
   const planGoal = usePlanGoal(player);
   const roadmap = planGoal.roadmap;
@@ -318,7 +336,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
     setSundayCheckinOpen,
     planGoal: planGoal.goal,
     goalPace: planGoal.goalPace,
-    onUseEstimateGoal: () => void planGoal.setGoal(null),
+    onUseEstimateGoal: (value: number) => void planGoal.setGoal(value),
   };
 
   return (
@@ -389,7 +407,8 @@ export interface DashboardLayoutProps {
   /** lib/hooks/use-plan-goal.ts — the same goal /plan shows. */
   planGoal: PlanGoal | null;
   goalPace: GoalPace | null;
-  onUseEstimateGoal: () => void;
+  /** Saves the planning estimate as the goal (the pace warning offers it). */
+  onUseEstimateGoal: (value: number) => void;
 }
 
 function LegacyDashboardLayout({
@@ -519,7 +538,9 @@ function LegacyDashboardLayout({
               <p className="relative mt-3 text-sm text-on-primary/80">
                 {!hasRealUtr(player.currentUTR)
                   ? "Log a UTR to see how far you are from your goal."
-                  : targetUTR > player.currentUTR
+                  : goalUtr == null
+                    ? "No goal set yet. Set one on your plan."
+                    : targetUTR > player.currentUTR
                     ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
                     : "You're at or above your current goal"}
               </p>

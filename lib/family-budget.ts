@@ -2,7 +2,7 @@
 // it's unit-testable and shared verbatim between the Overview page's
 // compact summary and the full /family/budget page. Combines TWO real data
 // sources into one spend picture:
-//   - `tournament_entries` (migration 013) rows with status "entered" —
+//   - `tournament_entries` (migration 013) rows with status "entered" or "played" (047) —
 //     real tournaments the family actually paid for, fit-scored live via
 //     lib/tournament-fit.ts's evaluateTournamentFit. entryCost/travelCost
 //     feed the Entries/Travel spend buckets.
@@ -15,8 +15,9 @@
 // fit-finder flagged the event, not a guess.
 import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/db/family";
 import type { TournamentEntry } from "@/lib/db/events";
+import { isCommittedStatus } from "@/lib/tournament-status";
 import type { FamilyRole } from "@/lib/types";
-import { evaluateTournamentFit, type Verdict } from "@/lib/tournament-fit";
+import { checkTournamentFit, type FitResult, type Verdict } from "@/lib/tournament-fit";
 
 /** Only a parent can write season_budgets/budget_expenses — migration
  * 019_rls_policy_hardening.sql tightens the RLS to match. Centralized here
@@ -89,12 +90,15 @@ export function buildSeasonBudgetSummary(args: {
   const lineItems: BudgetLineItem[] = [];
 
   for (const entry of entries) {
-    if (entry.status !== "entered") continue;
+    // Entered or played: both are money the family paid (047 added played).
+    if (!isCommittedStatus(entry.status)) continue;
     const judged = judgedUserId == null || entry.userId === judgedUserId;
+    // No verdict without a UTR, a fee AND the draw's average UTR — the
+    // line then shows its plain "entries" chip (checkTournamentFit → null).
     const fit =
       playerUtr == null || !judged
         ? null
-        : evaluateTournamentFit({
+        : checkTournamentFit({
             name: entry.name,
             level: entry.level,
             playerUtr,
@@ -137,10 +141,10 @@ export function buildSeasonBudgetSummary(args: {
   let skippedBadFitCount = 0;
   let skippedBadFitSaved = 0;
   for (const entry of entries) {
-    if (entry.status === "entered") continue;
+    if (entry.status !== "saved") continue;
     if (playerUtr == null) continue;
     if (judgedUserId != null && entry.userId !== judgedUserId) continue;
-    const fit = evaluateTournamentFit({
+    const fit = checkTournamentFit({
       name: entry.name,
       level: entry.level,
       playerUtr,
@@ -151,7 +155,7 @@ export function buildSeasonBudgetSummary(args: {
       entryCost: entry.entryCost,
       travelCost: entry.travelCost,
     });
-    if (fit.verdict === "bad") {
+    if (fit?.verdict === "bad") {
       skippedBadFitCount += 1;
       skippedBadFitSaved += entryTotalCost(entry);
     }
@@ -172,7 +176,7 @@ export function buildSeasonBudgetSummary(args: {
 
 export interface PendingSkipDecision {
   entry: TournamentEntry;
-  fit: ReturnType<typeof evaluateTournamentFit>;
+  fit: FitResult;
   wouldSave: number;
 }
 
@@ -190,25 +194,27 @@ export function pendingSkipDecisions(
   judgedUserId?: string | null
 ): PendingSkipDecision[] {
   if (playerUtr == null) return [];
-  return entries
-    .filter((e) => e.status !== "entered")
-    .filter((e) => judgedUserId == null || e.userId === judgedUserId)
-    .map((entry) => {
-      const fit = evaluateTournamentFit({
-        name: entry.name,
-        level: entry.level,
-        playerUtr,
-        goalUtr: entry.goalUtr,
-        drawUtr: entry.drawUtr,
-        travelHours: entry.travelHours,
-        distanceMiles: entry.distanceMiles,
-        entryCost: entry.entryCost,
-        travelCost: entry.travelCost,
-      });
-      return { entry, fit, wouldSave: entryTotalCost(entry) };
-    })
-    .filter((d) => d.fit.verdict === "bad")
-    .sort((a, b) => a.entry.eventDate.localeCompare(b.entry.eventDate));
+  const decisions: PendingSkipDecision[] = [];
+  for (const entry of entries) {
+    // Only Planning rows are still a decision; Entered and Played are paid.
+    if (entry.status !== "saved") continue;
+    if (judgedUserId != null && entry.userId !== judgedUserId) continue;
+    // A row with no draw average (or no fee) has no verdict — it is never
+    // offered as a "skip it" decision on a guess.
+    const fit = checkTournamentFit({
+      name: entry.name,
+      level: entry.level,
+      playerUtr,
+      goalUtr: entry.goalUtr,
+      drawUtr: entry.drawUtr,
+      travelHours: entry.travelHours,
+      distanceMiles: entry.distanceMiles,
+      entryCost: entry.entryCost,
+      travelCost: entry.travelCost,
+    });
+    if (fit?.verdict === "bad") decisions.push({ entry, fit, wouldSave: entryTotalCost(entry) });
+  }
+  return decisions.sort((a, b) => a.entry.eventDate.localeCompare(b.entry.eventDate));
 }
 
 /** Short, real (derived-from-the-actual-score-breakdown) phrase for why a
@@ -218,13 +224,12 @@ export function pendingSkipDecisions(
  * score, cost/competition/travel in that priority order when more than one
  * is weak, since a family reads "too expensive" before "field mismatch" as
  * the more actionable flag. */
-export function shortBadFitReason(fit: ReturnType<typeof evaluateTournamentFit>): string {
+export function shortBadFitReason(fit: FitResult): string {
   if (fit.costScore <= 40) return "Costly for the matches it likely offers.";
-  if (fit.competitionScore <= 40) {
-    return fit.drawEstimated || fit.reasons.some((r) => /below your level|outgrown/.test(r.text))
-      ? "Field too weak."
-      : "Field too strong.";
-  }
+  // The field band decides it, not a regex over the reason text.
+  if (fit.fieldBand === "too-weak") return "Field too weak.";
+  if (fit.fieldBand === "too-strong") return "Field too strong.";
+  if (fit.competitionScore <= 40) return fit.fieldGap < 0 ? "Field too weak." : "Field too strong.";
   if (fit.travelScore <= 40) return "Too much travel for the return.";
   return "Doesn't score as a good fit right now.";
 }

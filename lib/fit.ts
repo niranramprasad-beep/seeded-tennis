@@ -16,13 +16,18 @@ import {
 } from "@/lib/time";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import type { UtrDataPoint } from "@/lib/utr-projection";
-import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPacePerYear, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 import {
+  REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
   classifySchoolFit,
   fitBasis,
+  type ClosestSchoolResult,
+  type GoalPace,
   type SchoolFitBand,
   type SchoolFitProjectionInput,
 } from "@/lib/school-fit";
+
+export { formatPacePerYear };
 
 // Where a player is headed by the time recruiting actually happens, and what
 // that means for each school's band.
@@ -89,6 +94,42 @@ export interface SchoolBandComparison {
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
+/* ==========================================================================
+ * THE PLANNING PACE CAP
+ * ==========================================================================
+ * The fastest pace a band, a fit chip, "closest schools", a school page or
+ * the onboarding result will ever assume: 1.5 UTR a year. A player whose own
+ * logged pace is faster is PLANNED at this; their own pace is shown beside it
+ * as an upside ("At your current pace you'd reach 9.40. We plan with 8.10
+ * because most players improve 0.5–1.5 a year."), and never moves a band.
+ *
+ * WHY. A real player (men's 5.80, Class of 2029) jumped from 4.50 to 5.65 in
+ * four months and then held. Carrying that jump forward put them at 9.40 by
+ * the summer before senior year and flipped two programs to Target — while a
+ * warning on the same screen said the pace was faster than most players
+ * manage (owner's production audit, 2026-11-19). A short hot streak is the
+ * least reliable thing in a junior's history, and a band is what a family
+ * spends a season chasing. So bands take min(own pace, this).
+ *
+ * WHY 1.5. It is the top of the 0.5–1.5 a year band the product has always
+ * stated as what most players manage (REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
+ * /methodology) — not a new number. Typical growth (UTR_GROWTH_PER_YEAR) sits
+ * inside it, and lib/pace-cap.test.ts fails if either ever exceeds it.
+ *
+ * ONE CONSTANT. Every rule that projects a rating reads it: recruitingTimeUtr
+ * (bands, the onboarding diagnostic), projectedUtrOn, projectionReachDate,
+ * and the Reach / Out-of-range split (buildFitReport passes it to
+ * classifySchoolFit). Mutation-tested: changing it or removing the min()
+ * fails lib/pace-cap.test.ts and lib/fit-pace-shapes.test.ts.
+ */
+export const PLANNING_PACE_CAP_PER_YEAR = 1.5;
+
+/** The pace a projection is carried at: the player's own, never above the
+ * cap. A falling pace stays negative — the projection then holds at today. */
+export function planningPacePerYear(ownPerYear: number): number {
+  return Math.min(ownPerYear, PLANNING_PACE_CAP_PER_YEAR);
+}
+
 /** The projection target: June 1 of the summer before senior year. */
 export function projectionTargetDate(graduationYear: number): Date {
   return summerBeforeSeniorYear(graduationYear);
@@ -135,7 +176,9 @@ export function projectUtrAtRecruiting(input: {
   const ceiling = REALISTIC_UTR_CEILING[gender];
 
   const at = (pace: GrowthPace) => {
-    const raw = currentUtr + UTR_GROWTH_PER_YEAR[pace] * years;
+    // Typical growth sits inside the cap (lib/pace-cap.test.ts); capping it
+    // here as well means no projection can ever outrun it.
+    const raw = currentUtr + planningPacePerYear(UTR_GROWTH_PER_YEAR[pace]) * years;
     // Round to one decimal: UTR is published to two, but a projection
     // carrying two implies a precision the assumption does not have.
     return Math.round(Math.min(ceiling, raw) * 10) / 10;
@@ -174,9 +217,10 @@ export interface ProjectionSubject {
  * Same rule as recruitingTimeUtr, evaluated at `date` instead of at the
  * target, and NOT rounded: the end point a screen labels is the rounded
  * recruitingTimeUtr value; this only places the line under it.
- *  - With a logged pace (loggedPaceFor): today + pace × months, capped at the
- *    realistic ceiling, never below today. `pace` is ignored — the player's
- *    own pace has no slow/fast spread, so every pace returns the same line.
+ *  - With a logged pace (loggedPaceFor): today + min(pace, the planning cap)
+ *    × years, capped at the realistic ceiling, never below today. `pace` is
+ *    ignored — the player's own pace has no slow/fast spread, so every pace
+ *    returns the same line.
  *  - Otherwise: current + typical growth × years at `pace`, capped.
  * `date` is clamped to [now, target], so the line never runs past the point
  * coaches decide. Null when there is no usable rating.
@@ -196,15 +240,16 @@ export function projectedUtrOn(
   if (logged) {
     return Math.max(
       currentUtr,
-      Math.min(REALISTIC_UTR_CEILING[gender], currentUtr + logged.perMonth * years * 12)
+      Math.min(REALISTIC_UTR_CEILING[gender], currentUtr + planningPacePerYear(logged.perYear) * years)
     );
   }
-  return Math.min(REALISTIC_UTR_CEILING[gender], currentUtr + UTR_GROWTH_PER_YEAR[pace] * years);
+  return Math.min(REALISTIC_UTR_CEILING[gender], currentUtr + planningPacePerYear(UTR_GROWTH_PER_YEAR[pace]) * years);
 }
 
 /**
- * When the projection (logged pace when there is one, else typical normal
- * pace — the same rule as recruitingTimeUtr) first reaches `utr`, or null
+ * When the projection (logged pace capped at PLANNING_PACE_CAP_PER_YEAR when
+ * there is one, else typical normal pace — the same rule as
+ * recruitingTimeUtr) first reaches `utr`, or null
  * when it does not by the summer before senior year (or the rating is
  * unusable, or the logged pace is flat or falling).
  *
@@ -219,7 +264,7 @@ export function projectionReachDate(input: ProjectionSubject, utr: number): Date
   if (currentUtr >= utr) return now;
   if (utr > REALISTIC_UTR_CEILING[gender]) return null;
   const logged = loggedPaceFor({ currentUtr, history: input.history, now });
-  const perYear = logged ? logged.perMonth * 12 : UTR_GROWTH_PER_YEAR.normal;
+  const perYear = planningPacePerYear(logged ? logged.perYear : UTR_GROWTH_PER_YEAR.normal);
   if (perYear <= 0) return null;
   const years = (utr - currentUtr) / perYear;
   const at = new Date(now.getTime() + years * MS_PER_YEAR);
@@ -284,6 +329,47 @@ export function projectionPath(input: {
 }
 
 /**
+ * The UPSIDE drawn as a path — the player's own pace, uncapped, from today
+ * to the summer before senior year (`report.utr.upside`). Empty unless the
+ * player's own pace is faster than PLANNING_PACE_CAP_PER_YEAR.
+ *
+ * A chart draws this as a dashed line labelled "Estimate", beside the plan
+ * (projectionPath). It is never what a band, a goal or a checkpoint reads.
+ */
+export function upsideProjectionPath(input: {
+  estimate: RecruitingTimeUtr | null | undefined;
+  currentUtr: number | null | undefined;
+  graduationYear: number;
+  now?: Date;
+  steps?: number;
+}): UtrEstimatePoint[] {
+  const up = input.estimate?.upside;
+  if (!input.estimate || !up) return [];
+  return projectionPath({
+    ...input,
+    estimate: { ...input.estimate, value: up.value, low: up.value, high: up.value },
+  });
+}
+
+/**
+ * The words at the right-hand end of a UTR chart — one place, so /today's
+ * and /plan's charts print the report's numbers in the report's formats.
+ *  - `plan`: the planning estimate (projectionPath's end), "8.1".
+ *  - `upside`: "Estimate 9.40" — only with an upside path.
+ */
+export function chartEndLabels(
+  plan: readonly UtrEstimatePoint[],
+  upside: readonly UtrEstimatePoint[] = []
+): { plan: string | null; upside: string | null } {
+  const p = plan[plan.length - 1];
+  const u = upside[upside.length - 1];
+  return {
+    plan: p ? formatUtrEstimate(p.value) : null,
+    upside: u ? `Estimate ${formatPlayerUtr(u.value)}` : null,
+  };
+}
+
+/**
  * The value of that path on one date — the estimate at a chart's right edge
  * when the chart stops before the summer before senior year. Clamped to the
  * path's ends. Null when there is no estimate.
@@ -318,34 +404,52 @@ export function estimateOnDate(
  * (8.90 → 9.0 → 9.50 in one session), and the default plan asked for
  * 3.9 UTR a year — a pace almost nobody manages, presented as "your plan".
  *
- * Now: the goal is one the player chose, or — until they choose — the fit
- * report's estimate for the summer before senior year (`report.utr`, the
- * number every ProjectionNote prints). Adding a target never moves it, and
- * this function computes no projection of its own.
+ * C11 (2026-11-18) then made the goal default to the fit report's estimate.
+ * That was reversed on 2026-11-19 (PR D, D1): an estimate is where Seeded
+ * thinks a player is headed, not something the player decided to aim for,
+ * and with a fast logged pace it put a goal on screen that the pace warning
+ * beside it called unrealistic. Now a goal exists ONLY when the player set
+ * one. No goal → null, and /plan shows "Set a goal". Adding a target never
+ * moves a goal, and this function computes no projection of its own.
  */
-export type PlanGoalSource = "chosen" | "estimate";
-
 export interface PlanGoal {
+  /** The goal the player chose. */
   value: number;
-  source: PlanGoalSource;
-  /** The default the player can always go back to. Null without a rating. */
+  /** The fit report's planning estimate (`report.utr.value`), offered as a
+   * realistic goal the player can pick. Null without a projection. */
   estimate: number | null;
 }
 
 export function resolvePlanGoal(input: {
   /** The goal the player saved, if any (lib/db/settings.ts). */
   chosenGoalUtr: number | null | undefined;
-  /** `report.utr` — the fit report's rating for the summer before senior year. */
+  /** `report.utr` — the fit report's rating for the summer before senior
+   * year. Offered, never defaulted to. */
   estimate: RecruitingTimeUtr | null | undefined;
 }): PlanGoal | null {
-  const estimate = input.estimate?.value ?? null;
   const chosen = input.chosenGoalUtr;
-  if (chosen != null && Number.isFinite(chosen) && chosen > 0) {
-    return { value: chosen, source: "chosen", estimate };
-  }
-  if (estimate == null) return null;
-  return { value: estimate, source: "estimate", estimate };
+  if (chosen == null || !Number.isFinite(chosen) || chosen <= 0) return null;
+  const est = input.estimate?.isProjected ? input.estimate.value : null;
+  return { value: chosen, estimate: est };
 }
+
+/**
+ * THE rule for the unrealistic-pace warning — /plan and /today both render
+ * GoalPaceWarning, which asks this, so the two screens cannot disagree.
+ *
+ * Only for a goal the PLAYER SET (there is no other kind now), and only when
+ * it needs more than PLANNING_PACE_CAP_PER_YEAR — the same cap the bands
+ * plan with — or when there is no time left to close it.
+ */
+export function planGoalNeedsPaceWarning(goal: PlanGoal | null, pace: GoalPace | null): boolean {
+  if (!goal || !pace) return false;
+  if (pace.paceRead === "no-time-left") return true;
+  return pace.requiredPaceUtrPerYear != null && pace.requiredPaceUtrPerYear > PLANNING_PACE_CAP_PER_YEAR;
+}
+
+/** "0.5–1.5 a year" — the band most players improve within, whose top is the
+ * planning cap. Said one way everywhere. */
+export const TYPICAL_PACE_RANGE_LABEL = `${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${PLANNING_PACE_CAP_PER_YEAR} a year`;
 
 /**
  * Why a goal the player typed can't be saved, or null when it can. A goal is
@@ -502,10 +606,43 @@ export interface RecruitingTimeUtr {
   /** True when a projection was applied, i.e. the player is pre-senior. */
   isProjected: boolean;
   source: RecruitingUtrSource;
-  /** The pace carried forward, when `source` is "logged-pace". */
+  /** The player's own logged pace, when `source` is "logged-pace" — the
+   * number shown as "your pace". NOT necessarily the pace `value` was carried
+   * at: see `planningPacePerYear`. */
   pace: LoggedPace | null;
+  /** UTR a year `value` was actually projected at: min(own pace,
+   * PLANNING_PACE_CAP_PER_YEAR) for a logged pace, typical growth otherwise.
+   * Null when `value` is today's rating. */
+  planningPacePerYear: number | null;
+  /** Where the player's OWN pace, uncapped, would put them — present only
+   * when that pace is faster than the cap and the result is above `value`.
+   * Shown beside the plan as an estimate; it never judges a band. */
+  upside: PaceUpside | null;
   /** Growth was cut at the per-gender realistic ceiling. */
   cappedByCeiling: boolean;
+}
+
+export interface PaceUpside {
+  /** The rating at the summer before senior year at the player's own pace,
+   * rounded to one decimal and capped at the realistic ceiling like `value`. */
+  value: number;
+  /** The player's own pace, UTR a year (> PLANNING_PACE_CAP_PER_YEAR). */
+  perYear: number;
+}
+
+/**
+ * "At your current pace you'd reach 9.40. We plan with 8.10 because most
+ * players improve 0.5–1.5 a year." — THE sentence beside a capped
+ * projection, on every screen that shows one. Null when there is no upside
+ * (the player's own pace is within the cap, or there is no logged pace).
+ * Two decimals for both numbers (owner's wording, 2026-11-19).
+ *
+ * `who` is the player's first name on a parent's screen.
+ */
+export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
+  if (!utr?.upside) return null;
+  const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
+  return `${at} ${formatPlayerUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
 }
 
 /* --------------------------------------------------------- logged pace */
@@ -546,6 +683,9 @@ export interface LoggedPace {
   /** UTR per month: (today's rating − `from.utr`) / `months`. Negative when
    * the rating went down — the projection then holds at today's. */
   perMonth: number;
+  /** `perMonth` × 12 — THE pace number every screen prints, through
+   * formatPacePerYear ("+1.45 a year"). */
+  perYear: number;
   /** The logged rating the pace is measured from. */
   from: UtrDataPoint;
   /** Local calendar months from `from.date` to today (localMonthsBetween). */
@@ -588,44 +728,58 @@ export function loggedPaceFor(input: {
   }
   const chosen = year ?? six;
   if (!chosen) return null;
+  const perMonth = (currentUtr - chosen.point.utr) / chosen.months;
   return {
-    perMonth: (currentUtr - chosen.point.utr) / chosen.months,
+    perMonth,
+    perYear: perMonth * 12,
     from: chosen.point,
     months: chosen.months,
   };
 }
 
-/** "+0.25" / "−0.10": a monthly pace, signed, two decimals. */
-export function formatPacePerMonth(perMonth: number): string {
-  const v = Math.round(perMonth * 100) / 100;
-  return v < 0 ? `−${Math.abs(v).toFixed(2)}` : `+${Math.abs(v).toFixed(2)}`;
+/**
+ * THE player's pace, UTR a year — the one pace number /plan, /schools,
+ * /today, the school page and onboarding print (always through
+ * formatPacePerYear). It is loggedPaceFor's window, annualised: the same
+ * logged rating that sets the projection sets this. Null when no logged
+ * rating is 5–13 months old — a screen then says "Not tracked" rather than
+ * deriving a pace some other way (the old "+1.45 last 6 months" tile did).
+ */
+export function playerPacePerYear(input: {
+  currentUtr: number | null | undefined;
+  history?: readonly UtrDataPoint[] | null;
+  now?: Date;
+}): number | null {
+  if (!isUsableUtr(input.currentUtr)) return null;
+  return loggedPaceFor({ currentUtr: input.currentUtr, history: input.history, now: input.now ?? new Date() })?.perYear ?? null;
 }
 
 /**
- * THE sentence that sits beside a logged-pace projection. Every screen gets
- * it from here (RecruitingTimeUtr.assumption), so no component builds pace
- * wording of its own.
+ * THE sentence that sits beside a logged-pace projection within the cap.
+ * Every screen gets it from here (RecruitingTimeUtr.assumption), so no
+ * component builds pace wording of its own. A pace above the cap gets
+ * paceUpsideSentence instead.
  *
- *   rising    "At your logged pace (+0.25 a month since May 2026)."
- *   capped    "At your logged pace (+0.40 a month since May 2026), capped
+ *   rising    "At your logged pace (+1.20 a year since May 2026)."
+ *   capped    "At your logged pace (+1.40 a year since May 2026), capped
  *              near the top of college tennis."
- *   falling   "Your rating has gone down since May 2026 (−0.10 a month), so
+ *   falling   "Your rating has gone down since May 2026 (−0.10 a year), so
  *              this stays at today's UTR."
  *
  * `whose` is "your" for the player; a parent's screen passes "Avery's".
  */
 export function loggedPaceAssumption(
-  pace: Pick<LoggedPace, "perMonth" | "from">,
+  pace: Pick<LoggedPace, "perYear" | "from">,
   options: { capped?: boolean; whose?: string } = {}
 ): string {
   const whose = options.whose ?? "your";
   const since = monthYearLabel(pace.from.date);
-  const rate = formatPacePerMonth(pace.perMonth);
-  if (pace.perMonth < 0) {
+  const rate = formatPacePerYear(pace.perYear);
+  if (pace.perYear < 0) {
     const Whose = whose.charAt(0).toUpperCase() + whose.slice(1);
-    return `${Whose} rating has gone down since ${since} (${rate} a month), so this stays at today's UTR.`;
+    return `${Whose} rating has gone down since ${since} (${rate}), so this stays at today's UTR.`;
   }
-  return `At ${whose} logged pace (${rate} a month since ${since})${
+  return `At ${whose} logged pace (${rate} since ${since})${
     options.capped ? ", capped near the top of college tennis" : ""
   }.`;
 }
@@ -651,11 +805,14 @@ export function utrHistoryFromEntries(
  *
  *  1. The summer before senior year has begun → today's rating, unchanged.
  *     Projecting past the point coaches decide would invent a better player.
- *  2. A REAL logged rating 5–13 months old (loggedPaceFor) → THEIR pace:
- *     (today − past) / months, carried to projectionTargetDate(), capped at
- *     the per-gender REALISTIC_UTR_CEILING and rounded to one decimal as the
- *     typical-growth projection is — and never below today's rating, so a
- *     falling trend is held at today. One value; no slow/fast range.
+ *  2. A REAL logged rating 5–13 months old (loggedPaceFor) → THEIR pace,
+ *     but never faster than PLANNING_PACE_CAP_PER_YEAR (1.5 a year):
+ *     min((today − past) / months × 12, cap), carried to
+ *     projectionTargetDate(), capped at the per-gender REALISTIC_UTR_CEILING
+ *     and rounded to one decimal as the typical-growth projection is — and
+ *     never below today's rating, so a falling trend is held at today. One
+ *     value; no slow/fast range. When their own pace is faster than the cap,
+ *     where it would take them is returned as `upside` — shown, never banded.
  *  3. Otherwise → the typical-growth projection (normal pace, slow/fast as
  *     the range). A 13-year-old with no history is still not banded on their
  *     13-year-old rating — the bug this function first existed to fix.
@@ -680,6 +837,8 @@ export function recruitingTimeUtr(input: ProjectionSubject): RecruitingTimeUtr |
       isProjected: false,
       source: "current",
       pace: null,
+      planningPacePerYear: null,
+      upside: null,
       cappedByCeiling: false,
     };
   }
@@ -687,21 +846,39 @@ export function recruitingTimeUtr(input: ProjectionSubject): RecruitingTimeUtr |
   const pace = loggedPaceFor({ currentUtr: current, history: input.history, now });
   if (pace) {
     const ceiling = REALISTIC_UTR_CEILING[input.gender];
-    const raw = current + pace.perMonth * projection.yearsOfGrowth * 12;
+    const years = projection.yearsOfGrowth;
     // The ceiling caps GROWTH; it never pulls a real rating down.
-    const capped = raw > Math.max(ceiling, current);
-    const value = Math.max(current, Math.round(Math.min(ceiling, raw) * 10) / 10);
-    return {
-      value,
+    const carry = (perYear: number) => {
+      const raw = current + perYear * years;
+      return {
+        value: Math.max(current, Math.round(Math.min(ceiling, raw) * 10) / 10),
+        hitCeiling: raw > Math.max(ceiling, current),
+      };
+    };
+    const planned = planningPacePerYear(pace.perYear);
+    const plan = carry(planned);
+    const own = pace.perYear > planned ? carry(pace.perYear) : null;
+    const upside: PaceUpside | null =
+      own && own.value > plan.value ? { value: own.value, perYear: pace.perYear } : null;
+    const partial: RecruitingTimeUtr = {
+      value: plan.value,
       basis: "projected",
-      low: value,
-      high: value,
-      assumption: loggedPaceAssumption(pace, { capped }),
+      low: plan.value,
+      high: plan.value,
+      assumption: null,
       year: projection.recruitingYear,
       isProjected: true,
       source: "logged-pace",
       pace,
-      cappedByCeiling: capped,
+      planningPacePerYear: planned,
+      upside,
+      cappedByCeiling: plan.hitCeiling,
+    };
+    return {
+      ...partial,
+      assumption: upside
+        ? (paceUpsideSentence(partial) as string)
+        : loggedPaceAssumption(pace, { capped: plan.hitCeiling || (own?.hitCeiling ?? false) }),
     };
   }
 
@@ -715,6 +892,8 @@ export function recruitingTimeUtr(input: ProjectionSubject): RecruitingTimeUtr |
     isProjected: true,
     source: "typical-growth",
     pace: null,
+    planningPacePerYear: planningPacePerYear(UTR_GROWTH_PER_YEAR.normal),
+    upside: null,
     cappedByCeiling: projection.cappedByCeiling,
   };
 }
@@ -835,6 +1014,8 @@ export function buildFitReport(input: {
         isProjected: false,
         source: "current",
         pace: null,
+        planningPacePerYear: null,
+        upside: null,
         cappedByCeiling: false,
       }
     : input.recruitingUtr ??
@@ -848,7 +1029,14 @@ export function buildFitReport(input: {
   if (!utr) return null;
 
   const current = override ?? (input.currentUtr as number);
-  const todayBasis = fitBasis(current, input.projectionInput);
+  // The Reach / Out-of-range split is a band too, so it plans with the same
+  // cap as the rating: the trend through the logged ratings is never carried
+  // faster than PLANNING_PACE_CAP_PER_YEAR from the latest one
+  // (classifySchoolFit). A hot streak shows as the upside, not as Reach.
+  const splitInput: SchoolFitProjectionInput | undefined = input.projectionInput
+    ? { ...input.projectionInput, paceCapPerYear: PLANNING_PACE_CAP_PER_YEAR }
+    : undefined;
+  const todayBasis = fitBasis(current, splitInput);
 
   // ONE rule for Reach vs Out of range, in every view and in the what-if:
   // the pace in the player's REAL logged ratings, evaluated at the summer
@@ -865,7 +1053,7 @@ export function buildFitReport(input: {
   // same rating on the same date two ways: persona (a)'s default view said
   // Reach 10 · Out of range 3, and typing the identical 12.2 into the
   // what-if said Reach 0 · Out of range 13 (independent verifier, H1).
-  const recruitingBasis = fitBasis(utr.value, input.projectionInput);
+  const recruitingBasis = fitBasis(utr.value, splitInput);
 
   const todayCounts: BandCounts = { likely: 0, target: 0, reach: 0, outOfRange: 0 };
   const recruitingCounts: BandCounts = { likely: 0, target: 0, reach: 0, outOfRange: 0 };
@@ -952,8 +1140,13 @@ export interface DiagnosticProjection {
   basis: DiagnosticProjectionBasis;
   /** True whenever the number is a projection rather than today's rating. */
   isEstimate: boolean;
-  /** UTR per month carried forward from a past answer; 0 when none was. */
-  pacePerMonth: number;
+  /** The player's own pace from a past answer, UTR a year (playerPacePerYear;
+   * print it with formatPacePerYear). 0 when none was. The projection uses
+   * min(this, PLANNING_PACE_CAP_PER_YEAR). */
+  pacePerYear: number;
+  /** The upside sentence when the answers' pace is above the cap — also the
+   * `note`, so the card says it once. Null otherwise. */
+  upside: string | null;
   /** Months (fractional) from now to the target; 0 once it has begun. */
   monthsToTarget: number;
   /** "summer {targetYear}". Always grad year − 1. */
@@ -1021,7 +1214,8 @@ export function diagnosticProjection(input: {
     todayUtr: today,
     basis,
     isEstimate: recruiting.isProjected,
-    pacePerMonth: recruiting.pace?.perMonth ?? 0,
+    pacePerYear: recruiting.pace?.perYear ?? 0,
+    upside: paceUpsideSentence(recruiting),
     monthsToTarget: yearsUntilRecruiting(input.graduationYear, now) * 12,
     targetYear: recruiting.year,
     note: recruiting.assumption ?? SUMMER_STARTED_NOTE,
@@ -1082,4 +1276,38 @@ export function buildDiagnosticFitReport(input: {
     now,
   });
   return report ? { projection, report } : null;
+}
+
+/**
+ * "Closest schools to you" on /plan — read off the fit report, never
+ * classified again. Ranked by the real gap from the rating that judged the
+ * bands (`report.utr.value`: the planning estimate before the summer before
+ * senior year, today's rating after) to each team's estimated average, ties
+ * broken by distance to the floor; each row carries the report's own band.
+ *
+ * It used to rank and band against TODAY's rating with an uncapped trend
+ * (closestSchoolsByUtrGap), so its chips could disagree with the same
+ * school's chip on /schools. `catalog` must be the schools the report was
+ * built over; a school the report has no band for is left out.
+ */
+export function closestSchoolsFromReport(
+  report: FitReport | null | undefined,
+  catalog: readonly SchoolLite[],
+  limit = 5
+): ClosestSchoolResult[] {
+  if (!report) return [];
+  const utr = report.utr.value;
+  const out: ClosestSchoolResult[] = [];
+  for (const school of catalog) {
+    const band = report.bandBySlug.get(school.slug);
+    if (!band) continue;
+    out.push({ school, gap: Math.round((school.avgRosterUTR - utr) * 100) / 100, band });
+  }
+  return out
+    .sort(
+      (a, b) =>
+        Math.abs(a.gap) - Math.abs(b.gap) ||
+        Math.abs(a.school.minCompetitiveUTR - utr) - Math.abs(b.school.minCompetitiveUTR - utr)
+    )
+    .slice(0, limit);
 }

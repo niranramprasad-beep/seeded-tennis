@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { usePlayer } from "@/lib/context/player-context";
+import { toolBackLink } from "@/lib/tool-back-link";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { ConfirmDialog } from "@/components/seeded/ui/dialog";
 import { Toast, type ToastAction, type ToastVariant } from "@/components/seeded/ui/toast";
@@ -36,6 +39,7 @@ interface PageToast {
 }
 
 function MatchHistoryInner() {
+  const { player, isAuthed } = usePlayer();
   const { data: matches, mutate } = useSWR<MatchRecord[]>("matches", () => loadMatches());
   const [filter, setFilter] = useState<FilterId>("all");
   const [pendingDelete, setPendingDelete] = useState<MatchRecord | null>(null);
@@ -90,9 +94,21 @@ function MatchHistoryInner() {
   };
 
   const count = matches?.length ?? 0;
+  // Results is a Tools page; "back" is Events, whose Recent results card
+  // links here (lib/tool-back-link.ts).
+  const backLink = toolBackLink({ isAuthed, role: player.role });
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
+      {backLink && (
+        <Link
+          href={backLink.href}
+          className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-grass hover:underline sm:min-h-6"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          {backLink.label}
+        </Link>
+      )}
       <h1 className="text-[30px] font-semibold tracking-tight text-ink">Results</h1>
       <p className="mt-1.5 text-stone">
         {matches === undefined

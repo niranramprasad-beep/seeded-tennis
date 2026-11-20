@@ -16,10 +16,10 @@ import {
   type NextStep,
   type TodayAction,
 } from "@/lib/today-actions";
-import { projectionPath } from "@/lib/fit";
+import { projectionPath, upsideProjectionPath } from "@/lib/fit";
 import { GoalPaceWarning } from "@/components/seeded/roadmap/goal-pace-warning";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { PaceUpsideNote, ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
@@ -132,6 +132,13 @@ export function SeededDashboardLayout({
       projectionPath({ estimate: fitReport?.utr, currentUtr: player.currentUTR, graduationYear: player.graduationYear }),
     [fitReport, player.currentUTR, player.graduationYear]
   );
+  // The upside — the player's own pace when it is faster than the planning
+  // cap. Drawn and said beside the chart; it never moves a band (lib/fit.ts).
+  const upsidePath = useMemo(
+    () =>
+      upsideProjectionPath({ estimate: fitReport?.utr, currentUtr: player.currentUTR, graduationYear: player.graduationYear }),
+    [fitReport, player.currentUTR, player.graduationYear]
+  );
 
   const dateLine = `${now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} · ${seasonLabel(
     player.graduationYear,
@@ -193,7 +200,13 @@ export function SeededDashboardLayout({
         </div>
 
         {/* The same warning, rule and action /plan shows under its goal. */}
-        <GoalPaceWarning goalPace={goalPace} goal={planGoal} onUseEstimate={onUseEstimateGoal} className="mt-3.5" />
+        <GoalPaceWarning
+          goalPace={goalPace}
+          goal={planGoal}
+          currentUtr={player.currentUTR}
+          onUseEstimate={onUseEstimateGoal}
+          className="mt-3.5"
+        />
 
         {sundayCheckinDue && (
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-grass-100 bg-grass-50 px-4 py-3">
@@ -248,8 +261,14 @@ export function SeededDashboardLayout({
             <h2 className="text-base font-semibold text-ink">UTR vs plan</h2>
           </div>
           <div className="mt-2.5">
-            <UtrVsPlanChart actualPoints={actualPoints} nextCheckpoint={nextCheckpoint} estimate={estimatePath} />
+            <UtrVsPlanChart
+              actualPoints={actualPoints}
+              nextCheckpoint={nextCheckpoint}
+              estimate={estimatePath}
+              upside={upsidePath}
+            />
           </div>
+          <PaceUpsideNote utr={fitReport?.utr} className="mt-2" />
         </div>
 
         <div className="rounded-xl border border-line bg-card p-5">

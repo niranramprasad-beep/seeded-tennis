@@ -58,7 +58,7 @@ export function ConsentPendingScreen({ firstName }: { firstName?: string }) {
             account by design. */}
         <p className="mt-4 text-sm text-stone">
           Entered the wrong family code?{" "}
-          <Link href="/settings" className="text-grass underline underline-offset-2">
+          <Link href="/settings/family" className="text-grass underline underline-offset-2">
             Check it in Settings
           </Link>
           .
@@ -66,7 +66,7 @@ export function ConsentPendingScreen({ firstName }: { firstName?: string }) {
 
         <p className="mt-2 text-sm text-stone">
           You can still{" "}
-          <Link href="/settings" className="text-grass underline underline-offset-2">
+          <Link href="/settings/privacy" className="text-grass underline underline-offset-2">
             download or delete your account
           </Link>{" "}
           at any time, with or without their approval.

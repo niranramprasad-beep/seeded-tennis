@@ -1,0 +1,61 @@
+-- 047_tournament_status_played.sql
+--
+-- STATUS: written 2026-11-19 for PR D (D4, tournaments). Applied and probed
+-- on STAGING (gnlcpnsweqbtwpaqhqqg) only. Production gets it on Niran's go,
+-- and it MUST be on production before the PR D app code merges: the new
+-- /events status control writes 'played', which production's CHECK refuses
+-- with 23514 until this runs. Independent of every other migration.
+--
+-- ===========================================================================
+-- Why
+-- ===========================================================================
+-- /events' bare "Enter" toggle becomes a three-step status control:
+-- Planning -> Entered -> Played. tournament_entries.status allowed only
+-- 'saved' and 'entered' (013).
+--
+-- ===========================================================================
+-- What
+-- ===========================================================================
+-- Widens the CHECK to ('saved', 'entered', 'played'). That is all.
+--
+-- NO DATA IS REWRITTEN. The app shows the stored 'saved' as "Planning", so
+-- every existing row keeps its value and its meaning ('saved' = Planning,
+-- 'entered' = Entered). Renaming 'saved' to 'planning' was considered and
+-- rejected: it would need an UPDATE of every row, and any old client still
+-- writing 'saved' after the rename would fail. The column default stays
+-- 'saved'.
+--
+-- RLS, the stamp_family_code / updated_at / rate-limit triggers and every
+-- policy on the table are untouched: status is not a privileged column, and
+-- the existing owner-only UPDATE policy already governs who may change it.
+--
+-- ===========================================================================
+-- Verify (run after applying)
+-- ===========================================================================
+--   select pg_get_constraintdef(oid) from pg_constraint
+--    where conname = 'tournament_entries_status_check';
+--   -- CHECK ((status = ANY (ARRAY['saved'::text, 'entered'::text, 'played'::text])))
+--   select status, count(*) from public.tournament_entries group by 1;
+--   -- same counts as before the migration.
+--
+-- ===========================================================================
+-- Rollback
+-- ===========================================================================
+-- A 'played' row would violate the old CHECK, so map it back first. 'entered'
+-- is the closest old meaning (the family paid for it), so no budget figure
+-- changes:
+--
+--   begin;
+--   update public.tournament_entries set status = 'entered' where status = 'played';
+--   alter table public.tournament_entries drop constraint tournament_entries_status_check;
+--   alter table public.tournament_entries
+--     add constraint tournament_entries_status_check check (status in ('saved', 'entered'));
+--   commit;
+--
+-- (The UPDATE fires zz_rate_limit_tournament_entries per row; from the SQL
+-- editor auth.uid() is NULL, and enforce_write_rate_limit() returns early
+-- for a NULL user, so a bulk fix is not limited.)
+
+alter table public.tournament_entries drop constraint if exists tournament_entries_status_check;
+alter table public.tournament_entries
+  add constraint tournament_entries_status_check check (status in ('saved', 'entered', 'played'));

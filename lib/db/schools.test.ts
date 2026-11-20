@@ -151,9 +151,13 @@ describe("buildCoachEmail", () => {
     expect(email.body).not.toMatch(/\s\./);
   });
 
-  it("reports the player's own tournament count when they have one", () => {
+  // D3 (2026-11-19): this test used to REQUIRE "I've played 5 tournaments so
+  // far this season." But no screen writes profiles.tournaments_played — it
+  // is a column default — so the number was never the player's. Inverted.
+  it("never states a tournament count: tournaments_played is not something the player entered", () => {
     const email = buildCoachEmail({ ...player, tournamentsPlayed: 5 }, school, []);
-    expect(email.body).toContain("I've played 5 tournaments so far this season.");
+    expect(email.body).not.toMatch(/tournaments? so far|I've played \d/);
+    expect(email.body).not.toContain("5 tournaments");
   });
 
   it("uses real logged results when provided, never invented ones", () => {
@@ -179,15 +183,17 @@ describe("buildCoachEmail", () => {
 
   // P0-4: every player got "I'll be at several events this spring and would be
   // glad to play in front of your staff" — including players with nothing
-  // scheduled. A forward-looking claim has to come from a number they entered.
-  it("makes no scheduling promise the player didn't supply", () => {
-    const none = buildCoachEmail({ ...player, tournamentsGoal: 0 }, school);
-    expect(none.body).not.toMatch(/I'll be at|play in front of your staff/);
-    expect(none.body).not.toMatch(/My goal is/);
-
-    const withGoal = buildCoachEmail({ ...player, tournamentsGoal: 12 }, school);
-    expect(withGoal.body).toContain("My goal is 12 tournaments this season");
-    expect(withGoal.body).not.toMatch(/I'll be at|play in front of your staff/);
+  // scheduled. Its replacement, "My goal is {n} tournaments this season",
+  // read profiles.tournaments_goal — which signup hardcodes to 12 and no
+  // screen lets anyone change, so EVERY player's email said 12 (D3,
+  // 2026-11-19). This test used to require that sentence; it now forbids it.
+  it("makes no scheduling promise and states no tournament goal", () => {
+    for (const tournamentsGoal of [0, 12]) {
+      const email = buildCoachEmail({ ...player, tournamentsGoal }, school);
+      expect(email.body).not.toMatch(/I'll be at|play in front of your staff/);
+      expect(email.body).not.toMatch(/My goal is|send the schedule/);
+      expect(email.body).not.toMatch(/\b12\b/);
+    }
   });
 
   // P0-4: the UTR is the player's own number, typed by them and never checked
@@ -209,13 +215,16 @@ describe("buildCoachEmail", () => {
       school
     );
     expect(email.body).not.toMatch(/ad corner|deuce side|third sets|point-ending/);
-    expect(email.body).toContain("I'm working on my forehand and my backhand.");
+    // The player answered "What do you want to improve?" — so that is what
+    // the sentence says, not that they are working on it right now.
+    expect(email.body).toContain("I want to improve my forehand and my backhand.");
   });
 
   it("mentions a development focus only when the player has logged weaknesses", () => {
     const noFocus = buildCoachEmail(player, school);
     const withFocus = buildCoachEmail({ ...player, weaknesses: ["serve", "mental"] }, school);
-    expect(withFocus.body).toContain("Right now I'm working on");
+    expect(withFocus.body).toContain("I want to improve my serve and the mental side of my game.");
+    expect(noFocus.body).not.toMatch(/improve/);
     expect(withFocus.body.length).toBeGreaterThan(noFocus.body.length);
   });
 });

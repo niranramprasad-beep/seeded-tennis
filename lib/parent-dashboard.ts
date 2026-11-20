@@ -32,6 +32,7 @@ import type { SchoolFitBand } from "@/lib/school-fit";
 import type { SeasonBudgetSummary } from "@/lib/family-budget";
 import type { BudgetExpense, BudgetExpenseCategory } from "@/lib/db/family";
 import type { TournamentEntry } from "@/lib/db/events";
+import { isCommittedStatus } from "@/lib/tournament-status";
 import type { PlayerGender, SchoolLite } from "@/lib/types";
 import { encodeTournamentFitShareParams, type TravelPill } from "@/lib/tournament-fit-share";
 import { formatShortDate, localDateKey, parseLocalDate, startOfLocalDay } from "@/lib/time";
@@ -356,6 +357,8 @@ export function tournamentCheckHref(entry: TournamentEntry, playerUtr: number | 
     travel: travelPillFor(entry.travelHours),
     entryCost: entry.entryCost,
     travelCost: entry.travelCost,
+    // The verdict needs it (D5) — without it the link opened on "Not enough info".
+    drawUtr: entry.drawUtr,
   });
   return `/tournament-fit?${params.toString()}`;
 }
@@ -379,7 +382,7 @@ export function recentExpenses(
 ): ExpenseRow[] {
   const rows = [
     ...entries
-      .filter((e) => e.status === "entered")
+      .filter((e) => isCommittedStatus(e.status))
       .map((e) => ({
         id: e.id,
         date: e.eventDate.slice(0, 10),

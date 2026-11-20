@@ -5,7 +5,7 @@
 // former lib/data/index.ts's roadmap/training-plan exports, lib/supabase/
 // utr.ts, lib/supabase/recruiting-checklist.ts, and daily_checkins' slice
 // of lib/supabase/features.ts — same bodies, moved, not rewritten.
-import type { Player, RoadmapYear, TrainingPlan } from "@/lib/types";
+import type { Player, RoadmapYear } from "@/lib/types";
 import { MILESTONES_BEFORE_GRADE } from "@/lib/config/recruiting";
 import { getCurrentGrade, getSummerBeforeGradeYear, isCalendarDateKey, localDateKey, ordinalGrade, startOfLocalDay } from "@/lib/time";
 import type { RecruitingChecklistState } from "@/lib/recruiting-checklist";
@@ -13,7 +13,6 @@ import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
-import { trainingPlans as trainingPlansData } from "./plan-data-training-plans";
 import type { Tables } from "./database.types";
 
 /* ---------------------------------------------------------------- roadmap */
@@ -23,8 +22,8 @@ import type { Tables } from "./database.types";
 // grade (the recruiting-relevant window), on the straight line from today's
 // rating to the goal at the summer before senior year.
 //
-// The goal comes from lib/fit.ts `resolvePlanGoal` — the one the player set,
-// or the typical-growth estimate every screen already prints. It used to be
+// The goal comes from lib/fit.ts `resolvePlanGoal` — the one the player set;
+// with no goal there is no roadmap (PR D, D1). It used to be
 // the floor of the HARDEST target school, so every checkpoint (and /today's
 // "Next checkpoint") moved whenever a target was added: 8.90 → 9.0 → 9.50,
 // and a default plan needing 3.9 UTR a year (C11, 2026-11-18).
@@ -72,23 +71,6 @@ export function buildRoadmap(
   });
 }
 
-
-/* ------------------------------------------------------ training catalog */
-// Static "which plan fits your current UTR" recommendation catalog behind
-// /training's legacy view — distinct from the real per-user training
-// PLANNER (training_plans/workout_sessions tables, lib/db/events.ts), which
-// is the player's own editable weekly calendar, not a recommendation.
-
-export async function getTrainingPlans(): Promise<TrainingPlan[]> {
-  return Promise.resolve(trainingPlansData);
-}
-
-export async function getTrainingPlanForUTR(utr: number): Promise<TrainingPlan> {
-  const nearest = trainingPlansData.reduce((best, plan) =>
-    Math.abs(plan.utrLevel - utr) < Math.abs(best.utrLevel - utr) ? plan : best
-  );
-  return Promise.resolve(nearest);
-}
 
 /* ------------------------------------------------------------ utr history */
 
@@ -374,10 +356,19 @@ export async function saveDailyCheckin(input: {
   return mapCheckin(data);
 }
 
-export function calculateStreak(checkins: DailyCheckin[]): number {
+/**
+ * Consecutive LOCAL days with a check-in, ending today — or ending yesterday
+ * when today has not been logged yet. A streak only breaks once a whole day
+ * has been missed: at 9 am, before today's check-in, yesterday's 12-day run
+ * still reads 12, not 0. `now` is injectable for tests.
+ */
+export function calculateStreak(checkins: DailyCheckin[], now: Date = new Date()): number {
   const dates = new Set(checkins.map((c) => c.date));
   let streak = 0;
-  const cursor = startOfLocalDay(new Date());
+  const cursor = startOfLocalDay(now);
+  // Today not logged yet: the run (if any) is still alive and ends yesterday.
+  // setDate, not "minus 24h", so a daylight-saving day is still one day.
+  if (!dates.has(localDateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
   while (dates.has(localDateKey(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);

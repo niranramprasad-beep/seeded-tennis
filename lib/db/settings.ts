@@ -105,8 +105,8 @@ export async function savePublicRecruitingPage(value: boolean): Promise<void> {
 // `user_settings.notification_preferences` bag as the rest of the player's
 // own preferences — no migration, the same read-then-merge write, and it
 // rides along in /api/account/export with the rest of user_settings.
-// `null` means "no goal chosen": lib/fit.ts resolvePlanGoal then uses the
-// typical-growth estimate. A value outside the real UTR scale is ignored
+// `null` means "no goal chosen": there is then no goal at all (lib/fit.ts
+// resolvePlanGoal; PR D, D1 — it used to fall back to the estimate). A value outside the real UTR scale is ignored
 // rather than trusted.
 
 const PLAN_GOAL_KEY = "planGoalUtr";

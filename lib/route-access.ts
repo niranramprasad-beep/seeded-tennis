@@ -47,3 +47,24 @@ export function isPlayerBlockedPath(pathname: string): boolean {
 export function isOnboardingExemptPath(pathname: string): boolean {
   return pathname.startsWith("/settings");
 }
+
+// Routes that exist only for a signed-in user: every one renders AuthGate,
+// which sends a visitor with no session to /login (measured 2026-11-19 for
+// each prefix, query strings included — all land on a bare /login). Two
+// readers:
+//  - AppShell, to lay these out as the app (or as /login's header) while
+//    the session check runs;
+//  - the head script in app/layout.tsx, which sends a browser that holds NO
+//    saved Supabase session straight to /login before any JS bundle loads
+//    (D8: that client-side redirect used to wait for React, the session
+//    check and /login's chunks — LCP 6.0 s on a slow-4G phone). Same
+//    destination AuthGate picks, just earlier; still a redirect, not access
+//    control. A browser that DOES hold a session is never redirected by it.
+export const SIGNED_IN_ONLY_PREFIXES = [
+  "/today", "/plan", "/outreach", "/events", "/family", "/settings", "/matches",
+  "/match-mode", "/dashboard", "/roadmap", "/training", "/coaches", "/cost-calculator",
+] as const;
+
+export function isSignedInOnlyPath(pathname: string): boolean {
+  return SIGNED_IN_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}

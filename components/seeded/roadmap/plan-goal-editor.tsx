@@ -3,19 +3,25 @@
 import { useState } from "react";
 import { planGoalInputError, type PlanGoal } from "@/lib/fit";
 import { SeededButton } from "@/components/seeded/ui/button";
-import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPlayerUtr } from "@/lib/utils";
 
 // Sets the plan goal explicitly (C11). Saved with lib/db/settings.ts
-// savePlanGoalUtr via usePlanGoal; "Use the estimate" clears it, and the
-// goal goes back to where typical growth puts the player (lib/fit.ts).
+// savePlanGoalUtr via usePlanGoal. There is no default goal (PR D, D1): the
+// planning estimate is OFFERED as a goal ("Use your estimate (8.10)"), saved
+// only when the player picks it, and "Clear goal" goes back to no goal.
 export function PlanGoalEditor({
   goal,
+  estimate,
   currentUtr,
   onSave,
   onCancel,
   className,
 }: {
-  goal: PlanGoal;
+  /** Null when no goal is set yet — the editor then starts empty. */
+  goal: PlanGoal | null;
+  /** The fit report's planning estimate, offered as a goal. Null when there
+   * is no projection. */
+  estimate: number | null;
   /** Today's rating; a goal must be above it (docs/DECISIONS.md). Null or
    * the 0 sentinel when the player has none — then any 1–16.5 goal is fine. */
   currentUtr: number | null;
@@ -23,7 +29,7 @@ export function PlanGoalEditor({
   onCancel: () => void;
   className?: string;
 }) {
-  const [draft, setDraft] = useState(formatPlayerUtr(goal.value));
+  const [draft, setDraft] = useState(goal ? formatPlayerUtr(goal.value) : "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -73,9 +79,14 @@ export function PlanGoalEditor({
         <SeededButton onClick={submit} disabled={saving}>
           {saving ? "Saving…" : "Save goal"}
         </SeededButton>
-        {goal.source === "chosen" && goal.estimate != null && (
+        {estimate != null && estimate !== goal?.value && planGoalInputError(estimate, currentUtr) == null && (
+          <SeededButton variant="secondary" onClick={() => void save(estimate)} disabled={saving}>
+            Use your estimate ({formatPlayerUtr(estimate)})
+          </SeededButton>
+        )}
+        {goal && (
           <SeededButton variant="secondary" onClick={() => void save(null)} disabled={saving}>
-            Use the estimate ({formatUtrEstimate(goal.estimate)})
+            Clear goal
           </SeededButton>
         )}
         <button type="button" onClick={onCancel} className="min-h-11 px-2 text-sm font-semibold text-stone hover:text-ink sm:min-h-8">

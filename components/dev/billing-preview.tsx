@@ -94,7 +94,7 @@ export function BillingPreview({ states }: { states: BillingPreviewState[] }) {
             </button>
           ))}
         </div>
-        <SeededSettingsShell active="billing" onTabChange={() => {}}>
+        <SeededSettingsShell active="billing">
           <BillingContent
             view={current.view}
             familyMembers={MOCK_FAMILY_MEMBERS}

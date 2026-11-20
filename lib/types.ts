@@ -153,15 +153,6 @@ export type WeekdayShort =
   | "Sat"
   | "Sun";
 
-export type ActivityType =
-  | "court"
-  | "gym"
-  | "match"
-  | "recovery"
-  | "mental";
-
-export type Intensity = "low" | "moderate" | "high";
-
 export type TournamentLevel =
   | "L1"
   | "L2"
@@ -209,29 +200,6 @@ export interface School {
 // alias stays as the seam for P1-DATA-1, when the full `School` grows sourced
 // roster rows and list pages will again want a narrower row.
 export type SchoolLite = School;
-
-export interface Activity {
-  id: string;
-  type: ActivityType;
-  title: string;
-  hours: number;
-  intensity: Intensity;
-  detail: string;
-  focusAreas: Weakness[];
-}
-
-export interface TrainingDay {
-  day: WeekdayShort;
-  activities: Activity[];
-}
-
-export interface TrainingPlan {
-  utrLevel: number;
-  label: string;
-  summary: string;
-  weeklyHours: number;
-  days: TrainingDay[];
-}
 
 export type PlayerGender = "male" | "female";
 export type FamilyRole = "player" | "parent";

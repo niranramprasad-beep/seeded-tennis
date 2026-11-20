@@ -2,16 +2,21 @@ import {
   CalendarDays,
   Clock,
   Compass,
+  CreditCard,
   DollarSign,
   FileText,
   LayoutDashboard,
   Mail,
   School,
   Settings,
+  Shield,
   TrendingUp,
   Trophy,
+  User,
+  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { settingsHref } from "@/lib/settings-sections";
 
 // The ONE list of where each role can go. The sidebar and the ⌘K palette
 // both read it.
@@ -41,8 +46,27 @@ export const PLAYER_NAV_LINKS: NavLink[] = [
   { href: "/events", label: "Events", icon: CalendarDays, keywords: "calendar training matches" },
 ];
 
-/** In the avatar menu for both roles, and in the ⌘K palette. */
+/** In the avatar menu for both roles, and in the ⌘K palette. /settings
+ * forwards to Profile; the sidebar highlights it on every /settings/… page. */
 export const SETTINGS_LINK: NavLink = { href: "/settings", label: "Settings", icon: Settings };
+
+// ⌘K only: the Settings sections that have their own URL, so "family",
+// "billing" or "delete" in the palette goes straight there
+// (lib/settings-sections.ts is the one list of sections). Profile is
+// SETTINGS_LINK. A parent has no Account section.
+const SETTINGS_ACCOUNT_LINK: NavLink = {
+  href: settingsHref("account"),
+  label: "Account settings",
+  icon: User,
+  keywords: "settings plan sign out",
+};
+const SETTINGS_SECTION_SHARED: NavLink[] = [
+  { href: settingsHref("family"), label: "Family settings", icon: Users, keywords: "settings members join requests approve leave code" },
+  { href: settingsHref("billing"), label: "Billing", icon: CreditCard, keywords: "settings plan subscription payment" },
+  { href: settingsHref("privacy"), label: "Privacy + data", icon: Shield, keywords: "settings download export delete account" },
+];
+export const PLAYER_SETTINGS_SECTION_LINKS: NavLink[] = [SETTINGS_ACCOUNT_LINK, ...SETTINGS_SECTION_SHARED];
+export const PARENT_SETTINGS_SECTION_LINKS: NavLink[] = SETTINGS_SECTION_SHARED;
 
 // Board 22 (docs/DESIGN_MOCKUP_SPEC_V2.md): Overview · Weekly reports ·
 // Budget · Schools · Settings. No Events: /events is the player's

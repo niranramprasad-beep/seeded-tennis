@@ -15,28 +15,74 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SeededSettingsView } from "@/components/seeded/settings/seeded-settings-view";
 import { ParentSettingsView } from "@/components/seeded/settings/parent-settings-view";
+import { SettingsFamilySection } from "@/components/seeded/settings/settings-family-section";
+import { FromOnboardingNote } from "@/components/seeded/settings/from-onboarding-note";
+import { sectionForRole, type SettingsSectionId } from "@/lib/settings-sections";
 import { ThemeSwitcher } from "./theme-switcher";
 import { DesignSwitcher } from "./design-switcher";
 
 const TIER_LABEL = { free: "Free", player: "Player", family: "Family" } as const;
 
-export function SettingsView({ schools = [] }: { schools?: SchoolLite[] }) {
+/** Every section but Billing, which is its own view (SeededBillingView). */
+export type SettingsViewSection = Exclude<SettingsSectionId, "billing">;
+
+export function SettingsView({
+  schools = [],
+  section = "profile",
+  fromOnboarding = false,
+}: {
+  schools?: SchoolLite[];
+  section?: SettingsViewSection;
+  /** /onboarding sent an already-onboarded account here (D2). */
+  fromOnboarding?: boolean;
+}) {
   return (
     <AuthGate>
-      <SettingsInner schools={schools} />
+      <SettingsInner schools={schools} section={section} fromOnboarding={fromOnboarding} />
     </AuthGate>
   );
 }
 
-function SettingsInner({ schools }: { schools: SchoolLite[] }) {
+function SettingsInner({
+  schools,
+  section,
+  fromOnboarding,
+}: {
+  schools: SchoolLite[];
+  section: SettingsViewSection;
+  fromOnboarding: boolean;
+}) {
   const { design } = useDesign();
   const { player } = usePlayer();
   // A parent's Settings is about the parent, in either design. Both player
   // views below render the PLAYER's facts (UTR, grade, class year, gender)
   // and the Seeded one an editable player-profile form — on an account whose
-  // sidebar says read-only. See parent-settings-view.tsx.
-  if (player.role === "parent") return <ParentSettingsView />;
-  return design === "seeded" ? <SeededSettingsView schools={schools} /> : <LegacySettingsView />;
+  // sidebar says read-only. See parent-settings-view.tsx. A parent has no
+  // "account" section; theirs lands on Profile.
+  const parentSection = sectionForRole(section, "parent") as Exclude<SettingsViewSection, "account">;
+  if (player.role === "parent") return <ParentSettingsView section={parentSection} fromOnboarding={fromOnboarding} />;
+  if (design === "seeded") {
+    return <SeededSettingsView schools={schools} section={section} fromOnboarding={fromOnboarding} />;
+  }
+  // Legacy never had tabs. Its one page stays as it was for every section
+  // except Family, which is where leaving and approving now live.
+  if (section === "family") {
+    return (
+      <div className="mx-auto max-w-3xl container-px space-y-4 py-10">
+        <SettingsFamilySection />
+      </div>
+    );
+  }
+  return (
+    <>
+      {fromOnboarding && (
+        <div className="mx-auto max-w-3xl container-px pt-10">
+          <FromOnboardingNote />
+        </div>
+      )}
+      <LegacySettingsView />
+    </>
+  );
 }
 
 // The pre-redesign /settings content — unchanged, and still what Legacy

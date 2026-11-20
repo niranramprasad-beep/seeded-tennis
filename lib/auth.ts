@@ -752,23 +752,42 @@ function mapProfileToPlayer(
 // Throws on a real Supabase/network failure so callers can tell "no profile
 // row" apart from "couldn't reach Supabase" — never silently treat the two
 // the same way (the latter must never look like a normal signed-out state).
-export async function getCurrentPlayer(): Promise<Player | null> {
-  const supa = getSupabase();
-  if (!supa) return null;
-
-  const { data: userData, error: userError } = await getAuthedUser(supa);
-  if (userError || !userData.user) return null;
-
+// The caller's OWN profile row (a single-row read by id — the only shape
+// lib/db/family-scope.test.ts allows). Throws on a real failure.
+async function fetchOwnProfileRow(supa: TypedSupabaseClient, userId: string) {
   const { data: profile, error: profileError } = await supa
     .from("profiles")
     .select("*")
-    .eq("id", userData.user.id)
+    .eq("id", userId)
     .maybeSingle();
-
   if (profileError) throw new Error(profileError.message);
-  if (!profile) return null;
+  return profile;
+}
 
-  const player = mapProfileToPlayer(profile, userData.user.email ?? "", userData.user);
+/**
+ * The tier read off the profile row the session restore already fetched,
+ * so TierProvider does not have to fetch the same row again before a
+ * PaidGate page can render (D8). READ-ONLY and short-lived; it is never
+ * part of `Player`, so it can never be round-tripped back into a profile
+ * write (subscription_tier is a privileged column). `refresh()` after a
+ * checkout bypasses it and reads the database.
+ */
+let restoredTier: { userId: string; tier: string | null; at: number } | null = null;
+const RESTORED_TIER_TTL_MS = 15_000;
+export function takeRestoredTier(userId: string): string | null | undefined {
+  const hit = restoredTier;
+  restoredTier = null;
+  if (!hit || hit.userId !== userId || Date.now() - hit.at > RESTORED_TIER_TTL_MS) return undefined;
+  return hit.tier;
+}
+
+function playerFromOwnProfile(
+  supa: TypedSupabaseClient,
+  user: { id: string; email?: string | null } & EmailVerificationAuthFacts,
+  profile: NonNullable<Awaited<ReturnType<typeof fetchOwnProfileRow>>>
+): Player {
+  const player = mapProfileToPlayer(profile, user.email ?? "", user);
+  restoredTier = { userId: user.id, tier: profile.subscription_tier ?? null, at: Date.now() };
 
   // One-time migration: a legacy row stored only `grade`. Persist the
   // derived graduationYear now so future loads read it directly instead of
@@ -777,10 +796,22 @@ export async function getCurrentPlayer(): Promise<Player | null> {
     void supa
       .from("profiles")
       .update({ graduation_year: player.graduationYear })
-      .eq("id", userData.user.id);
+      .eq("id", user.id);
   }
 
   return player;
+}
+
+export async function getCurrentPlayer(): Promise<Player | null> {
+  const supa = getSupabase();
+  if (!supa) return null;
+
+  const { data: userData, error: userError } = await getAuthedUser(supa);
+  if (userError || !userData.user) return null;
+
+  const profile = await fetchOwnProfileRow(supa, userData.user.id);
+  if (!profile) return null;
+  return playerFromOwnProfile(supa, userData.user, profile);
 }
 
 export type SessionState =
@@ -798,6 +829,20 @@ export async function getSessionState(): Promise<SessionState> {
   if (!supa) return { status: "error", message: NOT_CONFIGURED_MESSAGE };
 
   try {
+    // D8: start reading the profile row NOW, keyed by the user id in the
+    // LOCALLY stored session, alongside the server's session check below,
+    // instead of after it. The row is only used if the server then confirms
+    // that very user — otherwise it is thrown away and the read is redone
+    // for whoever the server says it is. So nothing is trusted that was not
+    // trusted before; the two round trips just overlap. (RLS limits this
+    // read to the caller's own row either way.)
+    const { data: localSession } = await supa.auth.getSession();
+    const localUserId = localSession.session?.user?.id ?? null;
+    const earlyProfile = localUserId ? fetchOwnProfileRow(supa, localUserId) : null;
+    // If it ends up unused (or the check fails first), its rejection must
+    // not surface as an unhandled one.
+    earlyProfile?.catch(() => {});
+
     const { data: userData, error: userError } = await getAuthedUser(supa);
 
     // A network failure here resolves as { error }, not a thrown exception —
@@ -816,9 +861,13 @@ export async function getSessionState(): Promise<SessionState> {
     }
     if (userError || !userData.user) return { status: "signed-out" };
 
-    const player = await getCurrentPlayer();
-    if (!player) return { status: "signed-out" };
-    return { status: "authed", player };
+    const verifiedId = userData.user.id;
+    const profile =
+      earlyProfile && verifiedId === localUserId
+        ? await earlyProfile
+        : await fetchOwnProfileRow(supa, verifiedId);
+    if (!profile) return { status: "signed-out" };
+    return { status: "authed", player: playerFromOwnProfile(supa, userData.user, profile) };
   } catch (e) {
     return {
       status: "error",

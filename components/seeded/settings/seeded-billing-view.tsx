@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { usePlayer } from "@/lib/context/player-context";
@@ -33,7 +32,6 @@ export function SeededBillingView() {
 function BillingInner() {
   const { player } = usePlayer();
   const { tier, hydrated } = useTier();
-  const router = useRouter();
 
   const { data: familyMembers } = useSWR(
     hydrated ? "billing-family-members" : null,
@@ -52,7 +50,7 @@ function BillingInner() {
     : ({ kind: "loading", tier } as const);
 
   return (
-    <SeededSettingsShell active="billing" onTabChange={() => router.push("/settings")}>
+    <SeededSettingsShell active="billing">
       <BillingContent
         view={view}
         familyMembers={familyMembers ?? []}
