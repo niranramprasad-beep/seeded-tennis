@@ -13,16 +13,20 @@ import { hasRealUtr } from "@/lib/utils";
 const NO_SCHOOLS: never[] = [];
 
 export interface UsePlanGoalResult {
-  /** Null when there is no rating and no chosen goal — nothing to plan to. */
+  /** Null until the player sets a goal — there is no default goal (PR D,
+   *  D1: it used to default to the estimate). Screens show "Set a goal". */
   goal: PlanGoal | null;
   /** Checkpoints on the line from today's rating to the goal. */
   roadmap: RoadmapYear[];
   /** Pace the goal needs. Null without a real rating. */
   goalPace: GoalPace | null;
   /** False until the saved goal has been read — so a screen does not show
-   *  the estimate and then swap to the chosen goal. */
+   *  "Set a goal" and then swap to the chosen goal. */
   loaded: boolean;
-  /** Saves a goal; `null` goes back to the estimate. */
+  /** The planning estimate (`report.utr.value`) a screen may OFFER as a
+   *  goal. Null without a projection. Never applied on its own. */
+  estimate: number | null;
+  /** Saves a goal; `null` clears it (no goal). */
   setGoal: (value: number | null) => Promise<void>;
 }
 
@@ -36,11 +40,13 @@ export function usePlanGoal(
 ): UsePlanGoalResult {
   const { data: chosen, mutate } = useSWR<number | null>("plan-goal", () => loadPlanGoalUtr());
 
-  // The default goal is the fit report's own estimate (report.utr) — the
-  // number every ProjectionNote prints, by whatever rule lib/fit.ts uses.
+  // The goal is the one the player saved, or none. The fit report's
+  // estimate (report.utr) rides along only so a screen can OFFER it ("Use
+  // 8.10 instead") — resolvePlanGoal never defaults to it (PR D, D1).
   // No schools: only the rating is needed, and the history fetch is the
   // same shared SWR key every screen already loaded.
   const report = useFitReport({ player, schools: NO_SCHOOLS });
+  const estimate = report?.utr.isProjected ? report.utr.value : null;
   const goal = useMemo(
     () => resolvePlanGoal({ chosenGoalUtr: chosen ?? null, estimate: report?.utr ?? null }),
     [chosen, report]
@@ -72,5 +78,5 @@ export function usePlanGoal(
     [mutate]
   );
 
-  return { goal, roadmap, goalPace, loaded: chosen !== undefined, setGoal };
+  return { goal, roadmap, goalPace, loaded: chosen !== undefined, estimate, setGoal };
 }

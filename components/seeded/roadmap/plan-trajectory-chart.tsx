@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { UtrDataPoint } from "@/lib/utr-projection";
-import type { PlanGoal, UtrEstimatePoint } from "@/lib/fit";
+import { chartEndLabels, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
 import type { RoadmapYear } from "@/lib/types";
 import { formatPlayerUtr } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
@@ -28,6 +28,10 @@ interface PlanTrajectoryChartProps {
   /** lib/fit.ts projectionPath — THE estimate, the same one every screen
    *  prints. Empty once the summer before senior year has begun. */
   estimate: UtrEstimatePoint[];
+  /** lib/fit.ts upsideProjectionPath — the player's own pace when it is
+   *  faster than the planning cap. A dashed "Estimate" line; empty otherwise.
+   *  Never what the bands or the goal read. */
+  upside?: UtrEstimatePoint[];
   /** Opens the goal editor above the chart. */
   onChangeGoal?: () => void;
 }
@@ -40,14 +44,16 @@ const BASELINE = H - 30;
 
 // "Your plan to senior summer". Solid line: the player's logged ratings.
 // Dashed: the plan's checkpoints to the goal (buildRoadmap). Shaded: the
-// typical-growth estimate from lib/fit.ts — the same projection the
-// ProjectionNote and the school pages print. It used to shade a regression
+// planning estimate from lib/fit.ts — the same projection the
+// ProjectionNote and the school pages print, labelled at its end. Grey
+// dashed, labelled "Estimate": the upside at the player's own pace, drawn
+// only when that pace is faster than the planning cap (PR D, D1). It used to shade a regression
 // through the logged ratings instead, a second projection for the same
 // date (C8).
 //
 // Drawn in a viewBox as wide as the column (useMeasuredWidth), so labels
 // stay legible at 320px and never run off the edge (C21).
-export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onChangeGoal }: PlanTrajectoryChartProps) {
+export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal }: PlanTrajectoryChartProps) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>(900);
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -68,6 +74,13 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const estimateEnd = estimate[estimate.length - 1];
+  const upsideEnd = upside[upside.length - 1];
+  const endLabels = chartEndLabels(estimate, upside);
+  // The last checkpoint sits on the same date as the estimate's end, with
+  // its label above-left of its diamond: the estimate's label then goes
+  // below the band end so the two never print on top of each other.
+  const checkpointAtEnd =
+    estimateEnd != null && checkpoints.some((c) => Math.abs(c.date.getTime() - estimateEnd.date.getTime()) < 2 * 86_400_000);
   const horizonTime = Math.max(
     checkpoints[checkpoints.length - 1]?.date.getTime() ?? 0,
     estimateEnd?.date.getTime() ?? 0,
@@ -80,6 +93,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
     ...sortedActual.map((p) => p.utr),
     ...checkpoints.map((c) => c.utr),
     ...estimate.flatMap((p) => [p.low, p.high]),
+    ...upside.map((p) => p.value),
   ];
   const utrMin = Math.floor((Math.min(...utrValues) - 0.3) * 2) / 2;
   const utrMax = Math.ceil((Math.max(...utrValues) + 0.3) * 2) / 2;
@@ -103,6 +117,8 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
           .map((p) => `${x(p.date.getTime())},${y(p.low)}`)
           .join(" L")} Z`
       : null;
+
+  const upsideLine = upside.length > 1 ? upside.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
 
   const yTicks = utrTicks(utrMin, utrMax);
   const xTicks = monthTicks(dateMin, dateMax, plotW);
@@ -169,6 +185,9 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
         })}
 
         {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
+        {upsideLine && (
+          <polyline points={upsideLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />
+        )}
         {sortedActual.length > 1 && <polyline points={actualLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="3" />}
         {checkpoints.length > 0 && (
           <polyline points={dashedLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2" strokeDasharray="6 5" />
@@ -222,6 +241,35 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
           );
         })}
 
+        {/* End labels: the planning estimate at the end of the shaded band,
+            and "Estimate 9.40" at the end of the upside line — both from
+            lib/fit.ts chartEndLabels, the numbers the report prints. */}
+        {estimateEnd && endLabels.plan && (
+          <text
+            x={W - PAD_R}
+            y={Math.max(PAD_TOP + 10, Math.min(BASELINE - 4, y(estimateEnd.value) + (upsideEnd || checkpointAtEnd ? 20 : 4)))}
+            textAnchor="end"
+            fontSize="12"
+            fontWeight="600"
+            fontFamily={NUMBER_FONT}
+            fill="rgb(var(--c-primary))"
+          >
+            {endLabels.plan}
+          </text>
+        )}
+        {upsideEnd && endLabels.upside && (
+          <text
+            x={W - PAD_R}
+            y={Math.max(PAD_TOP - 6, y(upsideEnd.value) - 8)}
+            textAnchor="end"
+            fontSize="12"
+            fontFamily={LABEL_FONT}
+            fill="rgb(var(--c-stone))"
+          >
+            {endLabels.upside}
+          </text>
+        )}
+
         <circle cx={nowX} cy={nowY} r="7" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
         {/* Below-right of the dot: the logged line arrives from the left and
             the plan leaves up-right, so this corner is clear of both. */}
@@ -256,7 +304,8 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, onC
       <p className="mt-2 text-[13px] text-stone">
         Solid: the UTRs you&apos;ve logged.
         {checkpoints.length > 0 && " Dashed: your plan's checkpoints."}
-        {bandPath && " Shaded: your estimate for the summer before senior year."}
+        {bandPath && ` Shaded: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
+        {upsideLine && " Grey dashes: Estimate at your own pace, not used for your bands."}
       </p>
 
       {sel && goal && (

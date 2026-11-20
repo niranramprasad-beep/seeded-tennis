@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { buildFitReport, isRealisticTarget, recruitingTimeUtr, resolvePlanGoal } from "./fit";
-import { computeGoalPace, goalPaceNeedsWarning } from "./school-fit";
+import {
+  PLANNING_PACE_CAP_PER_YEAR,
+  buildFitReport,
+  isRealisticTarget,
+  planGoalNeedsPaceWarning,
+  recruitingTimeUtr,
+  resolvePlanGoal,
+} from "./fit";
+import { computeGoalPace } from "./school-fit";
 import { buildRoadmap } from "./db/plan";
 import { parsePlanGoalUtr } from "./db/settings";
 import { buildNextSteps, todayHeadline } from "./today-actions";
@@ -20,19 +27,24 @@ const TARGETS = [school("duke", 12, 13.2), school("mid", 8.5, 9.6), school("near
 
 /* ------------------------------------------------------------ C11 */
 
-describe("C11 — the plan goal is the player's, or the estimate; never the hardest target", () => {
-  it("defaults to the typical-growth estimate (the number every screen prints)", () => {
-    const goal = resolvePlanGoal({ chosenGoalUtr: null, estimate: EST })!;
-    expect(goal.source).toBe("estimate");
-    expect(goal.value).toBe(recruitingTimeUtr({ ...P, now: NOW })!.value);
-    expect(goal.value).toBeLessThan(12); // not Duke's floor
+// C11 made the goal default to the estimate; PR D (D1, owner's decision
+// 2026-11-19) reversed that. These are the same guards, re-pointed: the goal
+// is the player's or there is none — never the hardest target, never the
+// estimate.
+describe("D1 (was C11) — the plan goal is the player's, or there is none", () => {
+  it("never defaults to the estimate: no chosen goal → no goal", () => {
+    expect(EST?.isProjected).toBe(true);
+    expect(resolvePlanGoal({ chosenGoalUtr: null, estimate: EST })).toBeNull();
+    expect(resolvePlanGoal({ chosenGoalUtr: undefined, estimate: EST })).toBeNull();
+    // No "estimate" source exists any more.
+    expect(readFileSync("lib/fit.ts", "utf8")).not.toMatch(/source: "estimate"/);
   });
 
   it("adding a target cannot move it — targets are not an input", () => {
     // The old buildRoadmap(player, targets) took the max floor: 8.90 → 9.0 →
     // 9.50 as targets were added. Its signature now takes the goal.
     expect(buildRoadmap.length).toBeGreaterThanOrEqual(2);
-    const goal = resolvePlanGoal({ chosenGoalUtr: null, estimate: EST })!;
+    const goal = resolvePlanGoal({ chosenGoalUtr: 7.5, estimate: EST })!;
     const a = buildRoadmap({ currentUTR: P.currentUtr, graduationYear: P.graduationYear }, goal.value, NOW);
     const b = buildRoadmap({ currentUTR: P.currentUtr, graduationYear: P.graduationYear }, goal.value, NOW);
     expect(a).toEqual(b);
@@ -40,26 +52,45 @@ describe("C11 — the plan goal is the player's, or the estimate; never the hard
     expect(src).not.toMatch(/minCompetitiveUTR/);
   });
 
-  it("the default goal never needs an unrealistic pace — the 3.9/yr default is gone", () => {
-    const goal = resolvePlanGoal({ chosenGoalUtr: null, estimate: EST })!;
-    const pace = computeGoalPace(P.currentUtr, goal.value, P.graduationYear, NOW);
-    expect(goalPaceNeedsWarning(pace)).toBe(false);
-    expect(pace.requiredPaceUtrPerYear!).toBeLessThanOrEqual(1.5);
+  it("no goal → no warning, on /plan or /today, whatever the estimate's pace", () => {
+    expect(planGoalNeedsPaceWarning(null, computeGoalPace(P.currentUtr, 12, P.graduationYear, NOW))).toBe(false);
   });
 
-  it("a chosen goal wins, and an unrealistic one warns — one rule for /plan and /today", () => {
+  it("a goal within the cap does not warn; the estimate offered as a goal never needs more than the cap", () => {
+    const realistic = resolvePlanGoal({ chosenGoalUtr: EST!.value, estimate: EST })!;
+    const pace = computeGoalPace(P.currentUtr, realistic.value, P.graduationYear, NOW);
+    expect(planGoalNeedsPaceWarning(realistic, pace)).toBe(false);
+    expect(pace.requiredPaceUtrPerYear!).toBeLessThanOrEqual(PLANNING_PACE_CAP_PER_YEAR);
+  });
+
+  it("a chosen goal needing more than the cap warns — one rule for /plan and /today", () => {
     const goal = resolvePlanGoal({ chosenGoalUtr: 12, estimate: EST })!;
-    expect(goal).toMatchObject({ value: 12, source: "chosen" });
-    expect(goal.estimate).toBe(recruitingTimeUtr({ ...P, now: NOW })!.value);
-    expect(goalPaceNeedsWarning(computeGoalPace(P.currentUtr, 12, P.graduationYear, NOW))).toBe(true);
+    expect(goal).toEqual({ value: 12, estimate: recruitingTimeUtr({ ...P, now: NOW })!.value });
+    expect(planGoalNeedsPaceWarning(goal, computeGoalPace(P.currentUtr, 12, P.graduationYear, NOW))).toBe(true);
     for (const f of ["components/seeded/dashboard/seeded-dashboard-layout.tsx", "components/seeded/roadmap/seeded-roadmap-layout.tsx"]) {
       expect(readFileSync(f, "utf8"), f).toMatch(/<GoalPaceWarning/);
     }
-    expect(readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8")).toMatch(/goalPaceNeedsWarning\(/);
+    expect(readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8")).toMatch(/planGoalNeedsPaceWarning\(goal, goalPace\)/);
   });
 
-  it("usePlanGoal takes its default from the fit report, not a projection of its own", () => {
-    expect(readFileSync("lib/hooks/use-plan-goal.ts", "utf8")).toMatch(/resolvePlanGoal\(\{[^}]*estimate: report\?\.utr/);
+  it("the warning's threshold is the planning cap: just above warns, at it does not", () => {
+    const goal = { value: 9, estimate: null };
+    const at = { gap: 1, byDate: "2028-06-01", requiredPaceUtrPerYear: PLANNING_PACE_CAP_PER_YEAR, paceRead: "within-realistic-range" as const };
+    expect(planGoalNeedsPaceWarning(goal, at)).toBe(false);
+    expect(planGoalNeedsPaceWarning(goal, { ...at, requiredPaceUtrPerYear: PLANNING_PACE_CAP_PER_YEAR + 0.01, paceRead: "faster-than-realistic" })).toBe(true);
+    expect(planGoalNeedsPaceWarning(goal, { ...at, requiredPaceUtrPerYear: null, paceRead: "no-time-left" })).toBe(true);
+  });
+
+  it("usePlanGoal hands the estimate over only as an offer, never as the goal", () => {
+    const src = readFileSync("lib/hooks/use-plan-goal.ts", "utf8");
+    expect(src).toMatch(/resolvePlanGoal\(\{ chosenGoalUtr: chosen \?\? null, estimate: report\?\.utr \?\? null \}\)/);
+  });
+
+  it("/plan says 'Set a goal' when there is none, and never labels the estimate a goal", () => {
+    const src = readFileSync("components/seeded/roadmap/seeded-roadmap-layout.tsx", "utf8");
+    expect(src).toMatch(/"Set a goal"/);
+    expect(src).toMatch(/"No goal set"/);
+    expect(src).not.toMatch(/\(your estimate\)/);
   });
 
   it("no rating and no chosen goal → no goal at all, not a plan from 0", () => {

@@ -35,7 +35,7 @@ describe("diagnosticProjection", () => {
       now: NOW,
     })!;
     expect(p.basis).toBe("logged-pace");
-    expect(p.pacePerMonth).toBeCloseTo(1 / 12, 10);
+    expect(p.pacePerYear).toBeCloseTo(1, 10);
     expect(p.targetYear).toBe(2029);
     expect(projectionTargetDate(2030)).toEqual(new Date(2029, 5, 1));
     // 8 + (1/12 per month) × months to June 1 2029 (about 30.4)
@@ -46,7 +46,7 @@ describe("diagnosticProjection", () => {
     expect(p.value).toBe(10.5);
     expect(p.isEstimate).toBe(true);
     expect(p.display).toBe("10.5");
-    expect(p.note).toBe("At your logged pace (+0.08 a month since November 2025).");
+    expect(p.note).toBe("At your logged pace (+1.00 a year since November 2025).");
     expect(p.recruiting.low).toBe(p.value);
     expect(p.recruiting.high).toBe(p.value);
   });
@@ -60,10 +60,10 @@ describe("diagnosticProjection", () => {
       now: NOW,
     })!;
     expect(p.basis).toBe("logged-pace");
-    expect(p.pacePerMonth).toBeCloseTo(0.05, 10);
+    expect(p.pacePerYear).toBeCloseTo(0.6, 10);
     const months = yearsUntilRecruiting(2029, NOW) * 12;
     expect(p.value).toBe(Math.round((8 + 0.05 * months) * 10) / 10);
-    expect(p.note).toBe("At your logged pace (+0.05 a month since May 2026).");
+    expect(p.note).toBe("At your logged pace (+0.60 a year since May 2026).");
   });
 
   it("no past rating → the typical-growth estimate, labelled as one (not today's rating)", () => {
@@ -128,9 +128,9 @@ describe("diagnosticProjection", () => {
     expect(p.basis).toBe("logged-pace");
     expect(p.value).toBe(8);
     expect(p.display).toBe("8.00");
-    expect(p.pacePerMonth).toBeLessThan(0);
+    expect(p.pacePerYear).toBeLessThan(0);
     expect(p.note).toBe(
-      "Your rating has gone down since November 2025 (−0.08 a month), so this stays at today's UTR."
+      "Your rating has gone down since November 2025 (−1.00 a year), so this stays at today's UTR."
     );
   });
 

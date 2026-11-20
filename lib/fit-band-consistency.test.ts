@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { classifySchoolFit, countSchoolFits, explainSchoolFit, fitBasis } from "./school-fit";
 import { realisticPaceProjectionFor, whatIfProjectionFor } from "./what-if-utr";
+import { buildFitReport } from "./fit";
+import { sortSchoolsForSeeded } from "./school-sort";
 import type { SchoolLite } from "./types";
 
 // P1-FIT-1. The same player and the same school produced different bands on
@@ -230,5 +232,51 @@ describe("P1-FIT-4 pre-auth fit uses a realistic-pace projection", () => {
     for (const s of [elite, school({ slug: "b", minCompetitiveUTR: 7, avgRosterUTR: 8 })]) {
       expect(classifySchoolFit(fitBasis(5.81, fromHome), s)).toBe(classifySchoolFit(fitBasis(5.81, fromReport), s));
     }
+  });
+});
+
+// ---------------------------------------------------------------- PR D, D1
+// The askers above call the classifier with the raw history, which carries a
+// trend at whatever pace it shows. Since 2026-11-19 every SCREEN asks through
+// the fit report instead, and the report plans with the capped pace
+// (lib/fit.ts PLANNING_PACE_CAP_PER_YEAR) — the Reach / Out-of-range split
+// included. So the invariant is re-pointed at the report: for a player on a
+// hot streak, every screen-shaped asker still returns one band, and it is the
+// capped one, even where the raw trend would have said Reach.
+describe("one band per school for a hot-streak player, through the report (D1)", () => {
+  const HOT = {
+    utrHistory: [
+      { date: new Date(2025, 0, 1), utr: 3.2 },
+      { date: new Date(2025, 5, 1), utr: 4.6 },
+      { date: new Date(2025, 11, 1), utr: 5.8 },
+    ],
+    graduationYear: PLAYER.graduationYear,
+    gender: PLAYER.gender,
+    now: NOW,
+  };
+  // Below the floor today; the raw ~+2.6/yr trend reaches it by June 2027,
+  // the capped 1.5/yr does not.
+  const STRETCH = school({ slug: "stretch", minCompetitiveUTR: 8.6, avgRosterUTR: 9.6 });
+  const catalog = [ELITE, MID, BELOW, STRETCH];
+  const P = { currentUtr: 5.8, graduationYear: 2028, gender: "male" as const, now: NOW };
+
+  it("the raw trend and the report disagree on STRETCH — which is why screens must use the report", () => {
+    expect(classifySchoolFit(fitBasis(5.8, HOT), STRETCH)).toBe("reach");
+    const report = buildFitReport({ ...P, schools: catalog, view: "today", projectionInput: HOT })!;
+    expect(report.bandBySlug.get("stretch")).toBe("out-of-range");
+  });
+
+  it("report rows, a one-school report, the school page and the sort agree", () => {
+    const report = buildFitReport({ ...P, schools: catalog, projectionInput: HOT })!;
+    for (const s of catalog) {
+      const one = buildFitReport({ ...P, schools: [s], projectionInput: HOT })!;
+      const page = explainSchoolFit(5.8, s, { ...HOT, band: one.bandBySlug.get(s.slug), estimate: one.utr });
+      const bands = new Set([report.bandBySlug.get(s.slug), one.bandBySlug.get(s.slug), page.band]);
+      expect(bands.size, s.slug).toBe(1);
+    }
+    const ORDER = ["likely", "target", "reach", "out-of-range"];
+    const sorted = sortSchoolsForSeeded(catalog, "fit", report.utr.value, (s) => report.bandBySlug.get(s.slug) ?? null);
+    const got = sorted.map((s) => ORDER.indexOf(report.bandBySlug.get(s.slug)!));
+    expect(got).toEqual([...got].sort((a, b) => a - b));
   });
 });

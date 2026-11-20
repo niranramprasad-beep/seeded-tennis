@@ -159,8 +159,8 @@ function DashboardInner({ schools }: DashboardViewProps) {
   );
 
   // The same goal and checkpoints /plan shows (lib/hooks/use-plan-goal.ts):
-  // the one the player set, or the typical-growth estimate. It used to be
-  // the hardest target's floor, so "Next checkpoint" jumped whenever a
+  // the one the player set, or none (PR D, D1: never the estimate). It used
+  // to be the hardest target's floor, so "Next checkpoint" jumped whenever a
   // target was added (C11).
   const planGoal = usePlanGoal(player);
   const roadmap = planGoal.roadmap;
@@ -318,7 +318,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
     setSundayCheckinOpen,
     planGoal: planGoal.goal,
     goalPace: planGoal.goalPace,
-    onUseEstimateGoal: () => void planGoal.setGoal(null),
+    onUseEstimateGoal: (value: number) => void planGoal.setGoal(value),
   };
 
   return (
@@ -389,7 +389,8 @@ export interface DashboardLayoutProps {
   /** lib/hooks/use-plan-goal.ts — the same goal /plan shows. */
   planGoal: PlanGoal | null;
   goalPace: GoalPace | null;
-  onUseEstimateGoal: () => void;
+  /** Saves the planning estimate as the goal (the pace warning offers it). */
+  onUseEstimateGoal: (value: number) => void;
 }
 
 function LegacyDashboardLayout({
@@ -519,7 +520,9 @@ function LegacyDashboardLayout({
               <p className="relative mt-3 text-sm text-on-primary/80">
                 {!hasRealUtr(player.currentUTR)
                   ? "Log a UTR to see how far you are from your goal."
-                  : targetUTR > player.currentUTR
+                  : goalUtr == null
+                    ? "No goal set yet. Set one on your plan."
+                    : targetUTR > player.currentUTR
                     ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
                     : "You're at or above your current goal"}
               </p>

@@ -13,19 +13,27 @@ import { TargetSchoolsList } from "./target-schools-list";
 import { ClosestSchoolsCard } from "./closest-schools";
 import { RecruitingChecklistCard } from "./recruiting-checklist";
 import { opponentLine } from "@/components/matches/result-display";
-import { closestSchoolsByUtrGap, summerBeforeSeniorYear, type SchoolFitProjectionInput } from "@/lib/school-fit";
-import { isRealisticTarget, projectionPath } from "@/lib/fit";
+import { summerBeforeSeniorYear } from "@/lib/school-fit";
+import {
+  closestSchoolsFromReport,
+  formatPacePerYear,
+  isRealisticTarget,
+  playerPacePerYear,
+  projectionPath,
+  upsideProjectionPath,
+  utrHistoryFromEntries,
+} from "@/lib/fit";
 import { formatShortDate, parseLocalDate } from "@/lib/time";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { PaceUpsideNote, ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
-import { utrDeltaOverMonths, winLossRecord } from "@/lib/plan-stats";
+import { winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 import { PlanGoalEditor } from "./plan-goal-editor";
@@ -130,18 +138,15 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
     }),
     [whatIf.whatIfProjection, player.graduationYear, player.gender, pickerSchools]
   );
-  // Separate from the what-if-aware input above: the "closest schools"
-  // section and the goal-pace warning both compare against the player's
-  // REAL current UTR and REAL logged history — they shouldn't move when
-  // someone's just dragging the what-if slider.
-  const realProjectionInput: SchoolFitProjectionInput = useMemo(
-    () => ({ utrHistory: actualPoints, graduationYear: player.graduationYear, gender: player.gender }),
-    [actualPoints, player.graduationYear, player.gender]
-  );
-
-  const sixMonthDelta = useMemo(
-    () => (utrEntries ? utrDeltaOverMonths(utrEntries, 6) : null),
-    [utrEntries]
+  // THE pace number (lib/fit.ts playerPacePerYear), printed through the one
+  // pace formatter. This tile read "+1.45 last 6 months" — a third way of
+  // saying the pace, beside "+1.5/yr" and "needs 2.25 a year" (D1).
+  const pacePerYear = useMemo(
+    () =>
+      utrEntries
+        ? playerPacePerYear({ currentUtr: player.currentUTR, history: utrHistoryFromEntries(utrEntries) })
+        : null,
+    [utrEntries, player.currentUTR]
   );
   const record = useMemo(() => (matches ? winLossRecord(matches) : null), [matches]);
   // The most recent UTR the player typed in. P0-7: this was named
@@ -215,17 +220,27 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
     [filtering, orderedTargetSchools, realReport]
   );
 
-  // Point 4: the 5 real catalog schools closest to the player's actual
-  // level, independent of what's currently targeted.
-  // "whose roster level is nearest your current UTR" — from the sentinel
-  // that is simply the five lowest-rated programs in the catalog, presented
-  // as a personalised shortlist.
-  const closestSchools = useMemo(
+  // The upside: where the player's OWN pace would take them, when it is
+  // faster than the planning cap. A dashed "Estimate" line beside the plan,
+  // and one sentence under the chart — never a band (lib/fit.ts).
+  const upsidePath = useMemo(
     () =>
-      hasRealUtr(player.currentUTR)
-        ? closestSchoolsByUtrGap(player.currentUTR, pickerSchools, 5, realProjectionInput)
-        : [],
-    [player.currentUTR, pickerSchools, realProjectionInput]
+      upsideProjectionPath({
+        estimate: realReport?.utr,
+        currentUtr: player.currentUTR,
+        graduationYear: player.graduationYear,
+      }),
+    [realReport, player.currentUTR, player.graduationYear]
+  );
+
+  // Point 4: the 5 real catalog schools closest to the player's level —
+  // read off the SAME report as every band on this page (lib/fit.ts
+  // closestSchoolsFromReport), so a chip here matches the chip on /schools.
+  // No rating → no report → no list: from the sentinel it was simply the
+  // five lowest-rated programs in the catalog.
+  const closestSchools = useMemo(
+    () => (hasRealUtr(player.currentUTR) ? closestSchoolsFromReport(realReport, pickerSchools, 5) : []),
+    [player.currentUTR, realReport, pickerSchools]
   );
 
   // Point 5: the real recruiting-timeline checklist.
@@ -273,8 +288,8 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             }
           />
           <StatTile
-            value={sixMonthDelta === null ? "—" : `${sixMonthDelta >= 0 ? "+" : ""}${sixMonthDelta.toFixed(2)}`}
-            label="last 6 months"
+            value={pacePerYear === null ? "Not tracked" : formatPacePerYear(pacePerYear)}
+            label="your pace"
           />
           <StatTile
             value={record ? `${record.wins}–${record.losses}` : "—"}
@@ -291,32 +306,42 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
       <div className="mt-5 rounded-xl border border-line bg-card p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold text-ink">Your plan to senior summer</h2>
-          {goal && !editingGoal && (
-            <span className="flex items-baseline gap-2 text-[13px] text-stone">
+          {/* No default goal (PR D, D1): until the player sets one, the plan
+              says so and asks — it never presents the estimate as a goal. */}
+          {/* Held invisible (not absent) until the saved goal is read, so the
+              row does not appear, or change, under the reader. */}
+          {!editingGoal && (
+            <span className={cn("flex items-baseline gap-2 text-[13px] text-stone", !planGoal.loaded && "invisible")}>
               <span>
-                Goal: <span className="font-mono text-ink">{formatPlayerUtr(goal.value)}</span>
-                {goal.source === "estimate" ? " (your estimate)" : ""}
+                {goal ? (
+                  <>
+                    Goal: <span className="font-mono text-ink">{formatPlayerUtr(goal.value)}</span>
+                  </>
+                ) : (
+                  "No goal set"
+                )}
               </span>
               <button
                 type="button"
                 onClick={() => setEditingGoal(true)}
                 className="inline-flex min-h-11 items-center font-semibold text-grass sm:min-h-6"
               >
-                {goal.source === "estimate" ? "Set a goal" : "Change"}
+                {goal ? "Change" : "Set a goal"}
               </button>
             </span>
           )}
         </div>
         {/* A goal saved earlier that today's rating has since reached: say
             so, rather than plotting checkpoints behind the player. */}
-        {goal && !editingGoal && goal.source === "chosen" && hasRealUtr(player.currentUTR) && player.currentUTR >= goal.value && (
+        {goal && !editingGoal && hasRealUtr(player.currentUTR) && player.currentUTR >= goal.value && (
           <p role="status" className="mt-2 text-sm text-stone">
-            You&apos;ve reached your {formatPlayerUtr(goal.value)} goal. Set a higher one, or use the estimate.
+            You&apos;ve reached your {formatPlayerUtr(goal.value)} goal. Set a higher one.
           </p>
         )}
-        {editingGoal && goal && (
+        {editingGoal && (
           <PlanGoalEditor
             goal={goal}
+            estimate={planGoal.estimate}
             currentUtr={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
             onSave={async (v) => {
               await planGoal.setGoal(v);
@@ -332,54 +357,65 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             roadmap={roadmap}
             goal={goal}
             estimate={estimatePath}
+            upside={upsidePath}
             onChangeGoal={goal ? () => setEditingGoal(true) : undefined}
           />
         </div>
+        <PaceUpsideNote utr={realReport?.utr} className="mt-2" />
         <GoalPaceWarning
           goalPace={goalPace}
           goal={goal}
-          onUseEstimate={() => void planGoal.setGoal(null)}
+          currentUtr={player.currentUTR}
+          onUseEstimate={(v) => void planGoal.setGoal(v)}
           className="mt-3.5"
         />
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-5">
-        <div className="min-w-0 flex-1 rounded-xl border border-line bg-card p-5" style={{ flexBasis: "360px" }}>
-          <RecruitingChecklistCard
-            items={checklist.items}
-            onToggleCompleted={checklist.toggleCompleted}
-            onToggleHidden={checklist.toggleHidden}
-            onAddItem={checklist.addItem}
-            onRemoveItem={checklist.removeItem}
-          />
-        </div>
-
-        <div className="min-w-0 flex-1 rounded-xl border border-line bg-card p-5" style={{ flexBasis: "360px" }}>
-          <h2 className="text-base font-semibold text-ink">Recent results</h2>
-          {recentMatches.length === 0 ? (
-            <div className="mt-3">
-              <EmptyState title="No matches logged yet." description="Log a result to start tracking your record." />
-            </div>
-          ) : (
-            <div className="mt-3.5 flex flex-col gap-2.5 text-sm">
-              {recentMatches.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-2">
-                  {/* The shared opponent line: the opponent's name when the
-                      player gave one ("vs Alex Kim (8.20)"). This card read
-                      "vs opponent 6.10" over a named opponent (C14). */}
-                  <span className="truncate text-ink">
-                    {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} {opponentLine(m) ?? "vs —"}
-                    {m.tournamentName ? ` · ${m.tournamentName}` : ""}
-                  </span>
-                  <span className="shrink-0 font-mono text-stone">{m.score || "—"}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <Link href="/matches" className="mt-3.5 inline-block">
+      {/* Recent results gets its own full-width row (D7). It sat in a
+          flex row beside the recruiting timeline, which is many times
+          taller, so at 1440 it was a short card stretched into a tall empty
+          box; on a phone it fell below the whole timeline. Its rows now flow
+          into two columns from md up, and the timeline below it is its own
+          card (it used to be a card nested in a second card). */}
+      <section aria-labelledby="recent-results-heading" className="mt-5 rounded-xl border border-line bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="recent-results-heading" className="text-base font-semibold text-ink">
+            Recent results
+          </h2>
+          <Link href="/matches">
             <SeededButton variant="secondary">Log a result</SeededButton>
           </Link>
         </div>
+        {recentMatches.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState title="No matches logged yet." description="Log a result to start tracking your record." />
+          </div>
+        ) : (
+          <ul className="mt-3.5 grid gap-x-8 gap-y-2.5 text-sm md:grid-cols-2">
+            {recentMatches.map((m) => (
+              <li key={m.id} className="flex min-w-0 items-center justify-between gap-2 border-b border-line pb-2.5">
+                {/* The shared opponent line: the opponent's name when the
+                    player gave one ("vs Alex Kim (8.20)"). This card read
+                    "vs opponent 6.10" over a named opponent (C14). */}
+                <span className="truncate text-ink">
+                  {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} {opponentLine(m) ?? "vs —"}
+                  {m.tournamentName ? ` · ${m.tournamentName}` : ""}
+                </span>
+                <span className="shrink-0 font-mono text-stone">{m.score || "—"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="mt-5">
+        <RecruitingChecklistCard
+          items={checklist.items}
+          onToggleCompleted={checklist.toggleCompleted}
+          onToggleHidden={checklist.toggleHidden}
+          onAddItem={checklist.addItem}
+          onRemoveItem={checklist.removeItem}
+        />
       </div>
 
       <div className="mt-5 rounded-xl border border-line bg-card p-5">

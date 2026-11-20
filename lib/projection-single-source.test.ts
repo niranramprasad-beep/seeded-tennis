@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import {
   buildFitReport,
+  chartEndLabels,
   projectionPath,
   projectionTargetDate,
   recruitingTimeUtr,
@@ -89,16 +90,21 @@ describe("one player + one date = one projected UTR, on every screen", () => {
         });
         // /today's and /plan's charts shade projectionPath(report.utr); its end is the label.
         const path = projectionPath({ estimate: report.utr, currentUtr: p.currentUtr, graduationYear: p.graduationYear, now: NOW });
-        // /plan's default goal and /today's checkpoints: resolvePlanGoal(report.utr).
-        const goal = resolvePlanGoal({ chosenGoalUtr: null, estimate: report.utr })!;
-        const roadmap = buildRoadmap({ currentUTR: p.currentUtr, graduationYear: p.graduationYear }, goal.value, NOW);
+        // There is no default goal any more (PR D, D1): with none chosen
+        // there is no goal. The estimate is only OFFERED ("Use 8.10
+        // instead"); picked, it is the goal and the last checkpoint.
+        expect(resolvePlanGoal({ chosenGoalUtr: null, estimate: report.utr })).toBeNull();
+        const offered = resolvePlanGoal({ chosenGoalUtr: 99, estimate: report.utr })!.estimate!;
+        const roadmap = buildRoadmap({ currentUTR: p.currentUtr, graduationYear: p.graduationYear }, offered, NOW);
 
         const values = {
           "school page Pace row": explanation.pace.status === "ready" ? explanation.pace.projectedUTR : NaN,
           "chart end (/today, /plan)": path[path.length - 1].value,
-          "plan goal default": goal.value,
-          "last plan checkpoint": roadmap[roadmap.length - 1].utrTarget,
+          "estimate offered as a goal": offered,
+          "last plan checkpoint once picked": roadmap[roadmap.length - 1].utrTarget,
         };
+        // The chart's end LABEL is the report's number in the report's format.
+        expect(chartEndLabels(path).plan).toBe(source.value.toFixed(1));
         for (const [where, v] of Object.entries(values)) {
           expect(v, `${where} disagrees with report.utr`).toBe(source.value);
         }

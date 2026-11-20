@@ -152,7 +152,9 @@ function ChecklistRow({
         </label>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={item.completed ? "text-ink" : "text-stone"}>{item.label}</span>
+            <span id={`checklist-step-${item.id}`} className={item.completed ? "text-ink" : "text-stone"}>
+              {item.label}
+            </span>
             {item.division && (
               <span
                 className={cn(
@@ -171,10 +173,14 @@ function ChecklistRow({
           </div>
           {item.note && <p className="mt-0.5 text-xs text-stone-light">{item.note}</p>}
         </div>
+        {/* An icon alone told nobody what it did (D7): the eye-slash now
+            says "Hide this step" to a screen reader and as a tooltip. */}
         <button
           type="button"
           onClick={() => (item.isCustom ? onRemoveItem(item.id) : onToggleHidden(item.id))}
-          aria-label={item.isCustom ? `Remove ${item.label}` : item.hidden ? `Unhide ${item.label}` : `Hide ${item.label}`}
+          aria-label={item.isCustom ? "Remove this step" : item.hidden ? "Show this step" : "Hide this step"}
+          title={item.isCustom ? "Remove this step" : item.hidden ? "Show this step" : "Hide this step"}
+          aria-describedby={`checklist-step-${item.id}`}
           className="-my-2.5 -mr-2.5 flex h-11 w-11 shrink-0 items-center justify-center text-stone-light transition-colors hover:text-ink sm:-my-1 sm:-mr-1 sm:h-6 sm:w-6"
         >
           {item.isCustom ? (
