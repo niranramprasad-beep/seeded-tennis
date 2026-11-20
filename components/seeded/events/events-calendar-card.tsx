@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import type { TrainingSession } from "@/lib/db/training";
 import type { TournamentEntry } from "@/lib/db/events";
+import { tournamentStatusLabel } from "@/lib/tournament-status";
 import { sessionType } from "@/lib/training/session-types";
 import {
   WEEK_ORDER,
@@ -16,6 +17,8 @@ import {
   dateForWeekday,
   groupByDate,
   weekOffsetForDate,
+  formatClockTime,
+  hourLabel,
 } from "@/lib/training/grid-math";
 import { startTimeFromPointer, resizedDuration } from "@/lib/training/calendar-interactions";
 import { localDateKey, parseLocalDate } from "@/lib/time";
@@ -29,21 +32,36 @@ export interface EventsCalendarCardProps {
   tournamentEntries: TournamentEntry[];
   onAdd: (date: string, time?: string) => void;
   onEdit: (session: TrainingSession) => void;
+  /** A saved tournament on the calendar was clicked — opens its edit dialog. */
+  onOpenTournament: (entry: TournamentEntry) => void;
   onMove: (id: string, date: string, startTime: string) => void;
   onResize: (id: string, duration: number) => void;
 }
 
+// Saved tournaments show in every view as ALL-DAY items (a tournament has a
+// date, never a start time): a row above the week grid, the top of each day
+// in the phone list, and the day cell in Month.
+//
 // ONE source of sessions for both views: `groupByDate(sessions)`, keyed by
 // each session's real stored date. The live bug this replaces: Week filtered
 // by real date (and showed 0) while Month grouped by WEEKDAY, so every old
 // generated row appeared on every matching weekday of every month — dots on
 // every day. lib/training/calendar-one-source.test.ts fails the build if a
 // view groups by weekday again.
-export function EventsCalendarCard({ sessions, tournamentEntries, onAdd, onEdit, onMove, onResize }: EventsCalendarCardProps) {
+export function EventsCalendarCard({
+  sessions,
+  tournamentEntries,
+  onAdd,
+  onEdit,
+  onOpenTournament,
+  onMove,
+  onResize,
+}: EventsCalendarCardProps) {
   const [view, setView] = useState<CalendarView>("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const byDate = useMemo(() => groupByDate(sessions ?? []), [sessions]);
+  const tournamentsByDate = useMemo(() => groupTournamentsByDate(tournamentEntries), [tournamentEntries]);
 
   const openWeekOf = (dateKey: string) => {
     setWeekOffset(weekOffsetForDate(dateKey));
@@ -99,14 +117,30 @@ export function EventsCalendarCard({ sessions, tournamentEntries, onAdd, onEdit,
         <CalendarSkeleton />
       ) : view === "week" ? (
         <>
-          <WeekAgenda byDate={byDate} weekOffset={weekOffset} onAdd={onAdd} onEdit={onEdit} />
-          <WeekGrid byDate={byDate} weekOffset={weekOffset} onAdd={onAdd} onEdit={onEdit} onMove={onMove} onResize={onResize} />
+          <WeekAgenda
+            byDate={byDate}
+            tournamentsByDate={tournamentsByDate}
+            weekOffset={weekOffset}
+            onAdd={onAdd}
+            onEdit={onEdit}
+            onOpenTournament={onOpenTournament}
+          />
+          <WeekGrid
+            byDate={byDate}
+            tournamentsByDate={tournamentsByDate}
+            weekOffset={weekOffset}
+            onAdd={onAdd}
+            onEdit={onEdit}
+            onOpenTournament={onOpenTournament}
+            onMove={onMove}
+            onResize={onResize}
+          />
         </>
       ) : (
-        <MonthGrid byDate={byDate} tournamentEntries={tournamentEntries} monthOffset={monthOffset} onPickDay={openWeekOf} />
+        <MonthGrid byDate={byDate} tournamentsByDate={tournamentsByDate} monthOffset={monthOffset} onPickDay={openWeekOf} />
       )}
 
-      <p className="mt-3 text-sm text-stone">Only sessions you add. Nothing is planned for you.</p>
+      <p className="mt-3 text-sm text-stone">Only the sessions and tournaments you add. Nothing is planned for you.</p>
     </section>
   );
 }
@@ -175,21 +209,74 @@ function CalendarSkeleton() {
 }
 
 function timeRange(s: TrainingSession): string {
-  return `${s.startTime} · ${s.duration} min`;
+  return `${formatClockTime(s.startTime)} · ${s.duration} min`;
+}
+
+/** Tournaments by their local event date (a date-only value: the key is
+ *  the stored YYYY-MM-DD, never a Date round-trip). */
+function groupTournamentsByDate(entries: TournamentEntry[]): Map<string, TournamentEntry[]> {
+  const map = new Map<string, TournamentEntry[]>();
+  for (const t of entries) {
+    const key = t.eventDate.slice(0, 10);
+    map.set(key, [...(map.get(key) ?? []), t]);
+  }
+  return map;
+}
+
+function tournamentAriaLabel(t: TournamentEntry): string {
+  return `${t.name}, tournament, all day, ${tournamentStatusLabel(t.status)}. Edit.`;
+}
+
+/** An all-day tournament item, the same in the phone list and the week grid. */
+function TournamentItem({
+  entry,
+  onOpen,
+  compact = false,
+}: {
+  entry: TournamentEntry;
+  onOpen: (entry: TournamentEntry) => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen(entry);
+      }}
+      aria-label={tournamentAriaLabel(entry)}
+      className={cn(
+        "flex w-full items-center gap-1.5 rounded-md border border-grass-100 bg-grass-50 text-left text-grass hover:bg-grass-100",
+        compact ? "min-h-7 px-1.5 py-0.5" : "min-h-11 px-2 py-1"
+      )}
+    >
+      <Trophy className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0">
+        <span className={cn("block truncate font-semibold", compact ? "text-[11px] leading-tight" : "text-sm")}>{entry.name}</span>
+        {!compact && (
+          <span className="block text-xs text-stone">All day · {tournamentStatusLabel(entry.status)}</span>
+        )}
+      </span>
+    </button>
+  );
 }
 
 /** Phones: a day-by-day list. Seven time columns do not fit in 320px, and a
  * sideways-scrolling grid hid Fri–Sun (the reported bug). */
 function WeekAgenda({
   byDate,
+  tournamentsByDate,
   weekOffset,
   onAdd,
   onEdit,
+  onOpenTournament,
 }: {
   byDate: Map<string, TrainingSession[]>;
+  tournamentsByDate: Map<string, TournamentEntry[]>;
   weekOffset: number;
   onAdd: (date: string) => void;
   onEdit: (session: TrainingSession) => void;
+  onOpenTournament: (entry: TournamentEntry) => void;
 }) {
   const todayKey = localDateKey();
   return (
@@ -197,6 +284,7 @@ function WeekAgenda({
       {WEEK_ORDER.map((day) => {
         const date = dateForWeekday(day, weekOffset);
         const list = byDate.get(date) ?? [];
+        const events = tournamentsByDate.get(date) ?? [];
         const isToday = date === todayKey;
         return (
           <li key={day} className="flex gap-3 px-3 py-2">
@@ -207,6 +295,13 @@ function WeekAgenda({
               </span>
             </div>
             <div className="min-w-0 flex-1">
+              {events.length > 0 && (
+                <div className="flex flex-col gap-1 pt-1">
+                  {events.map((t) => (
+                    <TournamentItem key={t.id} entry={t} onOpen={onOpenTournament} />
+                  ))}
+                </div>
+              )}
               {list.map((s) => (
                 <button
                   key={s.id}
@@ -227,7 +322,7 @@ function WeekAgenda({
                 className="flex min-h-11 items-center px-1 text-sm text-stone hover:text-grass"
                 aria-label={`Add a session on ${parseLocalDate(date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}`}
               >
-                {list.length ? "+ Add" : "Nothing yet · + Add"}
+                {list.length || events.length ? "+ Add" : "Nothing yet · + Add"}
               </button>
             </div>
           </li>
@@ -248,24 +343,24 @@ interface ResizeState {
   originalDuration: number;
 }
 
-function hourLabel(h: number): string {
-  return h === 12 ? "12 pm" : h > 12 ? `${h - 12} pm` : `${h} am`;
-}
-
 /** Tablet and up: the full-width time grid (drag to move, drag the bottom
  * edge to resize, click an empty slot to add). */
 function WeekGrid({
   byDate,
+  tournamentsByDate,
   weekOffset,
   onAdd,
   onEdit,
+  onOpenTournament,
   onMove,
   onResize,
 }: {
   byDate: Map<string, TrainingSession[]>;
+  tournamentsByDate: Map<string, TournamentEntry[]>;
   weekOffset: number;
   onAdd: (date: string, time?: string) => void;
   onEdit: (session: TrainingSession) => void;
+  onOpenTournament: (entry: TournamentEntry) => void;
   onMove: (id: string, date: string, startTime: string) => void;
   onResize: (id: string, duration: number) => void;
 }) {
@@ -327,6 +422,22 @@ function WeekGrid({
           );
         })}
       </div>
+
+      {/* All-day row: saved tournaments, outside the scrolling time grid so
+          they are visible whatever hour the grid is scrolled to. Only drawn
+          when the week has one. */}
+      {dates.some((d) => (tournamentsByDate.get(d) ?? []).length > 0) && (
+        <div className={cn("grid border-b border-line", cols)}>
+          <div className="flex items-start justify-end pr-2 pt-1.5 text-xs text-stone">All day</div>
+          {dates.map((date) => (
+            <div key={date} className="flex min-w-0 flex-col gap-1 border-l border-line p-1">
+              {(tournamentsByDate.get(date) ?? []).map((t) => (
+                <TournamentItem key={t.id} entry={t} onOpen={onOpenTournament} compact />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* A scroll container must be reachable by keyboard (axe
           scrollable-region-focusable): tabIndex + a name. */}
@@ -400,7 +511,7 @@ function WeekGrid({
                       }}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${type.label}, ${session.startTime}, ${session.duration} minutes. Edit.`}
+                      aria-label={`${type.label}, ${formatClockTime(session.startTime)}, ${session.duration} minutes. Edit.`}
                       className="absolute z-[5] cursor-grab overflow-hidden rounded-md border border-line bg-card px-1.5 py-1 text-left shadow-sm hover:z-20 active:cursor-grabbing"
                       style={{
                         top: ((start - gridTop) / 60) * HOUR_HEIGHT + 1,
@@ -413,7 +524,7 @@ function WeekGrid({
                     >
                       <p className="truncate text-xs font-semibold leading-tight text-ink">{type.label}</p>
                       <p className="truncate font-mono text-[11px] leading-tight text-stone">
-                        {session.startTime} · {Math.round(liveDuration)}m
+                        {formatClockTime(session.startTime)} · {Math.round(liveDuration)}m
                       </p>
                       <div
                         onMouseDown={(e) => {
@@ -439,27 +550,18 @@ function WeekGrid({
 
 function MonthGrid({
   byDate,
-  tournamentEntries,
+  tournamentsByDate,
   monthOffset,
   onPickDay,
 }: {
   byDate: Map<string, TrainingSession[]>;
-  tournamentEntries: TournamentEntry[];
+  tournamentsByDate: Map<string, TournamentEntry[]>;
   monthOffset: number;
   onPickDay: (dateKey: string) => void;
 }) {
   const today = new Date();
   const todayKey = localDateKey(today);
   const viewDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
-
-  const tournamentsByDate = useMemo(() => {
-    const map = new Map<string, TournamentEntry[]>();
-    tournamentEntries.forEach((t) => {
-      const key = t.eventDate.slice(0, 10);
-      map.set(key, [...(map.get(key) ?? []), t]);
-    });
-    return map;
-  }, [tournamentEntries]);
 
   const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
   const firstWeekday = (viewDate.getDay() + 6) % 7;
@@ -484,7 +586,7 @@ function MonthGrid({
         const label = [
           parseLocalDate(key).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
           list.length ? plural(list.length, "session", "sessions") : "no sessions",
-          ...events.map((t) => t.name),
+          ...events.map((t) => `${t.name} (tournament, all day)`),
         ].join(", ");
         return (
           <button
@@ -498,10 +600,17 @@ function MonthGrid({
             )}
           >
             <span className={cn("text-xs", isToday ? "font-semibold text-grass" : "text-stone")}>{day}</span>
-            {events.length > 0 && (
-              <span className="hidden w-full truncate rounded bg-grass-50 px-1 text-[11px] font-semibold text-grass sm:block">
-                {events[0].name}
+            {/* All-day tournaments: up to two names, then "+N". */}
+            {events.slice(0, 2).map((t) => (
+              <span
+                key={t.id}
+                className="hidden w-full truncate rounded bg-grass-50 px-1 text-[11px] font-semibold text-grass sm:block"
+              >
+                {t.name}
               </span>
+            ))}
+            {events.length > 2 && (
+              <span className="hidden font-mono text-[10px] text-grass sm:block">+{events.length - 2}</span>
             )}
             {events.length > 0 && <span className="h-1.5 w-3 rounded-full bg-grass sm:hidden" aria-hidden />}
             {list.length > 0 && (

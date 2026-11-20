@@ -5,11 +5,14 @@
 //   1. Competition fit — UTR moves on results vs. opponents' ratings. Playing a
 //      draw at or slightly above your level helps most; beating players far
 //      below you does almost nothing, and a field far above you usually means
-//      one early loss and little signal.
+//      one early loss and little signal. Judged ONLY from the draw's average
+//      UTR the family enters — see FIELD_BANDS.
 //   2. Cost per meaningful match — entry + travel spread over the matches a
 //      junior event realistically guarantees.
 //   3. Travel burden — hours on the road, forgiven somewhat for the rare
 //      national-level opportunities that are worth traveling for.
+//
+// /methodology ("Tournament checker") states this rule in plain words.
 
 import { formatPlayerUtr } from "@/lib/utils";
 
@@ -31,12 +34,16 @@ export interface LevelInfo {
   label: string;
   scope: "national" | "sectional" | "district" | "utr";
   description: string;
-  // Guaranteed-ish match count typical for the format (main draw + backdraw).
+  // Seeded's working assumption of the matches a format usually guarantees
+  // (main draw + backdraw), used only to spread the cost per match. Not a
+  // published USTA figure; /methodology says so.
   typicalMatches: number;
 }
 
 // Real USTA junior structure: L1 is the top national tier, L7 is entry level.
 // UTR events sit outside the USTA ladder and are rated purely by the draw.
+// The level no longer implies a UTR range (see FIELD_BANDS) — it sets only
+// the cost-per-match divisor and whether long travel is forgiven.
 export const LEVELS: LevelInfo[] = [
   { value: "L1", label: "L1 — National championship", scope: "national", description: "Highest USTA tier (e.g. Hard Courts, Winter Nationals). Deepest draws, biggest points.", typicalMatches: 4 },
   { value: "L2", label: "L2 — National", scope: "national", description: "National-level events one tier below the championships.", typicalMatches: 4 },
@@ -45,79 +52,93 @@ export const LEVELS: LevelInfo[] = [
   { value: "L5", label: "L5 — Sectional / regional", scope: "sectional", description: "Regional draws inside your section.", typicalMatches: 3 },
   { value: "L6", label: "L6 — District", scope: "district", description: "District-level events for building match play.", typicalMatches: 3 },
   { value: "L7", label: "L7 — Entry level", scope: "district", description: "Entry tier — first tournaments and early match experience.", typicalMatches: 2 },
-  // "UTR" (not "UTR event") — every other label's pre-em-dash segment is a
-  // bare level code (L1..L7); the "level estimate" reason text below splits
-  // on "—" and appends " events" to that segment, so a label that already
-  // ended in the word "event" produced "UTR event events are typically
-  // competitive..." (caught live-testing the Tournament Fit screen's "UTR"
-  // level for the first time — see components/seeded/tournament-fit).
   { value: "utr", label: "UTR", scope: "utr", description: "UTR-verified event. Strength comes entirely from the draw, so the average entrant UTR matters most.", typicalMatches: 3 },
 ];
 
-// Rough player-UTR windows where each USTA level is usually competitive for
-// juniors. Used ONLY when the user can't estimate draw strength — a real draw
-// average always overrides this. Ranges are deliberately wide because level
-// strength varies a lot by age division and section.
-const LEVEL_UTR_WINDOW: Record<FitLevel, [number, number]> = {
-  L1: [9, 16.5],
-  L2: [8, 15],
-  L3: [7, 13.5],
-  L4: [6, 12],
-  L5: [4.5, 10.5],
-  L6: [3, 9],
-  L7: [1, 7],
-  utr: [1, 16.5],
-};
-
 /**
- * The level-based field estimate evaluateTournamentFit() falls back to when
- * no real draw average is entered (see competitionFromLevel below), as the
- * RANGE the engine actually scores against. The checker's "Typical field for
- * this level" note and the verdict's own sentence both print this one
- * string, so they cannot disagree. (The note used to print the midpoint,
- * "avg 9.0", directly above a verdict that said "players around UTR 6–12" —
- * two numbers for one estimate; production sweep C15.) "utr" has no typical
- * field: its strength comes entirely from who enters, so callers
- * special-case it.
+ * The field rule. Every verdict is judged from ONE number the family types
+ * in — the draw's average UTR (from the entry list or last year's draw) —
+ * compared with the player's own UTR. gap = draw average − player UTR.
+ *
+ * There is deliberately NO level-to-UTR table any more. The old one ("L5
+ * events are typically competitive for players around UTR 4.5–10.5") had no
+ * source, and its windows were so wide that almost every player sat inside
+ * almost every level, so almost everything came back "Worth it". A level
+ * says nothing reliable about who enters one event (age division and section
+ * swing it by several UTR), so without a draw average the checker says
+ * NOT_ENOUGH_INFO instead of guessing. /methodology prints these bands from
+ * this constant.
  */
-export function typicalFieldRange(level: FitLevel): { low: number; high: number; label: string } {
-  const [low, high] = LEVEL_UTR_WINDOW[level];
-  return { low, high, label: `${low}–${high}` };
+export const FIELD_BANDS = {
+  /** Draw average from 0.5 below to 1.0 above the player: wins here move a rating most. */
+  inRange: { below: 0.5, above: 1.0 },
+  /** More than 1.0 and up to 2.0 above: a stretch — "Worth a look" at best. */
+  stretchAbove: 2.0,
+  /** More than 0.5 and up to 1.5 below: a bit easy — "Worth a look" at best. */
+  easyBelow: 1.5,
+} as const;
+
+export type FieldBand = "in-range" | "stretch" | "easy" | "too-strong" | "too-weak";
+
+/** Which band a draw average falls in for this player. Pure. */
+export function fieldBand(drawUtr: number, playerUtr: number): FieldBand {
+  const gap = round2(drawUtr - playerUtr);
+  if (gap > FIELD_BANDS.stretchAbove) return "too-strong";
+  if (gap > FIELD_BANDS.inRange.above) return "stretch";
+  if (gap >= -FIELD_BANDS.inRange.below) return "in-range";
+  if (gap >= -FIELD_BANDS.easyBelow) return "easy";
+  return "too-weak";
 }
 
-export type VerdictBlocker = "level" | "utr" | "entry fee";
+/** What the checker, /events and the family pages say when the draw's
+ *  average UTR is the only thing missing. */
+export const NOT_ENOUGH_INFO = "Not enough info. Add the draw's average UTR for a real verdict.";
+
+export type VerdictBlocker = "level" | "utr" | "entry fee" | "draw";
 
 /**
  * What the checker still needs before it may say "Worth it" or "Skip it".
  * A verdict with no fee scored a blank cost as "$0 / match" and still said
  * "Worth it" (production sweep C15), and a verdict before the level was
- * chosen judged whichever level happened to be pre-selected. Returns what
- * is missing, in the order the form asks for it; empty means a verdict may
- * be shown. An entry fee of 0 is a real answer (a free event), not missing.
+ * chosen judged whichever level happened to be pre-selected. The draw's
+ * average UTR joined the list in PR D (D5): the verdict is judged from the
+ * field relative to the player, and nothing else in the form says who
+ * enters. Returns what is missing, in the order the form asks for it; empty
+ * means a verdict may be shown. An entry fee of 0 is a real answer (a free
+ * event), not missing.
  */
 export function verdictBlockers(input: {
   level: FitLevel | null;
   playerUtr: number | null;
   entryCost: number | null;
+  drawUtr: number | null;
 }): VerdictBlocker[] {
   const missing: VerdictBlocker[] = [];
   if (input.level == null) missing.push("level");
-  if (input.playerUtr == null) missing.push("utr");
+  if (!isUtr(input.playerUtr)) missing.push("utr");
   if (input.entryCost == null || !Number.isFinite(input.entryCost) || input.entryCost < 0) {
     missing.push("entry fee");
   }
+  if (!isUtr(input.drawUtr)) missing.push("draw");
   return missing;
+}
+
+function isUtr(v: number | null): v is number {
+  return v != null && Number.isFinite(v) && v >= UTR_MIN && v <= UTR_MAX;
 }
 
 const BLOCKER_PHRASE: Record<VerdictBlocker, string> = {
   level: "choose the level",
   utr: "enter a UTR",
   "entry fee": "add the entry fee",
+  draw: "add the draw's average UTR",
 };
 
-/** "To see a verdict, choose the level and add the entry fee." */
+/** "To see a verdict, choose the level and add the entry fee." — or, when
+ *  only the draw is missing, NOT_ENOUGH_INFO. */
 export function verdictBlockerSentence(blockers: VerdictBlocker[]): string {
   if (blockers.length === 0) return "";
+  if (blockers.length === 1 && blockers[0] === "draw") return NOT_ENOUGH_INFO;
   const parts = blockers.map((b) => BLOCKER_PHRASE[b]);
   const joined =
     parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
@@ -136,7 +157,10 @@ export interface FitInput {
   level: FitLevel;
   playerUtr: number;
   goalUtr: number | null;
-  drawUtr: number | null; // average UTR of entrants, if known/estimated
+  /** Average UTR of the draw's entrants. Required — without it there is no
+   *  verdict (verdictBlockers → "draw"); use checkTournamentFit() for rows
+   *  whose fields may be blank. */
+  drawUtr: number;
   travelHours: number | null;
   distanceMiles: number | null;
   entryCost: number | null; // null = not entered — must not be scored as "free"
@@ -152,7 +176,9 @@ export interface FitResult {
   costPerMatch: number;
   totalCost: number;
   effectiveTravelHours: number;
-  drawEstimated: boolean;
+  /** draw average − player UTR, to two decimals. */
+  fieldGap: number;
+  fieldBand: FieldBand;
   reasons: FitReason[];
   suggestions: string[];
 }
@@ -160,26 +186,14 @@ export interface FitResult {
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 // How much the field helps the rating, from the gap (draw avg − player UTR).
-// Peak value sits at "similar to slightly stronger than you".
+// Peak value sits at "similar to slightly stronger than you" — FIELD_BANDS'
+// in-range band.
 function competitionFromGap(gap: number): number {
   if (gap >= -0.5 && gap <= 1.0) return 100;
   if (gap > 1.0 && gap <= 2.0) return Math.round(100 - (gap - 1.0) * 45); // 100 → 55
   if (gap > 2.0) return Math.round(Math.max(20, 55 - (gap - 2.0) * 20));
   if (gap >= -1.5) return Math.round(100 + (gap + 0.5) * 40); // -0.5 → 100, -1.5 → 60
   return Math.round(Math.max(10, 60 + (gap + 1.5) * 30)); // fades toward 10
-}
-
-function competitionFromLevel(level: FitLevel, playerUtr: number): number {
-  const [lo, hi] = LEVEL_UTR_WINDOW[level];
-  if (playerUtr >= lo && playerUtr <= hi) {
-    // Inside the window: better toward the middle-upper part of the band.
-    const mid = (lo + hi) / 2;
-    const half = (hi - lo) / 2;
-    const off = Math.abs(playerUtr - mid) / half; // 0 center → 1 edge
-    return Math.round(90 - off * 25);
-  }
-  const overshoot = playerUtr > hi ? playerUtr - hi : lo - playerUtr;
-  return Math.round(Math.max(15, 60 - overshoot * 18));
 }
 
 function costScoreFor(costPerMatch: number, scope: LevelInfo["scope"]): number {
@@ -215,75 +229,40 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   const suggestions: string[] = [];
 
   /* ------------------------------------------------ competition (weight 45) */
-  const drawEstimated = input.drawUtr == null;
-  let competitionScore: number;
+  const drawUtr = clamp(input.drawUtr, UTR_MIN, UTR_MAX);
+  const gap = round2(drawUtr - playerUtr);
+  const band = fieldBand(drawUtr, playerUtr);
+  const competitionScore = competitionFromGap(gap);
+  const gapText = Math.abs(gap).toFixed(1);
 
-  if (input.drawUtr != null) {
-    const drawUtr = clamp(input.drawUtr, UTR_MIN, UTR_MAX);
-    const gap = drawUtr - playerUtr;
-    competitionScore = competitionFromGap(gap);
-
-    if (gap >= -0.5 && gap <= 1.0) {
-      reasons.push({
-        tone: "positive",
-        text: `The field (avg UTR ${drawUtr.toFixed(1)}) sits right in your improvement zone — wins over similarly or slightly higher-rated players move your UTR the most.`,
-      });
-    } else if (gap > 1.0 && gap <= 2.0) {
-      reasons.push({
-        tone: "neutral",
-        text: `The field averages ${gap.toFixed(1)} UTR above you. A win there is gold for your rating, but expect tough early rounds.`,
-      });
-      suggestions.push("Treat this as a stretch event — pair it with an at-level tournament the same month so you still bank winnable matches.");
-    } else if (gap > 2.0) {
-      reasons.push({
-        tone: "negative",
-        text: `The field averages ${gap.toFixed(1)} UTR above you — you'd likely be overmatched early, and one lopsided loss gives your rating very little to work with.`,
-      });
-      suggestions.push(`Look for a draw averaging within about 1 UTR of your ${formatPlayerUtr(playerUtr)} — that's where results actually move ratings.`);
-    } else if (gap >= -1.5) {
-      reasons.push({
-        tone: "neutral",
-        text: `The field is a bit below you (${Math.abs(gap).toFixed(1)} UTR under). You should win matches, but the rating reward per win is limited.`,
-      });
-    } else {
-      reasons.push({
-        tone: "negative",
-        text: `The field averages ${Math.abs(gap).toFixed(1)} UTR below you. Beating players far below your level does almost nothing for your UTR, even if you sweep the draw.`,
-      });
-      suggestions.push("Move up a level (or find a stronger UTR event) — you've outgrown this field.");
-    }
+  if (band === "in-range") {
+    reasons.push({
+      tone: "positive",
+      text: `The field (avg UTR ${drawUtr.toFixed(1)}) sits right in your improvement zone — wins over similarly or slightly higher-rated players move your UTR the most.`,
+    });
+  } else if (band === "stretch") {
+    reasons.push({
+      tone: "neutral",
+      text: `The field averages ${gapText} UTR above you. A win there is gold for your rating, but expect tough early rounds.`,
+    });
+    suggestions.push("Treat this as a stretch event — pair it with an at-level tournament the same month so you still bank winnable matches.");
+  } else if (band === "too-strong") {
+    reasons.push({
+      tone: "negative",
+      text: `The field averages ${gapText} UTR above you — you'd likely be overmatched early, and one lopsided loss gives your rating very little to work with.`,
+    });
+    suggestions.push(`Look for a draw averaging within about 1 UTR of your ${formatPlayerUtr(playerUtr)} — that's where results actually move ratings.`);
+  } else if (band === "easy") {
+    reasons.push({
+      tone: "neutral",
+      text: `The field is a bit below you (${gapText} UTR under). You should win matches, but the rating reward per win is limited.`,
+    });
   } else {
-    competitionScore = competitionFromLevel(input.level, playerUtr);
-    const [lo, hi] = LEVEL_UTR_WINDOW[input.level];
-    if (playerUtr >= lo && playerUtr <= hi) {
-      reasons.push({
-        tone: "neutral",
-        text: `No draw strength given, so this is estimated from the level: ${levelInfo.label.split("—")[0].trim()} events are typically competitive for players around UTR ${typicalFieldRange(input.level).label}, and you're at ${formatPlayerUtr(playerUtr)}.`,
-      });
-    } else if (playerUtr > hi) {
-      // Every sentence here quotes the same typicalFieldRange() label the
-      // checker's "Typical field" note prints (C15).
-      reasons.push({
-        tone: playerUtr - hi <= 0.5 ? "neutral" : "negative",
-        text:
-          playerUtr - hi <= 0.5
-            ? `At UTR ${formatPlayerUtr(playerUtr)} you're just above this level's typical field (UTR ${typicalFieldRange(input.level).label}) — wins still count, but each one moves your rating less.`
-            : `At UTR ${formatPlayerUtr(playerUtr)} you're above this level's typical field (UTR ${typicalFieldRange(input.level).label}) — expect little rating value from wins here.`,
-      });
-      suggestions.push("Check the entry list before committing — if the top seeds are 1+ UTR below you, pick a higher level.");
-    } else {
-      // 5.95 against a 6–12 window is the edge of the range, not "a big step
-      // up"; that sentence used to sit under a "Worth it" headline.
-      reasons.push({
-        tone: lo - playerUtr <= 0.5 ? "neutral" : "negative",
-        text:
-          lo - playerUtr <= 0.5
-            ? `At UTR ${formatPlayerUtr(playerUtr)} you're just under this level's typical field (UTR ${typicalFieldRange(input.level).label}) — most opponents will be a little stronger, which is where wins move your rating most.`
-            : `At UTR ${formatPlayerUtr(playerUtr)} this level's typical field (UTR ${typicalFieldRange(input.level).label}) would be a big step up — you may run into much higher-rated players in round one.`,
-      });
-      suggestions.push("Build results at the level below first, then use this event as a target once you're inside its typical range.");
-    }
-    suggestions.push("If you can find the average entrant UTR (event page or last year's draw), re-run this — a real draw number beats the level estimate.");
+    reasons.push({
+      tone: "negative",
+      text: `The field averages ${gapText} UTR below you. Beating players far below your level does almost nothing for your UTR, even if you sweep the draw.`,
+    });
+    suggestions.push("Move up a level (or find a stronger UTR event) — you've outgrown this field.");
   }
 
   /* ------------------------------------------------------- cost (weight 30) */
@@ -352,14 +331,14 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   }
 
   /* --------------------------------------------------------- goal context */
-  if (input.goalUtr != null && input.drawUtr != null) {
+  if (input.goalUtr != null) {
     const goalGap = input.goalUtr - playerUtr;
-    if (goalGap > 0 && input.drawUtr >= playerUtr - 0.5) {
+    if (goalGap > 0 && drawUtr >= playerUtr - 0.5) {
       reasons.push({
         tone: "positive",
         text: `This field points toward your goal of UTR ${formatPlayerUtr(input.goalUtr)} — these are exactly the opponents you need results against to get there.`,
       });
-    } else if (goalGap > 0 && input.drawUtr < playerUtr - 1.5) {
+    } else if (goalGap > 0 && drawUtr < playerUtr - 1.5) {
       reasons.push({
         tone: "negative",
         text: `You're chasing UTR ${formatPlayerUtr(input.goalUtr)}, and this field can't give you the results that climb requires.`,
@@ -371,11 +350,14 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   let score = Math.round(
     competitionScore * 0.45 + costScore * 0.3 + travelScore * 0.25
   );
-  // A cheap, nearby event can't rescue a worthless field: if the competition
-  // gives your rating almost nothing, the event is a bad (or at best decent)
-  // fit no matter how convenient it is.
-  if (competitionScore <= 25) score = Math.min(score, 40);
-  else if (competitionScore <= 40) score = Math.min(score, 60);
+  // The field sets the ceiling; cost and travel can only pull it down.
+  //   too strong / too weak → "Skip it", however cheap and close;
+  //   a stretch / a bit easy → "Worth a look" at best;
+  //   in range              → "Worth it" when cost and travel allow.
+  // Before PR D the only cap was a competition score ≤ 40, so a local, cheap
+  // event whose field sat 2 UTR below the player still read "Worth it".
+  if (band === "too-strong" || band === "too-weak") score = Math.min(score, 44);
+  else if (band === "stretch" || band === "easy") score = Math.min(score, 69);
   const verdict: Verdict = score >= 70 ? "good" : score >= 45 ? "decent" : "bad";
 
   if (verdict === "good" && suggestions.length === 0) {
@@ -391,10 +373,33 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     costPerMatch,
     totalCost,
     effectiveTravelHours,
-    drawEstimated,
+    fieldGap: gap,
+    fieldBand: band,
     reasons,
     suggestions,
   };
+}
+
+/**
+ * evaluateTournamentFit for a row whose fields may be blank — a saved
+ * tournament, a half-filled form. Null whenever verdictBlockers() names
+ * anything missing, so no caller can score a blank draw or a blank fee.
+ */
+export function checkTournamentFit(
+  input: Omit<FitInput, "drawUtr" | "level" | "playerUtr"> & {
+    level: FitLevel | null;
+    playerUtr: number | null;
+    drawUtr: number | null;
+  }
+): FitResult | null {
+  const { level, playerUtr, drawUtr, entryCost } = input;
+  if (verdictBlockers({ level, playerUtr, entryCost, drawUtr }).length > 0) return null;
+  if (level == null || playerUtr == null || drawUtr == null) return null;
+  return evaluateTournamentFit({ ...input, level, playerUtr, drawUtr });
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 function formatHours(hours: number): string {

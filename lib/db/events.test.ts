@@ -49,9 +49,10 @@ describe("validateTournamentEntryInput", () => {
     expect(validateTournamentEntryInput({ ...base, eventDate: "not-a-date" })).toMatch(/date/i);
   });
 
-  it("rejects a blank city or state", () => {
-    expect(validateTournamentEntryInput({ ...base, city: "" })).toMatch(/city/i);
-    expect(validateTournamentEntryInput({ ...base, state: "" })).toMatch(/state/i);
+  it("accepts a blank city or state — both are optional (PR D, D4)", () => {
+    expect(validateTournamentEntryInput({ ...base, city: "" })).toBeNull();
+    expect(validateTournamentEntryInput({ ...base, state: "" })).toBeNull();
+    expect(validateTournamentEntryInput({ ...base, city: null, state: undefined })).toBeNull();
   });
 
   it("rejects draw/goal UTR outside 1-16.5", () => {

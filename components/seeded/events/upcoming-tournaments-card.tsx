@@ -2,19 +2,31 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { evaluateTournamentFit, verdictBlockerSentence, verdictBlockers } from "@/lib/tournament-fit";
-import type { TournamentEntry } from "@/lib/db/events";
+import { Pencil, Trash2 } from "lucide-react";
+import { checkTournamentFit, verdictBlockerSentence, verdictBlockers, type FitResult, type Verdict } from "@/lib/tournament-fit";
+import { TOURNAMENT_STATUSES, type TournamentEntry, type TournamentEntryStatus } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 
-// Same "border + bg + text" chip language as FitBadge (components/seeded/
-// ui/fit-badge.tsx)'s target/reach bands — reused directly rather than
-// invented fresh, since "Good fit"/"Skip it" here is the same semantic
-// green/orange pairing as that component's "target"/"reach".
-const GOOD_FIT_CLASS = "border-grass-100 bg-grass-50 text-grass";
-const SKIP_IT_CLASS = "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))]";
+// Same "border + bg + text" chip language as FitBadge and the checker's
+// verdict card: green = Worth it, gold = Worth a look, clay = Skip it. The
+// three words are the checker's own headlines, so a tournament reads the
+// same on both screens. ("Worth a look" used to show as "Skip it" here.)
+const VERDICT_CHIP: Record<Verdict, { label: string; className: string }> = {
+  good: { label: "Worth it", className: "border-grass-100 bg-grass-50 text-grass" },
+  decent: {
+    label: "Worth a look",
+    className:
+      "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",
+  },
+  bad: {
+    label: "Skip it",
+    className:
+      "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))]",
+  },
+};
 const NEUTRAL_CLASS = "border-line bg-card text-stone";
 
 function Chip({ className, children }: { className: string; children: ReactNode }) {
@@ -33,7 +45,9 @@ function Chip({ className, children }: { className: string; children: ReactNode 
 export function UpcomingTournamentsCard({
   entries,
   playerUtr,
-  onMarkEntered,
+  onSetStatus,
+  onEdit,
+  onRemove,
 }: {
   entries: TournamentEntry[];
   /** NULL/0 when the player has not entered a rating. Every fit verdict
@@ -41,48 +55,38 @@ export function UpcomingTournamentsCard({
    *  say about a tournament's fit — the caption and the per-entry chips are
    *  dropped rather than computed from the sentinel. */
   playerUtr: number;
-  onMarkEntered: (id: string) => void;
+  onSetStatus: (id: string, status: TournamentEntryStatus) => void;
+  onEdit: (entry: TournamentEntry) => void;
+  onRemove: (entry: TournamentEntry) => void;
 }) {
   const sorted = useMemo(
-    () => [...entries].sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
+    () => [...entries].sort((a, b) => a.eventDate.localeCompare(b.eventDate) || a.id.localeCompare(b.id)),
     [entries]
   );
 
   const utrKnown = hasRealUtr(playerUtr);
 
   const fits = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof evaluateTournamentFit>>();
+    const map = new Map<string, FitResult>();
     if (!utrKnown) return map;
     sorted.forEach((t) => {
-      // Same rule as the tournament checker (C15): no verdict without a
-      // level, a UTR and an entry fee — a blank fee is not "$0 / match".
-      if (verdictBlockers({ level: t.level, playerUtr, entryCost: t.entryCost }).length > 0) return;
-      map.set(
-        t.id,
-        evaluateTournamentFit({
-          name: t.name,
-          level: t.level,
-          playerUtr,
-          goalUtr: t.goalUtr,
-          drawUtr: t.drawUtr,
-          travelHours: t.travelHours,
-          distanceMiles: t.distanceMiles,
-          entryCost: t.entryCost,
-          travelCost: t.travelCost,
-        })
-      );
+      // Same rule as the tournament checker: no verdict without a level, a
+      // UTR, an entry fee and the draw's average UTR (C15, D5).
+      const fit = checkTournamentFit({
+        name: t.name,
+        level: t.level,
+        playerUtr,
+        goalUtr: t.goalUtr,
+        drawUtr: t.drawUtr,
+        travelHours: t.travelHours,
+        distanceMiles: t.distanceMiles,
+        entryCost: t.entryCost,
+        travelCost: t.travelCost,
+      });
+      if (fit) map.set(t.id, fit);
     });
     return map;
   }, [sorted, playerUtr, utrKnown]);
-
-  // The single nearest-upcoming good-fit entry that isn't entered yet gets
-  // the primary "Enter" CTA — the one tournament a family most likely needs
-  // to act on right now. Every other good-fit entry gets a neutral "Save";
-  // both call the exact same onMarkEntered action, just with different
-  // urgency styling.
-  const firstGoodFitId = sorted.find(
-    (t) => fits.get(t.id)?.verdict === "good" && t.status !== "entered"
-  )?.id;
 
   const [openWhyId, setOpenWhyId] = useState<string | null>(null);
 
@@ -108,16 +112,16 @@ export function UpcomingTournamentsCard({
       ) : (
         <ul className="mt-3.5 flex flex-col">
           {sorted.map((t) => {
-            // Undefined when there is no verdict to give: no UTR yet, or the
-            // entry was saved without a fee. (Without a UTR this used to be
-            // a `!` on an empty map, and /events threw for that player.)
             const fit = fits.get(t.id);
-            const isGoodFit = fit?.verdict === "good";
             const isWhyOpen = openWhyId === t.id;
             // The header already says "Add your UTR to check fit"; per row,
-            // only a missing fee needs saying.
+            // say what else is missing ("Not enough info…" for the draw).
             const noVerdictReason =
-              fit || !utrKnown ? null : verdictBlockerSentence(verdictBlockers({ level: t.level, playerUtr, entryCost: t.entryCost }));
+              fit || !utrKnown
+                ? null
+                : verdictBlockerSentence(
+                    verdictBlockers({ level: t.level, playerUtr, entryCost: t.entryCost, drawUtr: t.drawUtr })
+                  );
 
             return (
               <li key={t.id} className="border-t border-line py-3.5 first:border-t-0 first:pt-0">
@@ -125,49 +129,27 @@ export function UpcomingTournamentsCard({
                   <div className="w-14 shrink-0 font-mono text-sm text-stone">{formatShortDate(t.eventDate)}</div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-ink">{t.name}</p>
-                    <p className="truncate text-sm text-stone">{locationLine(t)}</p>
+                    {locationLine(t) && <p className="truncate text-sm text-stone">{locationLine(t)}</p>}
                   </div>
-                  {!fit ? (
-                    t.status === "entered" ? (
-                      <Chip className={NEUTRAL_CLASS}>Entered</Chip>
-                    ) : (
-                      <Chip className={NEUTRAL_CLASS}>No verdict</Chip>
-                    )
-                  ) : (
-                    <Chip className={isGoodFit ? GOOD_FIT_CLASS : SKIP_IT_CLASS}>
-                      {isGoodFit ? "Good fit" : "Skip it"}
-                    </Chip>
-                  )}
-                  {!fit ? null : isGoodFit ? (
-                    t.status === "entered" ? (
-                      <Chip className={NEUTRAL_CLASS}>Entered</Chip>
-                    ) : (
-                      // Secondary: "Add session" is /events' one green
-                      // button (design system v2 rule 1, sweep C20).
+                  {fit ? (
+                    <>
+                      <Chip className={VERDICT_CHIP[fit.verdict].className}>{VERDICT_CHIP[fit.verdict].label}</Chip>
                       <SeededButton
                         variant="secondary"
                         className="min-h-11 px-4 sm:min-h-[38px]"
-                        onClick={() => onMarkEntered(t.id)}
+                        onClick={() => setOpenWhyId(isWhyOpen ? null : t.id)}
+                        aria-expanded={isWhyOpen}
                       >
-                        {t.id === firstGoodFitId ? "Enter" : "Save"}
+                        Why
                       </SeededButton>
-                    )
+                    </>
                   ) : (
-                    <SeededButton
-                      variant="secondary"
-                      className="min-h-11 px-4 sm:min-h-[38px]"
-                      onClick={() => setOpenWhyId(isWhyOpen ? null : t.id)}
-                      aria-expanded={isWhyOpen}
-                    >
-                      Why
-                    </SeededButton>
+                    <Chip className={NEUTRAL_CLASS}>No verdict</Chip>
                   )}
                 </div>
-                {noVerdictReason && (
-                  <p className="ml-[72px] mt-1.5 text-sm text-stone">{noVerdictReason}</p>
-                )}
+                {noVerdictReason && <p className="mt-1.5 text-sm text-stone sm:ml-[72px]">{noVerdictReason}</p>}
                 {fit && isWhyOpen && (
-                  <ul className="ml-[72px] mt-2.5 flex flex-col gap-1.5 border-l-2 border-line pl-3.5">
+                  <ul className="mt-2.5 flex flex-col gap-1.5 border-l-2 border-line pl-3.5 sm:ml-[72px]">
                     {fit.reasons.map((reason, i) => (
                       <li key={i} className="text-sm leading-relaxed text-stone">
                         {reason.text}
@@ -175,11 +157,72 @@ export function UpcomingTournamentsCard({
                     ))}
                   </ul>
                 )}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:ml-[72px]">
+                  <StatusControl entry={t} onChange={(status) => onSetStatus(t.id, status)} />
+                  <div className="ml-auto flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(t)}
+                      aria-label={`Edit ${t.name}`}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-stone transition-colors hover:bg-subtle-hover hover:text-ink"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(t)}
+                      aria-label={`Remove ${t.name}`}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-stone transition-colors hover:bg-error-bg hover:text-error"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
+                </div>
               </li>
             );
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * Planning → Entered → Played. A segmented control whose three buttons
+ * never change size or position, so changing the status changes only which
+ * one is pressed: nothing reflows, nothing loses focus, and the page does
+ * not scroll (the old "Enter" button replaced itself with a chip, which
+ * dropped focus to <body> and could jump the page).
+ */
+function StatusControl({
+  entry,
+  onChange,
+}: {
+  entry: TournamentEntry;
+  onChange: (status: TournamentEntryStatus) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-line p-0.5" role="group" aria-label={`Status of ${entry.name}`}>
+      {TOURNAMENT_STATUSES.map((s) => {
+        const active = entry.status === s.value;
+        return (
+          <button
+            key={s.value}
+            type="button"
+            aria-pressed={active}
+            onClick={(e) => {
+              e.preventDefault();
+              if (!active) onChange(s.value);
+            }}
+            className={cn(
+              "min-h-11 rounded-md px-3 text-sm font-semibold transition-colors sm:min-h-9",
+              active ? "bg-grass-50 text-grass" : "text-stone hover:text-ink"
+            )}
+          >
+            {s.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -193,7 +236,7 @@ function locationLine(t: TournamentEntry): string {
   } else if (t.distanceMiles != null) {
     parts.push(`${t.distanceMiles} mi`);
   }
-  if (t.drawUtr != null) parts.push(`field est. ${formatUtrEstimate(t.drawUtr)}`);
+  if (t.drawUtr != null) parts.push(`draw avg ${formatUtrEstimate(t.drawUtr)}`);
   return parts.join(" · ");
 }
 
