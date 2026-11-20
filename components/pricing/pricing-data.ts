@@ -29,7 +29,7 @@ import {
 import type { CatalogCounts } from "@/lib/db/schools";
 
 export const TIERS: readonly SubscriptionTier[] = ["free", "player", "family"] as const;
-export const PAID_TIERS: readonly SubscriptionTier[] = ["player", "family"] as const;
+const PAID_TIERS: readonly SubscriptionTier[] = ["player", "family"] as const;
 
 export const TIER_NAME: Record<SubscriptionTier, string> = {
   free: "Free",
@@ -54,7 +54,7 @@ function formatUsd(amount: number): string {
 }
 
 /** What a year saves against twelve monthly payments, in dollars. */
-export function yearlySavingsUsd(tier: SubscriptionTier): number {
+function yearlySavingsUsd(tier: SubscriptionTier): number {
   const { monthly, yearly } = TIER_PRICE_USD[tier];
   return monthly * 12 - yearly;
 }
@@ -64,7 +64,7 @@ export function yearlySavingsUsd(tier: SubscriptionTier): number {
  * so "about N%" is never more than either plan actually saves. At today's
  * prices: Player 31%, Family 30% -> 30.
  */
-export function yearlySavingsAboutPercent(): number {
+function yearlySavingsAboutPercent(): number {
   return Math.min(...PAID_TIERS.map((t) => yearlySavingsPercent(t)));
 }
 
@@ -109,9 +109,9 @@ export function priceBlockFor(tier: SubscriptionTier, interval: BillingInterval)
  * `has_tier('player')` — and lib/hooks/use-star-schools.ts's
  * `canAccess("player")`. Change all three together.
  */
-export const TARGET_CAP_LIFTED_AT: SubscriptionTier = "player";
+const TARGET_CAP_LIFTED_AT: SubscriptionTier = "player";
 
-export function targetSchoolsLabel(tier: SubscriptionTier): string {
+function targetSchoolsLabel(tier: SubscriptionTier): string {
   return tierIncludes(tier, TARGET_CAP_LIFTED_AT) ? "Unlimited" : String(FREE_TIER_TARGET_SCHOOL_LIMIT);
 }
 
@@ -188,7 +188,7 @@ export function planCards(counts: CatalogCounts): PlanCard[] {
 
 export type GatedFeature = keyof typeof FEATURE_TIER;
 
-export const COMPARE_GROUPS = ["Schools", "Planning", "Family"] as const;
+const COMPARE_GROUPS = ["Schools", "Planning", "Family"] as const;
 export type CompareGroup = (typeof COMPARE_GROUPS)[number];
 
 /**

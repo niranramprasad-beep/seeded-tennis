@@ -18,7 +18,7 @@ import { formatShortDate } from "@/lib/time";
  * yet is "Researching" — it used to sit in no column at all, so the header
  * said "4 programs" over a board showing one (production sweep C13).
  */
-export function boardStageFor(
+function boardStageFor(
   slug: string,
   statuses: OutreachStatusMapDated
 ): OutreachStatus {

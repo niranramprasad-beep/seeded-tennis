@@ -87,7 +87,7 @@ export const PARENT_ONLY_BUDGET_MESSAGE =
   "Only a parent in the family can change the season budget.";
 
 /** The sentence a locked family gets from a Family-plan API route. */
-export const FAMILY_PLAN_LOCKED_MESSAGE =
+const FAMILY_PLAN_LOCKED_MESSAGE =
   "The season budget and family reports are part of the Family plan. Upgrade to Family to use them.";
 
 /**

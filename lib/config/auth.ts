@@ -49,7 +49,6 @@ export function safeRedirectPath(next: string | null | undefined): string | null
   if (value.startsWith("//") || value.startsWith("/\\")) return null;
   if (value.includes("\\")) return null;
   // Control characters can be used to smuggle a scheme past a prefix check.
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(value)) return null;
   return value;
 }

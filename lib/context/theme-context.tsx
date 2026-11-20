@@ -87,7 +87,7 @@ export const THEMES: {
   },
 ];
 
-export const THEME_STORAGE_KEY = "seeded.theme";
+const THEME_STORAGE_KEY = "seeded.theme";
 
 interface ThemeContextValue {
   theme: ThemeId;

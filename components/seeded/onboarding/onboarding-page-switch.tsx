@@ -94,7 +94,7 @@ function SignedInDiagnostic({
         : signedInDiagnosticStart(player, birthYear, initialAnswers ? { answers: initialAnswers, prefilled: prefilled ?? [] } : undefined),
     // The account's answers are read once, when the birth year lands; the
     // diagnostic owns the answers after that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seeded once when the birth year lands; the diagnostic owns answers after
     [birthYear]
   );
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { seededButtonVariants } from "@/components/seeded/ui/button";

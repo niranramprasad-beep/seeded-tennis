@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Award,
   Building2,
-  CalendarDays,
   GraduationCap,
   MapPin,
   Trophy,

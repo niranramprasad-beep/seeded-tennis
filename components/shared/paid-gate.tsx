@@ -10,7 +10,6 @@ import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = {
   free: "Free",

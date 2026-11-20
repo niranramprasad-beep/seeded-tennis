@@ -193,7 +193,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search).get("school");
     if (qs && player.targetSchoolSlugs.includes(qs)) setSelectedSlug(qs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only read of the ?school= deep link
   }, []);
 
   const selectedSchool = useMemo(
@@ -214,7 +214,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
     // re-running this would stomp an in-progress edit to the reply note with
     // whatever's currently in the cache. The note is re-seeded on
     // selectedSchool change, which is the only time it should reset.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- statuses excluded on purpose (see above): it would stomp an in-progress reply note
   }, [selectedSchool, player, results, utrRecordedAt]);
 
   const setStatus = async (slug: string, status: OutreachStatus | null) => {

@@ -101,7 +101,7 @@ export function trainingSaveErrorMessage(err: unknown, consentPending = false): 
   }
 }
 
-export const MANUAL_PLAN_METADATA = { kind: "manual" } as const;
+const MANUAL_PLAN_METADATA = { kind: "manual" } as const;
 const MANUAL_PLAN_NAME = "My sessions";
 
 const WEEKDAYS: WeekdayShort[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -113,7 +113,7 @@ export function weekdayOf(dateKey: string): WeekdayShort {
   return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
 }
 
-export function mapSessionRow(row: Tables<"workout_sessions">): TrainingSession | null {
+function mapSessionRow(row: Tables<"workout_sessions">): TrainingSession | null {
   if (!row.scheduled_date) return null;
   const meta = (row.metadata ?? {}) as { seriesId?: string | null };
   return {

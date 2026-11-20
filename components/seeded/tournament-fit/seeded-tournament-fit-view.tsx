@@ -170,7 +170,10 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
   // No verdict until the level, a rating, the entry fee and the draw's
   // average UTR are all in.
-  const blockers = verdictBlockers({ level, playerUtr, entryCost: entryCostNum, drawUtr: drawUtrNum });
+  const blockers = useMemo(
+    () => verdictBlockers({ level, playerUtr, entryCost: entryCostNum, drawUtr: drawUtrNum }),
+    [level, playerUtr, entryCostNum, drawUtrNum]
+  );
 
   const result = useMemo(
     () =>
@@ -187,9 +190,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
             entryCost: entryCostNum,
             travelCost: travelCostNum,
           }),
-    // blockers is derived from level/playerUtr/entryCostNum/drawUtrNum, all listed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum, drawUtrNum]
+    [blockers, tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum, drawUtrNum]
   );
 
   const meta = result ? VERDICT_META[result.verdict] : null;

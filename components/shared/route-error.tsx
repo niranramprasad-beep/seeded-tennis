@@ -38,7 +38,6 @@ export function RouteError({
   const resolvedLabel = backLabel ?? (design === "seeded" ? "Back to Today" : "Back to dashboard");
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error(error);
   }, [error]);
 

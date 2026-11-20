@@ -59,7 +59,7 @@ function monthYear(d: Date): string {
 /* ------------------------------------------------------------- budget */
 
 /** A bar turns amber at 90% of its limit and red past it. */
-export const NEAR_LIMIT_RATIO = 0.9;
+const NEAR_LIMIT_RATIO = 0.9;
 
 export type BudgetStatus = "normal" | "near" | "over";
 
@@ -69,7 +69,7 @@ export function budgetStatus(spent: number, limit: number): BudgetStatus {
   return "normal";
 }
 
-export const BUDGET_CATEGORY_LABEL: Record<BudgetExpenseCategory, string> = {
+const BUDGET_CATEGORY_LABEL: Record<BudgetExpenseCategory, string> = {
   entries: "Entries",
   travel: "Travel",
   camps: "Camps",
@@ -532,7 +532,7 @@ export interface ChartInput {
 }
 
 /** Where target schools start: the lowest team floor on the child's list. */
-export function lowestTargetFloor(schools: Pick<SchoolLite, "minCompetitiveUTR">[]): number | null {
+function lowestTargetFloor(schools: Pick<SchoolLite, "minCompetitiveUTR">[]): number | null {
   const floors = schools.map((s) => s.minCompetitiveUTR).filter((v) => Number.isFinite(v) && v > 0);
   return floors.length ? Math.min(...floors) : null;
 }
@@ -677,7 +677,7 @@ export interface TargetRow {
   band: SchoolFitBand | "unverified";
 }
 
-export function targetRows(
+function targetRows(
   schools: Pick<SchoolLite, "slug" | "shortName">[],
   report: Pick<FitReport, "bandBySlug"> | null
 ): TargetRow[] {

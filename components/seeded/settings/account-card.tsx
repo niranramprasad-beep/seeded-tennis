@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import type { Player } from "@/lib/types";
 import { getCurrentGrade } from "@/lib/time";
-import { formatUTR, formatUtrOrNotTracked } from "@/lib/utils";
+import { formatUtrOrNotTracked } from "@/lib/utils";
 
 // The mockup doesn't detail Account tab content beyond its nav label — this
 // is the real identity data already available via usePlayer()/useTier(),

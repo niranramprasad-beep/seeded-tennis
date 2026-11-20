@@ -395,9 +395,11 @@ and then offers Undo (re-saves the same record). Deleting a session has no
 confirm, only Undo — it is one tap to restore, the same rows by id.
 
 **Gradients are banned on Seeded screens** (C17,
-`lib/design-system-v2.test.ts`), with five allow-listed files. One is a
+`lib/design-system-v2.test.ts`), with five allow-listed files. One was a
 real open violation: `components/auth/parent-login-form.tsx` (glass card,
-gradient button on /parent-login), left to the onboarding/auth pass.
+gradient button on /parent-login). That file was unused (/parent-login
+redirects to /login) and was deleted in PR-QUALITY (2026-11-20); the
+allow-list now has four entries.
 
 **`plural(n, one, many)`** in lib/utils.ts is the one way a count meets a
 noun; `lib/plural.test.ts` scans for hand-rolled `${n} …s`.
@@ -1126,7 +1128,9 @@ flaking again, find out why first.
 ## 2026-11-15 — `playwright-core` + axe as devDependencies, driving the installed Chrome
 
 **Decision.** Added `playwright-core@1.49.1`, `@axe-core/playwright@4.10.1`
-and `axe-core@4.10.2` as devDependencies, installed with
+and `axe-core@4.10.2` as devDependencies (`@axe-core/playwright` was removed
+on 2026-11-20 in PR-QUALITY: nothing in the repo imports it; the scripts
+inject `axe-core`'s own file), installed with
 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` and pointed at the Chrome already on
 the machine (`channel: "chrome"`).
 
