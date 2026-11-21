@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { parseRequestBody } from "@/lib/api-body";
-import { CHECKOUT_PLAN_UNAVAILABLE, checkoutNotConfiguredMessage } from "@/lib/checkout-messages";
+import {
+  CHECKOUT_NO_URL,
+  CHECKOUT_PLAN_UNAVAILABLE,
+  CHECKOUT_WHOP_UNREACHABLE,
+  checkoutNotConfiguredMessage,
+} from "@/lib/checkout-messages";
 import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
@@ -78,7 +83,7 @@ export async function POST(req: Request) {
   } catch (err) {
     logServerError("whop.checkout.create_failed", err, { route: ROUTE, tier, interval });
     return NextResponse.json(
-      { error: "Couldn't reach Whop to start checkout. Try again in a minute." },
+      { error: CHECKOUT_WHOP_UNREACHABLE },
       { status: 502 }
     );
   }
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
     // Whop answered without a checkout URL: an upstream problem, so 502 like
     // the failed call above, not a crash of ours.
     return NextResponse.json(
-      { error: "Couldn't start checkout with Whop, so nothing was charged. Try again in a minute." },
+      { error: CHECKOUT_NO_URL },
       { status: 502 }
     );
   }

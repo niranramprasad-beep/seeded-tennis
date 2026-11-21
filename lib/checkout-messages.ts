@@ -40,3 +40,16 @@ export function checkoutFailureMessage(payload: unknown): string {
   const error = (payload as { error?: unknown } | null)?.error;
   return typeof error === "string" && error.trim() ? error : CHECKOUT_FAILED;
 }
+
+/** Whop refused or failed the call that creates the checkout (502). */
+export const CHECKOUT_WHOP_UNREACHABLE =
+  "Couldn't reach Whop to start checkout, so nothing was charged. Try again in a minute.";
+
+/** Whop answered without a checkout URL (502). */
+export const CHECKOUT_NO_URL =
+  "Couldn't start checkout with Whop, so nothing was charged. Try again in a minute.";
+
+/** Shown by /pricing, never sent to Whop: the family already has a Family
+ * plan (lib/plan-entry.ts), so a second one is not sold. */
+export const CHECKOUT_FAMILY_ALREADY =
+  "Your family already has the Family plan, so nothing was charged. It is managed by the person who pays.";

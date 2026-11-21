@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import { TIER_RANK, type BillingInterval, type SubscriptionTier } from "@/lib/types";
+import type { BillingInterval, SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
-import { CHECKOUT_FAILED, checkoutFailureMessage } from "@/lib/checkout-messages";
+import { CHECKOUT_FAILED, CHECKOUT_FAMILY_ALREADY, checkoutFailureMessage } from "@/lib/checkout-messages";
+import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { planButtonState, type PlanButtonState } from "@/lib/plan-entry";
 
 // The /pricing checkout wiring: plan choice, sign-in hand-off and the
 // billing-portal link, kept out of the view so it can be read on its own.
@@ -17,15 +20,7 @@ async function getAccessToken(): Promise<string | undefined> {
   return data.session?.access_token;
 }
 
-export interface PlanButtonState {
-  /** Signed in AND on exactly this tier. */
-  current: boolean;
-  /** Signed in on a higher tier — never a checkout target. */
-  includedAlready: boolean;
-  loading: boolean;
-  disabled: boolean;
-  label: string;
-}
+export type { PlanButtonState };
 
 export function usePlanCheckout(interval: BillingInterval) {
   const { tier } = useTier();
@@ -42,6 +37,14 @@ export function usePlanCheckout(interval: BillingInterval) {
   // card never flickers from a claim to a CTA.
   const signedIn = hydrated && isAuthed;
 
+  // Is the viewer's family already unlocked by someone's Family plan? Then
+  // "Choose Family" would sell that family a second one (lib/plan-entry.ts).
+  // Same SWR key as the family screens, so it is usually already cached.
+  const { data: familyPlan } = useSWR<FamilyPlanStatus>(
+    signedIn ? "family-plan-status" : null,
+    () => loadFamilyPlanStatus()
+  );
+
   // Only ever called for a genuine upgrade, or by a signed-out visitor — the
   // button is disabled for the current tier and anything below it. Switching
   // down happens on Whop, reached from /settings/billing via manageBilling().
@@ -56,6 +59,13 @@ export function usePlanCheckout(interval: BillingInterval) {
     setError(null);
     setLoadingTier(t);
     try {
+      // The button is disabled once the status is known; this covers a
+      // click that lands before it loaded.
+      if (t === "family" && (familyPlan ?? (await loadFamilyPlanStatus())).unlocked) {
+        setError({ tier: t, message: CHECKOUT_FAMILY_ALREADY });
+        setLoadingTier(null);
+        return;
+      }
       const token = await getAccessToken();
       const res = await fetch("/api/whop/checkout", {
         method: "POST",
@@ -91,24 +101,15 @@ export function usePlanCheckout(interval: BillingInterval) {
     router.push("/settings/billing");
   };
 
-  const buttonState = (planTier: SubscriptionTier, planName: string): PlanButtonState => {
-    const current = signedIn && tier === planTier;
-    // Any plan ranked below what the user already has must never start a
-    // checkout — clicking Player while on Family would open a brand-new Whop
-    // checkout for a tier already exceeded.
-    const includedAlready = !current && TIER_RANK[planTier] < TIER_RANK[tier];
-    const loading = loadingTier === planTier;
-    const label = loading
-      ? "Redirecting..."
-      : current
-        ? "Current plan"
-        : includedAlready
-          ? "Included in your plan"
-          : !signedIn && planTier === "free"
-            ? "Start free"
-            : `Choose ${planName}`;
-    return { current, includedAlready, loading, disabled: current || includedAlready || loading, label };
-  };
+  const buttonState = (planTier: SubscriptionTier, planName: string): PlanButtonState =>
+    planButtonState({
+      signedIn,
+      tier,
+      planTier,
+      planName,
+      loadingTier,
+      familyUnlocked: familyPlan?.unlocked === true,
+    });
 
   return {
     tier,
@@ -116,6 +117,9 @@ export function usePlanCheckout(interval: BillingInterval) {
     /** The message for one plan card, or null. */
     errorFor: (planTier: SubscriptionTier): string | null =>
       error && error.tier === planTier ? error.message : null,
+    /** Drop a shown error, e.g. when the Monthly/Yearly toggle changes the
+     * prices it was about. */
+    clearError: () => setError(null),
     busy: loadingTier !== null,
     choose,
     manageBilling,

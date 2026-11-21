@@ -28,7 +28,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
   // Yearly first (Board 19).
   const [interval, setInterval] = useState<BillingInterval>("yearly");
   const plans = useMemo(() => planCards(counts), [counts]);
-  const { tier, errorFor, busy, choose, manageBilling, buttonState } = usePlanCheckout(interval);
+  const { tier, errorFor, clearError, busy, choose, manageBilling, buttonState } = usePlanCheckout(interval);
 
   return (
     <div className="mx-auto max-w-content container-px py-16 md:py-24">
@@ -73,7 +73,11 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                   key={option}
                   type="button"
                   aria-pressed={interval === option}
-                  onClick={() => setInterval(option)}
+                  onClick={() => {
+                    setInterval(option);
+                    // The message was about the other prices.
+                    clearError();
+                  }}
                   className={cn(
                     "min-h-11 rounded-pill border px-5 text-sm font-semibold transition-colors",
                     interval === option
@@ -137,6 +141,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                       onClick={() => choose(plan.tier)}
                       disabled={btn.disabled}
                       loading={btn.loading}
+                      aria-describedby={cardError ? `checkout-error-${plan.tier}` : undefined}
                     >
                       {btn.label}
                     </SeededButton>
@@ -144,7 +149,11 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                         Preview: "Checkout is off on preview builds…"
                         (lib/checkout-messages.ts). */}
                     {cardError && (
-                      <p role="alert" className="mt-3 rounded-lg bg-error-bg px-3 py-2 text-sm text-error">
+                      <p
+                        id={`checkout-error-${plan.tier}`}
+                        role="alert"
+                        className="mt-3 rounded-lg bg-error-bg px-3 py-2 text-sm text-error"
+                      >
                         {cardError}
                       </p>
                     )}

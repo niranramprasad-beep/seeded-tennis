@@ -118,18 +118,34 @@ describe("every Manage billing entry goes to /settings/billing", () => {
   });
 });
 
-describe("a Free account is offered the plans, not billing (final-check B27)", () => {
+describe("the Account cards render lib/plan-entry.ts's answer (final-check B27 + review)", () => {
   // Settings → Account showed "Current plan: Free" beside "Manage billing",
-  // which led to a page with nothing to manage. Free now gets "See plans"
-  // (/pricing); a paid plan keeps the /settings/billing entry.
+  // which led to a page with nothing to manage; and a parent whose family is
+  // unlocked by someone else's Family plan saw "Free · See plans". The
+  // decision is accountPlanEntry() (tested in lib/plan-entry.test.ts); these
+  // pin that each card wires its kinds to the right destination.
+  const block = (code: string, kindTest: RegExp) => {
+    const m = kindTest.exec(code);
+    return m ? code.slice(m.index, m.index + 600) : "";
+  };
   for (const file of ["components/seeded/settings/account-card.tsx", "components/seeded/settings/parent-settings-view.tsx"]) {
     it(file, () => {
       const code = codeOnly(join(ROOT, file));
-      const plans = /(isFree|tier === "free")\s*\?\s*\(\s*<\w+[\s\S]{0,300}?router\.push\("\/pricing"\)[\s\S]{0,300}?>\s*See plans\s*<\/\w+>/;
-      expect(code).toMatch(plans);
-      expect(code).toMatch(/router\.push\("\/settings\/billing"\)[^>]*>\s*Plan and billing/);
+      expect(code).toMatch(/accountPlanEntry|AccountPlanEntry/);
+      // No longer keyed on the viewer's tier alone.
+      expect(code).not.toMatch(/\bisFree\b/);
+      const seePlans = block(code, /planEntry\.kind === "see-plans"/);
+      expect(seePlans).toMatch(/router\.push\("\/pricing"\)[\s\S]{0,400}?See plans/);
+      const billing = block(code, /planEntry\.kind === "billing" &&/);
+      expect(billing).toMatch(/router\.push\("\/settings\/billing"\)[\s\S]{0,400}?Plan and billing/);
     });
   }
+  it("the parent card offers nothing to buy when the family is already unlocked", () => {
+    const code = codeOnly(join(ROOT, "components/seeded/settings/parent-settings-view.tsx"));
+    expect(code).toMatch(/planEntry\.kind === "family-included" \? FAMILY_INCLUDED_LABEL/);
+    // The only /pricing push is behind "see-plans".
+    expect(code).not.toMatch(/planEntry\.kind === "family-included"[^\n]*\n[\s\S]{0,120}?router\.push\("\/pricing"\)/);
+  });
 });
 
 describe("only /settings/billing sends anyone to Whop's member portal", () => {

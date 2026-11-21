@@ -8,6 +8,9 @@ import {
   CHECKOUT_NOT_CONFIGURED,
   CHECKOUT_PLAN_UNAVAILABLE,
   CHECKOUT_PREVIEW_OFF,
+  CHECKOUT_WHOP_UNREACHABLE,
+  CHECKOUT_NO_URL,
+  CHECKOUT_FAMILY_ALREADY,
   checkoutFailureMessage,
 } from "./checkout-messages";
 
@@ -82,6 +85,24 @@ describe("parseRequestBody", () => {
       expect(looksLikeZodDefault(zodText), zodText).toBe(true);
     }
   });
+
+  it("the per-parse error map works on its own, without the wording check", async () => {
+    // A global zod message that does NOT look like zod's defaults, so
+    // looksLikeZodDefault() cannot catch it. Only the per-parse `error`
+    // argument in parseRequestBody stands between it and the response:
+    // dropping that argument fails this test.
+    const LEAK = "Something the schema never said.";
+    expect(looksLikeZodDefault(LEAK)).toBe(false);
+    z.config({ customError: () => LEAK });
+    let r: ReturnType<typeof parseRequestBody>;
+    try {
+      r = parseRequestBody(z.object({ label: z.string() }), { label: 7 }, FALLBACK);
+    } finally {
+      z.config({ customError: undefined });
+    }
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(await bodyOf(r.response)).toEqual({ error: FALLBACK });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -97,6 +118,32 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 const API_FILES = walk(join(ROOT, "app"));
+
+/** Does this source read a request body as JSON — `.json()` on any
+ * handler's request parameter (whatever it is named), or `JSON.parse` of its
+ * `.text()`? Arrow-function handlers (`export const POST = …`) count as
+ * readers whenever they call `.json()`/`.text()` at all. */
+export function readsJsonBody(src: string): boolean {
+  const params = [...src.matchAll(/export\s+async\s+function\s+(?:GET|POST|PUT|PATCH|DELETE)\s*\(\s*(\w+)/g)].map((m) => m[1]);
+  for (const p of params) {
+    if (new RegExp(`\\b${p}\\.json\\s*\\(`).test(src)) return true;
+    if (new RegExp(`\\b${p}\\.text\\s*\\(`).test(src) && /JSON\.parse\s*\(/.test(src)) return true;
+  }
+  if (/export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE)\s*=/.test(src) && /\.(json|text)\s*\(\s*\)/.test(src)) return true;
+  return false;
+}
+
+/** Reads its body but is not a JSON-validation route, with the reason. */
+const NOT_A_JSON_BODY: Record<string, string> = {
+  // Reads the raw bytes with req.text() for Standard Webhooks signature
+  // verification (unwrapWebhook); the payload is Whop's, typed by the SDK,
+  // and an unverifiable one is refused 400 before anything reads it.
+  "app/api/whop/webhook/route.ts": "signed Whop payload, verified by unwrapWebhook",
+};
+
+const BODY_READERS = API_FILES.map((f) => relative(ROOT, f))
+  .filter((f) => !(f in NOT_A_JSON_BODY))
+  .filter((f) => readsJsonBody(readFileSync(join(ROOT, f), "utf8")));
 
 describe("no route under app/ reads zod's issues itself", () => {
   it("nobody calls safeParse/parse on a body or reads .issues / .flatten() / .format()", () => {
@@ -115,10 +162,22 @@ describe("no route under app/ reads zod's issues itself", () => {
     expect(hits).toEqual([]);
   });
 
+  it("the reader detector catches each way of reading a body (self-test)", () => {
+    const readers = [
+      `export async function POST(req: Request) { const j = await req.json(); }`,
+      `export async function PATCH(request: Request) { const j = await request.json().catch(() => null); }`,
+      `export async function PUT(r: Request) { const j = await r.json(); }`,
+      `export async function POST(incoming: Request) { const j = JSON.parse(await incoming.text()); }`,
+      `export async function POST(x: Request) { const raw = await x.text(); const j = JSON.parse(raw); }`,
+      `export const POST = async (req: Request) => req.json();`,
+    ];
+    for (const s of readers) expect(readsJsonBody(s), s).toBe(true);
+    expect(readsJsonBody(`export async function GET(req: Request) { return NextResponse.json({ ok: true }); }`)).toBe(false);
+  });
+
   it("every route that reads a JSON body validates it with parseRequestBody", () => {
-    const readers = API_FILES.filter((f) => /\breq(uest)?\.json\(\)/.test(readFileSync(f, "utf8")));
-    expect(readers.length).toBeGreaterThanOrEqual(9);
-    const missing = readers.filter((f) => !/parseRequestBody\(/.test(readFileSync(f, "utf8"))).map((f) => relative(ROOT, f));
+    expect(BODY_READERS.length).toBeGreaterThanOrEqual(9);
+    const missing = BODY_READERS.filter((f) => !/parseRequestBody\(/.test(readFileSync(join(ROOT, f), "utf8")));
     expect(missing).toEqual([]);
   });
 });
@@ -147,17 +206,25 @@ const OWN_MESSAGES = new Set([
   "Enter your name.",
 ]);
 
-const ROUTES = [
-  "app/api/whop/checkout/route.ts",
-  "app/api/training/sessions/route.ts",
-  "app/api/family/budget/route.ts",
-  "app/api/family/budget/expenses/route.ts",
-  "app/api/matches/route.ts",
-  "app/api/profile/route.ts",
-  "app/api/account/deletion/route.ts",
-  "app/api/outreach/route.ts",
-  "app/api/utr-entries/route.ts",
-];
+// Built from the file walk, so a new body-reading route is exercised the day
+// it is added. The 9 known today are pinned so the walk cannot silently
+// shrink.
+const ROUTES = BODY_READERS;
+it("the behaviour list includes every known JSON route", () => {
+  for (const r of [
+    "app/api/whop/checkout/route.ts",
+    "app/api/training/sessions/route.ts",
+    "app/api/family/budget/route.ts",
+    "app/api/family/budget/expenses/route.ts",
+    "app/api/matches/route.ts",
+    "app/api/profile/route.ts",
+    "app/api/account/deletion/route.ts",
+    "app/api/outreach/route.ts",
+    "app/api/utr-entries/route.ts",
+  ]) {
+    expect(ROUTES).toContain(r);
+  }
+});
 
 const GARBAGE: Array<[string, string | null]> = [
   ["no body", null],
@@ -231,7 +298,7 @@ describe("/api/whop/checkout: not configured is a 503 with a fixed sentence", ()
   });
 
   it("every one of those sentences says nothing was charged", () => {
-    for (const s of [CHECKOUT_PREVIEW_OFF, CHECKOUT_NOT_CONFIGURED, CHECKOUT_PLAN_UNAVAILABLE, CHECKOUT_FAILED]) {
+    for (const s of [CHECKOUT_PREVIEW_OFF, CHECKOUT_NOT_CONFIGURED, CHECKOUT_PLAN_UNAVAILABLE, CHECKOUT_FAILED, CHECKOUT_WHOP_UNREACHABLE, CHECKOUT_NO_URL, CHECKOUT_FAMILY_ALREADY]) {
       expect(s).toMatch(/nothing was charged/);
     }
   });

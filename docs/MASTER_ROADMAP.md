@@ -41,6 +41,24 @@ not-payer state adds, as text only, where a payer's plan lives (an
 unsynced purchase looks like a non-payer). B27: on a **Free** account the
 Settings Account cards (player and parent) offer **See plans** (/pricing)
 instead of a billing link with nothing behind it (`lib/billing-links.test.ts`).
+**Review fix (same PR):** those cards keyed on the viewer's OWN tier, so a
+parent whose family is unlocked by another member's Family plan saw "Plan:
+Free · See plans", and /pricing then offered "Choose Family" — a second
+Family checkout. `lib/plan-entry.ts` now decides from the tier AND
+`my_family_has_tier('family')` (`loadFamilyPlanStatus`): that parent sees
+"Included in your family's plan" and no button; /pricing disables Family
+("Included in your family's plan") for any member of an unlocked family,
+and `choose()` re-checks before calling the API. A player on Free in an
+unlocked family keeps "See plans" (a Family plan does not raise their own
+tier — 040's cap is `has_tier` on the caller's row) with a note that the
+family tools are covered. Neither button shows until the tier (and on Free
+the family's status) is known. Also: the 502 sentences live in
+`lib/checkout-messages.ts` and say nothing was charged; Choose is
+`aria-describedby` its inline error, which clears on the Monthly/Yearly
+toggle; the body-reader guard catches `.json()` on any handler parameter
+and `JSON.parse(… .text())` (webhook allow-listed, signed payload) and the
+behaviour test's route list comes from the file walk; a test exercises the
+per-parse error map alone (removing it fails a test).
 Guards: `lib/api-body.test.ts`
 (static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
 7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so

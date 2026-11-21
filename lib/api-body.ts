@@ -23,8 +23,14 @@ import type { z } from "zod";
 
 export type ParsedBody<T> = { ok: true; data: T } | { ok: false; response: NextResponse };
 
-/** zod's own default wording (en locale), for the fail-closed check. Our
- * sentences never start this way. */
+/** zod's own default wording (en locale), for the fail-closed check.
+ *
+ * RULE FOR OUR OWN MESSAGES: a sentence written on a schema must NOT start
+ * with "Invalid", "Too small", "Too big", "Unrecognized", "Expected" or
+ * "Required", and must not contain the words "expected" or "received" —
+ * this check would replace it with the route's fallback. Write "Enter a
+ * date." rather than "Invalid date.". (lib/api-body.test.ts lists the
+ * schema sentences a garbage body may get back.) */
 const ZOD_DEFAULT_TEXT =
   /^(invalid\b|too (small|big)\b|unrecognized\b|expected\b|required\b)|\b(expected|received)\b/i;
 

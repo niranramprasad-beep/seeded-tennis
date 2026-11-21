@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import type { Player } from "@/lib/types";
 import { getCurrentGrade } from "@/lib/time";
 import { formatUtrOrNotTracked } from "@/lib/utils";
+import { FAMILY_TOOLS_INCLUDED_NOTE, type AccountPlanEntry } from "@/lib/plan-entry";
 
 // The mockup doesn't detail Account tab content beyond its nav label — this
 // is the real identity data already available via usePlayer()/useTier(),
@@ -14,13 +15,13 @@ import { formatUtrOrNotTracked } from "@/lib/utils";
 export function AccountCard({
   player,
   tierLabel,
-  isFree,
+  planEntry,
   onSignOut,
 }: {
   player: Player;
   tierLabel: string;
-  /** Free: the action is "See plans" (/pricing), not billing. */
-  isFree: boolean;
+  /** Which plan action to show — lib/plan-entry.ts accountPlanEntry(). */
+  planEntry: AccountPlanEntry;
   onSignOut: () => void;
 }) {
   const router = useRouter();
@@ -40,12 +41,19 @@ export function AccountCard({
         <div>
           <p className="text-sm text-stone">Current plan</p>
           <p className="mt-1 font-medium text-ink">{tierLabel}</p>
+          {planEntry.kind === "family-included" && (
+            <p className="mt-1 text-sm text-stone">{FAMILY_TOOLS_INCLUDED_NOTE}</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Free has no billing to manage: offer the plans (final-check
-              B27). A paid plan goes to /settings/billing, the one page that
-              knows whether this person is the payer. */}
-          {isFree ? (
+          {/* lib/plan-entry.ts. Free: the plans (final-check B27). Own paid
+              plan: /settings/billing, the one page that knows whether this
+              person is the payer. Nothing until the tier (and, on Free, the
+              family's plan) is known, so the button never flips. A player
+              keeps "See plans" even in an unlocked family: a Family plan
+              does not raise their own tier (040's cap is has_tier on the
+              caller's row), and /pricing withholds a second Family plan. */}
+          {(planEntry.kind === "see-plans" || planEntry.kind === "family-included") && (
             <button
               type="button"
               onClick={() => router.push("/pricing")}
@@ -53,7 +61,8 @@ export function AccountCard({
             >
               See plans
             </button>
-          ) : (
+          )}
+          {planEntry.kind === "billing" && (
             <button
               type="button"
               onClick={() => router.push("/settings/billing")}

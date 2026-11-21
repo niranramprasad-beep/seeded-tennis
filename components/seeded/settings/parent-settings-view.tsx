@@ -18,6 +18,7 @@ import {
   rosterStatsLocked,
 } from "@/lib/family-view";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { FAMILY_INCLUDED_LABEL, accountPlanEntry } from "@/lib/plan-entry";
 import { getText, postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
 import { downloadTextFile } from "@/lib/data/export-csv";
@@ -142,8 +143,13 @@ export function ParentSettingsView({
 
 function ParentAccountCard({ onSignOut }: { onSignOut: () => void }) {
   const { player, updatePlayer } = usePlayer();
-  const { tier } = useTier();
+  const { tier, hydrated: tierHydrated } = useTier();
   const router = useRouter();
+  const { data: familyPlan } = useSWR<FamilyPlanStatus>(
+    tierHydrated && tier === "free" ? "family-plan-status" : null,
+    () => loadFamilyPlanStatus()
+  );
+  const planEntry = accountPlanEntry({ tierHydrated, tier, familyPlan });
   const { data: signIn } = useSWR<SignInInfo>("my-sign-in-info", () => loadMySignInInfo());
 
   const [name, setName] = useState(player.name);
@@ -275,15 +281,22 @@ function ParentAccountCard({ onSignOut }: { onSignOut: () => void }) {
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <div>
           <p className="text-sm text-stone">Plan</p>
-          <p className="mt-1 font-medium text-ink">{TIER_LABEL[tier]}</p>
+          <p className="mt-1 font-medium text-ink">
+            {planEntry.kind === "family-included" ? FAMILY_INCLUDED_LABEL : TIER_LABEL[tier]}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Free: offer the plans, not billing (final-check B27). */}
-          {tier === "free" ? (
+          {/* lib/plan-entry.ts. A parent whose family is unlocked by another
+              member's Family plan has nothing to buy or manage here: no
+              button (it used to say "Plan: Free · See plans", and /pricing
+              then sold the family a second Family plan). Nothing until the
+              tier and the family's plan are known. */}
+          {planEntry.kind === "see-plans" && (
             <SeededButton type="button" variant="secondary" onClick={() => router.push("/pricing")}>
               See plans
             </SeededButton>
-          ) : (
+          )}
+          {planEntry.kind === "billing" && (
             <SeededButton type="button" variant="secondary" onClick={() => router.push("/settings/billing")}>
               Plan and billing
             </SeededButton>
