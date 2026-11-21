@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { z } from "zod";
 import {
   getProfileRoleAndFamily,
@@ -41,13 +42,8 @@ export async function POST(req: Request) {
   if (locked) return locked;
 
   const json = await req.json().catch(() => null);
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(BodySchema, json, "Enter a category, a label, an amount and a date for the expense.");
+  if (!parsed.ok) return parsed.response;
 
   const validationError = validateBudgetExpenseInput(parsed.data);
   if (validationError) {

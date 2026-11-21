@@ -26,7 +26,10 @@ function walk(dir: string, out: string[] = []): string[] {
 const FILES = DIRS.flatMap((d) => walk(join(ROOT, d)));
 const rel = (f: string) => relative(ROOT, f);
 
-const MANAGE_BILLING = /manage\s+billing/gi;
+// "Plan and billing" / "Your plan and billing" since final-check A18: the
+// entry no longer promises "manage" to someone who turns out not to be the
+// payer. Same rule, same destination.
+const MANAGE_BILLING = /manage\s+billing|plan\s+and\s+billing/gi;
 const OPEN_TAG = /<(button|a|Link|Button|SeededButton)\b/g;
 
 /** The attribute text of the nearest button-like tag opened before `index`.
@@ -84,6 +87,7 @@ describe("every Manage billing entry goes to /settings/billing", () => {
       `<Link href="/pricing" className="x">Manage billing or cancel</Link>`,
       `const manageBilling = () => {\n    window.location.href = WHOP_MEMBERSHIPS_URL;\n  };\n`,
       `<button onClick={() => go("/settings")}>Manage Billing</button>`,
+      `<Link href="/pricing">Your plan and billing</Link>`,
     ];
     for (const s of bad) expect(manageBillingProblems(s), s).not.toEqual([]);
 
@@ -91,6 +95,8 @@ describe("every Manage billing entry goes to /settings/billing", () => {
       `<button type="button" onClick={() => router.push("/settings/billing")}>\n  Manage billing\n</button>`,
       `<Link href="/settings/billing">Manage billing</Link>`,
       `<button type="button" onClick={manageBilling} disabled={busy}>Manage billing or cancel your plan</button>`,
+      `<button type="button" onClick={manageBilling} disabled={busy}>Your plan and billing</button>`,
+      `<button type="button" onClick={() => router.push("/settings/billing")}>\n  Plan and billing\n</button>`,
       `const manageBilling = () => {\n    router.push("/settings/billing");\n  };\n`,
     ];
     for (const s of good) expect(manageBillingProblems(s), s).toEqual([]);
@@ -99,7 +105,7 @@ describe("every Manage billing entry goes to /settings/billing", () => {
   it("finds the entries it is guarding", () => {
     // The Settings account card and /pricing. Was 4+ while the Legacy
     // settings and pricing pages existed (deleted 2026-11-20).
-    const withEntry = FILES.filter((f) => /manage\s+billing/i.test(codeOnly(f)));
+    const withEntry = FILES.filter((f) => /manage\s+billing|plan\s+and\s+billing/i.test(codeOnly(f)));
     expect(withEntry.length).toBeGreaterThanOrEqual(2);
   });
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
@@ -27,13 +28,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const json = await req.json().catch(() => null);
-  const parsed = UtrEntryBodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(UtrEntryBodySchema, json, "Enter a UTR and a date, then save again.");
+  if (!parsed.ok) return parsed.response;
 
   try {
     const entry = await createUtrEntry(parsed.data, {

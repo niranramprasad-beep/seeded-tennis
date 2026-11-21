@@ -20,6 +20,34 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Billing honesty (final-check PR E, branch `fix/billing-e`;
+no migration, no Whop/Vercel change).** (1) `/api/whop/checkout`: billing
+not configured and plan not configured are **503**, not 500, with fixed
+sentences that say nothing was charged (`lib/checkout-messages.ts`); on a
+Vercel Preview — where `WHOP_API_KEY` is a production-only variable, so
+this is the normal state — it says "Checkout is off on preview builds".
+Whop answering without a URL is 502. (2) Every 400 from a JSON route is our
+own sentence, never zod's default text ("Invalid input: expected object,
+received null"): `lib/api-body.ts` `parseRequestBody()` passes zod 4 a
+per-parse error map, so a schema-written message (`Unknown plan.`, `Type
+DELETE to confirm.`) survives and anything else gets the route's fixed
+fallback; it fails closed on zod-like wording. All 9 body-reading routes use
+it. (3) `/pricing`: a failed Choose shows its sentence under THAT card's
+button (was a banner at the top), and the client no longer surfaces a JSON
+parser error from an HTML error page. (4) A18: the entries into
+`/settings/billing` say "Plan and billing" / "Your plan and billing" instead
+of promising "Manage billing" to someone who may not be the payer; the
+not-payer state adds, as text only, where a payer's plan lives (an
+unsynced purchase looks like a non-payer). Guards: `lib/api-body.test.ts`
+(static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
+7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so
+Whop retries) and `lib/billing-view-render.test.tsx` (renders each
+`/settings/billing` state: free → only `/pricing`; payer → plan name +
+`TIER_PRICE_USD` price + only Whop portal links; not-payer → the sentence
+and **no** link; unreachable → Try again). The $0 production checkout test
+is written for Niran (final-check `prE/PROD_CHECKOUT_TEST.md`): production
+checkout has still never been run end to end by us.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1415,7 +1443,10 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Niran's own list (dashboards/keys, not code): **run the $0 production
+checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
+webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
+the only way to prove checkout → webhook → tier on production; revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);

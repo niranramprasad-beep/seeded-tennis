@@ -44,7 +44,7 @@ export function AccountCard({
             onClick={() => router.push("/settings/billing")}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
           >
-            Manage billing
+            Plan and billing
           </button>
           <button
             type="button"

@@ -6,6 +6,7 @@ import { TIER_RANK, type BillingInterval, type SubscriptionTier } from "@/lib/ty
 import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
+import { CHECKOUT_FAILED, checkoutFailureMessage } from "@/lib/checkout-messages";
 
 // The /pricing checkout wiring: plan choice, sign-in hand-off and the
 // billing-portal link, kept out of the view so it can be read on its own.
@@ -31,7 +32,9 @@ export function usePlanCheckout(interval: BillingInterval) {
   const { isAuthed, hydrated } = usePlayer();
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<SubscriptionTier | null>(null);
-  const [error, setError] = useState("");
+  // Which card the message belongs to: it is shown under THAT card's Choose
+  // button (final-check A8), not as a page-level banner far from the click.
+  const [error, setError] = useState<{ tier: SubscriptionTier; message: string } | null>(null);
 
   // `tier` from useTier() is "free" for a signed-out visitor as well as for a
   // signed-in free user, so "current" is gated on actually being signed in.
@@ -50,7 +53,7 @@ export function usePlanCheckout(interval: BillingInterval) {
       return;
     }
 
-    setError("");
+    setError(null);
     setLoadingTier(t);
     try {
       const token = await getAccessToken();
@@ -62,11 +65,20 @@ export function usePlanCheckout(interval: BillingInterval) {
         },
         body: JSON.stringify({ tier: t, interval }),
       });
-      const payload = await res.json();
-      if (!res.ok || !payload.url) throw new Error(payload.error || "Could not start checkout.");
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start checkout.");
+      // Never `await res.json()` bare: a platform error page is HTML, and
+      // the parser's own text used to become the message.
+      const payload: unknown = await res.json().catch(() => null);
+      const url = (payload as { url?: unknown } | null)?.url;
+      if (res.ok && typeof url === "string" && url) {
+        window.location.href = url;
+        return;
+      }
+      // A Vercel Preview answers 503 with its own sentence (no Whop key
+      // there) — lib/checkout-messages.ts.
+      setError({ tier: t, message: checkoutFailureMessage(payload) });
+      setLoadingTier(null);
+    } catch {
+      setError({ tier: t, message: CHECKOUT_FAILED });
       setLoadingTier(null);
     }
   };
@@ -101,7 +113,9 @@ export function usePlanCheckout(interval: BillingInterval) {
   return {
     tier,
     signedIn,
-    error,
+    /** The message for one plan card, or null. */
+    errorFor: (planTier: SubscriptionTier): string | null =>
+      error && error.tier === planTier ? error.message : null,
     busy: loadingTier !== null,
     choose,
     manageBilling,

@@ -28,7 +28,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
   // Yearly first (Board 19).
   const [interval, setInterval] = useState<BillingInterval>("yearly");
   const plans = useMemo(() => planCards(counts), [counts]);
-  const { tier, error, busy, choose, manageBilling, buttonState } = usePlanCheckout(interval);
+  const { tier, errorFor, busy, choose, manageBilling, buttonState } = usePlanCheckout(interval);
 
   return (
     <div className="mx-auto max-w-content container-px py-16 md:py-24">
@@ -48,11 +48,6 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               Every plan uses the same fit math. Paid plans add the weekly tools: unlimited
               schools, coach outreach and a parent view.
             </p>
-            {error && (
-              <p role="alert" className="mx-auto mt-4 max-w-md rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
-                {error}
-              </p>
-            )}
             {tier !== "free" && (
               <button
                 type="button"
@@ -60,7 +55,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 disabled={busy}
                 className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-grass underline-offset-4 hover:underline"
               >
-                Manage billing or cancel your plan
+                Your plan and billing
               </button>
             )}
           </div>
@@ -100,6 +95,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
             {plans.map((plan) => {
               const btn = buttonState(plan.tier, plan.name);
               const price = priceBlockFor(plan.tier, interval);
+              const cardError = errorFor(plan.tier);
               return (
                 <article
                   key={plan.tier}
@@ -144,6 +140,14 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                     >
                       {btn.label}
                     </SeededButton>
+                    {/* Under the button that was clicked. On a Vercel
+                        Preview: "Checkout is off on preview builds…"
+                        (lib/checkout-messages.ts). */}
+                    {cardError && (
+                      <p role="alert" className="mt-3 rounded-lg bg-error-bg px-3 py-2 text-sm text-error">
+                        {cardError}
+                      </p>
+                    )}
                   </div>
 
                   <ul className="mt-6 space-y-3 border-t border-line pt-6">
