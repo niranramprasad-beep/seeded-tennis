@@ -149,6 +149,15 @@ export async function copyWithTimeout(
 
 /** The line under "Cost per match": the assumption the number rests on
  *  (final-check A17 — "$32 / match" said nothing about ~3 matches). */
-export function costPerMatchNote(typicalMatches: number, totalCost: number): string {
-  return `Assumes ~${typicalMatches} matches at this level · $${Math.round(totalCost)} total`;
+export function costPerMatchNote(
+  typicalMatches: number,
+  totalCost: number,
+  cost: { known: boolean; partial: boolean } = { known: true, partial: false }
+): string {
+  const assumes = `Assumes ~${typicalMatches} matches at this level`;
+  // No cost entered: say so instead of a second "$0" (final-check PR B review).
+  if (!cost.known) return `${assumes} · cost not tracked`;
+  // Only one of entry / travel entered: the total is not the whole cost.
+  if (cost.partial) return `${assumes} · $${Math.round(totalCost)} entered so far`;
+  return `${assumes} · $${Math.round(totalCost)} total`;
 }

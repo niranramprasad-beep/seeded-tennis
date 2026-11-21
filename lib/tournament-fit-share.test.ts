@@ -128,4 +128,14 @@ describe("costPerMatchNote (final-check A17)", () => {
   it("names the match assumption and the total", () => {
     expect(costPerMatchNote(3, 95)).toBe("Assumes ~3 matches at this level · $95 total");
   });
+  it("never shows a $0 total when no cost was entered", () => {
+    expect(costPerMatchNote(3, 0, { known: false, partial: false })).toBe(
+      "Assumes ~3 matches at this level · cost not tracked"
+    );
+  });
+  it("does not call a partial cost the total", () => {
+    expect(costPerMatchNote(3, 95, { known: true, partial: true })).toBe(
+      "Assumes ~3 matches at this level · $95 entered so far"
+    );
+  });
 });

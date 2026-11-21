@@ -459,9 +459,12 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 />
                 <Meter
                   label="Cost per match"
-                  value={`$${Math.round(result.costPerMatch)} / match`}
+                  value={result.costKnown ? `$${Math.round(result.costPerMatch)} / match` : "Not tracked"}
                   pct={result.costScore}
-                  note={costPerMatchNote(result.typicalMatches, result.totalCost)}
+                  note={costPerMatchNote(result.typicalMatches, result.totalCost, {
+                    known: result.costKnown,
+                    partial: result.costPartial,
+                  })}
                 />
                 <Meter label="Travel" value={`${result.travelScore}/100`} pct={result.travelScore} />
               </div>

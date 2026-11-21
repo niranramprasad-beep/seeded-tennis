@@ -202,7 +202,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         <FitBadge
           band={explanation.band}
           className="text-sm"
-          label={explanationInput.ratingHidden && explanation.band === "unverified" ? "Locked on Free" : undefined}
+          label={explanationInput.ratingHidden && explanation.band === "unverified" ? "Locked — Family plan" : undefined}
         />
       </div>
       <p className="mt-2 text-sm text-stone">

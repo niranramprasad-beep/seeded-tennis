@@ -203,7 +203,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
             are an example, not the visitor's (and only fields they change
             are sent on — lib/home-calculator.ts). */}
         <p className="text-xs text-stone">
-          {touched.size === 0 ? "Example values. Change them to yours." : "Your values — these go to your fit report."}
+          {touched.size === 0 ? "Example values. Change them to yours." : "Only the values you change go to your fit report."}
         </p>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniField label="UTR">
