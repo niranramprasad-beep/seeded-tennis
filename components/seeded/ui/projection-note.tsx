@@ -62,8 +62,8 @@ export function projectedYouLabel(utr: RecruitingTimeUtr | null | undefined, who
 
 /**
  * The upside, said once beside the plan: "At your current pace you'd reach
- * 9.40. We plan with 8.10 instead. We plan with at most 1.5 UTR a year.
- * That's our planning rule, not a measured average."
+ * 9.40, but we plan with 8.10. We plan with at most 1.5 UTR a year. That's
+ * our planning rule, not a measured average."
  * Renders nothing unless the player's own pace is faster than the planning
  * cap (lib/fit.ts paceUpsideSentence) — it is shown, never banded.
  */

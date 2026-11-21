@@ -306,16 +306,28 @@ describe("fitReportHeadline — today first (A-006), and says where the pace cam
     const report = build(9.4, 2029, 8.2); // +1.20 a year
     expect(report.utr.source).toBe("logged-pace");
     expect(report.utr.planningPacePerYear).toBeCloseTo(1.2, 10);
-    expect(headlinePaceSource(report.utr)).toBe("your pace so far");
+    expect(headlinePaceSource(report.utr, "player")).toBe("your pace so far");
     expect(fitReportHeadline(report, "player")).toBe(
       `Today, 1 program is in range. If you gain about 1.20 UTR a year (your pace so far), that could be ${report.recruitingInRange} by summer 2028.`
     );
   });
 
+  it("a parent reads the PLAYER's pace, never 'your pace so far' (round-2 verifier)", () => {
+    const report = build(9.4, 2029, 8.2);
+    expect(headlinePaceSource(report.utr, "parent")).toBe("your player's pace so far");
+    expect(fitReportHeadline(report, "parent")).toBe(
+      `Today, 1 program is in range. If your player gains about 1.20 UTR a year (your player's pace so far), that could be ${report.recruitingInRange} by summer 2028.`
+    );
+    expect(fitReportHeadline(report, "parent")).not.toMatch(/\(your pace so far\)/);
+    // The cap and the default are Seeded's, whoever reads them.
+    expect(headlinePaceSource(build(9.4, 2029, 7.0).utr, "parent")).toBe("our planning limit");
+    expect(headlinePaceSource(build(9.4).utr, "parent")).toBe("our default assumption");
+  });
+
   it("their own pace above the cap, planned at 1.5: '(our planning limit)'", () => {
     const report = build(9.4, 2029, 7.0); // +2.40 a year, planned at 1.5
     expect(report.utr.planningPacePerYear).toBe(PLANNING_PACE_CAP_PER_YEAR);
-    expect(headlinePaceSource(report.utr)).toBe("our planning limit");
+    expect(headlinePaceSource(report.utr, "player")).toBe("our planning limit");
     expect(fitReportHeadline(report, "player")).toBe(
       `Today, 1 program is in range. If you gain about 1.50 UTR a year (our planning limit), that could be ${report.recruitingInRange} by summer 2028.`
     );
@@ -397,6 +409,10 @@ describe("teamLineRelation — no signed gaps, and never 'at' when the chip says
         'teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")',
         'teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")',
       ],
+      "components/seeded/roadmap/target-schools-list.tsx": [
+        'teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")',
+        'teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")',
+      ],
     };
     for (const [file, calls] of Object.entries(ALLOWED)) {
       const found = codeOnly(file).match(/teamLineRelation\([^)]*\)/g) ?? [];
@@ -412,12 +428,17 @@ describe("the planning rule replaces the growth claim (A-008)", () => {
     );
   });
 
-  it("the upside sentence keeps the cap statement without repeating 'We plan with' as a sentence", () => {
+  it("the upside sentence: one 'but we plan with' clause, then the required sentence", () => {
     const s = paceUpsideSentence({ value: 8.1, upside: { value: 8.9, perYear: 2 } } as never);
     expect(s).toBe(
-      "At your current pace you'd reach 8.90. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
+      "At your current pace you'd reach 8.90, but we plan with 8.10. We plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
     );
-    expect(s).not.toMatch(/most players|\. We plan with at most/i);
+    expect(s).not.toMatch(/most players|instead: we plan/i);
+    // The required sentence appears whole, exactly once.
+    expect(s!.split(PLANNING_RULE_SENTENCE).length - 1).toBe(1);
+    expect(paceUpsideSentence({ value: 8.1, upside: { value: 8.9, perYear: 2 } } as never, "Avery")).toBe(
+      `At Avery's current pace Avery would reach 8.90, but we plan with 8.10. ${PLANNING_RULE_SENTENCE}`
+    );
   });
 
   it("the default growth assumption is ours, not 'typical'", () => {
@@ -435,5 +456,14 @@ describe("the planning rule replaces the growth claim (A-008)", () => {
     expect(ex.nextBand!.requiredPaceUtrPerYear).toBe(1.52);
     expect(ex.nextBand!.message).toContain(`That needs about 1.52 a year, ${PACE_STRETCH_PHRASE}. ${PLANNING_RULE_SENTENCE}`);
     expect(ex.nextBand!.message).not.toMatch(/more than our planning limit/);
+    // …and the same card does not also call it out of reach (round-2
+    // verifier): no "won't realistically close", no "Consider instead".
+    expect(ex.unreachable).toBe(false);
+    expect(ex.alternatives).toEqual([]);
+    // Just past the band (1.56) it is out of reach again.
+    const past = explainSchoolFit(8.44, school("s", 10.0, 11.0), { graduationYear: 2027, now: new Date(2025, 5, 1, 12) });
+    expect(past.nextBand!.requiredPaceUtrPerYear).toBe(1.56);
+    expect(past.unreachable).toBe(true);
+    expect(past.nextBand!.message).toContain("more than our planning limit");
   });
 });

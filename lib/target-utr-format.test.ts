@@ -52,7 +52,7 @@ describe("the computed labels go through it", () => {
 
   it("paceUpsideSentence prints both targets through formatTargetUtr", () => {
     const s = paceUpsideSentence({ value: 8.1, upside: { value: 9.4, perYear: 2 } } as never);
-    expect(s).toContain("reach 9.40. We plan with 8.10 ");
+    expect(s).toContain("reach 9.40, but we plan with 8.10. ");
   });
 
   it("/plan and /today print checkpoints with formatCheckpointUtr, never formatPlayerUtr", () => {
@@ -73,6 +73,6 @@ describe("the planning value is printed as computed, never re-rounded (PR #16 re
     const { paceUpsideSentence } = await import("./fit");
     type Arg = Parameters<typeof paceUpsideSentence>[0];
     const utr = { value: 10.93, upside: { value: 11.6 } } as unknown as Arg;
-    expect(paceUpsideSentence(utr)).toContain("We plan with 10.93");
+    expect(paceUpsideSentence(utr)).toContain("we plan with 10.93");
   });
 });

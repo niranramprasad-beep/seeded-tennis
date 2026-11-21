@@ -165,7 +165,7 @@ export function SeededMethodologyView() {
                 pace is faster than 1.5 a year, your bands,
                 fit chips, closest schools and school pages all use the slower number. We still show where your own
                 pace would take you, as a separate line marked &ldquo;Estimate&rdquo; &mdash; for example, &ldquo;At your current pace
-                you&apos;d reach 9.40. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That&apos;s our
+                you&apos;d reach 9.40, but we plan with 8.10. We plan with at most 1.5 UTR a year. That&apos;s our
                 planning rule, not a measured average.&rdquo;
                 That faster line never changes a band. Your pace is shown one way everywhere: UTR gained a year
                 since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.

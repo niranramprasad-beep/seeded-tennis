@@ -49,8 +49,13 @@ says where the pace came from ("your pace so far" / "our planning limit" /
 when equal (8.06 vs 8.1 is "0.04 below the team floor", matching the chip),
 with every call site pinned by a test; "typical growth/pace" is now "our
 default assumption of 1.0 UTR a year" and guarded; the next-band line uses
-the goal banner's "a stretch" wording for 1.45–1.55 (its `unreachable` flag
-is unchanged).
+the goal banner's "a stretch" wording for 1.45–1.55. **Round 2:** a parent
+reads "(your player's pace so far)"; a stretch-band pace is no longer
+`unreachable` (no "won't realistically close" / "Consider instead" beside "a
+stretch"); /plan's target list says "0.3 below the team average" instead of
+"+0.3 to their roster average"; the upside reads "…you'd reach 8.90, but we
+plan with 8.10. We plan with at most 1.5 UTR a year. That's our planning
+rule, not a measured average."
 
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`

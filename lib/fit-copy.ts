@@ -173,13 +173,19 @@ export function heroFitCta(input: {
 
 /**
  * Where the headline's pace comes from, said in its parenthesis:
- *  - the player's own logged pace, under the cap → "your pace so far";
+ *  - the player's own logged pace, under the cap → "your pace so far", or
+ *    "your player's pace so far" on a parent's screen (the pace is the
+ *    player's, never the reader's);
  *  - their own pace was faster and is capped at 1.5 → "our planning limit";
  *  - no logged pace, the default growth assumption → "our default assumption".
  */
-export function headlinePaceSource(utr: Pick<RecruitingTimeUtr, "source" | "pace">): string {
+export function headlinePaceSource(
+  utr: Pick<RecruitingTimeUtr, "source" | "pace">,
+  audience: "player" | "parent"
+): string {
   if (utr.source === "logged-pace") {
-    return utr.pace && utr.pace.perYear > PLANNING_PACE_CAP_PER_YEAR ? "our planning limit" : "your pace so far";
+    if (utr.pace && utr.pace.perYear > PLANNING_PACE_CAP_PER_YEAR) return "our planning limit";
+    return audience === "parent" ? "your player's pace so far" : "your pace so far";
   }
   return "our default assumption";
 }
@@ -214,7 +220,7 @@ export function fitReportHeadline(
   if (!report.utr.isProjected || pace == null || pace <= 0 || m === 0) return today;
   const perYear = formatPacePerYear(pace, { signed: false }).replace(/ a year$/, "");
   const who = audience === "parent" ? "your player gains" : "you gain";
-  return `${today} If ${who} about ${perYear} UTR a year (${headlinePaceSource(report.utr)}), that could be ${m} by ${projectionTargetLabel(report.utr.year)}.`;
+  return `${today} If ${who} about ${perYear} UTR a year (${headlinePaceSource(report.utr, audience)}), that could be ${m} by ${projectionTargetLabel(report.utr.year)}.`;
 }
 
 /**

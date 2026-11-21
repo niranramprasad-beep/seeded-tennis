@@ -11,6 +11,7 @@ import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { formatDate } from "@/lib/time";
 import { cn, hasRealUtr } from "@/lib/utils";
+import { teamLineRelation } from "@/lib/fit-copy";
 
 interface TargetSchoolsListProps {
   /** Real order from player.targetSchoolSlugs, resolved to school objects
@@ -33,6 +34,10 @@ interface TargetSchoolsListProps {
    * reordering a partial view would silently scramble the real full
    * order, so it only runs against the complete list. */
   reorderable: boolean;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function insertBefore(order: string[], draggedSlug: string, dropSlug: string): string[] {
@@ -130,14 +135,15 @@ export function TargetSchoolsList({
             band: reportBandBySlug?.get(s.slug),
           });
           const range = schoolUtrRange(s);
+          // "0.3 below the team average", never a signed "+0.3 to their
+          // roster average" (A-007; it could print "+0.0"). The band picks
+          // which line matters; teamLineRelation says which side.
           const gapLabel =
             explanation.band === "unverified"
               ? "Log a UTR to see your gap."
-              : explanation.band === "likely"
-                ? "Already above their roster average."
-                : explanation.band === "target"
-                  ? `+${explanation.gapToMedian!.toFixed(1)} to their roster average`
-                  : `+${explanation.gapToFloor!.toFixed(1)} to their competitive floor`;
+              : explanation.band === "likely" || explanation.band === "target"
+                ? `${capitalize(teamLineRelation(effectiveUtr, s.avgRosterUTR, "average"))}.`
+                : `${capitalize(teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor"))}.`;
 
           return (
             <li

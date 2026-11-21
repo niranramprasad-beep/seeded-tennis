@@ -20,7 +20,6 @@ import { formatPacePerYear, formatPlayerUtr, formatTargetUtr, formatUtrEstimate 
 import {
   PACE_STRETCH_MARGIN_PER_YEAR,
   PACE_STRETCH_PHRASE,
-  PLANNING_RULE_CLAUSE,
   PLANNING_RULE_SENTENCE,
   classifySchoolFit,
   paceIsStretch,
@@ -675,7 +674,7 @@ export interface PaceUpside {
 export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
   if (!utr?.upside) return null;
   const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
-  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} instead: ${PLANNING_RULE_CLAUSE}`;
+  return `${at} ${formatTargetUtr(utr.upside.value)}, but we plan with ${formatPlayerUtr(utr.value)}. ${PLANNING_RULE_SENTENCE}`;
 }
 
 /* --------------------------------------------------------- logged pace */

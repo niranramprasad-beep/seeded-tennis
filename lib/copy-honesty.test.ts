@@ -379,7 +379,10 @@ const BANNED: { pattern: RegExp; why: string }[] = [
   {
     // A-007. A signed "gap" makes a family work out which way the sign
     // goes; the screens say "0.3 below the team average" (teamLineRelation).
-    pattern: /Gap to (?:team )?(?:average|median|floor)\b/i,
+    // Widened (round-2 verifier): /plan's target list said "+0.3 to their
+    // roster average" / "+1.2 to their competitive floor" — the same signed
+    // gap in other words, and it could print "+0.0".
+    pattern: /Gap to (?:team )?(?:average|median|floor)\b|\bto their (?:roster average|competitive floor)\b|Already above their roster average/i,
     why: "say '0.3 below the team average', never a signed gap (A-007, lib/fit-copy.ts teamLineRelation)",
   },
   {
@@ -438,6 +441,8 @@ describe("copy guard reads sentences the way the screen shows them", () => {
     ["60 seconds: card title", '<strong className="text-[15px]">Your fit, in 60 seconds</strong>'],
     ["signed gap: tooltip", "{youLabel} {formatUtrFor(you!, youIsEstimate)} · Gap to team average {signed(median! - you!)}"],
     ["signed gap: browser", "Gap to team floor: {explanation.gapToFloor > 0 ? \"+\" : \"\"}"],
+    ["signed gap: plan list", "? `+${explanation.gapToMedian!.toFixed(1)} to their roster average`"],
+    ["signed gap: plan list floor", ": `+${explanation.gapToFloor!.toFixed(1)} to their competitive floor`;"],
     ["dash count: hero button", 'See my {total || "—"} schools'],
     ["zero count: hero button", "See my 0 Target and Likely schools"],
   ];

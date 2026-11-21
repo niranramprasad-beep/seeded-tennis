@@ -246,11 +246,6 @@ export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
  */
 export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} UTR a year. That's our planning rule, not a measured average.`;
 
-/** The same words after a colon — "We plan with 8.10 instead: we plan with at
- * most 1.5 UTR a year. …" — so a sentence that already began "We plan with"
- * does not repeat it as a second sentence. */
-export const PLANNING_RULE_CLAUSE = PLANNING_RULE_SENTENCE.charAt(0).toLowerCase() + PLANNING_RULE_SENTENCE.slice(1);
-
 /**
  * How close to the planning cap a required pace may sit and still be called
  * "a stretch" rather than more than the plan allows: |required − cap| ≤ this,
@@ -613,7 +608,14 @@ export function explainSchoolFit(
       };
 
   const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone, who);
-  const unreachable = nextBand != null && (nextBand.paceRead === "faster-than-realistic" || nextBand.paceRead === "no-time-left");
+  // A pace in the stretch band (1.45–1.55 a year) is "a stretch", not out of
+  // reach: the next-band line says so, and the card must not also say "won't
+  // realistically close" or offer alternatives (verifier, 2026-11-21).
+  const unreachable =
+    nextBand != null &&
+    (nextBand.paceRead === "no-time-left" ||
+      (nextBand.paceRead === "faster-than-realistic" &&
+        !(nextBand.requiredPaceUtrPerYear != null && paceIsStretch(nextBand.requiredPaceUtrPerYear))));
   const alternatives = unreachable ? findAlternativeSchools(school, input.catalog ?? [], playerUtr, projection) : [];
 
   return {
