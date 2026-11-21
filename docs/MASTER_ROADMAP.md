@@ -46,7 +46,17 @@ count it either; `update()` re-enables only on an allowed page. Guards:
 `lib/signup-checks.test.ts` (new) and `lib/ga-privacy.test.ts`, which now
 walks `app/` and fails the build if an auth page route (login / signup /
 password / auth / verify / callback …) is not excluded, or an excluded
-prefix has no page. Onboarding walks (player 14+, under-13 on /signup and
+prefix has no page. (4) **Found on the walk, fixed (pre-existing on main
+d3bc348, so on production too): the onboarding sign-up never worked.** The
+diagnostic's question card was a `<form>` and its save step rendered the
+sign-up form — another `<form>` — inside it; React does not prevent a
+submit from a nested form, so "Create free account" / "Create parent
+account" did a native GET of `/onboarding`: the page reloaded, every answer
+was lost, no request reached Supabase and no account was made. Reproduced on
+local builds of main and of this branch; the card is now a `<div>` on the
+save step (`QuestionShell`). Guard: `lib/onboarding-no-nested-form.test.ts`.
+The fit report's own "Save your report" form was not nested and was not
+affected. Onboarding walks (player 14+, under-13 on /signup and
 on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
 `~/seeded-evidence/final-check/prC/SUMMARY.md`.
 

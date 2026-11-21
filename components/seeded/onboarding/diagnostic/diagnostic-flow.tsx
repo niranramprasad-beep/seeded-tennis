@@ -177,8 +177,14 @@ export function SeededDiagnosticOnboarding({
       </div>
 
       <div className="mx-auto mt-6 grid max-w-[1200px] gap-5 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <form
-          noValidate
+        {/* A <div>, not a <form>, while the save step shows: that step
+            renders DiagnosticSaveForm, which is its own <form>, and a form
+            nested in a form is not prevented by React — pressing "Create
+            free account" did a native GET of /onboarding, reloading the page
+            and losing every answer, and no account was made (final-check
+            PR C walk; lib/onboarding-no-nested-form.test.ts). */}
+        <QuestionShell
+          asForm={view !== "save"}
           onSubmit={(e) => {
             e.preventDefault();
             if (enterContinues) next();
@@ -262,7 +268,7 @@ export function SeededDiagnosticOnboarding({
               </SeededButton>
             )}
           </div>
-        </form>
+        </QuestionShell>
 
         <DiagnosticAside answers={answers} projection={projection} />
       </div>
@@ -272,7 +278,32 @@ export function SeededDiagnosticOnboarding({
 
 /* ------------------------------------------------------------ pieces */
 
-const QuestionHeading = forwardRef<HTMLHeadingElement, { id: string; children: ReactNode }>(
+/** The question card: a <form> (Enter = Continue) for the questions and the
+ * result, a plain <div> for the save step, whose sign-up form must not sit
+ * inside another form. */
+function QuestionShell({
+  asForm,
+  onSubmit,
+  onKeyDown,
+  children,
+  ...rest
+}: {
+  asForm: boolean;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLFormElement>) => void;
+  "aria-labelledby": string;
+  className: string;
+  children: ReactNode;
+}) {
+  if (!asForm) return <div {...rest}>{children}</div>;
+  return (
+    <form noValidate onSubmit={onSubmit} onKeyDown={onKeyDown} {...rest}>
+      {children}
+    </form>
+  );
+}
+
+const QuestionHeading =forwardRef<HTMLHeadingElement, { id: string; children: ReactNode }>(
   function QuestionHeading({ id, children }, ref) {
     return (
       <h1
