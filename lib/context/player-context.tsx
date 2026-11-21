@@ -24,6 +24,9 @@ import { hasRealUtr } from "@/lib/utils";
 // head script in app/layout.tsx can size pre-session placeholders before
 // React runs. Layout hints, never access decisions. Cleared on sign-out.
 import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
+import { mutate } from "swr";
+import { MY_CONSENT_STATE_KEY } from "@/lib/db/family-join";
+import { clearSeededLocalStorage } from "@/lib/local-storage-cleanup";
 
 interface PlayerContextValue {
   player: Player;
@@ -190,6 +193,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsAuthed(false);
     setPlayer(emptyPlayer);
     rememberRole(null);
+    // A-033: nothing this browser remembered about the account outlives it
+    // (theme and the internal-analytics flag excepted).
+    clearSeededLocalStorage();
+    // Drop the cached consent answer, so the next account signed in on this
+    // tab never reads the last one's (AuthGate, the star hook and Google
+    // Analytics all key off it).
+    void mutate(MY_CONSENT_STATE_KEY, undefined, { revalidate: false });
     void signOutOfSupabase();
   }, []);
 
