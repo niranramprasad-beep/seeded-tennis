@@ -5,6 +5,8 @@ import { buttonVariants } from "@/components/ui/button";
 // Its own title (QA sweep M7) instead of the home page's.
 export const metadata: Metadata = {
   title: "Page not found — Seeded",
+  description: "This page doesn't exist on Seeded. Try the home page, the school list or your Today page.",
+  robots: { index: false, follow: true },
 };
 
 export default function NotFound() {

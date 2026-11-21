@@ -16,7 +16,7 @@ import { useTier } from "@/lib/context/tier-context";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT } from "@/lib/types";
 import { toggleTargetSchoolSlug } from "@/lib/db/targets";
 import { loadMyConsentState } from "@/lib/db/family-join";
-import { targetSchoolEditRefusal } from "@/lib/config/consent";
+import { targetSchoolEditRefusal, signedInTargetEditRefusal } from "@/lib/config/consent";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
 
 export interface StarToast {
@@ -57,11 +57,15 @@ export function useStarSchools(): UseStarSchoolsResult {
   // ConsentPendingScreen (AuthGate) never covers it. Same SWR key AuthGate
   // uses, so the answer is shared rather than fetched twice. This is the
   // UI's refusal only — the database-side fix is a separate migration.
-  const { data: consent } = useSWR(
+  const { data: consent, error: consentError } = useSWR(
     isAuthed && hydrated ? "my-consent-state" : null,
     () => loadMyConsentState()
   );
-  const consentRefusal = targetSchoolEditRefusal(consent?.status);
+  // Signed in: refuse until the check answers (no write slips through in
+  // the first moments after a reload). Signed out: no consent to check.
+  const consentRefusal = isAuthed
+    ? signedInTargetEditRefusal(consent?.status, Boolean(consentError))
+    : targetSchoolEditRefusal(undefined);
 
   // Always-fresh membership list, readable from closures created on a
   // previous render (the undo/rollback callbacks below) without needing

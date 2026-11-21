@@ -15,9 +15,20 @@ export const GPA_MIN = 0;
 export const GPA_MAX = 5;
 export const GPA_RANGE_ERROR = `Enter a GPA between ${GPA_MIN.toFixed(1)} and ${GPA_MAX.toFixed(1)}, or leave it blank.`;
 
+/** Characters that render as nothing: JS trim() keeps zero-width spaces and
+ * joiners, the Hangul filler and the braille blank, so a "name" made only of
+ * them passed the first version of this check (independent review of
+ * PR #18) and reached the coach email as "I'm \u200b". */
+const INVISIBLE = /[\s\u00AD\u115F\u1160\u180E\u200B-\u200F\u2028-\u202F\u205F-\u2064\u2800\u3000\u3164\uFEFF\uFFA0]/g;
+
+/** True when the name has at least one visible character. */
+export function hasVisibleName(name: string): boolean {
+  return name.replace(INVISIBLE, "").length > 0;
+}
+
 /** Null when the name is usable, else the sentence to show. */
 export function profileNameError(name: string): string | null {
-  return name.trim().length === 0 ? PROFILE_NAME_REQUIRED : null;
+  return hasVisibleName(name) ? null : PROFILE_NAME_REQUIRED;
 }
 
 /** Typed GPA text → the value. Blank is not an error: it is "Not set". */
@@ -44,8 +55,20 @@ export function profileWriteFailure(err: unknown): { status: number; error: stri
     err && typeof err === "object" && "code" in err && typeof (err as { code: unknown }).code === "string"
       ? (err as { code: string }).code
       : null;
+  const message = err instanceof Error ? err.message : "";
+  // Our own triggers raise SENTENCES with these codes (024/040's free-plan
+  // cap is a 23514 "Free accounts can track up to 3 target schools…"; 041's
+  // birth-year rule is a 23502). Postgres's own text for the same codes is
+  // recognisable and never shown.
+  const fromPostgres = /violates|null value in column|invalid input|out of range|syntax|constraint/i.test(message);
   if (code && (code === "23514" || code === "23502" || code.startsWith("22"))) {
-    return { status: 400, error: PROFILE_VALUE_REJECTED };
+    return { status: 400, error: message && !fromPostgres ? message : PROFILE_VALUE_REJECTED };
   }
-  return { status: 500, error: err instanceof Error && err.message ? err.message : PROFILE_SAVE_FAILED };
+  // 42501 refusals come from our own triggers (022/032/041/051), which raise
+  // sentences written for people. Anything else (23505, P0001, timeouts) is
+  // Postgres's text: never send it to the browser (review of PR #18).
+  if (code === "42501" && message && !fromPostgres) {
+    return { status: 403, error: message };
+  }
+  return { status: 500, error: PROFILE_SAVE_FAILED };
 }

@@ -83,12 +83,50 @@ describe("profileWriteFailure: a CHECK violation is a 400 with a sentence", () =
 
   it("keeps the trigger's own sentence for other failures (e.g. 42501)", () => {
     const r = profileWriteFailure(pg("42501", "This profile field can only be changed by Seeded."));
-    expect(r).toEqual({ status: 500, error: "This profile field can only be changed by Seeded." });
+    expect(r).toEqual({ status: 403, error: "This profile field can only be changed by Seeded." });
   });
 
   it("route.ts maps every write failure through it", () => {
     const route = readFileSync(join(__dirname, "..", "app/api/profile/route.ts"), "utf8");
     expect(route).toMatch(/profileWriteFailure\(err\)/);
     expect(route).not.toMatch(/err\.message/);
+  });
+});
+
+describe("review of PR #18", () => {
+  it("a name of only invisible characters is blank", async () => {
+    const { profileNameError } = await import("./profile-fields");
+    for (const n of ["​", "ㅤ", "⠀", " ‍ ", "﻿"]) {
+      expect(profileNameError(n)).not.toBeNull();
+    }
+    expect(profileNameError("Ana")).toBeNull();
+  });
+
+  it("never sends Postgres text on the 500 path; trigger sentences (42501) pass as 403", async () => {
+    const { profileWriteFailure, PROFILE_SAVE_FAILED } = await import("./profile-fields");
+    const pg = Object.assign(new Error('duplicate key value violates unique constraint "x"'), { code: "23505" });
+    expect(profileWriteFailure(pg)).toEqual({ status: 500, error: PROFILE_SAVE_FAILED });
+    const trig = Object.assign(new Error("consent_required: this account cannot record tennis details"), { code: "42501" });
+    expect(profileWriteFailure(trig).status).toBe(403);
+  });
+
+  it("a signed-in click before the consent check answers is refused; a failed check is not", async () => {
+    const { signedInTargetEditRefusal, CONSENT_CHECKING_MESSAGE, CONSENT_PENDING_TARGETS_MESSAGE } = await import(
+      "./config/consent"
+    );
+    expect(signedInTargetEditRefusal(undefined, false)).toBe(CONSENT_CHECKING_MESSAGE);
+    expect(signedInTargetEditRefusal(undefined, true)).toBeNull();
+    expect(signedInTargetEditRefusal("pending", false)).toBe(CONSENT_PENDING_TARGETS_MESSAGE);
+    expect(signedInTargetEditRefusal("not_required", false)).toBeNull();
+  });
+});
+
+describe("trigger sentences reach the user; Postgres text does not", () => {
+  it("free-plan cap (23514 with a sentence) is shown as is; a raw CHECK violation is not", async () => {
+    const { profileWriteFailure, PROFILE_VALUE_REJECTED } = await import("./profile-fields");
+    const cap = Object.assign(new Error("Free accounts can track up to 3 target schools. Upgrade to Player to track more."), { code: "23514" });
+    expect(profileWriteFailure(cap)).toEqual({ status: 400, error: cap.message });
+    const raw = Object.assign(new Error('new row for relation "profiles" violates check constraint "profiles_gpa_check"'), { code: "23514" });
+    expect(profileWriteFailure(raw)).toEqual({ status: 400, error: PROFILE_VALUE_REJECTED });
   });
 });

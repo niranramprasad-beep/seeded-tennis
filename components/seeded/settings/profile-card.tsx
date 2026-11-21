@@ -201,7 +201,7 @@ export function ProfileCard({
               if (gpaError) setGpaError(null);
             }}
             inputMode="decimal"
-            placeholder="0.0 to 4.0"
+            placeholder="0.0 to 5.0"
             aria-invalid={gpaError ? true : undefined}
             aria-describedby={gpaError ? "settings-gpa-error" : undefined}
           />

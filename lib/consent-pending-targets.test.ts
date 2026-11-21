@@ -31,7 +31,8 @@ describe("targetSchoolEditRefusal", () => {
 describe("every target add/remove path checks consent", () => {
   it("useStarSchools refuses before writing, in toggleStar AND addManyToTargets", () => {
     const src = read("lib/hooks/use-star-schools.ts");
-    expect(src).toMatch(/targetSchoolEditRefusal\(consent\?\.status\)/);
+    // Signed in: refused until the consent check answers (review of PR #18).
+    expect(src).toMatch(/signedInTargetEditRefusal\(consent\?\.status, Boolean\(consentError\)\)/);
     for (const fn of ["const toggleStar", "const addManyToTargets"]) {
       const body = src.slice(src.indexOf(fn));
       const refusal = body.indexOf("if (consentRefusal)");

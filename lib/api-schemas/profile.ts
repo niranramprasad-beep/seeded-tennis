@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ENROLLMENT_TERMS } from "@/lib/types";
 import { SEASON_KEY_PATTERN, TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-planned";
-import { GPA_MAX, GPA_MIN, GPA_RANGE_ERROR, PROFILE_NAME_REQUIRED } from "@/lib/profile-fields";
+import { GPA_MAX, GPA_MIN, GPA_RANGE_ERROR, PROFILE_NAME_REQUIRED, hasVisibleName } from "@/lib/profile-fields";
 
 // Shape validated by app/api/profile's route handler before it ever calls
 // writeCurrentPlayerProfile (lib/auth.ts) — the single highest-traffic
@@ -19,7 +19,7 @@ export const PlayerBodySchema = z.object({
   // Never blank (QA sweep H2): a blank name was saved, and the next load
   // showed the login email in its place — which then reached the coach
   // email. Trimmed here, so "  " is blank too.
-  name: z.string().trim().min(1, PROFILE_NAME_REQUIRED),
+  name: z.string().trim().refine(hasVisibleName, PROFILE_NAME_REQUIRED),
   currentUTR: z.number(),
   graduationYear: z.number(),
   commitmentDate: z.string(),

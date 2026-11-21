@@ -78,3 +78,20 @@ export function targetSchoolEditRefusal(
 ): string | null {
   return consentStatus === "pending" ? CONSENT_PENDING_TARGETS_MESSAGE : null;
 }
+
+/** Shown when a signed-in account clicks before the consent check answers. */
+export const CONSENT_CHECKING_MESSAGE = "One moment, still loading your account. Try again in a second.";
+
+/** The target-school gate for a SIGNED-IN account: while the consent check
+ * has not answered (and has not failed), refuse — otherwise a click in the
+ * first moments after a hard reload slipped a pending under-13's write
+ * through (independent review of PR #18). A failed check falls back to
+ * targetSchoolEditRefusal(undefined), i.e. allowed: this is the UI's gate,
+ * and an error must not lock every account out of starring schools. */
+export function signedInTargetEditRefusal(
+  consentStatus: "pending" | "granted" | "not_required" | "unknown" | undefined,
+  checkFailed: boolean
+): string | null {
+  if (consentStatus === undefined && !checkFailed) return CONSENT_CHECKING_MESSAGE;
+  return targetSchoolEditRefusal(consentStatus);
+}
