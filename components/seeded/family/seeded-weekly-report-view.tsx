@@ -17,9 +17,9 @@ import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
 import { daysSince } from "@/lib/today-actions";
 import { currentSeason, formatShortDate, toLocalDateString } from "@/lib/time";
-import { formatPlayerUtr } from "@/lib/utils";
+import { formatPlayerUtr, pluralNoun } from "@/lib/utils";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
-import { SeededButton } from "@/components/seeded/ui/button";
+import { seededLinkButtonClass } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { FamilyPlanPaywall } from "./dashboard/family-plan-paywall";
 import { NoFamilyYet, WeeklyReportSkeleton } from "./dashboard/page-skeletons";
@@ -171,8 +171,8 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
           </h1>
           <p className="mt-1.5 text-stone">Real activity for {weekRange}.</p>
         </div>
-        <Link href="/family">
-          <SeededButton variant="secondary">Back to overview</SeededButton>
+        <Link href="/family" className={seededLinkButtonClass("secondary")}>
+          Back to overview
         </Link>
       </div>
 
@@ -185,8 +185,15 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
               : "UTR · no change logged this week"
           }
         />
-        <ReportTile value={String(activityThisWeek.emailed.length)} label="coaches emailed this week" />
-        <ReportTile value={String(activityThisWeek.replied.length)} label="coaches replied this week" />
+        {/* "1 coaches emailed" (QA sweep L8): the noun follows the count. */}
+        <ReportTile
+          value={String(activityThisWeek.emailed.length)}
+          label={`${pluralNoun(activityThisWeek.emailed.length, "coach", "coaches")} emailed this week`}
+        />
+        <ReportTile
+          value={String(activityThisWeek.replied.length)}
+          label={`${pluralNoun(activityThisWeek.replied.length, "coach", "coaches")} replied this week`}
+        />
         <ReportTile value={money(budgetSummary.spent)} label={`spent so far · ${seasonLabel}`} />
       </div>
 

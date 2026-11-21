@@ -24,8 +24,9 @@ Checked against the code on 2026-11-20 (not against a live crawl).
       renders two `<h1>` (mobile and desktop copies). Keep one.
 - [ ] Structured data: none yet. `Organization` on `/`; `SportsTeam`
       (+ `CollegeOrUniversity`) on school pages once team data is sourced.
-- [ ] Legacy routes (`/dashboard`, `/coaches`, …) redirect client-side, which
-      crawlers don't see. They are disallowed and noindexed; add server
-      redirects in `next.config.mjs` if the Legacy theme is removed.
+- [x] Legacy routes (`/dashboard`, `/roadmap`, `/coaches`,
+      `/cost-calculator`) are server redirects since the Legacy design was
+      deleted (2026-11-20, PR-LEGACY): `redirect()` in each `page.tsx`, like
+      `/training` and `/match-mode`. Still disallowed and noindexed.
 - [ ] Generic 404s: confirm production returns status 404 (not verified for
       this doc).

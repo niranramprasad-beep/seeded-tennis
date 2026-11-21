@@ -1,44 +1,23 @@
-"use client";
+import type { HTMLAttributes } from "react";
 
-import { motion, type HTMLMotionProps } from "framer-motion";
-import { cn } from "@/lib/utils";
-
-interface RevealProps extends HTMLMotionProps<"div"> {
-  /** Position in a staggered group — delay = index * step. */
+interface RevealProps extends HTMLAttributes<HTMLDivElement> {
+  /** Kept so existing call sites compile; no longer drives any animation. */
   index?: number;
   step?: number;
 }
 
-// A short fade-and-rise on first view, for the sections/cards a page wants
-// to feel orchestrated rather than all popping in at once. Triggers via
-// `whileInView` (not on mount), so above-the-fold content animates as soon
-// as it paints and nothing below the fold delays the page — and
-// MotionConfig's `reducedMotion="user"` (app/providers.tsx) already
-// collapses this to an instant appearance for anyone with OS reduce-motion
-// set, so there is nothing extra to gate here.
-export function Reveal({
-  children,
-  index = 0,
-  step = 0.07,
-  className,
-  transition,
-  ...props
-}: RevealProps) {
+// Used to be a framer-motion fade-and-rise (`initial={{ opacity: 0 }}` +
+// `whileInView`). The server HTML therefore painted every wrapped section at
+// opacity 0, and on a slow phone the page sat greyed-out or blank until the
+// JS bundle hydrated and the observer fired — measured on / and /pricing at
+// 375px with 4x CPU and Slow-4G (2026-11-20, PR-POLISH). Content now paints
+// at full opacity on first paint; this is a plain <div> so nothing waits on
+// JavaScript to become readable. Click-triggered motion (dialogs, drawers,
+// menus) is unaffected — it lives in those components.
+export function Reveal({ children, index: _index, step: _step, className, ...props }: RevealProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{
-        duration: 0.45,
-        delay: index * step,
-        ease: [0.22, 1, 0.36, 1],
-        ...transition,
-      }}
-      className={cn(className)}
-      {...props}
-    >
+    <div className={className} {...props}>
       {children}
-    </motion.div>
+    </div>
   );
 }

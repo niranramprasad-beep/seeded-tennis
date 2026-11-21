@@ -90,14 +90,10 @@ describe("no fabricated UTR reaches a family screen", () => {
     expect(overview).not.toMatch(/formatUTR|formatUtr2|formatPlayerUtr|formatUtrEstimate|formatUtrFor|\.toFixed\(/);
     expect(utrKpi([], null, new Date()).value).toBe("No UTR yet");
     expect(utrKpi([], 0, new Date()).value).toBe("No UTR yet");
-    for (const file of [
-      "components/seeded/family/seeded-weekly-report-view.tsx",
-      "components/parents/parent-dashboard-view.tsx",
-    ]) {
+    for (const file of ["components/seeded/family/seeded-weekly-report-view.tsx"]) {
       const src = readFileSync(join(REPO, file), "utf8");
-      // The wording is "No UTR yet" on Seeded screens since design system v2
-      // (rule 4) and still "Not tracked" on Legacy's; the guard is the null
-      // branch, not the words.
+      // The wording is "No UTR yet" since design system v2 (rule 4); the
+      // guard is the null branch, not the words.
       expect(src, file).toMatch(/currentUTR == null \? "(?:Not tracked|No UTR yet)"/);
     }
   });

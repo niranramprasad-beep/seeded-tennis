@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { EyeOff, Eye, Plus, X } from "lucide-react";
-import type { MergedRecruitingChecklistItem } from "@/lib/recruiting-checklist";
+import { checklistDisabledReason, type MergedRecruitingChecklistItem } from "@/lib/recruiting-checklist";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +61,7 @@ export function RecruitingChecklistCard({
           </button>
         )}
       </div>
-      <p className="mt-1 text-xs text-stone">
+      <p className="mt-1 text-[15px] text-stone">
         General NCAA contact-period guidance, not specific to tennis (it has no sport-specific
         calendar) — rules change, so confirm the current dates at{" "}
         <a href="https://www.ncaa.org" target="_blank" rel="noreferrer" className="font-semibold text-grass">
@@ -136,6 +136,11 @@ function ChecklistRow({
   onToggleHidden: (id: string) => void;
   onRemoveItem: (id: string) => void;
 }) {
+  // A disabled box says why (QA sweep L12): the reason, then the step's own
+  // note, both read as the checkbox's description.
+  const disabledReason = checklistDisabledReason(item);
+  const reasonId = `checklist-auto-${item.id}`;
+  const noteId = `checklist-note-${item.id}`;
   return (
     <li className="flex flex-col gap-1 border-b border-line pb-2.5 last:border-b-0 last:pb-0">
       <div className="flex items-start gap-2.5">
@@ -148,7 +153,16 @@ function ChecklistRow({
             disabled={!item.editable}
             onChange={() => item.editable && onToggleCompleted(item.id)}
             aria-label={item.label}
+            title={disabledReason ?? undefined}
+            aria-describedby={
+              disabledReason ? [reasonId, item.note ? noteId : null].filter(Boolean).join(" ") : undefined
+            }
           />
+          {disabledReason && (
+            <span id={reasonId} className="sr-only">
+              {disabledReason}
+            </span>
+          )}
         </label>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -171,7 +185,11 @@ function ChecklistRow({
               </span>
             )}
           </div>
-          {item.note && <p className="mt-0.5 text-xs text-stone-light">{item.note}</p>}
+          {item.note && (
+            <p id={noteId} className="mt-0.5 text-xs text-stone-light">
+              {item.note}
+            </p>
+          )}
         </div>
         {/* An icon alone told nobody what it did (D7): the eye-slash now
             says "Hide this step" to a screen reader and as a tooltip. */}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import type { Player, SchoolLite } from "@/lib/types";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
 import {
@@ -25,10 +24,6 @@ import { saveMatch } from "@/lib/db/events";
 // makes it possible to click through the actual save flow here and watch
 // `player`/`utrEntries`/`matches` update locally, proving the wiring works,
 // without ever touching production data.
-const UTRTrajectoryChart = dynamic(
-  () => import("@/components/charts/utr-trajectory-chart").then((mod) => mod.UTRTrajectoryChart),
-  { ssr: false }
-);
 
 const MOCK_PLAYER: Player = {
   name: "Maya Chen",
@@ -123,18 +118,9 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
       </p>
       <SeededDashboardLayout
         firstName="Maya"
-        tier="player"
         player={player}
-        targetUTR={11.2}
-        estimatePath={[]}
-        goalUtr={11.2}
-        utrStatus="idle"
-        utrError=""
         actualPoints={actualPoints}
         targetPoints={targetPoints}
-        UTRTrajectoryChart={UTRTrajectoryChart}
-        weeklyHours={0}
-        weekSessions={[]}
         targetSchools={targetSchools}
         setUtrDrawerOpen={() => {}}
         setCheckinDrawerOpen={() => {}}

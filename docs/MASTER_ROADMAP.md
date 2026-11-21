@@ -29,6 +29,71 @@ UTR and the upsert path; rename and unchanged re-save still allowed; active
 players unaffected); rollback rehearsed. Guard
 `lib/db/pending-consent-profile.test.ts`. GO-SEQUENCE row 26.
 
+**2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each
+after CI `verify`, a Vercel Preview smoke test, an independent verifier
+(no open HIGH) and the full local gate, then checked live (routes 200, 0
+runtime errors, client on production Supabase): #13 migration 050
+(parent-only budget, on production 23:20 UTC), #14 code quality, #15 docs,
+#9 catalog phase 1 (048 on production 23:55 UTC; flag off), #16 visual
+polish, #18 sweep fixes, #19 Legacy design deleted, plus this docs PR.
+Production ledger 52. Open: #17 (migration 051, needs Niran's go). Tests:
+119 files / 1,766. Report: `~/seeded-evidence/review-ready/REPORT.md`.
+
+
+**2026-11-20 night — PR-LEGACY (`chore/delete-legacy-theme`; no
+migration, no visual change to Seeded).** P1-UX-2 done: the opt-in Legacy
+design is deleted — its home, pricing, settings, contact/terms/parents/
+how-it-works, /today, /plan, /outreach, /family and tournament-fit branches,
+its nav, sidebar and four-column footer, the nine `data-theme` palettes, the
+palette picker and `ThemeProvider`, the Legacy/Seeded switch
+(`DesignSystemId`, `html[data-design]`), the "Legacy theme" pill in Settings →
+Appearance (now Light / Dark / Match system), two concept-theme fonts and 17
+components reachable only from Legacy. `/dashboard`, `/roadmap`, `/coaches`,
+`/cost-calculator` are server redirects (`/dashboard` keeps its query for
+Whop's `?checkout=success`). A stored "legacy" choice — localStorage
+`seeded.design` or `user_settings…design` — reads as Match system in code
+(`lib/appearance.ts`); an optional cleanup migration is in TODO.
+`lib/no-legacy-theme.test.ts` fails the build if any of it returns
+(mutation-tested). Visual check: production builds of `main` and the branch
+against staging, signed out / demo-player / demo-parent at 320, 375, 1440,
+light and dark (102 pairs): 76 identical; the Settings → Profile pages differ only by the removed pill (54px shorter on phones); 8 pairs differ by a moving "now" (chart estimate slope, calendar time line). WebKit renders /, /pricing and /today. One pin: `html:root` keeps `--font-inter` / `--font-cormorant` as production paints them (merging the CSS chunks had flipped which rule won). Inventory and evidence:
+`~/seeded-evidence/review-ready/r5-legacy/`.
+
+**2026-11-20 night — PR-SWEEP (`fix/sweep-1`): eleven R9 QA-sweep findings fixed in the app.**
+Settings → Profile refuses a blank name and a GPA outside 0–5 (DB CHECK, weighted GPAs allowed)
+inline, `/api/profile` refuses both with a 400 sentence and answers any CHECK violation 400 not
+500, and "Saved" shows only after a real 200 (H2/H3). The coach email never puts an email address
+where the name goes — `[Your name]`, which keeps Copy/Gmail off. A consent-pending under-13 is
+refused target-school adds/removes in the UI (H1, **UI half only — the database still accepts the
+write from the account itself until the profiles migration lands**). Sign-in keeps `?next=`
+(AuthGate and the head script; same-origin paths only, no auth pages) (M3). Also: focusable
+"Collapse sidebar" visible on focus (M6), own metadata + canonical for /how-it-works, /parents,
+/contact, /terms and the 404 (M7), no link-wrapped buttons (M9), "Follow up in 14 days" (L1, now
+banned phrasing in copy-honesty), "1 coach emailed" (L8), disabled checklist boxes describe why
+(L12). ⌘K focus return (L4) did not reproduce on this main — no change. Status per row:
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`. No migration.
+
+**2026-11-20 night — PR-POLISH (`fix/visual-polish`, NOT merged): low-risk
+visual pass, presentation only.** No number, band or fit math changed; no
+migration. (1) No entrance animations: AppShell's route fade-in is gone (the
+keyed remount stays) and `Reveal`/`FadeIn` are plain `<div>`s, so nothing
+server-renders at opacity 0 — `/` had 59 text nodes invisible until JS ran.
+(2) /today: "UTR vs plan" moved into the main column (filled ~400px of empty
+space at 1440; phone order unchanged), chart 278×150 → 714×220 with y-axis
+and month ticks, a dashed estimate line (a logged-pace estimate has
+low = high, so the shaded band drew nothing under a caption saying
+"Shaded" — same fix, dotted, on /plan), and ONE data note with "About our
+data" instead of a caption plus a second note. Body text 13–14px → 15px;
+`DataNote` is 15px everywhere. (3) The slim footer sits in the app's content
+column (`max-w-content container-px`) on app routes: left edge 272 → 289 at
+1440 (= content), 24 → 20 at 375. (4) `formatTargetUtr` (lib/utils.ts): plan
+checkpoints, the upside "Estimate" and "We plan with …" print at the nearest
+0.05 (6.59 → 6.60); the final checkpoint IS the typed goal and prints as typed
+(`formatCheckpointUtr`). Guard `lib/target-utr-format.test.ts`. Deviation to
+review: Today.dc.html has the chart in the rail. Left alone: /events' cards
+stay at their own heights (C22 chose that on purpose). Evidence:
+`~/seeded-evidence/review-ready/r12-polish/`.
+
 **2026-11-20 (night) — Migration 048 on production; PR E merging with the flag OFF.**
 Backup, apply (23:55 UTC, ledger 51 → 52), fingerprint identical to staging, probed as real roles
 (rolled back). No catalog data imported to production; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`
@@ -896,7 +961,7 @@ settings, and the product problem — P1-DATA-1.
   target instead of a hypothetical one.
 - [ ] **P1-DATA-1 Real roster import (migration 012)** — see DATA_QUALITY.md. This is the real fix for P0-3 and the single most valuable product task. Includes coverage below D1-elite: a 5.81 UTR player currently has **zero** schools in range (closest: Middlebury, 4.7 below avg). Without D2/D3/NAIA/JUCO coverage the product has no answer for most juniors.
 - [ ] **P1-UX-1 Theme flips between pages** — Today and Plan render light, Schools/Outreach/Events/Settings render dark in the same session; Settings shows "Match system" selected while localStorage has `seeded.mode=light`; the sidebar toggle label switches between "Light mode" and "Dark mode". Fix the hydration order in `lib/context/design-context.tsx`.
-- [ ] **P1-UX-2 Remove Legacy from the product** — users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
+- [x] **P1-UX-2 Remove Legacy from the product** — DONE 2026-11-20 (PR-LEGACY): deleted, routes kept as server redirects, `lib/no-legacy-theme.test.ts` guards it. Was: users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
 - [ ] **P1-UX-3 Mobile `/schools` table is clipped** — at 390px the "Your fit" column and badge are cut off with no scroll affordance. Make rows stack on mobile.
 - [ ] **P1-UX-4 Mobile `/plan` pace warning collapses** — the warning text wraps to one word per line beside "Show realistic targets". Stack the button under the text below `sm`.
 - [~] **P1-OPS-1 CI** — WORKFLOW COMMITTED, BRANCH PROTECTION STILL NEEDED.
@@ -1005,7 +1070,7 @@ settings, and the product problem — P1-DATA-1.
 - Public recruiting page, alerts
 - Yearly pricing / pricing redesign
 - Transfer portal, similar players, recruiting probability, commitment tracking, roster openings
-- Legacy design system (delete, don't ship)
+- ~~Legacy design system (delete, don't ship)~~ — deleted 2026-11-20 (PR-LEGACY)
 - Stripe
 
 ## Deferred features
@@ -1014,7 +1079,7 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 ---
 
 ## Architecture tasks
-- [ ] P0-6 staging project. [ ] P1-UX-2 delete Legacy. [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
+- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
 
 ## Database tasks
 - [ ] P0-1, P0-2, P1-SEC-2, P1-SEC-6, P1-OPS-3. [ ] Migration 012 teams/players/roster_sources. [ ] Drop dead tables (P3). [ ] RLS test suite (see QA_CHECKLIST.md).
@@ -1103,6 +1168,9 @@ The launch list this replaces (production rollout, PR B, PR D, 049, Legacy)
 is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
 Production runs every migration through 050 except 048.
 
+0. **Migration 051 (PR #17)** — a pending-consent under-13 can still write
+   tennis fields on its own profile through the API. Staging-tested; needs
+   Niran's go, then GO-SEQUENCE row 26 and merge.
 1. **Decide who may approve a parent joiner**, then close the second-account
    route to budget writes (docs/TODO.md "Who may approve a parent joiner";
    found by the 050 review). One migration, 033's pattern.
@@ -1122,6 +1190,14 @@ Production runs every migration through 050 except 048.
 9. **Public SEO school pages** once ranges are sourced.
 10. **Observability** — no error tracking or alerting exists beyond Vercel
     runtime logs; the billing incident is what that looks like.
+
+Still open from the R9 QA sweep after `fix/sweep-1` (row status in
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): **H1's database half** —
+a consent-pending under-13 can still write every column of its own `profiles`
+row through PostgREST (030's own-row carve-out) — migration 051 (BEFORE
+UPDATE trigger) is written, staging-tested, in an open PR waiting for
+Niran's go (GO-SEQUENCE row 26). Also M1, M2, M4, M5, M8, L2, L3, L5–L7,
+L9–L11.
 
 Niran's own list (dashboards/keys, not code): revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate

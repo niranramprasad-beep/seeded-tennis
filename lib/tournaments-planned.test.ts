@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   SEASON_KEY_PATTERN,
   TOURNAMENTS_PLANNED_MAX,
-  countPlayedThisSeason,
   formatTournamentsPlanned,
   isSeasonKey,
   parseTournamentsPlannedText,
@@ -60,33 +59,6 @@ describe("season keys", () => {
 
   it("last year's fall is not this fall", () => {
     expect(seasonKey(new Date(2025, 9, 1))).not.toBe(seasonKey(new Date(2026, 9, 1)));
-  });
-});
-
-describe("played this season comes from tournament entries", () => {
-  const NOW = new Date(2026, 10, 20); // fall 2026
-  const e = (status: "saved" | "entered" | "played", eventDate: string) => ({ status, eventDate });
-
-  it("counts only Played entries dated in the current season", () => {
-    const entries = [
-      e("played", "2026-09-12"), // fall 2026
-      e("played", "2026-11-01"), // fall 2026
-      e("entered", "2026-10-05"), // not played
-      e("saved", "2026-10-06"), // planning
-      e("played", "2025-10-01"), // last fall
-      e("played", "2026-07-30"), // summer
-      e("played", "2026-12-01"), // winter
-    ];
-    expect(countPlayedThisSeason(entries, NOW)).toBe(2);
-  });
-
-  it("zero entries is zero played — a real count, not a placeholder", () => {
-    expect(countPlayedThisSeason([], NOW)).toBe(0);
-  });
-
-  it("reads event dates as local calendar days at the season edge", () => {
-    // Aug 1 is the first day of fall; parsed as UTC it would be Jul 31 west of UTC.
-    expect(countPlayedThisSeason([e("played", "2026-08-01")], NOW)).toBe(1);
   });
 });
 

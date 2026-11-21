@@ -255,8 +255,7 @@ export function SeededOutreachLayout({
                   const remindAt = entry?.remindAt ? new Date(entry.remindAt) : null;
                   const reminderDue = Boolean(remindAt && remindAt.getTime() <= Date.now());
                   // "Contacted" (an email actually went out) is every status
-                  // past "researching" — the same vocabulary
-                  // legacyIsSentOrLater() in coaches-view.tsx uses.
+                  // past "researching".
                   const contacted = Boolean(entry && entry.status !== "researching");
                   // The real upcoming due date while a card is emailed but
                   // not yet overdue — once `due` flips true, the chip below
@@ -316,7 +315,10 @@ export function SeededOutreachLayout({
                         }}
                         className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-6"
                       >
-                        Remind me in {REMIND_ME_AFTER_DAYS} days
+                        {/* Sets a date and nothing else: Seeded sends no
+                            email or push, so "Remind me" promised a message
+                            (QA sweep L1). The card flags it when due. */}
+                        Follow up in {REMIND_ME_AFTER_DAYS} days
                       </button>
                     </div>
                   );
@@ -401,7 +403,7 @@ export function SeededOutreachLayout({
                   contacts" right above this (C16). */}
               <div id="outreach-find-coach" className="min-w-0 rounded-lg border border-line bg-cream/50 p-4 lg:self-start">
                 <StaffDirectoryHint school={selectedSchool} />
-                <p className="mt-3 text-xs text-ink/60">
+                <p className="mt-3 text-[15px] text-stone">
                   The draft uses only what you&rsquo;ve logged and the program&rsquo;s name, division
                   and conference. Parts in [brackets] are yours to write. Edit it before you send.
                   Seeded never sends for you.

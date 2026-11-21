@@ -108,14 +108,6 @@ export async function getSchoolsBySlugs(slugs: string[]): Promise<School[]> {
   return resolve(schoolsData.filter((s) => set.has(s.slug)));
 }
 
-export async function getConferences(): Promise<string[]> {
-  return resolve(Array.from(new Set(schoolsData.map((s) => s.conference))).sort());
-}
-
-export async function getStates(): Promise<string[]> {
-  return resolve(Array.from(new Set(schoolsData.map((s) => s.state))).sort());
-}
-
 export async function getDivisions(): Promise<Division[]> {
   const order: Division[] = ["D1", "D2", "D3"];
   const present = new Set(schoolsData.map((s) => s.division));
@@ -216,7 +208,23 @@ export const COACH_EMAIL_COURTESY_SENTENCES = [
 export const COACH_EMAIL_PLACEHOLDERS = {
   whySchool: "[One sentence about why this school]",
   result: "[A recent result you're proud of: tournament, round and date]",
+  name: "[Your name]",
 } as const;
+
+/**
+ * The player's name as the coach email may use it, or null when there is no
+ * usable one. QA sweep H2: a blank profiles.name loads as the login EMAIL
+ * (lib/auth.ts mapProfileToPlayer falls back to it), and the draft then read
+ * "I'm someone@example.com, …" in an email a minor signs. Blank, or anything
+ * shaped like an email address, is not a name: the draft shows
+ * COACH_EMAIL_PLACEHOLDERS.name instead, which keeps Copy / Gmail disabled
+ * (coachEmailActionState) until the player types their name.
+ */
+export function coachEmailName(name: string | null | undefined): string | null {
+  const t = (name ?? "").trim();
+  if (!t || t.includes("@")) return null;
+  return t;
+}
 
 export interface CoachEmail {
   subject: string;
@@ -287,7 +295,13 @@ export function buildCoachEmail(
     part(`${player.graduationYear} ${programType} recruit`, "player.graduationYear", "player.gender"),
   ];
   if (utr) subjectParts.push(part(`UTR ${utr}`, "player.currentUTR"));
-  subjectParts.push(part(player.name, "player.name"));
+  // Never an email address where the name goes (coachEmailName). Without a
+  // usable name the subject and signature carry the [Your name] stand-in and
+  // the intro simply omits it.
+  const playerName = coachEmailName(player.name);
+  const namePart = (): CoachEmailPart =>
+    playerName ? part(playerName, "player.name") : part(COACH_EMAIL_PLACEHOLDERS.name, "placeholder");
+  subjectParts.push(namePart());
   const subjectTail = isTarget
     ? part(`interested in ${school.shortName}`, "school.name", "player.targetSchoolSlugs")
     : part(school.shortName, "school.name");
@@ -305,10 +319,10 @@ export function buildCoachEmail(
   const article = /^(8|11|18)\D/.test(grade) ? "an" : "a"; // "an 11th-grade", not "a 11th-grade"
   const intro: CoachEmailPart[] = [
     part(
-      `I'm ${player.name}, ${article} ${grade}-grade ${programType} player (class of ${player.graduationYear})${
+      `I'm ${playerName ? `${playerName}, ` : ""}${article} ${grade}-grade ${programType} player (class of ${player.graduationYear})${
         player.country && player.country !== "United States" ? ` from ${player.country}` : ""
       }.`,
-      "player.name",
+      ...(playerName ? (["player.name"] as const) : []),
       "player.graduationYear",
       "player.gender",
       ...(player.country && player.country !== "United States" ? (["player.country"] as const) : [])
@@ -364,7 +378,7 @@ export function buildCoachEmail(
   paragraphs.push([part(COACH_EMAIL_COURTESY_SENTENCES[2], "courtesy")]);
 
   // Signature: one part per line.
-  const signature: CoachEmailPart[] = [part(player.name, "player.name")];
+  const signature: CoachEmailPart[] = [namePart()];
   signature.push(
     utr
       ? part(`UTR ${utr} · Class of ${player.graduationYear}`, "player.currentUTR", "player.graduationYear")
@@ -410,7 +424,7 @@ export interface CoachEmailActionState {
 
 /**
  * The ONE place that decides whether a draft may leave Seeded. Both buttons
- * (Copy and Open in Gmail, in both the Seeded and legacy composers) read it,
+ * (Copy and Open in Gmail) read it,
  * and both handlers re-check it before acting, so a disabled-attribute bug
  * cannot ship a bracket to a coach.
  */

@@ -24,7 +24,7 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar }: Closest
   return (
     <div className="mt-5 rounded-xl border border-line bg-card p-5">
       <h2 className="text-base font-semibold text-ink">Closest schools to you</h2>
-      <p className="mt-1 text-xs text-stone">
+      <p className="mt-1 text-[15px] text-stone">
         The real schools in the full catalog whose roster level is nearest your current UTR —
         whether or not they're on your target list yet.
       </p>

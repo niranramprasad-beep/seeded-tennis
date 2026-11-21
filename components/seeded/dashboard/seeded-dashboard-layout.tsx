@@ -26,7 +26,8 @@ import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
 import { currentSeason, getCurrentGrade, formatDate, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { cn, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
+import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
+import { DataNote } from "@/components/seeded/ui/data-note";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
@@ -40,8 +41,8 @@ function greeting(now: Date): string {
 }
 
 // Pixel-exact to Today.dc.html: a real rules-based action list (not static
-// mockup copy — see lib/today-actions.ts), fed by the exact same props
-// LegacyDashboardLayout receives from dashboard-view.tsx. The old glass/bento
+// mockup copy — see lib/today-actions.ts), fed by the props
+// dashboard-view.tsx builds (DashboardLayoutProps). The old glass/bento
 // "command center" treatment is gone; this matches the mockup's flat
 // two-column layout.
 export function SeededDashboardLayout({
@@ -140,6 +141,8 @@ export function SeededDashboardLayout({
     [fitReport, player.currentUTR, player.graduationYear]
   );
 
+  const hasLoggedUtr = actualPoints.some((p) => hasRealUtr(p.utr));
+
   const dateLine = `${now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} · ${seasonLabel(
     player.graduationYear,
     now
@@ -168,7 +171,7 @@ export function SeededDashboardLayout({
         <JoinRequestsCard compact />
       </div>
       <div className="w-full">
-        <p className="text-sm text-stone">{dateLine}</p>
+        <p className="text-[15px] text-stone">{dateLine}</p>
         <h1 className="mt-1.5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">
           {greeting(now)}, {firstName || "there"}.{" "}
           {todayHeadline(actions.length, nextSteps.length)}
@@ -184,7 +187,7 @@ export function SeededDashboardLayout({
           )}
           {nextCheckpoint && (
             <span className="inline-flex items-center rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-              Next checkpoint: {formatPlayerUtr(nextCheckpoint.utr)} by{" "}
+              Next checkpoint: {formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)} by{" "}
               {/* One date format everywhere a sentence names a date: the chip
                   said "Jun 1" (which year?) beside a chart saying "Jun '27". */}
               {formatDate(nextCheckpoint.date)}
@@ -212,7 +215,7 @@ export function SeededDashboardLayout({
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-grass-100 bg-grass-50 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-ink">Sunday check-in</p>
-              <p className="text-[13px] text-stone">
+              <p className="text-[15px] text-stone">
                 Quick weekly update — your UTR, plus a match result if you played one.
               </p>
             </div>
@@ -240,7 +243,7 @@ export function SeededDashboardLayout({
           />
         )}
 
-        <div className="flex items-center gap-4 rounded-[10px] border border-line bg-panel px-4 py-3 text-sm text-stone">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] border border-line bg-panel px-4 py-3 text-[15px] text-stone">
           <span className="flex-1">
             Done this week: logged {plural(matchesThisWeek, "match", "matches")}
           </span>
@@ -253,29 +256,45 @@ export function SeededDashboardLayout({
             Check-in history
           </Link>
         </div>
-      </section>
 
-      <section className="flex min-w-0 flex-1 flex-col gap-4" style={{ flexBasis: "320px" }}>
-        <div className="rounded-xl border border-line bg-card p-5">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-semibold text-ink">UTR vs plan</h2>
-          </div>
+        {/* In the main column since PR-POLISH (2026-11-20): in the 320px rail
+            the chart was ~280px wide while ~400px of this column stood empty
+            under the actions at 1440. Phones are unchanged — the rail stacks
+            after this column, so the order is the same. ONE note under it
+            (design system v2, rule 2): the upside sentence when the player's
+            pace beats the planning cap, otherwise one short line. */}
+        <div className="mt-3 rounded-xl border border-line bg-card p-5">
+          <h2 className="text-base font-semibold text-ink">UTR vs plan</h2>
           <div className="mt-2.5">
             <UtrVsPlanChart
               actualPoints={actualPoints}
               nextCheckpoint={nextCheckpoint}
+              goalValue={planGoal?.value}
               estimate={estimatePath}
               upside={upsidePath}
             />
           </div>
-          <PaceUpsideNote utr={fitReport?.utr} className="mt-2" />
+          {hasLoggedUtr ? (
+            <DataNote className="mt-3">
+              {/* A legend for exactly what is drawn (independent review of
+                  PR #16): the chart may end at the next checkpoint rather
+                  than the summer before senior year, and the grey line only
+                  exists when the player's own pace beats the planning cap. */}
+              {estimatePath.length > 1
+                ? `Solid: UTRs you logged. Green dashes: the estimate we plan with.${upsidePath.length > 1 ? " Grey dashes: your own faster pace, never used for bands." : ""}${nextCheckpoint ? " Gold line: your next checkpoint." : ""}`
+                : "The line is the UTRs you've logged."}
+            </DataNote>
+          ) : null}
+          {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
         </div>
+      </section>
 
+      <section className="flex min-w-0 flex-1 flex-col gap-4" style={{ flexBasis: "320px" }}>
         <div className="rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Your targets</h2>
           <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
           {targetSchools.length > 0 ? (
-            <ul className="mt-3 flex flex-col gap-0.5 text-sm sm:gap-2.5">
+            <ul className="mt-3 flex flex-col gap-0.5 text-[15px] sm:gap-2.5">
               {targetSchools.slice(0, 6).map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2">
                   {/* 44px tall on phones, the full row wide (C29). */}
@@ -287,7 +306,7 @@ export function SeededDashboardLayout({
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-stone">
+            <p className="mt-3 text-[15px] text-stone">
               No target schools yet. <Link href="/schools" className="inline-flex min-h-11 items-center font-semibold text-grass sm:min-h-0">Browse schools</Link>
             </p>
           )}
@@ -295,7 +314,7 @@ export function SeededDashboardLayout({
 
         <div className="rounded-xl border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">This week</h2>
-          <ul className="mt-3 flex flex-col gap-2.5 text-sm">
+          <ul className="mt-3 flex flex-col gap-2.5 text-[15px]">
             {thisWeek.map((item) => (
               <li key={item.id} className="flex gap-3">
                 <span className="w-9 shrink-0 font-mono text-xs uppercase text-stone">{item.day}</span>
@@ -315,7 +334,7 @@ function NextStepRow({ step, onLogUtr }: { step: NextStep; onLogUtr: () => void 
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-line p-3.5">
       <div className="min-w-0 flex-1 basis-56">
         <strong className="text-ink">{step.title}</strong>
-        <div className="text-sm text-stone">{step.description}</div>
+        <div className="text-[15px] text-stone">{step.description}</div>
       </div>
       {step.href ? (
         <Link href={step.href} className={cls}>
@@ -332,12 +351,12 @@ function NextStepRow({ step, onLogUtr }: { step: NextStep; onLogUtr: () => void 
 
 function TodayActionRow({ action }: { action: TodayAction }) {
   return (
-    <div className="flex items-center gap-4 rounded-[10px] border border-line p-3.5">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-line p-3.5">
+      <div className="min-w-0 flex-1 basis-56">
         <strong className="text-ink">{action.title}</strong>
-        <div className="text-sm text-stone">{action.description}</div>
+        <div className="text-[15px] text-stone">{action.description}</div>
       </div>
-      <span className="shrink-0 text-[13px] text-stone">{action.minutes} min</span>
+      <span className="shrink-0 text-sm text-stone">{action.minutes} min</span>
       {/* A link styled as a button — it used to be a <button> nested inside
           a <Link>, two interactive elements announced as one. Secondary:
           a list of these is a list of greens otherwise (design system v2

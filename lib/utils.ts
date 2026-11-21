@@ -36,6 +36,35 @@ export function formatUtrEstimate(value: number): string {
 }
 
 /**
+ * THE formatter for a UTR Seeded COMPUTED as a target — a plan checkpoint on
+ * the line to the goal, the "Estimate" at the player's own pace, the planning
+ * value a "We plan with …" sentence names. Rounded to the nearest 0.05 and
+ * printed at two decimals: 6.59 → "6.60", 7.12 → "7.10", 8.1 → "8.10".
+ *
+ * A straight line between two ratings lands on hundredths no one will ever
+ * be asked to hit ("6.59 by Jun '27"); 0.05 is as fine as a target means.
+ * Display only — the stored and compared value is untouched, so no band
+ * moves. A rating the player LOGGED or TYPED (their goal included) keeps its
+ * exact two decimals through `formatPlayerUtr`. The one-decimal estimate in
+ * ProjectionNote and team ranges stays `formatUtrEstimate` (DECISIONS
+ * 2026-11-18). Guarded by lib/target-utr-format.test.ts.
+ */
+export function formatTargetUtr(value: number): string {
+  // toFixed(6) first: 6.575 * 20 is 131.49999999999997 in floating point.
+  return (Math.round(Number((value * 20).toFixed(6))) / 20).toFixed(2);
+}
+
+/**
+ * A plan checkpoint. Every checkpoint is a target (formatTargetUtr) except
+ * the last one, which IS the player's goal — the number they typed — so it
+ * prints exactly as typed and a chart never reads "8.75" beside "your goal
+ * of 8.73".
+ */
+export function formatCheckpointUtr(value: number, goalValue?: number | null): string {
+  return goalValue != null && value === goalValue ? formatPlayerUtr(value) : formatTargetUtr(value);
+}
+
+/**
  * THE formatter for a UTR pace — how fast a rating moves. Two decimals, "a
  * year", and signed by default: "+1.45 a year", "−0.10 a year". Unsigned
  * for a pace something NEEDS: "needs about 2.25 a year".
@@ -121,5 +150,11 @@ export function slugify(input: string): string {
  * `${n} …s`. Pass both forms: English plurals are not a suffix rule
  * ("match"/"matches", "entry"/"entries"). */
 export function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${n} ${pluralNoun(n, one, many)}`;
+}
+
+/** The noun alone, for when the count is rendered separately (a stat tile's
+ * big number and its label): "1" + "coach emailed this week". */
+export function pluralNoun(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }

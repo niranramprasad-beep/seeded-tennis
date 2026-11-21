@@ -1,11 +1,10 @@
 // Pure math for the Events calendar card's week-view drag/resize/repeat
 // interactions (components/seeded/events/events-calendar-card.tsx). Kept
-// separate from lib/training/grid-math.ts (which both Legacy's and Seeded's
-// *week planner* skins share) because these three operations — snapping a
+// separate from lib/training/grid-math.ts (the shared week-grid math)
+// because these three operations — snapping a
 // drop position to a start time, deriving a resized duration from a pointer
 // delta, and generating a bounded weekly series' dates — are specific to
-// the Events card's own drag-to-move/resize/repeat UI, not something either
-// planner skin needs. No JSX, no React state, so drag math and repeat-series
+// the Events card's own drag-to-move/resize/repeat UI. No JSX, no React state, so drag math and repeat-series
 // generation can be unit-tested without mounting anything.
 import { GRID_START_HOUR, HOUR_HEIGHT, minutesToTime } from "./grid-math";
 
@@ -17,7 +16,7 @@ export const MAX_SERIES_WEEKS = 12;
 /** Rounds a minute offset to the nearest 15 minutes, matching the snapping
  * lib/training/grid-math.ts's minutesToTime already applies on every other
  * planner's click-to-add — so dragging in the Events card snaps to the same
- * grid Legacy/Seeded's own week planners use. */
+ * grid. */
 export function snapToQuarterHour(minutes: number): number {
   return Math.round(minutes / 15) * 15;
 }

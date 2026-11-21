@@ -26,7 +26,7 @@ const report = {};
 for (const theme of ["light", "dark"]) {
   for (const r of routes) {
     const p = await ctx.newPage();
-    await p.addInitScript(`try{localStorage.setItem("seeded.design","seeded");localStorage.setItem("seeded.mode","${theme}");localStorage.setItem("seeded.mode.system","0")}catch(e){}`);
+    await p.addInitScript(`try{localStorage.setItem("seeded.mode","${theme}");localStorage.setItem("seeded.mode.system","0")}catch(e){}`);
     await p.goto(BASE + r, { waitUntil: "networkidle" });
     await p.waitForTimeout(800);
     const stops = [];

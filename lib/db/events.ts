@@ -429,25 +429,12 @@ export async function loadTournamentEntries(
   subject: DataSubject = "self",
   signal?: AbortSignal
 ): Promise<TournamentEntry[]> {
-  return readTournamentEntries(subject, signal, false);
-}
-
-/**
- * The same read, but a failed query THROWS instead of coming back empty —
- * for a screen that turns the list into a count, where "couldn't load"
- * must not read as "0 played" (the legacy parent dashboard).
- */
-export async function loadTournamentEntriesOrThrow(
-  subject: DataSubject = "self",
-  signal?: AbortSignal
-): Promise<TournamentEntry[]> {
-  return readTournamentEntries(subject, signal, true);
+  return readTournamentEntries(subject, signal);
 }
 
 async function readTournamentEntries(
   subject: DataSubject,
-  signal: AbortSignal | undefined,
-  throwOnQueryError: boolean
+  signal: AbortSignal | undefined
 ): Promise<TournamentEntry[]> {
   const supabase = getSupabase();
   const id = await userId();
@@ -469,10 +456,7 @@ async function readTournamentEntries(
   query = query.in("user_id", subjectIds);
   if (signal) query = query.abortSignal(signal);
   const { data, error } = await query;
-  if (error) {
-    if (throwOnQueryError) throw new Error(error.message);
-    return [];
-  }
+  if (error) return [];
   return (data ?? []).map(mapTournamentEntry);
 }
 

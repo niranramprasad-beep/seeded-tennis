@@ -19,13 +19,16 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
   pre-paint script in `app/layout.tsx` that sends a visitor with no stored
   session away from signed-in-only routes. There is no `middleware.ts` and
   no server session. `AuthGate` / `PaidGate` are cosmetic; RLS is the gate.
-- Design: the "seeded" design (`components/seeded/*`) is the default. The old
-  design is still in the codebase as an opt-in "Legacy theme"
-  (Settings → Appearance; `lib/context/design-context.tsx`,
-  `localStorage` key `seeded.design`). Old Legacy routes (`/dashboard`,
-  `/coaches`, …) bounce Seeded users to the new ones client-side
-  (`SeededRouteRedirect`); `/training` and `/match-mode` are server
-  redirects to `/events` and `/matches`.
+- Design: one design, Seeded (`components/seeded/*`), in Light, Dark or
+  Match system (Settings → Appearance; `lib/context/design-context.tsx`,
+  `html[data-seeded-mode]`). The old opt-in "Legacy" design was deleted on
+  2026-11-20 (PR-LEGACY); a stored `seeded.design = "legacy"` (localStorage)
+  or `design: "legacy"` (user_settings) reads as Match system
+  (`lib/appearance.ts`), and `lib/no-legacy-theme.test.ts` fails the build if
+  any of it returns. Its routes are server redirects: `/dashboard` →
+  `/today` (query kept, for Whop's `?checkout=success`), `/roadmap` →
+  `/plan`, `/coaches` → `/outreach`, `/cost-calculator` → `/family`, like
+  `/training` → `/events` and `/match-mode` → `/matches`.
 - Primary nav is five items (Today, Plan, Schools, Outreach, Events) plus a
   secondary "Tools" group — see CLAUDE.md.
 - School catalog: static TS modules (`lib/db/schools-data-*.ts`, 68
@@ -89,8 +92,8 @@ Vercel Analytics + Speed Insights + GA4. No error tracking and no alerting.
 ## Known weaknesses
 1. **Client-side route protection.** Fine for privacy because RLS decides
    what any query returns, but a page can render briefly before it bounces.
-2. **Legacy design still ships** as an opt-in theme, so some screens exist
-   twice.
+2. ~~**Legacy design still ships**~~ — deleted 2026-11-20 (PR-LEGACY). No
+   screen exists twice any more.
 3. **Static catalog in code** — no per-number source, can't be updated
    without a deploy. Fix in progress (PR E / migration 048).
 4. **Six write routes return raw Postgres error text** on 500

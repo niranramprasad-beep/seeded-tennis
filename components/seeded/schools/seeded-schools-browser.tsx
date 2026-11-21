@@ -122,12 +122,10 @@ interface Props {
 }
 
 // Pixel-exact to Schools.dc.html. Owns no base filter/sort state (that's
-// still the parent SchoolsBrowser's, shared with Legacy) — only the
-// Seeded-exclusive additions: region, the fit-band chip row, the what-if
-// slider/sort (lib/school-sort.ts — new Seeded-only sort modes that need
-// the real fit-band math Legacy has no use for), compare selection, star-
-// to-target, and the `/`/`j`/`k`/`s` keyboard shortcuts, none of which
-// Legacy has any use for.
+// the parent SchoolsBrowser's) — only what sits on top of it: region, the
+// fit-band chip row, the what-if slider/sort (lib/school-sort.ts — sort
+// modes that need the real fit-band math), compare selection, star-to-
+// target, and the `/`/`j`/`k`/`s` keyboard shortcuts.
 export function SeededSchoolsBrowser({
   gender,
   setGender,

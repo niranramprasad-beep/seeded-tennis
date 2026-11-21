@@ -58,8 +58,7 @@ const VERDICT_META: Record<
 };
 
 // Pixel-exact to "14 Tournament fit finder.png" — a genuinely live
-// calculator (no "get the verdict" submit step like the Legacy version
-// below): every keystroke/pill click re-runs the real evaluateTournamentFit
+// calculator (no "get the verdict" submit step): every keystroke/pill click re-runs the real evaluateTournamentFit
 // engine via useMemo. MOCKUP DEVIATION (PR D, D5): the mockup's form has no
 // draw-strength input, but the verdict now needs the draw's average UTR —
 // the level-to-UTR table the mockup's "typical field" note relied on had no
@@ -137,7 +136,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
     )[0];
   }, [utrEntries]);
 
-  // Same prefill rule as the Legacy calculator this replaces: once the
+  // Prefill rule: once the
   // session is known, an untouched field shows the player's real current
   // UTR; a manual edit (or a shared link's snapshot) always wins.
   const effectiveUtr =

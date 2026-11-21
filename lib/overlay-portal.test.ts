@@ -12,7 +12,6 @@ import { join } from "node:path";
 // Exempt, with reasons: the app chrome itself, which is mounted by AppShell
 // OUTSIDE the animated wrapper.
 const EXEMPT: Record<string, string> = {
-  "components/layout/sidebar.tsx": "Legacy app chrome, mounted by AppShell outside the page wrapper",
   "components/seeded/layout/sidebar.tsx": "Seeded app chrome (incl. the phone tab bar), mounted by AppShell",
   "components/seeded/shared/command-palette.tsx": "mounted by AppShell beside the sidebar, outside the page wrapper",
   "components/ui/portal.tsx": "the portal itself",

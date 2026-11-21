@@ -13,6 +13,7 @@ import {
   stampTournamentsPlanned,
 } from "@/lib/tournaments-planned";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { PROFILE_SAVE_FAILED, parseGpaText, profileNameError } from "@/lib/profile-fields";
 
 const inputClass =
   "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
@@ -42,7 +43,8 @@ export function ProfileCard({
   onSave,
 }: {
   player: Player;
-  onSave: (patch: Partial<Player>) => void;
+  /** Resolves true only when the write really succeeded. */
+  onSave: (patch: Partial<Player>) => Promise<boolean>;
 }) {
   const [name, setName] = useState(player.name);
   const [graduationYear, setGraduationYear] = useState(player.graduationYear);
@@ -50,7 +52,11 @@ export function ProfileCard({
   const [homeArea, setHomeArea] = useState(player.homeArea ?? "");
   const [utrProfileLink, setUtrProfileLink] = useState(player.utrProfileLink ?? "");
   const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [gpa, setGpa] = useState(player.gpa != null ? String(player.gpa) : "");
+  const [gpaError, setGpaError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   // A count saved for an earlier season shows blank ("Not set"): it was
   // a plan for a season that is over (049's tournaments_planned_season).
   const [tournamentsPlanned, setTournamentsPlanned] = useState(() => {
@@ -67,31 +73,41 @@ export function ProfileCard({
   // include it so the <select> never silently jumps to a different value.
   if (!years.includes(graduationYear)) years.unshift(graduationYear);
 
-  const save = () => {
+  const save = async () => {
+    setSaved(false);
+    setSaveError(null);
+    // QA sweep H2: a blank name used to save, and the next load put the login
+    // email in its place — which then signed the coach email.
+    const nameProblem = profileNameError(name);
+    setNameError(nameProblem);
     const linkCheck = validateUtrProfileLink(utrProfileLink);
-    if (!linkCheck.valid) {
-      setUtrLinkError(linkCheck.error);
-      return;
-    }
-    setUtrLinkError(null);
+    setUtrLinkError(linkCheck.valid ? null : linkCheck.error);
     const planned = parseTournamentsPlannedText(tournamentsPlanned);
-    if (isPlayer && planned.error) {
-      setTournamentsError(planned.error);
-      return;
-    }
-    setTournamentsError(null);
-    const parsedGpa = gpa.trim() === "" ? null : Number(gpa);
-    onSave({
+    setTournamentsError(isPlayer ? planned.error : null);
+    // QA sweep H3: 5.7 went to the database, failed its 0–5 CHECK as a raw
+    // 500, and the field silently reverted on the next load.
+    const parsedGpa = parseGpaText(gpa);
+    setGpaError(parsedGpa.error);
+    if (nameProblem || !linkCheck.valid || (isPlayer && planned.error) || parsedGpa.error) return;
+
+    setSaving(true);
+    const ok = await onSave({
       name: name.trim(),
       graduationYear,
       gender,
       homeArea: homeArea.trim(),
       utrProfileLink: linkCheck.normalized ?? "",
-      gpa: parsedGpa != null && !Number.isNaN(parsedGpa) ? parsedGpa : null,
+      gpa: parsedGpa.value,
       // Blank = "Not set" (null). A parent's own row is left alone.
       // Stamped with the season it is for; both NULL when cleared.
       ...(isPlayer ? stampTournamentsPlanned(planned.value) : {}),
     });
+    setSaving(false);
+    // "Saved" only when the write really landed.
+    if (!ok) {
+      setSaveError(PROFILE_SAVE_FAILED);
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   };
@@ -99,12 +115,27 @@ export function ProfileCard({
   return (
     <div className="rounded-xl border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Player profile</h2>
-      <p className="mt-1 text-sm text-stone">Changes here update your fit report and plan right away.</p>
+      <p className="mt-1 text-[15px] text-stone">Changes here update your fit report and plan right away.</p>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-stone">Full name</span>
-          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
+          <input
+            className={inputClass}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError(null);
+            }}
+            autoComplete="name"
+            aria-invalid={nameError ? true : undefined}
+            aria-describedby={nameError ? "settings-name-error" : undefined}
+          />
+          {nameError && (
+            <p id="settings-name-error" className="mt-1.5 text-sm text-error">
+              {nameError}
+            </p>
+          )}
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-stone">High school grad year</span>
@@ -165,10 +196,20 @@ export function ProfileCard({
           <input
             className={inputClass}
             value={gpa}
-            onChange={(e) => setGpa(e.target.value)}
+            onChange={(e) => {
+              setGpa(e.target.value);
+              if (gpaError) setGpaError(null);
+            }}
             inputMode="decimal"
-            placeholder="0.0 to 4.0"
+            placeholder="0.0 to 5.0"
+            aria-invalid={gpaError ? true : undefined}
+            aria-describedby={gpaError ? "settings-gpa-error" : undefined}
           />
+          {gpaError && (
+            <p id="settings-gpa-error" className="mt-1.5 text-sm text-error">
+              {gpaError}
+            </p>
+          )}
         </label>
         {isPlayer && (
           <label className="block">
@@ -194,13 +235,20 @@ export function ProfileCard({
         )}
       </div>
 
-      <div className="mt-5 flex items-center justify-end gap-3">
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+        {saveError && (
+          <span role="alert" className="text-sm text-error">
+            {saveError}
+          </span>
+        )}
         {saved && (
           <span className="flex items-center gap-1.5 text-sm text-grass">
             <Check className="h-4 w-4" /> Saved
           </span>
         )}
-        <SeededButton onClick={save}>Save changes</SeededButton>
+        <SeededButton onClick={() => void save()} loading={saving}>
+          Save changes
+        </SeededButton>
       </div>
     </div>
   );

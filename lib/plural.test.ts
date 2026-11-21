@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { plural } from "./utils";
+import { plural, pluralNoun } from "./utils";
 
 // Sweep C26: "1 matches logged". Every screen hand-rolled `${n} …s`. One
 // helper now, and a scan for the hand-rolled shape where the number can be 1.
@@ -13,6 +13,19 @@ describe("plural()", () => {
     expect(plural(2, "match", "matches")).toBe("2 matches");
     expect(plural(1, "entry", "entries")).toBe("1 entry");
     expect(plural(-1, "day", "days")).toBe("-1 days");
+  });
+
+  it("pluralNoun() gives the noun alone, for a tile whose number is rendered apart (QA sweep L8)", () => {
+    expect(pluralNoun(1, "coach", "coaches")).toBe("coach");
+    expect(pluralNoun(0, "coach", "coaches")).toBe("coaches");
+    expect(pluralNoun(3, "coach", "coaches")).toBe("coaches");
+  });
+
+  it("the weekly report's coach tiles use it (no '1 coaches emailed')", () => {
+    const src = readFileSync(join(ROOT, "components/seeded/family/seeded-weekly-report-view.tsx"), "utf8");
+    expect(src).not.toMatch(/label="coaches (?:emailed|replied) this week"/);
+    expect(src).toMatch(/pluralNoun\(activityThisWeek\.emailed\.length, "coach", "coaches"\)/);
+    expect(src).toMatch(/pluralNoun\(activityThisWeek\.replied\.length, "coach", "coaches"\)/);
   });
 });
 

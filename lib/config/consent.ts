@@ -61,3 +61,37 @@ export function birthYearOptions(now: Date = new Date()): number[] {
   for (let y = current; y >= current - 90; y--) years.push(y);
   return years;
 }
+
+/** QA sweep 2026-11-20 (H1, UI half). What a consent-pending account is told
+ * when it tries to add or remove a target school. Same words as
+ * ConsentPendingScreen ("A parent needs to say yes first", "no target
+ * schools"). Deliberately says nothing about the database: until the profiles
+ * migration lands, the database still accepts this write from the account
+ * itself, so this refusal is the UI's, not a guarantee. */
+export const CONSENT_PENDING_TARGETS_MESSAGE =
+  "A parent needs to say yes first. Until they do, you can't save target schools.";
+
+/** Null when a target-school add/remove may go ahead, else the sentence to
+ * show. `undefined` = the consent check has not answered yet. */
+export function targetSchoolEditRefusal(
+  consentStatus: "pending" | "granted" | "not_required" | "unknown" | undefined
+): string | null {
+  return consentStatus === "pending" ? CONSENT_PENDING_TARGETS_MESSAGE : null;
+}
+
+/** Shown when a signed-in account clicks before the consent check answers. */
+export const CONSENT_CHECKING_MESSAGE = "One moment, still loading your account. Try again in a second.";
+
+/** The target-school gate for a SIGNED-IN account: while the consent check
+ * has not answered (and has not failed), refuse — otherwise a click in the
+ * first moments after a hard reload slipped a pending under-13's write
+ * through (independent review of PR #18). A failed check falls back to
+ * targetSchoolEditRefusal(undefined), i.e. allowed: this is the UI's gate,
+ * and an error must not lock every account out of starring schools. */
+export function signedInTargetEditRefusal(
+  consentStatus: "pending" | "granted" | "not_required" | "unknown" | undefined,
+  checkFailed: boolean
+): string | null {
+  if (consentStatus === undefined && !checkFailed) return CONSENT_CHECKING_MESSAGE;
+  return targetSchoolEditRefusal(consentStatus);
+}

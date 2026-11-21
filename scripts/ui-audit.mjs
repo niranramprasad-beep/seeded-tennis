@@ -79,7 +79,6 @@ for (const p of PAGES) {
     // shot does not depend on the headless default.
     await page.addInitScript((m) => {
       try {
-        window.localStorage.setItem("seeded.design", "seeded");
         window.localStorage.setItem("seeded.mode", m);
         window.localStorage.setItem("seeded.mode.system", "0");
       } catch {}
@@ -106,10 +105,10 @@ for (const p of PAGES) {
       // fall back to domcontentloaded rather than dropping the page.
       await page.goto(BASE + p.path, { waitUntil: "domcontentloaded", timeout: 45000 });
     }
-    // The design system resolves after hydration (data-design flips to
-    // "seeded"); shooting before that captures the wrong design entirely.
+    // The mode resolves after hydration (DesignProvider rewrites
+    // data-seeded-mode); shooting before that can capture the wrong mode.
     await page
-      .waitForFunction(() => document.documentElement.dataset.design === "seeded", { timeout: 8000 })
+      .waitForFunction((m) => document.documentElement.dataset.seededMode === m, MODE, { timeout: 8000 })
       .catch(() => {});
     await page.waitForTimeout(900);
 

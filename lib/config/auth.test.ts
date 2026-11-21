@@ -1,5 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { safeRedirectPath } from "./auth";
+import { loginHrefFor, safeLoginNext, safeRedirectPath } from "./auth";
+
+// QA sweep 2026-11-20, M3: AuthGate (and the head script) now send a
+// signed-out visitor to /login?next=<where they were going>.
+describe("loginHrefFor / safeLoginNext", () => {
+  it("carries the page and its query string, encoded", () => {
+    expect(loginHrefFor("/outreach?school=stanford-m")).toBe(
+      "/login?next=%2Foutreach%3Fschool%3Dstanford-m"
+    );
+    expect(loginHrefFor("/today")).toBe("/login?next=%2Ftoday");
+    // Round-trips through URLSearchParams to the same path /login reads.
+    const next = new URLSearchParams(loginHrefFor("/plan?tab=week&x=1").split("?")[1]).get("next");
+    expect(safeLoginNext(next)).toBe("/plan?tab=week&x=1");
+  });
+
+  it("falls back to a bare /login for anything that is not a same-origin path", () => {
+    for (const p of [
+      null,
+      undefined,
+      "",
+      "/",
+      "//evil.example",
+      "//evil.example/today",
+      "/\\evil.example",
+      "https://evil.example/today",
+      "javascript:alert(1)",
+      "today",
+      "/\n/evil.example",
+    ]) {
+      expect(loginHrefFor(p), String(p)).toBe("/login");
+    }
+  });
+
+  it("never sends a signed-in user back to an auth page (a /login → /login loop)", () => {
+    for (const p of ["/login", "/login?next=%2Ftoday", "/signup", "/parent-signup", "/reset-password", "/auth/callback", "/auth"]) {
+      expect(safeLoginNext(p), p).toBeNull();
+      expect(loginHrefFor(p), p).toBe("/login");
+    }
+    // A look-alike prefix is an ordinary page.
+    expect(safeLoginNext("/login-help")).toBe("/login-help");
+    expect(safeLoginNext("/authors")).toBe("/authors");
+  });
+});
 
 // An open redirect on the OAuth callback is worth more to an attacker than
 // on any other page: the victim arrives having just authenticated, from a

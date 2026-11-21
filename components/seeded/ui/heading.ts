@@ -34,14 +34,6 @@ export const seededSectionHeading =
 export const seededCardHeading =
   "font-seeded text-xl font-bold leading-[1.2] tracking-[-0.01em] text-balance text-ink sm:text-2xl";
 
-/** In-card label — the H2 step at its mobile size (20px), for a heading
- *  that sits INSIDE a card next to larger content, like a plan name above a
- *  40px price. A named step, because the alternative is what was there
- *  before: the card util plus a `text-xl` override at one call site, which
- *  is indistinguishable from a mistake and was reported as one. */
-export const seededCardLabel =
-  "font-seeded text-xl font-bold leading-[1.25] tracking-[-0.01em] text-balance text-ink";
-
 /** Short centred supporting copy under a heading. `text-pretty` stops a
  *  single trailing word; it is for paragraphs, where `balance` would make
  *  long copy look ragged. */
