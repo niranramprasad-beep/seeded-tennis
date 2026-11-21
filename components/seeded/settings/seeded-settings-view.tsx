@@ -158,15 +158,9 @@ export function SeededSettingsView({
               lib/db/settings.ts stay for when notifications are real
               (POST-V1). Same for the "notifications" tab below. */}
           <AppearanceCard />
-          <PrivacyCard
-            onDownloadEverything={handleDownloadEverything}
-            onDownloadSpreadsheet={handleDownloadSpreadsheet}
-            downloading={downloading}
-            onDelete={deleteAccount}
-            deleting={deleting}
-            deleteError={deleteError}
-            exportError={exportError}
-          />
+          {/* Download and delete live on their own tab, Privacy + data —
+              Profile repeated the whole block (final-check B25), as the
+              parent view already does not. */}
         </>
       )}
 

@@ -186,10 +186,10 @@ export interface Readout {
   sentence: string;
 }
 
-/** A log's own date, with its year when that differs from the cursor's. */
-function entryDate(d: Date, cursor: Date): string {
-  const short = formatShortDate(d);
-  return d.getFullYear() === cursor.getFullYear() ? short : `${short} '${String(d.getFullYear()).slice(2)}`;
+/** A log's own date, always with its year: "Nov 21" for a 2025 entry sat
+ *  beside a "Nov 21" that meant this year (final-check A12). */
+function entryDate(d: Date): string {
+  return `${formatShortDate(d)} '${String(d.getFullYear()).slice(2)}`;
 }
 
 /** What the readout says at `t`, and where each dot sits. */
@@ -203,7 +203,7 @@ export function readoutAt(series: ChartSeries, t: number, g: ChartGeometry, goal
     rows.push({
       key: "logged",
       label: "Logged",
-      text: e.undated ? `${formatPlayerUtr(e.utr)} · current` : `${formatPlayerUtr(e.utr)} · ${entryDate(e.date, cursor)}`,
+      text: e.undated ? `${formatPlayerUtr(e.utr)} · current` : `${formatPlayerUtr(e.utr)} · ${entryDate(e.date)}`,
       // On the ENTRY's own point on the solid line, not under the crosshair.
       dot: { cx: g.x(e.date.getTime()), cy: g.y(e.utr) },
     });

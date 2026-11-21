@@ -4,6 +4,7 @@ import {
   bracketedParts,
   buildCoachEmail,
   coachEmailActionState,
+  coachEmailCountry,
   COACH_EMAIL_COURTESY_SENTENCES,
   COACH_EMAIL_PLACEHOLDERS,
   COACH_EMAIL_SOURCES,
@@ -117,7 +118,7 @@ function evidenceFor(source: CoachEmailSource, c: Case): string[] {
     case "player.gender":
       return [p.gender === "female" ? "women's" : "men's"];
     case "player.country":
-      return [p.country];
+      return [p.country, coachEmailCountry(p.country) ?? p.country];
     case "player.currentUTR":
       return [`${formatPlayerUtr(p.currentUTR)} (self-reported)`];
     case "utr_entries.recorded_at":

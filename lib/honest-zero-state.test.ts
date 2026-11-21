@@ -237,7 +237,7 @@ describe("the screens render through these functions", () => {
     expect(src).toMatch(/const counts = report\?\.todayCounts;/);
     expect(src).toMatch(/\{cta\.projectedNote\}/);
     expect(src).toMatch(/cta\.showCounts && counts \?/);
-    expect(src).toMatch(/\{cta\.label\}/);
+    expect(src).toMatch(/\{heroButtonLabel\(cta\.label, touched\)\}/);
     expect(src).toMatch(/currentUtr: isUsableUtr\(utrNum\) \? utrNum : null/);
     expect(src).not.toMatch(/See my \{/);
     // The tiles are only reachable behind cta.showCounts.

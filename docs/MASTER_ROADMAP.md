@@ -20,6 +20,40 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Final-check UI polish, PR B (branch `fix/ui-polish-b`; no
+migration, no setting, no new route).** The Low items the final-check sweep
+bucketed "B". Honest empty states from one pure module
+(`lib/empty-state-copy.ts`): Today's pill is green only for a real count
+("None of your 3 targets on track yet" otherwise) and "Done this week: no
+matches logged yet"; Plan's record reads "Not tracked" until a win or loss
+exists (no "0–0"); Outreach says "4 programs · no emails marked sent yet"
+instead of three zeros, Researching cards no longer offer "Follow up in 14
+days" (it set a reminder for an email that did not exist), and below 640px
+the board's stages stack instead of scrolling off-screen. Coach email:
+`coachEmailCountry()` — no "from US", "from Other" or bare codes. Plan
+chart readout: a log's date always carries its year, and checkpoint labels
+hide while the readout box is open (it covered "Jun '27 · 9.30" at 375).
+Home: dark-mode UTR/GPA inputs get the card fill; "Example output" and the
+button's example count only while the visitor has changed nothing
+(`heroOutputNote` / `heroButtonLabel`); the zero state links to the fit
+report; hero + meta name all four bands. Fit report rows print an estimate
+with one decimal. Tournament checker: "Assumes ~3 matches at this level ·
+$95 total" under cost per match; "Share with my coach" settles within 2 s
+(`copyWithTimeout`) and the button says "Link copied". UTR dialog is a real
+`<form>` (Enter saves). Budget table headers read Item / Fit / type, no
+sideways scroll at 375; Add expense defaults to the first category shown.
+School page (parent on Free): "Locked on Free", not "No UTR yet". A
+signed-out visitor at the star cap is no longer told to upgrade "Free".
+Settings → Profile no longer repeats the Privacy + data block. Pricing
+table's feature column is wider on phones. Not done here, by design: the
+estimate-vs-rating decimals ("5.5" beside "UTR 5.00" — the house format),
+A15 (zod text in write routes PR A / PR E own), B10 (React #418, not
+reproduced). Guards: `lib/empty-state-copy.test.ts`,
+`lib/db/coach-email-country.test.ts`, `lib/star-limit.test.ts`, additions to
+`lib/home-calculator.test.ts`, `lib/tournament-fit-share.test.ts`,
+`plan-trajectory-values.test.ts`, `lib/honest-zero-state.test.ts`. Row by
+row: `~/seeded-evidence/final-check/prB/SUMMARY.md`.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1396,7 +1430,9 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    2026-11-21: now, one screen per PR (DECISIONS).
 5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
    V1 ships no AI; this needs its own privacy-policy section first.
-6. **Wire the recruiting checklist into Today.**
+6. **Wire the recruiting checklist into Today.** (Final-check PR B,
+   `fix/ui-polish-b`, landed the sweep's Low "B" polish — open from it:
+   B1/B2/B9/B15/B23 are Niran's flags, A15 belongs with the write routes.)
 7. **Weekly email** — needs a real sending path (none exists; "Remind them"
    only re-sorts). Copy must not promise it before then.
 8. **File splits**: ~~`lib/fit.ts`~~ (DONE 2026-11-21, `refactor/fit-split`:

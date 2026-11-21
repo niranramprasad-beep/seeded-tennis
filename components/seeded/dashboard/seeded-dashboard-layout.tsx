@@ -26,8 +26,9 @@ import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
 import { currentSeason, getCurrentGrade, formatDate, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
+import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { DataNote } from "@/components/seeded/ui/data-note";
+import { doneThisWeekLine, onTrackPill } from "@/lib/empty-state-copy";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
@@ -99,6 +100,7 @@ export function SeededDashboardLayout({
       }).length,
     [targetSchools, fitReport]
   );
+  const trackPill = onTrackPill(onTrackCount, targetSchools.length);
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
     const weekAgo = now.getTime() - 7 * 86_400_000;
@@ -180,9 +182,16 @@ export function SeededDashboardLayout({
           <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink">
             {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"}
           </span>
-          {targetSchools.length > 0 && (
-            <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
-              On track for {onTrackCount} of {plural(targetSchools.length, "target", "targets")}
+          {/* Green only for a real count: "On track for 0 of 3" in green sat
+              beside "3 of your 3 targets are a Reach" (final-check A9). */}
+          {trackPill && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-pill border px-2.5 py-1 text-xs font-semibold",
+                trackPill.tone === "good" ? "border-grass-100 bg-grass-50 text-grass" : "border-line bg-card text-stone"
+              )}
+            >
+              {trackPill.text}
             </span>
           )}
           {nextCheckpoint && (
@@ -245,7 +254,7 @@ export function SeededDashboardLayout({
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] border border-line bg-panel px-4 py-3 text-[15px] text-stone">
           <span className="flex-1">
-            Done this week: logged {plural(matchesThisWeek, "match", "matches")}
+            {doneThisWeekLine(matchesThisWeek)}
           </span>
           <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
             <Sparkles className="h-3.5 w-3.5" />

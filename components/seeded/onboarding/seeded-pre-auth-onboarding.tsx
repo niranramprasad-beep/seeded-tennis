@@ -321,6 +321,9 @@ export function DiagnosticFitReport({
                           high={range.max}
                           you={judging}
                           youLabel={projectedView ? projectedYouLabel(report.utr) : parent ? "Player" : "You"}
+                          // "You (est. summer 2027) 9.90" beside "Summer 2027 9.9 (estimate)" —
+                          // an estimate prints with one decimal (final-check B26).
+                          youIsEstimate={projectedView}
                           todayPct={projectedView && today != null ? utrToPct(today) : null}
                           today={projectedView ? today : null}
                         />

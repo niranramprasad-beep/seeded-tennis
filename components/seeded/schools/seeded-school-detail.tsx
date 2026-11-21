@@ -199,7 +199,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
     <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
-        <FitBadge band={explanation.band} className="text-sm" />
+        <FitBadge
+          band={explanation.band}
+          className="text-sm"
+          label={explanationInput.ratingHidden && explanation.band === "unverified" ? "Locked on Free" : undefined}
+        />
       </div>
       <p className="mt-2 text-sm text-stone">
         {explanation.summary}
