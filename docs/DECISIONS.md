@@ -7,6 +7,27 @@ Newest first.
 
 ---
 
+## 2026-11-20 (night) — Review-ready run: visual polish (PR-POLISH)
+
+- **"UTR vs plan" moved from Today's right rail into the main column.** The
+  run's brief asked for the width to be used and a larger, readable chart;
+  in the rail it was 278×150 px with ~400 px of empty main column beside it.
+  This departs from Today.dc.html (the mockup puts it in the rail) on
+  purpose. Undo: move the card back into the rail in
+  `seeded-dashboard-layout.tsx`; nothing else depends on its position.
+- **Target numbers round to the nearest 0.05** through one formatter
+  (`formatTargetUtr`, lib/utils.ts): checkpoints, the upside "Estimate",
+  "We plan with …". Logged ratings and the player's own typed goal print as
+  entered. The one-decimal planning estimate keeps `formatUtrEstimate`
+  (DECISIONS 2026-11-18).
+- **The estimate is drawn as a dashed line**, not a shaded band: its band had
+  zero height (low = high), so the "Shaded" caption described nothing.
+- **No entrance animations.** `Reveal`/`FadeIn` render plain elements and
+  AppShell's route fade is gone (the keyed remount stays). Dialogs, drawers
+  and menus keep their click-triggered motion.
+
+---
+
 ## 2026-11-20 (night) — Review-ready run: docs, repo hygiene (PR-DOCS)
 
 - **Archive, don't delete.** Eleven single-session reports moved to

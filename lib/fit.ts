@@ -16,7 +16,7 @@ import {
 } from "@/lib/time";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import type { UtrDataPoint } from "@/lib/utr-projection";
-import { formatPacePerYear, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPacePerYear, formatPlayerUtr, formatTargetUtr, formatUtrEstimate } from "@/lib/utils";
 import {
   REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
   classifySchoolFit,
@@ -365,7 +365,7 @@ export function chartEndLabels(
   const u = upside[upside.length - 1];
   return {
     plan: p ? formatUtrEstimate(p.value) : null,
-    upside: u ? `Estimate ${formatPlayerUtr(u.value)}` : null,
+    upside: u ? `Estimate ${formatTargetUtr(u.value)}` : null,
   };
 }
 
@@ -642,7 +642,7 @@ export interface PaceUpside {
 export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
   if (!utr?.upside) return null;
   const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
-  return `${at} ${formatPlayerUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
+  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
 }
 
 /* --------------------------------------------------------- logged pace */

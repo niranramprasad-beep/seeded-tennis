@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { planGoalInputError, type PlanGoal } from "@/lib/fit";
 import { SeededButton } from "@/components/seeded/ui/button";
-import { formatPlayerUtr } from "@/lib/utils";
+import { formatPlayerUtr, formatTargetUtr } from "@/lib/utils";
 
 // Sets the plan goal explicitly (C11). Saved with lib/db/settings.ts
 // savePlanGoalUtr via usePlanGoal. There is no default goal (PR D, D1): the
@@ -81,7 +81,7 @@ export function PlanGoalEditor({
         </SeededButton>
         {estimate != null && estimate !== goal?.value && planGoalInputError(estimate, currentUtr) == null && (
           <SeededButton variant="secondary" onClick={() => void save(estimate)} disabled={saving}>
-            Use your estimate ({formatPlayerUtr(estimate)})
+            Use your estimate ({formatTargetUtr(estimate)})
           </SeededButton>
         )}
         {goal && (

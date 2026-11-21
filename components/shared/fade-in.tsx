@@ -1,26 +1,17 @@
-"use client";
+import type { HTMLAttributes } from "react";
 
-import { motion, type HTMLMotionProps } from "framer-motion";
-import { cn } from "@/lib/utils";
-
-interface FadeInProps extends HTMLMotionProps<"div"> {
+interface FadeInProps extends HTMLAttributes<HTMLDivElement> {
+  /** Kept so existing call sites compile; no longer drives any animation. */
   delay?: number;
 }
 
-// A plain, short opacity fade on first view — no slide distance, no long
-// duration. Scroll-triggered "fly in" entrances read as decorative noise
-// on a content page; this keeps just enough motion to avoid a hard pop-in.
-export function FadeIn({ children, delay = 0, className, ...props }: FadeInProps) {
+// Was a framer-motion opacity fade on first view, which server-rendered the
+// content at opacity 0 until hydration. Now a plain <div>: readable at first
+// paint on any connection (see components/shared/reveal.tsx).
+export function FadeIn({ children, delay: _delay, className, ...props }: FadeInProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.2, delay }}
-      className={cn(className)}
-      {...props}
-    >
+    <div className={className} {...props}>
       {children}
-    </motion.div>
+    </div>
   );
 }

@@ -140,7 +140,7 @@ export function EventsCalendarCard({
         <MonthGrid byDate={byDate} tournamentsByDate={tournamentsByDate} monthOffset={monthOffset} onPickDay={openWeekOf} />
       )}
 
-      <p className="mt-3 text-sm text-stone">Only the sessions and tournaments you add. Nothing is planned for you.</p>
+      <p className="mt-3 text-[15px] text-stone">Only the sessions and tournaments you add. Nothing is planned for you.</p>
     </section>
   );
 }

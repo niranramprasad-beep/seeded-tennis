@@ -58,7 +58,7 @@ export function PrivacyCard({
         <div className="flex items-start justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">Download everything</p>
-            <p className="mt-0.5 text-sm text-stone">
+            <p className="mt-0.5 text-[15px] text-stone">
               {audience === "parent"
                 ? "Every row Seeded stores about your own account, as a JSON file — your profile, the notes you wrote, the expenses you entered and your family's season budget. It does not include your player's results; those belong to their account."
                 : "Every row Seeded stores about your account, as a JSON file. Includes your family's season budget; does not include other people's results."}
@@ -78,7 +78,7 @@ export function PrivacyCard({
         <div className="flex items-start justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">Download as a spreadsheet</p>
-            <p className="mt-0.5 text-sm text-stone">
+            <p className="mt-0.5 text-[15px] text-stone">
               Your schools, results, notes and outreach as a CSV. Easier to read, less
               complete than the file above.
             </p>
@@ -103,7 +103,7 @@ export function PrivacyCard({
         <div className="flex items-start justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="font-semibold text-ink">Delete account</p>
-            <p className="mt-0.5 text-sm text-stone">
+            <p className="mt-0.5 text-[15px] text-stone">
               Permanently deletes your account and all of your data straight away. This
               cannot be undone.
             </p>
@@ -126,7 +126,7 @@ export function PrivacyCard({
         </div>
       </div>
 
-      <p className="mt-4 text-sm text-stone">
+      <p className="mt-4 text-[15px] text-stone">
         We never sell player data.{" "}
         <Link href="/privacy" className="text-grass underline underline-offset-2">
           Privacy policy (incl. minors)

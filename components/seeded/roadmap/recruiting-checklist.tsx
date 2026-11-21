@@ -61,7 +61,7 @@ export function RecruitingChecklistCard({
           </button>
         )}
       </div>
-      <p className="mt-1 text-xs text-stone">
+      <p className="mt-1 text-[15px] text-stone">
         General NCAA contact-period guidance, not specific to tennis (it has no sport-specific
         calendar) — rules change, so confirm the current dates at{" "}
         <a href="https://www.ncaa.org" target="_blank" rel="noreferrer" className="font-semibold text-grass">

@@ -99,7 +99,7 @@ export function ProfileCard({
   return (
     <div className="rounded-xl border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Player profile</h2>
-      <p className="mt-1 text-sm text-stone">Changes here update your fit report and plan right away.</p>
+      <p className="mt-1 text-[15px] text-stone">Changes here update your fit report and plan right away.</p>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="block">
