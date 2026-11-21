@@ -1,7 +1,7 @@
 # Seeded — QA Checklist & Testing Strategy
 
-## Current state (2026-11-20)
-- **Vitest:** 106 test files, 1522 tests. Many are build-failing guards for
+## Current state (2026-11-21)
+- **Vitest:** 121 test files, 1,816 tests (fresh run on `main` @ `1510868`). Many are build-failing guards for
   product rules (copy honesty, no invented school data, no invented goal,
   UTR sentinel, fit-band consistency, family scope, Family-plan lock,
   budget parent-only, no auto-generated training). CLAUDE.md names each one

@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 
 // S-7 (P1-SEC-4). Seeded sent no security headers at all. These are set
-// here, in the Next config, rather than in middleware.ts: `main` carries a
-// middleware.ts today that is the maintenance-mode 503 (one revertable
-// commit, P0-5), and putting headers in the same file would couple reverting
-// the maintenance page to reverting the headers. Config-level headers also
-// apply to static assets, which middleware does not run for.
+// here, in the Next config, rather than in middleware.ts. When this was
+// written `main` carried a middleware.ts that served the maintenance-mode 503
+// (P0-5), and headers in the same file would have coupled the two. That
+// maintenance page is gone (2026-11-16) and no middleware.ts exists today.
+// Config-level headers also apply to static assets, which middleware does
+// not run for.
 //
 // ---------------------------------------------------------------------------
 // Everything the CSP has to keep working, and where each entry comes from
@@ -39,8 +40,8 @@
 //                    in development only.
 //
 // WHY 'unsafe-inline' IS IN script-src. The honest answer: removing it needs
-// per-request nonces, nonces need middleware, and middleware on `main` is
-// currently the maintenance page. With 'unsafe-inline' the CSP still blocks
+// per-request nonces, and nonces need a middleware.ts, which the repo does
+// not have (the old maintenance-page middleware was removed 2026-11-16). With 'unsafe-inline' the CSP still blocks
 // every off-origin script host, which is what stops an injected
 // <script src="https://evil/..."> — the realistic attack here. It does not
 // stop an injected inline <script>, so it is a partial control and is

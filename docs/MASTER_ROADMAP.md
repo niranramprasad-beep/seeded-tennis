@@ -91,6 +91,18 @@ UTR and the upsert path; rename and unchanged re-save still allowed; active
 players unaffected); rollback rehearsed. Guard
 `lib/db/pending-consent-profile.test.ts`. GO-SEQUENCE row 26.
 
+**2026-11-21 (Saturday) — docs/truth-pass (docs and comments only).**
+Stale facts re-checked against evidence: test counts from a fresh run
+(121 files / 1,816 tests); migration 048 is on production (empty, flag
+off) in TECHNICAL_ARCHITECTURE; the `currentUTR` refactor is 139 uses in
+38 non-test files, not "79 sites"; DECISIONS no longer claims `/dashboard`
+keeps the checkout query (it drops it); DATA_QUALITY never says "Verified"
+for a range (a range shows its source and date); next.config.mjs no longer says middleware
+is the maintenance page (no middleware.ts exists), nor do MASTER_ROADMAP
+and TODO; QA_CHECKLIST's test count is current. Recorded Niran's
+decisions: keep GA with privacy guards (to be built in `fix/ga-privacy`), UI revamp now (screen by screen),
+migration numbers at PR open, D-160–D-163 design system adopted.
+
 **2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each
 after CI `verify`, a Vercel Preview smoke test, an independent verifier
 (no open HIGH) and the full local gate, then checked live (routes 200, 0
@@ -612,10 +624,10 @@ settings, and the product problem — P1-DATA-1.
 
 | Area | Score | Why |
 |---|---|---|
-| Security | 8/10 | Both P0 authorization holes, the whole-row public profile read (S-5), rate limits on every write route (S-6), the RPC grant surface (S-9) and the under-13 gate are all fixed and attack-tested — **on staging only**; production is still exposed (it is in maintenance mode, so not reachable). Security headers (S-7) are in the code and verified against a production build. Four bugs found by the tests themselves (S-15, S-16, the dead birth-year field, the parent-first dead end). Not fixed: login/signup/reset rate limits, which app code cannot reach at all; nonce CSP |
+| Security | 8/10 | Both P0 authorization holes, the whole-row public profile read (S-5), rate limits on every write route (S-6), the RPC grant surface (S-9) and the under-13 gate are all fixed and attack-tested — **on staging only** at the time of this score (2026-11-15); all of it has been on production since 2026-11-16, when the maintenance page was also removed. Security headers (S-7) are in the code and verified against a production build. Four bugs found by the tests themselves (S-15, S-16, the dead birth-year field, the parent-first dead end). Not fixed: login/signup/reset rate limits, which app code cannot reach at all; nonce CSP |
 | Data correctness | 5/10 | Fabricated coach/recruit/rank fields deleted and guarded (P0-3); the coach email states only player-entered facts (P0-4); fit bands now agree across every screen (P1-FIT-1/2). Roster UTR numbers are still unsourced estimates — labelled, but the catalog is 68 programs and a 5.81 player has zero in range (P1-DATA-1) |
 | Core UX | 6/10 | Looks good, but several state bugs and theme flips |
-| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production is in a deliberate maintenance state with a written, per-step rollback plan covering all eighteen migrations, **rehearsed end to end three times on 2026-11-15** (218 ms of SQL; **ten** plan defects found and fixed, every one by running the plan rather than reading it). The third rehearsal is the one that counts: it started from a staging database whose nine-category schema fingerprint matched production **9 of 9** and was seeded in production's real data shape, which is how it found a product bug (038) that no previous seed could expose. **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
+| Reliability/Deploy | 9/10 | Staging exists and is a verified schema clone; Preview and Development read it, not production; CI runs typecheck/lint/tests/build on every PR and `verify` is a required check on `main`; production was then (2026-11-15) in a deliberate maintenance state, removed 2026-11-16, with a written, per-step rollback plan covering all eighteen migrations, **rehearsed end to end three times on 2026-11-15** (218 ms of SQL; **ten** plan defects found and fixed, every one by running the plan rather than reading it). The third rehearsal is the one that counts: it started from a staging database whose nine-category schema fingerprint matched production **9 of 9** and was seeded in production's real data shape, which is how it found a product bug (038) that no previous seed could expose. **The build no longer fetches fonts from Google** — self-hosted, three consecutive clean builds, CI retry removed. `.env.local` now points local dev at **staging** (verified 2026-11-15: the URL resolves to `gnlcpnsweqbtwpaqhqqg`, zero occurrences of the production ref). Still missing: error tracking |
 | Legal/privacy | 7/10 | Deletion deletes (029). A complete JSON export exists, guarded by a test that fails the build when a new table is neither exported nor explicitly excluded. Under-13 accounts are inert until an adult in their family consents, enforced by RLS and not by the UI. Nothing about any user is visible to another signed-in user outside their family. `/privacy` now exists, every claim carries the file or migration that makes it true, and `lib/legal/policy.test.ts` fails the build when one stops being true. **Still open and not Claude's to close: a lawyer has to read it** — seven questions in TODO, headed by whether our consent mechanism satisfies COPPA's *verifiable* parental consent at all |
 | Testing | 8/10 | 635 unit tests in 49 files pass, incl. **thirteen** build-failing guards (schools-catalog-honesty, copy-honesty, coach-email, fit-band-consistency, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, export completeness vs the schema, family-UTR honesty, theme contrast, the UTR sentinel vs migration 006's CHECK, robots coverage, family-scope, every /privacy claim vs the code) — counted by listing the files on 2026-11-15, because this number had drifted twice and an independent review caught it both times. counted by listing the files on 2026-11-15, because this number had drifted twice. catalog, copy, coach email, fit-band agreement, rate-limit buckets vs the SQL, the under-13 rule vs the SQL, and export completeness vs the schema. The last three exist because each guards a rule written down in two places, which is the failure mode that does not announce itself. CI runs all of it on every PR. Still zero automated RLS/E2E tests: the 67 attack and happy-path checks behind P0-8 and S-5/6/9 this session, and the 30 behind P0-2 before it, were run by hand against staging |
 | Observability | 1/10 | Vercel Analytics only; no error tracking, no alerts. Concretely: two real payments failed to upgrade anybody for six weeks and nothing surfaced it — it was found by reading the Whop dashboard by hand |
@@ -935,8 +947,8 @@ settings, and the product problem — P1-DATA-1.
   `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`,
   `Cross-Origin-Opener-Policy`. Enforcing, not report-only.
   **Partial on purpose:** `script-src` keeps `'unsafe-inline'`. Removing it
-  needs per-request nonces, nonces need middleware, and `main`'s middleware
-  is the maintenance page. It still blocks every off-origin script host,
+  needs per-request nonces, and nonces need a middleware.ts, which `main`
+  does not have (the maintenance-page middleware was removed 2026-11-16). It still blocks every off-origin script host,
   which is the realistic attack. Nonce upgrade is P2 and is recorded as such
   rather than written up as done.
   ~~ORIGINAL:~~ — `next.config.mjs` sets none. Add CSP (start report-only), `X-Frame-Options: DENY`/`frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
@@ -1240,9 +1252,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    enter ranges by hand from official rosters in `/admin/team-ranges`, then
    turn the flag on. Every band still rests on labelled estimates until then.
-3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (~79
-   sites); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
-4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*).
+3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (139
+   uses in 38 non-test files, re-measured 2026-11-21); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
+4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*) — decided
+   2026-11-21: now, one screen per PR (DECISIONS).
 5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
    V1 ships no AI; this needs its own privacy-policy section first.
 6. **Wire the recruiting checklist into Today.**
