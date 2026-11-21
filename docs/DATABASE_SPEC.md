@@ -65,8 +65,9 @@ verified no-op on production. Apply it when building a fresh database.
 
 ### Ordering
 Production applied `019` before `018`. Follow production's order when
-rebuilding. There is no `012` (once reserved for a roster import) and no
-`048` on production (PR E, staging only).
+rebuilding. There is no `012` (once reserved for a roster import). `048`
+(PR E's catalog tables) is on production since 2026-11-20 23:55 UTC, with no
+rows.
 
 ### Live-only migrations
 Production's ledger has two names with no repo file

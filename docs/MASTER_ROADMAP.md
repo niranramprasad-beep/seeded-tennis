@@ -63,7 +63,7 @@ keeps the checkout query (it drops it); DATA_QUALITY never says "Verified"
 for a range (a range shows its source and date); next.config.mjs no longer says middleware
 is the maintenance page (no middleware.ts exists), nor do MASTER_ROADMAP
 and TODO; QA_CHECKLIST's test count is current. Recorded Niran's
-decisions: keep GA with privacy guards (built in a separate PR), UI revamp now (screen by screen),
+decisions: keep GA with privacy guards (to be built in `fix/ga-privacy`), UI revamp now (screen by screen),
 migration numbers at PR open, D-160–D-163 design system adopted.
 
 **2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each

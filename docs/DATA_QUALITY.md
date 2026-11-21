@@ -30,8 +30,9 @@ almost nothing in Target or Likely. Coverage, not polish, is the gap.
   tests — see CLAUDE.md for what each protects.
 
 ## The fix in progress: PR E (catalog phase 1)
-Migration 048 (branch `feat/catalog-phase-1`; **applied to staging only**,
-not on production, not on `main`) moves the catalog into the database:
+Migration 048 (PR E #9, merged to `main` 2026-11-20; on production since
+2026-11-20 23:55 UTC with **no rows** — staging holds the imported rows, and
+the reading code is behind a flag that is off) moves the catalog into the database:
 - `programs` + `program_class_counts` — that a program exists and how many
   rostered players are in each graduating class, from the program's own
   roster page on a known date. Service-role writes only, by
@@ -62,7 +63,7 @@ the UI, whatever its class. Seeded cannot verify a range — it can only say
 where it came from and when. The label names the source and its date — the
 phase-1 code renders `"{source type}: {source}, {date}"` with the source link
 (`lib/catalog/programs.ts`), e.g. "Hand-curated from public sources: …" —
-"Not tracked" when there is no range, and "Unverified estimate"
+"Level not rated yet" (`LEVEL_NOT_RATED`) when a program has no range, and "Unverified estimate"
 (`UTR_RANGE_SOURCE_LABEL`) for today's unsourced catalog numbers. The
 dev-only design-system preview still shows a "Verified" chip; no real range
 uses it.
