@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { chartEndLabels, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
 import type { RoadmapYear } from "@/lib/types";
-import { formatPlayerUtr } from "@/lib/utils";
+import { formatCheckpointUtr, formatPlayerUtr } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
 import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
@@ -118,6 +118,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           .join(" L")} Z`
       : null;
 
+  const estimateLine = estimate.length > 1 ? estimate.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
   const upsideLine = upside.length > 1 ? upside.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
 
   const yTicks = utrTicks(utrMin, utrMax);
@@ -154,7 +155,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         role="img"
         aria-label={`UTR ${formatPlayerUtr(now.utr)} as of ${monthYearLabel(now.date)}${
           checkpoints.length
-            ? `, plan checkpoints: ${checkpoints.map((c) => `${formatPlayerUtr(c.utr)} by ${monthYearLabel(c.date)}`).join(", ")}`
+            ? `, plan checkpoints: ${checkpoints.map((c) => `${formatCheckpointUtr(c.utr, goal?.value)} by ${monthYearLabel(c.date)}`).join(", ")}`
             : ""
         }`}
         viewBox={`0 0 ${W} ${H}`}
@@ -167,7 +168,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {yTicks.map((v) => (
           <g key={v}>
             <line x1={PAD_L} y1={y(v)} x2={W - PAD_R} y2={y(v)} stroke="rgb(var(--c-line))" strokeWidth="1" />
-            <text x={PAD_L - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fontFamily={NUMBER_FONT} fill="rgb(var(--c-stone-light))">
+            <text x={PAD_L - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fontFamily={NUMBER_FONT} fill="rgb(var(--c-stone))">
               {Number.isInteger(v) ? v : v.toFixed(1)}
             </text>
           </g>
@@ -185,6 +186,12 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         })}
 
         {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
+        {/* The estimate's own line, dotted (dashes are the checkpoints). A
+            logged-pace estimate has low === high, so the band alone has no
+            area and drew nothing under a caption saying "Shaded" (PR-POLISH). */}
+        {estimateLine && (
+          <polyline points={estimateLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
+        )}
         {upsideLine && (
           <polyline points={upsideLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />
         )}
@@ -196,7 +203,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {checkpoints.map((c, i) => {
           const cx = x(c.date.getTime());
           const cy = y(c.utr);
-          const text = `${monthYearLabel(c.date)} · ${formatPlayerUtr(c.utr)}`;
+          const text = `${monthYearLabel(c.date)} · ${formatCheckpointUtr(c.utr, goal?.value)}`;
           const tw = approxTextWidth(text, 12);
           // The dashed line rises to the right of each diamond, so its label
           // sits ABOVE-LEFT of it — off the line (C21: labels sat on it). A
@@ -213,7 +220,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                 className="cursor-pointer"
                 role="button"
                 tabIndex={0}
-                aria-label={`${c.label}: ${formatPlayerUtr(c.utr)} by ${monthYearLabel(c.date)}`}
+                aria-label={`${c.label}: ${formatCheckpointUtr(c.utr, goal?.value)} by ${monthYearLabel(c.date)}`}
                 onClick={() => setSelected(selected === i ? null : i)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -235,7 +242,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                 />
               </g>
               <text x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
-                {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(c.utr)}</tspan>
+                {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatCheckpointUtr(c.utr, goal?.value)}</tspan>
               </text>
             </g>
           );
@@ -247,7 +254,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {estimateEnd && endLabels.plan && (
           <text
             x={W - PAD_R}
-            y={Math.max(PAD_TOP + 10, Math.min(BASELINE - 4, y(estimateEnd.value) + (upsideEnd || checkpointAtEnd ? 20 : 4)))}
+            y={Math.max(14, Math.min(BASELINE - 4, y(estimateEnd.value) + (upsideEnd || checkpointAtEnd ? 20 : -9)))}
             textAnchor="end"
             fontSize="12"
             fontWeight="600"
@@ -301,17 +308,17 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         )}
       </svg>
 
-      <p className="mt-2 text-[13px] text-stone">
+      <p className="mt-2 text-sm text-stone">
         Solid: the UTRs you&apos;ve logged.
         {checkpoints.length > 0 && " Dashed: your plan's checkpoints."}
-        {bandPath && ` Shaded: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
+        {bandPath && ` Dotted: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
         {upsideLine && " Grey dashes: Estimate at your own pace, not used for your bands."}
       </p>
 
       {sel && goal && (
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line bg-grass-50 p-4 text-sm">
           <p className="min-w-0 flex-1 text-ink">
-            <strong>{sel.label}:</strong> <span className="font-mono">{formatPlayerUtr(sel.utr)}</span>. It sits on a
+            <strong>{sel.label}:</strong> <span className="font-mono">{formatCheckpointUtr(sel.utr, goal?.value)}</span>. It sits on a
             straight line from today&apos;s <span className="font-mono">{formatPlayerUtr(now.utr)}</span> to your goal of{" "}
             <span className="font-mono">{formatPlayerUtr(goal.value)}</span>
             {roadmap.length > 0 && ` by ${formatDate(new Date(roadmap[roadmap.length - 1].calendarYear, 5, 1))}`}.

@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { TYPICAL_PACE_RANGE_LABEL, formatPacePerYear, planGoalNeedsPaceWarning, type PlanGoal } from "@/lib/fit";
 import type { GoalPace } from "@/lib/school-fit";
 import { formatDate } from "@/lib/time";
-import { formatPlayerUtr } from "@/lib/utils";
+import { formatPlayerUtr, formatTargetUtr } from "@/lib/utils";
 
 interface GoalPaceWarningProps {
   goalPace: GoalPace | null;
@@ -59,7 +59,7 @@ export function GoalPaceWarning({ goalPace, goal, currentUtr, onUseEstimate, cla
           onClick={() => onUseEstimate(estimate)}
           className="min-h-11 shrink-0 whitespace-nowrap rounded-pill border border-[rgb(var(--c-clay-tint-border))] bg-card px-3 py-1.5 text-xs font-semibold text-[rgb(var(--c-clay-tint-text))] sm:min-h-8"
         >
-          Use {formatPlayerUtr(estimate)} instead
+          Use {formatTargetUtr(estimate)} instead
         </button>
       )}
     </div>

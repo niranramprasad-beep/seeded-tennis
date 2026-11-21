@@ -29,7 +29,7 @@ export function StaffDirectoryHint({
   };
   return (
     <div className={cn("text-sm text-stone", className)}>
-      <p>Seeded doesn&apos;t store coach contacts. To find the current staff, search the web for:</p>
+      <p className="text-[15px]">Seeded doesn&apos;t store coach contacts. To find the current staff, search the web for:</p>
       <div className="mt-1.5 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate rounded-md border border-line bg-cream/60 px-2.5 py-1.5 font-mono text-[13px] text-ink">
           {query}

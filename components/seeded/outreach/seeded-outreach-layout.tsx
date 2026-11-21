@@ -404,7 +404,7 @@ export function SeededOutreachLayout({
                   contacts" right above this (C16). */}
               <div id="outreach-find-coach" className="min-w-0 rounded-lg border border-line bg-cream/50 p-4 lg:self-start">
                 <StaffDirectoryHint school={selectedSchool} />
-                <p className="mt-3 text-xs text-ink/60">
+                <p className="mt-3 text-[15px] text-stone">
                   The draft uses only what you&rsquo;ve logged and the program&rsquo;s name, division
                   and conference. Parts in [brackets] are yours to write. Edit it before you send.
                   Seeded never sends for you.
