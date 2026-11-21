@@ -27,7 +27,7 @@ and by 21:50 UTC the only run was the 19:32 manual one (GitHub API,
 `event=schedule` → 0 runs). GitHub sometimes does not register a new
 workflow's schedule until the file changes again, so the cron is now
 `23 * * * *` (still hourly); the file and TECHNICAL_ARCHITECTURE
-"Monitoring" say the notification goes to whoever merges a change to the
+"Monitoring" say the notification goes to whoever lands a change to the
 cron line, and how to check that scheduled runs exist (about weekly) —
 silence proves nothing. **Not proven until a scheduled run appears after
 this merges.** (2) The red "Supabase Preview" check on every merge to

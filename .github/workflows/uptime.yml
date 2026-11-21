@@ -9,11 +9,10 @@ name: Uptime
 # goes to the user who last changed the `cron` line below, according to that
 # user's GitHub notification settings (Settings -> Notifications ->
 # Actions). GitHub decides "last changed" from the change as it lands on the
-# DEFAULT branch (`main`): in this repo's PR flow, treat it as the person who
-# merges the PR that edits this line (the merge commit's author). Whoever
-# should hear about an outage should be the one to merge the next change to
-# this line (any minute edit counts), and should have Actions notifications
-# turned on for failed workflows. That is the whole of it. It is not a pager, it does not retry
+# DEFAULT branch (`main`): treat it as whoever lands the cron change on
+# main. Whoever should hear about an outage should be the one who lands the
+# next change to this line (any minute edit counts), and should have Actions
+# notifications turned on for failed workflows. That is the whole of it. It is not a pager, it does not retry
 # into a second alert, and it watches nothing between runs — an outage
 # shorter than an hour can be missed entirely. docs/TECHNICAL_ARCHITECTURE.md
 # "Monitoring" says what exists and what does not.

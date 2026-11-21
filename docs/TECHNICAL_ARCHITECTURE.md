@@ -137,7 +137,7 @@ What exists (P1-OPS-2, 2026-11-21), and nothing more:
   job limit 4 minutes). A
   failed scheduled run is reported by GitHub's own Actions notification to
   the user who last changed its `cron` line on `main` (in practice whoever
-  merged that change), per that user's notification settings. That is the
+  landed that change on `main`), per that user's notification settings. That is the
   only notification. Outages shorter than an hour can
   be missed; GitHub may delay scheduled runs. About 720 billed Actions
   minutes a month once the repo is private.
@@ -152,9 +152,10 @@ What exists (P1-OPS-2, 2026-11-21), and nothing more:
   `curl -s "https://api.github.com/repos/niranramprasad-beep/seeded-tennis/actions/runs?event=schedule&per_page=5"`
   — expect roughly one run per hour with `"name": "Uptime"`. None in the
   last few hours means the schedule is not registered: a new commit that
-  edits the `cron` line on `main` re-registers it. A disabled workflow
-  (GitHub disables schedules after 60 days without repo activity) shows
-  `"state": "disabled_inactivity"` at `/actions/workflows`.
+  edits the `cron` line on `main` re-registers it. While the repo is
+  **public**, GitHub also disables a scheduled workflow after 60 days
+  without repo activity (it then shows `"state": "disabled_inactivity"` at
+  `/actions/workflows`); that rule does not apply once the repo is private.
 
 What does **not** exist: alerting on a 5xx rate, on webhook failures or on
 deletion failures (they are logged, and nobody is told); error grouping or
