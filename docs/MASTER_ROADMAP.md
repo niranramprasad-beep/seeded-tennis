@@ -65,8 +65,24 @@ updated to the new call sites and words. Also folded in from the sweep:
 (B4) a blank budget total or expense cost no longer saves as $0 and closes
 (`Number("")` is 0) — "Enter a budget amount." / "Enter a cost."; (B24)
 /today's logged-only legend ("The line is the UTRs you've logged.") now
-uses the same `chartLegendSentence` as every other case. Not merged;
-Niran's go.
+uses the same `chartLegendSentence` as every other case.
+Verifier follow-up on PR #32: (M1) the screen wiring is now pure helpers in
+`lib/fit-copy.ts` — `judgingRatingFor`, `todayRatingFor`, `whyBandGapLines`,
+`targetRowGapSentence`, `schoolPageUtrRow`, `rangeCaption`,
+`closestSchoolsMeasuredFrom`, `rangeBarYouLine` — unit-tested for the
+what-if / estimate / today / sentinel cases; every screen's call is pinned;
+19 wiring mutations (the verifier's nine and more) all fail the suite. (M2)
+a 42501 on the five S-10 routes now reads its reason from the caller's own
+profile (`lib/db/write-refusal.ts`, the training route's lookup):
+consent-pending → "Your account can't save changes until a parent in your
+family gives consent.", Free on outreach → "Tracking coach outreach is part
+of the Player plan.", other RLS/trigger refusals → 403 "You don't have
+permission to do that."; a GRANT/config fault ("permission denied for
+function/table/schema …", matched server-side only) → the route's fallback
+and 500. (LOW) a what-if below today's rating says so; no pace text once no
+year remains; captions capitalise "Your player"; amount fields take a plain
+decimal only ("$50", "1,000", "0x10", "1e5" → "Enter a valid cost." /
+"Enter a valid budget amount."). Not merged; Niran's go.
 
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only

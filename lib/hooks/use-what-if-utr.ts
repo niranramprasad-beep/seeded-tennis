@@ -12,7 +12,7 @@ import type { PlayerGender } from "@/lib/types";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import type { SchoolFitProjectionInput } from "@/lib/school-fit";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
-import { hasRealUtr } from "@/lib/utils";
+import { todayRatingFor } from "@/lib/fit-copy";
 import { recruitingTimeUtr } from "@/lib/fit";
 import {
   clampToRealisticUtr,
@@ -140,7 +140,7 @@ export function useWhatIfUtr({
     minUTR: REALISTIC_UTR_FLOOR,
     maxUTR: REALISTIC_UTR_CEILING[gender],
     isAtRealCurrent,
-    todayUtr: hasRealUtr(currentUTR) ? currentUTR : null,
+    todayUtr: todayRatingFor(currentUTR),
     selectMyPace,
     selectPlusPace,
     setCustom,

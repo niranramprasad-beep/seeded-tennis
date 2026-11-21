@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { join } from "node:path";
 import { codeOnly } from "./testing/source-text";
 import {
+  BUDGET_AMOUNT_INVALID,
+  EXPENSE_AMOUNT_INVALID,
+  amountInputError,
+  parseAmountInput,
   BUDGET_AMOUNT_REQUIRED,
   EXPENSE_AMOUNT_REQUIRED,
   amountIsBlank,
@@ -67,8 +71,26 @@ describe("budget limits", () => {
     expect(budget).toMatch(/totalBudget:\s*z\.number\(\)\.max\(MAX_SEASON_BUDGET_USD, SEASON_BUDGET_TOO_HIGH\)/);
     expect(expenses).toMatch(/amount:\s*z\.number\(\)\.max\(MAX_BUDGET_EXPENSE_USD, EXPENSE_AMOUNT_TOO_HIGH\)/);
     const forms = codeOnly(join(ROOT, "components/seeded/family/budget-modals.tsx"));
-    expect(forms).toMatch(/seasonBudgetLimitError\(totalBudget\)/);
-    expect(forms).toMatch(/expenseAmountLimitError\(amt\)/);
+    expect(forms).toMatch(/const amountError = amountInputError\(total, "budget"\);\s*if \(amountError\) return setError\(amountError\);/);
+    expect(forms).toMatch(/const amountError = amountInputError\(amount, "expense"\);\s*if \(amountError\) return setError\(amountError\);/);
+    expect(forms).not.toMatch(/Number\((total|amount)\)/);
+    expect(amountInputError("300000", "budget")).toBe(SEASON_BUDGET_TOO_HIGH);
+    expect(amountInputError("60000", "expense")).toBe(EXPENSE_AMOUNT_TOO_HIGH);
+  });
+
+  it("verifier LOW: an amount is a plain decimal — not $50, 1,000, abc, 0x10 or 1e5", () => {
+    for (const bad of ["$50", "1,000", "abc", "0x10", "1e5", "1.2.3", "Infinity", "NaN", "12 000", "+5"]) {
+      expect(parseAmountInput(bad), bad).toBeNull();
+      expect(amountInputError(bad, "expense"), bad).toBe(EXPENSE_AMOUNT_INVALID);
+      expect(amountInputError(bad, "budget"), bad).toBe(BUDGET_AMOUNT_INVALID);
+    }
+    expect(EXPENSE_AMOUNT_INVALID).toBe("Enter a valid cost.");
+    for (const [ok, n] of [["50", 50], ["1000", 1000], [" 12.5 ", 12.5], ["0", 0], [".5", 0.5], ["7.", 7]] as const) {
+      expect(parseAmountInput(ok), ok).toBe(n);
+      expect(amountInputError(ok, "expense"), ok).toBeNull();
+    }
+    expect(amountInputError("-5", "expense")).toBe("Cost can't be negative.");
+    expect(amountInputError("-5", "budget")).toBe("Budget total can't be negative.");
   });
 
   it("B4: a blank amount is refused with a message, never saved as $0", () => {
@@ -80,9 +102,7 @@ describe("budget limits", () => {
     expect(BUDGET_AMOUNT_REQUIRED).toBe("Enter a budget amount.");
     expect(EXPENSE_AMOUNT_REQUIRED).toBe("Enter a cost.");
     const forms = codeOnly(join(ROOT, "components/seeded/family/budget-modals.tsx"));
-    // Checked before the number is used, in both dialogs.
-    expect(forms).toMatch(/if \(amountIsBlank\(total\)\) return setError\(BUDGET_AMOUNT_REQUIRED\);/);
-    expect(forms).toMatch(/if \(amountIsBlank\(amount\)\) return setError\(EXPENSE_AMOUNT_REQUIRED\);/);
-    expect(forms.indexOf("amountIsBlank(total)")).toBeLessThan(forms.indexOf("seasonBudgetLimitError(totalBudget)"));
+    expect(amountInputError("", "budget")).toBe(BUDGET_AMOUNT_REQUIRED);
+    expect(amountInputError("  ", "expense")).toBe(EXPENSE_AMOUNT_REQUIRED);
   });
 });

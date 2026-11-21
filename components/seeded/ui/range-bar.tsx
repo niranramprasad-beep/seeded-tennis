@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
-import { teamLineRelation } from "@/lib/fit-copy";
+import { rangeBarYouLine } from "@/lib/fit-copy";
 
 interface RangeBarProps {
   /** Filled range, both 0–100, measured from the left edge. */
@@ -181,7 +181,7 @@ export function RangeBar({
               {/* "0.3 below the team average", never a signed "gap" a
                   family has to decode (A-007). The helper takes (rating,
                   line) and decides the side itself. */}
-              {youLabel} {formatUtrFor(you!, youIsEstimate)}{youBasis ? ` ${youBasis}` : ""} · {teamLineRelation(you!, median!, "average")}
+              {rangeBarYouLine({ youLabel, you: you!, youIsEstimate, youBasis, median: median! })}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

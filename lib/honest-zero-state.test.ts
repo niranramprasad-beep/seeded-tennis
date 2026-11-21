@@ -401,17 +401,19 @@ describe("teamLineRelation — no signed gaps, and never 'at' when the chip says
     // argument at range-bar.tsx / seeded-school-detail.tsx left every test
     // green).
     const ALLOWED: Record<string, string[]> = {
-      "components/seeded/ui/range-bar.tsx": ['teamLineRelation(you!, median!, "average")'],
+      // Verifier M1: the tooltip line is lib/fit-copy.ts rangeBarYouLine now.
+      "components/seeded/ui/range-bar.tsx": [],
       // final-check A2: these three now print every gap through
       // teamGapSentence (lib/fit-copy.ts), which names the rating's basis
       // ("today" / "by summer 2027, estimate") — no bare call is left.
       "components/seeded/schools/seeded-school-detail.tsx": [],
       "components/seeded/schools/seeded-schools-browser.tsx": [],
       "components/seeded/roadmap/target-schools-list.tsx": [],
-      "components/seeded/roadmap/closest-schools.tsx": ['teamLineRelation(rating, school.avgRosterUTR, "average")'],
+      "components/seeded/roadmap/closest-schools.tsx": ['teamLineRelation(judging.utr, school.avgRosterUTR, "average")'],
       "lib/fit-copy.ts": [
         'teamLineRelation(rating: number, line: number, which: "average" | "floor")',
         'teamLineRelation(value, which === "floor" ? school.minCompetitiveUTR : school.avgRosterUTR, which)',
+        'teamLineRelation(input.you, input.median, "average")',
       ],
     };
     for (const [file, calls] of Object.entries(ALLOWED)) {

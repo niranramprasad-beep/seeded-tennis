@@ -11,7 +11,7 @@ import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { formatDate } from "@/lib/time";
 import { cn, hasRealUtr } from "@/lib/utils";
-import { ratingBasisLabel, teamGapSentence, type RatingBasis } from "@/lib/fit-copy";
+import { ratingBasisLabel, targetRowGapSentence, type JudgingRating } from "@/lib/fit-copy";
 
 interface TargetSchoolsListProps {
   /** Real order from player.targetSchoolSlugs, resolved to school objects
@@ -27,8 +27,7 @@ interface TargetSchoolsListProps {
    *  or the what-if once the slider moved) and which one it is. The gap on
    *  every row is measured from it and says so (final-check A2): Plan said
    *  "8.20 · 2.3 below" while /schools said "8.7 · 1.8 below" for one school. */
-  judgingUtr: number | null;
-  judgingBasis: RatingBasis | null;
+  judging: JudgingRating | null;
   explanationInput: SchoolFitExplanationInput;
   /** Bands from the shared fit report (lib/fit.ts). Every row's badge reads
    * these, so /plan and /schools cannot band the same school differently. */
@@ -65,8 +64,7 @@ export function TargetSchoolsList({
   targetSchools,
   addableSchools,
   todayUtr,
-  judgingUtr,
-  judgingBasis,
+  judging,
   explanationInput,
   reportBandBySlug,
   isStarred,
@@ -145,13 +143,7 @@ export function TargetSchoolsList({
           // roster average" (A-007; it could print "+0.0"). The band picks
           // which line matters; teamLineRelation says which side.
           const band = reportBandBySlug?.get(s.slug) ?? explanation.band;
-          const gapSentence =
-            judgingBasis && band !== "unverified"
-              ? teamGapSentence(judgingUtr, judgingBasis, s, {
-                  lines: band === "likely" || band === "target" ? ["average"] : ["floor"],
-                })
-              : null;
-          const gapLabel = gapSentence ? `${gapSentence}.` : "Log a UTR to see your gap.";
+          const gapLabel = targetRowGapSentence(judging, s, band);
 
           return (
             <li
@@ -196,13 +188,13 @@ export function TargetSchoolsList({
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(s.avgRosterUTR)}
-                youPct={hasRealUtr(judgingUtr) ? utrToPct(judgingUtr) : null}
+                youPct={judging ? utrToPct(judging.utr) : null}
                 low={range.min}
                 median={s.avgRosterUTR}
                 high={range.max}
-                you={hasRealUtr(judgingUtr) ? judgingUtr : null}
-                youIsEstimate={judgingBasis?.kind === "estimate"}
-                youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
+                you={judging?.utr ?? null}
+                youIsEstimate={judging?.basis.kind === "estimate"}
+                youBasis={judging ? ratingBasisLabel(judging.basis) : null}
               />
               <p className="text-xs text-stone">
                 {gapLabel}

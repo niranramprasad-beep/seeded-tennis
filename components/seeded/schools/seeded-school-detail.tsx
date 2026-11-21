@@ -20,7 +20,7 @@ import {
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { formatPacePerYear, paceUpsideSentence } from "@/lib/fit";
-import { basisOfReportUtr, ratingBasisLabel, ratingWithBasis, teamGapSentence } from "@/lib/fit-copy";
+import { judgingRatingFor, rangeCaption, ratingBasisLabel, schoolPageUtrRow, todayRatingFor } from "@/lib/fit-copy";
 import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
@@ -131,8 +131,12 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   const judgingValue = judging?.value ?? null;
   // Which rating that is, said beside every number from it (final-check A2):
   // "by summer 2027, estimate" or "today", in lib/fit-copy.ts's words.
-  const judgingBasis = judging ? basisOfReportUtr(judging) : null;
+  // One pure helper for every fit screen (lib/fit-copy.ts, verifier M1).
+  // The school page has no what-if slider.
+  const judgingRating = judgingRatingFor({ report, whatIf: null, graduationYear: subject.graduationYear });
+  const judgingBasis = judgingRating?.basis ?? null;
   const subjectWho = subjectFirst ?? "You";
+  const utrRow = judgingRating ? schoolPageUtrRow(judgingRating, todayRatingFor(subjectUtr), school, subjectWho) : null;
   const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
@@ -212,16 +216,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       {gaps && judging && explanation.band !== "unverified" && (
         <FitDriverRow
           label="UTR"
-          description={
-            `${teamGapSentence(judging.value, judgingBasis ?? { kind: "today" }, school, { who: subjectWho })}.` +
-            (judging.isProjected && hasRealUtr(subjectUtr)
-              ? ` ${ratingWithBasis(subjectUtr, { kind: "today" }, subjectWho)}.`
-              : "")
-          }
-          chip={
-            bandPositionLabel(explanation.band) +
-            (judging.isProjected && judgingBasis ? ` ${ratingBasisLabel(judgingBasis)}` : "")
-          }
+          description={utrRow?.description ?? ""}
+          chip={bandPositionLabel(explanation.band) + (utrRow?.chipSuffix ?? "")}
         />
       )}
       <FitDriverRow label="Pace" description={paceDescription} />
@@ -267,7 +263,9 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           youPct={judgingValue != null ? utrToPct(judgingValue) : null}
           caption={
             judgingValue != null
-              ? `${ratingWithBasis(judgingValue, judgingBasis ?? { kind: "today" }, subjectWho)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+              ? judgingRating
+                ? rangeCaption(judgingRating, subjectWho, range)
+                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
               : subjectFirst
                 ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
                 : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`

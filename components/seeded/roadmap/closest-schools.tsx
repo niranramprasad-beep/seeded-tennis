@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ClosestSchoolResult } from "@/lib/school-fit";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { StarButton } from "@/components/seeded/ui/star-button";
-import { ratingWithBasis, teamLineRelation, type RatingBasis } from "@/lib/fit-copy";
+import { closestSchoolsMeasuredFrom, teamLineRelation, type JudgingRating } from "@/lib/fit-copy";
 
 interface ClosestSchoolsCardProps {
   results: ClosestSchoolResult[];
@@ -14,8 +14,7 @@ interface ClosestSchoolsCardProps {
    *  (lib/fit.ts closestSchoolsFromReport) — and which one it is. The card
    *  said "your current UTR" over gaps measured from the summer estimate
    *  (final-check A2). */
-  rating: number | null;
-  basis: RatingBasis | null;
+  judging: JudgingRating | null;
 }
 
 // Point 4 of the redesign spec: the real catalog schools (not just the
@@ -25,15 +24,15 @@ interface ClosestSchoolsCardProps {
 // other fit chip on this page already uses. Each row reuses the same
 // star-to-target mechanism as the target list below, so a player can add
 // one straight from here.
-export function ClosestSchoolsCard({ results, isStarred, onToggleStar, rating, basis }: ClosestSchoolsCardProps) {
-  if (results.length === 0 || rating == null || basis == null) return null;
-  const measuredFrom = ratingWithBasis(rating, basis, "your");
+export function ClosestSchoolsCard({ results, isStarred, onToggleStar, judging }: ClosestSchoolsCardProps) {
+  const measuredFrom = closestSchoolsMeasuredFrom(judging);
+  if (results.length === 0 || !judging || !measuredFrom) return null;
 
   return (
     <div className="mt-5 rounded-xl border border-line bg-card p-5">
       <h2 className="text-base font-semibold text-ink">Closest schools to you</h2>
       <p className="mt-1 text-[15px] text-stone">
-        The schools in our catalog whose estimated team average is nearest {measuredFrom ?? "your UTR"} —
+        The schools in our catalog whose estimated team average is nearest {measuredFrom} —
         whether or not they&apos;re on your target list yet.
       </p>
       <ul className="mt-3.5 flex flex-col gap-2.5 text-sm">
@@ -54,7 +53,7 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar, rating, b
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="font-mono text-xs text-stone">
-                {teamLineRelation(rating, school.avgRosterUTR, "average")}
+                {teamLineRelation(judging.utr, school.avgRosterUTR, "average")}
               </span>
               <FitBadge band={band} />
             </div>

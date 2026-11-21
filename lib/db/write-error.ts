@@ -66,17 +66,52 @@ export const PERMISSION_DENIED_CODE = "42501";
 /** The one sentence a permission refusal shows, whatever the database said. */
 export const PERMISSION_DENIED_MESSAGE = "You don't have permission to do that.";
 
-function isPermissionRefusal(err: unknown): boolean {
-  return err instanceof DatabaseWriteError && err.code === PERMISSION_DENIED_CODE;
+/** An under-13 account waiting for a parent's consent (030/051): every
+ *  write but join_family is refused 42501 — say why, not "no permission". */
+export const CONSENT_PENDING_MESSAGE = "Your account can't save changes until a parent in your family gives consent.";
+
+/** coach_outreach's INSERT policy requires has_tier('player') (024). */
+export const OUTREACH_NEEDS_PLAYER_PLAN_MESSAGE = "Tracking coach outreach is part of the Player plan.";
+
+/**
+ * 42501 is also what Postgres raises for a missing GRANT — "permission
+ * denied for function / table / schema …". That is OUR configuration fault,
+ * not the person's, so it gets the route's fallback and a 500. Read on the
+ * server only; the text is never sent anywhere.
+ */
+const CONFIG_FAULT_RE = /^permission denied for (function|table|schema|sequence|view|relation|database|column|type|language)\b/i;
+
+function isConfigFault(err: unknown): boolean {
+  return err instanceof DatabaseWriteError && err.code === PERMISSION_DENIED_CODE && CONFIG_FAULT_RE.test(err.message.trim());
+}
+
+/** A 42501 that is a refusal of THIS person's write (RLS or one of our
+ *  triggers) — not a configuration fault. Exported for the routes'
+ *  refusal lookup (lib/db/write-refusal.ts), which only asks the database
+ *  why when this is true. */
+export function isPermissionRefusal(err: unknown): boolean {
+  return err instanceof DatabaseWriteError && err.code === PERMISSION_DENIED_CODE && !isConfigFault(err);
+}
+
+/** Why the caller was refused, looked up from their OWN profile after a
+ *  permission refusal (lib/db/write-refusal.ts). Never from the error text. */
+export interface WriteRefusalContext {
+  consentPending?: boolean;
+  /** The route's write needs the Player plan and the caller is on Free. */
+  needsPlayerPlan?: boolean;
 }
 
 /**
  * What a write route may send to the browser for an error caught around a
  * lib/db write. Fail-closed: see the header.
  */
-export function clientWriteErrorMessage(err: unknown, fallback: string): string {
+export function clientWriteErrorMessage(err: unknown, fallback: string, refusal?: WriteRefusalContext | null): string {
   if (err instanceof UserFacingError && err.message) return err.message;
-  if (isPermissionRefusal(err)) return PERMISSION_DENIED_MESSAGE;
+  if (isPermissionRefusal(err)) {
+    if (refusal?.consentPending) return CONSENT_PENDING_MESSAGE;
+    if (refusal?.needsPlayerPlan) return OUTREACH_NEEDS_PLAYER_PLAN_MESSAGE;
+    return PERMISSION_DENIED_MESSAGE;
+  }
   if (err instanceof DatabaseWriteError && err.code && Object.prototype.hasOwnProperty.call(SENTENCE_BY_CODE, err.code)) {
     // The code AND the exact sentence: 53400 is also raised for "No
     // rate-limit bucket defined for table …", a configuration fault that
@@ -89,9 +124,10 @@ export function clientWriteErrorMessage(err: unknown, fallback: string): string 
 
 /**
  * The HTTP status that goes with clientWriteErrorMessage()'s sentence:
- * 403 for a permission refusal (42501), 400 for our own validation sentence
- * (the request, not the server, was wrong), 500 for everything else. Like
- * the message, it reads only the error's class and code — never its text.
+ * 403 for a permission refusal (42501 that is not a GRANT/config fault),
+ * 400 for our own validation sentence (the request, not the server, was
+ * wrong), 500 for everything else. It reads the error's class and code, and
+ * for 42501 only whether the server-side text is a config fault.
  */
 export function clientWriteErrorStatus(err: unknown): 400 | 403 | 500 {
   if (isPermissionRefusal(err)) return 403;

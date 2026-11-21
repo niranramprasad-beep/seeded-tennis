@@ -8,13 +8,7 @@ import { useDialog } from "@/lib/hooks/use-dialog";
 import { Portal } from "@/components/ui/portal";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
-import {
-  BUDGET_AMOUNT_REQUIRED,
-  EXPENSE_AMOUNT_REQUIRED,
-  amountIsBlank,
-  expenseAmountLimitError,
-  seasonBudgetLimitError,
-} from "@/lib/budget-limits";
+import { amountInputError, parseAmountInput } from "@/lib/budget-limits";
 import { cn } from "@/lib/utils";
 
 // Shared overlay + panel shell — same motion/shape language as
@@ -115,15 +109,13 @@ export function EditBudgetModal({
   }, [open, initialLabel, initialTotal]);
 
   const submit = async () => {
-    const totalBudget = Number(total);
     if (!label.trim()) return setError("Season label is required.");
-    // B4: blank is not $0 (Number("") === 0 saved silently and closed).
-    if (amountIsBlank(total)) return setError(BUDGET_AMOUNT_REQUIRED);
-    if (!Number.isFinite(totalBudget) || totalBudget < 0) return setError("Enter a valid budget amount.");
-    // A5: the same limit the route's zod schema enforces, said before a
-    // request is made (lib/budget-limits.ts).
-    const tooHigh = seasonBudgetLimitError(totalBudget);
-    if (tooHigh) return setError(tooHigh);
+    // B4 (blank is not $0), a plain decimal only (not "$50", "1,000",
+    // "0x10", "1e5"), and A5's limit — the same limit the route's zod
+    // schema enforces — all in one pure check (lib/budget-limits.ts).
+    const amountError = amountInputError(total, "budget");
+    if (amountError) return setError(amountError);
+    const totalBudget = parseAmountInput(total) as number;
     setSaving(true);
     setError("");
     try {
@@ -222,12 +214,10 @@ export function AddExpenseModal({
   }, [open]);
 
   const submit = async () => {
-    const amt = Number(amount);
     if (!label.trim()) return setError("A short description is required.");
-    if (amountIsBlank(amount)) return setError(EXPENSE_AMOUNT_REQUIRED);
-    if (!Number.isFinite(amt) || amt < 0) return setError("Cost can't be negative.");
-    const tooHigh = expenseAmountLimitError(amt);
-    if (tooHigh) return setError(tooHigh);
+    const amountError = amountInputError(amount, "expense");
+    if (amountError) return setError(amountError);
+    const amt = parseAmountInput(amount) as number;
     if (!date) return setError("Enter a date.");
     setSaving(true);
     setError("");

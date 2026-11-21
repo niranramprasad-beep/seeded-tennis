@@ -3,6 +3,7 @@ import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDa
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
 import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
+import { writeRefusalContext } from "@/lib/db/write-refusal";
 import { deleteMatch, saveMatch } from "@/lib/db/events";
 import { MatchesBodySchema } from "@/lib/api-schemas/matches";
 
@@ -48,8 +49,11 @@ export async function POST(req: Request) {
     // S-10: the database's own text goes to the log, never to the response
     // (lib/db/write-error.ts). Our validation sentences still reach the UI.
     logServerError("api.matches.write_failed", err, { route: "/api/matches" });
+    // A permission refusal reads its reason from the caller's own profile
+    // (consent pending / Free plan), never from the error's text.
+    const refusal = await writeRefusalContext(ctx.supabase, ctx.user.id, err);
     return NextResponse.json(
-      { error: clientWriteErrorMessage(err, "Could not save that match. Try again.") },
+      { error: clientWriteErrorMessage(err, "Could not save that match. Try again.", refusal) },
       { status: clientWriteErrorStatus(err) }
     );
   }

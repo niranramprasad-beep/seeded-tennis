@@ -3,7 +3,7 @@ import type { BandCounts, FitReport, RecruitingTimeUtr } from "@/lib/fit";
 import { PLANNING_PACE_CAP_PER_YEAR, formatPacePerYear, isUsableUtr, projectionTargetLabel } from "@/lib/fit";
 import { schoolUtrRange, summerBeforeSeniorYear } from "@/lib/school-fit";
 import { WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR } from "@/lib/what-if-utr";
-import { formatPlayerUtr, formatUtrEstimate, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
+import { formatPlayerUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
 
 // The words that sit next to the fit counts — the homepage calculator's
 // button, the zero state when nothing is in range, the fit report's headline
@@ -337,7 +337,10 @@ export function basisOfReportUtr(utr: Pick<RecruitingTimeUtr, "isProjected" | "y
 export function ratingBasisLabel(basis: RatingBasis): string {
   if (basis.kind === "today") return "today";
   if (basis.kind === "estimate") return `by ${projectionTargetLabel(basis.year)}, estimate`;
-  const when = basis.year == null ? "now" : `by ${projectionTargetLabel(basis.year)}`;
+  // No year left (the summer before senior year has begun): the what-if is
+  // about now, and a pace "a year" has nothing to run over (verifier LOW).
+  if (basis.year == null) return "now, what-if";
+  const when = `by ${projectionTargetLabel(basis.year)}`;
   const how =
     basis.pace === "plus1.5" && basis.pacePerYear != null
       ? ` at ${formatPacePerYear(basis.pacePerYear)}`
@@ -357,7 +360,12 @@ export function formatRatingForBasis(value: number, basis: RatingBasis): string 
  *  real rating — the caller shows "Not tracked" or its own prompt. */
 export function ratingWithBasis(value: number | null | undefined, basis: RatingBasis, who = "You"): string | null {
   if (!hasRealUtr(value)) return null;
-  return `${who} ${formatRatingForBasis(value, basis)} ${ratingBasisLabel(basis)}`;
+  // It starts a sentence or a caption: "Your player 8.7 …", never "your player".
+  return `${capitalizeFirst(who)} ${formatRatingForBasis(value, basis)} ${ratingBasisLabel(basis)}`;
+}
+
+function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**
@@ -399,4 +407,135 @@ export function whatIfBasis(
     pace: whatIf.activePaceMode,
     pacePerYear: whatIf.activePaceMode === "plus1.5" ? WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR : null,
   };
+}
+
+// ---------------------------------------------------------------------
+// THE RATING EACH FIT SCREEN JUDGES AND PRINTS (verifier MEDIUM 1)
+//
+// The A1/A2 wiring used to be assembled on each screen — `whatIfBasis(…) ??
+// basisOfReportUtr(…)` in two places, `teamGapSentence(todayUtr, …)` in
+// another — and a source regex was all that held it. Nine mutations of that
+// wiring survived, the original A1 bug among them. Every screen now asks
+// these pure functions, and lib/final-check-a.test.ts tests them with the
+// what-if / estimate / today / sentinel cases.
+// ---------------------------------------------------------------------
+
+/** The rating the bands on a screen were judged on, and which one it is. */
+export interface JudgingRating {
+  utr: number;
+  basis: RatingBasis;
+}
+
+/**
+ * THE judging rating for a fit screen: the fit report's value, labelled as
+ * the what-if when the slider was moved (the report then holds the slider's
+ * value as an override and would otherwise call it today's), else as the
+ * estimate or today. Null without a report or a real rating.
+ *
+ * `whatIf` is null where there is no slider for this reader (a parent).
+ */
+export function judgingRatingFor(input: {
+  report: { utr: Pick<RecruitingTimeUtr, "value" | "isProjected" | "year"> } | null | undefined;
+  whatIf: { isAtRealCurrent: boolean; activePaceMode: WhatIfBasisPace | null } | null;
+  graduationYear: number;
+  now?: Date;
+}): JudgingRating | null {
+  const utr = input.report?.utr;
+  if (!utr || !hasRealUtr(utr.value)) return null;
+  const fromWhatIf = input.whatIf ? whatIfBasis(input.whatIf, input.graduationYear, input.now) : null;
+  return { utr: utr.value, basis: fromWhatIf ?? basisOfReportUtr(utr) };
+}
+
+/** Today's real rating or null — the ONLY number "today" may print. */
+export function todayRatingFor(currentUtr: number | null | undefined): number | null {
+  return hasRealUtr(currentUtr) ? currentUtr : null;
+}
+
+/**
+ * The gap lines under a "Why this band" summary (/schools' expanded row):
+ * the judging rating's gap, then today's gap when the judging rating is not
+ * today's — and, when a what-if was dragged BELOW today's rating, one
+ * sentence saying so, so the band and "You're 8.20 today" do not read as a
+ * contradiction (verifier LOW).
+ */
+export function whyBandGapLines(
+  judging: JudgingRating | null,
+  todayUtr: number | null,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  who = "You"
+): string[] {
+  const lines: string[] = [];
+  if (judging) {
+    const head = teamGapSentence(judging.utr, judging.basis, school, { who });
+    if (head) lines.push(head);
+  }
+  if (todayUtr != null && hasRealUtr(todayUtr) && judging?.basis.kind !== "today") {
+    const today = teamGapSentence(todayUtr, { kind: "today" }, school, { who });
+    if (today) lines.push(today);
+  }
+  if (judging?.basis.kind === "what-if" && todayUtr != null && hasRealUtr(todayUtr) && judging.utr < todayUtr) {
+    lines.push(
+      `This what-if (${formatPlayerUtr(judging.utr)}) is below today's ${formatPlayerUtr(todayUtr)}, so the band above is for a lower rating than you have now.`
+    );
+  }
+  return lines;
+}
+
+/** One target row's gap on /plan: the line the band turns on, measured from
+ *  the judging rating and labelled with it. */
+export function targetRowGapSentence(
+  judging: JudgingRating | null,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  band: string | null | undefined
+): string {
+  const sentence =
+    judging && band && band !== "unverified"
+      ? teamGapSentence(judging.utr, judging.basis, school, {
+          lines: band === "likely" || band === "target" ? ["average"] : ["floor"],
+        })
+      : null;
+  return sentence ? `${sentence}.` : "Log a UTR to see your gap.";
+}
+
+/** The school page's UTR row: the judging gap, today's rating when the
+ *  judging one is not today's, and the chip's basis suffix. */
+export function schoolPageUtrRow(
+  judging: JudgingRating,
+  todayUtr: number | null,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  who = "You"
+): { description: string; chipSuffix: string } {
+  const head = teamGapSentence(judging.utr, judging.basis, school, { who });
+  const today =
+    judging.basis.kind !== "today" && todayUtr != null ? ratingWithBasis(todayUtr, { kind: "today" }, who) : null;
+  return {
+    description: `${head ?? ""}.${today ? ` ${today}.` : ""}`,
+    chipSuffix: judging.basis.kind === "today" ? "" : ` ${ratingBasisLabel(judging.basis)}`,
+  };
+}
+
+/** "You 8.7 by summer 2027, estimate · team 9.1–11.5" — a range bar's
+ *  caption. */
+export function rangeCaption(judging: JudgingRating, who: string, range: { min: number; max: number }): string {
+  return `${ratingWithBasis(judging.utr, judging.basis, who)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`;
+}
+
+/** "your 8.5 by summer 2027, estimate" — the rating /plan's Closest schools
+ *  measures from, mid-sentence. Null without one. */
+export function closestSchoolsMeasuredFrom(judging: JudgingRating | null): string | null {
+  if (!judging) return null;
+  return `your ${formatRatingForBasis(judging.utr, judging.basis)} ${ratingBasisLabel(judging.basis)}`;
+}
+
+/** The range bar tooltip's second line: "You 8.7 by summer 2027, estimate ·
+ *  1.8 below the team average". */
+export function rangeBarYouLine(input: {
+  youLabel: string;
+  you: number;
+  youIsEstimate: boolean;
+  youBasis: string | null | undefined;
+  median: number;
+}): string {
+  const basis = input.youBasis ? ` ${input.youBasis}` : "";
+  return `${input.youLabel} ${formatUtrFor(input.you, input.youIsEstimate)}${basis} · ${teamLineRelation(input.you, input.median, "average")}`;
 }

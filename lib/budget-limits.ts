@@ -35,3 +35,32 @@ export function seasonBudgetLimitError(totalBudget: number): string | null {
 export function expenseAmountLimitError(amount: number): string | null {
   return Number.isFinite(amount) && amount > MAX_BUDGET_EXPENSE_USD ? EXPENSE_AMOUNT_TOO_HIGH : null;
 }
+
+// Verifier LOW (2026-11-21): `Number()` reads "0x10" as 16 and "1e5" as
+// 100000, and the forms then saved them. An amount field takes a plain
+// decimal and nothing else — no "$", no thousands commas, no hex, no
+// exponent — and says so.
+export const BUDGET_AMOUNT_INVALID = "Enter a valid budget amount.";
+export const EXPENSE_AMOUNT_INVALID = "Enter a valid cost.";
+const PLAIN_DECIMAL = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+/** The number in a plain-decimal amount field, or null for anything else. */
+export function parseAmountInput(text: string): number | null {
+  const t = text.trim();
+  if (!PLAIN_DECIMAL.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Everything the two budget dialogs check about an amount field, in order:
+ *  blank, negative, not a plain decimal, over the limit. Null when fine. */
+export function amountInputError(text: string, kind: "budget" | "expense"): string | null {
+  if (amountIsBlank(text)) return kind === "budget" ? BUDGET_AMOUNT_REQUIRED : EXPENSE_AMOUNT_REQUIRED;
+  const t = text.trim();
+  if (t.startsWith("-") && parseAmountInput(t.slice(1)) != null) {
+    return kind === "budget" ? "Budget total can't be negative." : "Cost can't be negative.";
+  }
+  const n = parseAmountInput(t);
+  if (n == null) return kind === "budget" ? BUDGET_AMOUNT_INVALID : EXPENSE_AMOUNT_INVALID;
+  return kind === "budget" ? seasonBudgetLimitError(n) : expenseAmountLimitError(n);
+}

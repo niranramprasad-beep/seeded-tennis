@@ -5,12 +5,15 @@ import { codeOnly } from "./testing/source-text";
 import { PostgrestError } from "@supabase/supabase-js";
 import {
   DatabaseWriteError,
+  CONSENT_PENDING_MESSAGE,
+  OUTREACH_NEEDS_PLAYER_PLAN_MESSAGE,
   PERMISSION_DENIED_MESSAGE,
   UserFacingError,
   clientWriteErrorMessage,
   clientWriteErrorStatus,
 } from "./db/write-error";
 import { saveBudgetExpense, saveSeasonBudget } from "./db/family";
+import { refusalFromProfile, writeRefusalContext } from "./db/write-refusal";
 import { createUtrEntry } from "./db/plan";
 
 // P1-OPS-2 + S-10, the build-failing half.
@@ -169,7 +172,7 @@ describe("S-10: no route sends the database's text", () => {
     it(`${route} sends clientWriteErrorMessage(), never err.message`, () => {
       const src = codeOnly(join(ROOT, route));
       expect(src).not.toMatch(/\berr(or)?\s*\.\s*message\b/);
-      expect(src).toMatch(/clientWriteErrorMessage\(err, "[^"]+"\)/);
+      expect(src).toMatch(/clientWriteErrorMessage\(err, "[^"]+", refusal\)/);
       expect(src).toMatch(/logServerError\("api\.[a-z_]+\.write_failed", err/);
     });
   }
@@ -285,7 +288,6 @@ describe("clientWriteErrorMessage", () => {
     for (const message of [
       'new row violates row-level security policy for table "matches"',
       'new row violates row-level security policy for table "season_budgets"',
-      "permission denied for table budget_expenses",
       "",
     ]) {
       const err = new DatabaseWriteError({ message, code: "42501" });
@@ -311,9 +313,77 @@ describe("clientWriteErrorMessage", () => {
   it("every S-10 route answers with clientWriteErrorStatus(err), not a fixed 500", () => {
     for (const route of S10_ROUTES) {
       const src = codeOnly(join(ROOT, route));
-      expect(src, route).toMatch(/clientWriteErrorMessage\(err, "[^"]+"\) \},\s*\{ status: clientWriteErrorStatus\(err\) \}/);
-      expect(src, route).not.toMatch(/clientWriteErrorMessage\(err, "[^"]+"\) \},\s*\{ status: 500 \}/);
+      expect(src, route).toMatch(/clientWriteErrorMessage\(err, "[^"]+", refusal\) \},\s*\{ status: clientWriteErrorStatus\(err\) \}/);
+      expect(src, route).not.toMatch(/\{ status: 500 \}/);
+      // The reason comes from the caller's own profile, looked up after the
+      // refusal (lib/db/write-refusal.ts) — outreach also checks the plan.
+      const lookup = route.includes("outreach")
+        ? /const refusal = await writeRefusalContext\(ctx\.supabase, ctx\.user\.id, err, \{ needsPlayerPlan: true \}\);/
+        : /const refusal = await writeRefusalContext\(ctx\.supabase, ctx\.user\.id, err\);/;
+      expect(src, route).toMatch(lookup);
     }
+  });
+
+  it("verifier M2: a GRANT/config fault (42501 'permission denied for …') is OUR fault — fallback and 500", () => {
+    for (const message of [
+      "permission denied for function has_tier",
+      "permission denied for table season_budgets",
+      "permission denied for schema private",
+      "Permission denied for sequence matches_id_seq",
+    ]) {
+      const err = new DatabaseWriteError({ message, code: "42501" });
+      expect(clientWriteErrorMessage(err, FALLBACK), message).toBe(FALLBACK);
+      expect(clientWriteErrorStatus(err), message).toBe(500);
+      expect(clientWriteErrorMessage(err, FALLBACK, { consentPending: true }), message).toBe(FALLBACK);
+    }
+    // An RLS refusal is still the person's: 403.
+    const rls = new DatabaseWriteError({ message: 'new row violates row-level security policy for table "matches"', code: "42501" });
+    expect(clientWriteErrorStatus(rls)).toBe(403);
+  });
+
+  it("verifier M2: consent-pending and Free-plan refusals say why (from the caller's own profile)", () => {
+    const rls = new DatabaseWriteError({ message: 'new row violates row-level security policy for table "utr_entries"', code: "42501" });
+    expect(clientWriteErrorMessage(rls, FALLBACK, { consentPending: true })).toBe(CONSENT_PENDING_MESSAGE);
+    expect(clientWriteErrorMessage(rls, FALLBACK, { needsPlayerPlan: true })).toBe(OUTREACH_NEEDS_PLAYER_PLAN_MESSAGE);
+    // Consent wins: a pending under-13 is refused everything, whatever the plan.
+    expect(clientWriteErrorMessage(rls, FALLBACK, { consentPending: true, needsPlayerPlan: true })).toBe(CONSENT_PENDING_MESSAGE);
+    expect(clientWriteErrorMessage(rls, FALLBACK, { consentPending: false, needsPlayerPlan: false })).toBe(PERMISSION_DENIED_MESSAGE);
+    expect(clientWriteErrorMessage(rls, FALLBACK, null)).toBe(PERMISSION_DENIED_MESSAGE);
+    // The refusal context never turns a non-refusal into one.
+    const other = new DatabaseWriteError({ message: "x", code: "23514" });
+    expect(clientWriteErrorMessage(other, FALLBACK, { consentPending: true })).toBe(FALLBACK);
+    expect(clientWriteErrorMessage(new UserFacingError("Cost can't be negative."), FALLBACK, { consentPending: true })).toBe(
+      "Cost can't be negative."
+    );
+    // Pure profile → reason.
+    expect(refusalFromProfile({ consent_status: "pending", subscription_tier: "player" })).toEqual({ consentPending: true, needsPlayerPlan: false });
+    expect(refusalFromProfile({ consent_status: "not_required", subscription_tier: "free" }, { needsPlayerPlan: true })).toEqual({
+      consentPending: false,
+      needsPlayerPlan: true,
+    });
+    expect(refusalFromProfile({ consent_status: "not_required", subscription_tier: "family" }, { needsPlayerPlan: true }).needsPlayerPlan).toBe(false);
+    expect(refusalFromProfile({ consent_status: "not_required", subscription_tier: "free" }).needsPlayerPlan).toBe(false);
+  });
+
+  it("verifier M2: the refusal lookup asks nothing unless it was a refusal, and reads only the caller's own row", async () => {
+    const calls: string[] = [];
+    const fake = {
+      from: (t: string) => {
+        calls.push(t);
+        const q = {
+          select: (cols: string) => (calls.push(cols), q),
+          eq: (c: string, v: string) => (calls.push(`${c}=${v}`), q),
+          maybeSingle: async () => ({ data: { consent_status: "pending", subscription_tier: "free" }, error: null }),
+        };
+        return q;
+      },
+    } as never;
+    expect(await writeRefusalContext(fake, "u1", new DatabaseWriteError({ message: "x", code: "23514" }))).toBeNull();
+    expect(await writeRefusalContext(fake, "u1", new DatabaseWriteError({ message: "permission denied for function f", code: "42501" }))).toBeNull();
+    expect(calls).toEqual([]);
+    const ctx = await writeRefusalContext(fake, "u1", new DatabaseWriteError({ message: "rls", code: "42501" }), { needsPlayerPlan: true });
+    expect(ctx).toEqual({ consentPending: true, needsPlayerPlan: true });
+    expect(calls).toEqual(["profiles", "consent_status, subscription_tier", "id=u1"]);
   });
 
   it("keeps the sentences our own migrations raise for people", () => {

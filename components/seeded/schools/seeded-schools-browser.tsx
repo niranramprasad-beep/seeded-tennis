@@ -42,7 +42,7 @@ import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
 import { cn, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
-import { basisOfReportUtr, ratingBasisLabel, ratingWithBasis, teamGapSentence, whatIfBasis, type RatingBasis } from "@/lib/fit-copy";
+import { judgingRatingFor, rangeCaption, ratingBasisLabel, whyBandGapLines } from "@/lib/fit-copy";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
@@ -314,12 +314,10 @@ export function SeededSchoolsBrowser({
 
   const judgingUtr: number | null = report?.utr.value ?? null;
   // Which rating `judgingUtr` is — printed beside every number that came
-  // from it (final-check A2). An explicit what-if is its own basis; the
-  // report alone would call it "today" (buildFitReport treats an override
-  // as a current rating).
-  const judgingBasis: RatingBasis | null = report
-    ? (!viewingAsParent ? whatIfBasis(whatIf, player.graduationYear) : null) ?? basisOfReportUtr(report.utr)
-    : null;
+  // from it (final-check A2) — from the ONE pure helper every fit screen
+  // uses (lib/fit-copy.ts judgingRatingFor; verifier M1). A parent has no
+  // slider, so no what-if.
+  const judging = judgingRatingFor({ report, whatIf: viewingAsParent ? null : whatIf, graduationYear: player.graduationYear });
   const judgingWho = viewingAsParent ? (subjectName ?? "Player") : "You";
   // TODAY's real rating — the only number "today" may ever describe. The
   // "Why this band" summary printed the what-if value as "You're 8.99
@@ -977,7 +975,9 @@ export function SeededSchoolsBrowser({
                       caption={
                         judgingUtr === null
                           ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
-                          : `${ratingWithBasis(judgingUtr, judgingBasis ?? { kind: "today" }, viewingAsParent ? (subjectName ?? "Player") : "You")} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                          : judging
+                            ? rangeCaption(judging, judgingWho, range)
+                            : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
@@ -985,7 +985,7 @@ export function SeededSchoolsBrowser({
                       you={judgingUtr}
                       youIsEstimate={report?.utr.isProjected ?? false}
                       youLabel={judgingWho}
-                      youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
+                      youBasis={judging ? ratingBasisLabel(judging.basis) : null}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
@@ -1018,16 +1018,11 @@ export function SeededSchoolsBrowser({
                           saying WHICH rating: the band's own (estimate or
                           what-if), then today's when that differs
                           (final-check A1/A2). */}
-                      {judgingBasis && judgingUtr != null && (
-                        <p className="mt-1.5 text-stone">
-                          {teamGapSentence(judgingUtr, judgingBasis, s, { who: judgingWho })}
+                      {whyBandGapLines(judging, todayUtr, s, judgingWho).map((line, i) => (
+                        <p key={i} className={i === 0 ? "mt-1.5 text-stone" : "mt-1 text-stone"}>
+                          {line}
                         </p>
-                      )}
-                      {judgingBasis?.kind !== "today" && todayUtr != null && explanation.band !== "unverified" && (
-                        <p className="mt-1 text-stone">
-                          {teamGapSentence(todayUtr, { kind: "today" }, s)}
-                        </p>
-                      )}
+                      ))}
                       {explanation.nextBand && (
                         <p className="mt-1.5">
                           <strong>What would move it: </strong>

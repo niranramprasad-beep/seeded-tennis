@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { codeOnly } from "./testing/source-text";
 import {
+  closestSchoolsMeasuredFrom,
+  judgingRatingFor,
+  rangeBarYouLine,
+  rangeCaption,
+  schoolPageUtrRow,
+  targetRowGapSentence,
+  todayRatingFor,
+  whyBandGapLines,
   basisOfReportUtr,
   defaultFitTab,
   emptyBandSentence,
@@ -109,28 +117,157 @@ describe("A1: 'today' is only ever the real rating", () => {
     expect(e.nextBand).toBeNull();
   });
 
-  it("the Schools browser passes today's rating, never the slider's, to explainSchoolFit", () => {
-    const src = codeOnly("components/seeded/schools/seeded-schools-browser.tsx");
-    expect(src).toMatch(/explainSchoolFit\(todayUtr, s,/);
-    expect(src).not.toMatch(/explainSchoolFit\(effectiveUtr/);
-    expect(src).toMatch(/const todayUtr: number \| null = whatIf\.todayUtr;/);
-    expect(src).toMatch(/whatIfBasis\(whatIf, player\.graduationYear\)/);
-    const plan = codeOnly("components/seeded/roadmap/target-schools-list.tsx");
-    expect(plan).toMatch(/explainSchoolFit\(todayUtr, s,/);
-    expect(codeOnly("lib/hooks/use-what-if-utr.ts")).toMatch(/todayUtr: hasRealUtr\(currentUTR\) \? currentUTR : null/);
-  });
+  it("each screen asks the pure helpers, with exactly these arguments (verifier M1)", () => {
+    // The logic lives in lib/fit-copy.ts and is tested below; what a screen
+    // may still get wrong is WHICH values it hands over. Each call is pinned.
+    const browser = codeOnly("components/seeded/schools/seeded-schools-browser.tsx");
+    expect(browser).toMatch(/explainSchoolFit\(todayUtr, s,/);
+    expect(browser).not.toMatch(/explainSchoolFit\(effectiveUtr/);
+    expect(browser).toMatch(/const todayUtr: number \| null = whatIf\.todayUtr;/);
+    expect(browser).toMatch(
+      /const judging = judgingRatingFor\(\{ report, whatIf: viewingAsParent \? null : whatIf, graduationYear: player\.graduationYear \}\);/
+    );
+    expect(browser).toMatch(/whyBandGapLines\(judging, todayUtr, s, judgingWho\)/);
+    expect(browser).toMatch(/rangeCaption\(judging, judgingWho, range\)/);
+    expect(browser).toMatch(/youBasis=\{judging \? ratingBasisLabel\(judging\.basis\) : null\}/);
 
-  it("every screen that prints a gap goes through the labelled helper", () => {
+    const layout = codeOnly("components/seeded/roadmap/seeded-roadmap-layout.tsx");
+    expect(layout).toMatch(/judging=\{judgingRatingFor\(\{ report: fitReport, whatIf, graduationYear: player\.graduationYear \}\)\}/);
+    expect(layout).toMatch(/judging=\{judgingRatingFor\(\{ report: realReport, whatIf: null, graduationYear: player\.graduationYear \}\)\}/);
+    expect(layout).toMatch(/todayUtr=\{hasRealUtr\(player\.currentUTR\) \? player\.currentUTR : null\}/);
+
+    const targets = codeOnly("components/seeded/roadmap/target-schools-list.tsx");
+    expect(targets).toMatch(/explainSchoolFit\(todayUtr, s,/);
+    expect(targets).toMatch(/const gapLabel = targetRowGapSentence\(judging, s, band\);/);
+    expect(targets).toMatch(/you=\{judging\?\.utr \?\? null\}/);
+    expect(targets).toMatch(/youBasis=\{judging \? ratingBasisLabel\(judging\.basis\) : null\}/);
+
+    const closest = codeOnly("components/seeded/roadmap/closest-schools.tsx");
+    expect(closest).toMatch(/const measuredFrom = closestSchoolsMeasuredFrom\(judging\);/);
+
+    const detail = codeOnly("components/seeded/schools/seeded-school-detail.tsx");
+    expect(detail).toMatch(/const judgingRating = judgingRatingFor\(\{ report, whatIf: null, graduationYear: subject\.graduationYear \}\);/);
+    expect(detail).toMatch(/schoolPageUtrRow\(judgingRating, todayRatingFor\(subjectUtr\), school, subjectWho\)/);
+    expect(detail).toMatch(/description=\{utrRow\?\.description \?\? ""\}/);
+    expect(detail).toMatch(/rangeCaption\(judgingRating, subjectWho, range\)/);
+    expect(detail).toMatch(/youBasis=\{judgingBasis \? ratingBasisLabel\(judgingBasis\) : null\}/);
+    expect(detail).toMatch(/const judgingBasis = judgingRating\?\.basis \?\? null;/);
+
+    const bar = codeOnly("components/seeded/ui/range-bar.tsx");
+    expect(bar).toMatch(/rangeBarYouLine\(\{ youLabel, you: you!, youIsEstimate, youBasis, median: median! \}\)/);
+
     for (const file of [
       "components/seeded/schools/seeded-schools-browser.tsx",
       "components/seeded/schools/seeded-school-detail.tsx",
       "components/seeded/roadmap/target-schools-list.tsx",
     ]) {
       const src = codeOnly(file);
-      expect(src, file).toMatch(/teamGapSentence\(/);
-      expect(src, file).not.toMatch(/teamLineRelation\(/);
-      expect(src, file).not.toMatch(/projectedYouLabel\(/);
+      // No screen assembles a basis or a gap of its own any more.
+      expect(src, file).not.toMatch(/teamLineRelation\(|teamGapSentence\(|basisOfReportUtr\(|whatIfBasis\(|projectedYouLabel\(/);
     }
+    expect(codeOnly("lib/hooks/use-what-if-utr.ts")).toMatch(/todayUtr: todayRatingFor\(currentUTR\)/);
+  });
+});
+
+describe("verifier M1: the pure helpers every fit screen consumes", () => {
+  const s = school("emory", 9.1, 10.3);
+  const estimateReport = { utr: { value: 8.5, isProjected: true, year: 2027 } };
+  const todayReport = { utr: { value: 8.2, isProjected: false, year: 2027 } };
+  const untouched = { isAtRealCurrent: true, activePaceMode: null };
+  const plus = { isAtRealCurrent: false, activePaceMode: "plus1.5" as const };
+
+  it("judgingRatingFor: estimate / today / what-if / no slider / sentinel", () => {
+    expect(judgingRatingFor({ report: estimateReport, whatIf: untouched, graduationYear: 2028, now: NOW })).toEqual({
+      utr: 8.5,
+      basis: { kind: "estimate", year: 2027 },
+    });
+    expect(judgingRatingFor({ report: todayReport, whatIf: untouched, graduationYear: 2028, now: NOW })).toEqual({
+      utr: 8.2,
+      basis: { kind: "today" },
+    });
+    // A moved slider: the report holds the slider's value as a "current"
+    // override; the label must still be the what-if (the A1 bug otherwise).
+    const whatIf = judgingRatingFor({ report: { utr: { value: 8.99, isProjected: false, year: 2026 } }, whatIf: plus, graduationYear: 2028, now: NOW });
+    expect(whatIf).toEqual({ utr: 8.99, basis: { kind: "what-if", year: 2027, pace: "plus1.5", pacePerYear: 1.5 } });
+    // No slider (a parent, the school page): the report decides.
+    expect(judgingRatingFor({ report: estimateReport, whatIf: null, graduationYear: 2028, now: NOW })?.basis).toEqual({ kind: "estimate", year: 2027 });
+    // No report, or the 0 sentinel: nothing.
+    expect(judgingRatingFor({ report: null, whatIf: plus, graduationYear: 2028, now: NOW })).toBeNull();
+    expect(judgingRatingFor({ report: { utr: { value: 0, isProjected: false, year: 2027 } }, whatIf: null, graduationYear: 2028, now: NOW })).toBeNull();
+    expect(todayRatingFor(0)).toBeNull();
+    expect(todayRatingFor(null)).toBeNull();
+    expect(todayRatingFor(8.2)).toBe(8.2);
+  });
+
+  it("whyBandGapLines: the judging gap, then TODAY's from today's rating — never the judging value as today", () => {
+    const judging = { utr: 8.99, basis: { kind: "what-if", year: 2027, pace: "plus1.5", pacePerYear: 1.5 } as RatingBasis };
+    expect(whyBandGapLines(judging, 8.2, s)).toEqual([
+      "You 8.99 by summer 2027, what-if at +1.50 a year: 0.1 below the team floor · 1.3 below the team average",
+      "You 8.20 today: 0.9 below the team floor · 2.1 below the team average",
+    ]);
+    expect(whyBandGapLines({ utr: 8.5, basis: estimate }, 8.2, s)).toEqual([
+      "You 8.5 by summer 2027, estimate: 0.6 below the team floor · 1.8 below the team average",
+      "You 8.20 today: 0.9 below the team floor · 2.1 below the team average",
+    ]);
+    // Judged on today: one line, not two.
+    expect(whyBandGapLines({ utr: 8.2, basis: today }, 8.2, s)).toEqual(["You 8.20 today: 0.9 below the team floor · 2.1 below the team average"]);
+    // No real rating today: no today line.
+    expect(whyBandGapLines({ utr: 8.5, basis: estimate }, null, s)).toHaveLength(1);
+    expect(whyBandGapLines(null, null, s)).toEqual([]);
+  });
+
+  it("verifier LOW: a what-if dragged below today's rating says so", () => {
+    const lines = whyBandGapLines({ utr: 7.5, basis: { kind: "what-if", year: 2027, pace: "custom" } }, 8.2, s);
+    expect(lines[2]).toBe("This what-if (7.50) is below today's 8.20, so the band above is for a lower rating than you have now.");
+    expect(whyBandGapLines({ utr: 8.99, basis: { kind: "what-if", year: 2027, pace: "custom" } }, 8.2, s)).toHaveLength(2);
+  });
+
+  it("verifier LOW: no pace text once no year remains", () => {
+    expect(ratingBasisLabel({ kind: "what-if", year: null, pace: "plus1.5", pacePerYear: 1.5 })).toBe("now, what-if");
+    expect(ratingBasisLabel({ kind: "what-if", year: null, pace: "mine" })).toBe("now, what-if");
+  });
+
+  it("verifier LOW: a parent's caption starts with a capital", () => {
+    expect(ratingWithBasis(8.7, estimate, "your player")).toBe("Your player 8.7 by summer 2027, estimate");
+    expect(rangeCaption({ utr: 8.7, basis: estimate }, "your player", { min: 9.1, max: 11.5 })).toBe(
+      "Your player 8.7 by summer 2027, estimate · team 9.1–11.5"
+    );
+  });
+
+  it("targetRowGapSentence: the band's line, from the judging rating, labelled", () => {
+    expect(targetRowGapSentence({ utr: 8.5, basis: estimate }, s, "out-of-range")).toBe(
+      "You 8.5 by summer 2027, estimate: 0.6 below the team floor."
+    );
+    expect(targetRowGapSentence({ utr: 9.5, basis: estimate }, s, "target")).toBe(
+      "You 9.5 by summer 2027, estimate: 0.8 below the team average."
+    );
+    expect(targetRowGapSentence({ utr: 8.2, basis: today }, s, "reach")).toBe("You 8.20 today: 0.9 below the team floor.");
+    expect(targetRowGapSentence(null, s, "reach")).toBe("Log a UTR to see your gap.");
+    expect(targetRowGapSentence({ utr: 8.5, basis: estimate }, s, "unverified")).toBe("Log a UTR to see your gap.");
+  });
+
+  it("schoolPageUtrRow: judging gap + today's rating + chip suffix; no today line when judged on today", () => {
+    expect(schoolPageUtrRow({ utr: 8.5, basis: estimate }, 8.2, s)).toEqual({
+      description: "You 8.5 by summer 2027, estimate: 0.6 below the team floor · 1.8 below the team average. You 8.20 today.",
+      chipSuffix: " by summer 2027, estimate",
+    });
+    expect(schoolPageUtrRow({ utr: 8.2, basis: today }, 8.2, s, "Bailey")).toEqual({
+      description: "Bailey 8.20 today: 0.9 below the team floor · 2.1 below the team average.",
+      chipSuffix: "",
+    });
+    expect(schoolPageUtrRow({ utr: 8.5, basis: estimate }, null, s).description).not.toMatch(/today/);
+  });
+
+  it("closestSchoolsMeasuredFrom and rangeBarYouLine carry the basis", () => {
+    expect(closestSchoolsMeasuredFrom({ utr: 8.5, basis: estimate })).toBe("your 8.5 by summer 2027, estimate");
+    expect(closestSchoolsMeasuredFrom({ utr: 8.2, basis: today })).toBe("your 8.20 today");
+    expect(closestSchoolsMeasuredFrom(null)).toBeNull();
+    expect(rangeBarYouLine({ youLabel: "You", you: 8.5, youIsEstimate: true, youBasis: "by summer 2027, estimate", median: 10.3 })).toBe(
+      "You 8.5 by summer 2027, estimate · 1.8 below the team average"
+    );
+    expect(rangeBarYouLine({ youLabel: "You", you: 8.2, youIsEstimate: false, youBasis: null, median: 10.3 })).toBe(
+      "You 8.20 · 2.1 below the team average"
+    );
   });
 });
 
@@ -157,9 +294,16 @@ describe("A3: one chart vocabulary", () => {
   it("both charts use it, and both draw the estimate dotted", () => {
     expect(codeOnly("components/seeded/roadmap/plan-trajectory-chart.tsx")).toMatch(/chartLegendSentence\(\{/);
     expect(codeOnly("components/seeded/dashboard/seeded-dashboard-layout.tsx")).toMatch(/chartLegendSentence\(\{/);
-    for (const file of ["components/seeded/roadmap/plan-trajectory-chart.tsx", "components/seeded/dashboard/utr-vs-plan-chart.tsx"]) {
-      expect(codeOnly(file), file).toMatch(/points=\{(paths\.estimate|estimateLine)\}[^>]*strokeDasharray="0\.5 6"/);
+    for (const file of [
+      "components/seeded/roadmap/plan-trajectory-chart.tsx",
+      "components/seeded/dashboard/utr-vs-plan-chart.tsx",
+      "components/seeded/family/dashboard/utr-trend-chart.tsx",
+    ]) {
+      expect(codeOnly(file), file).toMatch(/points=\{(paths\.estimate|estimateLine|projLine)\}[^>]*strokeDasharray="0\.5 6"/);
     }
+    // /family's legend swatch is dotted and named like the others.
+    const family = codeOnly("components/seeded/family/dashboard/utr-trend-chart.tsx");
+    expect(family).toMatch(/strokeDasharray="0\.5 6" strokeLinecap="round" \/>\s*<\/svg>\s*\{CHART_LINE_NAMES\.estimate\}/);
     for (const file of ["components/seeded/roadmap/plan-trajectory-chart.tsx", "components/seeded/dashboard/seeded-dashboard-layout.tsx"]) {
       // B24 too: "The line is the UTRs you've logged." was the logged-only
       // case's own wording on /today.
