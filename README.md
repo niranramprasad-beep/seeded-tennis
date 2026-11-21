@@ -155,8 +155,8 @@ New York and Auckland → build.
   `025_reconcile_profiles_schema_drift.sql` too, and apply `019` before `018`
   (production's real order). See [docs/DATABASE_SPEC.md](docs/DATABASE_SPEC.md).
 - The production ledger is the source of truth — check `list_migrations` on
-  the production project rather than this file. On 2026-11-20 it held 52
-  rows, through migration 050 (048 included).
+  the production project rather than this file. On 2026-11-21 it held 53
+  rows, through migration 051.
 
 ## Deploying
 

@@ -29,7 +29,7 @@ The process is documented in [GO-SEQUENCE.md](GO-SEQUENCE.md) and
 | [`lib/fit.ts`](../lib/fit.ts) + [`lib/school-fit.ts`](../lib/school-fit.ts) | The product's core: the one fit engine every screen uses (see §6). |
 | [`lib/db/family-scope.ts`](../lib/db/family-scope.ts) | How family data is scoped across the two membership shapes (see §5). |
 | [`supabase/migrations/042_family_plan_lock.sql`](../supabase/migrations/042_family_plan_lock.sql) and [`045_family_plan_one_family_and_caps.sql`](../supabase/migrations/045_family_plan_one_family_and_caps.sql) | Representative migrations: the paid-plan lock enforced in RLS, with the reasoning in the file. |
-| [`supabase/migrations/050_budget_writes_parents_only.sql`](../supabase/migrations/050_budget_writes_parents_only.sql) | The newest: a small, explained RLS fix with its rollback in the file. |
+| [`supabase/migrations/050_budget_writes_parents_only.sql`](../supabase/migrations/050_budget_writes_parents_only.sql) | A small, explained RLS fix with its rollback in the file (051, the newest, is the same shape as a trigger). |
 | [`lib/db/family-scope.test.ts`](../lib/db/family-scope.test.ts) | A guard test: scans `app/`, `lib/`, `components/` and fails on any cross-user `profiles` read. |
 | [`app/api/utr-entries/route.ts`](../app/api/utr-entries/route.ts) | A typical API route: request-scoped Supabase client (RLS applies), Postgres rate limit, zod validation. |
 | [`app/api/whop/webhook/route.ts`](../app/api/whop/webhook/route.ts) | The only path that changes a user's paid tier (service role, signature-verified). |
@@ -98,7 +98,10 @@ purpose and keys are in [DATABASE_SPEC.md](DATABASE_SPEC.md).
   4 players and 2 parents. Guard: [`family-plan-lock.test.ts`](../lib/db/family-plan-lock.test.ts).
 - **Under-13 consent** ([030](../supabase/migrations/030_under13_parent_consent.sql)):
   a restrictive policy on 21 tables keeps an under-13 account inert until an
-  adult in the family consents. `birth_year` is write-once.
+  adult in the family consents. `birth_year` is write-once. Its own
+  `profiles` row stays editable (so the child can reach the waiting screen),
+  but [051](../supabase/migrations/051_pending_consent_profile_writes.sql)
+  refuses tennis and recruiting fields there until consent.
 - **Parent email proof** ([043](../supabase/migrations/043_parent_email_verification.sql)):
   a parent must prove their *current* email (a fresh OTP/magic-link session
   or a verified Google identity — not `email_confirmed_at`, which production
@@ -168,8 +171,8 @@ release. Migrations ship **before** the code that needs them, each through
 [GO-SEQUENCE.md](GO-SEQUENCE.md): fresh `pg_dump` backup → apply → probe as
 real roles in rolled-back transactions → record the result in §J of
 [HANDOFF.md](HANDOFF.md), which also holds a pasteable rollback per step.
-Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
-050, 048 included). Code rollback: Vercel Instant Rollback or a revert PR.
+Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
+051). Code rollback: Vercel Instant Rollback or a revert PR.
 
 ## 9. Known trade-offs and open debt (ranked)
 
@@ -181,9 +184,11 @@ Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
 2. **A player could get budget writes through a second "parent" account.**
    Role is chosen at sign-up and any approved member may approve a join, so a
    sibling can create a parent account and approve it. Visible on the roster,
-   capped at 2 parents. Fix needs a product decision on who may approve a
-   parent (a family created by a player has no parent approver) —
-   [TODO.md](TODO.md) "Who may approve a parent joiner".
+   capped at 2 parents. Decided 2026-11-21, to build after this review: a
+   player may approve only a family's first parent; after that only an
+   approved parent approves parents, and Settings → Family shows who
+   approved whom. A fake *first* parent stays possible and is accepted —
+   [DECISIONS.md](DECISIONS.md), [TODO.md](TODO.md) "Who may approve a parent joiner".
 3. **Large files.** `lib/fit.ts` (~1,310 lines), `lib/auth.ts` (~1,170),
    `components/seeded/schools/seeded-schools-browser.tsx` (~1,170),
    `components/auth/signup-flow.tsx` (~790), and the Today layout
@@ -207,17 +212,13 @@ Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
    forbids promising otherwise.
 7. **The privacy policy needs an adult or lawyer review** before a public
    launch. Its mechanisms (export, real deletion, consent) exist and are tested.
-8. **A pending-consent under-13 can still write tennis fields on its own
-   profile through the API.** 030 keeps an own-row carve-out so the child can
-   see the waiting screen; the UI now refuses target-school edits, and the
-   database fix (migration 051, a BEFORE UPDATE trigger) is written and
-   staging-tested in PR #17, waiting for the owner's go.
-9. **Post-checkout sync has never run since the redesign** — tier changes rely
-   on the Whop webhook alone (the return URL loses its query). A billing
-   decision, logged in [TODO.md](TODO.md).
-10. **Smaller open items from the full sweep** (budget expenses can't be
-    edited/deleted; a parent's /schools shows the parent's own empty list; two
-    GPA rules) — [TODO.md](TODO.md) "Left open by the review-ready sweep".
+8. **Post-checkout sync has never run since the redesign** — tier changes rely
+   on the Whop webhook alone (the return URL loses its query). Decided
+   2026-11-21: turn the re-check back on as a backup to the webhook, after
+   this review ([TODO.md](TODO.md)).
+9. **Smaller open items from the full sweep** (budget expenses can't be
+   edited/deleted; a parent's /schools shows the parent's own empty list; two
+   GPA rules) — [TODO.md](TODO.md) "Left open by the review-ready sweep".
 
 ## 10. What's next (after this review)
 

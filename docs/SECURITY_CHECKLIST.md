@@ -1,8 +1,8 @@
 # Seeded — Security Checklist
 
-Current as of 2026-11-20. Read before touching auth, RLS, profiles, family,
-billing or any API route. Production runs every migration through 050
-except 048, so every fix below that names a migration is **live on
+Current as of 2026-11-21. Read before touching auth, RLS, profiles, family,
+billing or any API route. Production runs every migration through 051,
+so every fix below that names a migration is **live on
 production**. The database is the source of truth: check `pg_policies`,
 `has_function_privilege` and `list_migrations`, not this file.
 
@@ -55,6 +55,7 @@ P0 = deployment blocker · P1 = before launch · P2 = soon · P3 = later
 | S-16 | After 022+023, an approved parent couldn't read their child at all. | Family reads re-keyed on approved membership; later 036's `shares_approved_family_with()`. |
 | S-17 | A first profile INSERT could carry someone else's `family_code` + `role='parent'`, bypassing approval. | 032: a `family_code` on INSERT only when no profile or link already holds it. |
 | S-18 | Omitting `birth_year` skipped the under-13 gate. | 033: `birth_year` required on a client profile INSERT. |
+| S-22 | A pending-consent under-13 could write tennis data (target schools, UTR, …) onto its own `profiles` row — 030's own-row carve-out covered every column. | 051 (2026-11-21): BEFORE UPDATE trigger `pending_consent_profile_guard` refuses changes to target schools, `current_utr`, weaknesses, commitment date, tournament counts and the UTR link while `account_active()` is false (42501 `consent_required`). Name/grade/GPA edits and unchanged re-saves still work. Not covered: the sign-up INSERT (TODO). Guard `lib/db/pending-consent-profile.test.ts`. |
 | S-19 | Whop-supplied email used as an `ilike` pattern (`%` wildcards). | Wildcards escaped; regression test with real LIKE semantics. |
 | — | Joined parents couldn't write; joiners' rows were stamped `family_code = NULL`. | 036 `stamp_family_code` trigger + both-shape membership. |
 | — | Any approved member could write notes / reports / the budget. | Notes parent-only (033); client `parent_reports` insert dropped (039); budget parent-only (050). |

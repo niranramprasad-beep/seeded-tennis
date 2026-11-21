@@ -20,6 +20,21 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Migration 051 ON PRODUCTION (03:18 UTC, Niran's go; ledger
+53).** Backup `~/seeded-backups/prod-20261120-2217-pre051.dump`; 0 pending
+accounts at pre-flight; `probe-051.sql` identical on staging and production
+(`~/seeded-evidence/review-ready/r17-051/`). Niran also decided (build after
+the review, DECISIONS 2026-11-21): a player may approve only a family's
+first parent, then only approved parents approve parents, with "approved
+by" in Settings → Family; and the Whop re-check after checkout comes back
+as a backup to the webhook. **Written 2026-11-20 (night), staging first:** The R9 sweep found a pending-consent under-13 could save target
+schools: 030's own-row carve-out on `profiles` covered every column. 051 adds
+a BEFORE UPDATE trigger refusing tennis/recruiting columns while
+`account_active()` is false; probed on staging (refused 42501 for targets,
+UTR and the upsert path; rename and unchanged re-save still allowed; active
+players unaffected); rollback rehearsed. Guard
+`lib/db/pending-consent-profile.test.ts`. GO-SEQUENCE row 26.
+
 **2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each
 after CI `verify`, a Vercel Preview smoke test, an independent verifier
 (no open HIGH) and the full local gate, then checked live (routes 200, 0
@@ -1157,14 +1172,15 @@ Post-V1 list above, in this order: weekly parent email → notifications → pub
 Rewritten 2026-11-20 (night), for after the developer review on 2026-11-21.
 The launch list this replaces (production rollout, PR B, PR D, 049, Legacy)
 is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
-Production runs every migration through 050 except 048.
+Production runs every migration through 051 (ledger 53, 2026-11-21).
 
-0. **Migration 051 (PR #17)** — a pending-consent under-13 can still write
-   tennis fields on its own profile through the API. Staging-tested; needs
-   Niran's go, then GO-SEQUENCE row 26 and merge.
-1. **Decide who may approve a parent joiner**, then close the second-account
-   route to budget writes (docs/TODO.md "Who may approve a parent joiner";
-   found by the 050 review). One migration, 033's pattern.
+0. ~~Migration 051 (PR #17)~~ — DONE 2026-11-21 (on production, merged).
+1. **Build the decided parent-approval rule** (Niran, 2026-11-21): a player
+   may approve only a family's first parent; once an approved parent exists,
+   only an approved parent approves another parent; Settings → Family shows
+   who approved whom. One migration on `approve_family_join`, 033's pattern
+   (docs/TODO.md "Who may approve a parent joiner"). Then the decided
+   post-checkout Whop re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    enter ranges by hand from official rosters in `/admin/team-ranges`, then
    turn the flag on. Every band still rests on labelled estimates until then.
@@ -1183,11 +1199,9 @@ Production runs every migration through 050 except 048.
     runtime logs; the billing incident is what that looks like.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
-`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): **H1's database half** —
-a consent-pending under-13 can still write every column of its own `profiles`
-row through PostgREST (030's own-row carve-out) — migration 051 (BEFORE
-UPDATE trigger) is written, staging-tested, in an open PR waiting for
-Niran's go (GO-SEQUENCE row 26). Also M1, M2, M4, M5, M8, L2, L3, L5–L7,
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
+DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
+TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
 Niran's own list (dashboards/keys, not code): revoke the old Gemini and

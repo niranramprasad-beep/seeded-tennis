@@ -7,6 +7,32 @@ Newest first.
 
 ---
 
+## 2026-11-21 — Niran's decisions on the review-ready report (owner's calls, not Claude's)
+
+Recorded as given, in Niran's own current-turn sign-off.
+
+- **051 ships.** Applied to production 2026-11-21 03:18 UTC after a backup
+  and a real-role probe (HANDOFF §J Step 26); PR #17 merged after it.
+- **Who may approve a parent — decided, build after the review.** A player
+  may approve only the FIRST parent of a family. Once an approved parent
+  exists, only an approved parent can approve another parent. Settings →
+  Family shows who approved whom. *Accepted residual risk:* a player can
+  still create a fake first parent with a second account; the "approved by"
+  line is what makes that visible. *Why not stricter:* a family a player
+  created has no parent to approve its first parent. Not implemented
+  tonight. TODO "Who may approve a parent joiner".
+- **Post-checkout sync comes back — decided, build after the review.** The
+  Whop re-check after a successful checkout is turned back on as a backup to
+  the webhook: idempotent, rate-limited, never downgrades. Not implemented
+  tonight. TODO "Post-checkout sync".
+- **The raw roster file leaves the repo (its own PR, same night).** `docs/data/official_rosters_2026-27.tsv`
+  names ~1,900 real students; it is replaced by an aggregated file with no
+  player names or hometowns, and the raw copy lives only on Niran's Mac
+  (`~/seeded-private/`, gitignored pattern). Git history is NOT rewritten
+  tonight (it needs a force-push and `main` is protected) — TODO.
+
+---
+
 ## 2026-11-20 (night) — PR-LEGACY: the Legacy design is deleted
 
 - **A stored "legacy" choice means "Match system".** Browsers (localStorage

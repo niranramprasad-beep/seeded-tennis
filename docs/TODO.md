@@ -482,6 +482,17 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
+## Pending-consent accounts could write tennis data onto their own profile (R9 HIGH-1, 2026-11-20) — UPDATE half DONE 2026-11-21
+
+030's own-row carve-out on `profiles` covered every column, so an under-13
+waiting for consent could save target schools (the sweep did it through the
+UI; the database accepted it). Migration **051** (BEFORE UPDATE trigger)
+is ON PRODUCTION since 2026-11-21 03:18 UTC (GO-SEQUENCE row 26, HANDOFF §J
+Step 26). **Still open:** the sign-up INSERT is deliberately not covered —
+follow-up: have sign-up omit tennis fields for under-13s, then extend 051 to
+BEFORE INSERT.
+The UI half (no add-target controls for a pending account) ships in PR-SWEEP.
+
 ## Left open by the review-ready sweep (R9, 2026-11-20) — `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`
 
 - **M1 — budget expenses cannot be edited or deleted.** `lib/db/family.ts`
@@ -503,7 +514,16 @@ support email about it.
   ~130); the `my-consent-state` SWR key is not per-user; `/./login` as
   `?next=` causes one extra bounce (never a loop).
 
-## Post-checkout sync never runs (found by the PR-LEGACY review, 2026-11-20) — billing, Niran's call
+## Post-checkout sync never runs (found by the PR-LEGACY review, 2026-11-20) — DECIDED 2026-11-21, build after the review
+
+**Niran's decision (2026-11-21):** turn the Whop re-check after a successful
+checkout back on, as a backup to the webhook. Requirements: idempotent
+(re-running changes nothing once the tier matches), rate-limited (028's
+Postgres limiter, like every write route), and it never downgrades (the
+anti-downgrade guard in `lib/whop-sync.ts`). Likely shape: forward
+`?checkout=success` from `/dashboard` to `/today` (or point Whop's return URL
+there) and soften the "Whop doesn't show a membership yet" banner for the
+seconds before the webhook lands. Background as found:
 
 Whop's checkout returns to `/dashboard?checkout=success`. Since the redesign,
 `/dashboard` redirected to `/today` WITHOUT the query, so `CheckoutSync`
@@ -525,7 +545,17 @@ it catches the realistic regressions; review catches the rest.
 
 ## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
-**MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
+**DECIDED by Niran 2026-11-21 — build after the developer review** (DECISIONS
+2026-11-21): a player may approve only the FIRST parent of a family; once an
+approved parent exists, only an approved parent can approve another parent.
+Settings → Family shows who approved whom (needs an `approved_by` on
+`parent_accounts`). Accepted residual risk: a player can still create a fake
+*first* parent; the "approved by" line makes that visible to the family.
+Implementation: one migration changing `approve_family_join` (033's pattern:
+the approver's own `profiles.role` + approved membership), a guard test, and
+the roster line.
+
+**MEDIUM, open until built.** 050 makes the budget parent-only, but "parent" is a role
 chosen at sign-up and any approved member may approve a join
 (`approve_family_join`, 026/045; a player approver needs no email proof). So
 a sibling player can create a second account as a parent, request to join,
