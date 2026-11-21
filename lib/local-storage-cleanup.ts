@@ -15,6 +15,9 @@
 //     design key the pre-paint head script in app/layout.tsx still reads to
 //     resolve it — clearing that one could flip a Match-system browser to a
 //     fixed mode on the next load;
+//   - the collapsed/expanded sidebar ("seeded.sidebar.collapsed"), a layout
+//     preference of this browser like the theme (the head script reads it
+//     before paint too);
 //   - "seeded.internal", which keeps our own browsers out of analytics.
 //
 // The Supabase session itself (sb-*-auth-token) is not ours to clear; its own
@@ -26,6 +29,7 @@ import {
   SYSTEM_SYNC_STORAGE_KEY,
 } from "@/lib/appearance";
 import { GA_INTERNAL_FLAG_KEY } from "@/lib/ga-privacy";
+import { SIDEBAR_COLLAPSED_STORAGE_KEY } from "@/lib/context/sidebar-context";
 
 export const SEEDED_STORAGE_PREFIX = "seeded.";
 
@@ -33,6 +37,7 @@ export const PRESERVED_ON_SIGN_OUT: readonly string[] = [
   SEEDED_MODE_STORAGE_KEY,
   SYSTEM_SYNC_STORAGE_KEY,
   RETIRED_DESIGN_STORAGE_KEY,
+  SIDEBAR_COLLAPSED_STORAGE_KEY,
   GA_INTERNAL_FLAG_KEY,
 ];
 

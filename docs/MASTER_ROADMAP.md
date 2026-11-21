@@ -56,6 +56,18 @@ homepage calculator still puts its answers in the `/onboarding?utr=…` URL —
 the code sets path-only `page_location`/`page_referrer` before every
 page_view, which covers only what gtag builds from set values. Owner step
 below; taking the answers out of the URL is a follow-up.
+**Round 2 (verifier):** the per-user key had regressed Google sign-up
+(userId left null after `/auth/complete`, so no consent-pending screen for an
+under-13 and every star refused "still loading"). Fixed: `beginSession()`
+records the session's id, `hydrate()` keeps a live session's id when there
+is no profile row yet, and a signed-in tab with no id looks it up (retries).
+The identity rules and the `onAuthStateChange` decision are pure
+(`lib/session-identity.ts`, guard `lib/session-identity.test.ts`); only a
+sign-out elsewhere clears storage. Settings → Family refreshes the consent
+cache by matcher after leaving (the bare key matched nothing). A live
+session not yet signed in counts as unknown for GA; `page_referrer` is
+always sent (empty when unusable); the sidebar-collapsed preference
+survives sign-out like the theme.
 
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`

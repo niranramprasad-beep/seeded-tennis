@@ -588,6 +588,23 @@ export async function signOut(): Promise<void> {
   if (supa) await supa.auth.signOut();
 }
 
+/** The id of the auth session in this browser, or null. Local first
+ * (getSession), then the verified user. Used only to KEY per-account caches
+ * (the consent answer), never to authorise anything. Never throws. */
+export async function getSessionUserId(): Promise<string | null> {
+  const supa = getSupabase();
+  if (!supa) return null;
+  try {
+    const { data } = await supa.auth.getSession();
+    const local = data.session?.user?.id ?? null;
+    if (local) return local;
+    const { data: userData } = await getAuthedUser(supa);
+    return userData.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Sends a password-reset email with a link back to /reset-password.
 export async function requestPasswordReset(email: string): Promise<AuthResult> {
   const supa = getSupabase();
@@ -817,7 +834,10 @@ export async function getCurrentPlayer(): Promise<Player | null> {
 
 export type SessionState =
   | { status: "authed"; player: Player; userId: string }
-  | { status: "signed-out" }
+  /** `sessionUserId` is set when there IS a live auth session but no
+   * profile row yet (a Google sign-up on /auth/complete): not signed in to
+   * the app, but whose session it is must not be forgotten. */
+  | { status: "signed-out"; sessionUserId?: string | null }
   | { status: "error"; message: string };
 
 // Used on app load to restore a session. Unlike getCurrentPlayer(), this
@@ -867,7 +887,7 @@ export async function getSessionState(): Promise<SessionState> {
       earlyProfile && verifiedId === localUserId
         ? await earlyProfile
         : await fetchOwnProfileRow(supa, verifiedId);
-    if (!profile) return { status: "signed-out" };
+    if (!profile) return { status: "signed-out", sessionUserId: verifiedId };
     return {
       status: "authed",
       player: playerFromOwnProfile(supa, userData.user, profile),

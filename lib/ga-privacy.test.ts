@@ -93,9 +93,17 @@ describe("GA receives a path and nothing after it", () => {
   it("page_referrer is origin + path, or nothing", () => {
     expect(gaReferrer("https://www.google.com/search?q=my+utr+is+9")).toBe("https://www.google.com/search");
     expect(gaReferrer(`${ORIGIN}/?utr=9.5&gender=girls#top`)).toBe(`${ORIGIN}/`);
-    expect(gaReferrer("")).toBeUndefined();
-    expect(gaReferrer("not a url")).toBeUndefined();
-    expect(gaReferrer("android-app://com.google/?q=1")).toBeUndefined();
+    // No usable referrer is an explicit "" — always sent, so gtag never
+    // falls back to the raw document.referrer.
+    expect(gaReferrer("")).toBe("");
+    expect(gaReferrer(null)).toBe("");
+    expect(gaReferrer("not a url")).toBe("");
+    expect(gaReferrer("android-app://com.google/?q=1")).toBe("");
+    expect(gaPageViewParams(ORIGIN, "/x", "android-app://com.google/?q=1")).toHaveProperty("page_referrer", "");
+    expect(gaConfigParams(`${ORIGIN}/x`, "")).toHaveProperty("page_referrer", "");
+    // A raw referrer passed straight in is still stripped.
+    expect(gaPageViewParams(ORIGIN, "/x", `${ORIGIN}/?utr=9#h`).page_referrer).toBe(`${ORIGIN}/`);
+    expect(gaConfigParams(`${ORIGIN}/x`, `${ORIGIN}/?utr=9#h`).page_referrer).toBe(`${ORIGIN}/`);
   });
 
   it("the gtag config never sends its own page_view and never falls back to document.location", () => {
@@ -155,7 +163,9 @@ describe("never for an account that needed a parent's consent, never before we k
     expect(gaAccountState({ ...facts, hydrated: false })).toEqual({ kind: "unknown" });
     expect(gaAccountState({ ...facts, hydrated: false, isAuthed: false })).toEqual({ kind: "unknown" });
     expect(gaAccountState({ ...facts, connectionError: "down", isAuthed: false })).toEqual({ kind: "unknown" });
-    expect(gaAccountState({ ...facts, isAuthed: false })).toEqual({ kind: "signed-out" });
+    expect(gaAccountState({ ...facts, isAuthed: false, userId: null })).toEqual({ kind: "signed-out" });
+    // A live session the app has not signed in yet (Google sign-up mid-way): wait.
+    expect(gaAccountState({ ...facts, isAuthed: false, userId: "u1" })).toEqual({ kind: "unknown" });
     for (const f of [
       { ...facts, userId: null },
       { ...facts, consent: undefined },

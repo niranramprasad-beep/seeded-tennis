@@ -67,6 +67,9 @@ export interface GaSessionFacts {
  * or a signed-in account with no consent answer — both a no. */
 export function gaAccountState(f: GaSessionFacts): GaAccountState {
   if (!f.hydrated || f.connectionError) return { kind: "unknown" };
+  // A live session the app has not signed in yet (no profile row: a Google
+  // sign-up mid-way) is not a signed-out visitor. Wait.
+  if (!f.isAuthed && f.userId) return { kind: "unknown" };
   if (!f.isAuthed) return { kind: "signed-out" };
   if (!f.userId) return { kind: "signed-in", consentStatus: undefined };
   if (f.consentError) return { kind: "signed-in", consentStatus: "unknown" };
@@ -128,15 +131,17 @@ export function gaPageLocation(origin: string, pathname: string): string {
 }
 
 /** page_referrer: origin + path of the referring page, query and hash
- * dropped. Undefined when there is none or it does not parse. */
-export function gaReferrer(referrer: string | null | undefined): string | undefined {
-  if (!referrer) return undefined;
+ * dropped. "" when there is none, it does not parse, or it is not http(s) —
+ * an explicit empty value, always sent, so gtag never falls back to the raw
+ * document.referrer. */
+export function gaReferrer(referrer: string | null | undefined): string {
+  if (!referrer) return "";
   try {
     const url = new URL(referrer);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
     return `${url.origin}${gaPagePath(url.pathname)}`;
   } catch {
-    return undefined;
+    return "";
   }
 }
 
@@ -193,22 +198,22 @@ export function syncInternalFlag(search: string, storage: FlagStorage | null): b
  * the component sends each page_view itself, with a stripped location;
  * page_location/page_referrer are set here so nothing gtag sends on its own
  * falls back to document.location (which carries the query). */
-export function gaConfigParams(location: string, referrer: string | undefined) {
+export function gaConfigParams(location: string, referrer: string) {
   return {
     send_page_view: false,
     page_location: location,
-    ...(referrer ? { page_referrer: referrer } : {}),
+    page_referrer: gaReferrer(referrer),
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
   };
 }
 
 /** The page_view event's params. Path only, by construction. */
-export function gaPageViewParams(origin: string, pathname: string, referrer: string | undefined) {
+export function gaPageViewParams(origin: string, pathname: string, referrer: string) {
   const page_path = gaPagePath(pathname);
   return {
     page_path,
     page_location: gaPageLocation(origin, page_path),
-    ...(referrer ? { page_referrer: referrer } : {}),
+    page_referrer: gaReferrer(referrer),
   };
 }

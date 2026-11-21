@@ -15,8 +15,16 @@ import { emptyPlayer } from "@/lib/data/user";
 import {
   getSessionState,
   saveCurrentPlayer,
+  getSessionUserId,
   signOut as signOutOfSupabase,
 } from "@/lib/auth";
+import {
+  USER_ID_LOOKUP_DELAY_MS,
+  USER_ID_LOOKUP_RETRIES,
+  authEventAction,
+  needsUserIdLookup,
+  nextUserId,
+} from "@/lib/session-identity";
 import { createUtrEntry } from "@/lib/db/plan";
 import { localDateKey } from "@/lib/time";
 import { hasRealUtr } from "@/lib/utils";
@@ -91,13 +99,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (state.status === "authed") {
       setPlayer(state.player);
       setIsAuthed(true);
-      setUserId(state.userId);
+      setUserId((cur) => nextUserId(cur, { type: "hydrate-authed", userId: state.userId }));
       setConnectionError(null);
       rememberRole(state.player.role === "parent" ? "parent" : "player");
     } else if (state.status === "signed-out") {
       setPlayer(emptyPlayer);
       setIsAuthed(false);
-      setUserId(null);
+      // A live session with no profile row yet (Google sign-up, before
+      // /auth/complete calls beginSession) keeps its id.
+      setUserId((cur) =>
+        nextUserId(cur, { type: "hydrate-signed-out", sessionUserId: state.sessionUserId ?? null })
+      );
       setConnectionError(null);
       rememberRole(null);
     } else {
@@ -111,39 +123,59 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [hydrate]);
 
   // Identity changes, in this tab or another (supabase-js relays sign-in and
-  // sign-out across tabs). Same tab: sign-in pages call beginSession() with
-  // the player, and this only records whose session it is. Another tab:
-  // signing out there signs this tab out (no stale account left on screen
-  // or in caches), and a DIFFERENT account signing in re-hydrates. A token
-  // refresh or the same user again changes nothing.
+  // sign-out across tabs). What each event means is authEventAction()
+  // (lib/session-identity.ts, tested): a sign-out elsewhere signs this tab
+  // out and clears its storage; a DIFFERENT account signing in re-hydrates;
+  // everything else changes nothing.
   useEffect(() => {
     const supa = getSupabase();
     if (!supa) return;
     const { data } = supa.auth.onAuthStateChange((event, session) => {
-      const nextId = session?.user?.id ?? null;
-      if (event === "SIGNED_OUT") {
-        if (userIdRef.current !== null) {
-          setIsAuthed(false);
-          setPlayer(emptyPlayer);
-          setUserId(null);
-          rememberRole(null);
-          // localStorage was cleared by the tab that signed out; this tab's
-          // sessionStorage is its own.
-          clearSeededBrowserStorage();
-          void mutate(isMyConsentStateKey, undefined, { revalidate: false });
-        }
+      const sessionUserId = session?.user?.id ?? null;
+      const action = authEventAction(event, sessionUserId, userIdRef.current);
+      if (action === "none") return;
+      setUserId(nextUserId(userIdRef.current, { type: "auth-event", event, sessionUserId }));
+      void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+      if (action === "signOutLocal") {
+        setIsAuthed(false);
+        setPlayer(emptyPlayer);
+        rememberRole(null);
+        // localStorage was cleared by the tab that signed out; this tab's
+        // sessionStorage is its own.
+        clearSeededBrowserStorage();
         return;
       }
-      if (!nextId || nextId === userIdRef.current) return;
-      const previous = userIdRef.current;
-      setUserId(nextId);
-      if (previous !== null) {
-        void mutate(isMyConsentStateKey, undefined, { revalidate: false });
-        void hydrate();
-      }
+      void hydrate();
     });
     return () => data.subscription.unsubscribe();
   }, [hydrate]);
+
+  // Signed in but whose session is not known yet (beginSession's lookup has
+  // not landed, or failed): look it up, retrying a few times, so AuthGate
+  // and the star hook — which wait on a per-user consent key — never stay
+  // stuck.
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  useEffect(() => {
+    if (!needsUserIdLookup(isAuthed, userId)) {
+      if (lookupAttempt !== 0) setLookupAttempt(0);
+      return;
+    }
+    if (lookupAttempt >= USER_ID_LOOKUP_RETRIES) return;
+    let cancelled = false;
+    const timer = setTimeout(
+      async () => {
+        const sessionUserId = await getSessionUserId();
+        if (cancelled) return;
+        if (sessionUserId) setUserId((cur) => nextUserId(cur, { type: "session-lookup", sessionUserId }));
+        else setLookupAttempt((n) => n + 1);
+      },
+      lookupAttempt === 0 ? 0 : USER_ID_LOOKUP_DELAY_MS
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isAuthed, userId, lookupAttempt]);
 
   // Every path that signs someone in (hydrate, sign-in's beginSession,
   // onboarding) lands here, so the role is stored before the next full load
@@ -170,6 +202,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const beginSession = useCallback((next: Player) => {
     setPlayer(next);
     setIsAuthed(true);
+    // Record whose session this is (it may be a different account from the
+    // one this tab last showed). Until it lands, the fallback lookup above
+    // covers it.
+    void getSessionUserId().then((sessionUserId) =>
+      setUserId((cur) => nextUserId(cur, { type: "session-lookup", sessionUserId }))
+    );
   }, []);
 
   const completeOnboarding = useCallback((next: Player) => {

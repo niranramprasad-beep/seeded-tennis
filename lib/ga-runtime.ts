@@ -98,11 +98,11 @@ export class GaRuntime {
   }
 
   /** The raw referrer, reduced to origin + path before anything sees it. */
-  private safeDocumentReferrer(): string | undefined {
+  private safeDocumentReferrer(): string {
     try {
       return gaReferrer(this.win.document.referrer);
     } catch {
-      return undefined;
+      return "";
     }
   }
 
@@ -168,7 +168,7 @@ export class GaRuntime {
     const params = gaPageViewParams(origin, pathname, referrer);
     this.win.gtag("set", {
       page_location: params.page_location,
-      ...(params.page_referrer ? { page_referrer: params.page_referrer } : {}),
+      page_referrer: params.page_referrer,
     });
     this.win.gtag("event", "page_view", params);
     this.lastLocation = params.page_location;

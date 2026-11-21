@@ -28,7 +28,7 @@ function fakeStorage(init: Record<string, string>) {
 }
 
 describe("clearSeededLocalStorage", () => {
-  it("removes every seeded.* key except the theme and the internal flag", () => {
+  it("removes every seeded.* key except the browser preferences and the internal flag", () => {
     const s = fakeStorage({
       "seeded.mode": "dark",
       "seeded.mode.system": "0",
@@ -59,18 +59,17 @@ describe("clearSeededLocalStorage", () => {
         "seeded.verify.return",
         "seeded.browseGender",
         "seeded.demo-tier",
-        "seeded.sidebar.collapsed",
         "seeded.theme",
       ].sort()
     );
     expect(Array.from(s.data.keys()).sort()).toEqual(
-      ["seeded.mode", "seeded.mode.system", "seeded.design", "seeded.internal", "sb-abc-auth-token", "unrelated", "seededfoo"].sort()
+      ["seeded.mode", "seeded.mode.system", "seeded.design", "seeded.internal", "seeded.sidebar.collapsed", "sb-abc-auth-token", "unrelated", "seededfoo"].sort()
     );
   });
 
-  it("preserves exactly the theme keys and the internal flag", () => {
+  it("preserves exactly the theme keys, the sidebar preference and the internal flag", () => {
     expect([...PRESERVED_ON_SIGN_OUT].sort()).toEqual(
-      ["seeded.design", "seeded.internal", "seeded.mode", "seeded.mode.system"].sort()
+      ["seeded.design", "seeded.internal", "seeded.mode", "seeded.mode.system", "seeded.sidebar.collapsed"].sort()
     );
   });
 
@@ -115,10 +114,14 @@ describe("sessionStorage too (A-033 follow-up)", () => {
   it("a sign-out in another tab clears this tab too", () => {
     const src = codeOnly(join(ROOT, "lib/context/player-context.tsx"));
     const listener = src.slice(src.indexOf("onAuthStateChange("), src.indexOf("data.subscription.unsubscribe()"));
-    const signedOut = listener.slice(listener.indexOf('if (event === "SIGNED_OUT")'), listener.indexOf("return;"));
+    // The decision is authEventAction() (lib/session-identity.test.ts); the
+    // listener must stop on "none" and clear storage only on signOutLocal.
+    expect(listener).toMatch(/const action = authEventAction\(event, sessionUserId, userIdRef\.current\);\s*if \(action === "none"\) return;/);
+    const signedOut = listener.slice(listener.indexOf('if (action === "signOutLocal") {'), listener.indexOf("return;", listener.indexOf('if (action === "signOutLocal") {')));
     expect(signedOut).toMatch(/clearSeededBrowserStorage\(\)/);
-    expect(signedOut).toMatch(/setUserId\(null\)/);
-    expect(signedOut).toMatch(/mutate\(isMyConsentStateKey/);
+    expect(listener.match(/clearSeededBrowserStorage\(\)/g)).toHaveLength(1);
+    expect(listener).toMatch(/setUserId\(nextUserId\(userIdRef\.current, \{ type: "auth-event", event, sessionUserId \}\)\)/);
+    expect(listener).toMatch(/mutate\(isMyConsentStateKey/);
   });
 });
 
