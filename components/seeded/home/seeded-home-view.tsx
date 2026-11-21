@@ -6,7 +6,7 @@ import { onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator"
 import { ChevronDown } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
-import { buildFitReport } from "@/lib/fit";
+import { buildFitReport, isUsableUtr } from "@/lib/fit";
 import { heroFitCta } from "@/lib/fit-copy";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
@@ -168,7 +168,9 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   const report = useMemo(
     () =>
       buildFitReport({
-        currentUtr: utrNum > 0 ? utrNum : null,
+        // Only a rating Postgres would accept (1–16.5): "25" is not a UTR,
+        // and the card says so (heroFitCta) instead of counting it.
+        currentUtr: isUsableUtr(utrNum) ? utrNum : null,
         graduationYear: gradYear,
         gender: gender === "women" ? "female" : "male",
         schools: filtered,
@@ -178,9 +180,19 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   );
   // The tiles and the button come from one pure function (lib/fit-copy.ts):
   // never "0 / 0 / 0", never "See my — schools", and the button's number is
-  // Target + Likely, the count it names (A-001, A-002).
-  const cta = heroFitCta({ counts: report?.counts, utr: utrNum, schools: filtered });
-  const counts = report?.counts;
+  // Target + Likely, the count it names (A-001, A-002). TODAY's counts, like
+  // the fit report the button opens (A-006); the summer estimate is a
+  // separate, labelled line, shown only when it is higher.
+  const cta = heroFitCta({
+    counts: report?.todayCounts,
+    projected: report?.utr.isProjected
+      ? { inRange: report.recruitingInRange, year: report.utr.year }
+      : null,
+    utr: utrNum,
+    schools: filtered,
+    programLabel: gender === "women" ? "women's" : "men's",
+  });
+  const counts = report?.todayCounts;
 
   const query = onboardingQueryFor({ utr, gradYear: String(gradYear), gender, gpa }, touched);
 
@@ -320,6 +332,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       ) : cta.kind === "no-utr" ? (
         <p className="mt-5 text-sm text-stone">{cta.note}</p>
       ) : null}
+      {cta.projectedNote && <p className="mt-2 text-xs text-stone">{cta.projectedNote}</p>}
       {cta.kind === "zero" ? (
         <div className="mt-4 text-sm text-ink">
           <p className="m-0">{cta.sentence}</p>

@@ -246,6 +246,33 @@ export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
  */
 export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} UTR a year. That's our planning rule, not a measured average.`;
 
+/** The same words after a colon — "We plan with 8.10 instead: we plan with at
+ * most 1.5 UTR a year. …" — so a sentence that already began "We plan with"
+ * does not repeat it as a second sentence. */
+export const PLANNING_RULE_CLAUSE = PLANNING_RULE_SENTENCE.charAt(0).toLowerCase() + PLANNING_RULE_SENTENCE.slice(1);
+
+/**
+ * How close to the planning cap a required pace may sit and still be called
+ * "a stretch" rather than more than the plan allows: |required − cap| ≤ this,
+ * UTR a year (A-022, 2026-11-21). 1.45–1.55 is the stretch band. The goal
+ * banner (lib/fit.ts planGoalPaceSeverity) and the next-band message both use
+ * paceIsStretch, so the two say the same thing about the same pace.
+ */
+export const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
+
+/** "a stretch: right at our 1.5-a-year planning limit" */
+export const PACE_STRETCH_PHRASE = `a stretch: right at our ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}-a-year planning limit`;
+
+/** True when a required pace is within PACE_STRETCH_MARGIN_PER_YEAR of the
+ * cap. Compared in hundredths: paces are rounded to two decimals, and
+ * 1.55 − 1.5 is not ≤ 0.05 in floating point. */
+export function paceIsStretch(requiredPerYear: number): boolean {
+  const req = Math.round(requiredPerYear * 100);
+  const cap = Math.round(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max * 100);
+  const margin = Math.round(PACE_STRETCH_MARGIN_PER_YEAR * 100);
+  return Math.abs(req - cap) <= margin;
+}
+
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
 export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
@@ -400,12 +427,14 @@ function computeNextBandChange(
   const paceRead = paceReadFor(requiredPaceUtrPerYear);
   // Compared with OUR planning rule, never with what "most players" do —
   // Seeded has no data on that (A-008).
-  const readPhrase =
-    paceRead === "faster-than-realistic"
-      ? "more than we plan with"
+  // Same stretch band and words as the goal banner (1.45–1.55 a year).
+  const readPhrase = paceIsStretch(requiredPaceUtrPerYear)
+    ? PACE_STRETCH_PHRASE
+    : paceRead === "faster-than-realistic"
+      ? "more than our planning limit"
       : paceRead === "slower-than-realistic"
-        ? "well within what we plan with — there's room"
-        : "within what we plan with";
+        ? "well within our planning limit — there's room"
+        : "within our planning limit";
 
   return {
     targetBand,

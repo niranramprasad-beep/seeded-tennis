@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  PACE_STRETCH_NOTE,
   PLANNING_PACE_CAP_PER_YEAR,
   PLANNING_RULE_SENTENCE,
   buildFitReport,
@@ -9,19 +10,27 @@ import {
   type RecruitingTimeUtr,
 } from "./fit";
 import {
+  UTR_RANGE_NOTE,
   closestProgramAbove,
   fitReportHeadline,
+  formatUtrDistance,
+  headlinePaceSource,
   heroFitCta,
   inRangeButtonLabel,
   nothingInRangeSentence,
   teamLineRelation,
 } from "./fit-copy";
+import { PACE_STRETCH_PHRASE, bandPositionLabel, explainSchoolFit, paceIsStretch } from "./school-fit";
+import { DEFAULT_GROWTH_LABEL, growthAssumptionLabel } from "./config/growth";
+import { realisticPaceProjectionFor } from "./what-if-utr";
+import { getSchoolsLite } from "./db/schools";
 import { codeOnly, readableSource } from "./testing/source-text";
 import type { SchoolLite } from "./types";
 
 // The honest zero state (owner's audit, 2026-11-21): A-001, A-002, A-006,
-// A-007, A-008. The copy builders live in lib/fit-copy.ts as pure functions
-// so this file reads exactly what a screen prints.
+// A-007, A-008, A-022, plus the independent verifier's follow-ups the same
+// day. The copy builders live in lib/fit-copy.ts as pure functions so this
+// file reads exactly what a screen prints.
 
 function school(slug: string, floor: number, avg: number, shortName = slug): SchoolLite {
   return {
@@ -91,9 +100,18 @@ describe("nothingInRangeSentence", () => {
     ).toBe("None of our 24 programs are in range at 9.40 yet. Closest: Florida, about +1.1 away (estimate).");
   });
 
-  it("never prints '+0.0'", () => {
+  it("names the gender when the list is one gender's programs", () => {
+    expect(
+      nothingInRangeSentence({ programCount: 31, programLabel: "women's", utr: 5, closest: { slug: "m", name: "Middlebury", gap: 3.1 } })
+    ).toBe("None of our 31 women's programs are in range at 5.00 yet. Closest: Middlebury, about +3.1 away (estimate).");
+    expect(nothingInRangeSentence({ programCount: 37, programLabel: "men's", utr: 5, closest: null })).toBe(
+      "None of our 37 men's programs are in range at 5.00 yet."
+    );
+  });
+
+  it("a small gap keeps two decimals — never '+0.0'", () => {
     expect(nothingInRangeSentence({ programCount: 24, utr: 9.97, closest: { slug: "f", name: "Florida", gap: 0.03 } })).toBe(
-      "None of our 24 programs are in range at 9.97 yet. Closest: Florida, less than 0.1 away (estimate)."
+      "None of our 24 programs are in range at 9.97 yet. Closest: Florida, about +0.03 away (estimate)."
     );
   });
 
@@ -111,7 +129,7 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
     for (let r = 0; r <= 3; r++)
       for (let t = 0; t <= 3; t++)
         for (let l = 0; l <= 3; l++)
-          for (const utr of [9.4, 0, null]) {
+          for (const utr of [9.4, 0, null, 25]) {
             const cta = heroFitCta({ counts: counts(r, t, l), utr, schools: catalog });
             if (cta.showCounts) expect(r + t + l, "tiles shown with 0 / 0 / 0").toBeGreaterThan(0);
             const text = cta.kind === "zero" ? cta.sentence : cta.label;
@@ -128,6 +146,7 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
       kind: "button",
       showCounts: true,
       label: "See my 3 Target and Likely schools",
+      projectedNote: null,
     });
   });
 
@@ -140,11 +159,12 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
   });
 
   it("all zero: no tiles, the zero sentence and 'See all programs' to /schools", () => {
-    expect(heroFitCta({ counts: counts(0, 0, 0, 2), utr: 9.4, schools: catalog })).toEqual({
+    expect(heroFitCta({ counts: counts(0, 0, 0, 2), utr: 9.4, schools: catalog, programLabel: "women's" })).toEqual({
       kind: "zero",
       showCounts: false,
-      sentence: "None of our 2 programs are in range at 9.40 yet. Closest: Florida, about +0.8 away (estimate).",
+      sentence: "None of our 2 women's programs are in range at 9.40 yet. Closest: Florida, about +0.8 away (estimate).",
       link: { label: "See all programs", href: "/schools" },
+      projectedNote: null,
     });
   });
 
@@ -161,19 +181,64 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
         showCounts: false,
         label: "See my schools",
         note: "Add a UTR to see your counts.",
+        projectedNote: null,
       });
     }
     expect(heroFitCta({ counts: null, utr: 9.4, schools: catalog }).kind).toBe("no-utr");
   });
+
+  it("a number that is not a UTR (above 16.5, below 1) says what a UTR is, not 'Add a UTR'", () => {
+    for (const utr of [25, 16.51, 0.5]) {
+      const cta = heroFitCta({ counts: counts(0, 3, 5), utr, schools: catalog });
+      expect(cta).toMatchObject({ kind: "no-utr", showCounts: false, note: UTR_RANGE_NOTE });
+    }
+    expect(UTR_RANGE_NOTE).toBe("UTRs run from 1.00 to 16.50. Enter one in that range to see your counts.");
+    expect(heroFitCta({ counts: counts(0, 3, 5), utr: 16.5, schools: catalog }).kind).toBe("button");
+  });
+
+  it("today's count on the button; the summer estimate is a separate, labelled line only when higher", () => {
+    expect(
+      heroFitCta({ counts: counts(1, 2, 0), projected: { inRange: 8, year: 2028 }, utr: 9.4, schools: catalog })
+    ).toMatchObject({ label: "See my 2 Target and Likely schools", projectedNote: "By summer 2028, est.: 8 Target and Likely." });
+    expect(heroFitCta({ counts: counts(1, 2, 0), projected: { inRange: 2, year: 2028 }, utr: 9.4, schools: catalog }).projectedNote).toBeNull();
+    const zero = heroFitCta({ counts: counts(3, 0, 0), projected: { inRange: 8, year: 2028 }, utr: 7.5, schools: catalog });
+    expect(zero.kind).toBe("zero");
+    expect(zero.projectedNote).toBe("By summer 2028, est.: 8 Target and Likely.");
+  });
+
+  it("the verifier's case: a 7.5 Class of 2029 player is not told 'See my 8' while today 0 are in range", async () => {
+    const NOW = new Date(2026, 10, 21, 12);
+    const women = (await getSchoolsLite()).filter((s) => s.gender === "women");
+    for (const utr of [7.5, 8, 9.4]) {
+      const projectionInput = realisticPaceProjectionFor({ currentUTR: utr, graduationYear: 2029, gender: "female", now: NOW });
+      const report = buildFitReport({ currentUtr: utr, graduationYear: 2029, gender: "female", schools: women, projectionInput, now: NOW })!;
+      const cta = heroFitCta({
+        counts: report.todayCounts,
+        projected: { inRange: report.recruitingInRange, year: report.utr.year },
+        utr,
+        schools: women,
+        programLabel: "women's",
+      });
+      if (report.todayInRange === 0) expect(cta.kind).toBe("zero");
+      else expect(cta).toMatchObject({ kind: "button", label: inRangeButtonLabel(report.todayInRange) });
+      if (report.recruitingInRange > report.todayInRange) {
+        expect(cta.projectedNote).toBe(`By summer ${report.utr.year}, est.: ${report.recruitingInRange} Target and Likely.`);
+      }
+    }
+  });
 });
 
 describe("the screens render through these functions", () => {
-  it("the homepage card: tiles and button from heroFitCta, no hand-built count text", () => {
+  it("the homepage card: TODAY's counts through heroFitCta, no hand-built count text", () => {
     const f = "components/seeded/home/seeded-home-view.tsx";
     const src = codeOnly(f);
-    expect(src).toMatch(/heroFitCta\(\{ counts: report\?\.counts, utr: utrNum, schools: filtered \}\)/);
+    expect(src).toMatch(/heroFitCta\(\{\s*counts: report\?\.todayCounts,/);
+    expect(src).toMatch(/inRange: report\.recruitingInRange, year: report\.utr\.year/);
+    expect(src).toMatch(/const counts = report\?\.todayCounts;/);
+    expect(src).toMatch(/\{cta\.projectedNote\}/);
     expect(src).toMatch(/cta\.showCounts && counts \?/);
     expect(src).toMatch(/\{cta\.label\}/);
+    expect(src).toMatch(/currentUtr: isUsableUtr\(utrNum\) \? utrNum : null/);
     expect(src).not.toMatch(/See my \{/);
     // The tiles are only reachable behind cta.showCounts.
     const tiles = src.indexOf("<CountTile value={counts.reach}");
@@ -187,6 +252,7 @@ describe("the screens render through these functions", () => {
     expect(src).toMatch(/nothingInRangeSentence\(\{/);
     expect(src).toMatch(/closestProgramAbove\(today, filtered\)/);
     expect(src).toMatch(/programCount: filtered\.length/);
+    expect(src).toMatch(/programLabel: GENDER_LABEL\[gender\]\.toLowerCase\(\)/);
   });
 
   it("the home subhead and meta description name our estimated range and a counted N", () => {
@@ -201,69 +267,141 @@ describe("the screens render through these functions", () => {
   });
 });
 
-describe("fitReportHeadline — today first (A-006)", () => {
+describe("fitReportHeadline — today first (A-006), and says where the pace came from", () => {
   // Fixed date: Class of 2029's summer before senior year is June 1 2028.
   const NOW = new Date(2026, 10, 21, 12);
+  const YEAR_AGO = new Date(2025, 10, 21, 12);
   const catalog = [
     school("in-today", 8.5, 9.0), // Likely today
     school("by-summer", 10.0, 11.5), // below the floor today, Target at the projection
     school("never", 13.0, 14.0), // out of reach
   ];
-  const build = (currentUtr: number, graduationYear = 2029) =>
-    buildFitReport({ currentUtr, graduationYear, gender: "female", schools: catalog, now: NOW })!;
+  const build = (currentUtr: number, graduationYear = 2029, yearAgoUtr?: number) =>
+    buildFitReport({
+      currentUtr,
+      graduationYear,
+      gender: "female",
+      schools: catalog,
+      now: NOW,
+      projectionInput: yearAgoUtr
+        ? { utrHistory: [{ date: YEAR_AGO, utr: yearAgoUtr }], graduationYear, gender: "female", now: NOW }
+        : undefined,
+    })!;
 
-  it("counts today, then the planning pace and the projected count the bands use", () => {
+  it("no logged pace: '(our default assumption)'", () => {
     const report = build(9.4);
+    expect(report.utr.source).toBe("typical-growth");
     expect(report.todayInRange).toBe(1);
     expect(report.recruitingInRange).toBe(2);
     expect(report.utr.planningPacePerYear).toBe(1);
     expect(fitReportHeadline(report, "player")).toBe(
-      "Today, 1 program is in range. If you gain about 1.00 UTR a year (our assumption), that could be 2 by summer 2028."
+      "Today, 1 program is in range. If you gain about 1.00 UTR a year (our default assumption), that could be 2 by summer 2028."
     );
     expect(fitReportHeadline(report, "parent")).toBe(
-      "Today, 1 program is in range. If your player gains about 1.00 UTR a year (our assumption), that could be 2 by summer 2028."
+      "Today, 1 program is in range. If your player gains about 1.00 UTR a year (our default assumption), that could be 2 by summer 2028."
     );
   });
 
-  it("the pace is the capped planning pace, never the player's own faster one", () => {
-    const fake = {
-      todayInRange: 0,
-      recruitingInRange: 3,
-      utr: { isProjected: true, planningPacePerYear: PLANNING_PACE_CAP_PER_YEAR, year: 2028, pace: { perYear: 2.4 } },
-    } as unknown as Parameters<typeof fitReportHeadline>[0];
-    expect(fitReportHeadline(fake, "player")).toBe(
-      "Today, 0 programs are in range. If you gain about 1.50 UTR a year (our assumption), that could be 3 by summer 2028."
+  it("their own logged pace under the cap: '(your pace so far)'", () => {
+    const report = build(9.4, 2029, 8.2); // +1.20 a year
+    expect(report.utr.source).toBe("logged-pace");
+    expect(report.utr.planningPacePerYear).toBeCloseTo(1.2, 10);
+    expect(headlinePaceSource(report.utr)).toBe("your pace so far");
+    expect(fitReportHeadline(report, "player")).toBe(
+      `Today, 1 program is in range. If you gain about 1.20 UTR a year (your pace so far), that could be ${report.recruitingInRange} by summer 2028.`
     );
+  });
+
+  it("their own pace above the cap, planned at 1.5: '(our planning limit)'", () => {
+    const report = build(9.4, 2029, 7.0); // +2.40 a year, planned at 1.5
+    expect(report.utr.planningPacePerYear).toBe(PLANNING_PACE_CAP_PER_YEAR);
+    expect(headlinePaceSource(report.utr)).toBe("our planning limit");
+    expect(fitReportHeadline(report, "player")).toBe(
+      `Today, 1 program is in range. If you gain about 1.50 UTR a year (our planning limit), that could be ${report.recruitingInRange} by summer 2028.`
+    );
+  });
+
+  it("never says '(our assumption)' about a measured pace", () => {
+    for (const r of [build(9.4), build(9.4, 2029, 8.2), build(9.4, 2029, 7.0)]) {
+      expect(fitReportHeadline(r, "player")).not.toMatch(/\(our assumption\)/);
+    }
   });
 
   it("only today's sentence when nothing is projected, the pace is flat, or the projection is 0 too", () => {
     const summerBegun = build(9.4, 2027); // June 1 2026 has passed
     expect(summerBegun.utr.isProjected).toBe(false);
     expect(fitReportHeadline(summerBegun, "player")).toBe("Today, 1 program is in range.");
-    const base = { todayInRange: 0, recruitingInRange: 0, utr: { isProjected: true, planningPacePerYear: 1, year: 2028 } as RecruitingTimeUtr };
+    const base = { todayInRange: 0, recruitingInRange: 0, utr: { isProjected: true, planningPacePerYear: 1, year: 2028, source: "typical-growth" } as RecruitingTimeUtr };
     expect(fitReportHeadline(base, "player")).toBe("Today, 0 programs are in range.");
     const falling = { ...base, recruitingInRange: 2, utr: { ...base.utr, planningPacePerYear: -0.2 } };
     expect(fitReportHeadline(falling, "player")).toBe("Today, 0 programs are in range.");
   });
 });
 
-describe("teamLineRelation — no signed gaps (A-007)", () => {
-  it("positive gap (line − rating) means the player is BELOW the line", () => {
-    expect(teamLineRelation(0.3, "average")).toBe("0.3 below the team average");
-    expect(teamLineRelation(-0.3, "average")).toBe("0.3 above the team average");
-    expect(teamLineRelation(1.24, "floor")).toBe("1.2 below the team floor");
+describe("teamLineRelation — no signed gaps, and never 'at' when the chip says otherwise (A-007)", () => {
+  it("takes (rating, line): below / above / at", () => {
+    expect(teamLineRelation(9.7, 10.0, "average")).toBe("0.3 below the team average");
+    expect(teamLineRelation(10.3, 10.0, "average")).toBe("0.3 above the team average");
+    expect(teamLineRelation(6.86, 8.1, "floor")).toBe("1.2 below the team floor");
+    expect(teamLineRelation(10, 10, "average")).toBe("at the team average");
   });
 
-  it("equal at the printed precision reads 'at'", () => {
-    expect(teamLineRelation(0, "average")).toBe("at the team average");
-    expect(teamLineRelation(0.04, "average")).toBe("at the team average");
-    expect(teamLineRelation(-0.04, "floor")).toBe("at the team floor");
+  it("the verifier's cases: 8.06 vs a floor of 8.1 and 9.96 vs an average of 10.0 are below, to two decimals", () => {
+    expect(teamLineRelation(8.06, 8.1, "floor")).toBe("0.04 below the team floor");
+    expect(teamLineRelation(9.96, 10.0, "average")).toBe("0.04 below the team average");
+    expect(teamLineRelation(8.14, 8.1, "floor")).toBe("0.04 above the team floor");
+    expect(formatUtrDistance(0.004)).toBe("less than 0.01");
+    expect(formatUtrDistance(0.094)).toBe("0.09");
+    expect(formatUtrDistance(0.15)).toBe("0.1");
   });
 
-  it("agrees with the range bar's sign: average 10.0, player 9.7 → below", () => {
-    const median = 10.0;
-    const you = 9.7;
-    expect(teamLineRelation(median - you, "average")).toBe("0.3 below the team average");
+  it("a drawn average with floating-point noise ((min + max) / 2) is still 'at'", () => {
+    const min = 8.1;
+    const max = 10.0 + (10.0 - 8.1);
+    expect(teamLineRelation(10.0, (min + max) / 2, "average")).toBe("at the team average");
+  });
+
+  it("agrees with the band chip by construction, across every rating 7.90–10.20", () => {
+    // One school: floor 8.1, average 10.0. Class of 2027: the summer has
+    // begun, so the band is judged at today's rating, as the chip is.
+    const s = school("one", 8.1, 10.0);
+    for (let i = 790; i <= 1020; i++) {
+      const utr = i / 100;
+      const report = buildFitReport({ currentUtr: utr, graduationYear: 2027, gender: "female", schools: [s], now: new Date(2026, 10, 21, 12) })!;
+      const band = report.bandBySlug.get("one")!;
+      const chip = bandPositionLabel(band);
+      const floorText = teamLineRelation(utr, s.minCompetitiveUTR, "floor");
+      const avgText = teamLineRelation(utr, s.avgRosterUTR, "average");
+      if (chip === "Below the floor") expect(floorText, `${utr}`).toMatch(/below the team floor$/);
+      else expect(floorText, `${utr}`).not.toMatch(/below/);
+      if (chip === "At or above team average") expect(avgText, `${utr}`).not.toMatch(/below/);
+      else expect(avgText, `${utr}`).toMatch(/below the team average$/);
+      expect(`${floorText} ${avgText}`).not.toMatch(/\b0\.00?\b/);
+    }
+  });
+
+  it("every call site passes (rating, line) — the side is decided in one place", () => {
+    // Each allowed call, exactly. A swapped pair or a hand-computed gap is a
+    // different string and fails here (verifier: flipping the old signed
+    // argument at range-bar.tsx / seeded-school-detail.tsx left every test
+    // green).
+    const ALLOWED: Record<string, string[]> = {
+      "components/seeded/ui/range-bar.tsx": ['teamLineRelation(you!, median!, "average")'],
+      "components/seeded/schools/seeded-school-detail.tsx": [
+        'teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")',
+        'teamLineRelation(judging.value, school.avgRosterUTR, "average")',
+        'teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")',
+        'teamLineRelation(judging.value, school.avgRosterUTR, "average")',
+      ],
+      "components/seeded/schools/seeded-schools-browser.tsx": [
+        'teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")',
+        'teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")',
+      ],
+    };
+    for (const [file, calls] of Object.entries(ALLOWED)) {
+      const found = codeOnly(file).match(/teamLineRelation\([^)]*\)/g) ?? [];
+      expect(found.sort(), file).toEqual([...calls].sort());
+    }
   });
 });
 
@@ -274,9 +412,28 @@ describe("the planning rule replaces the growth claim (A-008)", () => {
     );
   });
 
-  it("the upside sentence keeps the cap statement", () => {
+  it("the upside sentence keeps the cap statement without repeating 'We plan with' as a sentence", () => {
     const s = paceUpsideSentence({ value: 8.1, upside: { value: 8.9, perYear: 2 } } as never);
-    expect(s).toBe(`At your current pace you'd reach 8.90. We plan with 8.10 instead. ${PLANNING_RULE_SENTENCE}`);
-    expect(s).not.toMatch(/most players/i);
+    expect(s).toBe(
+      "At your current pace you'd reach 8.90. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
+    );
+    expect(s).not.toMatch(/most players|\. We plan with at most/i);
+  });
+
+  it("the default growth assumption is ours, not 'typical'", () => {
+    expect(DEFAULT_GROWTH_LABEL).toBe("1.0 UTR a year");
+    expect(growthAssumptionLabel("normal")).toBe("Uses our default assumption of 1.0 UTR a year.");
+  });
+
+  it("the next-band line and the goal banner say 'a stretch' for the same 1.45–1.55 band", () => {
+    expect(PACE_STRETCH_NOTE).toBe(`That's ${PACE_STRETCH_PHRASE}.`);
+    for (const [r, stretch] of [[1.44, false], [1.45, true], [1.5, true], [1.55, true], [1.56, false]] as const) {
+      expect(paceIsStretch(r), String(r)).toBe(stretch);
+    }
+    // 1.52 a year: floor 10.0, player 8.48, one year (June 2025 → June 2026).
+    const ex = explainSchoolFit(8.48, school("s", 10.0, 11.0), { graduationYear: 2027, now: new Date(2025, 5, 1, 12) });
+    expect(ex.nextBand!.requiredPaceUtrPerYear).toBe(1.52);
+    expect(ex.nextBand!.message).toContain(`That needs about 1.52 a year, ${PACE_STRETCH_PHRASE}. ${PLANNING_RULE_SENTENCE}`);
+    expect(ex.nextBand!.message).not.toMatch(/more than our planning limit/);
   });
 });

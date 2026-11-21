@@ -18,8 +18,12 @@ import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { formatPacePerYear, formatPlayerUtr, formatTargetUtr, formatUtrEstimate } from "@/lib/utils";
 import {
+  PACE_STRETCH_MARGIN_PER_YEAR,
+  PACE_STRETCH_PHRASE,
+  PLANNING_RULE_CLAUSE,
   PLANNING_RULE_SENTENCE,
   classifySchoolFit,
+  paceIsStretch,
   fitBasis,
   type ClosestSchoolResult,
   type GoalPace,
@@ -437,12 +441,9 @@ export function resolvePlanGoal(input: {
   return { value: chosen, estimate: est };
 }
 
-/**
- * How close to the planning cap a goal's required pace may sit and still be
- * called "a stretch" rather than warned about: |required − cap| ≤ this, in
- * UTR a year (A-022, 2026-11-21). 1.45–1.55 is the stretch band.
- */
-export const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
+/** The stretch band's half-width, 0.05 a year — defined beside paceIsStretch
+ * in lib/school-fit.ts, re-exported here. */
+export { PACE_STRETCH_MARGIN_PER_YEAR };
 
 export type PlanGoalPaceSeverity = "warning" | "stretch" | null;
 
@@ -464,12 +465,8 @@ export function planGoalPaceSeverity(goal: PlanGoal | null, pace: GoalPace | nul
   if (!goal || !pace) return null;
   if (pace.paceRead === "no-time-left") return "warning";
   if (pace.requiredPaceUtrPerYear == null) return null;
-  const req = Math.round(pace.requiredPaceUtrPerYear * 100);
-  const cap = Math.round(PLANNING_PACE_CAP_PER_YEAR * 100);
-  const margin = Math.round(PACE_STRETCH_MARGIN_PER_YEAR * 100);
-  if (req > cap + margin) return "warning";
-  if (req >= cap - margin) return "stretch";
-  return null;
+  if (paceIsStretch(pace.requiredPaceUtrPerYear)) return "stretch";
+  return Math.round(pace.requiredPaceUtrPerYear * 100) > Math.round(PLANNING_PACE_CAP_PER_YEAR * 100) ? "warning" : null;
 }
 
 /** The red warning only — a goal needing more than the cap plus the stretch
@@ -484,7 +481,7 @@ export function planGoalNeedsPaceWarning(goal: PlanGoal | null, pace: GoalPace |
 export { PLANNING_RULE_SENTENCE };
 
 /** The amber banner's words for a goal in the stretch band (A-022). */
-export const PACE_STRETCH_NOTE = `That's a stretch: right at our ${PLANNING_PACE_CAP_PER_YEAR}-a-year planning limit.`;
+export const PACE_STRETCH_NOTE = `That's ${PACE_STRETCH_PHRASE}.`;
 
 /**
  * Why a goal the player typed can't be saved, or null when it can. A goal is
@@ -678,7 +675,7 @@ export interface PaceUpside {
 export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
   if (!utr?.upside) return null;
   const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
-  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} instead. ${PLANNING_RULE_SENTENCE}`;
+  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} instead: ${PLANNING_RULE_CLAUSE}`;
 }
 
 /* --------------------------------------------------------- logged pace */

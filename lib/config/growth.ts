@@ -59,11 +59,22 @@ export const UTR_GROWTH_PER_YEAR: Record<GrowthPace, number> = {
 /** Shown wherever a projected number appears. Short enough to sit in a chip. */
 export const GROWTH_ESTIMATE_CHIP = "Estimate";
 
-/** The assumption itself, in words, for the caption under a projection. */
+/** "1.0 UTR a year" — the default growth assumption, in words. */
+export const DEFAULT_GROWTH_LABEL = `${UTR_GROWTH_PER_YEAR.normal.toFixed(1)} UTR a year`;
+
+/**
+ * The assumption itself, in words, for the caption under a projection:
+ * "Uses our default assumption of 1.0 UTR a year."
+ *
+ * It said "Assumes typical growth of 1.0 UTR per year." until 2026-11-21:
+ * "typical" reads as a measured population figure, and Seeded has none (see
+ * the banner above). It is OUR default, and says so. lib/copy-honesty.test.ts
+ * fails the build if "typical growth" / "typical pace" returns.
+ */
 export function growthAssumptionLabel(pace: GrowthPace): string {
   const perYear = UTR_GROWTH_PER_YEAR[pace];
-  const name = pace === "normal" ? "typical" : pace;
-  return `Assumes ${name} growth of ${perYear.toFixed(1)} UTR per year.`;
+  if (pace === "normal") return `Uses our default assumption of ${DEFAULT_GROWTH_LABEL}.`;
+  return `Uses a ${pace} assumption of ${perYear.toFixed(1)} UTR a year.`;
 }
 
 /** The sentence the brief asks for, verbatim, in one place so every screen

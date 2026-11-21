@@ -30,7 +30,7 @@ Likely, FitReport.inRange's meaning), and with nothing in range it says
 length; closest = smallest gap from today's UTR to a program's estimated
 floor, programs without a range skipped; nothing without a real UTR). The fit
 report leads with "Today, n programs are in range. If you gain about {pace}
-UTR a year (our assumption), that could be m by summer {year}." (pace =
+UTR a year ({source}), that could be m by summer {year}." (pace =
 report.utr.planningPacePerYear, m = recruitingInRange — no second
 projection). "Most players improve 0.5–1.5 a year" is gone everywhere
 (`PLANNING_RULE_SENTENCE`: "We plan with at most 1.5 UTR a year. That's our
@@ -40,7 +40,17 @@ the cap is an amber "stretch", red only above 1.55; "Gap to team average
 home subhead and meta description name "our estimated range for {N} college
 teams" (counted). Pure builders in `lib/fit-copy.ts`, tested in
 `lib/honest-zero-state.test.ts`; four new `lib/copy-honesty.test.ts` guards,
-each mutation-tested.
+each mutation-tested. **Verifier follow-up (same day):** the card now counts
+TODAY (button and tiles) with a labelled "By summer {year}, est.: N" line only
+when higher, and says "UTRs run from 1.00 to 16.50" for a typed 25; the zero
+sentence names the gender ("31 women's programs"); the headline's parenthesis
+says where the pace came from ("your pace so far" / "our planning limit" /
+"our default assumption"); `teamLineRelation(rating, line, …)` says "at" only
+when equal (8.06 vs 8.1 is "0.04 below the team floor", matching the chip),
+with every call site pinned by a test; "typical growth/pace" is now "our
+default assumption of 1.0 UTR a year" and guarded; the next-band line uses
+the goal banner's "a stretch" wording for 1.45–1.55 (its `unreachable` flag
+is unchanged).
 
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`

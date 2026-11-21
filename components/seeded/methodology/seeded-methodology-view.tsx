@@ -151,7 +151,7 @@ export function SeededMethodologyView() {
                 forward from that rating (the one closest to a year ago, otherwise the one closest to 6 months ago),
                 but never faster than 1.5 UTR a year, capped near the top of college tennis and never below
                 today&apos;s rating &mdash; a rating that went down is held where it is. Without one, it grows
-                today&apos;s rating at a typical pace of 1.0 a year, the same assumption for everyone. The same rule
+                today&apos;s rating at our default assumption of 1.0 UTR a year, the same for everyone. The same rule
                 runs before you sign up and after. It is
                 labelled &ldquo;Estimate&rdquo; with its assumption wherever it&apos;s used, and on your fit report you
                 can switch to today&apos;s rating instead. Once that summer has begun, it is simply today&apos;s rating.
@@ -165,14 +165,16 @@ export function SeededMethodologyView() {
                 pace is faster than 1.5 a year, your bands,
                 fit chips, closest schools and school pages all use the slower number. We still show where your own
                 pace would take you, as a separate line marked &ldquo;Estimate&rdquo; &mdash; for example, &ldquo;At your current pace
-                you&apos;d reach 9.40. We plan with 8.10 instead. We plan with at most 1.5 UTR a year. That&apos;s our
+                you&apos;d reach 9.40. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That&apos;s our
                 planning rule, not a measured average.&rdquo;
                 That faster line never changes a band. Your pace is shown one way everywhere: UTR gained a year
                 since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.
               </p>
               <p className="text-stone">
                 A goal is yours to set on your plan; Seeded never sets one for you. If a goal you set needs more
-                than 1.5 a year to reach by the summer before senior year, the plan says so.
+                than 1.55 a year to reach by the summer before senior year, the plan warns you. Between 1.45 and
+                1.55 a year it shows an amber note instead: the goal is a stretch, right at our 1.5-a-year planning
+                limit. The &ldquo;what would move it&rdquo; line on a school uses the same band.
               </p>
             </Section>
 

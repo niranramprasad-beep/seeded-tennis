@@ -256,11 +256,11 @@ describe("the fast recent jump (owner's audit) in numbers", () => {
     expect(report.utr.upside).toEqual({ value: 8.9, perYear: own });
     expect(formatPacePerYear(own)).toBe("+2.04 a year");
     expect(paceUpsideSentence(report.utr)).toBe(
-      "At your current pace you'd reach 8.90. We plan with 8.10 instead. We plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
+      "At your current pace you'd reach 8.90. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
     );
     expect(report.utr.assumption).toBe(paceUpsideSentence(report.utr));
     expect(paceUpsideSentence(report.utr, "Avery")).toBe(
-      "At Avery's current pace Avery would reach 8.90. We plan with 8.10 instead. We plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
+      "At Avery's current pace Avery would reach 8.90. We plan with 8.10 instead: we plan with at most 1.5 UTR a year. That's our planning rule, not a measured average."
     );
   });
 
@@ -279,7 +279,7 @@ describe("the fast recent jump (owner's audit) in numbers", () => {
     const diag = diagnosticProjection({ todayUtr: s.currentUtr, sixMonthsAgoUtr: 4.5, ...subject(s) })!;
     expect(diag.value).toBe(8.1);
     expect(diag.pacePerYear).toBeCloseTo(2.6, 10);
-    expect(diag.upside).toMatch(/^At your current pace you'd reach \d+\.\d\d\. We plan with 8\.10 instead\. We plan with at most 1\.5 UTR a year\. That's our planning rule, not a measured average\.$/);
+    expect(diag.upside).toMatch(/^At your current pace you'd reach \d+\.\d\d\. We plan with 8\.10 instead: we plan with at most 1\.5 UTR a year\. That's our planning rule, not a measured average\.$/);
     expect(diag.note).toBe(diag.upside);
   });
 });

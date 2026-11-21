@@ -1004,8 +1004,8 @@ export function SeededSchoolsBrowser({
                         <p className="mt-1.5 text-stone">
                           {/* "1.2 below the team floor · 0.3 above the team
                               average" (A-007), not a signed gap. */}
-                          {teamLineRelation(explanation.gapToFloor, "floor")} ·{" "}
-                          {teamLineRelation(explanation.gapToMedian, "average")}
+                          {teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")} ·{" "}
+                          {teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")}
                         </p>
                       )}
                       {explanation.nextBand && (

@@ -173,8 +173,9 @@ export function RangeBar({
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
               {/* "0.3 below the team average", never a signed "gap" a
-                  family has to decode (A-007). median − you > 0 = below. */}
-              {youLabel} {formatUtrFor(you!, youIsEstimate)} · {teamLineRelation(median! - you!, "average")}
+                  family has to decode (A-007). The helper takes (rating,
+                  line) and decides the side itself. */}
+              {youLabel} {formatUtrFor(you!, youIsEstimate)} · {teamLineRelation(you!, median!, "average")}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

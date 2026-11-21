@@ -364,6 +364,13 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "Seeded has no growth data; 1.5 a year is our planning rule, not a measured average (A-008)",
   },
   {
+    // Verifier, 2026-11-21: "typical growth" / "a typical pace" read as a
+    // measured population figure. The 1.0 a year is OUR DEFAULT ASSUMPTION
+    // (lib/config/growth.ts DEFAULT_GROWTH_LABEL) and the copy says so.
+    pattern: /\btypical (?:growth|pace|rate|improvement)\b|\bAssumes typical\b/i,
+    why: "Seeded has no growth data; 1.0 a year is our default assumption, not what is typical",
+  },
+  {
     // A-005. The diagnostic is up to ten questions; it does not take 60
     // seconds, and /onboarding's own description already says about 90.
     pattern: /\b60 seconds\b|\bTakes 60\b/i,
@@ -423,6 +430,10 @@ describe("copy guard reads sentences the way the screen shows them", () => {
     ["growth claim: methodology", "Most players improve between 0.5 and\n                1.5 UTR a year, and a few months"],
     ["growth claim: methodology quote", "We plan with 8.10 because most players improve 0.5&ndash;1.5 a year.&rdquo;"],
     ["growth claim: bare range", "(0.5-1.5/yr)"],
+    ["typical growth: caption", "return `Assumes typical growth of ${perYear.toFixed(1)} UTR per year.`;"],
+    ["typical growth: onboarding", "own pace instead of typical growth.`"],
+    ["typical pace: methodology", "today&apos;s rating at a typical pace of 1.0 a year"],
+    ["typical pace: parent chart", ': "At a typical pace";'],
     ["60 seconds: hero", "Free. No card. Takes 60 seconds. Results before you make an account."],
     ["60 seconds: card title", '<strong className="text-[15px]">Your fit, in 60 seconds</strong>'],
     ["signed gap: tooltip", "{youLabel} {formatUtrFor(you!, youIsEstimate)} · Gap to team average {signed(median! - you!)}"],

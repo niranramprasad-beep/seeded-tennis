@@ -11,7 +11,7 @@ import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagn
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn, formatPlayerUtr, formatUtrEstimate, plural } from "@/lib/utils";
-import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION } from "@/lib/config/growth";
+import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION, DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
 import { type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { DiagnosticSaveForm } from "@/components/seeded/onboarding/diagnostic/diagnostic-save";
@@ -86,6 +86,7 @@ export function DiagnosticFitReport({
     report && total === 0
       ? nothingInRangeSentence({
           programCount: filtered.length,
+          programLabel: GENDER_LABEL[gender].toLowerCase(),
           utr: today,
           closest: closestProgramAbove(today, filtered),
         })
@@ -214,7 +215,7 @@ export function DiagnosticFitReport({
               <p className="mt-3 border-t border-line pt-3 text-sm text-stone">
                 {projection?.isEstimate ? `${RECRUITING_TIMING_NOTE} ` : ""}
                 {projection?.basis === "typical-growth"
-                  ? `Add a rating from 6 or 12 months ago (Change answers) to use ${parent ? "your player's" : "your"} own pace instead of typical growth.`
+                  ? `Add a rating from 6 or 12 months ago (Change answers) to use ${parent ? "your player's" : "your"} own pace instead of our default assumption of ${DEFAULT_GROWTH_LABEL}.`
                   : ""}
               </p>
             )}

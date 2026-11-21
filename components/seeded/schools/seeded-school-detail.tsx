@@ -210,8 +210,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           label="UTR"
           description={
             judging.isProjected
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: ${teamLineRelation(gaps.gapToFloor, "floor")} · ${teamLineRelation(gaps.gapToMedian, "average")} · today ${formatPlayerUtr(subjectUtr as number)}`
-              : `${teamLineRelation(gaps.gapToFloor, "floor")} · ${teamLineRelation(gaps.gapToMedian, "average")}`
+              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: ${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")} · today ${formatPlayerUtr(subjectUtr as number)}`
+              : `${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")}`
           }
           chip={
             bandPositionLabel(explanation.band) +

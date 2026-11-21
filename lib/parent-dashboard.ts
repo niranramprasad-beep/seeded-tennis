@@ -37,6 +37,7 @@ import type { PlayerGender, SchoolLite } from "@/lib/types";
 import { encodeTournamentFitShareParams, type TravelPill } from "@/lib/tournament-fit-share";
 import { formatShortDate, localDateKey, parseLocalDate, startOfLocalDay } from "@/lib/time";
 import { formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
 
 const MS_PER_DAY = 86_400_000;
 const MONTHS = [
@@ -628,7 +629,7 @@ export function utrChartCaption(model: UtrChartModel | null, input: ChartInput &
       ? `Held at today's rating (${child}'s has gone down lately)`
       : proj.source === "logged-pace"
         ? `At the pace in ${child}'s logged ratings`
-        : "At a typical pace";
+        : `At our default assumption of ${DEFAULT_GROWTH_LABEL}`;
     const reach = projectionReachDate({ ...subject, currentUtr: current }, floor);
     if (reach) return `${at}, ${child} reaches the start of their target range around ${monthYear(reach)}.`;
     const gap = Math.round((floor - proj.value) * 10) / 10;
