@@ -321,7 +321,7 @@ export function GoogleVerifyButton({
         variant="secondary"
         onClick={start}
         loading={loading}
-        className="min-h-11 sm:min-h-[38px]"
+        className="min-h-11 w-full whitespace-nowrap px-3 sm:w-auto sm:min-h-[38px] sm:px-[18px]"
       >
         {!loading && <GoogleMark />}
         {loading ? VERIFY_COPY.googleStarting : VERIFY_COPY.google}
