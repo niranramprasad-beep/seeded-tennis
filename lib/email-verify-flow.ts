@@ -80,7 +80,7 @@ export const VERIFY_COPY = {
   /** The local sign-out of the other account did not take. Never claim it did. */
   googleMismatchStillSignedIn:
     "That Google account uses a different email address from your Seeded account, so nothing was confirmed. " +
-    "We couldn’t sign it out of Seeded on this browser. Open the menu and choose Sign out, then sign in again with your email and password.",
+    "We couldn’t sign it out of Seeded on this browser yet. Try again; it only signs out this browser.",
   /** mark_email_verified() could not be reached (network / server error):
    *  never reported as "not confirmed". */
   markUnreachable: "We couldn’t reach Seeded to finish confirming your email. Check your connection and try again.",
@@ -342,12 +342,23 @@ export function takeGoogleVerifyStart(now: number = Date.now()): GoogleVerifySta
   }
 }
 
-/** Google's error in the return URL — in the query (`?error=`) or, for
- *  the implicit-style redirect, the fragment (`#error=`). Pure. */
-export function providerErrorFrom(search: string, hash: string): boolean {
+/**
+ * What kind of error the return URL carries. Pure.
+ *   "none"  -> no error, or a `code` is present (the exchange decides).
+ *   "link"  -> an emailed link's error (Supabase: error_code otp_expired,
+ *              "Email link is invalid or has expired"): show the link copy,
+ *              even if a "Verify with Google" marker is lying around.
+ *   "oauth" -> anything else: Google refused or the person cancelled.
+ * Read from the query AND the fragment (`#error=`).
+ */
+export function returnErrorFrom(search: string, hash: string): "none" | "link" | "oauth" {
   const q = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const h = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
-  return Boolean(q.get("error") || q.get("error_description") || h.get("error") || h.get("error_description"));
+  if (q.get("code") || h.get("code")) return "none";
+  const pick = (k: string) => q.get(k) ?? h.get(k) ?? "";
+  if (!pick("error") && !pick("error_description")) return "none";
+  const text = `${pick("error_code")} ${pick("error_description")}`.toLowerCase();
+  return /otp|email link|magic ?link|signup|recovery/.test(text) ? "link" : "oauth";
 }
 
 /** Whether an access token was issued for an OAuth sign-in (its JWT `amr`
@@ -371,6 +382,21 @@ export function sessionCameFromOAuth(accessToken: string | null | undefined): bo
   }
 }
 
+/** The session facts verifiedActionFor() needs, from a supabase-js session.
+ *  `oauth` comes from the ACCESS TOKEN's amr (this sign-in), never from
+ *  app_metadata.provider (the account's FIRST provider). Pure. */
+export function verifiedSessionFrom(
+  session: { access_token?: string | null; user?: { id?: string | null; email?: string | null } | null } | null | undefined
+): { userId: string; email: string | null; oauth: boolean } | null {
+  const userId = session?.user?.id;
+  if (!session || !userId) return null;
+  return {
+    userId,
+    email: session.user?.email ?? null,
+    oauth: sessionCameFromOAuth(session.access_token),
+  };
+}
+
 /** What /auth/verified does once it knows the session. */
 export type VerifiedAction =
   /** Google refused or the person cancelled: the old session stands. */
@@ -385,7 +411,9 @@ export type VerifiedAction =
  * The post-exchange decision, pure. `started` is the "Verify with Google"
  * marker (already read and cleared). `session` is null when there is none.
  *
+ *   an emailed link's error          -> show no-session (the link copy)
  *   marker + Google error            -> show google-cancelled
+ *   Google error, no marker          -> show no-session
  *   no session                       -> show no-session
  *   no marker                        -> mark via link (the emailed link)
  *   marker, but the session is NOT an OAuth one (a stale marker on a shared
@@ -395,11 +423,16 @@ export type VerifiedAction =
  */
 export function verifiedActionFor(input: {
   started: GoogleVerifyStart | null;
-  providerError: boolean;
+  returnError: "none" | "link" | "oauth";
   session: { userId: string; email: string | null; oauth: boolean } | null;
 }): VerifiedAction {
-  const { started, providerError, session } = input;
-  if (started && providerError) return { kind: "show", screen: "google-cancelled" };
+  const { started, returnError, session } = input;
+  // An emailed link's own error (expired / used) gets the link copy, even
+  // with a leftover Google marker in this browser.
+  if (returnError === "link") return { kind: "show", screen: "no-session" };
+  if (returnError === "oauth") {
+    return started ? { kind: "show", screen: "google-cancelled" } : { kind: "show", screen: "no-session" };
+  }
   if (!session) return { kind: "show", screen: "no-session" };
   if (!started || !session.oauth) return { kind: "mark", via: "link" };
   if (session.userId !== started.owner) {

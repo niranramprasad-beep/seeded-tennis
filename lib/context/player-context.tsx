@@ -36,6 +36,7 @@ import { mutate } from "swr";
 import { isMyConsentStateKey } from "@/lib/db/family-join";
 import { getSupabase } from "@/lib/supabase/client";
 import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
+import { runSignOut, type SignOutEffects } from "@/lib/sign-out-steps";
 
 interface PlayerContextValue {
   player: Player;
@@ -277,30 +278,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlayer(next);
   }, []);
 
-  const signOut = useCallback(() => {
-    setIsAuthed(false);
-    setPlayer(emptyPlayer);
-    rememberRole(null);
-    // A-033: nothing this browser remembered about the account outlives it
-    // (theme and the internal-analytics flag excepted).
-    clearSeededBrowserStorage();
-    // Drop the cached consent answer, so the next account signed in on this
-    // tab never reads the last one's (AuthGate, the star hook and Google
-    // Analytics all key off it).
-    setUserId(null);
-    void mutate(isMyConsentStateKey, undefined, { revalidate: false });
-    void signOutOfSupabase();
-  }, []);
+  // Both sign-outs run the same tested sequence (lib/sign-out-steps.ts).
+  const signOutEffects = useMemo<SignOutEffects>(
+    () => ({
+      // An in-flight hydrate() must not repopulate what we are clearing.
+      bumpHydrateGeneration: () => void ++hydrateGeneration.current,
+      resetState: () => {
+        setIsAuthed(false);
+        setPlayer(emptyPlayer);
+        rememberRole(null);
+      },
+      // A-033: nothing this browser remembered about the account outlives it
+      // (theme and the internal-analytics flag excepted).
+      clearBrowserStorage: () => void clearSeededBrowserStorage(),
+      // Drop the cached consent answer, so the next account signed in on this
+      // tab never reads the last one's (AuthGate, the star hook and Google
+      // Analytics all key off it).
+      forgetUser: () => {
+        setUserId(null);
+        void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+      },
+      signOutOfSupabase: (scope) => signOutOfSupabase(scope === "local" ? { scope: "local" } : undefined),
+    }),
+    []
+  );
 
-  const signOutLocal = useCallback(async () => {
-    setIsAuthed(false);
-    setPlayer(emptyPlayer);
-    rememberRole(null);
-    clearSeededBrowserStorage();
-    setUserId(null);
-    void mutate(isMyConsentStateKey, undefined, { revalidate: false });
-    await signOutOfSupabase({ scope: "local" }).catch(() => undefined);
-  }, []);
+  const signOut = useCallback(() => {
+    void runSignOut(signOutEffects, "global");
+  }, [signOutEffects]);
+
+  const signOutLocal = useCallback(() => runSignOut(signOutEffects, "local"), [signOutEffects]);
 
   const value = useMemo(
     () => ({

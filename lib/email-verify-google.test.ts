@@ -9,7 +9,7 @@ import {
   GOOGLE_VERIFY_TTL_MS,
   VERIFY_COPY,
   hasPendingJoinCodeFor,
-  providerErrorFrom,
+  returnErrorFrom,
   readPendingJoinCode,
   rememberGoogleVerifyStart,
   rememberPendingJoinCode,
@@ -19,6 +19,7 @@ import {
   takeGoogleVerifyStart,
   verifiedActionFor,
   verifiedScreenFor,
+  verifiedSessionFrom,
 } from "./email-verify-flow";
 import { SEEDED_STORAGE_PREFIX, clearSeededBrowserStorage } from "./local-storage-cleanup";
 import { markErrorKind } from "./db/email-verification";
@@ -190,11 +191,42 @@ describe("starting Google (order and clean-up)", () => {
 
 describe("reading the return URL", () => {
   it("finds Google's error in the query or the fragment", () => {
-    expect(providerErrorFrom("?error=access_denied", "")).toBe(true);
-    expect(providerErrorFrom("", "#error=server_error&error_description=x")).toBe(true);
-    expect(providerErrorFrom("error_description=nope", "")).toBe(true);
-    expect(providerErrorFrom("?code=abc", "")).toBe(false);
-    expect(providerErrorFrom("", "")).toBe(false);
+    expect(returnErrorFrom("?error=access_denied", "")).toBe("oauth");
+    expect(returnErrorFrom("", "#error=server_error&error_description=x")).toBe("oauth");
+    expect(returnErrorFrom("error_description=nope", "")).toBe("oauth");
+    expect(returnErrorFrom("?code=abc", "")).toBe("none");
+    expect(returnErrorFrom("?code=abc&error=access_denied", "")).toBe("none");
+    expect(returnErrorFrom("", "")).toBe("none");
+  });
+
+  it("tells an expired EMAILED link's error from Google's", () => {
+    // Supabase's shape for a used/expired magic link.
+    expect(
+      returnErrorFrom(
+        "",
+        "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired"
+      )
+    ).toBe("link");
+    expect(returnErrorFrom("?error=access_denied&error_code=otp_expired", "")).toBe("link");
+  });
+
+  it("maps a supabase-js session to the decision's input — oauth from the ACCESS TOKEN only", () => {
+    const user = { id: "user-1", email: "parent@example.com" };
+    expect(
+      verifiedSessionFrom({ access_token: jwt({ amr: [{ method: "oauth", timestamp: 1 }] }), user })
+    ).toEqual({ userId: "user-1", email: "parent@example.com", oauth: true });
+    expect(
+      verifiedSessionFrom({ access_token: jwt({ amr: [{ method: "otp", timestamp: 1 }] }), user })
+    ).toEqual({ userId: "user-1", email: "parent@example.com", oauth: false });
+    // A Google-linked account opening an emailed link: app_metadata says
+    // google, the token says otp. The token wins.
+    const linked = {
+      access_token: jwt({ amr: [{ method: "magiclink", timestamp: 1 }] }),
+      user: { ...user, app_metadata: { provider: "google", providers: ["email", "google"] } },
+    };
+    expect(verifiedSessionFrom(linked)?.oauth).toBe(false);
+    expect(verifiedSessionFrom(null)).toBeNull();
+    expect(verifiedSessionFrom({ access_token: "x", user: null })).toBeNull();
   });
 
   it("knows an OAuth session from its token's amr", () => {
@@ -213,42 +245,53 @@ describe("what /auth/verified does once it knows the session", () => {
   const oauthOther = { userId: "user-2", email: "someone.else@example.com", oauth: true };
 
   it("no marker: the emailed link, unchanged", () => {
-    expect(verifiedActionFor({ started: null, providerError: false, session: oauthSame })).toEqual({
+    expect(verifiedActionFor({ started: null, returnError: "none", session: oauthSame })).toEqual({
       kind: "mark",
       via: "link",
     });
-    // A provider error without a marker is still the link path's business.
-    expect(verifiedActionFor({ started: null, providerError: true, session: oauthSame }).kind).toBe("mark");
+    // An OAuth-shaped error without a marker: no Google verify was started
+    // here, so the generic link copy.
+    expect(verifiedActionFor({ started: null, returnError: "oauth", session: oauthSame })).toEqual({
+      kind: "show",
+      screen: "no-session",
+    });
+  });
+
+  it("an expired emailed link with a leftover Google marker gets the LINK copy", () => {
+    expect(verifiedActionFor({ started, returnError: "link", session: oauthSame })).toEqual({
+      kind: "show",
+      screen: "no-session",
+    });
   });
 
   it("Google error / cancel: show it, never touch the session", () => {
-    expect(verifiedActionFor({ started, providerError: true, session: null })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "oauth", session: null })).toEqual({
       kind: "show",
       screen: "google-cancelled",
     });
-    expect(verifiedActionFor({ started, providerError: true, session: oauthOther })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "oauth", session: oauthOther })).toEqual({
       kind: "show",
       screen: "google-cancelled",
     });
   });
 
   it("no session: no-session, whichever path", () => {
-    expect(verifiedActionFor({ started, providerError: false, session: null })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "none", session: null })).toEqual({
       kind: "show",
       screen: "no-session",
     });
-    expect(verifiedActionFor({ started: null, providerError: false, session: null }).kind).toBe("show");
+    expect(verifiedActionFor({ started: null, returnError: "none", session: null }).kind).toBe("show");
   });
 
   it("same account back over OAuth: mark via google", () => {
-    expect(verifiedActionFor({ started, providerError: false, session: oauthSame })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "none", session: oauthSame })).toEqual({
       kind: "mark",
       via: "google",
     });
   });
 
   it("a different account back over OAuth: sign out LOCALLY, naming both addresses — never mark", () => {
-    expect(verifiedActionFor({ started, providerError: false, session: oauthOther })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "none", session: oauthOther })).toEqual({
       kind: "sign-out-local",
       accountEmail: "parent@example.com",
       googleEmail: "someone.else@example.com",
@@ -257,7 +300,7 @@ describe("what /auth/verified does once it knows the session", () => {
 
   it("a stale marker on a shared device never signs out someone who opened an emailed link", () => {
     const linkSessionOther = { userId: "user-2", email: "other@example.com", oauth: false };
-    expect(verifiedActionFor({ started, providerError: false, session: linkSessionOther })).toEqual({
+    expect(verifiedActionFor({ started, returnError: "none", session: linkSessionOther })).toEqual({
       kind: "mark",
       via: "link",
     });
@@ -407,12 +450,18 @@ describe("/auth/verified wires the pure decisions (and only signs out locally)",
   const src = read("components", "auth", "email-verified.tsx");
 
   it("uses verifiedActionFor / verifiedScreenFor and the local sign-out", () => {
-    expect(src).toContain("verifiedActionFor({ started, providerError, session })");
+    expect(src).toContain("verifiedActionFor({ started, returnError, session })");
+    expect(src).toContain("const session = verifiedSessionFrom(data.session);");
     expect(src).toContain("verifiedScreenFor(await markEmailVerified(), action.via)");
     expect(src).toContain("await signOutLocal()");
     // Never the global sign-out on this page.
     expect(src).not.toMatch(/\bsignOut\(\)/);
-    expect(src).toContain("providerErrorFrom(window.location.search, window.location.hash)");
+    expect(src).toContain("returnErrorFrom(window.location.search, window.location.hash)");
+    // Still signed in: "Try again" signs out LOCALLY again, never the menu.
+    const retry = src.slice(src.indexOf("const retryLocalSignOut"), src.indexOf("const goBack"));
+    expect(retry).toContain("await signOutLocal();");
+    expect(src).toMatch(/onClick=\{retryLocalSignOut\}/);
+    expect(VERIFY_COPY.googleMismatchStillSignedIn).not.toMatch(/menu|Sign out/);
   });
 
   it("the sign-out-local branch returns before anything is marked", () => {
@@ -431,10 +480,13 @@ describe("/auth/verified wires the pure decisions (and only signs out locally)",
     expect(code).toMatch(/after\.data\.session \? "google-mismatch-still-signed-in" : "google-mismatch"/);
   });
 
-  it("PlayerProvider's local sign-out passes scope 'local' to the one Supabase sign-out", () => {
+  it("PlayerProvider runs the shared sign-out sequence, local for signOutLocal", () => {
     const ctx = read("lib", "context", "player-context.tsx");
-    const fn = ctx.slice(ctx.indexOf("const signOutLocal = useCallback"));
-    expect(fn.slice(0, fn.indexOf("}, []);"))).toContain('signOutOfSupabase({ scope: "local" })');
+    expect(ctx).toContain('const signOutLocal = useCallback(() => runSignOut(signOutEffects, "local"), [signOutEffects]);');
+    expect(ctx).toContain('void runSignOut(signOutEffects, "global");');
+    expect(ctx).toContain('signOutOfSupabase(scope === "local" ? { scope: "local" } : undefined)');
+    expect(ctx).toContain("bumpHydrateGeneration: () => void ++hydrateGeneration.current");
+    expect(ctx).toContain("clearBrowserStorage: () => void clearSeededBrowserStorage()");
     const auth = read("lib", "auth.ts");
     expect(auth).toContain("supa.auth.signOut(opts?.scope ? { scope: opts.scope } : undefined)");
   });

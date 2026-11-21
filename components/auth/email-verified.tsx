@@ -12,13 +12,13 @@ import {
   clearPendingJoinCode,
   clearVerifyReturn,
   joinOutcomeFor,
-  providerErrorFrom,
+  returnErrorFrom,
   hasPendingJoinCodeFor,
   readVerifyReturn,
-  sessionCameFromOAuth,
   takeGoogleVerifyStart,
   verifiedActionFor,
   verifiedScreenFor,
+  verifiedSessionFrom,
 } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { AuthCard } from "./auth-card";
@@ -109,12 +109,12 @@ export function EmailVerified() {
       // Read (and clear) BEFORE anything else: a Google start older than
       // the TTL, or none at all, leaves the emailed-link path untouched.
       const started = takeGoogleVerifyStart();
-      const providerError = providerErrorFrom(window.location.search, window.location.hash);
+      const returnError = returnErrorFrom(window.location.search, window.location.hash);
 
-      // Google refused or the person cancelled: no code to exchange, and
-      // the session that asked is untouched.
-      const early = verifiedActionFor({ started, providerError, session: null });
-      if (early.kind === "show" && early.screen === "google-cancelled") return setState("google-cancelled");
+      // An error in the URL (Google refused / cancelled, or an emailed link
+      // expired): nothing to exchange, and the session that asked is untouched.
+      const early = verifiedActionFor({ started, returnError, session: null });
+      if (returnError !== "none" && early.kind === "show") return setState(early.screen);
 
       const supabase = getSupabase();
       if (!supabase) return setState("no-session");
@@ -131,14 +131,8 @@ export function EmailVerified() {
       }
 
       const { data } = await supabase.auth.getSession();
-      const session = data.session
-        ? {
-            userId: data.session.user.id,
-            email: data.session.user.email ?? null,
-            oauth: sessionCameFromOAuth(data.session.access_token),
-          }
-        : null;
-      const action = verifiedActionFor({ started, providerError, session });
+      const session = verifiedSessionFrom(data.session);
+      const action = verifiedActionFor({ started, returnError, session });
 
       if (action.kind === "show") return setState(action.screen);
 
@@ -200,6 +194,13 @@ export function EmailVerified() {
     return () => clearTimeout(t);
   }, [state, joinNote, returnPath, router]);
 
+  const retryLocalSignOut = async () => {
+    await signOutLocal();
+    const supabase = getSupabase();
+    const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+    setState(data.session ? "google-mismatch-still-signed-in" : "google-mismatch");
+  };
+
   const goBack = () => {
     clearVerifyReturn();
     router.replace(returnPath);
@@ -239,14 +240,22 @@ export function EmailVerified() {
             : VERIFY_COPY.googleMismatchStillSignedIn
         }
       >
-        <SeededButton
-          type="button"
-          variant="primary"
-          className="w-full"
-          onClick={() => router.replace(`/login?next=${encodeURIComponent(returnPath)}`)}
-        >
-          Sign in again
-        </SeededButton>
+        {state === "google-mismatch" ? (
+          <SeededButton
+            type="button"
+            variant="primary"
+            className="w-full"
+            onClick={() => router.replace(`/login?next=${encodeURIComponent(returnPath)}`)}
+          >
+            Sign in again
+          </SeededButton>
+        ) : (
+          // Local only, like the first attempt — never the menu's sign-out,
+          // which ends that account's sessions everywhere.
+          <SeededButton type="button" variant="primary" className="w-full" onClick={retryLocalSignOut}>
+            Try again
+          </SeededButton>
+        )}
       </AuthCard>
     );
   }

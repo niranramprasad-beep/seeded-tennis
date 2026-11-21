@@ -53,6 +53,14 @@ Google identities yet, so the linking half is unproven until Niran's test.
   confirmed"; `#error=` is read as well as `?error=`; the mismatch copy says a
   sign-in may have been created for that Google address and that a pending
   family code is lost. Mutation-checked (prD/mutation.txt).
+- Review round 2: both sign-outs run one tested sequence
+  (`lib/sign-out-steps.ts`: invalidate in-flight hydrate, reset, clear
+  storage, forget user, then Supabase with the scope); "still signed in"
+  offers Try again (local) instead of the menu's global sign-out; the
+  session's OAuth-ness is mapped by the tested `verifiedSessionFrom()`
+  (access-token amr, never app_metadata); an emailed link's own error
+  (`otp_expired`) shows the link copy even with a leftover Google marker;
+  `markEmailVerified()` is tested with a stubbed rpc.
 - Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
   same/different account, error mapping, and a real render proving the
   option is empty unless the flag is exactly "true");
