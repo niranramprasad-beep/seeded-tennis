@@ -230,8 +230,8 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
     range, which is the honest answer and a bad product.
 11. ~~**P1-UX-2** — delete Legacy.~~ DONE 2026-11-20 (PR-LEGACY).
 12. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
-    middleware, and `main`'s middleware is currently the maintenance page,
-    so this waits until that is reverted (P2).
+    a middleware.ts, which `main` no longer has (the maintenance-page
+    middleware was removed 2026-11-16), so it needs a new one (P2).
 
 ---
 

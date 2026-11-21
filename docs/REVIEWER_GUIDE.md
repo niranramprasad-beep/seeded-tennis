@@ -160,7 +160,7 @@ purpose and keys are in [DATABASE_SPEC.md](DATABASE_SPEC.md).
 | Browser harness | Playwright scripts: route audit, personas, keyboard, CLS, Lighthouse | [`scripts/README.md`](../scripts/README.md) (staging only) |
 | RLS probes | SQL as `authenticated` + JWT claims in a block that always rolls back | [HANDOFF.md §J](HANDOFF.md) |
 
-Counts on 2026-11-20 (night): **119 test files, 1,766 tests**, all passing in UTC,
+Counts on 2026-11-21 (fresh run on `main` @ `1510868`): **121 test files, 1,816 tests**, all passing in UTC,
 New York and Auckland. CI runs typecheck, lint, the tests in all three zones and
 the production build on every PR and every push to `main`.
 
@@ -180,7 +180,7 @@ Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
    The database rejects 0, so writes convert it to NULL and every derived
    number checks `hasRealUtr()` first (guards:
    [`utr-sentinel.test.ts`](../lib/utr-sentinel.test.ts)). Risk: a new call
-   site forgets. Plan: make it `number | null` (~79 sites) — [TODO.md](TODO.md).
+   site forgets. Plan: make it `number | null` (139 uses in 38 non-test files, re-measured 2026-11-21) — [TODO.md](TODO.md).
 2. **A player could get budget writes through a second "parent" account.**
    Role is chosen at sign-up and any approved member may approve a join, so a
    sibling can create a parent account and approve it. Visible on the roster,
