@@ -6,6 +6,7 @@ import type { Gender, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { buildDiagnosticFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
+import { SEE_ALL_PROGRAMS, closestProgramAbove, fitReportHeadline, nothingInRangeSentence } from "@/lib/fit-copy";
 import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagnostic";
 import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
@@ -77,7 +78,18 @@ export function DiagnosticFitReport({
   );
 
   const who = parent ? "your player" : "you";
-  const Who = parent ? "Your player" : "You";
+  // Nothing in range (Target + Likely = 0) in the view shown: say so with
+  // the catalogue count and the nearest estimated range, never "0 programs"
+  // alone (A-001). Today's rating; see nothingInRangeSentence for why that
+  // stays true in the projected view.
+  const nothingInRange =
+    report && total === 0
+      ? nothingInRangeSentence({
+          programCount: filtered.length,
+          utr: today,
+          closest: closestProgramAbove(today, filtered),
+        })
+      : null;
 
   // Arriving here is a new screen after a click: start at its top, and put
   // focus on its heading so a screen reader announces the result.
@@ -108,17 +120,17 @@ export function DiagnosticFitReport({
             tabIndex={-1}
             className="mt-2 font-seeded text-4xl font-bold leading-[1.1] tracking-[-0.02em] text-balance text-ink focus:outline-none"
           >
+            {/* A-006: leads with today, then what the planning pace could
+                make it. Both counts carry their date (lib/fit-copy.ts). */}
             {!report
               ? `Add a UTR to see ${parent ? "your player's" : "your"} fit.`
-              : report.utr.isProjected && report.view === "recruiting"
-                ? `By ${projectionTargetLabel(report.utr.year)}, ${who} ${parent ? "is" : "are"} on track for ${counts.target} Target and ${counts.likely} Likely programs.`
-                : `${Who} ${parent ? "is" : "are"} in range for ${total} programs: ${counts.target} Target and ${counts.likely} Likely.`}
+              : fitReportHeadline(report, parent ? "parent" : "player")}
           </h1>
-          {report?.canToggle && (
+          {report && (
             <p className="mt-2 text-base text-stone">
-              {report.view === "recruiting"
-                ? `Today: ${report.todayInRange} in range.`
-                : `By ${projectionTargetLabel(report.utr.year)}: ${report.recruitingCounts.target} Target and ${report.recruitingCounts.likely} Likely.`}
+              {report.utr.isProjected && report.view === "recruiting"
+                ? `By ${projectionTargetLabel(report.utr.year)}: ${counts.target} Target and ${counts.likely} Likely.`
+                : `Today: ${counts.target} Target and ${counts.likely} Likely.`}
             </p>
           )}
           <p className="mt-2 text-base text-stone">
@@ -208,23 +220,26 @@ export function DiagnosticFitReport({
             )}
           </section>
 
-          {report && report.counts.reach + total === 0 && (
+          {nothingInRange && (
             <div className="mt-6 rounded-xl border border-line bg-card p-5">
-              <p className="m-0 font-semibold text-ink">
-                No program in this catalogue is a realistic fit yet.
-              </p>
+              <p className="m-0 font-semibold text-ink">{nothingInRange}</p>
               <p className="mt-1.5 text-sm text-stone">
-                Seeded only covers {filtered.length} {GENDER_LABEL[gender].toLowerCase()} college
-                programs, and the lowest team range here starts above{" "}
-                {projection ? projection.display : ""}. That is a fact about our catalogue, not a
-                verdict on the player.
+                That is a fact about our catalogue, not a verdict on the player.
               </p>
-              <Link
-                href="/tournament-fit"
-                className="mt-3.5 inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
-              >
-                Check a tournament instead
-              </Link>
+              <div className="mt-3.5 flex flex-wrap gap-3">
+                <Link
+                  href={SEE_ALL_PROGRAMS.href}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  {SEE_ALL_PROGRAMS.label}
+                </Link>
+                <Link
+                  href="/tournament-fit"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+                >
+                  Check a tournament instead
+                </Link>
+              </div>
             </div>
           )}
 

@@ -42,6 +42,7 @@ import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
 import { cn, formatUtrEstimate, formatUtrFor, hasRealUtr, plural } from "@/lib/utils";
+import { teamLineRelation } from "@/lib/fit-copy";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
@@ -1001,10 +1002,10 @@ export function SeededSchoolsBrowser({
                       <p>{explanation.summary}</p>
                       {explanation.gapToFloor != null && explanation.gapToMedian != null && (
                         <p className="mt-1.5 text-stone">
-                          Gap to team floor: {explanation.gapToFloor > 0 ? "+" : ""}
-                          {formatUtrEstimate(explanation.gapToFloor)} · Gap to team median:{" "}
-                          {explanation.gapToMedian > 0 ? "+" : ""}
-                          {formatUtrEstimate(explanation.gapToMedian)}
+                          {/* "1.2 below the team floor · 0.3 above the team
+                              average" (A-007), not a signed gap. */}
+                          {teamLineRelation(explanation.gapToFloor, "floor")} ·{" "}
+                          {teamLineRelation(explanation.gapToMedian, "average")}
                         </p>
                       )}
                       {explanation.nextBand && (

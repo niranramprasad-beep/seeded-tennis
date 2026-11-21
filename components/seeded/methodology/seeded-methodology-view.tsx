@@ -159,12 +159,14 @@ export function SeededMethodologyView() {
                 what the summer can show, not a promise.
               </p>
               <p className="text-stone">
-                <strong className="text-ink">Why at most 1.5 a year.</strong> Most players improve between 0.5 and
-                1.5 UTR a year, and a few months of fast gains rarely keep going at the same speed &mdash; a jump
-                often comes before a long flat stretch. So when your own pace is faster than 1.5 a year, your bands,
+                <strong className="text-ink">Why at most 1.5 a year.</strong> We plan with at most 1.5 UTR a year.
+                That&apos;s our planning rule, not a measured average &mdash; Seeded has no data on how fast junior
+                players improve. A few months of fast gains can be followed by a long flat stretch, so when your own
+                pace is faster than 1.5 a year, your bands,
                 fit chips, closest schools and school pages all use the slower number. We still show where your own
                 pace would take you, as a separate line marked &ldquo;Estimate&rdquo; &mdash; for example, &ldquo;At your current pace
-                you&apos;d reach 9.40. We plan with 8.10 because most players improve 0.5&ndash;1.5 a year.&rdquo;
+                you&apos;d reach 9.40. We plan with 8.10 instead. We plan with at most 1.5 UTR a year. That&apos;s our
+                planning rule, not a measured average.&rdquo;
                 That faster line never changes a band. Your pace is shown one way everywhere: UTR gained a year
                 since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.
               </p>

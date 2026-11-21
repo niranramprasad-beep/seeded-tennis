@@ -1,7 +1,14 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { TYPICAL_PACE_RANGE_LABEL, formatPacePerYear, planGoalNeedsPaceWarning, type PlanGoal } from "@/lib/fit";
+import {
+  PACE_STRETCH_NOTE,
+  PLANNING_RULE_SENTENCE,
+  formatPacePerYear,
+  planGoalNeedsPaceWarning,
+  planGoalPaceSeverity,
+  type PlanGoal,
+} from "@/lib/fit";
 import type { GoalPace } from "@/lib/school-fit";
 import { formatDate } from "@/lib/time";
 import { formatPlayerUtr, formatTargetUtr } from "@/lib/utils";
@@ -22,22 +29,45 @@ interface GoalPaceWarningProps {
 // and on /today under the headline, so the two screens cannot disagree about
 // whether a goal is out of reach (C11).
 //
-// It shows ONLY for a goal the player set that needs more than the planning
-// cap (1.5 a year) — there is no default goal any more (PR D, D1), so with
-// no goal nothing shows. It offers the planning estimate as a realistic goal
-// instead. The required pace prints through formatPacePerYear, the one pace
-// formatter ("needs about 2.25 a year").
+// It shows ONLY for a goal the player set — there is no default goal any
+// more (PR D, D1), so with no goal nothing shows. Two strengths, one rule
+// (lib/fit.ts planGoalPaceSeverity):
+//  - red (clay): needs more than the planning cap plus a 0.05 margin, or no
+//    time is left; it offers the planning estimate as a realistic goal;
+//  - amber (gold): needs within 0.05 a year of the cap — "a stretch", not a
+//    warning (A-022, 2026-11-21).
+// The required pace prints through formatPacePerYear, the one pace formatter
+// ("needs about 2.25 a year").
 export function GoalPaceWarning({ goalPace, goal, currentUtr, onUseEstimate, className }: GoalPaceWarningProps) {
   // null when the player has no real UTR: every field (gap, required pace,
   // byDate) is derived from it, so there is no warning to give — only an
   // invented one.
-  if (!goal || !planGoalNeedsPaceWarning(goal, goalPace)) return null;
+  const severity = planGoalPaceSeverity(goal, goalPace);
+  if (!goal || !severity) return null;
   const pace = goalPace as GoalPace;
+  const needs = (p: GoalPace) =>
+    `Reaching ${formatPlayerUtr(goal.value)} by ${formatDate(p.byDate)} needs about ${formatPacePerYear(p.requiredPaceUtrPerYear as number, { signed: false })}.`;
+
+  if (severity === "stretch") {
+    return (
+      <div
+        role="status"
+        className={`flex flex-wrap items-start gap-2.5 rounded-xl border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] p-3.5 text-sm ${className ?? ""}`}
+      >
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--c-gold-tint-text))]" aria-hidden />
+        <p className="min-w-0 flex-1 text-[rgb(var(--c-gold-tint-text))]">
+          {needs(pace)} {PACE_STRETCH_NOTE}
+        </p>
+      </div>
+    );
+  }
+  // Only the red warning from here on (planGoalNeedsPaceWarning).
+  if (!planGoalNeedsPaceWarning(goal, goalPace)) return null;
 
   const message =
     pace.paceRead === "no-time-left"
       ? `The summer before senior year (${formatDate(pace.byDate)}) has passed, so there's no time left to close the ${formatPlayerUtr(pace.gap)} gap to your ${formatPlayerUtr(goal.value)} goal.`
-      : `Reaching ${formatPlayerUtr(goal.value)} by ${formatDate(pace.byDate)} needs about ${formatPacePerYear(pace.requiredPaceUtrPerYear as number, { signed: false })}. Most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
+      : `${needs(pace)} ${PLANNING_RULE_SENTENCE}`;
 
   const estimate = goal.estimate;
   const canUseEstimate =
