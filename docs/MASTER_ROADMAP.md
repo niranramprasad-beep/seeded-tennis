@@ -24,16 +24,20 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
 (one row per student, ~1,900 real names and hometowns) is replaced by
 `docs/data/roster_counts_2026-27.tsv`: one row per team, counts per
-graduating class and a total, no names/hometowns/notes. The raw file lives
-only in `~/seeded-private/` (chmod 600); `.gitignore` blocks
-`official_rosters_*.tsv` and `seeded-private/`. `scripts/aggregate-rosters.ts`
+graduating class and a total, no names/hometowns/notes. The owner keeps the
+raw file outside the repo in `~/seeded-private/` (chmod 600); `.gitignore`
+blocks `official_rosters_*` and `seeded-private/`. `scripts/aggregate-rosters.ts`
 builds the aggregate and refuses to write unless the round trip is exact and
-no personal value appears; the importer reads either format (same 179 teams,
+no personal value appears (any non-team cell, or a word of a player's name;
+row-error reasons and odd class labels are redacted); the reader refuses
+hand edits (missing or repeated row counts, impossible class years, totals
+or labels that do not add up, junk in not-retrieved rows); the importer reads either format (same 179 teams,
 10 not retrieved, 1,947 source rows; the generated report changed only its
 file name). Guard `lib/catalog/roster-counts.test.ts` (strict reader, no
-per-player header under docs/data, no tracked `official_rosters_*`); the raw
-file's tests run only where it exists. Git history still holds the raw file
-— purge is an open owner decision (TODO).
+per-player header in any tracked .tsv/.csv, no tracked `official_rosters_*`;
+mutation-tested); the raw file's tests run only where it exists. Git history
+(from `f6b0ef1`) still holds the raw file, and `demo/reviewer-preview` still
+has it until that branch is deleted — purge is an open owner decision (TODO).
 
 **2026-11-21 — Migration 051 ON PRODUCTION (03:18 UTC, Niran's go; ledger
 53).** Backup `~/seeded-backups/prod-20261120-2217-pre051.dump`; 0 pending

@@ -58,8 +58,9 @@ playwright/.auth/
 # Raw roster files name real students (one row per player, with hometowns).
 # They live only on the owner's machine, in ~/seeded-private/ (chmod 600).
 # The repo holds the aggregate (docs/data/roster_counts_*.tsv, no names).
-# lib/catalog/roster-counts.test.ts fails if a raw file is ever tracked.
+# Any extension (.tsv, .csv, .xlsx). lib/catalog/roster-counts.test.ts fails
+# if a raw file is ever tracked, or any tracked .tsv/.csv has a per-player header.
 seeded-private/
 **/seeded-private/**
-official_rosters_*.tsv
-**/official_rosters_*.tsv
+official_rosters_*
+**/official_rosters_*

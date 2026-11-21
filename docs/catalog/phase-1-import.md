@@ -6,16 +6,22 @@ for missing data; source and date beside every roster number).
 
 ## Status: imported to staging 2026-11-20
 
-The file arrived as `docs/data/official_rosters_2026-27.tsv` (1,947 player
-rows, one per student, with names and hometowns). **Since 2026-11-21 that raw
-file is not in the repo** (it names ~1,900 real students): it lives only on
-the owner's machine at `~/seeded-private/official_rosters_2026-27.tsv`, and
+The file arrived as `docs/data/official_rosters_2026-27.tsv` (1,947 rows:
+1,937 players, one per student with name and hometown, plus 10 placeholder
+rows for teams whose roster was not retrieved). **Since 2026-11-21 that raw
+file is not in the current tree** (it names ~1,900 real students): the owner
+keeps it outside the repo, in `~/seeded-private/official_rosters_2026-27.tsv`,
+and
 the repo holds its aggregate, `docs/data/roster_counts_2026-27.tsv` — one
 row per team (conference, school, gender, head coach, roster URL, season,
 players per graduating class, total), no player names, hometowns or notes.
 `scripts/aggregate-rosters.ts` turns the raw file into the aggregate and
 refuses to write unless reading it back gives exactly the raw parse and no
-name, hometown or note appears in it. The importer reads either format and
+personal value appears in it (any cell outside the public team columns, or a
+word of a player's name). Row-error reasons keep their line number but never
+quoted cell text, and a class label is printed only if it looks like one
+(otherwise it is counted as "(unreadable)"). The raw file is still in git
+history (first committed in `f6b0ef1`) — see `docs/TODO.md`. The importer reads either format and
 gives the same drafts. It covers ten conferences: NESCAC, Centennial, ODAC, Patriot League, UAA, SCIAC,
 Liberty League, CAA, Ivy League, Atlantic 10), rosters read 2026-11-08.
 
@@ -23,8 +29,9 @@ Liberty League, CAA, Ivy League, Atlantic 10), rosters read 2026-11-08.
 - **Staging** (`gnlcpnsweqbtwpaqhqqg`) holds all 179 programs and 663
   class-count rows. Checked by md5 of every stored field against the parser's
   own output: identical. No team ranges.
-- **Production:** nothing. Migration 048 is not on production and the
-  `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` flag is not set there.
+- **Production:** migration 048's tables exist (applied 2026-11-20 23:55 UTC)
+  but hold no rows, and the `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` flag is not
+  set there.
 - **Which teams should exist** comes from each conference's own standings or
   membership page: `docs/data/expected_programs_2026-27.tsv` (191 teams,
   source URL on every row). CAA and Atlantic 10 publish no standings page, so

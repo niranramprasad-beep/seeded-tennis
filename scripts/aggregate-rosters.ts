@@ -8,15 +8,16 @@
 // The raw file names real students, so it is never committed: keep it in
 // ~/seeded-private/ (chmod 600; `.gitignore` also blocks the pattern inside
 // the repo). This script refuses to write unless (1) reading its own output
-// back gives exactly the raw parse, and (2) no Player, Hometown or Notes
-// value from the raw file appears anywhere in the output.
+// back gives exactly the raw parse (with quoted cell text redacted from row
+// errors and odd class labels folded), and (2) no personal value from the
+// raw file — any non-team cell, or a word of a player's name — appears in it.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { parseRosterTsv, RosterFileError, ROSTER_COLUMNS } from "../lib/catalog/roster-import";
-import { parseRosterCountsTsv, serializeRosterCounts } from "../lib/catalog/roster-counts";
+import { parseRosterTsv, RosterFileError } from "../lib/catalog/roster-import";
+import { parseRosterCountsTsv, personalValuesIn, redactForCounts, serializeRosterCounts } from "../lib/catalog/roster-counts";
 
 const DEFAULT_RAW = join(homedir(), "seeded-private", "official_rosters_2026-27.tsv");
 const DEFAULT_OUT = "docs/data/roster_counts_2026-27.tsv";
@@ -49,19 +50,12 @@ function main() {
   const text = serializeRosterCounts(parsed, { sourceFile: basename(input) });
 
   const back = parseRosterCountsTsv(text);
+  const expected = redactForCounts(parsed);
   for (const key of ["programs", "notRetrieved", "unknownLabels", "rowsRead", "rowsUsed", "errors", "errorRate", "failed"] as const) {
-    if (!isDeepStrictEqual(back[key], parsed[key])) fail(`round trip changed "${key}". Nothing was written.`);
+    if (!isDeepStrictEqual(back[key], expected[key])) fail(`round trip changed "${key}". Nothing was written.`);
   }
 
-  const personal = ["Player", "Hometown", "Notes"].map((c) => ROSTER_COLUMNS.indexOf(c as (typeof ROSTER_COLUMNS)[number]));
-  const values = new Set(
-    rawText
-      .split(/\r?\n/)
-      .slice(1)
-      .flatMap((l) => personal.map((i) => (l.split("\t")[i] ?? "").trim()))
-      .filter((v) => v.length >= 5)
-  );
-  const leaked = [...values].filter((v) => text.includes(v));
+  const leaked = personalValuesIn(rawText, text);
   if (leaked.length) fail(`${leaked.length} personal value(s) would appear in the output. Nothing was written.`);
 
   writeFileSync(resolve(output), text);
