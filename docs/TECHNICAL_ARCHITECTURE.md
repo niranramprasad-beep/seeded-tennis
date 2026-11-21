@@ -34,7 +34,9 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
 - School catalog: static TS modules (`lib/db/schools-data-*.ts`, 68
   programs). Roster UTR ranges are unsourced and labelled "Unverified
   estimate" (`UTR_RANGE_SOURCE_LABEL`). Database-backed catalog tables
-  (migration 048) exist on staging only — `docs/CATALOG_EXPANSION.md`.
+  (migration 048) are on production (applied 2026-11-20 23:55 UTC) with
+  **no rows**; staging holds the imported rows, and the reading code is
+  behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` (off) — `docs/CATALOG_EXPANSION.md`.
 
 ## Backend
 - Route handlers in `app/api/*` (13 `route.ts` files — see
@@ -76,7 +78,8 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
 | Production | `tfpjssmhiptbwigarxpx` | Production (`main`) |
 | Staging | `gnlcpnsweqbtwpaqhqqg` | Preview + Development; local `.env.local` |
 
-Production runs every migration through 050 except 048 (staging only).
+Production runs every migration through 051, 048 included (ledger 53 on
+2026-11-21; 048's catalog tables are empty there).
 Check `list_migrations` on the project, not this file.
 
 ## CI and deployment
@@ -95,7 +98,9 @@ Vercel Analytics + Speed Insights + GA4. No error tracking and no alerting.
 2. ~~**Legacy design still ships**~~ — deleted 2026-11-20 (PR-LEGACY). No
    screen exists twice any more.
 3. **Static catalog in code** — no per-number source, can't be updated
-   without a deploy. Fix in progress (PR E / migration 048).
+   without a deploy. Phase 1 is merged (PR E #9, migration 048 on production
+   with no rows, flag off); the fix lands when sourced ranges are entered
+   and the flag is turned on.
 4. **Six write routes return raw Postgres error text** on 500
    (`SECURITY_CHECKLIST` S-10).
 5. **`Player.currentUTR` uses 0 as a "not logged" sentinel** instead of

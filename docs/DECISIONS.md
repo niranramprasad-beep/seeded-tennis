@@ -7,6 +7,31 @@ Newest first.
 
 ---
 
+## 2026-11-21 (Saturday) — Niran's product decisions before the review (owner's calls, not Claude's)
+
+Recorded as given in Niran's Saturday pre-review run brief. The D-/A- numbers
+refer to Niran's own audit list, which is not in this repo.
+
+- **Keep Google Analytics, with privacy guards (replaces D-158).** GA4 stays.
+  It receives the page path only (never the query string — the homepage
+  calculator puts UTR, GPA, grad year and gender there), never loads on
+  `/auth/*` or for an account that needs parental consent, skips automated
+  browsers and internal visits, and the server purchase event carries plan
+  and value only. Built in the `fix/ga-privacy` PR; the privacy-policy wording
+  goes to the lawyer as a proposal (`docs/legal/proposed-policy-edits.md`),
+  not live.
+- **The UI revamp happens now, screen by screen (replaces D-107 / D-212).**
+  Not a big-bang rewrite: one screen per PR, each through the usual gate.
+  Nothing of it ships today.
+- **Migration numbers are assigned when a PR opens (D-210).** A branch
+  drafting a migration does not claim a number; the number is fixed when its
+  PR is opened, against what `main` and both ledgers already hold, so two
+  branches never race for the same file name.
+- **The D-160 – D-163 design system is adopted.** No code today; the revamp
+  PRs build on it.
+
+---
+
 ## 2026-11-21 — Niran's decisions on the review-ready report (owner's calls, not Claude's)
 
 Recorded as given, in Niran's own current-turn sign-off.
@@ -50,8 +75,11 @@ Recorded as given, in Niran's own current-turn sign-off.
   `:root [tabindex="-1"]:focus-visible` — the same specificity the
   `[data-design="seeded"]…` selectors had, so nothing in the cascade moves.
 - **Legacy-only routes stay, as server redirects:** `/dashboard` → `/today`
-  (query kept — the Whop checkout still returns to
-  `/dashboard?checkout=success`), `/roadmap` → `/plan`, `/coaches` →
+  (*Corrected 2026-11-21: the query is **dropped**, not kept —
+  `app/dashboard/page.tsx` redirects to a bare `/today`, deliberately, so
+  `?checkout=success` never reaches CheckoutSync; see the post-checkout sync
+  decision of 2026-11-21. This line used to say "query kept". The Whop
+  checkout still returns to `/dashboard?checkout=success`.*), `/roadmap` → `/plan`, `/coaches` →
   `/outreach`, `/cost-calculator` → `/family`. The checkout return URL is
   untouched (billing; changing it is Niran's call).
 - **Deleted because only Legacy reached them:** three recharts charts,

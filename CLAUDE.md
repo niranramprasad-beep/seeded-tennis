@@ -9,6 +9,7 @@
 - Open: the parent-approver gap and post-checkout sync (both DECIDED by Niran 2026-11-21, build after the review — DECISIONS.md, TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
+- The GitHub repo is **public** for the 2026-11-21 review and goes **private** after it (Niran's call). Write every commit, doc and test as if it is public — names only, never a secret or a real person's data.
 
 ## Branches
 **Branch from `main`, open a PR into `main`.** `main` = production and is
@@ -181,8 +182,10 @@ Two things to know, both learned the hard way the same night:
    `lib/utils.ts` — never `formatUTR` or `.toFixed()` on a raw currentUTR.
 
 The real fix is `Player.currentUTR: number | null`, so the unknown case is
-unrepresentable rather than merely detectable. That is a 79-site change and
-is still open — see `docs/TODO.md`.
+unrepresentable rather than merely detectable. Re-measured 2026-11-21: **139
+uses of `currentUTR` in 38 non-test files** (`grep -rn currentUTR app components
+lib`, excluding `*.test.*` and the generated types) — the "79-site" figure
+quoted in older notes was an undercount. Still open — see `docs/TODO.md`.
 
 ## Enforced invariants and their history (keep in sync with MASTER_ROADMAP)
 

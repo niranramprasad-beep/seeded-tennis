@@ -54,6 +54,17 @@ UTR and the upsert path; rename and unchanged re-save still allowed; active
 players unaffected); rollback rehearsed. Guard
 `lib/db/pending-consent-profile.test.ts`. GO-SEQUENCE row 26.
 
+**2026-11-21 (Saturday) — docs/truth-pass (docs and comments only).**
+Stale facts re-checked against evidence: test counts from a fresh run
+(121 files / 1,816 tests); migration 048 is on production (empty, flag
+off) in TECHNICAL_ARCHITECTURE; the `currentUTR` refactor is 139 uses in
+38 non-test files, not "79 sites"; DECISIONS no longer claims `/dashboard`
+keeps the checkout query (it drops it); DATA_QUALITY never says "Verified"
+for a range ("Sourced {date}"); next.config.mjs no longer says middleware
+is the maintenance page (no middleware.ts exists). Recorded Niran's
+decisions: keep GA with privacy guards, UI revamp now (screen by screen),
+migration numbers at PR open, D-160–D-163 design system adopted.
+
 **2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each
 after CI `verify`, a Vercel Preview smoke test, an independent verifier
 (no open HIGH) and the full local gate, then checked live (routes 200, 0
@@ -1203,9 +1214,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    enter ranges by hand from official rosters in `/admin/team-ranges`, then
    turn the flag on. Every band still rests on labelled estimates until then.
-3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (~79
-   sites); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
-4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*).
+3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (139
+   uses in 38 non-test files, re-measured 2026-11-21); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
+4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*) — decided
+   2026-11-21: now, one screen per PR (DECISIONS).
 5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
    V1 ships no AI; this needs its own privacy-policy section first.
 6. **Wire the recruiting checklist into Today.**
