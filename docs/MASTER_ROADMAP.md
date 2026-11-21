@@ -20,6 +20,37 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Parents can verify with Google (final-check PR D; branch
+`fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
+checks found production has not sent a magic-link/recovery email since
+2026-10-22 and 0 profiles have `email_verified_at`, so a parent may never
+receive 043's link (whether production has custom SMTP is not readable from
+here). 043 already accepts a second proof — a Google identity whose VERIFIED
+email equals the CURRENT auth email (`mark_email_verified()` and
+`email_is_verified()`, re-read live on production: amr methods
+`otp`/`magiclink` only, plus the Google-identity half). Production has 0
+Google identities yet, so the linking half is unproven until Niran's test.
+- Every parent verify prompt (join step, approve/consent card on Family and
+  Settings → Family, the banner) gains a secondary **"Verify with Google
+  instead"** with one line: it works when the Google account uses the same
+  email address. Flag-guarded inside `GoogleVerifyButton` (auth-card.tsx),
+  like `GoogleButton`. It remembers the return screen (and a join's code),
+  remembers WHICH account asked, and Google returns to `/auth/verified` —
+  the page the emailed link already uses — which runs the existing
+  `mark_email_verified()`. No new redirect URL.
+- If Google comes back as a DIFFERENT account (different address), the page
+  signs it out through PlayerProvider and says why in plain English; a
+  cancel says nothing changed. The database still decides; who must verify
+  is unchanged.
+- A failed "Send the link" now points to "Verify with Google instead"
+  (`sendFailureMessage`) instead of only "try again".
+- Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
+  same/different account, error mapping, and a real render proving the
+  option is empty unless the flag is exactly "true");
+  `google-button-flag.test.ts` gains the new guard.
+- Niran's dashboard steps (SMTP, redirect URLs, a real Google test,
+  optional staging Google): `~/seeded-evidence/final-check/prD/STEPS.md`.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1404,6 +1435,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    the schools browser, `signup-flow.tsx`, the dashboard view (boundaries in
    REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
+9b. **Parent email delivery** (final-check PR D): check production SMTP and
+   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`);
+   until then the emailed link may never arrive and "Verify with Google
+   instead" is the working path.
 10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),

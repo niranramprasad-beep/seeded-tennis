@@ -28,6 +28,12 @@ import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 const VERIFY_RETURN_KEY = "seeded.verify.return";
 const PENDING_JOIN_KEY = "seeded.verify.joinCode";
 const BANNER_DISMISSED_KEY = "seeded.verify.bannerDismissed";
+const GOOGLE_VERIFY_KEY = "seeded.verify.google";
+
+/** How long a "Verify with Google" start stays valid: long enough for a
+ *  Google account picker and password, short enough that a stale marker
+ *  never changes how a later emailed link is handled. */
+export const GOOGLE_VERIFY_TTL_MS = 30 * 60 * 1000;
 
 /** Where /auth/verified sends someone when nothing was remembered. */
 export const DEFAULT_VERIFY_RETURN = "/today";
@@ -52,7 +58,40 @@ export const VERIFY_COPY = {
     "Your email address changed in the last day. For your security, try again tomorrow.",
   /** mark_email_verified() hit the profile_write limit (043). */
   markRateLimited: "Too many tries. Wait a few minutes and try again.",
+  /** The second way to prove the address: a Google account for the SAME
+   *  address (043's Google-identity half). Shown only when
+   *  NEXT_PUBLIC_GOOGLE_AUTH_ENABLED is "true". */
+  google: "Verify with Google instead",
+  googleStarting: "Opening Google…",
+  googleHint: "Works when your Google account uses the same email address as your Seeded account.",
+  /** Google came back as a DIFFERENT account (its email is not this
+   *  account's). The database refuses that, so the screen says why. */
+  googleMismatch: (accountEmail: string | null, googleEmail: string | null) =>
+    `${googleEmail ? `That Google account uses ${googleEmail}` : "That Google account uses a different email address"}${
+      accountEmail ? `, but your Seeded account uses ${accountEmail}` : " from your Seeded account"
+    }. Google can only confirm your email when the two addresses are the same, so nothing was confirmed. ` +
+    "We signed that Google account out of this browser. Sign in again with your email and password, then use the emailed link or a Google account with the same address.",
+  /** The person cancelled at Google, or Google refused. Nothing changed. */
+  googleCancelled:
+    "Google sign-in didn’t finish, so nothing changed. You can try again, or use the emailed link instead.",
+  /** Same account came back, but the database did not accept Google as
+   *  proof (e.g. Google itself has not verified that address). */
+  googleNotProven:
+    "Google didn’t confirm this account’s email address, so Seeded can’t accept it. Use the emailed link instead.",
 } as const;
+
+/**
+ * The error a failed "Send the link" shows. Sending can fail for reasons
+ * waiting does not fix (an email service that is not delivering, a
+ * project-wide send limit), so when the Google option is on screen the
+ * message points to it rather than only saying "try again".
+ */
+export function sendFailureMessage(error: string | null | undefined, googleAvailable: boolean): string {
+  const base = (error ?? "").trim() || "We couldn’t send the link.";
+  if (!googleAvailable) return base;
+  const sep = /[.!?…]$/.test(base) ? " " : ". ";
+  return `${base}${sep}You can also use “${VERIFY_COPY.google}” below, which needs no email.`;
+}
 
 function store(): Storage | null {
   try {
@@ -234,4 +273,81 @@ export function joinOutcomeFor(result: Pick<JoinFamilyResult, "status" | "messag
     default:
       return { kind: "error", message: result.message ?? "Could not do that right now." };
   }
+}
+
+// ---------------------------------------------------------------------------
+// "Verify with Google instead" (043's Google-identity half)
+// ---------------------------------------------------------------------------
+//
+// The parent is signed in (email + password). Starting Google OAuth while
+// signed in does one of two things in Supabase:
+//   - the Google account's verified email IS the account's email: Supabase
+//     links the Google identity to the SAME user, and the session that comes
+//     back is still that user. mark_email_verified() then finds a Google
+//     identity whose verified email equals auth.users.email and stamps the
+//     profile; email_is_verified() (what join/approve/consent call) reads
+//     the same identity directly.
+//   - a different address: Supabase signs the browser into a DIFFERENT user
+//     (new, or one that already exists for that address). The database
+//     would refuse that account anyway, so /auth/verified signs it out and
+//     says why in plain English.
+// We tell the two apart by remembering WHO started (user id + email) just
+// before leaving for Google. Nothing here marks anyone verified — the
+// database decides.
+
+export type GoogleVerifyStart = { owner: string; email: string | null };
+
+/** Remember who asked, just before leaving for Google. No owner, nothing stored. */
+export function rememberGoogleVerifyStart(
+  ownerId: string | null | undefined,
+  email: string | null | undefined,
+  now: number = Date.now()
+): void {
+  if (!ownerId) return;
+  write(GOOGLE_VERIFY_KEY, JSON.stringify({ owner: ownerId, email: email ?? null, at: now }));
+}
+
+/** Read AND clear the marker. Null when absent, malformed, or outside the TTL. */
+export function takeGoogleVerifyStart(now: number = Date.now()): GoogleVerifyStart | null {
+  const raw = read(GOOGLE_VERIFY_KEY);
+  write(GOOGLE_VERIFY_KEY, null);
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as { owner?: unknown; email?: unknown; at?: unknown } | null;
+    if (!p || typeof p.owner !== "string" || !p.owner || typeof p.at !== "number") return null;
+    if (now - p.at > GOOGLE_VERIFY_TTL_MS || p.at > now + 60_000) return null;
+    return { owner: p.owner, email: typeof p.email === "string" ? p.email : null };
+  } catch {
+    return null;
+  }
+}
+
+export type GoogleReturn =
+  /** No marker: the emailed-link path, unchanged. */
+  | { kind: "link" }
+  /** Google reported an error or the person cancelled. The old session stands. */
+  | { kind: "cancelled" }
+  /** The same account came back: run mark_email_verified() as usual. */
+  | { kind: "same-account" }
+  /** A different account came back: sign it out and show googleMismatch. */
+  | { kind: "different-account"; accountEmail: string | null; googleEmail: string | null };
+
+/**
+ * What /auth/verified does on arrival. Pure. `providerError` is whether the
+ * URL carries Google's `error` / `error_description`; `sessionUserId` is the
+ * user AFTER the code exchange (a missing session is handled by the caller,
+ * as it always was).
+ */
+export function googleReturnOutcome(input: {
+  started: GoogleVerifyStart | null;
+  providerError: boolean;
+  sessionUserId: string | null;
+  sessionEmail: string | null;
+}): GoogleReturn {
+  if (!input.started) return { kind: "link" };
+  if (input.providerError) return { kind: "cancelled" };
+  if (input.sessionUserId && input.sessionUserId !== input.started.owner) {
+    return { kind: "different-account", accountEmail: input.started.email, googleEmail: input.sessionEmail };
+  }
+  return { kind: "same-account" };
 }

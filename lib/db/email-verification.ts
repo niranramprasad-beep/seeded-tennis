@@ -1,6 +1,12 @@
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { EMAIL_VERIFIED_PATH } from "@/lib/config/auth";
 import { AUTH_ERROR_MESSAGES, friendlyAuthError, isEmailVerifiedFor } from "@/lib/auth";
-import { VERIFY_COPY, readPendingJoinCode, rememberPendingJoinCode } from "@/lib/email-verify-flow";
+import {
+  VERIFY_COPY,
+  readPendingJoinCode,
+  rememberGoogleVerifyStart,
+  rememberPendingJoinCode,
+} from "@/lib/email-verify-flow";
 
 // Parent email verification (B6, migration 043).
 //
@@ -35,8 +41,10 @@ import { VERIFY_COPY, readPendingJoinCode, rememberPendingJoinCode } from "@/lib
 // Supabase project settings (Auth -> Rate Limits, SMTP), not this repo.
 
 /** Where the link sends the browser. Must be in Supabase Auth's redirect
- * allow-list (Dashboard -> Authentication -> URL Configuration). */
-export const EMAIL_VERIFIED_PATH = "/auth/verified";
+ * allow-list (Dashboard -> Authentication -> URL Configuration). Defined in
+ * lib/config/auth.ts so the Google sign-in helper can use it without an import
+ * cycle. */
+export { EMAIL_VERIFIED_PATH } from "@/lib/config/auth";
 
 // The refusal's constants and detector live in a leaf module (import-cycle
 // safety, see that file); re-exported here as part of this module's contract.
@@ -148,6 +156,27 @@ async function currentUserId(): Promise<string | null> {
  *  /auth/verified never submits it for anyone else). */
 export async function rememberMyPendingJoinCode(code: string): Promise<void> {
   rememberPendingJoinCode(code, await currentUserId());
+}
+
+/**
+ * Before "Verify with Google instead" leaves for Google: remember which
+ * account asked (id + current auth email), so /auth/verified can tell
+ * whether Google came back as the SAME account (linked by its verified
+ * email) or signed the browser into a different one. False when nobody is
+ * signed in — the caller then does not start Google at all.
+ */
+export async function rememberMyGoogleVerifyStart(): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { data } = await getAuthedUser(supabase);
+    const user = data.user;
+    if (!user) return false;
+    rememberGoogleVerifyStart(user.id, user.email ?? null);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The code the signed-in account left behind, or null — including when a

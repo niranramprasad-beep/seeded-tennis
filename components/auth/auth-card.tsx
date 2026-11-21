@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { signInWithGoogle } from "@/lib/auth";
 import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
+import { rememberMyGoogleVerifyStart } from "@/lib/db/email-verification";
+import { VERIFY_COPY, takeGoogleVerifyStart } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 
 // The shared shell for /login, /signup, /parent-signup, /reset-password and
@@ -262,6 +264,75 @@ export function GoogleButton({ next, label, onStart }: GoogleButtonProps) {
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * "Verify with Google instead" — the second way a PARENT proves their email
+ * (migration 043: a Google identity whose verified email is the account's
+ * email). Lives here, beside GoogleButton, so it carries the same flag guard
+ * and stays the only other caller of signInWithGoogle
+ * (components/auth/google-button-flag.test.ts).
+ *
+ * Before leaving it runs `onBeforeStart` (the caller remembers the return
+ * screen and, for a join, the family code), then remembers WHICH account
+ * asked, so /auth/verified can tell "same account, now linked to Google"
+ * from "Google signed you into a different account". Google comes back to
+ * /auth/verified, which runs the existing mark_email_verified() path.
+ * Nothing here decides who is verified, or who must verify.
+ */
+export function GoogleVerifyButton({
+  onBeforeStart,
+  hint,
+  className,
+}: {
+  onBeforeStart?: () => void | Promise<void>;
+  /** The one-line "works when your Google account uses the same email". */
+  hint?: ReactNode;
+  className?: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!GOOGLE_AUTH_ENABLED) return null;
+
+  const start = async () => {
+    setError(null);
+    setLoading(true);
+    await onBeforeStart?.();
+    if (!(await rememberMyGoogleVerifyStart())) {
+      setError("Sign in first, then try again.");
+      setLoading(false);
+      return;
+    }
+    const result = await signInWithGoogle(undefined, { purpose: "verify-email" });
+    // On success the browser is already on its way to Google.
+    if (!result.ok) {
+      takeGoogleVerifyStart();
+      setError(result.error ?? "Couldn't start Google. Try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={className} data-testid="verify-with-google">
+      <SeededButton
+        type="button"
+        variant="secondary"
+        onClick={start}
+        loading={loading}
+        className="min-h-11 sm:min-h-[38px]"
+      >
+        {!loading && <GoogleMark />}
+        {loading ? VERIFY_COPY.googleStarting : VERIFY_COPY.google}
+      </SeededButton>
+      {hint && <p className="mt-1.5 text-xs text-stone">{hint}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-error-strong">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
