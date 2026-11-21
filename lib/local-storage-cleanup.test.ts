@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { codeOnly } from "./testing/source-text";
-import { PRESERVED_ON_SIGN_OUT, clearSeededLocalStorage } from "./local-storage-cleanup";
+import {
+  PRESERVED_ON_SIGN_OUT,
+  clearSeededBrowserStorage,
+  clearSeededLocalStorage,
+  clearSeededSessionStorage,
+} from "./local-storage-cleanup";
 
 // Audit A-033: sign-out and account deletion clear what this browser
 // remembered about the account, keeping only the theme and the
@@ -89,19 +94,48 @@ describe("clearSeededLocalStorage", () => {
   });
 });
 
+describe("sessionStorage too (A-033 follow-up)", () => {
+  it("clears every seeded.* key in sessionStorage, including the onboarding answers", () => {
+    const s = fakeStorage({
+      "seeded.onboarding.pending": "{\"utr\":9.5}",
+      "seeded.anything": "x",
+      "other": "kept",
+    });
+    expect(clearSeededSessionStorage(s).sort()).toEqual(["seeded.anything", "seeded.onboarding.pending"]);
+    expect(Array.from(s.data.keys())).toEqual(["other"]);
+  });
+
+  it("clearSeededBrowserStorage covers both storages and is safe with no window", () => {
+    expect(clearSeededBrowserStorage()).toEqual([]); // node: no window
+    const src = codeOnly(join(ROOT, "lib/local-storage-cleanup.ts"));
+    expect(src).toMatch(/return \[\.\.\.clearSeededLocalStorage\(\), \.\.\.clearSeededSessionStorage\(\)\];/);
+    expect(src).toMatch(/browserStorage\("sessionStorage"\)/);
+  });
+
+  it("a sign-out in another tab clears this tab too", () => {
+    const src = codeOnly(join(ROOT, "lib/context/player-context.tsx"));
+    const listener = src.slice(src.indexOf("onAuthStateChange("), src.indexOf("data.subscription.unsubscribe()"));
+    const signedOut = listener.slice(listener.indexOf('if (event === "SIGNED_OUT")'), listener.indexOf("return;"));
+    expect(signedOut).toMatch(/clearSeededBrowserStorage\(\)/);
+    expect(signedOut).toMatch(/setUserId\(null\)/);
+    expect(signedOut).toMatch(/mutate\(isMyConsentStateKey/);
+  });
+});
+
 describe("every sign-out and deletion path clears", () => {
   it("PlayerProvider.signOut() clears (sidebar and both Settings views go through it)", () => {
     const src = codeOnly(join(ROOT, "lib/context/player-context.tsx"));
     const body = src.slice(src.indexOf("const signOut = useCallback("), src.indexOf("}, []);", src.indexOf("const signOut = useCallback(")));
-    expect(body).toMatch(/clearSeededLocalStorage\(\)/);
-    expect(body).toMatch(/mutate\(MY_CONSENT_STATE_KEY, undefined/);
+    expect(body).toMatch(/clearSeededBrowserStorage\(\)/);
+    expect(body).toMatch(/setUserId\(null\)/);
+    expect(body).toMatch(/mutate\(isMyConsentStateKey, undefined/);
   });
 
   it.each(["components/seeded/settings/seeded-settings-view.tsx", "components/seeded/settings/parent-settings-view.tsx"])(
     "%s clears after a successful deletion",
     (file) => {
       const src = codeOnly(join(ROOT, file));
-      expect(src).toMatch(/postJson\("\/api\/account\/deletion"[^)]*\);\s*clearSeededLocalStorage\(\);\s*signOut\(\);/);
+      expect(src).toMatch(/postJson\("\/api\/account\/deletion"[^)]*\);\s*clearSeededBrowserStorage\(\);\s*signOut\(\);/);
     }
   );
 

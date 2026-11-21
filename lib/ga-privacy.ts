@@ -16,7 +16,10 @@
 //   3. A signed-in account that needed a parent's consent is never tracked:
 //      consent_status 'pending' (waiting) or 'granted' (a parent said yes —
 //      still a child under 030's `consent_required_for_birth_year`, mirrored
-//      in lib/config/consent.ts). Only 'not_required' is tracked.
+//      in lib/config/consent.ts). Only 'not_required' WITH a known birth
+//      year is tracked: an account that never gave one (created before 030)
+//      also reads 'not_required' from the database, and we cannot tell its
+//      age, so it is treated as unknown.
 //   4. Anything not yet known — the session still restoring, a connection
 //      error, the consent check not answered or failed, the browser checks
 //      not run yet — means WAIT. Unknown never fires first.
@@ -33,7 +36,12 @@ export type GaAccountState =
   /** Session not restored yet, or Supabase unreachable: we do not know who this is. */
   | { kind: "unknown" }
   | { kind: "signed-out" }
-  | { kind: "signed-in"; consentStatus: GaConsentStatus };
+  | {
+      kind: "signed-in";
+      consentStatus: GaConsentStatus;
+      /** my_consent_state().birth_year_known; undefined = not answered. */
+      birthYearKnown?: boolean;
+    };
 
 export interface GaDecisionInput {
   pathname: string;
@@ -42,6 +50,32 @@ export interface GaDecisionInput {
   webdriver: boolean | undefined;
   /** localStorage "seeded.internal" === "1"; undefined = not checked yet. */
   internalFlag: boolean | undefined;
+}
+
+/** What the app knows about the session, as PlayerProvider and the
+ * per-user consent fetch report it. */
+export interface GaSessionFacts {
+  hydrated: boolean;
+  connectionError: string | null;
+  isAuthed: boolean;
+  userId: string | null;
+  consent: { status: GaConsentStatus; birthYearKnown: boolean } | undefined;
+  consentError: unknown;
+}
+
+/** The account state GA is decided on. Anything not yet known is unknown,
+ * or a signed-in account with no consent answer — both a no. */
+export function gaAccountState(f: GaSessionFacts): GaAccountState {
+  if (!f.hydrated || f.connectionError) return { kind: "unknown" };
+  if (!f.isAuthed) return { kind: "signed-out" };
+  if (!f.userId) return { kind: "signed-in", consentStatus: undefined };
+  if (f.consentError) return { kind: "signed-in", consentStatus: "unknown" };
+  if (!f.consent) return { kind: "signed-in", consentStatus: undefined };
+  return {
+    kind: "signed-in",
+    consentStatus: f.consent.status,
+    birthYearKnown: f.consent.birthYearKnown,
+  };
 }
 
 /** /auth and everything under it. Case-insensitive, trailing slash or not. */
@@ -55,7 +89,9 @@ export function isGaExcludedPath(pathname: string): boolean {
  * is a no. */
 export function accountAllowsGa(account: GaAccountState): boolean {
   if (account.kind === "signed-out") return true;
-  if (account.kind === "signed-in") return account.consentStatus === "not_required";
+  if (account.kind === "signed-in") {
+    return account.consentStatus === "not_required" && account.birthYearKnown === true;
+  }
   return false;
 }
 

@@ -3,7 +3,12 @@
 // the next person the last one's role, outreach drafts, filters, verify-flow
 // state and the rest. Called on every sign-out (lib/context/player-context.tsx
 // signOut, which the sidebar, both Settings views and both account-deletion
-// success paths go through) and again explicitly after a deletion.
+// success paths go through, and its listener for a sign-out in another tab)
+// and again explicitly after a deletion.
+//
+// Both storages: localStorage, and this tab's sessionStorage (the onboarding
+// diagnostic keeps a signed-out visitor's answers in
+// sessionStorage "seeded.onboarding.pending").
 //
 // Kept, because they describe the browser, not the person:
 //   - the Appearance choice (Light / Dark / Match system), and the retired
@@ -33,9 +38,9 @@ export const PRESERVED_ON_SIGN_OUT: readonly string[] = [
 
 type CleanableStorage = Pick<Storage, "length" | "key" | "removeItem">;
 
-function defaultStorage(): CleanableStorage | null {
+function browserStorage(kind: "localStorage" | "sessionStorage"): CleanableStorage | null {
   try {
-    return typeof window === "undefined" ? null : window.localStorage;
+    return typeof window === "undefined" ? null : window[kind];
   } catch {
     return null;
   }
@@ -45,7 +50,7 @@ function defaultStorage(): CleanableStorage | null {
  * keys it removed. Never throws: storage that is missing or refuses access
  * is left alone. */
 export function clearSeededLocalStorage(
-  storage: CleanableStorage | null = defaultStorage()
+  storage: CleanableStorage | null = browserStorage("localStorage")
 ): string[] {
   if (!storage) return [];
   const doomed: string[] = [];
@@ -70,4 +75,17 @@ export function clearSeededLocalStorage(
     }
   }
   return removed;
+}
+
+/** Every "seeded.*" key in this tab's sessionStorage. Nothing there is
+ * worth keeping past a sign-out. Never throws. */
+export function clearSeededSessionStorage(
+  storage: CleanableStorage | null = browserStorage("sessionStorage")
+): string[] {
+  return clearSeededLocalStorage(storage);
+}
+
+/** What sign-out and account deletion call: both storages. */
+export function clearSeededBrowserStorage(): string[] {
+  return [...clearSeededLocalStorage(), ...clearSeededSessionStorage()];
 }

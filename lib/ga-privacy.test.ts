@@ -5,6 +5,7 @@ import {
   GA_INTERNAL_FLAG_KEY,
   accountAllowsGa,
   browserAllowsGa,
+  gaAccountState,
   gaConfigParams,
   gaPageLocation,
   gaPagePath,
@@ -19,6 +20,7 @@ import {
   type GaConsentStatus,
 } from "./ga-privacy";
 import { purchaseEventBody } from "./ga4-server";
+import { GaRuntime, type GaWindow } from "./ga-runtime";
 
 // Guards for Google Analytics (audit A-201 and the GA privacy change). Fails
 // the build if:
@@ -124,14 +126,47 @@ describe("never on /auth/*", () => {
 describe("never for an account that needed a parent's consent, never before we know", () => {
   const blocked: GaConsentStatus[] = ["pending", "granted", "unknown", undefined];
   it.each(blocked)("signed in with consent %s: no", (consentStatus) => {
-    const account: GaAccountState = { kind: "signed-in", consentStatus };
+    const account: GaAccountState = { kind: "signed-in", consentStatus, birthYearKnown: true };
     expect(accountAllowsGa(account)).toBe(false);
     expect(shouldLoadGa({ ...BASE, account })).toBe(false);
   });
 
-  it("signed in with consent not_required: yes", () => {
-    const account: GaAccountState = { kind: "signed-in", consentStatus: "not_required" };
+  it("signed in with consent not_required and a known birth year: yes", () => {
+    const account: GaAccountState = { kind: "signed-in", consentStatus: "not_required", birthYearKnown: true };
     expect(shouldLoadGa({ ...BASE, account })).toBe(true);
+  });
+
+  it.each([false, undefined])("not_required but birth year known=%s (pre-030 account, age unknowable): no", (birthYearKnown) => {
+    const account: GaAccountState = { kind: "signed-in", consentStatus: "not_required", birthYearKnown };
+    expect(shouldLoadGa({ ...BASE, account })).toBe(false);
+  });
+
+  it("gaAccountState: nothing known yet is unknown; signed in with no answer is a no", () => {
+    const facts = {
+      hydrated: true,
+      connectionError: null as string | null,
+      isAuthed: true,
+      userId: "u1" as string | null,
+      consent: { status: "not_required" as GaConsentStatus, birthYearKnown: true } as
+        | { status: GaConsentStatus; birthYearKnown: boolean }
+        | undefined,
+      consentError: undefined as unknown,
+    };
+    expect(gaAccountState({ ...facts, hydrated: false })).toEqual({ kind: "unknown" });
+    expect(gaAccountState({ ...facts, hydrated: false, isAuthed: false })).toEqual({ kind: "unknown" });
+    expect(gaAccountState({ ...facts, connectionError: "down", isAuthed: false })).toEqual({ kind: "unknown" });
+    expect(gaAccountState({ ...facts, isAuthed: false })).toEqual({ kind: "signed-out" });
+    for (const f of [
+      { ...facts, userId: null },
+      { ...facts, consent: undefined },
+      { ...facts, consentError: new Error("rpc") },
+      { ...facts, consent: { status: "pending" as GaConsentStatus, birthYearKnown: true } },
+      { ...facts, consent: { status: "granted" as GaConsentStatus, birthYearKnown: true } },
+      { ...facts, consent: { status: "not_required" as GaConsentStatus, birthYearKnown: false } },
+    ]) {
+      expect(accountAllowsGa(gaAccountState(f))).toBe(false);
+    }
+    expect(accountAllowsGa(gaAccountState(facts))).toBe(true);
   });
 
   it("account state unknown (session restoring / connection error): no", () => {
@@ -159,8 +194,10 @@ describe("automation and internal browsers are skipped", () => {
     const accounts: GaAccountState[] = [
       { kind: "unknown" },
       { kind: "signed-out" },
-      ...(["not_required", "pending", "granted", "unknown", undefined] as GaConsentStatus[]).map(
-        (consentStatus) => ({ kind: "signed-in", consentStatus }) as GaAccountState
+      ...(["not_required", "pending", "granted", "unknown", undefined] as GaConsentStatus[]).flatMap((consentStatus) =>
+        [true, false, undefined].map(
+          (birthYearKnown) => ({ kind: "signed-in", consentStatus, birthYearKnown }) as GaAccountState
+        )
       ),
     ];
     const tri = [true, false, undefined];
@@ -173,7 +210,9 @@ describe("automation and internal browsers are skipped", () => {
               webdriver === false &&
               internalFlag === false &&
               (account.kind === "signed-out" ||
-                (account.kind === "signed-in" && account.consentStatus === "not_required"));
+                (account.kind === "signed-in" &&
+                  account.consentStatus === "not_required" &&
+                  account.birthYearKnown === true));
             expect(shouldLoadGa({ pathname, account, webdriver, internalFlag })).toBe(expected);
           }
   });
@@ -266,55 +305,215 @@ describe("server purchase event (Whop webhook → GA4 Measurement Protocol)", ()
   });
 });
 
-describe("components/shared/google-analytics.tsx is wired through the tested rules", () => {
+// ---------------------------------------------------------------------------
+// The runtime, driven end to end with a fake window. Everything gtag is ever
+// handed lands in win.dataLayer, so these read back exactly what Google
+// would receive.
+
+const GA_ID = "G-TEST123";
+const SIGNED_OUT_FACTS = {
+  hydrated: true,
+  connectionError: null as string | null,
+  isAuthed: false,
+  userId: null as string | null,
+  consent: undefined as { status: GaConsentStatus; birthYearKnown: boolean } | undefined,
+  consentError: undefined as unknown,
+};
+const SIGNED_IN_ADULT = {
+  ...SIGNED_OUT_FACTS,
+  isAuthed: true,
+  userId: "user-1",
+  consent: { status: "not_required" as GaConsentStatus, birthYearKnown: true },
+};
+
+function fakeWindow(url: string, referrer: string, opts: { webdriver?: boolean; storage?: Record<string, string> } = {}) {
+  const store = new Map(Object.entries(opts.storage ?? {}));
+  const win = {
+    location: { href: url },
+    document: { referrer },
+    navigator: { webdriver: opts.webdriver ?? false },
+    history: {
+      state: null as unknown,
+      replaceState(_data: unknown, _unused: string, next?: string) {
+        if (next) win.location.href = new URL(next, win.location.href).href;
+      },
+    },
+    localStorage: {
+      getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    },
+  } as GaWindow & Record<string, unknown>;
+  return { win, store };
+}
+
+function harness(url: string, referrer = "") {
+  const { win, store } = fakeWindow(url, referrer);
+  let scriptLoads = 0;
+  const rt = new GaRuntime(GA_ID, win, () => {
+    scriptLoads++;
+  });
+  const go = (href: string) => {
+    win.location.href = new URL(href, win.location.href).href;
+  };
+  const update = (pathname: string, facts: Parameters<typeof gaAccountState>[0]) =>
+    rt.update({ pathname, account: gaAccountState(facts) });
+  const calls = () => (win.dataLayer ?? []).map((a) => Array.from(a as ArrayLike<unknown>));
+  const pageViews = () => calls().filter((c) => c[0] === "event" && c[1] === "page_view");
+  const disabled = () => win[`ga-disable-${GA_ID}`];
+  return { win, store, rt, go, update, calls, pageViews, disabled, scriptLoads: () => scriptLoads };
+}
+
+describe("GaRuntime: what gtag actually receives", () => {
+  it("(a) nothing is created, pushed or injected while the account state is unknown", () => {
+    const h = harness(`${ORIGIN}/schools`);
+    h.update("/schools", { ...SIGNED_OUT_FACTS, hydrated: false });
+    h.update("/schools", { ...SIGNED_OUT_FACTS, hydrated: false, isAuthed: true, userId: "u" });
+    h.update("/schools", { ...SIGNED_OUT_FACTS, connectionError: "unreachable" });
+    h.update("/schools", { ...SIGNED_IN_ADULT, consent: undefined }); // consent not answered
+    h.update("/schools", { ...SIGNED_IN_ADULT, userId: null }); // whose session, not known
+    h.update("/schools", { ...SIGNED_IN_ADULT, consentError: new Error("rpc") });
+    expect(h.win.dataLayer).toBeUndefined();
+    expect(h.win.gtag).toBeUndefined();
+    expect(h.scriptLoads()).toBe(0);
+    // ...and the moment it is known and allowed, exactly one load and one view.
+    h.update("/schools", SIGNED_IN_ADULT);
+    expect(h.scriptLoads()).toBe(1);
+    expect(h.pageViews()).toHaveLength(1);
+  });
+
+  it("(b) no query, hash or raw referrer query reaches gtag, across navigations", () => {
+    const h = harness(
+      `${ORIGIN}/onboarding?utr=9.5&gpa=3.9&grad=2028&gender=girls#x`,
+      `https://www.google.com/search?q=utr+9.5+gpa+3.9#frag`
+    );
+    h.update("/onboarding", SIGNED_OUT_FACTS);
+    h.go("/schools?utr=11&gpa=4.0#fit");
+    h.update("/schools", SIGNED_OUT_FACTS);
+    h.go("/schools?utr=12"); // query-only change: same visit, no second view
+    h.update("/schools", SIGNED_OUT_FACTS);
+    h.go(`/onboarding?utr=9.5#again`);
+    h.update("/onboarding", SIGNED_OUT_FACTS);
+
+    const serialized = JSON.stringify(h.calls());
+    for (const leak of ["?", "#", "utr", "gpa", "grad", "gender", "q=", "frag", "fit"]) {
+      expect(serialized).not.toContain(leak);
+    }
+    expect(h.pageViews().map((c) => (c[2] as { page_path: string }).page_path)).toEqual([
+      "/onboarding",
+      "/schools",
+      "/onboarding",
+    ]);
+    // Exactly the commands we expect, in order: js, config, then set → page_view per visit.
+    expect(h.calls().map((c) => c[0])).toEqual(["js", "config", "set", "event", "set", "event", "set", "event"]);
+    const config = h.calls()[1];
+    expect(config[1]).toBe(GA_ID);
+    expect(config[2]).toMatchObject({
+      send_page_view: false,
+      page_location: `${ORIGIN}/onboarding`,
+      page_referrer: "https://www.google.com/search",
+    });
+    expect(h.calls()[2]).toEqual(["set", { page_location: `${ORIGIN}/onboarding`, page_referrer: "https://www.google.com/search" }]);
+    expect(h.calls()[4]).toEqual(["set", { page_location: `${ORIGIN}/schools`, page_referrer: `${ORIGIN}/onboarding` }]);
+  });
+
+  it("(c) nothing for /auth/*, and nothing for an account that needed a parent's consent", () => {
+    const auth = harness(`${ORIGIN}/auth/callback?code=secret&next=%2Ftoday`);
+    auth.update("/auth/callback", SIGNED_OUT_FACTS);
+    auth.update("/auth/x", SIGNED_IN_ADULT);
+    expect(auth.win.dataLayer).toBeUndefined();
+    expect(auth.scriptLoads()).toBe(0);
+
+    for (const consent of [
+      { status: "pending" as GaConsentStatus, birthYearKnown: true },
+      { status: "granted" as GaConsentStatus, birthYearKnown: true },
+      { status: "unknown" as GaConsentStatus, birthYearKnown: false },
+      { status: "not_required" as GaConsentStatus, birthYearKnown: false },
+    ]) {
+      const h = harness(`${ORIGIN}/today`);
+      h.update("/today", { ...SIGNED_IN_ADULT, consent });
+      expect(h.win.dataLayer).toBeUndefined();
+      expect(h.scriptLoads()).toBe(0);
+    }
+  });
+
+  it("once loaded, a later no turns gtag off and sends nothing more", () => {
+    const h = harness(`${ORIGIN}/`);
+    h.update("/", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(false);
+    const before = h.calls().length;
+    // an under-13 signs in on this tab
+    h.update("/", { ...SIGNED_IN_ADULT, userId: "child", consent: { status: "pending", birthYearKnown: true } });
+    h.go("/today");
+    h.update("/today", { ...SIGNED_IN_ADULT, userId: "child", consent: { status: "granted", birthYearKnown: true } });
+    h.go("/auth/complete");
+    h.update("/auth/complete", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(true);
+    expect(h.calls()).toHaveLength(before);
+    expect(h.scriptLoads()).toBe(1);
+    // back to a public page, signed out: allowed again, a fresh view for it
+    h.go("/schools");
+    h.update("/schools", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(false);
+    expect(h.pageViews()).toHaveLength(2);
+  });
+
+  it("automation is skipped", () => {
+    const { win } = fakeWindow(`${ORIGIN}/`, "", { webdriver: true });
+    let loads = 0;
+    new GaRuntime(GA_ID, win, () => loads++).update({ pathname: "/", account: { kind: "signed-out" } });
+    expect(win.dataLayer).toBeUndefined();
+    expect(loads).toBe(0);
+  });
+
+  it("?seeded_internal=1 on the CURRENT path applies at once, and is stripped from the URL", () => {
+    const h = harness(`${ORIGIN}/schools`);
+    h.update("/schools", SIGNED_OUT_FACTS);
+    expect(h.pageViews()).toHaveLength(1);
+    const before = h.calls().length;
+    h.go("/schools?utr=9&seeded_internal=1#top"); // same pathname, search changes
+    h.update("/schools", SIGNED_OUT_FACTS);
+    expect(h.store.get(GA_INTERNAL_FLAG_KEY)).toBe("1");
+    expect(h.win.location.href).toBe(`${ORIGIN}/schools?utr=9#top`);
+    expect(h.disabled()).toBe(true);
+    h.go("/today");
+    h.update("/today", SIGNED_OUT_FACTS);
+    expect(h.calls()).toHaveLength(before);
+  });
+
+  it("an internal browser never loads it at all", () => {
+    const { win } = fakeWindow(`${ORIGIN}/`, "", { storage: { [GA_INTERNAL_FLAG_KEY]: "1" } });
+    let loads = 0;
+    new GaRuntime(GA_ID, win, () => loads++).update({ pathname: "/", account: { kind: "signed-out" } });
+    expect(win.dataLayer).toBeUndefined();
+    expect(loads).toBe(0);
+  });
+});
+
+describe("components/shared/google-analytics.tsx is wiring only", () => {
   const src = codeOnly(join(ROOT, "components/shared/google-analytics.tsx"));
 
-  it("never reads the query into anything it sends", () => {
-    expect(src).not.toMatch(/useSearchParams|searchParams\.toString/);
-    expect(src).not.toMatch(/\?\$\{/); // `${path}?${query}`
-    expect(src).not.toMatch(/page_path\s*:/); // only gaPageViewParams() builds it
-    // the one page_location it writes is the builder's
-    expect(src.match(/page_location\s*:/g)).toHaveLength(1);
-    expect(src).toMatch(/page_location: params\.page_location/);
-    // location.href is read for one thing: stripping ?seeded_internal=
-    expect(src.match(/location\.href/g)).toHaveLength(1);
-    expect(src).toMatch(/stripInternalParam\(window\.location\.href\)/);
+  it("never talks to gtag, dataLayer, the URL or the referrer itself", () => {
+    // Only the global type declaration may name them.
+    const body = src.replace(/declare global \{[\s\S]*?\n\}\n/, "");
+    expect(body).not.toMatch(/gtag\s*\(|dataLayer|page_|document\.|location\.|shouldLoadGa|ga-disable/);
+    expect(body).not.toMatch(/searchParams\.get|searchKey\s*\)/);
   });
 
-  it("builds every page-ish value with the tested functions", () => {
-    expect(src).toMatch(/window\.gtag\(\s*"config",\s*id,\s*gaConfigParams\(gaPageLocation\(origin, pathname\), gaReferrer\(document\.referrer\)\)/);
-    expect(src).toMatch(/const params = gaPageViewParams\(origin, pathname, referrer\)/);
-    expect(src).toMatch(/window\.gtag\("event", "page_view", params\)/);
-    expect(src).toMatch(/lastLocation\.current \?\? gaReferrer\(document\.referrer\)/);
+  it("feeds the runtime the tested account state and re-runs on path, search and session", () => {
+    expect(src).toMatch(/gaAccountState\(\{ hydrated, connectionError, isAuthed, userId, consent, consentError \}\)/);
+    expect(src).toMatch(/useSWR\(\s*isAuthed && hydrated \? myConsentStateKey\(userId\) : null,/);
+    expect(src).toMatch(/new GaRuntime\(id, window, \(\) => setScriptWanted\(true\)\)/);
+    expect(src).toMatch(/runtime\.current\.update\(\{ pathname, account \}\);\s*\}, \[id, pathname, searchKey, account\]\);/);
+    expect(src.match(/\.update\(/g)).toHaveLength(1);
   });
 
-  it("has no inline bootstrap: nothing from Google exists until the rule says yes", () => {
+  it("has no inline bootstrap, and injects gtag.js only after the runtime asks", () => {
     expect(src).not.toMatch(/dangerouslySetInnerHTML|<Script\s+id=/);
     expect(src.match(/googletagmanager\.com\/gtag\/js/g)).toHaveLength(1);
     expect(src.indexOf("if (!scriptWanted) return null;")).toBeGreaterThan(-1);
     expect(src.indexOf("if (!scriptWanted) return null;")).toBeLessThan(src.indexOf("googletagmanager.com/gtag/js"));
     expect(src.match(/setScriptWanted\(true\)/g)).toHaveLength(1);
-  });
-
-  it("asks shouldLoadGa() with the real session state, and unknown stays unknown", () => {
-    expect(src).toMatch(/const allowed = shouldLoadGa\(\{/);
-    expect(src).toMatch(/!hydrated \|\| connectionError\s*\?\s*\{ kind: "unknown" \}/);
-    expect(src).toMatch(/!isAuthed\s*\?\s*\{ kind: "signed-out" \}/);
-    expect(src).toMatch(/consentStatus: consentError \? "unknown" : consent\?\.status/);
-    expect(src).toMatch(/webdriver: env\?\.webdriver/);
-    expect(src).toMatch(/internalFlag: env\?\.internalFlag/);
-  });
-
-  it("re-checks the browser flags at send time and stops before loading or sending", () => {
-    expect(src).toMatch(/const allowedNow =\s*allowed &&\s*browserAllowsGa\(\{\s*webdriver: readWebdriver\(\),\s*internalFlag: syncInternalFlag\(/);
-    expect(src).toMatch(/navigator\.webdriver === true/);
-    const stop = src.indexOf("if (!allowedNow) {");
-    expect(stop).toBeGreaterThan(-1);
-    expect(stop).toBeLessThan(src.indexOf("bootstrapped.current = true"));
-    expect(stop).toBeLessThan(src.indexOf('window.gtag("event"'));
-    // and turns gtag off when it was loaded earlier
-    expect(src.slice(stop, src.indexOf("return;", stop))).toMatch(/setGaDisabled\(id, true\)/);
-    expect(src).toMatch(/`ga-disable-\$\{id\}`/);
   });
 
   it("is mounted inside <Providers> (it needs the session)", () => {
@@ -325,5 +524,13 @@ describe("components/shared/google-analytics.tsx is wired through the tested rul
     expect(ga).toBeGreaterThan(open);
     expect(ga).toBeLessThan(close);
     expect(layout.match(/<GoogleAnalytics \/>/g)).toHaveLength(1);
+  });
+
+  it("every consent-state cache is keyed by user", () => {
+    for (const file of ["components/shared/auth-gate.tsx", "lib/hooks/use-star-schools.ts", "components/shared/google-analytics.tsx"]) {
+      const code = codeOnly(join(ROOT, file));
+      expect(code).toMatch(/myConsentStateKey\(userId\)/);
+      expect(code).not.toMatch(/MY_CONSENT_STATE_KEY|"my-consent-state"/);
+    }
   });
 });

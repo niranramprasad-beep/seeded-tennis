@@ -4,8 +4,10 @@
 > The live policy is `/privacy`, generated from `lib/legal/policy.ts`, and
 > this branch does not change it. These are suggested replacements for the
 > reviewer (an adult / lawyer, per the open P0-8 item) to accept, reword or
-> reject. Each sentence below is true of the code on `fix/ga-privacy`; if
-> the code changes before the policy does, re-check it.
+> reject. Each sentence below is true of the code on `fix/ga-privacy`
+> **except** where the last section says a GA property setting is still
+> needed (enhanced measurement); if the code changes before the policy
+> does, re-check it.
 
 Written 2026-11-21 alongside the Google Analytics privacy change
 (`lib/ga-privacy.ts`, `components/shared/google-analytics.tsx`,
@@ -36,6 +38,7 @@ Replace the current Google Analytics sentence with:
 >   under 13), whether that consent is still waiting or has been given;
 > - until the site knows whether you are signed in and, if you are, whether
 >   your account needed a parent's consent;
+> - for a signed-in account with no birth year on record;
 > - in automated browsers, and in browsers we have marked as our own
 >   testing devices.
 >
@@ -55,7 +58,8 @@ Replace the second sentence with:
 
 > Your theme and a few display preferences are stored in your browser. When
 > you sign out or delete your account, Seeded clears what it stored in your
-> browser except your theme. If you are signed in, your theme is also saved
+> browser except your theme (including answers you typed before creating an
+> account, which are kept only for that browser tab). If you are signed in, your theme is also saved
 > to your account so it follows you to another device — that is the only
 > display preference that leaves your browser.
 
@@ -66,15 +70,27 @@ which supports it.
 
 ## Things the reviewer should know that code cannot settle
 
-- **GA admin settings are outside the repo.** GA4 "enhanced measurement"
-  (site search, history-change page views, outbound clicks, etc.) is switched
-  on or off in the Google Analytics property, not in code. The code sets
-  `page_location` and `page_referrer` explicitly so gtag does not fall back to
-  the browser's address, but site-search detection and history-change page
-  views should be turned **off** in the property to be sure no query string
-  is read there. That is an owner dashboard step; until it is confirmed,
-  the policy should not claim more than "the page's address without anything
-  after `?` or `#`" for the page views Seeded sends itself.
+- **GA admin settings are outside the repo, and this one matters (HIGH).**
+  GA4 "enhanced measurement" is switched on or off in the Google Analytics
+  property, not in code. While it is on, its automatic events — page changes
+  based on browser history, outbound clicks (which carry the clicked link as
+  `link_url`, e.g. a player's UTR profile link), site search, form
+  interactions, file downloads, video — can send the browser's full address,
+  query string included. The homepage calculator still puts a player's
+  answers (UTR, grad year, gender) in the `/onboarding?…` address, so with
+  enhanced measurement on, those can still reach Google. The code sets
+  path-only `page_location`/`page_referrer` before every page view, which
+  only covers what gtag builds from those values; it does not close this.
+  Required owner step before the proposed wording above is true: **GA Admin
+  → Data streams → web stream → Enhanced measurement: turn it OFF entirely**,
+  then confirm in DebugView that a calculator → /onboarding navigation sends
+  no query. Separately, moving the calculator's answers out of the URL is an
+  open code follow-up. Until both are confirmed, the policy should not claim
+  more than "the page's address without anything after `?` or `#`" for the
+  page views Seeded sends itself.
+- **Accounts with no birth year on record** (created before birth year was
+  collected) are not tracked by Google Analytics at all once signed in,
+  because their age cannot be told.
 - **Data retention in GA** is also a property setting (2 or 14 months). The
   policy should state whichever is chosen.
 - **"Under 13"** is decided from birth year only (`<= 13` years, rounding

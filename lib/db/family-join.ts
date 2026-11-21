@@ -78,10 +78,24 @@ export interface FamilyRosterMember {
 }
 
 /** The SWR key every caller of loadMyConsentState() shares (AuthGate, the
- * star hook, Google Analytics), so the answer is fetched once — and so
- * sign-out can drop it (lib/context/player-context.tsx) before the next
- * account on this tab reads a stale one. */
+ * star hook, Google Analytics), so the answer is fetched once. Keyed by the
+ * signed-in user's id: a different account in the same tab gets its own
+ * cache entry and can never read the previous account's answer. Sign-out
+ * also drops every entry (lib/context/player-context.tsx). */
 export const MY_CONSENT_STATE_KEY = "my-consent-state";
+
+/** The SWR key for this user's consent answer, or null (don't fetch) when
+ * there is no known user id yet. */
+export function myConsentStateKey(
+  userId: string | null | undefined
+): readonly [typeof MY_CONSENT_STATE_KEY, string] | null {
+  return userId ? ([MY_CONSENT_STATE_KEY, userId] as const) : null;
+}
+
+/** Whether an SWR cache key is one of myConsentStateKey()'s. */
+export function isMyConsentStateKey(key: unknown): boolean {
+  return Array.isArray(key) && key[0] === MY_CONSENT_STATE_KEY;
+}
 
 /** P0-8. The caller's own consent position, from my_consent_state(). */
 export interface MyConsentState {

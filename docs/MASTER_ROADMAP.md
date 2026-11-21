@@ -40,8 +40,22 @@ the theme keys and `seeded.internal` (`lib/local-storage-cleanup.ts`), and
 drop the cached consent answer. Guards `lib/ga-privacy.test.ts` (mutation-
 tested, 16 mutations) and `lib/local-storage-cleanup.test.ts`. Proposed
 policy wording for the lawyer: `docs/legal/proposed-policy-edits.md` (not
-live). Owner step: turn off GA4 enhanced-measurement site search and
-history-change page views in the GA property.
+live). **Follow-up commit (independent verifier, same day):** the gtag
+work moved into `lib/ga-runtime.ts`, driven by the guard with a fake window
+that reads back every argument gtag receives (the first version's
+source-scan of the component let three wiring mutations through); the
+consent cache is keyed per user id (`myConsentStateKey(userId)`), and
+PlayerProvider listens to `onAuthStateChange` so a sign-out or account
+switch in another tab reaches this one; an account with no birth year on
+record is treated as unknown (no GA); `?seeded_internal=1` applies on the
+current path; sign-out also clears `seeded.*` sessionStorage (the
+onboarding answers). **Not closed by code (HIGH): GA4 enhanced measurement**
+(history-change page views, outbound clicks with `link_url`, site search,
+form interactions, file downloads) can still send the full address, and the
+homepage calculator still puts its answers in the `/onboarding?utr=…` URL —
+the code sets path-only `page_location`/`page_referrer` before every
+page_view, which covers only what gtag builds from set values. Owner step
+below; taking the answers out of the URL is a follow-up.
 
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
@@ -1250,5 +1264,10 @@ Niran's own list (dashboards/keys, not code): revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);
-in the GA4 property, turn off enhanced-measurement site search and
-history-change page views, and pick a retention period.
+**GA Admin → Data streams → web stream → Enhanced measurement: turn OFF
+entirely** (page changes based on browser history, outbound clicks, site
+search, form interactions, file downloads, video), then confirm in DebugView
+that a calculator → /onboarding navigation sends no query; pick a GA
+retention period. Follow-up (code): the homepage calculator still puts its
+answers in the `/onboarding?utr=…&gradYear=…&gender=…` URL — move them out
+of the URL (e.g. the sessionStorage hand-off the diagnostic already uses).

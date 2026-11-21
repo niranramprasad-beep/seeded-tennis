@@ -816,7 +816,7 @@ export async function getCurrentPlayer(): Promise<Player | null> {
 }
 
 export type SessionState =
-  | { status: "authed"; player: Player }
+  | { status: "authed"; player: Player; userId: string }
   | { status: "signed-out" }
   | { status: "error"; message: string };
 
@@ -868,7 +868,11 @@ export async function getSessionState(): Promise<SessionState> {
         ? await earlyProfile
         : await fetchOwnProfileRow(supa, verifiedId);
     if (!profile) return { status: "signed-out" };
-    return { status: "authed", player: playerFromOwnProfile(supa, userData.user, profile) };
+    return {
+      status: "authed",
+      player: playerFromOwnProfile(supa, userData.user, profile),
+      userId: verifiedId,
+    };
   } catch (e) {
     return {
       status: "error",

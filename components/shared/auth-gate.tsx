@@ -7,7 +7,7 @@ import { AlertTriangle, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 import useSWR from "swr";
 import { usePlayer } from "@/lib/context/player-context";
-import { MY_CONSENT_STATE_KEY, loadMyConsentState } from "@/lib/db/family-join";
+import { loadMyConsentState, myConsentStateKey } from "@/lib/db/family-join";
 import { ConsentPendingScreen } from "@/components/seeded/family/consent-pending-screen";
 import { loginHrefFor } from "@/lib/config/auth";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export function AuthGate({
    *  (design system v2 rule 6). Defaults to the spinner. */
   fallback?: ReactNode;
 }) {
-  const { isAuthed, hydrated, player, connectionError, retryConnection } = usePlayer();
+  const { isAuthed, hydrated, player, connectionError, retryConnection, userId } = usePlayer();
 
   // P0-8. A pending-consent account can read nothing, so every page it opens
   // would render as an empty, working-looking product. This asks the one
@@ -43,7 +43,7 @@ export function AuthGate({
   // DEFINER) so the app can explain the emptiness instead. Not a gate — the
   // restrictive RLS policies in migration 030 are the gate.
   const { data: consent } = useSWR(
-    isAuthed && hydrated ? MY_CONSENT_STATE_KEY : null,
+    isAuthed && hydrated ? myConsentStateKey(userId) : null,
     () => loadMyConsentState()
   );
   const awaitingParentConsent = consent?.status === "pending";

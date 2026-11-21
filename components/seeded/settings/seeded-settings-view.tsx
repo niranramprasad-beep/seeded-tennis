@@ -22,7 +22,7 @@ import { ProfileCard } from "./profile-card";
 import { AppearanceCard } from "./appearance-card";
 import { PrivacyCard } from "./privacy-card";
 import { AccountCard } from "./account-card";
-import { clearSeededLocalStorage } from "@/lib/local-storage-cleanup";
+import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = {
   free: "Free",
@@ -117,7 +117,7 @@ export function SeededSettingsView({
       await postJson("/api/account/deletion", { action: "delete", confirm: "DELETE" });
       // signOut() clears too; said again here so the deletion path cannot
       // lose it if sign-out ever changes (A-033).
-      clearSeededLocalStorage();
+      clearSeededBrowserStorage();
       signOut();
       // A full navigation, not router.replace: signing out lets the
       // Settings page's AuthGate push /login first, and the person who
