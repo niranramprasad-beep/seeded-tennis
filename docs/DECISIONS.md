@@ -22,6 +22,11 @@ refer to Niran's own audit list, which is not in this repo.
   `page_path`, so production still sends those calculator values to Google.
   The fix is the `fix/ga-privacy` PR; the privacy-policy wording goes to the
   lawyer as a proposal, not live.
+  *Update, same day: built in PR #23 (`fix/ga-privacy`). One gap is not
+  closable in code: GA4 "enhanced measurement" (history-change page views,
+  outbound clicks, form interactions, site search) can still report the full
+  URL until Niran turns it off in GA Admin, and the homepage calculator still
+  puts its answers in the `/onboarding` URL (moving them out is a follow-up).*
 - **The UI revamp happens now, screen by screen (replaces D-107 / D-212).**
   Not a big-bang rewrite: one screen per PR, each through the usual gate.
   Nothing of it ships today.

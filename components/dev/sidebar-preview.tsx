@@ -44,6 +44,7 @@ export function SidebarPreview() {
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        userId: "dev-preview",
       }}
     >
       <div className="fixed left-1/2 top-2 z-[999] flex -translate-x-1/2 gap-2 rounded-full bg-ink px-3 py-1.5 text-xs text-cream shadow-lift">

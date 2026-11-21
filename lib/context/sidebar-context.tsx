@@ -16,7 +16,9 @@ interface SidebarContextValue {
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
-const COLLAPSE_KEY = "seeded.sidebar.collapsed";
+/** Exported for lib/local-storage-cleanup.ts, which keeps it on sign-out. */
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = "seeded.sidebar.collapsed";
+const COLLAPSE_KEY = SIDEBAR_COLLAPSED_STORAGE_KEY;
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);

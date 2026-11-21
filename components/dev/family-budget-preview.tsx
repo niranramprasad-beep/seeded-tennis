@@ -31,6 +31,7 @@ export function FamilyBudgetPreview({ schools }: { schools: SchoolLite[] }) {
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        userId: "dev-preview",
       }}
     >
       <SeededFamilyBudgetView schools={schools} />
