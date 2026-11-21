@@ -77,7 +77,10 @@ export function AuthField({
       </div>
       {children}
       {error ? (
-        <p id={fieldHintId(htmlFor)} className="mt-1.5 text-sm text-error-strong">
+        // role="alert": the message is mounted when it appears (on blur, or
+        // on Continue), and a live region added with its text already in it
+        // is not reliably announced; an alert is.
+        <p id={fieldHintId(htmlFor)} role="alert" className="mt-1.5 text-sm text-error-strong">
           {error}
         </p>
       ) : help ? (

@@ -282,7 +282,9 @@ export async function signUp(
   let data;
   try {
     const res = await supa.auth.signUp({
-      email: input.email,
+      // A pasted address often carries a trailing space, which Supabase
+      // refuses as invalid on the form's last step (final-check A6).
+      email: input.email.trim(),
       password: input.password,
       options: {
         emailRedirectTo:
@@ -323,7 +325,7 @@ export async function signUp(
   if (!userId) return { ok: false, error: AUTH_ERROR_MESSAGES.serverError };
   const profileResult = await ensureSupabaseProfile({
     userId,
-    email: input.email,
+    email: input.email.trim(),
     name: input.name,
     country: input.country,
     gender: input.gender,
