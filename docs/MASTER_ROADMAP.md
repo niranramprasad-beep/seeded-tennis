@@ -20,6 +20,28 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Parent-approval rule built on STAGING (migration 052, branch
+`feat/parent-approval-rule`; P-015 / S-005; NOT on production — waits for
+Niran's go after the review).** Niran's decision: a player may approve only a
+family's FIRST parent; once an approved parent exists (either membership
+shape), only an approved parent approves another parent (42501
+`parent_approval_requires_parent`), and only an approved parent removes an
+approved parent (42501 `parents_only_remove_parent`). Player joiners keep
+today's rule. `approve_family_join()` asks `family_member_count(code,
+'parent') > 0` and `is_parent_member(code)` (050's own-role + approved
+check), inside 045's per-family lock; 043's email proof, 045's cap and
+`profile_required`, 030's consent and 037's account-holder rule are
+unchanged and in the same order. Probed on staging as `authenticated`, 25/25
+cases as expected (rolled back, 0 residue); the documented rollback was
+rehearsed inside an aborted transaction (bodies byte-identical to pre-052,
+gap reopens). Client: `lib/db/family-join.ts` words both codes. Guard
+`lib/db/parent-approval-rule.test.ts` (mutation-tested). **Accepted residual
+risk:** a player can still create a fake FIRST parent — which then gatekeeps
+later parents and cannot be removed by a player. Follow-ups: production
+(GO-SEQUENCE row 27, HANDOFF §J Step 27); the "approved by" line in Settings
+→ Family; `deny_family_join()` still lets any member decline a pending
+parent (TODO).
+
 **2026-11-21 — Honest zero state and pace copy (PR fix/honest-zero-state;
 no migration, copy and zero-state logic only; audit A-001/002/005/006/007/
 008/022/035).** The homepage card no longer shows "0 / 0 / 0" or "See my —
@@ -1313,12 +1335,14 @@ is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
 Production runs every migration through 051 (ledger 53, 2026-11-21).
 
 0. ~~Migration 051 (PR #17)~~ — DONE 2026-11-21 (on production, merged).
-1. **Build the decided parent-approval rule** (Niran, 2026-11-21): a player
-   may approve only a family's first parent; once an approved parent exists,
-   only an approved parent approves another parent; Settings → Family shows
-   who approved whom. One migration on `approve_family_join`, 033's pattern
-   (docs/TODO.md "Who may approve a parent joiner"). Then the decided
-   post-checkout Whop re-check (TODO "Post-checkout sync").
+1. **Ship the parent-approval rule** (Niran, 2026-11-21): the database half
+   is BUILT ON STAGING as migration 052 (`feat/parent-approval-rule`) — only
+   a parent approves another parent once a family has one, only a parent
+   removes a parent. Left: review, then production on Niran's go
+   (GO-SEQUENCE row 27, HANDOFF §J Step 27); Settings → Family showing who
+   approved whom (`parent_accounts.approved_by` is already written) (docs/TODO.md
+   "Who may approve a parent joiner"). Then the decided post-checkout Whop
+   re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    enter ranges by hand from official rosters in `/admin/team-ranges`, then
    turn the flag on. Every band still rests on labelled estimates until then.

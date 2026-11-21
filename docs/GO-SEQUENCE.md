@@ -151,6 +151,18 @@ the other creates or changes; checked by grep of both files and of
 |---|---|---|---|---|
 | 26 | **051** (pending-consent accounts cannot write tennis data on their own profile; PR #17. **RUN ON PRODUCTION 2026-11-21 03:18:06 UTC** on Niran's current-turn go, backup `~/seeded-backups/prod-20261120-2217-pre051.dump`, ledger 52 → 53; pre-flight 0 pending accounts; probe `~/seeded-evidence/review-ready/r17-051/probe-051.sql` identical on staging and production; function md5 = staging's) | pre-flight: `select count(*) from profiles where consent_status='pending'` and list their `target_school_slugs`/`current_utr` (report, never change). Verify as `authenticated` (rolled back): a pending account changing target schools / current_utr / via upsert → 42501; renaming and re-saving an unchanged row → allowed; an active player unaffected | an active account is refused, or a pending child cannot reach the waiting screen | `drop trigger if exists pending_consent_profile_guard on public.profiles; drop function if exists public.pending_consent_profile_guard();` |
 
+### 3f. 052 — who may approve / remove a parent (NOT RUN on production)
+
+Staging only (applied 2026-11-21, attack-tested, rolled back). **Production
+waits for Niran's current-turn go after the review.** The migration goes
+before the code (the client only words the two new error codes; old code
+against the new database shows its generic "Could not approve/remove" text,
+so either order is safe, but keep GO-SEQUENCE's rule).
+
+| # | migration | pre-flight / verify (detail in §J) | STOP if | rollback |
+|---|---|---|---|---|
+| 27 | **052** (`approve_family_join` + `remove_family_member`: once a family has an approved parent, only a parent approves another parent; only a parent removes a parent. Branch `feat/parent-approval-rule`. **NOT RUN on production.** Staging: applied 2026-11-21, probe 25/25, rollback rehearsed) | pre-flight: `list_migrations` ends at 051; count approved parents whose `approved_by` is not a parent (report, never change — staging 4, from 023's backfill). Verify: both functions' `md5(prosrc)` = staging's (`2571c8d6…`, `2c4d7672…`), ACL `{postgres, authenticated, service_role}` with no PUBLIC/anon; `probe-052.sql` as `authenticated` (rolled back) 25/25 PASS, 0 residue | a real approved parent is refused approving/removing, a player joiner can't be approved, or a family with no parent can't get its first | §J Step 27 block (in the migration file's tail) |
+
 ## 4. Code: merge the PR (5 min + deploy)
 
 `main` and `v1`: `main` was merged into `v1` (`0cea97e`) and
