@@ -46,7 +46,7 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
   `FIT_ENGINE_FILES` (`lib/fit/engine-files.ts`) as "lib/fit.ts".
 
 ## Backend
-- Route handlers in `app/api/*` (13 `route.ts` files — see
+- Route handlers in `app/api/*` (14 `route.ts` files — see
   `docs/API_INTEGRATIONS.md`). Pattern: `getRequestScopedSupabase(req)` (an
   anon-key client carrying the user's bearer token, so RLS applies) → rate
   limit check → zod parse → write → JSON.
@@ -97,7 +97,56 @@ to `main`. `main` is protected (PR + green `verify`) and auto-deploys to
 production with no staging gate, so the merge itself is gated by the owner.
 
 ## Monitoring
-Vercel Analytics + Speed Insights + GA4. No error tracking and no alerting.
+What exists (P1-OPS-2, 2026-11-21), and nothing more:
+
+- **Product analytics:** Vercel Analytics + Speed Insights + GA4. Not
+  monitoring.
+- **Server logs:** every `app/api` route, the Whop webhook and the GA4
+  purchase send log failures through `lib/server-log.ts` —
+  `logServerError(event, err, context)` / `logServerEvent(event, context,
+  level)`. One JSON line per call:
+  `{"level":"error","event":"whop.webhook.sync_failed","route":"/api/whop/webhook","message":"…","code":"42501","context":{…},"ts":"…"}`.
+  The message is the error's first line only, with emails, JWTs,
+  `Bearer …` values, provider keys (`sk_`, `whsec_`, `apik_`, `sb_secret_`,
+  …), `api_secret=`-style URL parameters, UUIDs, long random tokens and a
+  Postgres DETAIL / `Key (…)=(…)` value stripped; no stack, no request body;
+  context keys such as `email`, `userId`, `token` are redacted by name. The
+  lines land in **Vercel's runtime logs** — search by `event` (e.g.
+  `whop.webhook.`, `account.deletion.failed`, `api.*.write_failed`,
+  `health.database_unreachable`). Retention is whatever the Vercel plan
+  gives; nothing is exported anywhere else. `lib/api-logging.test.ts` fails
+  the build on a `console.*` call in `app/api`.
+- **Health endpoint:** `GET /api/health` → `{ ok, commit, checks: { app,
+  database } }`, `Cache-Control: no-store`, no auth. `database` is Supabase
+  Auth's public health endpoint (`/auth/v1/health`, publishable key, 2 s
+  timeout; per instance a success is cached 30 s and a failure 5 s): it proves the Supabase project is up
+  and reachable from the deployment, **not** that a query would succeed.
+  200 when it answers; 503 when it does not (and when Supabase is not
+  configured on a production deployment); `skipped` with 200 elsewhere
+  without configuration. `commit` is the short `VERCEL_GIT_COMMIT_SHA`, or
+  `local`.
+- **Logger limits:** input is cut to 2,000 characters before any pattern
+  runs. Phone numbers are stripped only in E.164 form (`+15551234567`);
+  looser shapes are indistinguishable from dates, SQLSTATEs and counts, so
+  keys named `phone`/`tel` are redacted by name instead (as are `name`,
+  `ip`, `uid`, `buyer…`).
+- **Uptime check:** `.github/workflows/uptime.yml`, hourly at :17 plus
+  manual runs. Fails if `https://seededtennis.com/` or `/api/health` is not
+  200 (health must also say `"ok": true`), 20 s per attempt, 2 retries 10 s
+  apart (so a retry re-asks Supabase rather than reading a cached failure;
+  job limit 4 minutes). A
+  failed scheduled run is reported by GitHub's own Actions notification to
+  the user who last changed its `cron` line, per that user's notification
+  settings. That is the only notification. Outages shorter than an hour can
+  be missed; GitHub may delay scheduled runs. About 720 billed Actions
+  minutes a month once the repo is private.
+
+What does **not** exist: alerting on a 5xx rate, on webhook failures or on
+deletion failures (they are logged, and nobody is told); error grouping or
+a dashboard; any notification other than the failed-workflow one above;
+roster-freshness checks. The honest paths to real alerts are a Vercel log
+drain or Sentry — both need an account/plan decision from Niran, which is
+why neither is here.
 
 ## Known weaknesses
 1. **Client-side route protection.** Fine for privacy because RLS decides
@@ -108,8 +157,8 @@ Vercel Analytics + Speed Insights + GA4. No error tracking and no alerting.
    without a deploy. Phase 1 is merged (PR E #9, migration 048 on production
    with no rows, flag off); the fix lands when sourced ranges are entered
    and the flag is turned on.
-4. **Six write routes return raw Postgres error text** on 500
-   (`SECURITY_CHECKLIST` S-10).
+4. ~~**Six write routes return raw Postgres error text** on 500~~ — fixed
+   2026-11-21 (`SECURITY_CHECKLIST` S-10, `lib/db/write-error.ts`).
 5. **`Player.currentUTR` uses 0 as a "not logged" sentinel** instead of
    `null` (CLAUDE.md, "The UTR placeholder").
 

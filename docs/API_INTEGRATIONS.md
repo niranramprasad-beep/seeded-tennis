@@ -1,10 +1,10 @@
 # Seeded — API Routes & Integrations
 
-Current as of 2026-11-20 (13 `route.ts` files under `app/api`).
+Current as of 2026-11-21 (14 `route.ts` files under `app/api`).
 
 ## Internal routes (`app/api`)
 
-Every route except the webhook needs a Supabase bearer token. "Request-scoped"
+Every route except the webhook and `/api/health` needs a Supabase bearer token. "Request-scoped"
 = an anon-key client carrying that token, so RLS applies
 (`lib/api-auth.ts`). Rate limits are enforced in Postgres by a trigger on the
 table (migration 034); most routes only peek so they can answer 429 first; `account_deletion`, `data_export` and `whop_checkout` are counted by the route (`ROUTE_COUNTED_BUCKETS`, lib/rate-limit.ts).
@@ -23,10 +23,18 @@ table (migration 034); most routes only peek so they can answer 429 first; `acco
 | `/api/whop/sync` | POST | request-scoped, then service role | — | Post-checkout sync of the buyer's membership |
 | `/api/whop/membership` | GET | service role (caller's own row by id) + Whop | — | Read-only; never reads another user's profile |
 | `/api/whop/webhook` | POST | service role | Whop signature (`unwrapWebhook`) | Ignores stale/out-of-order events |
+| `/api/health` | GET | none (anonymous) | — | Uptime probe: `{ ok, commit, checks: { app, database } }`, `no-store`; 503 when Supabase Auth's health endpoint does not answer. Reads no table (TECHNICAL_ARCHITECTURE "Monitoring") |
 
-**Open (S-10):** six routes — profile, utr-entries, matches, outreach,
-family/budget, family/budget/expenses — still return the raw Postgres error
-text on a 500. Export, deletion and training do not.
+**S-10 (fixed 2026-11-21, `feat/monitoring`):** no route returns raw
+Postgres error text any more. utr-entries, matches, outreach, family/budget
+and family/budget/expenses answer a 500 with their generic sentence
+(`clientWriteErrorMessage`, `lib/db/write-error.ts`). It fails closed:
+the only text shown is a `UserFacingError` (our own validation sentences)
+or, matched by SQLSTATE and exact wording, the two sentences our migrations
+raise for people (034's rate limit, "Sign in first."); everything else gets
+the route's fallback. Profile was fixed earlier
+(`profileWriteFailure`). The database's text goes to the runtime log through
+`lib/server-log.ts`. Guard: `lib/api-logging.test.ts`.
 
 Removed: `/api/training/copilot` (Gemini), `/api/training/planner`,
 `/api/training/templates`, `/api/stripe/*`. History:

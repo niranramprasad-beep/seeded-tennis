@@ -7,6 +7,8 @@ import {
   refuseUnlessFamilyPlan,
 } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
+import { clientWriteErrorMessage } from "@/lib/db/write-error";
 import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 
 // Real write path behind /family's "Add expense" — parent/family money
@@ -71,8 +73,11 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ expense: saved });
   } catch (err) {
+    // S-10: the database's own text goes to the log, never to the response
+    // (lib/db/write-error.ts). Our validation sentences still reach the UI.
+    logServerError("api.family_budget_expenses.write_failed", err, { route: "/api/family/budget/expenses" });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save the expense. Try again." },
+      { error: clientWriteErrorMessage(err, "Could not save the expense. Try again.") },
       { status: 500 }
     );
   }

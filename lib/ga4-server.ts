@@ -13,6 +13,7 @@
 // per membership, so a double count needs Whop to redeliver it.
 
 import { randomUUID } from "node:crypto";
+import { logServerError } from "@/lib/server-log";
 
 const MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const API_SECRET = process.env.GA4_MEASUREMENT_PROTOCOL_API_SECRET;
@@ -47,16 +48,22 @@ export async function reportPurchaseToGA4(input: PurchaseEventInput): Promise<vo
   if (!MEASUREMENT_ID || !API_SECRET) return;
 
   try {
-    await fetch(
+    const res = await fetch(
       `https://www.google-analytics.com/mp/collect?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
       {
         method: "POST",
         body: JSON.stringify(purchaseEventBody(input)),
       }
     );
-  } catch {
+    if (!res.ok) {
+      // The status only. Never the URL: it carries the API secret.
+      logServerError("ga4.purchase.send_failed", null, { status: res.status });
+    }
+  } catch (err) {
     // Best-effort only — a GA4 reporting failure must never block granting
     // or revoking access, which is the actually business-critical part of
-    // this webhook.
+    // this webhook. The log line is the only trace; the sanitiser strips an
+    // `api_secret=` should a runtime ever put the URL in the message.
+    logServerError("ga4.purchase.send_failed", err);
   }
 }

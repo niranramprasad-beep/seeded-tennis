@@ -12,6 +12,7 @@ import {
   type MembershipEvent,
 } from "@/lib/whop-payload";
 import { reportPurchaseToGA4 } from "@/lib/ga4-server";
+import { logServerError, logServerEvent } from "@/lib/server-log";
 
 // Whop is the source of truth for who is paying. This is one of the two
 // places `subscription_tier` is ever written for a Whop customer (the other
@@ -49,16 +50,30 @@ import { reportPurchaseToGA4 } from "@/lib/ga4-server";
 //     path including this one, so deliveries AND replays are blocked until
 //     it is amended. See docs/HANDOFF.md §K step 4.
 
-/** Server-side only, and deliberately without the email itself: a webhook log
- * line is not a place to write a customer's address. */
-function log(message: string, detail: Record<string, unknown> = {}) {
-  console.log(`[whop/webhook] ${message}`, JSON.stringify(detail));
-}
+// Logging (P1-OPS-2): every outcome below writes one JSON line through
+// lib/server-log.ts, under a `whop.webhook.*` event name, so Vercel's
+// runtime logs answer "did Whop deliver, and what did we do with it". Never
+// the buyer's email or Seeded user id — the Whop membership id (`mem_...`)
+// is logged, because it is what a person needs to reconcile a payment in
+// Whop's dashboard and it identifies nobody outside it.
+const ROUTE = "/api/whop/webhook";
 
 export async function POST(req: Request) {
+  try {
+    return await handleWebhook(req);
+  } catch (err) {
+    // Unchanged behaviour (Next answers 500 and Whop retries); the log line
+    // is the only addition.
+    logServerError("whop.webhook.unhandled", err, { route: ROUTE });
+    throw err;
+  }
+}
+
+async function handleWebhook(req: Request) {
   const admin = getSupabaseAdmin();
   const webhookSecret = process.env.WHOP_WEBHOOK_SECRET;
   if (!admin || !webhookSecret) {
+    logServerError("whop.webhook.not_configured", null, { route: ROUTE, admin: Boolean(admin), secret: Boolean(webhookSecret) });
     return NextResponse.json({ error: "Billing isn't configured yet." }, { status: 500 });
   }
 
@@ -74,7 +89,7 @@ export async function POST(req: Request) {
     event = unwrapWebhook<MembershipEvent>(payload, { headers, key: webhookSecret });
   } catch (err) {
     if (err instanceof WebhookVerificationError) {
-      log("signature rejected");
+      logServerEvent("whop.webhook.signature_invalid", { route: ROUTE }, "warn");
       return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
     }
     throw err;
@@ -84,6 +99,7 @@ export async function POST(req: Request) {
   const data = event.data ?? {};
 
   if (!HANDLED_WEBHOOK_EVENTS.has(type)) {
+    logServerEvent("whop.webhook.event_ignored", { route: ROUTE, type });
     // 200, not 4xx: an unhandled event is not a delivery failure, and
     // returning an error would make Whop retry it and eventually disable the
     // endpoint for "delivery failures".
@@ -93,7 +109,7 @@ export async function POST(req: Request) {
   const membershipId = data.id;
   const status = data.status;
   if (!membershipId || !status) {
-    log("membership event missing id or status", { type });
+    logServerEvent("whop.webhook.membership_incomplete", { route: ROUTE, type }, "warn");
     return NextResponse.json({ received: true, handled: false });
   }
 
@@ -110,7 +126,7 @@ export async function POST(req: Request) {
     supabaseUserId = await findProfileIdByEmail(admin, emailOf(data));
     matchedBy = supabaseUserId ? "email" : null;
     if (supabaseUserId) {
-      log("no metadata.supabase_user_id; matched buyer by email", { type, membershipId });
+      logServerEvent("whop.webhook.matched_by_email", { route: ROUTE, type, membershipId });
     }
   }
 
@@ -118,12 +134,13 @@ export async function POST(req: Request) {
     // Never throw here. An unmatched membership is a real event about a real
     // payment, and crashing turns it into a retry storm and then a disabled
     // endpoint. Log it loudly, acknowledge it, and let a person reconcile.
-    log("UNMATCHED membership — no metadata and no unique email match", {
+    logServerEvent("whop.webhook.membership_unmatched", {
+      route: ROUTE,
       type,
       membershipId,
       status,
       hasEmail: Boolean(emailOf(data)),
-    });
+    }, "warn");
     return NextResponse.json({ received: true, handled: false, matched: false });
   }
 
@@ -135,7 +152,17 @@ export async function POST(req: Request) {
     status,
   });
 
-  log("applied", { type, membershipId, matchedBy, outcome: outcome.reason });
+  if (outcome.reason === "write-failed") {
+    // Someone paid (or cancelled) and the profile did not change. The
+    // response is still the 200 it always was — this logging change leaves
+    // billing behaviour alone; whether a failed write should make Whop retry
+    // is a separate decision.
+    logServerError("whop.webhook.sync_failed", null, { route: ROUTE, type, membershipId, matchedBy: matchedBy ?? "none", outcome: outcome.reason });
+  } else if (outcome.reason === "unknown-plan") {
+    logServerEvent("whop.webhook.unknown_plan", { route: ROUTE, type, membershipId, matchedBy: matchedBy ?? "none" }, "warn");
+  } else {
+    logServerEvent("whop.webhook.applied", { route: ROUTE, type, membershipId, matchedBy: matchedBy ?? "none", outcome: outcome.reason });
+  }
 
   // GA4 only for a genuine new activation — "membership.activated" is a
   // one-time lifecycle event per membership, so this cannot double-count the
@@ -149,7 +176,7 @@ export async function POST(req: Request) {
       // the buyer (lib/ga4-server.ts).
       await reportPurchaseToGA4({ plan: outcome.tier, value });
     } else {
-      log("skipped GA4 purchase: plan id is not one of ours", { membershipId });
+      logServerEvent("whop.webhook.ga4_skipped_unknown_plan", { route: ROUTE, membershipId }, "warn");
     }
   }
 

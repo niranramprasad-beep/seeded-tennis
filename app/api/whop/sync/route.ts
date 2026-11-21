@@ -4,6 +4,9 @@ import { rateLimited } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { allConfiguredPlanIds, getWhop } from "@/lib/whop";
 import { ACCESS_GRANTING_STATUSES, applyMembershipToProfile } from "@/lib/whop-sync";
+import { logServerError, logServerEvent } from "@/lib/server-log";
+
+const ROUTE = "/api/whop/sync";
 
 // The safety net. Called when someone lands back on Seeded with
 // `?checkout=success` — see components/shared/checkout-sync.tsx.
@@ -45,11 +48,13 @@ export async function POST(req: Request) {
   const admin = getSupabaseAdmin();
   const whop = getWhop();
   if (!admin || !whop) {
+    logServerEvent("whop.sync.not_configured", { route: ROUTE }, "warn");
     return NextResponse.json({ synced: false, reason: "not-configured" });
   }
 
   const planIds = allConfiguredPlanIds();
   if (planIds.length === 0) {
+    logServerEvent("whop.sync.no_plans_configured", { route: ROUTE }, "warn");
     return NextResponse.json({ synced: false, reason: "no-plans-configured" });
   }
 
@@ -83,7 +88,8 @@ export async function POST(req: Request) {
         }
         if (ACCESS_GRANTING_STATUSES.has(status)) break;
       }
-    } catch {
+    } catch (err) {
+      logServerError("whop.sync.list_failed", err, { route: ROUTE });
       // Keep going: one unreadable plan should not abandon the others. If
       // every call fails, `reachedWhop` stays false and we say so below
       // rather than reporting "no membership found", which would be a
@@ -97,6 +103,7 @@ export async function POST(req: Request) {
     // public plan data and nothing of the account's own. If that is also
     // true of the production key, this is the branch that fires, and it is
     // important that it reads as "could not check", not "nothing to do".
+    logServerError("whop.sync.unreachable", null, { route: ROUTE, plans: planIds.length });
     return NextResponse.json({ synced: false, reason: "whop-unreachable" }, { status: 502 });
   }
 
@@ -110,6 +117,11 @@ export async function POST(req: Request) {
     planId: matched.planId,
     status: matched.status,
   });
+
+  if (outcome.reason === "write-failed") {
+    // Whop says this person pays and their tier did not change.
+    logServerError("whop.sync.write_failed", null, { route: ROUTE, membershipId: matched.id, status: matched.status });
+  }
 
   return NextResponse.json({
     synced: outcome.applied,

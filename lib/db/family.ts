@@ -12,6 +12,7 @@ import {
   resolveMyFamilyCode,
 } from "./family-scope";
 import type { Json, Tables } from "./database.types";
+import { DatabaseWriteError, UserFacingError } from "./write-error";
 
 // text columns backed only by a Postgres CHECK constraint — see
 // lib/db/narrow.ts's header for why these need narrowing back down from
@@ -232,7 +233,7 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapCost(data);
 }
 
@@ -353,9 +354,9 @@ export async function saveSeasonBudget(
   ctx?: FamilyWriteContext
 ): Promise<SeasonBudget | null> {
   if (!Number.isFinite(input.totalBudget) || input.totalBudget < 0) {
-    throw new Error("Budget total can't be negative.");
+    throw new UserFacingError("Budget total can't be negative.");
   }
-  if (!input.seasonLabel.trim()) throw new Error("Season label is required.");
+  if (!input.seasonLabel.trim()) throw new UserFacingError("Season label is required.");
 
   if (!ctx) {
     const { postJson } = await import("@/lib/api-client");
@@ -376,7 +377,7 @@ export async function saveSeasonBudget(
     )
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapSeasonBudget(data);
 }
 
@@ -419,7 +420,7 @@ export async function saveBudgetExpense(
   ctx?: FamilyWriteContext
 ): Promise<BudgetExpense | null> {
   const validationError = validateBudgetExpenseInput(input);
-  if (validationError) throw new Error(validationError);
+  if (validationError) throw new UserFacingError(validationError);
 
   if (!ctx) {
     const { postJson } = await import("@/lib/api-client");
@@ -442,6 +443,6 @@ export async function saveBudgetExpense(
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapBudgetExpense(data);
 }
