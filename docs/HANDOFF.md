@@ -2933,21 +2933,29 @@ drop trigger if exists pending_consent_profile_guard on public.profiles;
 drop function if exists public.pending_consent_profile_guard();
 ```
 
-### Step 27 — migration 052 (only a parent approves / removes a parent; branch `feat/parent-approval-rule`)
+### Step 27 — migration 052 (only a parent of the family approves / removes a parent; branch `feat/parent-approval-rule`)
 
-**NOT RUN ON PRODUCTION.** Applied to staging 2026-11-21 and attack-tested
-there; production waits for Niran's current-turn go after the review.
+**NOT RUN ON PRODUCTION.** Applied to staging 2026-11-21 (`052_parent_approval_rule`,
+then the final body as `052b_parent_approval_rule_home_family` after an
+independent review); production waits for Niran's current-turn go after the
+review and gets only `supabase/migrations/052_parent_approval_rule.sql`.
 Evidence: `~/seeded-evidence/sat-prereview/p015/` (`probe-052.sql`,
 `probe-052-rollback.sql`, `RESULTS.md`).
 
-What it changes: `approve_family_join()` — once the family has an approved
-parent in either shape (`family_member_count(code, 'parent') > 0`), a parent
-joiner needs an approver who passes `is_parent_member(code)` (own role =
-'parent' AND approved, 050) else 42501 `parent_approval_requires_parent`;
-`remove_family_member()` — removing an approved parent of the caller's
-family needs a parent caller, else 42501 `parents_only_remove_parent`. Both
-`create or replace`, same signatures; 043/045/030/037 checks unchanged and in
-the same order.
+What it changes. One new helper, `parent_acts_for_family(user, code)` = own
+`role = 'parent'` AND `home_family_code(user) = code` (the rule
+`my_family_code()` uses — i.e. a parent who can actually act in that family);
+`service_role` only. `approve_family_join()`: once the family has such a
+parent (creator shape or approved `parent_accounts` row), a parent joiner
+needs an approver who is one, else 42501 `parent_approval_requires_parent`.
+For the caller this equals 050's `is_parent_member(code)`, since `code` is the
+caller's home family and membership is checked first. `remove_family_member()`:
+takes 045's per-family advisory lock (`hashtext('seeded.family:' || v_code)`,
+the same key as join/approve), then refuses a non-parent removing a parent of
+the family: 42501 `parents_only_remove_parent`. A parent whose HOME is another
+family does not count for this one (first-review lockout: such a parent can
+never act here, so counting them froze the family). Both RPCs `create or
+replace`, same signatures; 043/045/030/037 checks unchanged and in order.
 
 Pre-flight: `list_migrations` ends at 051. Report (never change) approved
 parents whose approver was not a parent:
@@ -2960,29 +2968,33 @@ where pa.status = 'approved' and coalesce(ap.role, 'unknown') <> 'parent';
 (staging: 4 — 023's backfilled rows have `approved_by` NULL.) 052 does not
 touch existing memberships.
 
-Verify: `md5(prosrc)` of `approve_family_join` = `2571c8d6393d115543640873c0b5bee3`
-and of `remove_family_member` = `2c4d76726fbf40fc96e91fb4749bda3e` (staging's);
-`proacl` = `{postgres=X, authenticated=X, service_role=X}` for both (no
-PUBLIC, `has_function_privilege('anon', …)` false). `probe-052.sql` as
-`authenticated` in a rolled-back block: 25/25 PASS — a player approving the
-first parent → allowed; a player approving a parent when one exists (joiner
-parent, creator-shape parent, or legacy profile-shape parent) → 42501
-`parent_approval_requires_parent`; an approved parent approving another
-parent → allowed (unverified → `verify_email_required`; third parent →
-`family_full_parent`); player joiners approvable by anyone, as before; a
-player removing an approved parent (either shape) → 42501
-`parents_only_remove_parent`; parents removing players/parents, players
-removing players or a PENDING parent request, the account-holder and
-remove-yourself refusals → unchanged. 0 residue.
+Verify: `md5(prosrc)` = staging's — `approve_family_join`
+`a6014aa4ba28c0603c21f456171cd339`, `remove_family_member`
+`c47ff5e7951ab8c52bbdc144b6e227f9`, `parent_acts_for_family`
+`cd569c75c11e07368ac5ec70f5033da2`. `proacl`: both RPCs `{postgres=X,
+authenticated=X, service_role=X}`; the helper `{postgres=X, service_role=X}`
+(no PUBLIC, anon or authenticated). `probe-052.sql` as `authenticated` in a
+rolled-back block: 35/35 PASS — the 25 single-family cases (a player approving
+the first parent → allowed; a player approving a parent when the family has
+one, in any of the three shapes → `parent_approval_requires_parent`; a parent
+approving a parent → allowed, unverified → `verify_email_required`, third →
+`family_full_parent`; player joiners as before; a player removing a parent →
+`parents_only_remove_parent`; parents' removals, the holder and
+remove-yourself refusals unchanged) plus 10 multi-family cases (a parent whose
+home is family C, approved into A by a player: players can still approve A's
+next parent and remove the C-home parent; A's own parent still gatekeeps;
+045's cap still counts the C-home parent). 0 residue.
 
-Rollback: the commented block at the end of
-`supabase/migrations/052_parent_approval_rule.sql` — restores 045's
-`approve_family_join` and 039's `remove_family_member` (bodies byte-identical
-to staging's pre-052 `prosrc`: md5 `fc6ce6db82b067c2b194c95d2afc3ff3` /
-`ddf7c18280a79ec2a16a33d524bd1f4f`) plus both revoke/grant pairs.
-**Rehearsed on staging 2026-11-21** inside an aborted transaction
-(`probe-052-rollback.sql`): md5s matched, anon had no EXECUTE, and the same
-25 cases gave the pre-052 answers (the gap reopens). Staging was left on 052.
+Rollback: the commented block at the end of the migration file — restores
+045's `approve_family_join` and 039's `remove_family_member` (bodies
+byte-identical to staging's pre-052 `prosrc`: md5
+`fc6ce6db82b067c2b194c95d2afc3ff3` / `ddf7c18280a79ec2a16a33d524bd1f4f`; 039's
+has no advisory lock), both revoke/grant pairs, then
+`drop function if exists public.parent_acts_for_family(uuid, text)` (nothing
+else references it once both bodies are restored). **Rehearsed on staging
+2026-11-21** inside an aborted transaction (`probe-052-rollback.sql`): md5s
+matched, the helper was gone, anon had no EXECUTE, and the same 35 cases gave
+the pre-052 answers (the gap reopens). Staging was left on the final 052.
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 

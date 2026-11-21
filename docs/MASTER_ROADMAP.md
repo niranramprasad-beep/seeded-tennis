@@ -23,19 +23,24 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 **2026-11-21 — Parent-approval rule built on STAGING (migration 052, branch
 `feat/parent-approval-rule`; P-015 / S-005; NOT on production — waits for
 Niran's go after the review).** Niran's decision: a player may approve only a
-family's FIRST parent; once an approved parent exists (either membership
-shape), only an approved parent approves another parent (42501
-`parent_approval_requires_parent`), and only an approved parent removes an
-approved parent (42501 `parents_only_remove_parent`). Player joiners keep
-today's rule. `approve_family_join()` asks `family_member_count(code,
-'parent') > 0` and `is_parent_member(code)` (050's own-role + approved
-check), inside 045's per-family lock; 043's email proof, 045's cap and
-`profile_required`, 030's consent and 037's account-holder rule are
-unchanged and in the same order. Probed on staging as `authenticated`, 25/25
-cases as expected (rolled back, 0 residue); the documented rollback was
-rehearsed inside an aborted transaction (bodies byte-identical to pre-052,
-gap reopens). Client: `lib/db/family-join.ts` words both codes. Guard
-`lib/db/parent-approval-rule.test.ts` (mutation-tested). **Accepted residual
+family's FIRST parent; once the family has a parent of its own, only such a
+parent approves another parent (42501 `parent_approval_requires_parent`), and
+only such a parent removes one (42501 `parents_only_remove_parent`). Player
+joiners keep today's rule. "A parent of the family" is one helper,
+`parent_acts_for_family(user, code)` = role parent AND home family
+(`home_family_code()`, what `my_family_code()` answers) = code, used for the
+approver, the "already has a parent" test and the removal target. An
+independent review of the first version found a lockout — a parent approved
+in A whose home is C counted as A's parent but can never act in A, so A
+froze — and a race (remove ran its check outside 045's per-family lock);
+both fixed before production, folded into the same 052 file. 043's email
+proof, 045's cap and `profile_required`, 030's consent and 037's
+account-holder rule are unchanged and in the same order. Probed on staging as
+`authenticated`, 35/35 cases incl. the multi-family scenario (rolled back, 0
+residue); the documented rollback was rehearsed inside an aborted
+transaction (bodies byte-identical to pre-052, helper dropped, gap reopens). Client: `lib/db/family-join.ts` words both codes. Guard
+`lib/db/parent-approval-rule.test.ts` (mutation-tested; pins the full bodies
+of every helper the rule relies on). **Accepted residual
 risk:** a player can still create a fake FIRST parent — which then gatekeeps
 later parents and cannot be removed by a player. Follow-ups: production
 (GO-SEQUENCE row 27, HANDOFF §J Step 27); the "approved by" line in Settings

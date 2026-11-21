@@ -547,15 +547,20 @@ it catches the realistic regressions; review catches the rest.
 
 **BUILT ON STAGING 2026-11-21 — migration 052 (`feat/parent-approval-rule`);
 PRODUCTION PENDING Niran's go after the review** (GO-SEQUENCE row 27, HANDOFF
-§J Step 27). `approve_family_join()`: once the family has an approved parent
-(either shape, `family_member_count(code,'parent') > 0`), the approver must
-pass `is_parent_member(code)` (own role = 'parent' AND approved, 050/033) or
-gets 42501 `parent_approval_requires_parent`; a family with no parent may
-still get its first one from a player; player joiners unchanged.
-`remove_family_member()`: removing an approved parent needs a parent caller
-(42501 `parents_only_remove_parent`). 043's email proof, 045's cap and lock,
-030's consent and 037's account-holder rule are kept. Probe (25 cases, all
-pass, rolled back) and a rollback rehearsal in
+§J Step 27). "A parent of the family" = `parent_acts_for_family(user, code)`:
+own role = 'parent' AND home family (`home_family_code()`, the rule
+`my_family_code()` uses) = code. `approve_family_join()`: once the family has
+such a parent (either shape), the approver must be one too (for the caller
+this equals 050's `is_parent_member(code)`) or gets 42501
+`parent_approval_requires_parent`; a family with no parent may still get its
+first from a player; player joiners unchanged. `remove_family_member()`: takes
+045's per-family lock, then removing a parent of the family needs a parent of
+the family (42501 `parents_only_remove_parent`). The first version counted a
+parent approved in ANY family, which an independent review showed locks a
+family whose only parent's home is elsewhere (that parent can never act in
+it); fixed before production. 043's email proof, 045's cap and lock, 030's
+consent and 037's account-holder rule are kept. Probe (35 cases incl. the
+multi-family one, all pass, rolled back) and a rollback rehearsal in
 `~/seeded-evidence/sat-prereview/p015/`. Guard
 `lib/db/parent-approval-rule.test.ts`. Client maps both codes to plain
 sentences (`lib/db/family-join.ts`).
@@ -569,7 +574,11 @@ request (it grants nothing, but a player could keep turning away a real
 parent); (4) the accepted residual risk below has a sharper edge than it
 first reads: a fake first parent then becomes the gatekeeper for later
 parents, and a player cannot remove it — a real parent has to be approved by
-it, or the family has to start over.
+it, or the family has to start over; (5) not caused by 052 but seen in its
+probe: a parent whose home is family C and who also joined family A still
+counts toward A's 2-parent cap (045's `family_member_count` counts any
+approved link), and cannot leave A (`leave_family()` acts on the home family
+C). After 052 a player of A can remove them, which frees the slot.
 
 **DECIDED by Niran 2026-11-21 — build after the developer review** (DECISIONS
 2026-11-21): a player may approve only the FIRST parent of a family; once an
