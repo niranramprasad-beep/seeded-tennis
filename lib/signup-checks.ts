@@ -45,6 +45,8 @@ export function normalizeEmail(raw: string): string {
 const LOCAL_PART = /^[^\s@"(),:;<>[\\\]]+$/;
 const DOMAIN_LABEL = /^(?!-)[\p{L}\p{N}-]{1,63}(?<!-)$/u;
 const TLD = /^\p{L}{2,63}$/u;
+// An internationalised TLD in its ASCII (punycode) form, e.g. ".xn--p1ai".
+const PUNYCODE_TLD = /^xn--[a-z0-9-]{1,59}$/i;
 
 /** True when the address is shaped like a real one. */
 export function isPlausibleEmail(raw: string): boolean {
@@ -59,7 +61,8 @@ export function isPlausibleEmail(raw: string): boolean {
   const labels = domain.split(".");
   if (labels.length < 2) return false;
   if (!labels.every((l) => DOMAIN_LABEL.test(l))) return false;
-  return TLD.test(labels[labels.length - 1]);
+  const tld = labels[labels.length - 1];
+  return TLD.test(tld) || PUNYCODE_TLD.test(tld);
 }
 
 /**
@@ -82,6 +85,22 @@ export function emailFieldErrorFromAuth(message: string | null | undefined): str
   if (message === AUTH_ERROR_MESSAGES.invalidEmail) return EMAIL_FIELD_MESSAGES.refused;
   if (message === AUTH_ERROR_MESSAGES.emailNotAllowed) return EMAIL_FIELD_MESSAGES.notAllowed;
   return null;
+}
+
+/** /signup's step for the email field (step 1 of 3, index 0). */
+export const SIGNUP_EMAIL_STEP = 0;
+
+/**
+ * What /signup does when the sign-up call failed: when the ADDRESS was
+ * refused, go back to the email field's step with its message on the field;
+ * null means stay and show the banner. Pinned by lib/signup-checks.test.ts,
+ * together with the block in signup-flow.tsx that acts on it.
+ */
+export function signupFailureSendBack(
+  message: string | null | undefined
+): { step: number; emailMessage: string } | null {
+  const emailMessage = emailFieldErrorFromAuth(message);
+  return emailMessage ? { step: SIGNUP_EMAIL_STEP, emailMessage } : null;
 }
 
 /** The birth years that are usual for a class (graduation) year: someone

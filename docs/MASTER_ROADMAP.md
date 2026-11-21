@@ -67,6 +67,19 @@ measure you at summer 2026", the report "has started", the school page
 Wording only — the band logic is unchanged. Guard:
 `lib/senior-summer.test.ts`; `lib/fit/__split-manifest.json`'s hash for
 `diagnosticProjection` re-recorded (its note now comes from the helper).
+**Review fixes (independent verifier on PR #33, same day; it confirmed the
+nested-form bug on production):** the /signup send-back-to-step-1 is a
+pure decision (`signupFailureSendBack`) plus an exact source pin on the
+block that acts on it (disabling it used to pass); the nested-form guard
+now walks every file in app/ and components/ that renders
+`<DiagnosticSaveForm` or `<SignupFlow`, and their hosts up the tree, and
+fails on any enclosing `<form>` or form-rendering component (wrapping the
+fit report's save host used to pass); the B20 heading drops "so we measure
+you at today's rating" when no UTR was given; punycode TLDs
+(`.xn--p1ai`) are accepted; `signUp()`'s trim has its own test
+(`lib/auth-signup-trim.test.ts`); the onboarding name hint gives no sample
+name. All mutation-checked. `SUMMER_STARTED_NOTE` stays (pinned by the fit
+split manifest and the barrel's export list).
 Onboarding walks (player 14+, under-13 on /signup and
 on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
 `~/seeded-evidence/final-check/prC/SUMMARY.md`.

@@ -196,7 +196,7 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
         help={
           looksLikeFullSurname
             ? "A last initial is enough. You can shorten it if you'd rather we didn't keep your full last name."
-            : "First name and last initial is enough, like Sam R."
+            : "First name and last initial is enough."
         }
       >
         <input

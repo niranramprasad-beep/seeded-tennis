@@ -30,7 +30,7 @@ import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
-import { birthYearGradeHint, emailFieldErrorFromAuth, normalizeEmail } from "@/lib/signup-checks";
+import { birthYearGradeHint, normalizeEmail, signupFailureSendBack } from "@/lib/signup-checks";
 import { useEmailField } from "./email-field";
 
 // Board 21, "Sign up" (docs/DESIGN_MOCKUP_SPEC_V2.md), restyled into the
@@ -250,13 +250,15 @@ export function SignupFlow({
     if (!result.ok) {
       // Supabase refused the ADDRESS: back to step 1, with the message on
       // the email field, not a banner on step 3 that names no field.
-      const emailProblem = emailFieldErrorFromAuth(result.error);
-      if (emailProblem) {
+      // lib/signup-checks.ts decides; lib/signup-checks.test.ts pins both
+      // the decision and this block.
+      const sendBack = signupFailureSendBack(result.error);
+      if (sendBack) {
         // The step effect below moves focus to the email field, not the
         // title, this once.
         focusEmailOnStep.current = true;
-        emailField.setServerError(emailProblem, { focus: false });
-        setStep(0);
+        emailField.setServerError(sendBack.emailMessage, { focus: false });
+        setStep(sendBack.step);
         return;
       }
       // Already mapped by friendlyAuthError in lib/auth.ts.

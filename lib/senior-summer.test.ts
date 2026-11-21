@@ -41,22 +41,34 @@ describe("seniorSummerPhase", () => {
 
 describe("the onboarding result heading", () => {
   it("future tense only while the summer is ahead", () => {
-    expect(seniorSummerMeasureSentence("you", 2026, MAY_2026)).toBe("We'll measure you at summer 2026, the summer before senior year.");
-    expect(seniorSummerMeasureSentence("you", 2026, JULY_2026)).toBe(
+    const rated = (now: Date) => ({ hasRating: true, now });
+    expect(seniorSummerMeasureSentence("you", 2026, rated(MAY_2026))).toBe("We'll measure you at summer 2026, the summer before senior year.");
+    expect(seniorSummerMeasureSentence("you", 2026, rated(JULY_2026))).toBe(
       "Summer 2026, the summer before senior year, has started, so we measure you at today's rating."
     );
-    expect(seniorSummerMeasureSentence("your player", 2026, NOV_2026)).toBe(
+    expect(seniorSummerMeasureSentence("your player", 2026, rated(NOV_2026))).toBe(
       "Summer 2026, the summer before senior year, has passed, so we measure your player at today's rating."
     );
   });
 
   it("the finding's case is gone: no 'We'll measure' for a past summer", () => {
-    expect(seniorSummerMeasureSentence("you", 2026, NOV_2026)).not.toMatch(/We'll/);
+    expect(seniorSummerMeasureSentence("you", 2026, { hasRating: true, now: NOV_2026 })).not.toMatch(/We'll/);
   });
 
-  it("the result screen uses the helper", () => {
+  it("no rating ('I don't have a UTR yet'): never claims to measure today's rating", () => {
+    for (const now of [JULY_2026, NOV_2026]) {
+      const s = seniorSummerMeasureSentence("you", 2026, { hasRating: false, now });
+      expect(s).not.toMatch(/today's rating|measure/);
+    }
+    expect(seniorSummerMeasureSentence("you", 2026, { hasRating: false, now: NOV_2026 })).toBe(
+      "Summer 2026, the summer before senior year, has passed."
+    );
+  });
+
+  it("the result screen uses the helper, with whether a rating was given", () => {
     const flow = codeOnly(join(ROOT, "components/seeded/onboarding/diagnostic/diagnostic-flow.tsx"));
-    expect(flow).toMatch(/seniorSummerMeasureSentence\(who, projectionTargetDate\(gradYear\)\.getFullYear\(\)\)/);
+    expect(flow).toMatch(/const hasRating = diagnosticValues\(answers\)\.utrToday != null;/);
+    expect(flow).toMatch(/seniorSummerMeasureSentence\(who, projectionTargetDate\(gradYear\)\.getFullYear\(\), \{ hasRating \}\)/);
     expect(flow).not.toMatch(/We&rsquo;ll measure \{/);
   });
 });

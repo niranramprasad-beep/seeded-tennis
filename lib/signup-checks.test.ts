@@ -11,6 +11,8 @@ import {
   emailFieldErrorFromAuth,
   isPlausibleEmail,
   normalizeEmail,
+  SIGNUP_EMAIL_STEP,
+  signupFailureSendBack,
   usualBirthYearsForGradYear,
 } from "./signup-checks";
 
@@ -34,6 +36,8 @@ describe("isPlausibleEmail", () => {
     "o'brien@mail.ie",
     "name@sub-domain.example.com",
     "ñandú@correo.es",
+    "user@example.xn--p1ai",
+    "user@xn--80ak6aa92e.xn--p1ai",
   ])("accepts %s", (email) => expect(isPlausibleEmail(email)).toBe(true));
 
   it.each([
@@ -54,6 +58,9 @@ describe("isPlausibleEmail", () => {
     "player@gm ail.com",
     "player@gmail.c",
     "player@gmail.c0m",
+    "player@example.xn--",
+    "player@example.xn--p1ai-",
+    "player@example.xn--p_1ai",
     ".player@gmail.com",
     "player.@gmail.com",
     "pl..ayer@gmail.com",
@@ -186,10 +193,25 @@ describe("the sign-up forms use the field check (source guard)", () => {
   });
 
   it("/signup: a server refusal of the address sends the person back to step 1's email field", () => {
+    // The decision: an address refusal goes back to step index 0 with the
+    // field's message; anything else stays (null).
+    const refused = signupFailureSendBack(friendlyAuthError({ code: "email_address_invalid", message: "" }));
+    expect(refused).toEqual({ step: 0, emailMessage: EMAIL_FIELD_MESSAGES.refused });
+    expect(SIGNUP_EMAIL_STEP).toBe(0);
+    expect(signupFailureSendBack(AUTH_ERROR_MESSAGES.emailNotAllowed)).toEqual({ step: 0, emailMessage: EMAIL_FIELD_MESSAGES.notAllowed });
+    for (const m of [AUTH_ERROR_MESSAGES.rateLimited, AUTH_ERROR_MESSAGES.alreadyRegistered, AUTH_ERROR_MESSAGES.unknown, undefined]) {
+      expect(signupFailureSendBack(m)).toBeNull();
+    }
+    // The wiring: the failure branch of submit asks it FIRST and acts on it
+    // unconditionally — exactly this block, before the banner fallback.
+    // (Independent review: disabling the block used to pass every test.)
     const submit = signup.slice(signup.indexOf("const submit = async"));
-    expect(submit).toMatch(/emailFieldErrorFromAuth\(result\.error\)/);
-    expect(submit).toMatch(/setStep\(0\)/);
-    expect(submit).toMatch(/emailField\.setServerError\(emailProblem/);
+    const failure = submit.slice(submit.indexOf("if (!result.ok) {"));
+    expect(failure).toMatch(
+      /^if \(!result\.ok\) \{\s*const sendBack = signupFailureSendBack\(result\.error\);\s*if \(sendBack\) \{\s*focusEmailOnStep\.current = true;\s*emailField\.setServerError\(sendBack\.emailMessage, \{ focus: false \}\);\s*setStep\(sendBack\.step\);\s*return;\s*\}\s*setError\(result\.error \?\? AUTH_ERROR_MESSAGES\.unknown\);/
+    );
+    // And the step effect moves focus to the email field for it.
+    expect(signup).toMatch(/if \(focusEmailOnStep\.current\) \{\s*focusEmailOnStep\.current = false;\s*document\.getElementById\(EMAIL_ID\)\?\.focus\(\);/);
   });
 
   it("the onboarding sign-up step (player and parent): same field check, same server mapping", () => {

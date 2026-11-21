@@ -304,7 +304,7 @@ function QuestionShell({
   );
 }
 
-const QuestionHeading =forwardRef<HTMLHeadingElement, { id: string; children: ReactNode }>(
+const QuestionHeading = forwardRef<HTMLHeadingElement, { id: string; children: ReactNode }>(
   function QuestionHeading({ id, children }, ref) {
     return (
       <h1
@@ -742,10 +742,12 @@ function ResultBody({
   const parent = answers.role === "parent";
   const who = parent ? "your player" : "you";
   // B20: the tense follows the real date (lib/senior-summer.ts) — never
-  // "We'll measure you at summer 2026" in November 2026.
+  // "We'll measure you at summer 2026" in November 2026. Never "we measure
+  // you at today's rating" for someone who gave no rating.
+  const hasRating = diagnosticValues(answers).utrToday != null;
   const heading =
     gradYear != null
-      ? seniorSummerMeasureSentence(who, projectionTargetDate(gradYear).getFullYear())
+      ? seniorSummerMeasureSentence(who, projectionTargetDate(gradYear).getFullYear(), { hasRating })
       : `We’ll measure ${who} at the summer before senior year.`;
   return (
     <>

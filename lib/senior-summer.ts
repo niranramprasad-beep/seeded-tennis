@@ -50,11 +50,18 @@ export function seniorSummerTodayNote(summerYear: number, now: Date = new Date()
 }
 
 /** The onboarding result's heading: future tense only while the summer is
- * ahead. `who` is "you" or "your player". */
-export function seniorSummerMeasureSentence(who: string, summerYear: number, now: Date = new Date()): string {
+ * ahead. `who` is "you" or "your player". `hasRating` false ("I don't have
+ * a UTR yet"): once the summer has begun there is no rating to measure, so
+ * the sentence says only where the summer stands. */
+export function seniorSummerMeasureSentence(
+  who: string,
+  summerYear: number,
+  { hasRating, now = new Date() }: { hasRating: boolean; now?: Date }
+): string {
   const phase = seniorSummerPhase(summerYear, now);
   const label = `summer ${summerYear}`;
   if (phase === "upcoming") return `We'll measure ${who} at ${label}, the summer before senior year.`;
   const Label = `Summer ${summerYear}`;
-  return `${Label}, the summer before senior year, ${seniorSummerVerb(phase)}, so we measure ${who} at today's rating.`;
+  const where = `${Label}, the summer before senior year, ${seniorSummerVerb(phase)}`;
+  return hasRating ? `${where}, so we measure ${who} at today's rating.` : `${where}.`;
 }
