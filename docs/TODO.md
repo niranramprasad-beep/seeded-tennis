@@ -586,6 +586,15 @@ approved parent exists, only an approved parent can approve another parent.
 Settings → Family shows who approved whom (needs an `approved_by` on
 `parent_accounts`). Accepted residual risk: a player can still create a fake
 *first* parent; the "approved by" line makes that visible to the family.
+Second accepted edge (052 round-2 review, 2026-11-21): 052 counts only
+parents whose HOME family is this one. If a real parent is approved into two
+families and the other approval landed first (e.g. a family run by the
+player's second account), that parent does not act for this family: a player
+here may then approve a fake parent, and may remove the real parent and keep
+turning their rejoin requests away. It needs the real parent's own second
+join request, so a player cannot cause it alone (probes T1–T5,
+`~/seeded-evidence/sat-prereview/p015/round2/`). The "approved by" line
+should also show each parent's home family.
 Implementation: one migration changing `approve_family_join` (033's pattern:
 the approver's own `profiles.role` + approved membership), a guard test, and
 the roster line.
