@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
+import { teamLineRelation } from "@/lib/fit-copy";
 
 interface RangeBarProps {
   /** Filled range, both 0–100, measured from the left edge. */
@@ -44,10 +45,6 @@ interface RangeBarProps {
    *  (lib/fit.ts) rather than a logged rating: it prints with one decimal,
    *  a logged rating with two (lib/utils.ts formatPlayerUtr — C10). */
   youIsEstimate?: boolean;
-}
-
-function signed(value: number): string {
-  return `${value > 0 ? "+" : ""}${formatUtrEstimate(value)}`;
 }
 
 // Signature component, pixel-exact to DesignSystem.dc.html's "Range bar":
@@ -175,7 +172,9 @@ export function RangeBar({
               Floor {formatUtrEstimate(low!)} · Average {formatUtrEstimate(median!)} · Top of range {formatUtrEstimate(high!)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
-              {youLabel} {formatUtrFor(you!, youIsEstimate)} · Gap to team average {signed(median! - you!)}
+              {/* "0.3 below the team average", never a signed "gap" a
+                  family has to decode (A-007). median − you > 0 = below. */}
+              {youLabel} {formatUtrFor(you!, youIsEstimate)} · {teamLineRelation(median! - you!, "average")}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

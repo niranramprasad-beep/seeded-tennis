@@ -235,6 +235,17 @@ export function utrToPct(utr: number): number {
  * split is decided by the player's REAL slope, not this generic band. */
 export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
 
+/**
+ * THE sentence that states the planning cap, said one way on every screen
+ * that compares a pace with it (A-008, 2026-11-21). It replaced "most players
+ * improve 0.5–1.5 a year": Seeded has no measurement of how fast juniors
+ * improve, so 1.5 is stated as what it is — our planning rule. Lives here
+ * (not lib/fit.ts) because this module's next-band message says it and
+ * lib/fit.ts imports this module; lib/fit.ts re-exports it, and
+ * lib/honest-zero-state.test.ts pins its number to PLANNING_PACE_CAP_PER_YEAR.
+ */
+export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} UTR a year. That's our planning rule, not a measured average.`;
+
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
 export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
@@ -387,12 +398,14 @@ function computeNextBandChange(
 
   const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
   const paceRead = paceReadFor(requiredPaceUtrPerYear);
+  // Compared with OUR planning rule, never with what "most players" do —
+  // Seeded has no data on that (A-008).
   const readPhrase =
     paceRead === "faster-than-realistic"
-      ? "that's faster than most players improve"
+      ? "more than we plan with"
       : paceRead === "slower-than-realistic"
-        ? "that's a slower pace than most players need — there's room"
-        : "that's a realistic pace";
+        ? "well within what we plan with — there's room"
+        : "within what we plan with";
 
   return {
     targetBand,
@@ -403,7 +416,7 @@ function computeNextBandChange(
     paceRead,
     // The pace through formatPacePerYear, the one pace formatter ("needs
     // about 2.25 a year"); it read "about 2.3/year … 0.5–1.5/yr" (D1).
-    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} a year).`,
+    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
   };
 }
 

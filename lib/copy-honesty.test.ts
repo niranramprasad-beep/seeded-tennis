@@ -352,6 +352,37 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     pattern: /Right now I'm working on/i,
     why: "the player answered 'What do you want to improve?', not what they are working on today",
   },
+  // ---- 2026-11-21 honest zero state (owner's audit) ----
+  {
+    // A-008. "Most players improve 0.5–1.5 a year" stated a population fact
+    // Seeded has never measured. The cap is our planning rule and is said as
+    // one (PLANNING_RULE_SENTENCE). Catches the template spelling
+    // ("most players improve ${TYPICAL_PACE_RANGE_LABEL}"), the "faster than
+    // most players improve" read, and the bare range however it is joined.
+    pattern:
+      /most players (?:improve|manage|gain|get better|need)|0\.5\s*(?:–|-|—|to|and)\s*1\.5(?:\s*UTR)?\s*(?:a|per|\/)\s*(?:year|yr)|improve between 0\.5/i,
+    why: "Seeded has no growth data; 1.5 a year is our planning rule, not a measured average (A-008)",
+  },
+  {
+    // A-005. The diagnostic is up to ten questions; it does not take 60
+    // seconds, and /onboarding's own description already says about 90.
+    pattern: /\b60 seconds\b|\bTakes 60\b/i,
+    why: "the diagnostic takes about 90 seconds; say that (A-005)",
+  },
+  {
+    // A-007. A signed "gap" makes a family work out which way the sign
+    // goes; the screens say "0.3 below the team average" (teamLineRelation).
+    pattern: /Gap to (?:team )?(?:average|median|floor)\b/i,
+    why: "say '0.3 below the team average', never a signed gap (A-007, lib/fit-copy.ts teamLineRelation)",
+  },
+  {
+    // A-001 / A-002. The homepage card read "0 / 0 / 0" with "See my —
+    // schools". The tiles and the button come from heroFitCta (tested in
+    // lib/honest-zero-state.test.ts); this keeps the literal spellings out
+    // of every file.
+    pattern: /See my (?:0|—|-|–) (?:schools|Target)|\b0 \/ 0 \/ 0\b|See my \{[^}]*\|\|\s*["']—["']\s*\}/i,
+    why: "never a zero or a dash where the count goes — the zero state says what is closest instead (A-001, A-002)",
+  },
 ];
 
 describe("no user-facing copy promises something the code can't do", () => {
@@ -386,6 +417,18 @@ describe("copy guard reads sentences the way the screen shows them", () => {
     ["coach email: tournaments played", "? `I've played ${player.tournamentsPlayed} tournament${\n  player.tournamentsPlayed === 1 ? \"\" : \"s\"\n} so far this season.`"],
     ["coach email: focus", "focus.length > 0 ? `Right now I'm working on ${joinList(focus.slice(0, 2))}.` : \"\";"],
     ["coach email: high on my list", "and I'm reaching out because ${school.shortName} is high on my list."],
+    // 2026-11-21: the removed spellings, exactly as the source had them.
+    ["growth claim: upside sentence", "We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}."],
+    ["growth claim: next-band read", '? "that\'s faster than most players improve"'],
+    ["growth claim: methodology", "Most players improve between 0.5 and\n                1.5 UTR a year, and a few months"],
+    ["growth claim: methodology quote", "We plan with 8.10 because most players improve 0.5&ndash;1.5 a year.&rdquo;"],
+    ["growth claim: bare range", "(0.5-1.5/yr)"],
+    ["60 seconds: hero", "Free. No card. Takes 60 seconds. Results before you make an account."],
+    ["60 seconds: card title", '<strong className="text-[15px]">Your fit, in 60 seconds</strong>'],
+    ["signed gap: tooltip", "{youLabel} {formatUtrFor(you!, youIsEstimate)} · Gap to team average {signed(median! - you!)}"],
+    ["signed gap: browser", "Gap to team floor: {explanation.gapToFloor > 0 ? \"+\" : \"\"}"],
+    ["dash count: hero button", 'See my {total || "—"} schools'],
+    ["zero count: hero button", "See my 0 Target and Likely schools"],
   ];
   for (const [label, sample] of spellings) {
     it(`catches ${label}`, () => {
