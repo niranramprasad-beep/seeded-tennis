@@ -155,8 +155,8 @@ purpose and keys are in [DATABASE_SPEC.md](DATABASE_SPEC.md).
 | Browser harness | Playwright scripts: route audit, personas, keyboard, CLS, Lighthouse | [`scripts/README.md`](../scripts/README.md) (staging only) |
 | RLS probes | SQL as `authenticated` + JWT claims in a block that always rolls back | [HANDOFF.md §J](HANDOFF.md) |
 
-Counts on 2026-11-20: **106 test files, 1,522 tests**, all passing in UTC, New
-York and Auckland. CI runs typecheck, lint, the tests in all three zones and
+Counts on 2026-11-20 (night): **119 test files, 1,766 tests**, all passing in UTC,
+New York and Auckland. CI runs typecheck, lint, the tests in all three zones and
 the production build on every PR and every push to `main`.
 
 ## 8. Deployment and migrations
@@ -182,9 +182,10 @@ Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
    capped at 2 parents. Fix needs a product decision on who may approve a
    parent (a family created by a player has no parent approver) —
    [TODO.md](TODO.md) "Who may approve a parent joiner".
-3. **Large files.** `lib/fit.ts` (~1,300 lines), `lib/auth.ts` (~1,160),
+3. **Large files.** `lib/fit.ts` (~1,310 lines), `lib/auth.ts` (~1,170),
    `components/seeded/schools/seeded-schools-browser.tsx` (~1,170),
-   `components/auth/signup-flow.tsx` (~790). Suggested splits: fit →
+   `components/auth/signup-flow.tsx` (~790), and the Today layout
+   (`components/seeded/dashboard/seeded-dashboard-layout.tsx`). Suggested splits: fit →
    `projection.ts` / `bands.ts` / `pace.ts`; auth → `session.ts` /
    `profile-write.ts` / `family-signup.ts`; schools browser → filters,
    list, and row components plus a `useSchoolFilters` hook; signup-flow → one
@@ -204,6 +205,17 @@ Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
    forbids promising otherwise.
 7. **The privacy policy needs an adult or lawyer review** before a public
    launch. Its mechanisms (export, real deletion, consent) exist and are tested.
+8. **A pending-consent under-13 can still write tennis fields on its own
+   profile through the API.** 030 keeps an own-row carve-out so the child can
+   see the waiting screen; the UI now refuses target-school edits, and the
+   database fix (migration 051, a BEFORE UPDATE trigger) is written and
+   staging-tested in PR #17, waiting for the owner's go.
+9. **Post-checkout sync has never run since the redesign** — tier changes rely
+   on the Whop webhook alone (the return URL loses its query). A billing
+   decision, logged in [TODO.md](TODO.md).
+10. **Smaller open items from the full sweep** (budget expenses can't be
+    edited/deleted; a parent's /schools shows the parent's own empty list; two
+    GPA rules) — [TODO.md](TODO.md) "Left open by the review-ready sweep".
 
 ## 10. What's next (after this review)
 

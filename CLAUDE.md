@@ -4,7 +4,8 @@
 - Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
 - Production database: every migration through **050**, 048 included (ledger 52 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Staging `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal re-runs in its ledger, and the imported catalog rows (production has none). `.env.local` and Vercel Preview point at it.
-- Catalog phase 1 (PR E #9) is merged behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF in production, no production data. Open: the parent-approver gap (TODO "Who may approve a parent joiner"); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+- Merged 2026-11-20 night: 050 (parent-only budget), code quality, docs, catalog phase 1 (PR E #9, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF, no production data), visual polish, sweep fixes, and the Legacy design deleted (one design system; Appearance = Light / Dark / Match system).
+- Open: **PR #17 — migration 051** (a pending-consent under-13 can still write tennis fields on its own profile; staging-tested, needs Niran's go); the parent-approver gap and the post-checkout sync decision (both in docs/TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
 

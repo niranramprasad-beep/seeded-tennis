@@ -493,6 +493,8 @@ support email about it.
 - **GPA rules disagree**: Settings accepts 0–5 (the DB CHECK, weighted GPAs);
   onboarding's `parseGpaText` (lib/onboarding/diagnostic.ts) caps at 4.0.
   Pick one rule (likely 0–5) and share `lib/profile-fields.ts`.
+- **The GPA field says "Unweighted GPA" but accepts up to 5.0** (the DB
+  CHECK, which exists for weighted GPAs). Pick one meaning and relabel.
 - **A blank name already stored** still loads as the login email in Settings
   (`lib/auth.ts` fallback). It can no longer reach the coach email.
 - **Low**: mixed date formats; "11.00" vs "11.0" for the same estimate;
