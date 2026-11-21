@@ -1,8 +1,13 @@
 "use client";
 
 import Script from "next/script";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import useSWR from "swr";
+import { usePlayer } from "@/lib/context/player-context";
+import { loadMyConsentState, myConsentStateKey } from "@/lib/db/family-join";
+import { gaAccountState } from "@/lib/ga-privacy";
+import { GaRuntime } from "@/lib/ga-runtime";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 // Hard gate on production, independent of whether the ID happens to be set.
@@ -13,59 +18,54 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
   }
 }
 
-// Fires a page_view on every client-side route change — gtag's default
-// snippet only ever fires once, on the initial full page load, so without
-// this every in-app navigation (which Next.js does without a real page
-// load) would be invisible in GA4.
-function PageViewTracker() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+// Wiring only. What GA may see and when is lib/ga-privacy.ts; what is done
+// with gtag is lib/ga-runtime.ts. Both are driven by lib/ga-privacy.test.ts,
+// which also checks that this file never touches gtag itself.
+function GaController({ id }: { id: string }) {
+  const pathname = usePathname() ?? "/";
+  // Only as a trigger: ?seeded_internal= on the current path must apply
+  // without waiting for the path to change. Its value is never read here.
+  const searchKey = useSearchParams()?.toString() ?? "";
+  const { isAuthed, hydrated, connectionError, userId } = usePlayer();
+  // Same per-user key as AuthGate, so this is one fetch, not two.
+  const { data: consent, error: consentError } = useSWR(
+    isAuthed && hydrated ? myConsentStateKey(userId) : null,
+    () => loadMyConsentState()
+  );
+  const account = useMemo(
+    () => gaAccountState({ hydrated, connectionError, isAuthed, userId, consent, consentError }),
+    [hydrated, connectionError, isAuthed, userId, consent, consentError]
+  );
+
+  const [scriptWanted, setScriptWanted] = useState(false);
+  const runtime = useRef<GaRuntime | null>(null);
 
   useEffect(() => {
-    if (!IS_PRODUCTION || !GA_MEASUREMENT_ID || !window.gtag) return;
-    const query = searchParams.toString();
-    window.gtag("config", GA_MEASUREMENT_ID, {
-      page_path: query ? `${pathname}?${query}` : pathname,
-    });
-  }, [pathname, searchParams]);
+    if (!runtime.current) runtime.current = new GaRuntime(id, window, () => setScriptWanted(true));
+    runtime.current.update({ pathname, account });
+  }, [id, pathname, searchKey, account]);
 
-  return null;
+  if (!scriptWanted) return null;
+  // lazyOnload, not afterInteractive (D8, docs/archive/audit-2-perf.md):
+  // afterInteractive makes Next emit a <link rel=preload> for this ~180 KB
+  // script at the top of every document. gtag() queues onto
+  // window.dataLayer, so nothing is lost by waiting for `load`.
+  return <Script src={`https://www.googletagmanager.com/gtag/js?id=${id}`} strategy="lazyOnload" />;
 }
 
 // Renders nothing outside a production build, and nothing until
-// NEXT_PUBLIC_GA_MEASUREMENT_ID is set — safe to ship before you have a
-// real GA4 property, and local dev / preview deploys never send traffic.
+// NEXT_PUBLIC_GA_MEASUREMENT_ID is set — local dev and preview deploys never
+// send traffic. Must sit inside <Providers> (it reads the session). The
+// Suspense boundary is for useSearchParams().
 export function GoogleAnalytics() {
   if (!IS_PRODUCTION || !GA_MEASUREMENT_ID) return null;
-
   return (
-    <>
-      {/* lazyOnload, not afterInteractive (D8, docs/archive/audit-2-perf.md):
-          afterInteractive makes Next emit a <link rel=preload> for this
-          ~180 KB script at the top of every document, so a phone fetched
-          analytics at high priority alongside the fonts and CSS the first
-          paint needs. Nothing is lost by waiting for `load`: the inline
-          snippet below still runs early and defines gtag() as a push onto
-          window.dataLayer, so page_view calls made before this file
-          arrives are queued and sent when it does. */}
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        strategy="lazyOnload"
-      />
-      <Script id="google-analytics-init" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){window.dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
-        `}
-      </Script>
-      <Suspense fallback={null}>
-        <PageViewTracker />
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <GaController id={GA_MEASUREMENT_ID} />
+    </Suspense>
   );
 }

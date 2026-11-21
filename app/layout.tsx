@@ -148,10 +148,12 @@ export default function RootLayout({
         <Providers>
           <ScrollProgress />
           <AppShell>{children}</AppShell>
+          {/* Inside Providers: it waits for the session and the consent
+              check before loading anything (lib/ga-privacy.ts). */}
+          <GoogleAnalytics />
         </Providers>
         <Analytics />
         <SpeedInsights />
-        <GoogleAnalytics />
       </body>
     </html>
   );

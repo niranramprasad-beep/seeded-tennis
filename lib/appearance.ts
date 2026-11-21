@@ -14,6 +14,11 @@
 
 export type SeededMode = "dark" | "light";
 
+/** localStorage key for the Light/Dark choice (lib/context/design-context.tsx). */
+export const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
+/** localStorage key for "Match system" ("1" | "0"). */
+export const SYSTEM_SYNC_STORAGE_KEY = "seeded.mode.system";
+
 /** localStorage key the deleted design switcher wrote ("legacy" | "seeded"). */
 export const RETIRED_DESIGN_STORAGE_KEY = "seeded.design";
 /** localStorage key the deleted Legacy palette picker wrote (grass, clay, night…). */

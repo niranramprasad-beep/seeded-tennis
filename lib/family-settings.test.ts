@@ -158,6 +158,9 @@ describe("Settings → Family: review fixes (PR D)", () => {
   it("after leaving, drops the local family code and refreshes consent", () => {
     const src = readFileSync(join(process.cwd(), "components/seeded/settings/settings-family-section.tsx"), "utf8");
     expect(src).toMatch(/setPlayerLocal\(\{ familyCode: undefined \}\)/);
-    expect(src).toMatch(/"my-consent-state"/);
+    // The consent cache is keyed per user, so a bare "my-consent-state"
+    // string would match nothing; it must be refreshed by matcher.
+    expect(src).toMatch(/mutateKey\(isMyConsentStateKey\)/);
+    expect(src).not.toMatch(/"my-consent-state"/);
   });
 });

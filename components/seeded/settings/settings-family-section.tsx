@@ -11,6 +11,7 @@ import {
   approveFamilyJoin,
   cancelMyFamilyRequest,
   denyFamilyJoin,
+  isMyConsentStateKey,
   leaveFamily,
   loadFamilyRoster,
   loadMyFamilyCode,
@@ -64,8 +65,6 @@ const FAMILY_KEYS = [
   "billing-family-members",
   "family-plan-status",
   "settings-family-pending",
-  // 046 can reset an under-13 leaver's consent; AuthGate reads this key.
-  "my-consent-state",
 ];
 
 export function SettingsFamilySection() {
@@ -97,7 +96,13 @@ export function SettingsFamilySection() {
   const [left, setLeft] = useState(false);
 
   const refreshAll = async () => {
-    await Promise.all(FAMILY_KEYS.map((k) => mutateKey(k)));
+    await Promise.all([
+      ...FAMILY_KEYS.map((k) => mutateKey(k)),
+      // 046 can reset an under-13 leaver's consent; AuthGate reads it. The
+      // consent cache is keyed per user ([MY_CONSENT_STATE_KEY, userId]),
+      // so it is refreshed by matcher, never by a bare string.
+      mutateKey(isMyConsentStateKey),
+    ]);
   };
 
   const members = (roster ?? []).filter((m) => m.status === "approved");
