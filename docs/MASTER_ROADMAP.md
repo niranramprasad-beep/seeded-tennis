@@ -31,7 +31,8 @@ focus moves to it. A server refusal of the address (`email_address_invalid`
 / `_not_authorized`, which until now arrived as an unnamed banner on step 3
 of 3) sends the person back to step 1 with the message on the field.
 Addresses are trimmed before they are sent (a pasted trailing space was
-refused on the last step). Pure checks: `lib/signup-checks.ts`; hook:
+refused on the last step). Once a message shows, blur never clears it for
+an empty field (that moved Continue out from under the pointer). Pure checks: `lib/signup-checks.ts`; hook:
 `components/auth/email-field.ts`. (2) **A16:** /signup's name placeholders
 describe the field ("First name and last initial" / "First and last name")
 instead of reading like a person's name, and a birth year that is two or

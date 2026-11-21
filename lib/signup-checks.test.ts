@@ -166,8 +166,10 @@ describe("the sign-up forms use the field check (source guard)", () => {
   const save = codeOnly(join(ROOT, "components/seeded/onboarding/diagnostic/diagnostic-save.tsx"));
   const hook = codeOnly(join(ROOT, "components/auth/email-field.ts"));
 
-  it("the hook checks on blur (not required) and on submit (required)", () => {
-    expect(hook).toMatch(/onBlur = useCallback\(\(\) => \{\s*setError\(emailFieldError\(value, \{ required: false \}\)\)/);
+  it("the hook checks on blur (not required, unless a message already shows) and on submit (required)", () => {
+    // Blur must not CLEAR a showing message for an empty field: that moved
+    // the Continue button out from under the pointer (PR C walk).
+    expect(hook).toMatch(/onBlur = useCallback\(\(\) => \{\s*setError\(\(prev\) => emailFieldError\(value, \{ required: prev !== null \}\)\)/);
     expect(hook).toMatch(/emailFieldError\(value, \{ required: true \}\)/);
   });
 

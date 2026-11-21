@@ -39,7 +39,11 @@ export function useEmailField(inputId: string) {
   );
 
   const onBlur = useCallback(() => {
-    setError(emailFieldError(value, { required: false }));
+    // Once a message is showing, blur keeps the stricter (required) check:
+    // emptying the field and then pressing Continue used to clear the
+    // message on blur, the button jumped up under the pointer, and the
+    // click landed on nothing (caught on the PR C walk).
+    setError((prev) => emailFieldError(value, { required: prev !== null }));
   }, [value]);
 
   const check = useCallback((): boolean => {
