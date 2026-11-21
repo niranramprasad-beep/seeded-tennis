@@ -20,6 +20,15 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-20 (night) — Migration 051 written, staging only (needs Niran's
+go).** The R9 sweep found a pending-consent under-13 could save target
+schools: 030's own-row carve-out on `profiles` covered every column. 051 adds
+a BEFORE UPDATE trigger refusing tennis/recruiting columns while
+`account_active()` is false; probed on staging (refused 42501 for targets,
+UTR and the upsert path; rename and unchanged re-save still allowed; active
+players unaffected); rollback rehearsed. Guard
+`lib/db/pending-consent-profile.test.ts`. GO-SEQUENCE row 26.
+
 **2026-11-20 (night) — Migration 048 on production; PR E merging with the flag OFF.**
 Backup, apply (23:55 UTC, ledger 51 → 52), fingerprint identical to staging, probed as real roles
 (rolled back). No catalog data imported to production; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`

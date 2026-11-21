@@ -468,6 +468,16 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
+## Pending-consent accounts could write tennis data onto their own profile (R9 HIGH-1, 2026-11-20)
+
+030's own-row carve-out on `profiles` covered every column, so an under-13
+waiting for consent could save target schools (the sweep did it through the
+UI; the database accepted it). Migration **051** (trigger) is written and
+attack-tested on staging, in an open PR waiting for Niran's go
+(GO-SEQUENCE row 26). The sign-up INSERT is deliberately not covered yet —
+follow-up: have sign-up omit tennis fields for under-13s, then extend 051.
+The UI half (no add-target controls for a pending account) ships in PR-SWEEP.
+
 ## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
 **MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
