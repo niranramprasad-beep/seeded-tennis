@@ -20,6 +20,26 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Uptime schedule + the red Supabase check (final-check PR F,
+branch `fix/uptime-f`; workflow and docs only).** (1) The hourly uptime
+workflow had **never run on schedule**: merged 19:29 UTC with cron `:17`,
+and by 21:50 UTC the only run was the 19:32 manual one (GitHub API,
+`event=schedule` → 0 runs). GitHub sometimes does not register a new
+workflow's schedule until the file changes again, so the cron is now
+`23 * * * *` (still hourly); the file and TECHNICAL_ARCHITECTURE
+"Monitoring" say the notification goes to whoever merges a change to the
+cron line, and how to check that scheduled runs exist (about weekly) —
+silence proves nothing. **Not proven until a scheduled run appears after
+this merges.** (2) The red "Supabase Preview" check on every merge to
+`main` is Supabase's GitHub integration on the PRODUCTION project trying to
+deploy `supabase/migrations/` (its `main` branch entry is
+`MIGRATIONS_FAILED`); it fails only because ledger versions are timestamps
+and the files are `001_…`. Not a required check (only `verify` is).
+DEPLOYMENT_CHECKLIST now says: leave it red, never rename files to make it
+pass (that would auto-apply migrations to production on merge). Turning the
+integration's deploy off is Niran's dashboard step (final-check
+`prF/SUPABASE_CHECK.md`).
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1415,7 +1435,12 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Niran's own list (dashboards/keys, not code): **turn off the Supabase GitHub
+integration's deploy to production** (Supabase → production project →
+Project Settings → Integrations → GitHub: "Deploy to production" off, or
+disconnect; final-check `prF/SUPABASE_CHECK.md`) — never by renaming
+migration files; confirm a scheduled Uptime run exists after PR F merges;
+revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);
