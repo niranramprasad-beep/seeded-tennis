@@ -58,7 +58,18 @@ the family's status) is known. Also: the 502 sentences live in
 toggle; the body-reader guard catches `.json()` on any handler parameter
 and `JSON.parse(… .text())` (webhook allow-listed, signed payload) and the
 behaviour test's route list comes from the file walk; a test exercises the
-per-parse error map alone (removing it fails a test).
+per-parse error map alone (removing it fails a test). **Round 2:** the
+second-Family guard is server-side too — `/api/whop/checkout` asks
+`my_family_has_tier('family')` as the caller for a Family checkout and
+answers **409** with the same sentence; an RPC error fails OPEN (logged
+`whop.checkout.family_check_failed`) so the only purchase path never
+disappears. `choose()` always re-reads the status fresh for Family; the
+cached `family-plan-status` is dropped on sign-out / account change; the
+"Included in your family's plan" button is `aria-disabled` (focusable,
+inert), not natively disabled. Tests: `lib/checkout-family-guard.test.ts`
+(409, first purchase unchanged, fail-open, Player never asks) and source
+pins for the wiring in `lib/plan-entry.test.ts`. Two LOWs left in
+`docs/TODO.md` (detector edge cases; Player offered to a Free parent).
 Guards: `lib/api-body.test.ts`
 (static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
 7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so

@@ -7,7 +7,7 @@ import type { Player, SchoolLite, SubscriptionTier } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { loadMatches } from "@/lib/db/events";
-import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { FAMILY_PLAN_STATUS_KEY, loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { accountPlanEntry } from "@/lib/plan-entry";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadUtrEntries } from "@/lib/db/plan";
@@ -57,7 +57,7 @@ export function SeededSettingsView({
   // Only asked when the viewer's own tier is Free: is their family unlocked
   // by someone else's Family plan? (lib/plan-entry.ts)
   const { data: familyPlan } = useSWR<FamilyPlanStatus>(
-    tierHydrated && tier === "free" ? "family-plan-status" : null,
+    tierHydrated && tier === "free" ? FAMILY_PLAN_STATUS_KEY : null,
     () => loadFamilyPlanStatus()
   );
   const planEntry = accountPlanEntry({ tierHydrated, tier, familyPlan });

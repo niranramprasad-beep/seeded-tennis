@@ -138,8 +138,14 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                     <SeededButton
                       variant={plan.recommended ? "primary" : "secondary"}
                       className="w-full"
-                      onClick={() => choose(plan.tier)}
+                      // An "Included in your family's plan" button stays
+                      // focusable (aria-disabled) so its reason is read out;
+                      // the click does nothing.
+                      onClick={() => {
+                        if (!btn.ariaDisabled) void choose(plan.tier);
+                      }}
                       disabled={btn.disabled}
+                      aria-disabled={btn.ariaDisabled || undefined}
                       loading={btn.loading}
                       aria-describedby={cardError ? `checkout-error-${plan.tier}` : undefined}
                     >

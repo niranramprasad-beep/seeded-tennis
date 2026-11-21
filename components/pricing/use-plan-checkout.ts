@@ -8,7 +8,7 @@ import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
 import { CHECKOUT_FAILED, CHECKOUT_FAMILY_ALREADY, checkoutFailureMessage } from "@/lib/checkout-messages";
-import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { FAMILY_PLAN_STATUS_KEY, loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { planButtonState, type PlanButtonState } from "@/lib/plan-entry";
 
 // The /pricing checkout wiring: plan choice, sign-in hand-off and the
@@ -41,7 +41,7 @@ export function usePlanCheckout(interval: BillingInterval) {
   // "Choose Family" would sell that family a second one (lib/plan-entry.ts).
   // Same SWR key as the family screens, so it is usually already cached.
   const { data: familyPlan } = useSWR<FamilyPlanStatus>(
-    signedIn ? "family-plan-status" : null,
+    signedIn ? FAMILY_PLAN_STATUS_KEY : null,
     () => loadFamilyPlanStatus()
   );
 
@@ -59,9 +59,10 @@ export function usePlanCheckout(interval: BillingInterval) {
     setError(null);
     setLoadingTier(t);
     try {
-      // The button is disabled once the status is known; this covers a
-      // click that lands before it loaded.
-      if (t === "family" && (familyPlan ?? (await loadFamilyPlanStatus())).unlocked) {
+      // Always a FRESH read for Family, never the SWR cache: the cache can
+      // be stale (or, before the sign-out clear, another account's). The
+      // route checks again and answers 409 (app/api/whop/checkout).
+      if (t === "family" && (await loadFamilyPlanStatus()).unlocked) {
         setError({ tier: t, message: CHECKOUT_FAMILY_ALREADY });
         setLoadingTier(null);
         return;

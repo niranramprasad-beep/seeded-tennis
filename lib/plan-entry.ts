@@ -58,7 +58,11 @@ export interface PlanButtonState {
    * never a checkout target. */
   includedAlready: boolean;
   loading: boolean;
+  /** Native `disabled`: not focusable, not clickable. */
   disabled: boolean;
+  /** Focusable but inert (`aria-disabled`): the label is the reason, and a
+   * screen reader can reach it. Used for "Included in your family's plan". */
+  ariaDisabled: boolean;
   label: string;
 }
 
@@ -93,5 +97,12 @@ export function planButtonState(input: {
           : !signedIn && planTier === "free"
             ? "Start free"
             : `Choose ${planName}`;
-  return { current, includedAlready, loading, disabled: current || includedAlready || loading, label };
+  return {
+    current,
+    includedAlready,
+    loading,
+    disabled: current || belowOwn || loading,
+    ariaDisabled: familyHasIt && !loading,
+    label,
+  };
 }

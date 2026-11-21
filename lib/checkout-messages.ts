@@ -49,7 +49,8 @@ export const CHECKOUT_WHOP_UNREACHABLE =
 export const CHECKOUT_NO_URL =
   "Couldn't start checkout with Whop, so nothing was charged. Try again in a minute.";
 
-/** Shown by /pricing, never sent to Whop: the family already has a Family
- * plan (lib/plan-entry.ts), so a second one is not sold. */
+/** The family already has a Family plan (lib/plan-entry.ts), so a second
+ * one is not sold: /pricing shows it before calling the API, and
+ * /api/whop/checkout answers it with 409 (045's my_family_has_tier). */
 export const CHECKOUT_FAMILY_ALREADY =
   "Your family already has the Family plan, so nothing was charged. It is managed by the person who pays.";

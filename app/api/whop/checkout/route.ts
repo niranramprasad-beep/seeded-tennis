@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseRequestBody } from "@/lib/api-body";
 import {
+  CHECKOUT_FAMILY_ALREADY,
   CHECKOUT_NO_URL,
   CHECKOUT_PLAN_UNAVAILABLE,
   CHECKOUT_WHOP_UNREACHABLE,
@@ -59,6 +60,22 @@ export async function POST(req: Request) {
 
   const limited = await rateLimited(ctx.supabase, "whop_checkout");
   if (limited) return limited;
+
+  // Never sell a family a second Family plan (lib/plan-entry.ts). /pricing
+  // already disables the button; this is the server half, as this caller,
+  // through 045's my_family_has_tier (the payer's HOME family rule). It
+  // fails OPEN on an RPC error: this route is the only purchase path, and a
+  // database blip must not make Family unbuyable. Logged either way.
+  if (tier === "family") {
+    const { data: alreadyHasIt, error: familyError } = await ctx.supabase.rpc("my_family_has_tier", {
+      p_tier: "family",
+    });
+    if (familyError) {
+      logServerError("whop.checkout.family_check_failed", familyError, { route: ROUTE });
+    } else if (alreadyHasIt === true) {
+      return NextResponse.json({ error: CHECKOUT_FAMILY_ALREADY }, { status: 409 });
+    }
+  }
 
   // Where Whop sends the buyer back. It was built from the request's Origin
   // header (S-11): a header the caller controls, and on a local server an

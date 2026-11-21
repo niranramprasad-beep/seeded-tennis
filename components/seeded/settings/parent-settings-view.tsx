@@ -17,7 +17,7 @@ import {
   pickFamilyPlayer,
   rosterStatsLocked,
 } from "@/lib/family-view";
-import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { FAMILY_PLAN_STATUS_KEY, loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { FAMILY_INCLUDED_LABEL, accountPlanEntry } from "@/lib/plan-entry";
 import { getText, postJson } from "@/lib/api-client";
 import { localDateKey } from "@/lib/time";
@@ -146,7 +146,7 @@ function ParentAccountCard({ onSignOut }: { onSignOut: () => void }) {
   const { tier, hydrated: tierHydrated } = useTier();
   const router = useRouter();
   const { data: familyPlan } = useSWR<FamilyPlanStatus>(
-    tierHydrated && tier === "free" ? "family-plan-status" : null,
+    tierHydrated && tier === "free" ? FAMILY_PLAN_STATUS_KEY : null,
     () => loadFamilyPlanStatus()
   );
   const planEntry = accountPlanEntry({ tierHydrated, tier, familyPlan });

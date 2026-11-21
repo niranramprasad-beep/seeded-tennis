@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { FAMILY_INCLUDED_LABEL, accountPlanEntry, planButtonState } from "./plan-entry";
 import { CHECKOUT_FAMILY_ALREADY } from "./checkout-messages";
 
@@ -40,9 +42,9 @@ describe("accountPlanEntry", () => {
 describe("planButtonState: /pricing never sells a family a second Family plan", () => {
   const base = { signedIn: true, tier: "free" as const, planName: "Family", loadingTier: null };
 
-  it("Free viewer, family unlocked: Family is disabled and says why", () => {
+  it("Free viewer, family unlocked: Family is inert (aria-disabled, focusable) and says why", () => {
     const b = planButtonState({ ...base, planTier: "family", familyUnlocked: true });
-    expect(b).toMatchObject({ disabled: true, includedAlready: true, current: false, label: FAMILY_INCLUDED_LABEL });
+    expect(b).toMatchObject({ disabled: false, ariaDisabled: true, includedAlready: true, current: false, label: FAMILY_INCLUDED_LABEL });
   });
 
   it("Free viewer, family unlocked: Player is still a real purchase for themselves", () => {
@@ -52,12 +54,12 @@ describe("planButtonState: /pricing never sells a family a second Family plan", 
 
   it("Player viewer, family unlocked: Family is withheld too", () => {
     const b = planButtonState({ ...base, tier: "player", planTier: "family", familyUnlocked: true });
-    expect(b).toMatchObject({ disabled: true, label: FAMILY_INCLUDED_LABEL });
+    expect(b).toMatchObject({ disabled: false, ariaDisabled: true, label: FAMILY_INCLUDED_LABEL });
   });
 
   it("the payer on Family sees Current plan, not 'included'", () => {
     const b = planButtonState({ ...base, tier: "family", planTier: "family", familyUnlocked: true });
-    expect(b).toMatchObject({ current: true, disabled: true, label: "Current plan" });
+    expect(b).toMatchObject({ current: true, disabled: true, ariaDisabled: false, label: "Current plan" });
   });
 
   it("locked family: Choose Family as before", () => {
@@ -72,10 +74,45 @@ describe("planButtonState: /pricing never sells a family a second Family plan", 
 
   it("below your own tier: 'Included in your plan'", () => {
     const b = planButtonState({ ...base, tier: "family", planTier: "player", planName: "Player", familyUnlocked: true });
-    expect(b).toMatchObject({ disabled: true, label: "Included in your plan" });
+    expect(b).toMatchObject({ disabled: true, ariaDisabled: false, label: "Included in your plan" });
   });
 
   it("the click-before-status-loaded guard says nothing was charged", () => {
     expect(CHECKOUT_FAMILY_ALREADY).toMatch(/nothing was charged/);
+  });
+});
+
+// Round 2 (M2): mutations showed the WIRING untested — a component could
+// pass `familyUnlocked: false` or skip the family status and every test
+// above would still pass. These pin the exact wiring in source.
+describe("the components feed the real family status in", () => {
+  const read = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");
+
+  it("/pricing's hook passes the loaded status and re-reads it fresh before a Family checkout", () => {
+    const src = read("components/pricing/use-plan-checkout.ts");
+    expect(src).toMatch(/useSWR<FamilyPlanStatus>\(\s*signedIn \? FAMILY_PLAN_STATUS_KEY : null,\s*\(\) => loadFamilyPlanStatus\(\)/);
+    expect(src).toMatch(/familyUnlocked: familyPlan\?\.unlocked === true/);
+    expect(src).toMatch(
+      /if \(t === "family" && \(await loadFamilyPlanStatus\(\)\)\.unlocked\) \{\s*setError\(\{ tier: t, message: CHECKOUT_FAMILY_ALREADY \}\)/
+    );
+  });
+
+  it("/pricing keeps an aria-disabled button inert", () => {
+    const src = read("components/pricing/seeded-pricing-view.tsx");
+    expect(src).toMatch(/if \(!btn\.ariaDisabled\) void choose\(plan\.tier\);/);
+    expect(src).toMatch(/aria-disabled=\{btn\.ariaDisabled \|\| undefined\}/);
+  });
+
+  for (const f of ["components/seeded/settings/seeded-settings-view.tsx", "components/seeded/settings/parent-settings-view.tsx"]) {
+    it(`${f} loads the family status and passes it to accountPlanEntry`, () => {
+      expect(read(f)).toMatch(
+        /const \{ data: familyPlan \} = useSWR<FamilyPlanStatus>\(\s*tierHydrated && tier === "free" \? FAMILY_PLAN_STATUS_KEY : null,\s*\(\) => loadFamilyPlanStatus\(\)\s*\);\s*const planEntry = accountPlanEntry\(\{ tierHydrated, tier, familyPlan \}\);/
+      );
+    });
+  }
+
+  it("the cached status is dropped on sign-out and on an account change", () => {
+    const src = read("lib/context/player-context.tsx");
+    expect(src.match(/mutate\(FAMILY_PLAN_STATUS_KEY, undefined, \{ revalidate: false \}\)/g)?.length).toBe(2);
   });
 });
