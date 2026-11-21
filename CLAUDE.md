@@ -1,11 +1,12 @@
 # Seeded — notes for Claude
 
-## Current state (2026-11-20, night)
+## Current state (2026-11-21)
 - Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
-- Production database: every migration through **050**, 048 included (ledger 52 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Production database: every migration through **051** (ledger 53 on 2026-11-21; 051 applied 03:18 UTC on Niran's go). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Staging `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal re-runs in its ledger, and the imported catalog rows (production has none). `.env.local` and Vercel Preview point at it.
 - Merged 2026-11-20 night: 050 (parent-only budget), code quality, docs, catalog phase 1 (PR E #9, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF, no production data), visual polish, sweep fixes, and the Legacy design deleted (one design system; Appearance = Light / Dark / Match system).
-- Open: **PR #17 — migration 051** (a pending-consent under-13 can still write tennis fields on its own profile; staging-tested, needs Niran's go); the parent-approver gap and the post-checkout sync decision (both in docs/TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+- Done 2026-11-21: **migration 051** (PR #17) — a pending-consent under-13 can no longer change tennis/recruiting fields on its own profile (BEFORE UPDATE trigger; the sign-up INSERT is not covered, see TODO).
+- Open: the parent-approver gap and post-checkout sync (both DECIDED by Niran 2026-11-21, build after the review — DECISIONS.md, TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
 

@@ -1,8 +1,8 @@
 # Seeded — Handoff
 
 **What this file is now (2026-11-20):** the production rollout runbook.
-- **§J** is the step-by-step plan for every production migration (Steps 1–25:
-  migrations 022–050), each with its pre-flight, verify-as-real-roles and a
+- **§J** is the step-by-step plan for every production migration (Steps 1–26:
+  migrations 022–051), each with its pre-flight, verify-as-real-roles and a
   pasteable rollback. `docs/GO-SEQUENCE.md` is the one-page order that points
   into it.
 - **§K** is the Whop billing incident and the dashboard steps that fixed it.
@@ -23,7 +23,8 @@
 
 > **Status (2026-11-20):** every step below has since RUN ON PRODUCTION —
 > Steps 1–15 on 2026-11-16 (launch), 16–20 on 2026-11-19, 21–23 on
-> 2026-11-20, Step 24 (050) on 2026-11-20 night. The two paragraphs that
+> 2026-11-20, Steps 24–25 (050, 048) on 2026-11-20 night, Step 26 (051) on
+> 2026-11-21. The two paragraphs that
 > follow were written on 2026-11-14, before any of it, and are kept as the
 > plan of record; they do not describe production today. Production state:
 > `list_migrations` on `tfpjssmhiptbwigarxpx`, and docs/GO-SEQUENCE.md.
@@ -2905,6 +2906,31 @@ Rollback (nothing else references these objects):
 ```sql
 drop table if exists public.team_ranges, public.program_class_counts, public.programs, public.app_admins;
 drop function if exists public.is_app_admin();
+```
+
+### Step 26 — migration 051 (pending-consent profiles: no tennis writes; PR #17)
+
+**RUN ON PRODUCTION 2026-11-21 03:18:06 UTC** on Niran's current-turn go,
+after a backup (`~/seeded-backups/prod-20261120-2217-pre051.dump`). Ledger
+52 → 53. Evidence: `~/seeded-evidence/review-ready/r17-051/`.
+
+Pre-flight: `select count(*) from profiles where consent_status = 'pending'`
+(0 on production; report any and their `target_school_slugs`/`current_utr`,
+never change them).
+
+Verify: function md5 and ACL equal staging's (`{postgres=X, service_role=X}`);
+`probe-051.sql` as `authenticated` in a rolled-back block — a pending
+under-13 changing target schools, `current_utr`, the UTR link, weaknesses,
+tournament counts, commitment date, or targets via the upsert path → 42501
+`consent_required`; the same account renaming itself, changing grade or
+graduation year, re-saving an unchanged row, or upserting a new name →
+allowed; an active player → all eleven allowed. 0 residue. Same result on
+staging and production.
+
+Rollback (nothing else references these objects):
+```sql
+drop trigger if exists pending_consent_profile_guard on public.profiles;
+drop function if exists public.pending_consent_profile_guard();
 ```
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)

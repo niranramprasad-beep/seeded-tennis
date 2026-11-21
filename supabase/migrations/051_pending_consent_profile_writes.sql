@@ -1,8 +1,8 @@
 -- 051_pending_consent_profile_writes.sql
 --
--- STATUS: written and attack-tested on STAGING 2026-11-20 (night). NOT on
--- production: production needs Niran's explicit, current-turn go
--- (GO-SEQUENCE row 26). Found by the review-ready sweep (R9 HIGH-1).
+-- STATUS: attack-tested on STAGING 2026-11-20 (night); RUN ON PRODUCTION
+-- 2026-11-21 03:18 UTC on Niran's current-turn go (GO-SEQUENCE row 26,
+-- HANDOFF §J Step 26). Found by the review-ready sweep (R9 HIGH-1).
 --
 -- The gap: 030 makes an under-13 account inert until a parent consents — a
 -- RESTRICTIVE `account_active_required` policy on 21 tables — but `profiles`
