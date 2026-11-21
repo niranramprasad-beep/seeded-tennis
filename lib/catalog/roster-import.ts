@@ -1,8 +1,9 @@
 // Official-roster TSV -> per-program class counts. Pure; no I/O.
 //
-// Catalog phase 1 (migration 048). Input: the owner's compiled roster file
-// (docs/data/official_rosters_2026-27.tsv when it exists), one row per
-// listed player, columns:
+// Catalog phase 1 (migration 048). Input: the owner's compiled RAW roster
+// file, one row per listed player. It names real students, so it is kept
+// outside the repo (~/seeded-private/official_rosters_2026-27.tsv); the repo
+// holds only its aggregate (lib/catalog/roster-counts.ts). Columns:
 //
 //   Conference  School  Gender  HeadCoach  RosterURL  SeasonShown
 //   Player  Class  Hometown  Notes

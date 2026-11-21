@@ -709,7 +709,11 @@ hydration, or to accept it and drop the page's sitemap priority.
 - **`--emit-sql`'s safety check** only tests that 048's tables exist, so it
   stops distinguishing staging from production once 048 is on production.
   Give staging a marker row and check for it.
-- **The roster TSV in `docs/data/` names ~1,936 real college students** (and
-  hometowns). It is in the private repo's history now. Owner's call whether to
-  keep the source file outside the repo going forward; the database and every
-  generated report hold no names.
+- **The roster TSV in `docs/data/` named ~1,936 real college students** (and
+  hometowns). DONE 2026-11-21 (Niran's decision): removed from the repo,
+  replaced by the per-team aggregate `docs/data/roster_counts_2026-27.tsv`;
+  the raw file lives only in `~/seeded-private/` (chmod 600) and `.gitignore`
+  blocks the pattern. **Still open — decide whether to purge the raw roster
+  file from git history** (needs a history rewrite and a force-push; `main`
+  is protected). It is in commits from PR E's merge (2026-11-20) until the
+  removal.

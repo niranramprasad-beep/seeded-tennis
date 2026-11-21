@@ -20,6 +20,21 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
+decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
+(one row per student, ~1,900 real names and hometowns) is replaced by
+`docs/data/roster_counts_2026-27.tsv`: one row per team, counts per
+graduating class and a total, no names/hometowns/notes. The raw file lives
+only in `~/seeded-private/` (chmod 600); `.gitignore` blocks
+`official_rosters_*.tsv` and `seeded-private/`. `scripts/aggregate-rosters.ts`
+builds the aggregate and refuses to write unless the round trip is exact and
+no personal value appears; the importer reads either format (same 179 teams,
+10 not retrieved, 1,947 source rows; the generated report changed only its
+file name). Guard `lib/catalog/roster-counts.test.ts` (strict reader, no
+per-player header under docs/data, no tracked `official_rosters_*`); the raw
+file's tests run only where it exists. Git history still holds the raw file
+— purge is an open owner decision (TODO).
+
 **2026-11-21 — Migration 051 ON PRODUCTION (03:18 UTC, Niran's go; ledger
 53).** Backup `~/seeded-backups/prod-20261120-2217-pre051.dump`; 0 pending
 accounts at pre-flight; `probe-051.sql` identical on staging and production

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getSchoolsLite } from "@/lib/db/schools";
 import { legacyMatchFor, schoolNameKey, withoutLegacyDuplicates, type LegacyLike } from "./legacy-match";
-import { parseRosterTsv } from "./roster-import";
+import { parseRosterFile } from "./roster-counts";
 
 const legacy = (slug: string, name: string, gender: "men" | "women", conference: string): LegacyLike => ({
   slug,
@@ -56,8 +56,8 @@ describe("legacyMatchFor", () => {
 });
 
 describe("the real roster file against the real 68-program catalog", async () => {
-  const real = parseRosterTsv(
-    readFileSync(join(__dirname, "..", "..", "docs", "data", "official_rosters_2026-27.tsv"), "utf8")
+  const real = parseRosterFile(
+    readFileSync(join(__dirname, "..", "..", "docs", "data", "roster_counts_2026-27.tsv"), "utf8")
   );
   const catalog = await getSchoolsLite();
 
