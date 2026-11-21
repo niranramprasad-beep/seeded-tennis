@@ -25,6 +25,10 @@ import { monthYearLabel } from "@/components/seeded/ui/chart-axis";
 export interface ChartPoint {
   date: Date;
   utr: number;
+  /** True for the profile's current UTR plotted at today because no dated
+   *  entry exists: the date is where it is DRAWN, not when it was entered,
+   *  so the readout never prints it. */
+  undated?: boolean;
 }
 
 export interface Checkpoint extends ChartPoint {
@@ -55,7 +59,7 @@ export function buildChartSeries(input: {
 }): ChartSeries | null {
   const logged = input.actualPoints
     .filter((p) => hasRealUtr(p.utr))
-    .map((p) => ({ date: p.date, utr: p.utr }))
+    .map((p) => (p.undated ? { date: p.date, utr: p.utr, undated: true } : { date: p.date, utr: p.utr }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   if (logged.length === 0) return null;
   const now = logged[logged.length - 1];
@@ -136,8 +140,10 @@ export function chartValuesAt(series: Pick<ChartSeries, "logged" | "plan" | "est
   const { logged: logs, plan: planPts, estimate: est } = series;
 
   let logged: ChartPoint | null = null;
-  const lastLogT = logs.length ? logs[logs.length - 1].date.getTime() : -Infinity;
-  if (t <= series.today.getTime() && t <= lastLogT) {
+  // Up to today, the most recent real entry on or before the date is the
+  // rating in force — including between the last log and today. Never after
+  // today, and never an interpolated value.
+  if (t <= series.today.getTime()) {
     for (const p of logs) {
       if (p.date.getTime() <= t) logged = p;
       else break;
@@ -197,7 +203,7 @@ export function readoutAt(series: ChartSeries, t: number, g: ChartGeometry, goal
     rows.push({
       key: "logged",
       label: "Logged",
-      text: `${formatPlayerUtr(e.utr)} · ${entryDate(e.date, cursor)}`,
+      text: e.undated ? `${formatPlayerUtr(e.utr)} · current` : `${formatPlayerUtr(e.utr)} · ${entryDate(e.date, cursor)}`,
       // On the ENTRY's own point on the solid line, not under the crosshair.
       dot: { cx: g.x(e.date.getTime()), cy: g.y(e.utr) },
     });

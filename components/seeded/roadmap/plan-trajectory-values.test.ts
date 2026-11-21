@@ -117,10 +117,24 @@ describe("chartValuesAt — only what is really on the chart", () => {
     expect(v.plan).toBeNull();
     expect(v.estimate).toBeNull();
   });
-  it("past the last log: no Logged — the plan line takes over", () => {
-    const v = chartValuesAt(series, t(2026, 9, 15));
-    expect(v.logged).toBeNull();
+  it("between the last log and today: the last entry is still the rating in force", () => {
+    const v = chartValuesAt(series, t(2026, 10, 10));
+    expect(v.logged).toEqual(logs[2]);
     expect(v.plan!).toBeGreaterThan(8);
+  });
+  it("past today: no Logged even though the last entry was before today", () => {
+    expect(chartValuesAt(series, t(2026, 10, 22)).logged).toBeNull();
+  });
+  it("an undated current-UTR point never prints a date", () => {
+    const s = buildChartSeries({
+      actualPoints: [{ date: TODAY, utr: 7.25, undated: true }],
+      roadmap: [],
+      estimate: [],
+      today: TODAY,
+    })!;
+    const r = readoutAt(s, TODAY.getTime(), g);
+    expect(r.rows[0].text).toBe("7.25 · current");
+    expect(r.sentence).not.toMatch(/· Nov/);
   });
   it("after today: never Logged, even with a log dated after today", () => {
     const s: ChartSeries = { ...series, logged: [...series.logged, { date: d(2027, 0, 1), utr: 8.5 }] };

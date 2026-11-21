@@ -85,7 +85,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
     // "UTR 0", which is a rating nobody has.
     if (real.length > 0) return real;
     return hasRealUtr(player.currentUTR)
-      ? [{ date: todayAtMidnight(), utr: player.currentUTR }]
+      ? [{ date: todayAtMidnight(), utr: player.currentUTR, undated: true }]
       : [];
   }, [utrEntries, player.currentUTR]);
   // The "what if my UTR is ___ by June {year}?" slider — same shared hook
