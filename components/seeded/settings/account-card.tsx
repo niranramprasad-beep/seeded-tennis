@@ -14,10 +14,13 @@ import { formatUtrOrNotTracked } from "@/lib/utils";
 export function AccountCard({
   player,
   tierLabel,
+  isFree,
   onSignOut,
 }: {
   player: Player;
   tierLabel: string;
+  /** Free: the action is "See plans" (/pricing), not billing. */
+  isFree: boolean;
   onSignOut: () => void;
 }) {
   const router = useRouter();
@@ -39,13 +42,26 @@ export function AccountCard({
           <p className="mt-1 font-medium text-ink">{tierLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/settings/billing")}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
-          >
-            Plan and billing
-          </button>
+          {/* Free has no billing to manage: offer the plans (final-check
+              B27). A paid plan goes to /settings/billing, the one page that
+              knows whether this person is the payer. */}
+          {isFree ? (
+            <button
+              type="button"
+              onClick={() => router.push("/pricing")}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
+            >
+              See plans
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push("/settings/billing")}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-card px-[18px] text-[15px] font-semibold text-ink transition-colors hover:bg-subtle-hover"
+            >
+              Plan and billing
+            </button>
+          )}
           <button
             type="button"
             onClick={onSignOut}

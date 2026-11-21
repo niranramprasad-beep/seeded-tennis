@@ -278,9 +278,16 @@ function ParentAccountCard({ onSignOut }: { onSignOut: () => void }) {
           <p className="mt-1 font-medium text-ink">{TIER_LABEL[tier]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <SeededButton type="button" variant="secondary" onClick={() => router.push("/settings/billing")}>
-            Billing
-          </SeededButton>
+          {/* Free: offer the plans, not billing (final-check B27). */}
+          {tier === "free" ? (
+            <SeededButton type="button" variant="secondary" onClick={() => router.push("/pricing")}>
+              See plans
+            </SeededButton>
+          ) : (
+            <SeededButton type="button" variant="secondary" onClick={() => router.push("/settings/billing")}>
+              Plan and billing
+            </SeededButton>
+          )}
           <SeededButton type="button" variant="secondary" onClick={onSignOut}>
             <LogOut className="h-4 w-4" aria-hidden />
             Sign out

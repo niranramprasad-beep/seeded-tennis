@@ -118,6 +118,20 @@ describe("every Manage billing entry goes to /settings/billing", () => {
   });
 });
 
+describe("a Free account is offered the plans, not billing (final-check B27)", () => {
+  // Settings → Account showed "Current plan: Free" beside "Manage billing",
+  // which led to a page with nothing to manage. Free now gets "See plans"
+  // (/pricing); a paid plan keeps the /settings/billing entry.
+  for (const file of ["components/seeded/settings/account-card.tsx", "components/seeded/settings/parent-settings-view.tsx"]) {
+    it(file, () => {
+      const code = codeOnly(join(ROOT, file));
+      const plans = /(isFree|tier === "free")\s*\?\s*\(\s*<\w+[\s\S]{0,300}?router\.push\("\/pricing"\)[\s\S]{0,300}?>\s*See plans\s*<\/\w+>/;
+      expect(code).toMatch(plans);
+      expect(code).toMatch(/router\.push\("\/settings\/billing"\)[^>]*>\s*Plan and billing/);
+    });
+  }
+});
+
 describe("only /settings/billing sends anyone to Whop's member portal", () => {
   // The portal is where the payer-check matters. Checkout (a NEW purchase,
   // for the signed-in user themselves) is a different Whop page.

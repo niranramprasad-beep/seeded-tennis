@@ -38,7 +38,10 @@ parser error from an HTML error page. (4) A18: the entries into
 `/settings/billing` say "Plan and billing" / "Your plan and billing" instead
 of promising "Manage billing" to someone who may not be the payer; the
 not-payer state adds, as text only, where a payer's plan lives (an
-unsynced purchase looks like a non-payer). Guards: `lib/api-body.test.ts`
+unsynced purchase looks like a non-payer). B27: on a **Free** account the
+Settings Account cards (player and parent) offer **See plans** (/pricing)
+instead of a billing link with nothing behind it (`lib/billing-links.test.ts`).
+Guards: `lib/api-body.test.ts`
 (static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
 7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so
 Whop retries) and `lib/billing-view-render.test.tsx` (renders each

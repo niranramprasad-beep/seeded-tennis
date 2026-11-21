@@ -174,6 +174,7 @@ export function SeededSettingsView({
         <AccountCard
           player={player}
           tierLabel={TIER_LABEL[tier]}
+          isFree={tier === "free"}
           onSignOut={() => {
             signOut();
             router.push("/");
