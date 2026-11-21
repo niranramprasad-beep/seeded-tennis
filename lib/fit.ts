@@ -642,7 +642,7 @@ export interface PaceUpside {
 export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
   if (!utr?.upside) return null;
   const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
-  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatTargetUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
+  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
 }
 
 /* --------------------------------------------------------- logged pace */

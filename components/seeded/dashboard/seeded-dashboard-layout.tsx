@@ -274,13 +274,18 @@ export function SeededDashboardLayout({
               upside={upsidePath}
             />
           </div>
-          {fitReport?.utr?.upside ? (
-            <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-3" />
-          ) : hasLoggedUtr ? (
+          {hasLoggedUtr ? (
             <DataNote className="mt-3">
-              {estimatePath.length > 1 ? "Dashed: your estimate to the summer before senior year." : "The line is the UTRs you've logged."}
+              {/* A legend for exactly what is drawn (independent review of
+                  PR #16): the chart may end at the next checkpoint rather
+                  than the summer before senior year, and the grey line only
+                  exists when the player's own pace beats the planning cap. */}
+              {estimatePath.length > 1
+                ? `Solid: UTRs you logged. Green dashes: the estimate we plan with.${upsidePath.length > 1 ? " Grey dashes: your own faster pace, never used for bands." : ""}${nextCheckpoint ? " Gold line: your next checkpoint." : ""}`
+                : "The line is the UTRs you've logged."}
             </DataNote>
           ) : null}
+          {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
         </div>
       </section>
 

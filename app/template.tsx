@@ -1,6 +1,7 @@
 // Re-mounts on every route change (that's what template.tsx is for, unlike
 // layout.tsx) — kept for that remount behavior, not for decoration. The
-// fade itself is handled once already, in app-shell.tsx's animate-fade-in;
+// fade was removed entirely on 2026-11-20 (PR-POLISH: nothing may render at
+// opacity 0 at first paint); before that it lived in app-shell.tsx;
 // this used to ALSO slide+fade on top of that, so every navigation played
 // two overlapping entrance animations. Just a passthrough now.
 //

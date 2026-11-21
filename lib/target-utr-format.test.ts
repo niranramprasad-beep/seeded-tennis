@@ -67,3 +67,12 @@ describe("the computed labels go through it", () => {
     expect(today).toMatch(/formatCheckpointUtr\(nextCheckpoint\.utr/);
   });
 });
+
+describe("the planning value is printed as computed, never re-rounded (PR #16 review)", () => {
+  it("a plan value equal to a logged rating keeps its two decimals", async () => {
+    const { paceUpsideSentence } = await import("./fit");
+    type Arg = Parameters<typeof paceUpsideSentence>[0];
+    const utr = { value: 10.93, upside: { value: 11.6 } } as unknown as Arg;
+    expect(paceUpsideSentence(utr)).toContain("We plan with 10.93");
+  });
+});
