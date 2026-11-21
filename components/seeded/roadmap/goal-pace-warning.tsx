@@ -10,7 +10,8 @@ import {
   type PlanGoal,
 } from "@/lib/fit";
 import type { GoalPace } from "@/lib/school-fit";
-import { formatDate } from "@/lib/time";
+import { formatDate, parseLocalDate } from "@/lib/time";
+import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { formatPlayerUtr, formatTargetUtr } from "@/lib/utils";
 
 interface GoalPaceWarningProps {
@@ -66,7 +67,7 @@ export function GoalPaceWarning({ goalPace, goal, currentUtr, onUseEstimate, cla
 
   const message =
     pace.paceRead === "no-time-left"
-      ? `The summer before senior year (${formatDate(pace.byDate)}) has passed, so there's no time left to close the ${formatPlayerUtr(pace.gap)} gap to your ${formatPlayerUtr(goal.value)} goal.`
+      ? `The summer before senior year (${formatDate(pace.byDate)}) ${seniorSummerVerb(seniorSummerPhase(parseLocalDate(pace.byDate).getFullYear()))}, so there's no time left to close the ${formatPlayerUtr(pace.gap)} gap to your ${formatPlayerUtr(goal.value)} goal.`
       : `${needs(pace)} ${PLANNING_RULE_SENTENCE}`;
 
   const estimate = goal.estimate;

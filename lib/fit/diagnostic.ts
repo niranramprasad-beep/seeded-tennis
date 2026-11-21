@@ -16,6 +16,7 @@ import type { UtrDataPoint } from "@/lib/utr-projection";
 import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 import type { SchoolFitProjectionInput } from "@/lib/school-fit";
 import { isUsableUtr } from "@/lib/fit/pace";
+import { seniorSummerTodayNote } from "@/lib/senior-summer";
 import {
   paceUpsideSentence,
   recruitingTimeUtr,
@@ -135,7 +136,7 @@ export function diagnosticProjection(input: {
     upside: paceUpsideSentence(recruiting),
     monthsToTarget: yearsUntilRecruiting(input.graduationYear, now) * 12,
     targetYear: recruiting.year,
-    note: recruiting.assumption ?? SUMMER_STARTED_NOTE,
+    note: recruiting.assumption ?? seniorSummerTodayNote(recruiting.year, now),
     cappedByCeiling: recruiting.cappedByCeiling,
     recruiting,
   };

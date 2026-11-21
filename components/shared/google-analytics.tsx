@@ -44,8 +44,18 @@ function GaController({ id }: { id: string }) {
   const [scriptWanted, setScriptWanted] = useState(false);
   const runtime = useRef<GaRuntime | null>(null);
 
-  useEffect(() => {
+  // Created on the first client render, and asked on EVERY render whether
+  // the path is a sign-in / sign-up page: guardPath() only ever switches
+  // gtag off, and doing it here — before the route commits and its history
+  // entry is pushed — keeps GA's own history listener from counting that
+  // page when gtag.js was loaded earlier in the visit. Not on the server.
+  if (typeof window !== "undefined") {
     if (!runtime.current) runtime.current = new GaRuntime(id, window, () => setScriptWanted(true));
+    runtime.current.guardPath(pathname);
+  }
+
+  useEffect(() => {
+    if (!runtime.current) return;
     runtime.current.update({ pathname, account });
   }, [id, pathname, searchKey, account]);
 
