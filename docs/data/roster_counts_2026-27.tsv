@@ -1,0 +1,195 @@
+# Seeded catalog phase 1 — team roster counts by graduating class. One row per team.
+# Aggregated from official_rosters_2026-27.tsv by scripts/aggregate-rosters.ts. No player names, hometowns or notes.
+# source-rows-read: 1947
+# source-rows-used: 1947
+# unknown-class-labels: {"Rs.":1,"(blank)":10}
+Conference	School	Gender	HeadCoach	RosterURL	SeasonShown	Status	Class of 2026	Class of 2027	Class of 2028	Class of 2029	Class of 2030	UnknownClass	Total	DuplicatesDropped	InconsistentFields	SeasonFromSpringYear
+Atlantic 10	Davidson	men	Drew Barrett	https://davidsonwildcats.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	2	2	0	10	0		no
+Atlantic 10	Davidson	women	Susanne Depka	https://davidsonwildcats.com/sports/womens-tennis/roster	2025-26	imported	0	0	0	0	0	10	10	0		no
+Atlantic 10	Dayton	men	Ryan Meyer	https://daytonflyers.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	1	1	0	9	0		no
+Atlantic 10	Dayton	women	Erica Echko	https://daytonflyers.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	0	1	5	2	0	8	0		no
+Atlantic 10	Duquesne	men	Budi Susanto	https://goduquesne.com/sports/mens-tennis/roster	2026-27	imported	0	2	5	2	1	0	10	0		no
+Atlantic 10	Duquesne	women	Budi Susanto	https://goduquesne.com/sports/womens-tennis/roster	2025-26	imported	3	2	3	0	0	0	8	0		no
+Atlantic 10	Fordham	men	Nika Kukharchuk	https://fordhamsports.com/sports/mens-tennis/roster	2026-27	imported	0	4	5	0	0	0	9	0		no
+Atlantic 10	Fordham	women	Michael Sowter	https://fordhamsports.com/sports/womens-tennis/roster	2026-27	imported	0	3	3	2	0	0	8	0		no
+Atlantic 10	George Washington	women	Jackie Calla	https://gwsports.com/sports/womens-tennis/roster?print=true	2026-27	imported	0	3	2	3	2	0	10	0		no
+Atlantic 10	Rhode Island	women	Jonas Brobeck	https://gorhody.com/sports/womens-tennis/roster	2026-27	imported	0	3	2	2	2	0	9	0		no
+Atlantic 10	Richmond	women		https://richmondspiders.com/sports/womens-tennis/roster	2026-27	imported	0	2	3	2	3	0	10	0		no
+Atlantic 10	Saint Joseph's	men	Jeff Puhan	https://sjuhawks.com/sports/mens-tennis/roster	2026-27	imported	0	2	2	4	2	0	10	0		no
+Atlantic 10	Saint Joseph's	women	Jeff Puhan	https://sjuhawks.com/sports/womens-tennis/roster	2025-26	imported	1	2	3	4	0	0	10	0		no
+Atlantic 10	VCU	men	Dimi Kutrovsky	https://vcuathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	4	1	2	0	8	0		no
+Atlantic 10	VCU	women	Rifanty Kahfiani	https://vcuathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	2	3	1	0	8	0		no
+CAA	Campbell	men	David Johnson	https://gocamels.com/sports/mens-tennis/roster?view=grid	2026-27	imported	0	0	3	4	3	0	10	0		no
+CAA	Campbell	women	David Johnson (Interim Head Coach)	https://gocamels.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	2	2	1	2	0	7	0		no
+CAA	Charleston	men	Jay Bruner	https://cofcsports.com/sports/mens-tennis/roster?view=grid	2026-27	imported	0	2	4	3	1	0	10	0		no
+CAA	Charleston	women	Doug Matthews	https://cofcsports.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	2	3	3	2	0	10	0		no
+CAA	Drexel	men	Eric Johnson	https://drexeldragons.com/sports/mens-tennis/roster	2026-27	imported	0	6	2	0	1	0	9	0		no
+CAA	Drexel	women	Dave Watts	https://drexeldragons.com/sports/womens-tennis/roster?view=list	2026-27	imported	0	2	2	3	3	0	10	0		no
+CAA	Elon	men	Dennis Smith	https://elonphoenix.com/sports/mens-tennis/roster?view=list	2026-27	imported	0	1	5	1	0	0	7	0		no
+CAA	Elon	women	Elizabeth Anderson	https://elonphoenix.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	3	3	1	2	0	9	0		no
+CAA	Hampton	men	Jovan Jordan-Whitter	https://hamptonpirates.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	3	2	1	1	0	7	0		no
+CAA	Hampton	women	Jovan Jordan-Whitter	https://hamptonpirates.com/sports/womens-tennis/roster?view=list	2026-27	imported	0	1	4	2	0	0	7	0		no
+CAA	Hofstra	men	Arielle Shuren	https://gohofstra.com/sports/mens-tennis/roster?view=grid	2026-27	imported	0	1	2	3	2	0	8	0		no
+CAA	Hofstra	women	Fred Lemongo	https://gohofstra.com/roster.aspx?path=wten	2026-27	imported	0	2	2	3	1	0	8	0		no
+CAA	Monmouth	men	Chris Leicht	https://monmouthhawks.com/sports/mens-tennis/roster/2026-27?view=list	2026-27	imported	0	2	5	0	1	0	8	0		no
+CAA	Monmouth	women	Patrice Murray	https://monmouthhawks.com/sports/womens-tennis/roster/2026-27?view=list	2026-27	imported	0	1	2	2	1	0	6	0		no
+CAA	North Carolina A&T	men	Dejon Bivens	https://ncataggies.com/sports/mens-tennis/roster	2026-27	imported	0	2	1	0	0	0	3	0		no
+CAA	North Carolina A&T	women	Dejon Bivens	https://ncataggies.com/sports/womens-tennis/roster?view=list	2026-27	imported	0	1	2	1	0	0	4	0		no
+CAA	Stony Brook	women	Thiago Dualiby	https://stonybrookathletics.com/sports/womens-tennis/roster	2026-27	imported	0	3	3	2	1	0	9	0		no
+CAA	Towson	women	Jamie Peterson	https://towsontigers.com/roster.aspx?path=wten	2026-27	imported	0	2	7	0	0	0	9	0		no
+CAA	UNC Wilmington	men	Mait DuBois	https://uncwsports.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	2	3	3	4	0	12	0		no
+CAA	UNC Wilmington	women	Chris Bizot	https://uncwsports.com/sports/womens-tennis/roster?view=2	2026-27	imported	0	5	0	2	0	0	7	0		no
+CAA	William & Mary	men	Jeff Kader	https://tribeathletics.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	3	3	2	1	0	9	0		no
+CAA	William & Mary	women	Jessica Giuggioli	https://tribeathletics.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	2	1	4	2	0	9	0		no
+Centennial	Bryn Mawr	women	Doanh Wang	https://gobrynmawr.com/sports/womens-tennis/roster	2026-27	imported	0	0	2	2	5	0	9	0		no
+Centennial	Dickinson	men	Cole Sutton	https://dickinsonathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	1	5	4	0	13	0		no
+Centennial	Dickinson	women	Cole Sutton	https://dickinsonathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	4	2	3	0	11	0		no
+Centennial	Franklin & Marshall	men	Bruce Myers	https://godiplomats.com/sports/mens-tennis/roster	2026-27	imported	0	3	3	4	7	0	17	0		no
+Centennial	Franklin & Marshall	women	Bruce Myers	https://godiplomats.com/sports/womens-tennis/roster	2026-27	imported	0	5	3	1	5	0	14	0		no
+Centennial	Gettysburg	men	Edward Rodionov	https://gettysburgsports.com/sports/mens-tennis/roster	2026-27	imported	0	4	3	10	9	0	26	0		no
+Centennial	Gettysburg	women	Edward Rodionov	https://gettysburgsports.com/sports/womens-tennis/roster	2026-27	imported	0	3	1	4	2	0	10	0		no
+Centennial	Haverford	men	Eric Spangler	https://haverfordathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	3	7	3	0	15	0		no
+Centennial	Haverford	women	John Taft	https://haverfordathletics.com/sports/wten/roster	2026-27	imported	0	0	1	6	4	0	11	0		no
+Centennial	Johns Hopkins	men	Brendan Kincaid	https://hopkinssports.com/sports/mens-tennis/roster	2026-27	imported	0	2	6	2	5	0	15	0		no
+Centennial	Johns Hopkins	women	Michael Herman	https://hopkinssports.com/sports/womens-tennis/roster	2026-27	imported	0	4	3	2	3	0	12	0		no
+Centennial	Muhlenberg	men	Ralph Van Ormer	https://muhlenbergsports.com/sports/mens-tennis/roster	2026-27	imported	0	4	1	3	2	0	10	0		no
+Centennial	Muhlenberg	women	Ralph Van Ormer	https://muhlenbergsports.com/sports/womens-tennis/roster	2026-27	imported	0	4	4	1	0	0	9	0		no
+Centennial	Swarthmore	men	Jason Box	https://swarthmoreathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	4	5	0	16	0		no
+Centennial	Swarthmore	women	Jeremy Loomis	https://swarthmoreathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	3	4	5	0	13	0		no
+Centennial	Ursinus	men	Tim Koch	https://ursinusathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	3	0	0	10	0		no
+Centennial	Ursinus	women	Tim Koch	https://ursinusathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	0	1	3	0	6	0		no
+Centennial	Washington College	men	Constantine Ananiadis	https://washcollsports.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	5	3	0	14	0		no
+Centennial	Washington College	women	Constantine Ananiadis	https://washcollsports.com/sports/womens-tennis/roster	2026-27	imported	0	1	4	3	2	0	10	0		no
+Ivy League	Brown	women	Lucie Schmidhauser	https://brownbears.com/sports/womens-tennis/roster?view=2	2026-27	imported	0	3	3	3	4	0	13	0		no
+Ivy League	Columbia	men	Howard Endelman	https://gocolumbialions.com/sports/mens-tennis/roster	2026-27	imported	0	1	5	4	3	0	13	0		no
+Ivy League	Columbia	women	Ilene Weintraub	https://gocolumbialions.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	2	3	4	5	0	14	0		no
+Ivy League	Cornell	men	Silviu Tanasoiu	https://cornellbigred.com/sports/mens-tennis/roster?view=2	2026-27	imported	0	3	2	3	3	0	11	0		no
+Ivy League	Cornell	women	Spencer Furman	https://cornellbigred.com/sports/womens-tennis/roster?view=2	2026-27	imported	0	3	2	1	4	0	10	0		no
+Ivy League	Dartmouth	women	Bob Dallis	https://dartmouthsports.com/sports/womens-tennis/roster	2026-27	imported	0	3	3	3	2	0	11	0		no
+Ivy League	Harvard	men	Andrew Rueb	https://gocrimson.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	3	2	3	5	0	13	0		no
+Ivy League	Harvard	women	Traci Green	https://gocrimson.com/sports/womens-tennis/roster	2026-27	imported	0	5	2	4	3	0	14	0		no
+Ivy League	Penn	men	Rich Bonfiglio	https://pennathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	3	2	0	12	0		no
+Ivy League	Penn	women	Sanela Kunovac	https://pennathletics.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	3	1	2	4	0	10	0		no
+Ivy League	Princeton	men	Billy Pate	https://goprincetontigers.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	4	2	2	3	0	11	0		no
+Ivy League	Yale	men	Eduardo Ugalde (Interim Head Coach)	https://yalebulldogs.com/sports/mens-tennis/roster	2026-27	imported	0	3	3	2	3	0	11	0		no
+Ivy League	Yale	women	Rachel Sapir-Kahan Swensen-McMahon	https://yalebulldogs.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	3	2	2	3	0	10	0		no
+Liberty League	Bard	men	Mandy Gamble	https://bardathletics.com/sports/mens-tennis/roster	2026-27	imported	0	0	1	3	4	0	8	0		no
+Liberty League	Bard	women	Mandy Gamble	https://bardathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	1	1	8	0	12	0		no
+Liberty League	Hobart	men	Tim Riskie	https://hwsathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	0	4	4	0	9	0		no
+Liberty League	Ithaca	men	Tom Rishcoff	https://athletics.ithaca.edu/sports/mens-tennis/roster	2026-27	imported	0	2	2	5	1	0	10	0		no
+Liberty League	Ithaca	women	Mari Mitchell	https://athletics.ithaca.edu/sports/womens-tennis/roster	2026-27	imported	0	3	1	1	4	0	9	0		no
+Liberty League	RIT	men	Jake Fisler	https://ritathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	5	1	0	12	0		no
+Liberty League	RIT	women	Jake Fisler	https://ritathletics.com/sports/womens-tennis/roster	2026-27	imported	0	0	2	1	4	0	7	0		no
+Liberty League	RPI	men	Vaclav Burger	https://rpiathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	1	5	3	0	10	0		no
+Liberty League	RPI	women	Justin Roe (Interim Director of Tennis)	https://rpiathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	5	1	0	0	7	0		no
+Liberty League	Skidmore	men	AJ Nelson	https://skidmoreathletics.com/sports/mens-tennis/roster	2026-27	imported	0	4	0	3	2	0	9	0		no
+Liberty League	Skidmore	women	Curt Speerschneider	https://skidmoreathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	2	3	3	0	9	0		no
+Liberty League	St. Lawrence	men		https://saintsathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	5	3	0	14	0		no
+Liberty League	St. Lawrence	women		https://saintsathletics.com/sports/womens-tennis/roster	2026-27	imported	0	4	3	0	3	0	10	0		no
+Liberty League	Union	men	Brian Bowman	https://unionathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	4	0	0	11	0		no
+Liberty League	Union	women	Brian Bowman	https://unionathletics.com/sports/womens-tennis/roster	2026-27	imported	0	0	1	3	5	0	9	0		no
+Liberty League	Vassar	men	Tina McDermott	https://vassarathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	1	10	3	0	16	0		no
+Liberty League	Vassar	women	Marty Perry	https://vassarathletics.com/sports/womens-tennis/roster	2026-27	imported	0	3	2	1	3	0	9	0		no
+Liberty League	William Smith	women	Tim Riskie (interim)	https://hwsathletics.com/sports/womens-tennis/roster	2026-27	imported	0	4	2	2	5	0	13	0		no
+NESCAC	Amherst	men	Todd Doebler	https://athletics.amherst.edu/sports/mens-tennis/roster	2026-27	imported	0	4	2	2	3	0	11	0		no
+NESCAC	Amherst	women	Erin Ness	https://athletics.amherst.edu/sports/womens-tennis/roster	2026-27	imported	0	2	3	3	3	0	11	0		no
+NESCAC	Bates	men	Paul Gastonguay '89	https://gobatesbobcats.com/sports/mens-tennis/roster	2026-27	imported	0	3	3	2	6	0	14	0		no
+NESCAC	Bates	women	Valeria Nikolaev	https://gobatesbobcats.com/sports/womens-tennis/roster	2026-27	imported	0	3	0	4	5	0	12	0		no
+NESCAC	Bowdoin	men	Conor Smith	https://athletics.bowdoin.edu/sports/mens-tennis/roster	2026-27	imported	0	2	4	3	3	0	12	0		no
+NESCAC	Bowdoin	women	Ben Lamanna	https://athletics.bowdoin.edu/sports/womens-tennis/roster	2026-27	imported	0	3	3	3	3	0	12	0		no
+NESCAC	Colby	men	Matt Brisotti	https://colbyathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	4	4	5	0	14	0		no
+NESCAC	Colby	women	Erin Reeves	https://colbyathletics.com/sports/womens-tennis/roster	2026-27	imported	0	3	4	3	2	0	12	0		no
+NESCAC	Connecticut College	men	Jakob Klaeson	https://camelathletics.com/sports/mens-tennis/roster	2026-27	imported	0	3	2	3	2	1	11	0		no
+NESCAC	Connecticut College	women	Jakob Klaeson	https://camelathletics.com/sports/womens-tennis/roster	2026-27	imported	0	3	5	2	2	0	12	0		no
+NESCAC	Hamilton	men	Peter Arsenault	https://athletics.hamilton.edu/sports/mens-tennis/roster	2026-27	imported	0	3	4	4	4	0	15	0		no
+NESCAC	Hamilton	women	Billy Boykin	https://athletics.hamilton.edu/sports/womens-tennis/roster	2026-27	imported	0	2	1	3	3	0	9	0		no
+NESCAC	Middlebury	men	Andrew Thomson	https://athletics.middlebury.edu/sports/mens-tennis/roster	2026-27	imported	0	3	2	4	4	0	13	0		no
+NESCAC	Middlebury	women	Olivia Leavitt	https://athletics.middlebury.edu/sports/womens-tennis/roster	2026-27	imported	0	1	2	2	2	0	7	0		no
+NESCAC	Trinity	men	Willy Nelson	https://bantamsports.com/sports/mens-tennis/roster	2026-27	imported	0	3	1	2	7	0	13	0		no
+NESCAC	Trinity	women	Mike Louis	https://bantamsports.com/sports/womens-tennis/roster	2026-27	imported	0	3	3	2	3	0	11	0		no
+NESCAC	Tufts	men	Karl Gregor	https://gotuftsjumbos.com/sports/mens-tennis/roster	2026-27	imported	0	3	5	3	4	0	15	0		no
+NESCAC	Tufts	women	Kate Bayard	https://gotuftsjumbos.com/sports/womens-tennis/roster	2026-27	imported	0	2	6	3	1	0	12	0		no
+NESCAC	Wesleyan	men	Roland Thornqvist	https://athletics.wesleyan.edu/sports/mens-tennis/roster	2026-27	imported	0	1	1	4	3	0	9	0		no
+NESCAC	Wesleyan	women	Steph Yanosov	https://athletics.wesleyan.edu/sports/womens-tennis/roster	2026-27	imported	0	2	2	4	1	0	9	0		no
+NESCAC	Williams	men	Dan Greenberg	https://ephsports.williams.edu/sports/mens-tennis/roster	2026-27	imported	0	1	4	3	3	0	11	0		no
+NESCAC	Williams	women	Anik Cepeda	https://ephsports.williams.edu/sports/womens-tennis/roster	2026-27	imported	0	3	2	3	2	0	10	0		no
+ODAC	Averett	women		https://averettcougars.com/sports/womens-tennis/roster	2026-27	imported	0	6	0	0	0	0	6	0		no
+ODAC	Batten	men	James Moskowitz	https://battenathletics.com/sports/mens-tennis/roster	2026-27	imported	0	4	3	2	2	0	11	0		no
+ODAC	Batten	women	James Moskowitz	https://battenathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	6	2	1	0	11	0		no
+ODAC	Bridgewater	men	Noah Hughes	https://bridgewatereagles.com/sports/mens-tennis/roster	2026-27	imported	0	4	1	1	7	0	13	0		no
+ODAC	Bridgewater	women	Noah Hughes	https://bridgewatereagles.com/sports/womens-tennis/roster	2026-27	imported	0	2	3	2	3	0	10	0		no
+ODAC	Guilford	men	Bert Poole	https://guilfordquakers.com/sports/mens-tennis/roster	2026-27	imported	0	1	0	2	2	0	5	0		no
+ODAC	Guilford	women	Kim Kleimeier	https://guilfordquakers.com/sports/womens-tennis/roster	2026-27	imported	0	0	3	3	0	0	6	0		no
+ODAC	Hampden-Sydney	men	Brian Boland	https://hscathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	4	3	1	0	9	0		no
+ODAC	Hollins	women	Kevin Board	https://hollinssports.com/sports/wten/roster	2026-27	imported	0	1	3	0	4	0	8	0		no
+ODAC	Lynchburg	men	Chris Johnson	https://lynchburgsports.com/sports/mens-tennis/roster	2026-27	imported	0	0	4	2	4	0	10	0		no
+ODAC	Lynchburg	women	Chris Johnson	https://lynchburgsports.com/sports/womens-tennis/roster	2026-27	imported	0	2	4	3	2	0	11	0		no
+ODAC	Randolph	men	Alex Dunzweiler	https://randolphwildcats.com/sports/mens-tennis/roster	2026-27	imported	0	5	1	1	5	0	12	0		no
+ODAC	Randolph	women	Alex Dunzweiler	https://randolphwildcats.com/sports/womens-tennis/roster	2026-27	imported	0	1	1	4	1	0	7	0		no
+ODAC	Randolph-Macon	men	Charles Gray	https://rmcathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	3	3	1	0	9	0		no
+ODAC	Randolph-Macon	women	Sam Varner	https://rmcathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	2	5	1	0	10	0		no
+ODAC	Roanoke	men	Sam Martinez	https://roanokemaroons.com/sports/mens-tennis/roster	2026-27	imported	0	2	2	3	6	0	13	0		no
+ODAC	Roanoke	women	Sam Martinez	https://roanokemaroons.com/sports/womens-tennis/roster	2026-27	imported	0	3	1	2	4	0	10	0		no
+ODAC	Shenandoah	men	Jason Cole	https://suhornets.com/sports/mens-tennis/roster	2026-27	imported	0	1	1	1	5	0	8	0		no
+ODAC	Shenandoah	women	Jason Cole	https://suhornets.com/sports/womens-tennis/roster	2026-27	imported	0	1	1	1	5	0	8	0		no
+ODAC	Sweet Briar	women	Greg Harkins	https://vixenathletics.com/sports/womens-tennis/roster	2026-27	imported	0	0	1	0	9	0	10	0		no
+ODAC	Washington and Lee	men	David Detwiler	https://generalssports.com/sports/mens-tennis/roster	2026-27	imported	0	2	2	5	3	0	12	0		no
+ODAC	Washington and Lee	women	Emme Levenson	https://generalssports.com/sports/womens-tennis/roster	2026-27	imported	0	1	4	4	2	0	11	0		no
+Patriot League	Army West Point	men	Randy Rowley	https://goarmywestpoint.com/sports/mens-tennis/roster	2026-27	imported	0	2	3	3	4	0	12	0		no
+Patriot League	Army West Point	women	Paul Peck	https://www.goarmywestpoint.com/sports/womens-tennis/roster	2026-27	imported	0	5	3	3	5	0	16	0		no
+Patriot League	Boston University	men	Matt Tansil	https://goterriers.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	0	5	2	0	0	7	0		no
+Patriot League	Boston University	women	Lesley Sheehan	https://goterriers.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	3	2	2	2	0	9	0		no
+Patriot League	Bucknell	men	Jason Cohen	https://bucknellbison.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	2	2	1	5	0	10	0		no
+Patriot League	Bucknell	women	Tammy Cecchini	https://bucknellbison.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	2	3	3	2	0	10	0		no
+Patriot League	Colgate	men	Bobby Pennington	https://colgateathletics.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	2	3	3	2	0	10	0		no
+Patriot League	Colgate	women	Damien Prohaska	https://colgateathletics.com/sports/womens-tennis/roster	2025-26	imported	2	5	2	3	0	0	12	0		no
+Patriot League	Holy Cross	men	Brad Walulak	https://goholycross.com/roster.aspx?path=mten	2026-27	imported	0	2	3	4	1	0	10	0		no
+Patriot League	Holy Cross	women	Brad Walulak	https://goholycross.com/sports/womens-tennis/roster	2026-27	imported	0	1	3	3	3	0	10	0		no
+Patriot League	Lafayette	men	Robert LeBuhn	https://goleopards.com/sports/mens-tennis/roster	2026-27	imported	0	1	3	2	3	0	9	0		no
+Patriot League	Lafayette	women	Robert LeBuhn	https://goleopards.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	3	1	1	2	0	7	0		no
+Patriot League	Lehigh	men	Craig Schwartz	https://lehighsports.com/sports/mens-tennis/roster/2025-2026	2025-26	imported	3	2	4	4	0	0	13	0		no
+Patriot League	Lehigh	women	Sophia Geier	https://lehighsports.com/sports/womens-tennis/roster	2026-27	imported	0	4	3	2	3	0	12	0		no
+Patriot League	Loyola Maryland	men	Josh Eventoff	https://loyolagreyhounds.com/sports/mens-tennis/roster	2026-27	imported	0	2	3	4	2	0	11	0		no
+Patriot League	Loyola Maryland	women	Josh Eventoff	https://loyolagreyhounds.com/sports/womens-tennis/roster	2026-27	imported	0	0	3	1	4	0	8	0		no
+Patriot League	Navy	men	Chris Garner	https://navysports.com/sports/mens-tennis/roster/2026-27	2026-27	imported	0	6	2	3	8	0	19	0		no
+Patriot League	Navy	women	Keith Puryear	https://navysports.com/sports/womens-tennis/roster/2026-27	2026-27	imported	0	4	5	3	2	0	14	0		no
+SCIAC	California Lutheran	men	Mike Gennette	https://clusports.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	5	5	0	16	0		no
+SCIAC	California Lutheran	women	Mike Gennette	https://clusports.com/sports/womens-tennis/roster	2026-27	imported	0	3	3	3	0	0	9	0		no
+SCIAC	Caltech	men	Jason Cook	https://gocaltech.com/sports/mens-tennis/roster	2026-27	imported	0	4	0	5	2	0	11	0		no
+SCIAC	Caltech	women	Rachel Viollet	https://gocaltech.com/sports/womens-tennis/roster	2026-27	imported	0	1	6	1	2	0	10	0		no
+SCIAC	Chapman	men	Evan Parry	https://athletics.chapman.edu/sports/mens-tennis/roster	2026-27	imported	0	5	3	5	3	0	16	0		no
+SCIAC	Chapman	women	Evan Parry	https://athletics.chapman.edu/sports/womens-tennis/roster	2026-27	imported	0	3	1	3	2	0	9	0		no
+SCIAC	Claremont-Mudd-Scripps	men	Paul Settles	https://cmsathletics.org/sports/mens-tennis/roster	2026-27	imported	0	2	3	3	2	0	10	0		no
+SCIAC	Claremont-Mudd-Scripps	women	David Schwarz	https://cmsathletics.org/sports/womens-tennis/roster	2026-27	imported	0	1	2	4	3	0	10	0		no
+SCIAC	Occidental	men	Stephen Perkins	https://oxyathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	3	1	6	0	11	0		no
+SCIAC	Occidental	women	Stephen Perkins	https://oxyathletics.com/sports/womens-tennis/roster	2026-27	imported	0	2	4	3	3	0	12	0		no
+SCIAC	Pomona-Pitzer	men	Steve Bickham	https://www.sagehens.com/sports/mens-tennis/roster	2026-27	imported	0	1	6	6	2	0	15	0		no
+SCIAC	Pomona-Pitzer	women	Mike Morgan	https://www.sagehens.com/sports/womens-tennis/roster	2026-27	imported	0	1	2	3	5	0	11	0		no
+SCIAC	Redlands	men	Mike Longanecker	https://goredlands.com/sports/mens-tennis/roster	2026-27	imported	0	6	1	6	2	0	15	0		no
+SCIAC	Redlands	women	Mike Longanecker	https://goredlands.com/sports/womens-tennis/roster	2026-27	imported	0	3	5	2	3	0	13	0		no
+SCIAC	Whittier	men	Ronald Kang	https://wcpoets.com/sports/mens-tennis/roster	2025-26	imported	2	2	4	3	0	0	11	0		yes
+SCIAC	Whittier	women	Ronald Kang	https://wcpoets.com/sports/womens-tennis/roster	2025-26	imported	1	4	0	3	0	0	8	0		yes
+UAA	Brandeis	men	Alan Dubrovsky	https://brandeisjudges.com/sports/mens-tennis/roster	2026-27	imported	0	3	4	2	3	0	12	0		no
+UAA	Brandeis	women	Pauri Pandian	https://brandeisjudges.com/sports/womens-tennis/roster	2026-27	imported	0	3	0	3	7	0	13	0		no
+UAA	Case Western Reserve	men	Todd Wojtkowski	https://athletics.case.edu/sports/mens-tennis/roster	2026-27	imported	0	4	6	5	10	0	25	0		no
+UAA	Case Western Reserve	women	Kirsten Gambrell McMahon	https://athletics.case.edu/sports/womens-tennis/roster	2026-27	imported	0	2	3	7	4	0	16	0		no
+UAA	Chicago	men	Daniel Bickett	https://athletics.uchicago.edu/sports/mens-tennis/roster	2026-27	imported	0	9	3	5	2	0	19	0		no
+UAA	Chicago	women	Adam Clark	https://athletics.uchicago.edu/sports/womens-tennis/roster	2026-27	imported	0	2	4	5	2	0	13	0		no
+UAA	Emory	men	John Browning	https://emoryathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	6	5	3	0	16	0		no
+UAA	Emory	women	Bridget Disher	https://emoryathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	2	5	2	0	10	0		no
+UAA	New York	men	Dillon Pottish	https://gonyuathletics.com/sports/mens-tennis/roster	2026-27	imported	0	1	5	3	6	0	15	0		no
+UAA	New York	women	Dillon Pottish	https://gonyuathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	5	3	4	0	13	0		no
+UAA	Rochester	men	Matt Nielsen	https://uofrathletics.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	0	2	0	8	0		no
+UAA	Rochester	women	Matt Nielsen	https://uofrathletics.com/sports/womens-tennis/roster	2026-27	imported	0	1	2	1	4	0	8	0		no
+UAA	Washington St. Louis	men	Roger Follmer	https://washubears.com/sports/mens-tennis/roster	2026-27	imported	0	2	4	4	3	0	13	0		no
+UAA	Washington St. Louis	women	Paige Madara	https://washubears.com/sports/womens-tennis/roster	2026-27	imported	0	3	4	2	3	0	12	0		no
+Atlantic 10	George Mason	men				not retrieved										
+Atlantic 10	George Mason	women				not retrieved										
+Atlantic 10	Richmond	men				not retrieved										
+Atlantic 10	St. Bonaventure	men				not retrieved										
+Atlantic 10	St. Bonaventure	women				not retrieved										
+Ivy League	Brown	men				not retrieved										
+Ivy League	Dartmouth	men				not retrieved										
+Ivy League	Princeton	women				not retrieved										
+UAA	Carnegie Mellon	men				not retrieved										
+UAA	Carnegie Mellon	women				not retrieved										

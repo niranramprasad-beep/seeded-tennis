@@ -709,7 +709,18 @@ hydration, or to accept it and drop the page's sitemap priority.
 - **`--emit-sql`'s safety check** only tests that 048's tables exist, so it
   stops distinguishing staging from production once 048 is on production.
   Give staging a marker row and check for it.
-- **The roster TSV in `docs/data/` names ~1,936 real college students** (and
-  hometowns). It is in the private repo's history now. Owner's call whether to
-  keep the source file outside the repo going forward; the database and every
-  generated report hold no names.
+- **The roster TSV in `docs/data/` named ~1,900 real college students** (and
+  hometowns). DONE 2026-11-21 (Niran's decision): removed from the current
+  tree, replaced by the per-team aggregate `docs/data/roster_counts_2026-27.tsv`;
+  the owner keeps the raw file outside the repo in `~/seeded-private/`
+  (chmod 600) and `.gitignore` blocks `official_rosters_*` and
+  `seeded-private/`. **Still open — decide whether to purge the raw roster
+  file from git history.** It was first committed in `f6b0ef1` (2026-11-20
+  07:27 ET) and is in every commit from there until the removal; it is also
+  still a current file on any branch cut before the removal
+  (`demo/reviewer-preview` until that branch is deleted after the review).
+  A purge is more than one force-push: `git filter-repo` on the file, a
+  force-push of every branch (`main` is protected, so its protection must be
+  lifted for that), a GitHub Support request to drop the `refs/pull/*` heads
+  and cached views (a force-push cannot remove those), and re-cloning every
+  local checkout and worktree.

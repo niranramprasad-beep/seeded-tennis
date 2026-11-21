@@ -203,7 +203,10 @@ Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
    feature flag that is off; tables in production, no rows) adds the tables,
    an importer that refuses production, and an owner-only form; ranges must
    then be entered by hand from sources
-   ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)).
+   ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)). The raw roster file it was
+   built from (one row per student, ~1,900 real names) was in the repo from
+   2026-11-20 to 2026-11-21; it is replaced by per-team counts, but it is
+   still in git history until the owner decides on a purge ([TODO.md](TODO.md)).
 5. **Auth rate limits and leaked-password protection are Supabase project
    settings**, not code (the browser calls Supabase Auth directly); they need
    a plan upgrade.

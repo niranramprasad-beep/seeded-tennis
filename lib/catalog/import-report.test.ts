@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildImportSummary, renderImportReport, REPORT_BEGIN, REPORT_END, spliceReport } from "./import-report";
 import { parseExpectedTsv, parseRosterTsv } from "./roster-import";
+import { parseRosterFile } from "./roster-counts";
 
 const fixture = (f: string) => readFileSync(join(__dirname, "testdata", f), "utf8");
 
@@ -104,7 +105,7 @@ describe("the report markdown", () => {
   it("the committed doc holds the generated report for the real file, not a pending placeholder", () => {
     const doc = readFileSync(join(__dirname, "..", "..", "docs", "catalog", "phase-1-import.md"), "utf8");
     const block = doc.slice(doc.indexOf(REPORT_BEGIN), doc.indexOf(REPORT_END));
-    expect(block).toContain("from `official_rosters_2026-27.tsv`, rosters read 2026-11-08");
+    expect(block).toContain("from `roster_counts_2026-27.tsv`, rosters read 2026-11-08");
     expect(block).not.toMatch(/\bpending\b/i);
   });
 });
@@ -135,9 +136,9 @@ describe("legacy duplicates, seniors leaving and where to start", () => {
 describe("the real 2026-27 file against the conferences' own team lists", () => {
   const data = (f: string) => readFileSync(join(__dirname, "..", "..", "docs", "data", f), "utf8");
   const s = buildImportSummary({
-    inputFile: "official_rosters_2026-27.tsv",
+    inputFile: "roster_counts_2026-27.tsv",
     checkedOn: "2026-11-08",
-    parsed: parseRosterTsv(data("official_rosters_2026-27.tsv")),
+    parsed: parseRosterFile(data("roster_counts_2026-27.tsv")),
     expected: parseExpectedTsv(data("expected_programs_2026-27.tsv")),
     legacySchools: [],
   });

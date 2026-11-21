@@ -1,8 +1,13 @@
-// Catalog phase 1 importer: official-roster TSV -> class counts -> STAGING.
+// Catalog phase 1 importer: roster counts -> STAGING.
 //
 //   npx vite-node --config vitest.config.ts scripts/import-rosters.ts -- \
-//     --checked-on 2026-11-19 [--file docs/data/official_rosters_2026-27.tsv] \
+//     --checked-on 2026-11-19 [--file docs/data/roster_counts_2026-27.tsv] \
 //     [--expected expected-programs.tsv] [--upsert] [--emit-sql out.sql]
+//
+// --file takes either the committed aggregate (one row per team, no names;
+// lib/catalog/roster-counts.ts) or a raw per-player roster file kept OUTSIDE
+// the repo (e.g. ~/seeded-private/official_rosters_2026-27.tsv); the header
+// decides which parser runs, and both give the same drafts.
 //
 // Without --upsert it only reads: it writes the JSON summary and rewrites
 // the generated block of docs/catalog/phase-1-import.md. With --upsert it
@@ -21,14 +26,15 @@ import { basename, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../lib/db/database.types";
 import { getSchools } from "../lib/db/schools";
-import { parseExpectedTsv, parseRosterTsv, RosterFileError, type ProgramDraft } from "../lib/catalog/roster-import";
+import { parseExpectedTsv, RosterFileError, type ProgramDraft } from "../lib/catalog/roster-import";
+import { parseRosterFile } from "../lib/catalog/roster-counts";
 import { buildImportSummary, renderImportReport, spliceReport } from "../lib/catalog/import-report";
 import { assertSafeImportTarget } from "../lib/catalog/import-target";
 import { buildImportSql } from "../lib/catalog/import-sql";
 import { toTeamRange, TEAM_RANGE_COLUMNS } from "../lib/db/programs";
 import type { TeamRange } from "../lib/catalog/programs";
 
-const DEFAULT_FILE = "docs/data/official_rosters_2026-27.tsv";
+const DEFAULT_FILE = "docs/data/roster_counts_2026-27.tsv";
 const SUMMARY_FILE = "docs/catalog/phase-1-import.summary.json";
 const REPORT_FILE = "docs/catalog/phase-1-import.md";
 
@@ -153,15 +159,14 @@ async function main() {
   if (!existsSync(file)) {
     fail(
       `roster file not found: ${args.file}\n` +
-        `  The phase-1 input (${DEFAULT_FILE}) has not been added to the repo yet.\n` +
-        `  Add the TSV (columns: Conference, School, Gender, HeadCoach, RosterURL, SeasonShown,\n` +
-        `  Player, Class, Hometown, Notes), then re-run. Nothing was read or written.`
+        `  Pass the committed counts file (${DEFAULT_FILE}) or a raw roster file kept outside\n` +
+        `  the repo (scripts/aggregate-rosters.ts turns one into the other). Nothing was read or written.`
     );
   }
 
   let parsed;
   try {
-    parsed = parseRosterTsv(readFileSync(file, "utf8"));
+    parsed = parseRosterFile(readFileSync(file, "utf8"));
   } catch (err) {
     if (err instanceof RosterFileError) fail(err.message);
     throw err;

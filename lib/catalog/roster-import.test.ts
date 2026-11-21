@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,8 +14,8 @@ import {
 } from "./roster-import";
 
 // The fixture is fake from top to bottom: "Test College A", "Player 1",
-// "Test Town", example.com URLs. The real input
-// (docs/data/official_rosters_2026-27.tsv) has not been added to the repo.
+// "Test Town", example.com URLs. The real raw input names real students and
+// is NOT in the repo; the block that reads it runs only where it exists.
 const FIXTURE = readFileSync(join(__dirname, "testdata", "rosters-fixture.tsv"), "utf8");
 const EXPECTED = readFileSync(join(__dirname, "testdata", "expected-fixture.tsv"), "utf8");
 const HEADER = ROSTER_COLUMNS.join("\t");
@@ -252,9 +253,15 @@ describe("shapes found in the real roster file", () => {
   });
 });
 
-describe("the real 2026-27 roster file", () => {
-  const path = join(__dirname, "..", "..", "docs", "data", "official_rosters_2026-27.tsv");
-  const real = parseRosterTsv(readFileSync(path, "utf8"));
+// Only on the owner's machine: the raw file lives outside the repo
+// (override with SEEDED_RAW_ROSTERS). CI checks the committed aggregate
+// instead (roster-counts.test.ts).
+const RAW_ROSTERS = process.env.SEEDED_RAW_ROSTERS ?? join(homedir(), "seeded-private", "official_rosters_2026-27.tsv");
+
+describe.skipIf(!existsSync(RAW_ROSTERS))("the real 2026-27 raw roster file (local only)", () => {
+  const path = RAW_ROSTERS;
+  // describe.skipIf still runs this body, so read only when the file exists.
+  const real = parseRosterTsv(existsSync(path) ? readFileSync(path, "utf8") : ROSTER_COLUMNS.join("\t"));
 
   it("imports with no row errors", () => {
     expect(real.rowsRead).toBe(1947);
