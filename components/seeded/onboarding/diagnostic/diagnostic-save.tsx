@@ -34,6 +34,8 @@ import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
+import { emailFieldErrorFromAuth, normalizeEmail } from "@/lib/signup-checks";
+import { useEmailField } from "@/components/auth/email-field";
 
 // "Save it with a free account" (board 20, the result screen) and the fit
 // report's "Save your report" aside. One form, three honest branches:
@@ -85,8 +87,11 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
   const router = useRouter();
   const { beginSession } = usePlayer();
   const values = diagnosticValues(answers);
+  const id = (f: string) => `${idPrefix}-${f}`;
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  // Checked on the field itself, on blur and on submit (final-check A6).
+  const emailField = useEmailField(id("email"));
+  const email = normalizeEmail(emailField.value);
   const [password, setPassword] = useState("");
   const [familyCode, setFamilyCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -98,13 +103,11 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
   const lastWord = name.trim().split(/\s+/).slice(-1)[0] ?? "";
   const looksLikeFullSurname = name.trim().split(/\s+/).length > 1 && !/^[A-Za-z]\.?$/.test(lastWord);
 
-  const id = (f: string) => `${idPrefix}-${f}`;
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Enter your first name and last initial.");
-    if (!/\S+@\S+\.\S+/.test(email)) return setError("Enter a valid email address.");
+    if (!emailField.check()) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
       return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
     }
@@ -128,6 +131,8 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
     );
     if (!result.ok) {
       setSubmitting(false);
+      const emailProblem = emailFieldErrorFromAuth(result.error);
+      if (emailProblem) return emailField.setServerError(emailProblem);
       return setError(result.error ?? AUTH_ERROR_MESSAGES.unknown);
     }
     if (result.confirmationRequired) {
@@ -191,7 +196,7 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
         help={
           looksLikeFullSurname
             ? "A last initial is enough. You can shorten it if you'd rather we didn't keep your full last name."
-            : "First name and last initial is enough, like Sam R."
+            : "First name and last initial is enough."
         }
       >
         <input
@@ -203,15 +208,23 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
           aria-describedby={describedBy(id("name"), { hint: true, extra: [error && ERROR_ID] })}
         />
       </AuthField>
-      <AuthField label="Email" htmlFor={id("email")}>
+      <AuthField label="Email" htmlFor={id("email")} error={emailField.error}>
         <input
           id={id("email")}
           type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
           className={authInputClass}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={emailField.value}
+          onChange={(e) => emailField.onChange(e.target.value)}
+          onBlur={emailField.onBlur}
           autoComplete="email"
-          aria-describedby={describedBy(id("email"), { extra: [error && ERROR_ID] })}
+          aria-invalid={emailField.error ? true : undefined}
+          aria-describedby={describedBy(id("email"), {
+            hint: Boolean(emailField.error),
+            extra: [error && ERROR_ID],
+          })}
         />
       </AuthField>
       <AuthField label="Password" htmlFor={id("password")} help="6+ characters. Avoid one you use elsewhere.">
@@ -253,8 +266,10 @@ function PlayerSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
 function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefix: string }) {
   const router = useRouter();
   const { beginSession } = usePlayer();
+  const id = (f: string) => `${idPrefix}-parent-${f}`;
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const emailField = useEmailField(id("email"));
+  const email = normalizeEmail(emailField.value);
   const [password, setPassword] = useState("");
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
@@ -268,13 +283,11 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
   const [sessionPlayer, setSessionPlayer] = useState<Player | null>(null);
   const [checkEmail, setCheckEmail] = useState<string | null>(null);
 
-  const id = (f: string) => `${idPrefix}-parent-${f}`;
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Enter your name.");
-    if (!/\S+@\S+\.\S+/.test(email)) return setError("Enter a valid email address.");
+    if (!emailField.check()) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
       return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
     }
@@ -302,7 +315,11 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
       familyMode === "join" ? { mode: "join", code: joinCode } : { mode: "create" }
     );
     setSubmitting(false);
-    if (!result.ok) return setError(result.error ?? AUTH_ERROR_MESSAGES.unknown);
+    if (!result.ok) {
+      const emailProblem = emailFieldErrorFromAuth(result.error);
+      if (emailProblem) return emailField.setServerError(emailProblem);
+      return setError(result.error ?? AUTH_ERROR_MESSAGES.unknown);
+    }
     if (result.confirmationRequired) return setCheckEmail(email);
 
     const parentPlayer: Player = {
@@ -426,14 +443,23 @@ function ParentSave({ answers, idPrefix }: { answers: DiagnosticAnswers; idPrefi
           aria-describedby={describedBy(id("name"), { extra: [error && ERROR_ID] })}
         />
       </AuthField>
-      <AuthField label="Email" htmlFor={id("email")}>
+      <AuthField label="Email" htmlFor={id("email")} error={emailField.error}>
         <input
           id={id("email")}
           type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
           className={authInputClass}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={emailField.value}
+          onChange={(e) => emailField.onChange(e.target.value)}
+          onBlur={emailField.onBlur}
           autoComplete="email"
+          aria-invalid={emailField.error ? true : undefined}
+          aria-describedby={describedBy(id("email"), {
+            hint: Boolean(emailField.error),
+            extra: [error && ERROR_ID],
+          })}
         />
       </AuthField>
       <AuthField label="Password" htmlFor={id("password")} help="6+ characters. Avoid one you use elsewhere.">

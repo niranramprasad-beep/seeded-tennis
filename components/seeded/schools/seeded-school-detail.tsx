@@ -30,6 +30,7 @@ import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/butto
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
+import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
 import { academicRankSentence } from "@/lib/school-academics";
@@ -171,7 +172,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
         : "Log a UTR to see your pace."
       : !pace.isProjected
-        ? `Judged on ${whose} rating today, ${formatPlayerUtr(pace.projectedUTR)}: the summer before senior year has begun.`
+        ? `Judged on ${whose} rating today, ${formatPlayerUtr(pace.projectedUTR)}: the summer before senior year ${seniorSummerVerb(seniorSummerPhase(parseLocalDate(pace.byDate).getFullYear()))}.`
         : `Estimated ${formatUtrEstimate(pace.projectedUTR)} by ${formatDate(pace.byDate)}.` +
           paceSentence +
           (pace.loggedPaceReachesFloor === true

@@ -11,8 +11,11 @@
 // The rules, in the order shouldLoadGa() applies them:
 //   1. Automation (navigator.webdriver) and browsers flagged internal
 //      (localStorage "seeded.internal" = "1") are never tracked.
-//   2. Nothing on /auth/* — the OAuth callback and sign-up completion pages,
-//      whose URLs carry one-time codes.
+//   2. Nothing on the sign-in and sign-up pages (GA_EXCLUDED_PATH_PREFIXES):
+//      /login, /signup, /parent-signup, /reset-password, and /auth/* — the
+//      OAuth callback and sign-up completion pages, whose URLs carry
+//      one-time codes. gtag.js is not loaded there, and when it was loaded
+//      on an earlier page it is disabled before the excluded page commits.
 //   3. A signed-in account that needed a parent's consent is never tracked:
 //      consent_status 'pending' (waiting) or 'granted' (a parent said yes —
 //      still a child under 030's `consent_required_for_birth_year`, mirrored
@@ -81,10 +84,30 @@ export function gaAccountState(f: GaSessionFacts): GaAccountState {
   };
 }
 
-/** /auth and everything under it. Case-insensitive, trailing slash or not. */
+/**
+ * The sign-in and sign-up pages, where GA never loads and nothing is sent.
+ * Each covers the page and everything under it.
+ *
+ * Final-check A7 (2026-11-21): only /auth was here, so /login, /signup,
+ * /parent-signup and /reset-password loaded gtag.js and sent a path-only
+ * page_view (and set a GA cookie) for a child signing in, before the consent
+ * rule (3) could know who they were. lib/ga-privacy.test.ts walks app/ and
+ * fails the build if an auth page route exists that this list misses.
+ */
+export const GA_EXCLUDED_PATH_PREFIXES = [
+  "/auth",
+  "/login",
+  "/parent-login",
+  "/signup",
+  "/parent-signup",
+  "/reset-password",
+] as const;
+
+/** A sign-in / sign-up page (GA_EXCLUDED_PATH_PREFIXES) or anything under
+ * one. Case-insensitive, trailing slash or not, query and hash ignored. */
 export function isGaExcludedPath(pathname: string): boolean {
-  const path = gaPagePath(pathname).toLowerCase();
-  return path === "/auth" || path.startsWith("/auth/");
+  const path = gaPagePath(pathname).toLowerCase().replace(/\/+$/, "") || "/";
+  return GA_EXCLUDED_PATH_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
 /** Whether this account may be counted. Only an explicit 'not_required'
