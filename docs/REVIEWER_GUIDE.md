@@ -50,10 +50,12 @@ flowchart LR
 
 The browser talks to Supabase with the signed-in user's own token, so Row
 Level Security decides what every query can see or change. The service-role
-key is used only by the three Whop billing routes on the server —
+key is used in the app only by the three Whop billing routes on the server —
 `app/api/whop/webhook`, `/sync` and `/membership` (via
 [`lib/supabase/admin.ts`](../lib/supabase/admin.ts) and
-[`lib/whop-sync.ts`](../lib/whop-sync.ts)).
+[`lib/whop-sync.ts`](../lib/whop-sync.ts)) — and outside the app by the
+catalog importer (`scripts/import-rosters.ts`), which refuses to run against
+production ([`lib/catalog/import-target.ts`](../lib/catalog/import-target.ts)).
 
 ## 4. The data model in one table
 
