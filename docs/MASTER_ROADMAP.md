@@ -20,6 +20,21 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — /plan chart readout fixed (PR fix/chart-hover; no migration).**
+Hovering past "Now" on `PlanTrajectoryChart` stuck the dot at the last logged
+value (the readout clamped every date to the last log), and the crosshair
+drifted when the SVG scaled because the pointer offset was CSS pixels, not
+viewBox units. The readout now reads each line where it is drawn
+(`components/seeded/roadmap/plan-trajectory-values.ts`): Logged only from the
+first log to the last and never after today; Plan along the dashed line and
+nowhere past the last checkpoint (no goal → no Plan row); Estimate with its
+band along `projectionPath`. Pointer events with `touch-action: pan-y`; the
+chart is focusable (arrows step a month, Home/End, Escape) with an
+`aria-live` readout. Guard `plan-trajectory-values.test.ts` (mutation-tested:
+dropped scale factor, Logged past today, sticky last log, plan extrapolated
+or held past its last checkpoint). Screenshots (375/1440, light/dark,
+fake fixture) in `~/seeded-evidence/sat-prereview/pr3-chart/`.
+
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
 (one row per student, ~1,900 real names and hometowns) is replaced by

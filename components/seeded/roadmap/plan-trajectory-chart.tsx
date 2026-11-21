@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { chartEndLabels, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
 import type { RoadmapYear } from "@/lib/types";
-import { formatCheckpointUtr, formatPlayerUtr } from "@/lib/utils";
+import { formatCheckpointUtr, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
 import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
+import { chartValuesAt, clientXToViewBoxX, stepMonths } from "./plan-trajectory-values";
 
 // Every text element sets its font-family explicitly — SVG text does not
 // reliably inherit the page's font cascade.
@@ -34,6 +35,8 @@ interface PlanTrajectoryChartProps {
   upside?: UtrEstimatePoint[];
   /** Opens the goal editor above the chart. */
   onChangeGoal?: () => void;
+  /** Where "logged" ends for the readout. Defaults to the current date. */
+  today?: Date;
 }
 
 const H = 240;
@@ -53,9 +56,11 @@ const BASELINE = H - 30;
 //
 // Drawn in a viewBox as wide as the column (useMeasuredWidth), so labels
 // stay legible at 320px and never run off the edge (C21).
-export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal }: PlanTrajectoryChartProps) {
+export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal, today }: PlanTrajectoryChartProps) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>(900);
-  const [hoverX, setHoverX] = useState<number | null>(null);
+  // The cursor is a DATE, so it survives a resize and the arrow keys can
+  // step it by calendar month; its x is derived below.
+  const [cursorT, setCursorT] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
   const sortedActual = [...actualPoints].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -124,24 +129,53 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
   const yTicks = utrTicks(utrMin, utrMax);
   const xTicks = monthTicks(dateMin, dateMax, plotW);
 
-  // Hover reads only the solid line — real logged values, interpolated
-  // along the segment the chart already draws between them.
-  const actualValueAt = (t: number) => {
-    if (sortedActual.length === 1) return sortedActual[0];
-    const clamped = Math.min(Math.max(t, dateMin), now.date.getTime());
-    let i = 0;
-    while (i < sortedActual.length - 2 && sortedActual[i + 1].date.getTime() < clamped) i++;
-    const a = sortedActual[i];
-    const b = sortedActual[i + 1];
-    const span = b.date.getTime() - a.date.getTime();
-    const f = span === 0 ? 0 : (clamped - a.date.getTime()) / span;
-    return { date: new Date(clamped), utr: a.utr + (b.utr - a.utr) * f };
+  // The readout at the cursor's date — each value read off the line the
+  // chart draws for it (plan-trajectory-values.ts): Logged only up to the
+  // last log and never past today; Plan only along the dashed line, which
+  // stops at the last checkpoint; Estimate only along projectionPath.
+  const planLine = checkpoints.length > 0 ? [now, ...checkpoints] : [];
+  const series = { logged: sortedActual, plan: planLine, estimate, today: today ?? new Date() };
+  const clampT = (t: number) => Math.min(Math.max(t, dateMin), dateMax);
+  const tAtX = (vx: number) => dateMin + ((vx - PAD_L) / plotW) * (dateMax - dateMin);
+  const cursor = cursorT != null ? clampT(cursorT) : null;
+  const hoverX = cursor != null ? x(cursor) : null;
+  const at = cursor != null ? chartValuesAt(series, cursor) : null;
+  const readout: { key: string; label: string; text: string; color: string; vy: number }[] = [];
+  if (at?.logged != null) {
+    readout.push({ key: "logged", label: "Logged", text: formatPlayerUtr(at.logged), color: "rgb(var(--c-ink))", vy: y(at.logged) });
+  }
+  if (at?.plan != null) {
+    readout.push({ key: "plan", label: "Plan", text: formatCheckpointUtr(at.plan, goal?.value), color: "rgb(var(--c-gold))", vy: y(at.plan) });
+  }
+  if (at?.estimate) {
+    const e = at.estimate;
+    const band = e.high - e.low >= 0.05 ? ` (${formatUtrEstimate(e.low)}–${formatUtrEstimate(e.high)})` : "";
+    readout.push({ key: "estimate", label: "Estimate", text: `${formatUtrEstimate(e.value)}${band}`, color: "rgb(var(--c-primary))", vy: y(e.value) });
+  }
+  const readoutDate = cursor != null ? monthYearLabel(new Date(cursor)) : "";
+  const readoutSentence =
+    cursor == null
+      ? ""
+      : `${readoutDate}: ${readout.length ? readout.map((r) => `${r.label} ${r.text}`).join(", ") : "Not tracked"}`;
+
+  const onPointer = (e: PointerEvent<SVGSVGElement>) => {
+    const vx = clientXToViewBoxX(e.clientX, e.currentTarget.getBoundingClientRect(), W);
+    setCursorT(tAtX(Math.min(Math.max(vx, PAD_L), W - PAD_R)));
   };
-  const hoverT = hoverX != null ? dateMin + ((hoverX - PAD_L) / plotW) * (dateMax - dateMin) : null;
-  const hoverPoint = hoverT != null ? actualValueAt(hoverT) : null;
-  const onMove = (clientX: number, target: SVGSVGElement) => {
-    const rect = target.getBoundingClientRect();
-    setHoverX(Math.min(Math.max(clientX - rect.left, PAD_L), W - PAD_R));
+  const onKey = (e: KeyboardEvent<SVGSVGElement>) => {
+    const from = cursor ?? now.date.getTime();
+    let next: number | null = null;
+    if (e.key === "ArrowRight") next = cursor == null ? from : stepMonths(from, 1);
+    else if (e.key === "ArrowLeft") next = cursor == null ? from : stepMonths(from, -1);
+    else if (e.key === "Home") next = dateMin;
+    else if (e.key === "End") next = dateMax;
+    else if (e.key === "Escape") {
+      setCursorT(null);
+      return;
+    }
+    if (next == null) return;
+    e.preventDefault();
+    setCursorT(clampT(next));
   };
 
   const nowX = x(now.date.getTime());
@@ -151,19 +185,29 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
 
   return (
     <div ref={ref} className="w-full">
+      {/* Focusable: Left/Right step the cursor a month, Home/End jump to
+          the ends, Escape clears it. touch-pan-y: a vertical finger drag
+          still scrolls the page, a horizontal one scrubs the cursor. */}
       <svg
         role="img"
+        tabIndex={0}
         aria-label={`UTR ${formatPlayerUtr(now.utr)} as of ${monthYearLabel(now.date)}${
           checkpoints.length
             ? `, plan checkpoints: ${checkpoints.map((c) => `${formatCheckpointUtr(c.utr, goal?.value)} by ${monthYearLabel(c.date)}`).join(", ")}`
             : ""
-        }`}
+        }. Use the left and right arrow keys to read the chart month by month.`}
         viewBox={`0 0 ${W} ${H}`}
         width={W}
         height={H}
-        className="block max-w-full cursor-crosshair"
-        onMouseMove={(e) => onMove(e.clientX, e.currentTarget)}
-        onMouseLeave={() => setHoverX(null)}
+        className="block max-w-full cursor-crosshair touch-pan-y rounded-md focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "mouse") setCursorT(null);
+        }}
+        onPointerCancel={() => setCursorT(null)}
+        onKeyDown={onKey}
+        onBlur={() => setCursorT(null)}
       >
         {yTicks.map((v) => (
           <g key={v}>
@@ -291,22 +335,56 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           Now <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(now.utr)}</tspan>
         </text>
 
-        {hoverX != null && hoverPoint && (
+        {hoverX != null && (
           <g pointerEvents="none">
             <line x1={hoverX} y1={PAD_TOP} x2={hoverX} y2={BASELINE} stroke="rgb(var(--c-ink))" strokeOpacity="0.25" strokeWidth="1" />
-            <circle cx={hoverX} cy={y(hoverPoint.utr)} r="4" fill="rgb(var(--c-ink))" />
-            <g transform={`translate(${hoverX > W - 140 ? hoverX - 130 : hoverX + 8}, ${PAD_TOP})`}>
-              <rect width="122" height="38" rx="6" fill="rgb(var(--c-card))" stroke="rgb(var(--c-line))" />
-              <text x="8" y="15" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
-                {monthYearLabel(hoverPoint.date)}
-              </text>
-              <text x="8" y="30" fontSize="13" fontWeight="600" fontFamily={NUMBER_FONT} fill="rgb(var(--c-ink))">
-                {formatPlayerUtr(hoverPoint.utr)} UTR
-              </text>
-            </g>
+            {readout.map((r) => (
+              <circle key={r.key} cx={hoverX} cy={r.vy} r="4.5" fill={r.color} stroke="rgb(var(--c-card))" strokeWidth="1.5" />
+            ))}
+            {(() => {
+              const rowH = 16;
+              const textW = Math.max(
+                approxTextWidth(readoutDate, 11),
+                ...readout.map((r) => approxTextWidth(`${r.label} ${r.text}`, 12) + 14),
+                readout.length ? 0 : approxTextWidth("Not tracked", 12)
+              );
+              const boxW = Math.min(textW + 16, W - PAD_L - PAD_R);
+              const boxH = 22 + Math.max(1, readout.length) * rowH;
+              // Right of the crosshair, or left of it when that would run
+              // off the edge — never over the dots on the crosshair.
+              const bx = hoverX + 8 + boxW <= W - PAD_R ? hoverX + 8 : Math.max(PAD_L, hoverX - 8 - boxW);
+              return (
+                <g transform={`translate(${bx}, ${PAD_TOP - 18})`}>
+                  <rect width={boxW} height={boxH} rx="6" fill="rgb(var(--c-card))" stroke="rgb(var(--c-line))" />
+                  <text x="8" y="15" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                    {readoutDate}
+                  </text>
+                  {readout.length ? (
+                    readout.map((r, i) => (
+                      <g key={r.key} transform={`translate(8, ${22 + i * rowH})`}>
+                        <circle cx="4" cy="8" r="4" fill={r.color} />
+                        <text x="14" y="12" fontSize="12" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                          {r.label}{" "}
+                          <tspan fontWeight="600" fontFamily={NUMBER_FONT} fill="rgb(var(--c-ink))">
+                            {r.text}
+                          </tspan>
+                        </text>
+                      </g>
+                    ))
+                  ) : (
+                    <text x="8" y="34" fontSize="12" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                      Not tracked
+                    </text>
+                  )}
+                </g>
+              );
+            })()}
           </g>
         )}
       </svg>
+      <p className="sr-only" aria-live="polite">
+        {readoutSentence}
+      </p>
 
       <p className="mt-2 text-sm text-stone">
         Solid: the UTRs you&apos;ve logged.
