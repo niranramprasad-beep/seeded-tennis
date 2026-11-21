@@ -16,6 +16,7 @@ import { buildRoadmap } from "./db/plan";
 import { parsePlanGoalUtr } from "./db/settings";
 import { buildNextSteps, todayHeadline } from "./today-actions";
 import type { SchoolLite } from "./types";
+import { FIT_ENGINE_FILES } from "./fit/engine-files";
 
 const NOW = new Date(2026, 10, 18, 12);
 // The sweep persona: men's 5.95, Class of 2029, four targets incl. Duke.
@@ -39,7 +40,8 @@ describe("D1 (was C11) — the plan goal is the player's, or there is none", () 
     expect(resolvePlanGoal({ chosenGoalUtr: null, estimate: EST })).toBeNull();
     expect(resolvePlanGoal({ chosenGoalUtr: undefined, estimate: EST })).toBeNull();
     // No "estimate" source exists any more.
-    expect(readFileSync("lib/fit.ts", "utf8")).not.toMatch(/source: "estimate"/);
+    // lib/fit.ts — since the 2026-11-21 split, the barrel and lib/fit/*.ts.
+    expect(FIT_ENGINE_FILES.map((f) => readFileSync(f, "utf8")).join("\n")).not.toMatch(/source: "estimate"/);
   });
 
   it("adding a target cannot move it — targets are not an input", () => {

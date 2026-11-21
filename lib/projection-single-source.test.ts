@@ -11,6 +11,7 @@ import {
 import { explainSchoolFit } from "./school-fit";
 import { buildRoadmap } from "./db/plan";
 import type { PlayerGender, SchoolLite } from "./types";
+import { FIT_ENGINE_FILES } from "./fit/engine-files";
 
 // C8 (2026-11-18). The school page printed two projections for one date:
 //
@@ -151,9 +152,11 @@ describe("one player + one date = one projected UTR, on every screen", () => {
   });
 
   it("projectionPath and resolvePlanGoal compute no projection of their own", () => {
-    const src = readFileSync("lib/fit.ts", "utf8");
+    // lib/fit.ts's code is in lib/fit/*.ts since the 2026-11-21 split.
+    const src = FIT_ENGINE_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
     for (const fn of ["projectionPath", "resolvePlanGoal"]) {
       const start = src.indexOf(`export function ${fn}(`);
+      expect(start, `${fn} is defined in the fit engine`).toBeGreaterThanOrEqual(0);
       const body = src.slice(start, src.indexOf("\n}\n", start));
       expect(body, fn).not.toMatch(/recruitingTimeUtr\(|projectUtrAtRecruiting\(|UTR_GROWTH_PER_YEAR|computeUtrProjection/);
     }
