@@ -20,6 +20,29 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Google Analytics kept, made safe (PR-GA-PRIVACY, branch
+`fix/ga-privacy`; no migration).** Audit A-201: every page view sent
+`pathname?query`, and the homepage calculator keeps UTR, GPA, grad year and
+gender in the query — so the policy's "not given ... any of your tennis data"
+was false. GA now gets the path only (page_path, page_location and
+page_referrer all built in `lib/ga-privacy.ts`; config `send_page_view:false`,
+no Google signals / ad personalization). Nothing from Google is injected
+until `shouldLoadGa()` says yes: never on `/auth/*`, never for a signed-in
+account whose consent_status is `pending` or `granted` (under 13 by 030's
+rule), never while the session or consent check is unknown, never under
+`navigator.webdriver` or with localStorage `seeded.internal=1`
+(`?seeded_internal=1` sets it, `=0` clears it; the param is stripped from the
+URL). Once loaded, a later "no" sets `ga-disable-<ID>`. The Whop webhook's
+GA4 purchase event now sends plan + price + currency only (it sent the Whop
+membership id as transaction_id) with a random client_id per event. A-033:
+sign-out and account deletion clear every `seeded.*` localStorage key except
+the theme keys and `seeded.internal` (`lib/local-storage-cleanup.ts`), and
+drop the cached consent answer. Guards `lib/ga-privacy.test.ts` (mutation-
+tested, 16 mutations) and `lib/local-storage-cleanup.test.ts`. Proposed
+policy wording for the lawyer: `docs/legal/proposed-policy-edits.md` (not
+live). Owner step: turn off GA4 enhanced-measurement site search and
+history-change page views in the GA property.
+
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
 (one row per student, ~1,900 real names and hometowns) is replaced by
@@ -1226,4 +1249,6 @@ L9–L11.
 Niran's own list (dashboards/keys, not code): revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
-review of the privacy policy.
+review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);
+in the GA4 property, turn off enhanced-measurement site search and
+history-change page views, and pick a retention period.

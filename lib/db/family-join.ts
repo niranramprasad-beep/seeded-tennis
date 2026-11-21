@@ -77,6 +77,12 @@ export interface FamilyRosterMember {
   consentStatus: "not_required" | "pending" | "granted";
 }
 
+/** The SWR key every caller of loadMyConsentState() shares (AuthGate, the
+ * star hook, Google Analytics), so the answer is fetched once — and so
+ * sign-out can drop it (lib/context/player-context.tsx) before the next
+ * account on this tab reads a stale one. */
+export const MY_CONSENT_STATE_KEY = "my-consent-state";
+
 /** P0-8. The caller's own consent position, from my_consent_state(). */
 export interface MyConsentState {
   status: "not_required" | "pending" | "granted" | "unknown";

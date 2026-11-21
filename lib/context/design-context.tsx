@@ -15,17 +15,17 @@ import {
   choseRetiredDesign,
   parseSeededMode,
   resolveStoredSystemSync,
+  SEEDED_MODE_STORAGE_KEY,
+  SYSTEM_SYNC_STORAGE_KEY,
   type SeededMode,
 } from "@/lib/appearance";
 
 export type { SeededMode } from "@/lib/appearance";
 
-const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
-// Separate from SEEDED_MODE_STORAGE_KEY on purpose: `data-seeded-mode` (and
+// SYSTEM_SYNC_STORAGE_KEY is separate from SEEDED_MODE_STORAGE_KEY on purpose: `data-seeded-mode` (and
 // everything CSS keys off) must always hold a concrete "dark"/"light" value,
 // never a third "system" string — see the systemSync doc comment below for
 // why this stays a parallel preference flag instead of a 3rd SeededMode.
-const SYSTEM_SYNC_STORAGE_KEY = "seeded.mode.system";
 
 // The appearance of the one design, Seeded: Light, Dark or Match system.
 // (There used to be a second, opt-in "Legacy" design chosen here too; it was

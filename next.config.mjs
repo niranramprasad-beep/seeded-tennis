@@ -20,8 +20,10 @@
 //                    than a hardcoded host.
 //   Google Analytics gtag.js from googletagmanager.com, beacons to the
 //                    google-analytics / analytics.google.com hosts.
-//                    components/shared/google-analytics.tsx also inlines a
-//                    small config script — see the 'unsafe-inline' note.
+//                    components/shared/google-analytics.tsx sets up gtag()
+//                    from its own bundle (no inline snippet since the GA
+//                    privacy change) and injects gtag.js only when
+//                    lib/ga-privacy.ts allows it.
 //   Google sign-in   lib/auth.ts signInWithOAuth() is a full-page redirect
 //                    to accounts.google.com, not a frame and not a fetch.
 //                    Top-level navigation is not restricted by any directive

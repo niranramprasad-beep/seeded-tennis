@@ -15,7 +15,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT } from "@/lib/types";
 import { toggleTargetSchoolSlug } from "@/lib/db/targets";
-import { loadMyConsentState } from "@/lib/db/family-join";
+import { MY_CONSENT_STATE_KEY, loadMyConsentState } from "@/lib/db/family-join";
 import { targetSchoolEditRefusal, signedInTargetEditRefusal } from "@/lib/config/consent";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
 
@@ -58,7 +58,7 @@ export function useStarSchools(): UseStarSchoolsResult {
   // uses, so the answer is shared rather than fetched twice. This is the
   // UI's refusal only — the database-side fix is a separate migration.
   const { data: consent, error: consentError } = useSWR(
-    isAuthed && hydrated ? "my-consent-state" : null,
+    isAuthed && hydrated ? MY_CONSENT_STATE_KEY : null,
     () => loadMyConsentState()
   );
   // Signed in: refuse until the check answers (no write slips through in
