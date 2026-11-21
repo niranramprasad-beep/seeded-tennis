@@ -58,6 +58,11 @@ interface PlayerContextValue {
    * deletion in components/seeded/settings/seeded-settings-view.tsx). */
   setPlayerLocal: (patch: Partial<Player>) => void;
   signOut: () => void;
+  /** Like signOut, but ends only THIS browser's Supabase session (scope
+   * "local") and resolves once it is gone. For /auth/verified when Google
+   * came back as a different account: that account may be someone else's
+   * (a shared family Google account), so its other devices stay signed in. */
+  signOutLocal: () => Promise<void>;
   /** The signed-in auth user's id, or null when signed out / not known yet.
    * Never part of `Player` (so never round-tripped into a profile write);
    * it exists to key per-account caches such as the consent answer. */
@@ -287,6 +292,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void signOutOfSupabase();
   }, []);
 
+  const signOutLocal = useCallback(async () => {
+    setIsAuthed(false);
+    setPlayer(emptyPlayer);
+    rememberRole(null);
+    clearSeededBrowserStorage();
+    setUserId(null);
+    void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+    await signOutOfSupabase({ scope: "local" }).catch(() => undefined);
+  }, []);
+
   const value = useMemo(
     () => ({
       player,
@@ -299,6 +314,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      signOutLocal,
       userId,
     }),
     [
@@ -312,6 +328,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      signOutLocal,
       userId,
     ]
   );

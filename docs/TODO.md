@@ -724,3 +724,26 @@ hydration, or to accept it and drop the page's sitemap priority.
   lifted for that), a GitHub Support request to drop the `refs/pull/*` heads
   and cached views (a force-push cannot remove those), and re-cloning every
   local checkout and worktree.
+
+## "Verify with Google instead" can leave a profile-less auth user (PR D review, 2026-11-21, MEDIUM)
+
+When a parent picks a Google account whose address is NOT their Seeded
+address, `signInWithOAuth` signs the browser into a different Supabase user.
+If that Google address had no Seeded account, Supabase CREATES one: an
+`auth.users` row plus a Google identity (email, name, avatar from Google),
+with no `profiles` row. `/auth/verified` signs it out of this browser only
+(scope "local") and tells the person, but nothing deletes the row. The same
+already happens for anyone who abandons a Google sign-up at `/auth/complete`
+(production had 3 auth users without a profile on 2026-11-21).
+
+- **Better fix (Niran's call, a Supabase setting):** enable manual identity
+  linking (Authentication → Sign In / Providers → "Allow manual linking") and
+  switch the verify button to `supabase.auth.linkIdentity({ provider: "google" })`.
+  The Google identity then attaches to the SIGNED-IN user whatever its email,
+  no second user is ever created, and 043's check still refuses a different
+  address. Downside: a linked different-address Google account becomes a
+  sign-in method for that Seeded account, so it needs an "unlink" path too.
+- **Cleanup either way:** a scheduled, service-role job (or a documented
+  manual query) that deletes `auth.users` rows with no `profiles` row, no
+  `parent_accounts` row, older than e.g. 7 days. Count first; never by hand on
+  production without Niran's go.

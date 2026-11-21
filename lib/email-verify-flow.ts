@@ -28,7 +28,8 @@ import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 const VERIFY_RETURN_KEY = "seeded.verify.return";
 const PENDING_JOIN_KEY = "seeded.verify.joinCode";
 const BANNER_DISMISSED_KEY = "seeded.verify.bannerDismissed";
-const GOOGLE_VERIFY_KEY = "seeded.verify.google";
+/** Under SEEDED_STORAGE_PREFIX, so sign-out clears it (lib/local-storage-cleanup.ts). */
+export const GOOGLE_VERIFY_KEY = "seeded.verify.google";
 
 /** How long a "Verify with Google" start stays valid: long enough for a
  *  Google account picker and password, short enough that a stale marker
@@ -66,11 +67,23 @@ export const VERIFY_COPY = {
   googleHint: "Works when your Google account uses the same email address as your Seeded account.",
   /** Google came back as a DIFFERENT account (its email is not this
    *  account's). The database refuses that, so the screen says why. */
-  googleMismatch: (accountEmail: string | null, googleEmail: string | null) =>
+  googleMismatch: (accountEmail: string | null, googleEmail: string | null, lostJoinCode = false) =>
     `${googleEmail ? `That Google account uses ${googleEmail}` : "That Google account uses a different email address"}${
       accountEmail ? `, but your Seeded account uses ${accountEmail}` : " from your Seeded account"
     }. Google can only confirm your email when the two addresses are the same, so nothing was confirmed. ` +
-    "We signed that Google account out of this browser. Sign in again with your email and password, then use the emailed link or a Google account with the same address.",
+    // A Google address with no Seeded account gets a bare sign-in record
+    // from Supabase (email, name and picture from Google). Say so.
+    "If that Google address had no Seeded account, signing in may have created a sign-in for it; nothing else was saved. " +
+    "We signed you out of Seeded on this browser (Google itself stays signed in). " +
+    (lostJoinCode ? "You’ll need the family code again. " : "") +
+    "Sign in again with your email and password, then use the emailed link or a Google account with the same address.",
+  /** The local sign-out of the other account did not take. Never claim it did. */
+  googleMismatchStillSignedIn:
+    "That Google account uses a different email address from your Seeded account, so nothing was confirmed. " +
+    "We couldn’t sign it out of Seeded on this browser. Open the menu and choose Sign out, then sign in again with your email and password.",
+  /** mark_email_verified() could not be reached (network / server error):
+   *  never reported as "not confirmed". */
+  markUnreachable: "We couldn’t reach Seeded to finish confirming your email. Check your connection and try again.",
   /** The person cancelled at Google, or Google refused. Nothing changed. */
   googleCancelled:
     "Google sign-in didn’t finish, so nothing changed. You can try again, or use the emailed link instead.",
@@ -90,7 +103,7 @@ export function sendFailureMessage(error: string | null | undefined, googleAvail
   const base = (error ?? "").trim() || "We couldn’t send the link.";
   if (!googleAvailable) return base;
   const sep = /[.!?…]$/.test(base) ? " " : ". ";
-  return `${base}${sep}You can also use “${VERIFY_COPY.google}” below, which needs no email.`;
+  return `${base}${sep}You can also use “${VERIFY_COPY.google}” below, which sends no email.`;
 }
 
 function store(): Storage | null {
@@ -177,6 +190,13 @@ export function readPendingJoinCode(ownerId: string | null | undefined): string 
   } catch {
     return null;
   }
+}
+
+/** Whether the given account left a family code behind — a yes/no only, so
+ *  /auth/verified can warn that a sign-out is about to drop it. Never
+ *  returns the code. */
+export function hasPendingJoinCodeFor(ownerId: string | null | undefined): boolean {
+  return readPendingJoinCode(ownerId) !== null;
 }
 
 export function clearPendingJoinCode(): void {
@@ -322,32 +342,114 @@ export function takeGoogleVerifyStart(now: number = Date.now()): GoogleVerifySta
   }
 }
 
-export type GoogleReturn =
-  /** No marker: the emailed-link path, unchanged. */
-  | { kind: "link" }
-  /** Google reported an error or the person cancelled. The old session stands. */
-  | { kind: "cancelled" }
-  /** The same account came back: run mark_email_verified() as usual. */
-  | { kind: "same-account" }
-  /** A different account came back: sign it out and show googleMismatch. */
-  | { kind: "different-account"; accountEmail: string | null; googleEmail: string | null };
+/** Google's error in the return URL — in the query (`?error=`) or, for
+ *  the implicit-style redirect, the fragment (`#error=`). Pure. */
+export function providerErrorFrom(search: string, hash: string): boolean {
+  const q = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const h = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+  return Boolean(q.get("error") || q.get("error_description") || h.get("error") || h.get("error_description"));
+}
+
+/** Whether an access token was issued for an OAuth sign-in (its JWT `amr`
+ *  has a method "oauth"). Decodes the payload only — it is never trusted for
+ *  anything but choosing a screen; the database decides verification. */
+export function sessionCameFromOAuth(accessToken: string | null | undefined): boolean {
+  if (!accessToken) return false;
+  const part = accessToken.split(".")[1];
+  if (!part) return false;
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    const json =
+      typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("binary");
+    const payload = JSON.parse(json) as { amr?: unknown };
+    if (!Array.isArray(payload.amr)) return false;
+    return payload.amr.some(
+      (e) => e === "oauth" || (typeof e === "object" && e !== null && (e as { method?: unknown }).method === "oauth")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** What /auth/verified does once it knows the session. */
+export type VerifiedAction =
+  /** Google refused or the person cancelled: the old session stands. */
+  | { kind: "show"; screen: "google-cancelled" | "no-session" }
+  /** Google came back as a DIFFERENT account: end this browser's session
+   *  for it (scope "local" only), then show googleMismatch. */
+  | { kind: "sign-out-local"; accountEmail: string | null; googleEmail: string | null }
+  /** Ask the database (mark_email_verified). `via` picks the failure copy. */
+  | { kind: "mark"; via: "google" | "link" };
 
 /**
- * What /auth/verified does on arrival. Pure. `providerError` is whether the
- * URL carries Google's `error` / `error_description`; `sessionUserId` is the
- * user AFTER the code exchange (a missing session is handled by the caller,
- * as it always was).
+ * The post-exchange decision, pure. `started` is the "Verify with Google"
+ * marker (already read and cleared). `session` is null when there is none.
+ *
+ *   marker + Google error            -> show google-cancelled
+ *   no session                       -> show no-session
+ *   no marker                        -> mark via link (the emailed link)
+ *   marker, but the session is NOT an OAuth one (a stale marker on a shared
+ *     device, then someone opens an emailed link) -> ignore it: mark via link
+ *   marker, OAuth, another user      -> sign-out-local (never mark)
+ *   marker, OAuth, same user         -> mark via google
  */
-export function googleReturnOutcome(input: {
+export function verifiedActionFor(input: {
   started: GoogleVerifyStart | null;
   providerError: boolean;
-  sessionUserId: string | null;
-  sessionEmail: string | null;
-}): GoogleReturn {
-  if (!input.started) return { kind: "link" };
-  if (input.providerError) return { kind: "cancelled" };
-  if (input.sessionUserId && input.sessionUserId !== input.started.owner) {
-    return { kind: "different-account", accountEmail: input.started.email, googleEmail: input.sessionEmail };
+  session: { userId: string; email: string | null; oauth: boolean } | null;
+}): VerifiedAction {
+  const { started, providerError, session } = input;
+  if (started && providerError) return { kind: "show", screen: "google-cancelled" };
+  if (!session) return { kind: "show", screen: "no-session" };
+  if (!started || !session.oauth) return { kind: "mark", via: "link" };
+  if (session.userId !== started.owner) {
+    return { kind: "sign-out-local", accountEmail: started.email, googleEmail: session.email };
   }
-  return { kind: "same-account" };
+  return { kind: "mark", via: "google" };
+}
+
+export type VerifiedScreen =
+  | "confirmed"
+  | "not-proven"
+  | "google-not-proven"
+  | "rate-limited"
+  | "unreachable";
+
+/** mark_email_verified()'s answer -> the screen. A network/server failure is
+ *  "unreachable", never "not confirmed". Pure. */
+export function verifiedScreenFor(
+  marked: "verified" | "not-proven" | "rate-limited" | "unreachable",
+  via: "google" | "link"
+): VerifiedScreen {
+  if (marked === "verified") return "confirmed";
+  if (marked === "rate-limited") return "rate-limited";
+  if (marked === "unreachable") return "unreachable";
+  return via === "google" ? "google-not-proven" : "not-proven";
+}
+
+/**
+ * "Verify with Google instead", in order, with its effects injected so the
+ * order is tested: run the caller's preparation, remember WHO asked (refuse
+ * if nobody is signed in), then leave for Google — and if Google could not
+ * be started, forget the start again so a stale marker can never shape a
+ * later visit to /auth/verified. Returns an error sentence, or null when the
+ * browser is on its way to Google.
+ */
+export async function startGoogleVerify(deps: {
+  beforeStart?: () => void | Promise<void>;
+  rememberStart: () => Promise<boolean>;
+  signIn: () => Promise<{ ok: boolean; error?: string }>;
+  clearStart: () => void;
+}): Promise<string | null> {
+  await deps.beforeStart?.();
+  if (!(await deps.rememberStart())) return "Sign in first, then try again.";
+  let result: { ok: boolean; error?: string };
+  try {
+    result = await deps.signIn();
+  } catch {
+    result = { ok: false };
+  }
+  if (result.ok) return null;
+  deps.clearStart();
+  return result.error ?? "Couldn’t start Google. Try again.";
 }

@@ -11,10 +11,14 @@ import {
   VERIFY_COPY,
   clearPendingJoinCode,
   clearVerifyReturn,
-  googleReturnOutcome,
   joinOutcomeFor,
+  providerErrorFrom,
+  hasPendingJoinCodeFor,
   readVerifyReturn,
+  sessionCameFromOAuth,
   takeGoogleVerifyStart,
+  verifiedActionFor,
+  verifiedScreenFor,
 } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { AuthCard } from "./auth-card";
@@ -43,23 +47,28 @@ import { AuthCard } from "./auth-card";
 
 //
 // "Verify with Google instead" also lands here (no query string; the start
-// is remembered in localStorage, lib/email-verify-flow.ts), with three more:
+// is remembered in localStorage, lib/email-verify-flow.ts). What happens is
+// decided by the pure verifiedActionFor() / verifiedScreenFor() (tested):
 //   google-cancelled -> Google refused or the person cancelled; the old
 //                 session stands, nothing changed.
-//   google-mismatch -> Google came back as a DIFFERENT account (its email is
-//                 not this account's). That session is signed out of this
-//                 browser and the screen says why in plain English.
+//   google-mismatch -> Google came back as a DIFFERENT account. This
+//                 browser's session for it is ended (scope "local" only —
+//                 it may be someone else's account, signed in elsewhere),
+//                 confirmed gone, and the screen says why.
 //   google-not-proven -> same account, but the database did not accept the
 //                 Google identity as proof.
+//   unreachable -> mark_email_verified() got no answer; never "not confirmed".
 
 type State =
   | "working"
   | "confirmed"
   | "not-proven"
   | "rate-limited"
+  | "unreachable"
   | "no-session"
   | "google-cancelled"
   | "google-mismatch"
+  | "google-mismatch-still-signed-in"
   | "google-not-proven";
 
 /** How long the confirmation stays on screen before going back. Long enough
@@ -77,10 +86,14 @@ function destinationLabel(path: string): string {
 export function EmailVerified() {
   const params = useSearchParams();
   const router = useRouter();
-  const { retryConnection, signOut } = usePlayer();
+  const { retryConnection, signOutLocal } = usePlayer();
   const [state, setState] = useState<State>("working");
   const [joinNote, setJoinNote] = useState<string | null>(null);
-  const [mismatch, setMismatch] = useState<{ account: string | null; google: string | null } | null>(null);
+  const [mismatch, setMismatch] = useState<{
+    account: string | null;
+    google: string | null;
+    lostJoinCode: boolean;
+  } | null>(null);
   // Read once, after mount (localStorage), so the server render and the
   // first client render agree.
   const [returnPath, setReturnPath] = useState("/today");
@@ -95,17 +108,13 @@ export function EmailVerified() {
     (async () => {
       // Read (and clear) BEFORE anything else: a Google start older than
       // the TTL, or none at all, leaves the emailed-link path untouched.
-      const googleStart = takeGoogleVerifyStart();
-      const providerError = Boolean(params.get("error") || params.get("error_description"));
-      const early = googleReturnOutcome({
-        started: googleStart,
-        providerError,
-        sessionUserId: null,
-        sessionEmail: null,
-      });
+      const started = takeGoogleVerifyStart();
+      const providerError = providerErrorFrom(window.location.search, window.location.hash);
+
       // Google refused or the person cancelled: no code to exchange, and
       // the session that asked is untouched.
-      if (early.kind === "cancelled") return setState("google-cancelled");
+      const early = verifiedActionFor({ started, providerError, session: null });
+      if (early.kind === "show" && early.screen === "google-cancelled") return setState("google-cancelled");
 
       const supabase = getSupabase();
       if (!supabase) return setState("no-session");
@@ -122,28 +131,35 @@ export function EmailVerified() {
       }
 
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return setState("no-session");
+      const session = data.session
+        ? {
+            userId: data.session.user.id,
+            email: data.session.user.email ?? null,
+            oauth: sessionCameFromOAuth(data.session.access_token),
+          }
+        : null;
+      const action = verifiedActionFor({ started, providerError, session });
 
-      const back = googleReturnOutcome({
-        started: googleStart,
-        providerError,
-        sessionUserId: data.session.user.id,
-        sessionEmail: data.session.user.email ?? null,
-      });
-      if (back.kind === "different-account") {
-        // Not the account that asked. Leave nobody signed in as an account
-        // they did not mean to use (it may have just been created by Google
-        // sign-in, with no Seeded profile).
-        // Through PlayerProvider, the one sign-out path (it also clears
-        // what this browser remembered; lib/local-storage-cleanup.test.ts).
-        signOut();
-        setMismatch({ account: back.accountEmail, google: back.googleEmail });
-        return setState("google-mismatch");
+      if (action.kind === "show") return setState(action.screen);
+
+      if (action.kind === "sign-out-local") {
+        // Not the account that asked. End THIS browser's session for it
+        // only (never "global": it may be a shared family Google account),
+        // through PlayerProvider, which also clears what this browser
+        // remembered — including a family code the asking account left.
+        const lostJoinCode = hasPendingJoinCodeFor(started?.owner);
+        await signOutLocal();
+        let after = await supabase.auth.getSession();
+        if (after.data.session) {
+          await signOutLocal();
+          after = await supabase.auth.getSession();
+        }
+        setMismatch({ account: action.accountEmail, google: action.googleEmail, lostJoinCode });
+        return setState(after.data.session ? "google-mismatch-still-signed-in" : "google-mismatch");
       }
 
-      const marked = await markEmailVerified();
-      if (marked === "rate-limited") return setState("rate-limited");
-      if (marked !== "verified") return setState(back.kind === "same-account" ? "google-not-proven" : "not-proven");
+      const screen = verifiedScreenFor(await markEmailVerified(), action.via);
+      if (screen !== "confirmed") return setState(screen);
 
       // A parent refused at join_family() (043) left their code behind.
       // Finish what they asked for, now that the database will accept it —
@@ -170,8 +186,8 @@ export function EmailVerified() {
       // everywhere: re-read both.
       retryConnection();
       setState("confirmed");
-    })().catch(() => setState("no-session"));
-  }, [params, retryConnection, signOut]);
+    })().catch(() => setState("unreachable"));
+  }, [params, retryConnection, signOutLocal]);
 
   // Bounce back to where they came from — unless there is a join result to
   // read, which the button then carries them past.
@@ -213,11 +229,15 @@ export function EmailVerified() {
     );
   }
 
-  if (state === "google-mismatch") {
+  if (state === "google-mismatch" || state === "google-mismatch-still-signed-in") {
     return (
       <AuthCard
         title="That Google account has a different email"
-        subtitle={VERIFY_COPY.googleMismatch(mismatch?.account ?? null, mismatch?.google ?? null)}
+        subtitle={
+          state === "google-mismatch"
+            ? VERIFY_COPY.googleMismatch(mismatch?.account ?? null, mismatch?.google ?? null, mismatch?.lostJoinCode)
+            : VERIFY_COPY.googleMismatchStillSignedIn
+        }
       >
         <SeededButton
           type="button"
@@ -241,11 +261,25 @@ export function EmailVerified() {
           ? VERIFY_COPY.googleNotProven
           : state === "rate-limited"
           ? VERIFY_COPY.markRateLimited
+          : state === "unreachable"
+          ? VERIFY_COPY.markUnreachable
           : state === "not-proven"
           ? "This page only works from the newest link we emailed you, within an hour of asking for it. Open that link, or ask for a new one."
           : "That link has expired or was already used, or it was opened in a different browser from the one that asked for it. Ask for a new one and open it in this browser."
       }
     >
+      {state === "unreachable" && (
+        // The code is already exchanged; a reload asks the database again
+        // with the session this tab now holds.
+        <SeededButton
+          type="button"
+          variant="primary"
+          className="mb-3 w-full"
+          onClick={() => window.location.reload()}
+        >
+          Try again
+        </SeededButton>
+      )}
       <SeededButton type="button" variant="secondary" className="w-full" onClick={goBack}>
         {destinationLabel(returnPath)}
       </SeededButton>

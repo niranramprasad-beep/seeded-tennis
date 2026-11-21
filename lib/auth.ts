@@ -608,9 +608,12 @@ export async function resendConfirmationEmail(email: string): Promise<AuthResult
   }
 }
 
-export async function signOut(): Promise<void> {
+export async function signOut(opts?: { scope?: "global" | "local" }): Promise<void> {
   const supa = getSupabase();
-  if (supa) await supa.auth.signOut();
+  // "local" ends only THIS browser's session (used when Google returned a
+  // different account than the one verifying: that account's other devices
+  // are none of our business). The default stays Supabase's "global".
+  if (supa) await supa.auth.signOut(opts?.scope ? { scope: opts.scope } : undefined);
 }
 
 /** The id of the auth session in this browser, or null. Local first

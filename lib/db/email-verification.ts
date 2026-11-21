@@ -185,18 +185,28 @@ export async function readMyPendingJoinCode(): Promise<string | null> {
   return readPendingJoinCode(await currentUserId());
 }
 
-export type MarkEmailVerifiedResult ="verified" | "not-proven" | "rate-limited";
+export type MarkEmailVerifiedResult = "verified" | "not-proven" | "rate-limited" | "unreachable";
 
 /** 043 raises this (errcode 53400) when its own profile write is refused by
  *  the profile_write limit. */
 const EMAIL_VERIFY_RATE_LIMITED = "email_verify_rate_limited";
 
-/** Which kind of failure a mark_email_verified() error is. */
-function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
+/**
+ * Which kind of failure a mark_email_verified() error is. Pure, exported for
+ * tests.
+ *   rate-limited -> 53400 / email_verify_rate_limited (043's own write).
+ *   not-proven   -> the DATABASE answered with an error (a SQLSTATE or a
+ *                   PostgREST PGRST code): it is not going to say yes.
+ *   unreachable  -> no answer at all (a thrown fetch, an error with no code,
+ *                   an HTTP-ish failure): a blip, never "not confirmed".
+ */
+export function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
   const e = (error ?? {}) as { code?: unknown; message?: unknown };
-  const limited =
-    e.code === "53400" || (typeof e.message === "string" && e.message.includes(EMAIL_VERIFY_RATE_LIMITED));
-  return limited ? "rate-limited" : "not-proven";
+  const code = typeof e.code === "string" ? e.code : "";
+  const message = typeof e.message === "string" ? e.message : "";
+  if (code === "53400" || message.includes(EMAIL_VERIFY_RATE_LIMITED)) return "rate-limited";
+  if (/^[0-9A-Z]{5}$/.test(code) || /^PGRST\d+$/.test(code)) return "not-proven";
+  return "unreachable";
 }
 
 /**
@@ -204,12 +214,13 @@ function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verifi
  * the database agreed (a link/code session newer than the request, for the
  * requested address — or a Google identity for that address).
  * "rate-limited" when the write was refused by the profile_write limit, so
- * the screen says "too many tries" rather than "not proven". "not-proven"
- * otherwise, including on any other error.
+ * the screen says "too many tries" rather than "not proven". "unreachable"
+ * when the database never answered (network / server error). "not-proven"
+ * when it answered no.
  */
 export async function markEmailVerified(): Promise<MarkEmailVerifiedResult> {
   const supabase = getSupabase();
-  if (!supabase) return "not-proven";
+  if (!supabase) return "unreachable";
   try {
     const { data, error } = await supabase.rpc("mark_email_verified");
     if (error) return markErrorKind(error);

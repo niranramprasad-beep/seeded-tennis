@@ -5,13 +5,23 @@ import * as React from "react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  GOOGLE_VERIFY_KEY,
   GOOGLE_VERIFY_TTL_MS,
   VERIFY_COPY,
-  googleReturnOutcome,
+  hasPendingJoinCodeFor,
+  providerErrorFrom,
+  readPendingJoinCode,
   rememberGoogleVerifyStart,
+  rememberPendingJoinCode,
   sendFailureMessage,
+  sessionCameFromOAuth,
+  startGoogleVerify,
   takeGoogleVerifyStart,
+  verifiedActionFor,
+  verifiedScreenFor,
 } from "./email-verify-flow";
+import { SEEDED_STORAGE_PREFIX, clearSeededBrowserStorage } from "./local-storage-cleanup";
+import { markErrorKind } from "./db/email-verification";
 import { googleRedirectTo } from "./auth";
 import { EMAIL_VERIFIED_PATH } from "./config/auth";
 
@@ -21,12 +31,13 @@ import { EMAIL_VERIFIED_PATH } from "./config/auth";
  * may never receive the 043 verification link. 043 already accepts a second
  * proof: a Google identity whose VERIFIED email equals the account's CURRENT
  * auth email (mark_email_verified() and email_is_verified() both read
- * auth.identities provider = 'google'). These pin the screens' half:
+ * auth.identities provider = 'google'). These pin the screens' half, as
+ * behaviour (pure functions), not as source substrings:
  *   - Google comes back to /auth/verified (the link's own landing page), so
- *     the existing mark_email_verified() path runs and the redirect
- *     allow-list needs nothing new;
- *   - a DIFFERENT account coming back is detected and signed out, with an
- *     honest sentence — never treated as verified;
+ *     the existing mark_email_verified() path runs;
+ *   - a DIFFERENT account coming back is signed out LOCALLY and never marked;
+ *   - a stale marker never hijacks an emailed-link visit;
+ *   - a network blip is "unreachable", never "not confirmed";
  *   - a failed "Send the link" points to the Google option;
  *   - the option cannot render with NEXT_PUBLIC_GOOGLE_AUTH_ENABLED off.
  * Who must verify is unchanged (approvalNeedsVerification, untouched). */
@@ -46,7 +57,13 @@ function fakeStorage(): Storage {
     setItem: (k, v) => void m.set(k, String(v)),
   };
 }
-const g = globalThis as unknown as { window?: { localStorage: Storage } };
+const g = globalThis as unknown as { window?: { localStorage: Storage; sessionStorage?: Storage } };
+
+/** A JWT-shaped string with the given payload (signature irrelevant here). */
+function jwt(payload: unknown): string {
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  return `${b64({ alg: "HS256" })}.${b64(payload)}.sig`;
+}
 
 describe("the return path", () => {
   it("verify-email comes back to /auth/verified with no query string", () => {
@@ -67,10 +84,17 @@ describe("the return path", () => {
 
 describe("who started (localStorage marker)", () => {
   beforeEach(() => {
-    g.window = { localStorage: fakeStorage() };
+    g.window = { localStorage: fakeStorage(), sessionStorage: fakeStorage() };
   });
   afterEach(() => {
     delete g.window;
+  });
+
+  it("lives under the seeded. prefix, so every sign-out clears it", () => {
+    expect(GOOGLE_VERIFY_KEY.startsWith(SEEDED_STORAGE_PREFIX)).toBe(true);
+    rememberGoogleVerifyStart("user-1", "parent@example.com", Date.now());
+    clearSeededBrowserStorage();
+    expect(takeGoogleVerifyStart()).toBeNull();
   });
 
   it("round-trips once, then is gone", () => {
@@ -82,14 +106,23 @@ describe("who started (localStorage marker)", () => {
   it("expires after the TTL (a stale start never changes a later emailed link)", () => {
     rememberGoogleVerifyStart("user-1", "parent@example.com", 0);
     expect(takeGoogleVerifyStart(GOOGLE_VERIFY_TTL_MS + 1)).toBeNull();
+    rememberGoogleVerifyStart("user-1", "parent@example.com", 0);
+    expect(takeGoogleVerifyStart(GOOGLE_VERIFY_TTL_MS)).not.toBeNull();
+  });
+
+  it("refuses a start stamped in the future (clock games), beyond a minute of skew", () => {
+    rememberGoogleVerifyStart("user-1", "parent@example.com", 10 * 60_000);
+    expect(takeGoogleVerifyStart(0)).toBeNull();
+    rememberGoogleVerifyStart("user-1", "parent@example.com", 30_000);
+    expect(takeGoogleVerifyStart(0)).not.toBeNull();
   });
 
   it("stores nothing without an owner, and reads malformed values as nothing", () => {
     rememberGoogleVerifyStart(null, "parent@example.com", 0);
     expect(takeGoogleVerifyStart(0)).toBeNull();
-    g.window!.localStorage.setItem("seeded.verify.google", "{not json");
+    g.window!.localStorage.setItem(GOOGLE_VERIFY_KEY, "{not json");
     expect(takeGoogleVerifyStart(0)).toBeNull();
-    g.window!.localStorage.setItem("seeded.verify.google", JSON.stringify({ owner: 5, at: 0 }));
+    g.window!.localStorage.setItem(GOOGLE_VERIFY_KEY, JSON.stringify({ owner: 5, at: 0 }));
     expect(takeGoogleVerifyStart(0)).toBeNull();
   });
 
@@ -100,45 +133,155 @@ describe("who started (localStorage marker)", () => {
   });
 });
 
-describe("what /auth/verified does on arrival", () => {
+describe("starting Google (order and clean-up)", () => {
+  function harness(opts: { signedIn?: boolean; signIn?: () => Promise<{ ok: boolean; error?: string }> }) {
+    const calls: string[] = [];
+    let marker = false;
+    const deps = {
+      beforeStart: () => void calls.push("before"),
+      rememberStart: async () => {
+        calls.push("remember");
+        if (opts.signedIn === false) return false;
+        marker = true;
+        return true;
+      },
+      signIn: async () => {
+        calls.push("signIn");
+        return opts.signIn ? opts.signIn() : { ok: true };
+      },
+      clearStart: () => {
+        calls.push("clear");
+        marker = false;
+      },
+    };
+    return { deps, calls, marker: () => marker };
+  }
+
+  it("prepares, remembers who asked, then leaves — and keeps the marker", async () => {
+    const h = harness({});
+    expect(await startGoogleVerify(h.deps)).toBeNull();
+    expect(h.calls).toEqual(["before", "remember", "signIn"]);
+    expect(h.marker()).toBe(true);
+  });
+
+  it("clears the marker when Google could not be started", async () => {
+    const h = harness({ signIn: async () => ({ ok: false, error: "Google is not set up." }) });
+    expect(await startGoogleVerify(h.deps)).toBe("Google is not set up.");
+    expect(h.calls).toEqual(["before", "remember", "signIn", "clear"]);
+    expect(h.marker()).toBe(false);
+  });
+
+  it("clears the marker when starting Google throws", async () => {
+    const h = harness({
+      signIn: async () => {
+        throw new Error("boom");
+      },
+    });
+    expect(await startGoogleVerify(h.deps)).toMatch(/Couldn’t start Google/);
+    expect(h.marker()).toBe(false);
+  });
+
+  it("never leaves for Google when nobody is signed in", async () => {
+    const h = harness({ signedIn: false });
+    expect(await startGoogleVerify(h.deps)).toBe("Sign in first, then try again.");
+    expect(h.calls).not.toContain("signIn");
+  });
+});
+
+describe("reading the return URL", () => {
+  it("finds Google's error in the query or the fragment", () => {
+    expect(providerErrorFrom("?error=access_denied", "")).toBe(true);
+    expect(providerErrorFrom("", "#error=server_error&error_description=x")).toBe(true);
+    expect(providerErrorFrom("error_description=nope", "")).toBe(true);
+    expect(providerErrorFrom("?code=abc", "")).toBe(false);
+    expect(providerErrorFrom("", "")).toBe(false);
+  });
+
+  it("knows an OAuth session from its token's amr", () => {
+    expect(sessionCameFromOAuth(jwt({ amr: [{ method: "oauth", timestamp: 1 }] }))).toBe(true);
+    expect(sessionCameFromOAuth(jwt({ amr: [{ method: "password", timestamp: 1 }] }))).toBe(false);
+    expect(sessionCameFromOAuth(jwt({ amr: [{ method: "otp", timestamp: 1 }] }))).toBe(false);
+    expect(sessionCameFromOAuth(jwt({}))).toBe(false);
+    expect(sessionCameFromOAuth("not-a-jwt")).toBe(false);
+    expect(sessionCameFromOAuth(null)).toBe(false);
+  });
+});
+
+describe("what /auth/verified does once it knows the session", () => {
   const started = { owner: "user-1", email: "parent@example.com" };
+  const oauthSame = { userId: "user-1", email: "parent@example.com", oauth: true };
+  const oauthOther = { userId: "user-2", email: "someone.else@example.com", oauth: true };
 
-  it("no marker: the emailed-link path, unchanged", () => {
-    expect(
-      googleReturnOutcome({ started: null, providerError: true, sessionUserId: "x", sessionEmail: null }).kind
-    ).toBe("link");
+  it("no marker: the emailed link, unchanged", () => {
+    expect(verifiedActionFor({ started: null, providerError: false, session: oauthSame })).toEqual({
+      kind: "mark",
+      via: "link",
+    });
+    // A provider error without a marker is still the link path's business.
+    expect(verifiedActionFor({ started: null, providerError: true, session: oauthSame }).kind).toBe("mark");
   });
 
-  it("Google error / cancel: nothing changed", () => {
-    expect(
-      googleReturnOutcome({ started, providerError: true, sessionUserId: "user-1", sessionEmail: null }).kind
-    ).toBe("cancelled");
+  it("Google error / cancel: show it, never touch the session", () => {
+    expect(verifiedActionFor({ started, providerError: true, session: null })).toEqual({
+      kind: "show",
+      screen: "google-cancelled",
+    });
+    expect(verifiedActionFor({ started, providerError: true, session: oauthOther })).toEqual({
+      kind: "show",
+      screen: "google-cancelled",
+    });
   });
 
-  it("same account back (linked by its verified email): run mark_email_verified", () => {
-    expect(
-      googleReturnOutcome({
-        started,
-        providerError: false,
-        sessionUserId: "user-1",
-        sessionEmail: "parent@example.com",
-      })
-    ).toEqual({ kind: "same-account" });
+  it("no session: no-session, whichever path", () => {
+    expect(verifiedActionFor({ started, providerError: false, session: null })).toEqual({
+      kind: "show",
+      screen: "no-session",
+    });
+    expect(verifiedActionFor({ started: null, providerError: false, session: null }).kind).toBe("show");
   });
 
-  it("a different account back: mismatch, naming both addresses", () => {
-    expect(
-      googleReturnOutcome({
-        started,
-        providerError: false,
-        sessionUserId: "user-2",
-        sessionEmail: "someone.else@example.com",
-      })
-    ).toEqual({
-      kind: "different-account",
+  it("same account back over OAuth: mark via google", () => {
+    expect(verifiedActionFor({ started, providerError: false, session: oauthSame })).toEqual({
+      kind: "mark",
+      via: "google",
+    });
+  });
+
+  it("a different account back over OAuth: sign out LOCALLY, naming both addresses — never mark", () => {
+    expect(verifiedActionFor({ started, providerError: false, session: oauthOther })).toEqual({
+      kind: "sign-out-local",
       accountEmail: "parent@example.com",
       googleEmail: "someone.else@example.com",
     });
+  });
+
+  it("a stale marker on a shared device never signs out someone who opened an emailed link", () => {
+    const linkSessionOther = { userId: "user-2", email: "other@example.com", oauth: false };
+    expect(verifiedActionFor({ started, providerError: false, session: linkSessionOther })).toEqual({
+      kind: "mark",
+      via: "link",
+    });
+  });
+
+  it("maps the database's answer to a screen; a blip is never 'not confirmed'", () => {
+    expect(verifiedScreenFor("verified", "google")).toBe("confirmed");
+    expect(verifiedScreenFor("verified", "link")).toBe("confirmed");
+    expect(verifiedScreenFor("rate-limited", "google")).toBe("rate-limited");
+    expect(verifiedScreenFor("unreachable", "google")).toBe("unreachable");
+    expect(verifiedScreenFor("unreachable", "link")).toBe("unreachable");
+    expect(verifiedScreenFor("not-proven", "google")).toBe("google-not-proven");
+    expect(verifiedScreenFor("not-proven", "link")).toBe("not-proven");
+  });
+
+  it("classifies mark_email_verified() errors: database no, rate limit, or no answer", () => {
+    expect(markErrorKind({ code: "53400", message: "email_verify_rate_limited" })).toBe("rate-limited");
+    expect(markErrorKind({ code: "", message: "email_verify_rate_limited" })).toBe("rate-limited");
+    expect(markErrorKind({ code: "28000", message: "Sign in first." })).toBe("not-proven");
+    expect(markErrorKind({ code: "42501", message: "permission denied" })).toBe("not-proven");
+    expect(markErrorKind({ code: "PGRST202", message: "not found" })).toBe("not-proven");
+    expect(markErrorKind({ code: "", message: "TypeError: Failed to fetch" })).toBe("unreachable");
+    expect(markErrorKind(new TypeError("fetch failed"))).toBe("unreachable");
+    expect(markErrorKind(null)).toBe("unreachable");
   });
 });
 
@@ -147,6 +290,7 @@ describe("copy", () => {
     const msg = sendFailureMessage("Too many tries. Wait a minute and try again.", true);
     expect(msg).toContain("Too many tries.");
     expect(msg).toContain(`“${VERIFY_COPY.google}”`);
+    expect(msg).toContain("sends no email");
     expect(sendFailureMessage(undefined, true)).toContain(VERIFY_COPY.google);
   });
 
@@ -155,12 +299,17 @@ describe("copy", () => {
     expect(sendFailureMessage("", false)).not.toContain("Google");
   });
 
-  it("the mismatch says why the database refuses, and never claims success", () => {
+  it("the mismatch says why the database refuses, what may have been created, and who was signed out", () => {
     const m = VERIFY_COPY.googleMismatch("parent@example.com", "other@example.com");
     expect(m).toContain("other@example.com");
     expect(m).toContain("parent@example.com");
     expect(m).toMatch(/same/);
     expect(m).toMatch(/nothing was confirmed/);
+    expect(m).toMatch(/may have created a sign-in/);
+    expect(m).toContain("We signed you out of Seeded on this browser");
+    expect(m).not.toMatch(/signed that Google account out/);
+    expect(m).not.toContain("family code");
+    expect(VERIFY_COPY.googleMismatch(null, null, true)).toContain("You’ll need the family code again.");
     expect(VERIFY_COPY.googleMismatch(null, null)).toContain("different email address");
   });
 
@@ -176,6 +325,32 @@ describe("copy", () => {
   });
 });
 
+describe("a pending join code is lost by the mismatch sign-out — and the screen can tell", () => {
+  beforeEach(() => {
+    g.window = { localStorage: fakeStorage(), sessionStorage: fakeStorage() };
+  });
+  afterEach(() => {
+    delete g.window;
+  });
+
+  it("is readable for the asking account before sign-out, gone after", () => {
+    rememberPendingJoinCode("FAMILY-1", "user-1");
+    expect(hasPendingJoinCodeFor("user-1")).toBe(true);
+    expect(hasPendingJoinCodeFor("user-2")).toBe(false);
+    expect(hasPendingJoinCodeFor(undefined)).toBe(false);
+    clearSeededBrowserStorage();
+    expect(readPendingJoinCode("user-1")).toBeNull();
+    expect(hasPendingJoinCodeFor("user-1")).toBe(false);
+  });
+
+  it("/auth/verified asks before signing out, so the copy can say so", () => {
+    const src = read("components", "auth", "email-verified.tsx");
+    const at = src.indexOf("hasPendingJoinCodeFor(started?.owner)");
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(src.indexOf("await signOutLocal()"));
+  });
+});
+
 describe("the Google option cannot render with the flag off", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -184,8 +359,7 @@ describe("the Google option cannot render with the flag off", () => {
 
   async function renderWithFlag(value: string | undefined) {
     vi.resetModules();
-    if (value === undefined) vi.stubEnv("NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", "");
-    else vi.stubEnv("NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", value);
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", value ?? "");
     // The .tsx is compiled with the classic JSX runtime under vitest.
     (globalThis as unknown as { React?: typeof React }).React = React;
     const mod = await import("../components/auth/auth-card");
@@ -196,20 +370,21 @@ describe("the Google option cannot render with the flag off", () => {
     expect(await renderWithFlag(value)).toBe("");
   });
 
-  it('flag "true" -> the button and the one-line hint', async () => {
+  it('flag "true" -> the button, the hint, and the button described by the hint', async () => {
     const html = await renderWithFlag("true");
     expect(html).toContain(VERIFY_COPY.google);
     expect(html).toContain("same email address");
+    const described = html.match(/aria-describedby="([^"]+)"/)?.[1];
+    expect(described, "the button must point at its hint").toBeTruthy();
+    expect(html).toContain(`id="${described}"`);
   });
 
-  it("the guard sits inside GoogleVerifyButton itself", () => {
+  it("the guard sits inside GoogleVerifyButton, which starts Google through startGoogleVerify", () => {
     const card = read("components", "auth", "auth-card.tsx");
     const fn = card.slice(card.indexOf("export function GoogleVerifyButton"));
     const body = fn.slice(0, fn.indexOf("\n/**"));
     expect(body).toContain("if (!GOOGLE_AUTH_ENABLED) return null;");
-    // Remembers who asked BEFORE leaving, and leaves for /auth/verified.
-    expect(body.indexOf("rememberMyGoogleVerifyStart")).toBeGreaterThan(-1);
-    expect(body.indexOf("rememberMyGoogleVerifyStart")).toBeLessThan(body.indexOf("signInWithGoogle("));
+    expect(body).toContain("startGoogleVerify(");
     expect(body).toContain('purpose: "verify-email"');
   });
 
@@ -224,26 +399,43 @@ describe("the Google option cannot render with the flag off", () => {
       expect(src, file.join("/")).not.toContain("signInWithGoogle");
       expect(src, file.join("/")).toContain("sendFailureMessage(result.error, GOOGLE_AUTH_ENABLED)");
     }
-    // Both prompts (join, and approve/consent) carry it.
     expect(read("components", "auth", "verify-email-prompt.tsx").match(/<GoogleVerifyButton/g)?.length).toBe(2);
   });
 });
 
-describe("/auth/verified handles the Google return honestly", () => {
+describe("/auth/verified wires the pure decisions (and only signs out locally)", () => {
   const src = read("components", "auth", "email-verified.tsx");
 
-  it("reads the start marker and signs a different account out", () => {
-    expect(src).toContain("takeGoogleVerifyStart()");
-    const at = src.indexOf('back.kind === "different-account"');
-    expect(at).toBeGreaterThan(-1);
-    const branch = src.slice(at, at + 600);
-    expect(branch).toContain("signOut();");
-    expect(branch).toContain('setState("google-mismatch")');
-    // ...and only marks after the account check.
-    expect(at).toBeLessThan(src.indexOf("await markEmailVerified()"));
+  it("uses verifiedActionFor / verifiedScreenFor and the local sign-out", () => {
+    expect(src).toContain("verifiedActionFor({ started, providerError, session })");
+    expect(src).toContain("verifiedScreenFor(await markEmailVerified(), action.via)");
+    expect(src).toContain("await signOutLocal()");
+    // Never the global sign-out on this page.
+    expect(src).not.toMatch(/\bsignOut\(\)/);
+    expect(src).toContain("providerErrorFrom(window.location.search, window.location.hash)");
   });
 
-  it("still lets the database decide: verified only when mark_email_verified() says so", () => {
-    expect(src).toMatch(/if \(marked !== "verified"\) return setState\(/);
+  it("the sign-out-local branch returns before anything is marked", () => {
+    const branch = src.indexOf('action.kind === "sign-out-local"');
+    expect(branch).toBeGreaterThan(-1);
+    expect(branch).toBeLessThan(src.indexOf("await markEmailVerified()"));
+    const body = src.slice(branch, src.indexOf("const screen = verifiedScreenFor"));
+    // Comments stripped: a commented-out sign-out must not count.
+    const code = body
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n");
+    expect(code).toMatch(/await signOutLocal\(\);\s*let after = await supabase\.auth\.getSession\(\);/);
+    expect(code.indexOf("await signOutLocal()")).toBeLessThan(code.indexOf("return setState("));
+    // The screen claims "signed out" only when no session is left.
+    expect(code).toMatch(/after\.data\.session \? "google-mismatch-still-signed-in" : "google-mismatch"/);
+  });
+
+  it("PlayerProvider's local sign-out passes scope 'local' to the one Supabase sign-out", () => {
+    const ctx = read("lib", "context", "player-context.tsx");
+    const fn = ctx.slice(ctx.indexOf("const signOutLocal = useCallback"));
+    expect(fn.slice(0, fn.indexOf("}, []);"))).toContain('signOutOfSupabase({ scope: "local" })');
+    const auth = read("lib", "auth.ts");
+    expect(auth).toContain("supa.auth.signOut(opts?.scope ? { scope: opts.scope } : undefined)");
   });
 });

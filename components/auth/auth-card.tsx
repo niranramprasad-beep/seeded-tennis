@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { signInWithGoogle } from "@/lib/auth";
 import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
 import { rememberMyGoogleVerifyStart } from "@/lib/db/email-verification";
-import { VERIFY_COPY, takeGoogleVerifyStart } from "@/lib/email-verify-flow";
+import { VERIFY_COPY, startGoogleVerify, takeGoogleVerifyStart } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 
 // The shared shell for /login, /signup, /parent-signup, /reset-password and
@@ -293,23 +293,24 @@ export function GoogleVerifyButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hintId = useId();
 
   if (!GOOGLE_AUTH_ENABLED) return null;
 
   const start = async () => {
     setError(null);
     setLoading(true);
-    await onBeforeStart?.();
-    if (!(await rememberMyGoogleVerifyStart())) {
-      setError("Sign in first, then try again.");
-      setLoading(false);
-      return;
-    }
-    const result = await signInWithGoogle(undefined, { purpose: "verify-email" });
+    // The order (remember who asked, then leave; forget again if Google
+    // could not be started) lives in startGoogleVerify, tested.
+    const failure = await startGoogleVerify({
+      beforeStart: onBeforeStart,
+      rememberStart: rememberMyGoogleVerifyStart,
+      signIn: () => signInWithGoogle(undefined, { purpose: "verify-email" }),
+      clearStart: () => void takeGoogleVerifyStart(),
+    });
     // On success the browser is already on its way to Google.
-    if (!result.ok) {
-      takeGoogleVerifyStart();
-      setError(result.error ?? "Couldn't start Google. Try again.");
+    if (failure) {
+      setError(failure);
       setLoading(false);
     }
   };
@@ -322,11 +323,16 @@ export function GoogleVerifyButton({
         onClick={start}
         loading={loading}
         className="min-h-11 w-full whitespace-nowrap px-3 sm:w-auto sm:min-h-[38px] sm:px-[18px]"
+        aria-describedby={hint ? hintId : undefined}
       >
         {!loading && <GoogleMark />}
         {loading ? VERIFY_COPY.googleStarting : VERIFY_COPY.google}
       </SeededButton>
-      {hint && <p className="mt-1.5 text-xs text-stone">{hint}</p>}
+      {hint && (
+        <p id={hintId} className="mt-1.5 text-xs text-stone">
+          {hint}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mt-2 text-sm text-error-strong">
           {error}

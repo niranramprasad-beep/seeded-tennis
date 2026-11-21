@@ -40,6 +40,7 @@ export function FamilyPreview({ schools }: { schools: SchoolLite[] }) {
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        signOutLocal: async () => {},
         userId: "dev-preview",
       }}
     >

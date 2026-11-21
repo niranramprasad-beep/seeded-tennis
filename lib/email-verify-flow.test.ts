@@ -15,6 +15,7 @@ import {
   rememberVerifyReturn,
   safeVerifyReturn,
   shouldShowVerifyBanner,
+  verifiedScreenFor,
 } from "./email-verify-flow";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "./email-verify-required";
 import type { JoinFamilyStatus } from "./db/family-join";
@@ -128,7 +129,10 @@ describe("the join step: verify_email_required is a step, not a failure", () => 
   it("a refused verification write says 'too many tries', not 'not proven'", () => {
     expect(VERIFY_COPY.markRateLimited).toBe("Too many tries. Wait a few minutes and try again.");
     const src = read("components", "auth", "email-verified.tsx");
-    expect(src).toMatch(/if \(marked === "rate-limited"\) return setState\("rate-limited"\)/);
+    // The mapping is the pure verifiedScreenFor() now (lib/email-verify-google.test.ts).
+    expect(verifiedScreenFor("rate-limited", "link")).toBe("rate-limited");
+    expect(verifiedScreenFor("rate-limited", "google")).toBe("rate-limited");
+    expect(src).toMatch(/verifiedScreenFor\(await markEmailVerified\(\), action\.via\)/);
     expect(src).toMatch(/state === "rate-limited"\s+\? VERIFY_COPY\.markRateLimited/);
   });
 });

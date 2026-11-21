@@ -44,6 +44,15 @@ Google identities yet, so the linking half is unproven until Niran's test.
   is unchanged.
 - A failed "Send the link" now points to "Verify with Google instead"
   (`sendFailureMessage`) instead of only "try again".
+- Review fixes (PR #29): the different-account path signs out with scope
+  "local" only (PlayerProvider `signOutLocal`) and checks no session is left
+  before saying so; the decision after the code exchange is the pure
+  `verifiedActionFor()` / `verifiedScreenFor()`; a stale marker is ignored
+  unless the session came from OAuth (JWT amr); a network blip on
+  `mark_email_verified()` is "unreachable" with Try again, never "not
+  confirmed"; `#error=` is read as well as `?error=`; the mismatch copy says a
+  sign-in may have been created for that Google address and that a pending
+  family code is lost. Mutation-checked (prD/mutation.txt).
 - Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
   same/different account, error mapping, and a real render proving the
   option is empty unless the flag is exactly "true");
@@ -1436,9 +1445,12 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
 9b. **Parent email delivery** (final-check PR D): check production SMTP and
-   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`);
-   until then the emailed link may never arrive and "Verify with Google
-   instead" is the working path.
+   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`).
+   Until then the emailed link may never arrive. "Verify with Google instead"
+   works only when `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` is exactly "true" AND the
+   Google provider is configured in that Supabase project (on for production,
+   off for staging/Preview), and only for a Google account with the SAME
+   address. Then the profile-less auth users it can leave (TODO, PR D review).
 10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
