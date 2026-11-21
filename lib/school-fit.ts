@@ -54,6 +54,7 @@ import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import { academicTier } from "@/lib/school-academics";
 import { regionForState } from "@/lib/school-regions";
 import { formatPacePerYear, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 
 export type SchoolFitBand = Exclude<FitBand, "unverified">;
 
@@ -418,7 +419,7 @@ function computeNextBandChange(
       byDate,
       requiredPaceUtrPerYear: null,
       paceRead: "no-time-left",
-      message: `The summer before senior year has already passed, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${BAND_LABEL[targetBand]}.`,
+      message: `The summer before senior year ${seniorSummerVerb(seniorSummerPhase(milestone.getFullYear(), now))}, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${BAND_LABEL[targetBand]}.`,
     };
   }
 
