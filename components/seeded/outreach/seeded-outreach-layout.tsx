@@ -255,8 +255,7 @@ export function SeededOutreachLayout({
                   const remindAt = entry?.remindAt ? new Date(entry.remindAt) : null;
                   const reminderDue = Boolean(remindAt && remindAt.getTime() <= Date.now());
                   // "Contacted" (an email actually went out) is every status
-                  // past "researching" — the same vocabulary
-                  // legacyIsSentOrLater() in coaches-view.tsx uses.
+                  // past "researching".
                   const contacted = Boolean(entry && entry.status !== "researching");
                   // The real upcoming due date while a card is emailed but
                   // not yet overdue — once `due` flips true, the chip below

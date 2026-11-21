@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, ClipboardList, Mail, Route, School } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { FadeIn } from "@/components/shared/fade-in";
 import { Reveal } from "@/components/shared/reveal";
-import { useDesign } from "@/lib/context/design-context";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -35,49 +30,7 @@ const steps = [
 ];
 
 export default function HowItWorksPage() {
-  const { design } = useDesign();
-  return design === "seeded" ? <SeededHowItWorks /> : <LegacyHowItWorks />;
-}
-
-function LegacyHowItWorks() {
-  return (
-    <>
-      <div className="mx-auto max-w-content container-px py-16">
-        <FadeIn>
-          <Badge variant="leaf" size="md">How it works</Badge>
-          <h1 className="mt-5 max-w-3xl text-balance text-4xl font-light tracking-tight text-ink sm:text-6xl">
-            Recruiting clarity from the first profile to the first coach reply.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
-            Seeded connects the pieces families usually manage separately: schools,
-            UTR targets, a training calendar you fill in, tournaments, and outreach.
-          </p>
-        </FadeIn>
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
-          {steps.map((step, index) => (
-            <FadeIn key={step.title} delay={index * 0.08}>
-              <Card interactive className="h-full p-7">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-on-primary">
-                    <step.icon className="h-5 w-5" />
-                  </span>
-                  <span className="font-serif text-3xl italic text-leaf-accent">0{index + 1}</span>
-                </div>
-                <h2 className="mt-5 text-xl font-medium text-ink">{step.title}</h2>
-                <p className="mt-2 leading-relaxed text-stone">{step.body}</p>
-              </Card>
-            </FadeIn>
-          ))}
-        </div>
-        <FadeIn delay={0.2} className="mt-10">
-          <Link href="/signup" className={cn(buttonVariants({ variant: "primary", size: "lg" }), "group")}>
-            Build my roadmap
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </FadeIn>
-      </div>
-    </>
-  );
+  return <SeededHowItWorks />;
 }
 
 function SeededHowItWorks() {

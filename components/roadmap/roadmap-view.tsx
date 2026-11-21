@@ -1,32 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { Check, Flag, Sparkles, TrendingUp } from "lucide-react";
 import type { RoadmapYear, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { usePlanGoal, type UsePlanGoalResult } from "@/lib/hooks/use-plan-goal";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AnimatedNumber } from "@/components/shared/animated-number";
-import { SchoolBadge } from "@/components/shared/school-badge";
-import { Reveal } from "@/components/shared/reveal";
-import { SpotlightCard } from "@/components/shared/spotlight-card";
-import { useDesign } from "@/lib/context/design-context";
 import { SeededRoadmapLayout } from "@/components/seeded/roadmap/seeded-roadmap-layout";
-import { cn, formatPlayerUtr, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
-
-// recharts only loads once this chart actually renders, on the client.
-const UTRLineChart = dynamic(
-  () => import("@/components/charts/utr-line-chart").then((mod) => mod.UTRLineChart),
-  { ssr: false, loading: () => <Skeleton className="h-64 w-full" /> }
-);
-
-const MAX_SCHOOLS = 5;
 
 export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
   return (
@@ -35,10 +16,10 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
         required="player"
         feature="Your roadmap"
         // Sold only what /plan contains. It listed "Tournament counts that
-        // match each level" and "An animated trajectory" (Legacy-only, or
-        // not there at all) and "What-if planning across up to five
-        // programs" — while /pricing, correctly, lists the what-if school
-        // planner as FREE (it is on /schools for everyone).
+        // match each level" and "An animated trajectory" (not there at all)
+        // and "What-if planning across up to five programs" — while
+        // /pricing, correctly, lists the what-if school planner as FREE (it
+        // is on /schools for everyone).
         blurb="Your plan to the summer before senior year: UTR checkpoints, your target schools in order, and your results beside them."
         perks={[
           "Year-by-year UTR checkpoints toward your target schools",
@@ -55,11 +36,12 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
 
 function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   const { player } = usePlayer();
-  const [whatIf, setWhatIf] = useState<string[]>(player.targetSchoolSlugs);
+  // The player's targets as the page found them.
+  const [targetSlugs] = useState<string[]>(player.targetSchoolSlugs);
 
   const targetSchools = useMemo(
-    () => schools.filter((s) => whatIf.includes(s.slug)),
-    [schools, whatIf]
+    () => schools.filter((s) => targetSlugs.includes(s.slug)),
+    [schools, targetSlugs]
   );
 
   // One goal for /plan and /today (lib/hooks/use-plan-goal.ts): the one the
@@ -67,20 +49,6 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
   // target's floor — adding a target must not move the plan (C11).
   const planGoal = usePlanGoal(player);
   const roadmap = planGoal.roadmap;
-  // null with no real UTR: the 0 sentinel must never print as a goal
-  // ("From Not tracked to 0.00", "Your goal UTR 0.00", a "Target 0.0" chart).
-  const goalUTR = hasRealUtr(player.currentUTR) ? (planGoal.goal?.value ?? null) : null;
-
-  const chartData = useMemo(
-    () => [
-      { label: "Now", utr: player.currentUTR },
-      ...roadmap.map((y) => ({
-        label: y.shortLabel,
-        utr: y.utrTarget,
-      })),
-    ],
-    [player.currentUTR, roadmap]
-  );
 
   // Only show programs that match the player's recruiting gender.
   const pickerSchools = useMemo(() => {
@@ -90,233 +58,21 @@ function RoadmapInner({ schools }: { schools: SchoolLite[] }) {
       .sort((a, b) => b.avgRosterUTR - a.avgRosterUTR);
   }, [schools, player.gender]);
 
-  const toggle = (slug: string) =>
-    setWhatIf((prev) =>
-      prev.includes(slug)
-        ? prev.filter((s) => s !== slug)
-        : prev.length < MAX_SCHOOLS
-          ? [...prev, slug]
-          : prev
-    );
-
-  const { design } = useDesign();
-  const layoutProps: RoadmapLayoutProps = {
-    player,
-    whatIf,
-    targetSchools,
-    roadmap,
-    goalUTR,
-    chartData,
-    pickerSchools,
-    toggle,
-    planGoal,
-  };
-
-  return design === "seeded" ? (
-    <SeededRoadmapLayout {...layoutProps} />
-  ) : (
-    <LegacyRoadmapLayout {...layoutProps} />
+  return (
+    <SeededRoadmapLayout
+      player={player}
+      targetSchools={targetSchools}
+      roadmap={roadmap}
+      pickerSchools={pickerSchools}
+      planGoal={planGoal}
+    />
   );
 }
 
 export interface RoadmapLayoutProps {
   player: ReturnType<typeof usePlayer>["player"];
-  whatIf: string[];
   targetSchools: SchoolLite[];
   roadmap: RoadmapYear[];
-  /** Null when the player has no real UTR (or no goal) — Legacy shows the
-   * honest no-UTR state instead of a number. */
-  goalUTR: number | null;
-  chartData: { label: string; utr: number }[];
   pickerSchools: SchoolLite[];
-  toggle: (slug: string) => void;
   planGoal: UsePlanGoalResult;
-}
-
-function LegacyRoadmapLayout({
-  player,
-  whatIf,
-  targetSchools,
-  roadmap,
-  goalUTR,
-  chartData,
-  pickerSchools,
-  toggle,
-}: RoadmapLayoutProps) {
-  return (
-    <div className="mx-auto max-w-content container-px py-10">
-      <Reveal className="max-w-2xl">
-        <span className="eyebrow text-gold">Your roadmap</span>
-        <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-          {goalUTR != null ? (
-            <>
-              From {formatUtrOrNotTracked(player.currentUTR)} to{" "}
-              <span className="serif-accent text-grass">{formatPlayerUtr(goalUTR)}</span>,
-              year by year.
-            </>
-          ) : hasRealUtr(player.currentUTR) ? (
-            "Set a goal to plan year by year."
-          ) : (
-            "Your plan starts with your UTR."
-          )}
-        </h1>
-        <p className="mt-3 text-pretty leading-relaxed text-stone">
-          Every target is set for the{" "}
-          <span className="font-medium text-ink">summer before</span> that grade —
-          the window that actually matters for recruiting — on a straight line to
-          the goal you set on the Seeded plan.
-        </p>
-      </Reveal>
-
-      {/* trajectory + goal */}
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <Reveal index={1} className="lg:col-span-2">
-        <Card className="h-full p-6">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-grass" />
-            <h2 className="text-lg font-medium text-ink">UTR trajectory</h2>
-          </div>
-          <div className="mt-4">
-            {goalUTR != null ? (
-              <UTRLineChart
-                key={whatIf.join("-")}
-                data={chartData}
-                target={goalUTR}
-                height={280}
-              />
-            ) : (
-              <p className="rounded-xl bg-cream/70 px-4 py-6 text-sm text-stone">
-                Not tracked yet. Log your UTR on Today and your year-by-year targets appear here.
-              </p>
-            )}
-          </div>
-        </Card>
-        </Reveal>
-
-        <Reveal index={2}>
-        <Card className="flex h-full flex-col justify-center bg-grass p-6 text-on-primary shadow-glow">
-          <p className="text-sm text-on-primary/80">Your goal UTR</p>
-          <div className="mt-1 text-6xl font-light">
-            {goalUTR != null ? (
-              <AnimatedNumber key={goalUTR} value={goalUTR} decimals={2} />
-            ) : (
-              <span className="text-3xl font-semibold">Not tracked</span>
-            )}
-          </div>
-          <p className="mt-3 text-sm text-on-primary/80">
-            {goalUTR != null
-              ? `+${formatPlayerUtr(Math.max(0, goalUTR - player.currentUTR))} from where you are today`
-              : hasRealUtr(player.currentUTR)
-                ? "No goal set yet. Set one on your plan to see the gap from where you are today."
-                : "Log a UTR to set a goal and see the gap from where you are today."}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {targetSchools.map((s) => (
-              <Badge
-                key={s.id}
-                size="sm"
-                className="bg-on-primary/15 text-on-primary"
-              >
-                {s.shortName}
-              </Badge>
-            ))}
-          </div>
-        </Card>
-        </Reveal>
-      </div>
-
-      {/* what-if picker */}
-      <Card className="mt-4 p-6">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-grass" />
-          <h2 className="text-lg font-medium text-ink">What if I targeted…</h2>
-          <span className="ml-auto text-sm text-stone">
-            {whatIf.length}/{MAX_SCHOOLS}
-          </span>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {pickerSchools.map((s) => {
-            const active = whatIf.includes(s.slug);
-            const disabled = !active && whatIf.length >= MAX_SCHOOLS;
-            return (
-              <button
-                key={s.id}
-                onClick={() => toggle(s.slug)}
-                disabled={disabled}
-                className={cn(
-                  "flex min-h-11 items-center gap-2 rounded-pill border-[0.5px] py-1.5 pl-1.5 pr-3 text-sm transition-all",
-                  active
-                    ? "border-grass bg-grass-50 text-grass"
-                    : "border-line bg-card text-stone hover:text-ink",
-                  disabled && "opacity-40"
-                )}
-              >
-                <SchoolBadge school={s} size={28} />
-                {s.shortName}
-                {active && <Check className="h-3.5 w-3.5" />}
-              </button>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* timeline */}
-      <div className="mt-8">
-        <h2 className="text-xl font-light tracking-tight text-ink">
-          Year-by-year plan
-        </h2>
-        <div className="mt-4 flex gap-4 overflow-x-auto pb-3">
-          {roadmap.map((year, i) => (
-            <Reveal key={`${year.calendarYear}-${i}`} index={i} step={0.07} className="w-[280px] shrink-0">
-              <SpotlightCard className="flex h-full flex-col rounded-card border border-line bg-card p-5 shadow-soft">
-                <div className="flex items-center justify-between">
-                  <Badge variant="default" size="md">
-                    {year.shortLabel} Grade
-                  </Badge>
-                  <span className="text-sm text-stone">Summer {year.calendarYear}</span>
-                </div>
-                <p className="mt-3 text-sm font-medium text-ink">
-                  {year.gradeLabel}
-                </p>
-
-                <div className="mt-4">
-                  <p className="text-xs text-stone-light">Target UTR by then</p>
-                  <div className="text-4xl font-light text-grass">
-                    <AnimatedNumber
-                      key={`${i}-${year.utrTarget}`}
-                      value={year.utrTarget}
-                      decimals={2}
-                    />
-                  </div>
-                </div>
-
-                {/* A per-year "N tournaments" count, a "Tournament volume" dot
-                    row and a "Recommended mix" of USTA levels used to sit
-                    here. The count was `10 + i * 2` (lib/db/plan.ts) — a
-                    number no source and no player gave — and the mix was
-                    picked from it. Removed 2026-11-20 with migration 049. */}
-                <div className="mt-4 flex-1">
-                  <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.1em] text-stone-light">
-                    <Flag className="h-3 w-3" />
-                    Milestones
-                  </p>
-                  <ul className="space-y-2">
-                    {year.milestones.map((m) => (
-                      <li
-                        key={m}
-                        className="flex items-start gap-2 text-sm leading-snug text-stone"
-                      >
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-leaf-accent" />
-                        {m}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </SpotlightCard>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }

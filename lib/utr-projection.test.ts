@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildUtrChartSeries,
-  buildUtrSummaryLine,
   computeUtrProjection,
   gradeStandingName,
   nextFallDate,
@@ -139,86 +137,5 @@ describe("gradeStandingName", () => {
 
   it("falls back gracefully outside that range", () => {
     expect(gradeStandingName(8)).toBe("8th-grade");
-  });
-});
-
-describe("buildUtrSummaryLine", () => {
-  const path = [
-    { date: new Date(2026, 10, 18), low: 5.95, value: 5.95, high: 5.95 },
-    { date: new Date(2028, 5, 1), low: 6.1, value: 6.6, high: 7.1 },
-  ];
-
-  it("returns null without an estimate", () => {
-    expect(buildUtrSummaryLine({ estimatePath: [], goalUtr: 9 })).toBeNull();
-  });
-
-  it("states the report's estimate and prints a chosen goal with two decimals", () => {
-    const line = buildUtrSummaryLine({ estimatePath: path, goalUtr: 9.25 });
-    expect(line).toBe("Estimated 6.6 by Jun 2028, the summer before senior year. Your goal is 9.25.");
-    // the reviewer's case: targetUTR.toFixed(1) printed 9.25 as "9.3"
-    expect(line).not.toContain("9.3");
-  });
-
-  it("never states a 0 / missing goal", () => {
-    expect(buildUtrSummaryLine({ estimatePath: path, goalUtr: null })).not.toMatch(/goal/);
-    expect(buildUtrSummaryLine({ estimatePath: path, goalUtr: 0 })).not.toMatch(/goal|0\.00/);
-  });
-});
-
-describe("buildUtrChartSeries", () => {
-  const actualEntries: UtrDataPoint[] = [
-    { date: d("2025-01-01"), utr: 6.5 },
-    { date: d("2025-06-01"), utr: 7.0 },
-    { date: d("2026-01-01"), utr: 7.5 },
-    { date: d("2026-06-01"), utr: 5.95 },
-  ];
-  const targetPoints: UtrDataPoint[] = [
-    { date: d("2027-06-01"), utr: 9.0 },
-    { date: d("2028-06-01"), utr: 10.5 },
-  ];
-  // What projectionPath(report.utr) hands the chart: today's rating to the
-  // report's estimate at the summer before senior year.
-  const estimatePath = [
-    { date: d("2026-07-01"), low: 5.95, value: 5.95, high: 5.95 },
-    { date: d("2027-06-01"), low: 6.1, value: 6.3, high: 6.5 },
-    { date: d("2028-06-01"), low: 6.2, value: 6.6, high: 7.0 },
-  ];
-
-  it("draws no projection when the report has no estimate", () => {
-    const result = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath: [], range: "ALL", today: d("2026-07-01") });
-    expect(result.hasProjection).toBe(false);
-    expect(result.rows.some((r) => r.projected != null)).toBe(false);
-  });
-
-  it("draws exactly the report's path — no regression of its own", () => {
-    const result = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range: "ALL", today: d("2026-07-01") });
-    expect(result.hasProjection).toBe(true);
-    const projected = result.rows.filter((r) => r.projected != null);
-    expect(projected.map((r) => r.projected)).toEqual([5.95, 6.3, 6.6]);
-    expect(projected[projected.length - 1].projLower).toBe(6.2);
-    expect(projected[projected.length - 1].projUpper).toBe(7.0);
-  });
-
-  it("zooms the whole chart (history AND forward lines) when a fixed range is picked", () => {
-    const all = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range: "ALL", today: d("2026-07-01") });
-    const threeMonth = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range: "3M", today: d("2026-07-01") });
-    expect(threeMonth.rows.filter((r) => r.actual != null).length).toBeLessThan(all.rows.filter((r) => r.actual != null).length);
-    expect(all.hasProjection).toBe(threeMonth.hasProjection);
-    expect(Math.max(...threeMonth.rows.map((r) => r.dateMs))).toBeLessThan(Math.max(...all.rows.map((r) => r.dateMs)));
-    // the right edge is the path's value on that date, not a fresh fit
-    const edge = threeMonth.rows.filter((r) => r.projected != null).pop()!;
-    expect(edge.projected).toBeGreaterThan(5.95);
-    expect(edge.projected).toBeLessThan(6.3);
-  });
-
-  it("includes real roadmap target points within the horizon", () => {
-    const result = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range: "ALL", today: d("2026-07-01") });
-    expect(result.rows.filter((r) => r.target != null).map((r) => r.target)).toContain(9.0);
-  });
-
-  it("never invents an actual point, and keeps a logged 5.95 as 5.95 (not 6.0)", () => {
-    const result = buildUtrChartSeries({ actualEntries, targetPoints, estimatePath, range: "ALL", today: d("2026-07-01") });
-    const actualValues = result.rows.filter((r) => r.actual != null).map((r) => r.actual);
-    expect(actualValues.sort()).toEqual([5.95, 6.5, 7, 7.5]);
   });
 });

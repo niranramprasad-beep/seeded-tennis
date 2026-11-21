@@ -64,8 +64,8 @@ export function Drawer({
             <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 sm:p-6">
               <div>
                 {eyebrow && (
-                  // Plain small label. It was an orange italic serif — the
-                  // Legacy eyebrow — on Seeded screens (sweep C17).
+                  // Plain small label. It was an orange italic serif (the
+                  // deleted Legacy design's eyebrow) until sweep C17.
                   <p className="text-xs font-semibold uppercase tracking-wide text-stone">
                     {eyebrow}
                   </p>

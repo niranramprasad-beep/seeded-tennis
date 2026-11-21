@@ -34,13 +34,9 @@ export function PlanPreview({ targetSchools }: { targetSchools: SchoolLite[] }) 
   return (
     <SeededRoadmapLayout
       player={{ ...MOCK_PLAYER, targetSchoolSlugs: targetSchools.map((s) => s.slug) }}
-      whatIf={targetSchools.map((s) => s.slug)}
       targetSchools={targetSchools}
       roadmap={MOCK_ROADMAP}
-      goalUTR={9.9}
-      chartData={[]}
       pickerSchools={targetSchools}
-      toggle={() => {}}
       planGoal={{
         goal: { value: 9.9, estimate: null },
         roadmap: MOCK_ROADMAP,

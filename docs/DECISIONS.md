@@ -7,6 +7,50 @@ Newest first.
 
 ---
 
+## 2026-11-20 (night) — PR-LEGACY: the Legacy design is deleted
+
+- **A stored "legacy" choice means "Match system".** Browsers (localStorage
+  `seeded.design`) and accounts (`user_settings.notification_preferences
+  .design`) that had picked Legacy get the Seeded design following the OS,
+  read in one place (`lib/appearance.ts`, mirrored by the head script). Not
+  "Dark" (Legacy's default was light), not their old `seededMode` (they had
+  stopped using it). The browser key is removed on the next visit; the
+  database key is dropped the next time the account chooses a mode, and is
+  never written on page load (034's write budget). No migration — an
+  optional cleanup one is in TODO. *Undo:* change `parseRemoteAppearance` /
+  `resolveStoredSystemSync`.
+- **`data-design` is gone, not frozen at "seeded".** The Seeded selectors
+  are now `:root[data-seeded-mode="…"]`, `:root :focus-visible` and
+  `:root [tabindex="-1"]:focus-visible` — the same specificity the
+  `[data-design="seeded"]…` selectors had, so nothing in the cascade moves.
+- **Legacy-only routes stay, as server redirects:** `/dashboard` → `/today`
+  (query kept — the Whop checkout still returns to
+  `/dashboard?checkout=success`), `/roadmap` → `/plan`, `/coaches` →
+  `/outreach`, `/cost-calculator` → `/family`. The checkout return URL is
+  untouched (billing; changing it is Niran's call).
+- **Deleted because only Legacy reached them:** three recharts charts,
+  `school-badge`, `school-marquee`, `fade-in`, `glow-orb`, `spotlight-card`,
+  `parallax`, `magnetic`, `count-up-on-view`, `court-rule`, `slider`, the dev
+  `TierSwitcher` (it lived in Legacy's sidebar), two fonts (Space Grotesk,
+  IBM Plex Mono), `buildUtrChartSeries`/`buildUtrSummaryLine`,
+  `countPlayedThisSeason`, `loadTournamentEntriesOrThrow`, `getConferences`/
+  `getStates` and `seededCardLabel`. "Played this season" was shown only on
+  the Legacy parent dashboard, so no screen shows it now.
+- **Charts no longer follow a palette.** `useThemeColors` read Legacy's
+  `data-theme`; the three charts that used it were Legacy-only and are gone.
+- **The redirect routes lost their loading/error files.** A `loading.tsx`
+  makes `redirect()` stream as a 200 plus a client-side hop; without it the
+  four routes answer a real 307 (checked with curl on a production build).
+- **`--font-inter` / `--font-cormorant` pinned with `html:root`.** On
+  `main` the `:root` values (`"Inter", sans-serif`) beat next/font's class
+  only because next/font's CSS sat in an earlier stylesheet chunk. Removing
+  two fonts merged the chunks, flipped the winner and changed fallback
+  glyphs (≈, →) and `<select>` text — found by the pixel diff. The pin keeps
+  production's rendering. *Undo:* delete the `html:root` rule to adopt
+  next/font's metric-adjusted fallback on purpose, in its own PR.
+
+---
+
 ## 2026-11-20 (night) — Review-ready run: visual polish (PR-POLISH)
 
 - **"UTR vs plan" moved from Today's right rail into the main column.** The

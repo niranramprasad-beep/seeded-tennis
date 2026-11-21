@@ -78,13 +78,12 @@ describe("server: no player-data write route accepts a parent", () => {
 });
 
 describe("client: a parent's screens offer no player edit", () => {
-  it("/settings sends a parent to the parent's own Settings, in both designs", () => {
+  it("/settings sends a parent to the parent's own Settings", () => {
     const src = read("components/settings/settings-view.tsx");
     const inner = src.slice(src.indexOf("function SettingsInner"));
     const parentReturn = inner.indexOf('if (player.role === "parent") return <ParentSettingsView section={parentSection} fromOnboarding={fromOnboarding} />;');
     expect(parentReturn).toBeGreaterThan(-1);
     expect(parentReturn).toBeLessThan(inner.indexOf("<SeededSettingsView"));
-    expect(parentReturn).toBeLessThan(inner.indexOf("<LegacySettingsView"));
   });
 
   it("the parent Settings renders no player-stat field", () => {

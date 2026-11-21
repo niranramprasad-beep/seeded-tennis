@@ -41,8 +41,8 @@ function greeting(now: Date): string {
 }
 
 // Pixel-exact to Today.dc.html: a real rules-based action list (not static
-// mockup copy — see lib/today-actions.ts), fed by the exact same props
-// LegacyDashboardLayout receives from dashboard-view.tsx. The old glass/bento
+// mockup copy — see lib/today-actions.ts), fed by the props
+// dashboard-view.tsx builds (DashboardLayoutProps). The old glass/bento
 // "command center" treatment is gone; this matches the mockup's flat
 // two-column layout.
 export function SeededDashboardLayout({

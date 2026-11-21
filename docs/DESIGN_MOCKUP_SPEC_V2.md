@@ -20,7 +20,7 @@ Radius: 8 buttons/inputs, 12 cards, 16 large cards (auth, onboarding), pill for 
 6. Skeletons have the final layout's exact boxes. CLS < 0.05 everywhere.
 7. One vertical rhythm: 96px between page sections (64 on phones), 40 heading→content, 20 card gap, 12 eyebrow→title.
 8. Focus ring on light = 2px #1F6B4A, offset 2 (lime is too pale on light). Lime ring only on dark. Tap targets ≥44px phone, ≥24px desktop.
-Shared parts: ONE header (logo dot + Seeded · Fit report · Tournament checker · Schools · For parents · Pricing · Sign in · primary "Get my free fit report") and ONE slim footer (Seeded · How we calculate fit · Privacy · Terms · support@seededtennis.com) on every route. Legacy switch lives in Settings → Appearance only.
+Shared parts: ONE header (logo dot + Seeded · Fit report · Tournament checker · Schools · For parents · Pricing · Sign in · primary "Get my free fit report") and ONE slim footer (Seeded · How we calculate fit · Privacy · Terms · support@seededtennis.com) on every route. (The Legacy switch that lived in Settings → Appearance was deleted with Legacy on 2026-11-20; Appearance is Light / Dark / Match system.)
 Estimates: anything projected = dashed line/band + dashed "Estimate" chip. Solid = logged by the player.
 
 ## Board 19 — /pricing v2

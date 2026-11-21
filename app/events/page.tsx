@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// One page for both designs. Legacy used to get a tab switcher over the old
+// The deleted Legacy design used to get a tab switcher here over the old
 // /training planner (which generated plans) and Match mode; both are gone
 // (docs/DECISIONS.md, 2026-11-18).
 export default function EventsPage() {

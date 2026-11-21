@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
-import { getSchoolsLite } from "@/lib/db/schools";
-import { DashboardView } from "@/components/dashboard/dashboard-view";
-import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
+import { redirect } from "next/navigation";
 
-// Behind an AuthGate and disallowed in robots.txt. The meta tag is the
-// belt-and-braces half: robots.txt is a request, a meta robots tag is an
-// instruction to a crawler that already has the page.
+// Still a private route (it resolves, by redirecting), so it keeps the
+// noindex every private page carries.
 export const metadata: Metadata = {
   title: "Dashboard — Seeded",
   robots: { index: false, follow: false },
 };
 
-export default async function DashboardPage() {
-  const schools = await getSchoolsLite();
-
-  return (
-    <SeededRouteRedirect to="/today">
-      <DashboardView schools={schools} />
-    </SeededRouteRedirect>
-  );
+// /dashboard was the Legacy design's home. Legacy is deleted (2026-11-20,
+// PR-LEGACY); /today is the same page now.
+//
+// The query string is DELIBERATELY dropped, exactly as production behaved
+// before this PR (the old client-side redirect lost it too). Whop's checkout
+// returns to /dashboard?checkout=success; keeping the parameter would make
+// CheckoutSync call /api/whop/sync and show its banner on every real
+// purchase — a new live call on the payment path that an independent review
+// flagged as a billing change needing Niran's sign-off (docs/TODO.md
+// "Post-checkout sync never runs"). Until he decides, nothing changes for payers.
+export default function DashboardPage() {
+  redirect("/today");
 }

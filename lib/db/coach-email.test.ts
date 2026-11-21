@@ -384,7 +384,7 @@ describe("a draft with a [bracket] in it can never be copied or sent", () => {
   // Source-level: both composers' buttons read this one function, and both
   // handlers re-check it. A button wired to its own condition (the old
   // `disabled={!recipientValid}`) would let a bracketed draft out.
-  it("both buttons in the Seeded composer, and the legacy Copy, use the shared gate", () => {
+  it("both buttons in the Seeded composer use the shared gate, and copyAll re-checks it", () => {
     const seeded = readFileSync("components/seeded/outreach/seeded-outreach-layout.tsx", "utf8");
     expect(seeded).toMatch(/coachEmailActionState\(\{ subject, body, recipientValid \}\)/);
     expect(seeded).toMatch(/disabled=\{!actions\.gmail\.enabled\}/);
@@ -395,7 +395,6 @@ describe("a draft with a [bracket] in it can never be copied or sent", () => {
 
     const view = readFileSync("components/coaches/coaches-view.tsx", "utf8");
     expect(view).toMatch(/if \(!coachEmailActionState\(\{ subject, body \}\)\.copy\.enabled\) return;/);
-    expect(view).toMatch(/disabled=\{!draftActions\.copy\.enabled\}/);
     // No other path writes the draft to the clipboard or opens Gmail.
     expect(view.match(/clipboard\.writeText/g)).toHaveLength(1);
     expect(view).not.toContain("mail.google.com");

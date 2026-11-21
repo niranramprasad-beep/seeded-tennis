@@ -34,9 +34,9 @@ export const PRIVATE_ROUTE_PREFIXES = [
   "/training",
   "/coaches",
 
-  // Superseded and no longer public content: in the Seeded design
-  // /cost-calculator redirects to /family, so a crawler is bounced to
-  // /login. It was listed in the sitemap as a public page.
+  // Superseded and no longer public content: /cost-calculator redirects to
+  // /family, so a crawler is bounced to /login. It was listed in the
+  // sitemap as a public page.
   "/cost-calculator",
 
   // Never content.

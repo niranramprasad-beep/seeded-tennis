@@ -15,8 +15,8 @@ import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/
 
 // Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No
 // JS viewport detection exists anywhere in this codebase — every other
-// responsive split here is pure CSS breakpoints within one tree (see
-// components/layout/nav.tsx), so the mobile/desktop hero split below
+// responsive split here is pure CSS breakpoints within one tree (as the
+// Seeded nav does), so the mobile/desktop hero split below
 // follows that same convention rather than introducing a new pattern.
 // Nothing on this page animates in: Reveal is a plain <div> since
 // PR-POLISH (2026-11-20), so every section is legible at first paint.
@@ -543,8 +543,8 @@ function ProductShotAction({
 
 function ParentsSection() {
   return (
-    // Deliberately always-dark panel (like a fixed Legacy concept-theme
-    // block), independent of site-wide light/dark mode — bg-[rgb(var(--c-night))] is a
+    // Deliberately always-dark panel, independent of site-wide light/dark
+    // mode — bg-[rgb(var(--c-night))] is a
     // fixed value (matching light mode's own --c-ink) rather than bg-ink,
     // which would otherwise flip bright once the site is in dark mode and
     // break every hardcoded light-on-dark color below it.

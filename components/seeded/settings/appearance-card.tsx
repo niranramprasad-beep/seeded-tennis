@@ -3,26 +3,19 @@
 import { useDesign } from "@/lib/context/design-context";
 import { cn } from "@/lib/utils";
 
-// Pixel-exact to the mockup's "Appearance" card: Light / Dark / Match
-// system / Legacy theme, 4 pills, single-select. Reuses the SAME
-// design-context state the pre-existing DesignSwitcher/dark-mode toggle
-// already drive (see lib/context/design-context.tsx) — this just restyles
-// that real logic as 4 pills instead of duplicating it. Picking "Legacy
-// theme" flips `design` to "legacy", which hands the whole /settings page
-// over to the Legacy branch (with its own existing theme picker) exactly
-// like it would on any other route.
+// The mockup's "Appearance" card: Light / Dark / Match system, 3 pills,
+// single-select, driving the design-context state (see
+// lib/context/design-context.tsx). The mockup's fourth pill, "Legacy
+// theme", is gone with the Legacy design itself (2026-11-20, PR-LEGACY).
 export function AppearanceCard() {
-  const { design, seededMode, systemSync, setDesign, setSeededMode, setSystemSync, hydrated } =
-    useDesign();
-  const isSeeded = design === "seeded";
+  const { seededMode, systemSync, setSeededMode, setSystemSync, hydrated } = useDesign();
 
   const pills: { key: string; label: string; active: boolean; onClick: () => void }[] = [
     {
       key: "light",
       label: "Light",
-      active: hydrated && isSeeded && !systemSync && seededMode === "light",
+      active: hydrated && !systemSync && seededMode === "light",
       onClick: () => {
-        setDesign("seeded");
         setSystemSync(false);
         setSeededMode("light");
       },
@@ -30,9 +23,8 @@ export function AppearanceCard() {
     {
       key: "dark",
       label: "Dark",
-      active: hydrated && isSeeded && !systemSync && seededMode === "dark",
+      active: hydrated && !systemSync && seededMode === "dark",
       onClick: () => {
-        setDesign("seeded");
         setSystemSync(false);
         setSeededMode("dark");
       },
@@ -40,17 +32,10 @@ export function AppearanceCard() {
     {
       key: "system",
       label: "Match system",
-      active: hydrated && isSeeded && systemSync,
+      active: hydrated && systemSync,
       onClick: () => {
-        setDesign("seeded");
         setSystemSync(true);
       },
-    },
-    {
-      key: "legacy",
-      label: "Legacy theme",
-      active: hydrated && !isSeeded,
-      onClick: () => setDesign("legacy"),
     },
   ];
 

@@ -20,6 +20,25 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-20 night — PR-LEGACY (`chore/delete-legacy-theme`; no
+migration, no visual change to Seeded).** P1-UX-2 done: the opt-in Legacy
+design is deleted — its home, pricing, settings, contact/terms/parents/
+how-it-works, /today, /plan, /outreach, /family and tournament-fit branches,
+its nav, sidebar and four-column footer, the nine `data-theme` palettes, the
+palette picker and `ThemeProvider`, the Legacy/Seeded switch
+(`DesignSystemId`, `html[data-design]`), the "Legacy theme" pill in Settings →
+Appearance (now Light / Dark / Match system), two concept-theme fonts and 17
+components reachable only from Legacy. `/dashboard`, `/roadmap`, `/coaches`,
+`/cost-calculator` are server redirects (`/dashboard` keeps its query for
+Whop's `?checkout=success`). A stored "legacy" choice — localStorage
+`seeded.design` or `user_settings…design` — reads as Match system in code
+(`lib/appearance.ts`); an optional cleanup migration is in TODO.
+`lib/no-legacy-theme.test.ts` fails the build if any of it returns
+(mutation-tested). Visual check: production builds of `main` and the branch
+against staging, signed out / demo-player / demo-parent at 320, 375, 1440,
+light and dark (102 pairs): 76 identical; the Settings → Profile pages differ only by the removed pill (54px shorter on phones); 8 pairs differ by a moving "now" (chart estimate slope, calendar time line). WebKit renders /, /pricing and /today. One pin: `html:root` keeps `--font-inter` / `--font-cormorant` as production paints them (merging the CSS chunks had flipped which rule won). Inventory and evidence:
+`~/seeded-evidence/review-ready/r5-legacy/`.
+
 **2026-11-20 night — PR-SWEEP (`fix/sweep-1`): eleven R9 QA-sweep findings fixed in the app.**
 Settings → Profile refuses a blank name and a GPA outside 0–5 (DB CHECK, weighted GPAs allowed)
 inline, `/api/profile` refuses both with a 400 sentence and answers any CHECK violation 400 not
@@ -922,7 +941,7 @@ settings, and the product problem — P1-DATA-1.
   target instead of a hypothetical one.
 - [ ] **P1-DATA-1 Real roster import (migration 012)** — see DATA_QUALITY.md. This is the real fix for P0-3 and the single most valuable product task. Includes coverage below D1-elite: a 5.81 UTR player currently has **zero** schools in range (closest: Middlebury, 4.7 below avg). Without D2/D3/NAIA/JUCO coverage the product has no answer for most juniors.
 - [ ] **P1-UX-1 Theme flips between pages** — Today and Plan render light, Schools/Outreach/Events/Settings render dark in the same session; Settings shows "Match system" selected while localStorage has `seeded.mode=light`; the sidebar toggle label switches between "Light mode" and "Dark mode". Fix the hydration order in `lib/context/design-context.tsx`.
-- [ ] **P1-UX-2 Remove Legacy from the product** — users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
+- [x] **P1-UX-2 Remove Legacy from the product** — DONE 2026-11-20 (PR-LEGACY): deleted, routes kept as server redirects, `lib/no-legacy-theme.test.ts` guards it. Was: users can reach "Legacy theme" (Settings → Appearance) and "Switch to Legacy" (app footer). Legacy doubles every bug surface (two contact pages, two coach views, legacy `/dashboard`, `/training`, `/coaches`, the copilot). Freeze then delete for V1; keep redirects.
 - [ ] **P1-UX-3 Mobile `/schools` table is clipped** — at 390px the "Your fit" column and badge are cut off with no scroll affordance. Make rows stack on mobile.
 - [ ] **P1-UX-4 Mobile `/plan` pace warning collapses** — the warning text wraps to one word per line beside "Show realistic targets". Stack the button under the text below `sm`.
 - [~] **P1-OPS-1 CI** — WORKFLOW COMMITTED, BRANCH PROTECTION STILL NEEDED.
@@ -1031,7 +1050,7 @@ settings, and the product problem — P1-DATA-1.
 - Public recruiting page, alerts
 - Yearly pricing / pricing redesign
 - Transfer portal, similar players, recruiting probability, commitment tracking, roster openings
-- Legacy design system (delete, don't ship)
+- ~~Legacy design system (delete, don't ship)~~ — deleted 2026-11-20 (PR-LEGACY)
 - Stripe
 
 ## Deferred features
@@ -1040,7 +1059,7 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 ---
 
 ## Architecture tasks
-- [ ] P0-6 staging project. [ ] P1-UX-2 delete Legacy. [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
+- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
 
 ## Database tasks
 - [ ] P0-1, P0-2, P1-SEC-2, P1-SEC-6, P1-OPS-3. [ ] Migration 012 teams/players/roster_sources. [ ] Drop dead tables (P3). [ ] RLS test suite (see QA_CHECKLIST.md).

@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { formatTierPrice, type SubscriptionTier } from "@/lib/types";
 import { useTier } from "@/lib/context/tier-context";
-import { useDesign } from "@/lib/context/design-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -40,9 +39,8 @@ export function PaidGate({
   children,
 }: PaidGateProps) {
   const { canAccess, hydrated } = useTier();
-  const { design } = useDesign();
-  const dashboardHref = design === "seeded" ? "/today" : "/dashboard";
-  const dashboardLabel = design === "seeded" ? "Back to Today" : "Back to dashboard";
+  const dashboardHref = "/today";
+  const dashboardLabel = "Back to Today";
 
   if (!hydrated) {
     return (

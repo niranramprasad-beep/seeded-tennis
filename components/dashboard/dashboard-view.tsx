@@ -1,76 +1,29 @@
 "use client";
 
-import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import {
-  ArrowUpRight,
-  Calculator,
-  Check,
-  Compass,
-  Plus,
-  Sparkles,
-  Target,
-} from "lucide-react";
-import type { SchoolLite, WeekdayShort } from "@/lib/types";
+import { Check } from "lucide-react";
+import type { SchoolLite } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { useTier } from "@/lib/context/tier-context";
 import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
-import { projectionPath, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
-import { useFitReport } from "@/lib/hooks/use-fit-report";
+import type { PlanGoal } from "@/lib/fit";
 import type { GoalPace } from "@/lib/school-fit";
 import { Toast } from "@/components/seeded/ui/toast";
 import { AuthGate } from "@/components/shared/auth-gate";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SchoolBadge } from "@/components/shared/school-badge";
-import { AnimatedNumber } from "@/components/shared/animated-number";
-import { Reveal } from "@/components/shared/reveal";
-import { useDesign } from "@/lib/context/design-context";
 import { SeededDashboardLayout } from "@/components/seeded/dashboard/seeded-dashboard-layout";
 import { CheckinDrawer } from "@/components/seeded/dashboard/checkin-drawer";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { formatDate, localDateKey, parseLocalDate } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { formatPlayerUtr, formatUTR, hasRealUtr, utrInputValue } from "@/lib/utils";
+import { formatPlayerUtr, utrInputValue } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
   type UtrEntry,
 } from "@/lib/db/plan";
 import { loadMatches, saveMatch, type MatchRecord } from "@/lib/db/events";
-import { loadTrainingSessions, type TrainingSession } from "@/lib/db/training";
-import { SESSIONS_KEY } from "@/lib/hooks/use-events-calendar";
-import { sessionType } from "@/lib/training/session-types";
-
-const WEEKDAYS: WeekdayShort[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-// Mon-Sun date keys for the week containing `today`, so "This week" can
-// filter the player's real scheduled sessions instead of showing a generic
-// template — the dashboard and /events must agree on what is planned.
-function currentWeekDateKeys(today = new Date()): string[] {
-  const weekday = today.getDay(); // 0=Sun..6=Sat
-  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return localDateKey(d);
-  });
-}
-
-// recharts is a genuinely heavy dependency — load it only on the client,
-// only once this chart actually renders, instead of bundling it into
-// /dashboard's main JS whether or not the chart is needed yet.
-const UTRTrajectoryChart = dynamic(
-  () => import("@/components/charts/utr-trajectory-chart").then((mod) => mod.UTRTrajectoryChart),
-  { ssr: false, loading: () => <Skeleton className="h-72 w-full" /> }
-);
 
 interface DashboardViewProps {
   schools: SchoolLite[];
@@ -86,27 +39,6 @@ export function DashboardView(props: DashboardViewProps) {
 
 function DashboardInner({ schools }: DashboardViewProps) {
   const { player, updatePlayer } = usePlayer();
-  const { tier } = useTier();
-  // Same SWR key /events uses, so both pages share one fetch and can never
-  // disagree about what's actually scheduled this week — the player's own
-  // sessions only (lib/db/training.ts).
-  const { data: sessions } = useSWR<TrainingSession[]>(SESSIONS_KEY, () => loadTrainingSessions());
-  const weekDateKeys = useMemo(() => currentWeekDateKeys(), []);
-  const weekSessions = useMemo(() => {
-    const all = sessions ?? [];
-    return weekDateKeys.map((date, i) => ({
-      day: WEEKDAYS[i],
-      sessions: all.filter((s) => s.date === date),
-    }));
-  }, [sessions, weekDateKeys]);
-  const weeklyHours = useMemo(
-    () =>
-      weekSessions.reduce(
-        (sum, d) => sum + d.sessions.reduce((s, sess) => s + sess.duration / 60, 0),
-        0
-      ),
-    [weekSessions]
-  );
   // SWR caches this under a stable key so flipping to another tab and back
   // shows the last-loaded entries instantly instead of a blank/loading
   // state, then quietly revalidates in the background.
@@ -119,7 +51,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
   // Same "matches" key /matches and /events already use — one shared
   // fetch/cache across every page, so a match logged here (or there) shows
   // up everywhere else instantly, no refetch needed.
-  const { data: matches = [], mutate: mutateMatches } = useSWR<MatchRecord[]>(
+  const { mutate: mutateMatches } = useSWR<MatchRecord[]>(
     "matches",
     () => loadMatches()
   );
@@ -183,21 +115,6 @@ function DashboardInner({ schools }: DashboardViewProps) {
   const planGoal = usePlanGoal(player);
   const roadmap = planGoal.roadmap;
 
-  const targetUTR = planGoal.goal?.value ?? player.currentUTR;
-  // Legacy /today's chart draws the SAME projection as every Seeded screen:
-  // projectionPath(report.utr). It used to fit its own regression
-  // (buildUtrChartSeries → computeUtrProjection) and print a different number.
-  const fitReport = useFitReport({ player, schools: targetSchools });
-  const estimatePath = useMemo(
-    () =>
-      projectionPath({
-        estimate: fitReport?.utr,
-        currentUtr: hasRealUtr(player.currentUTR) ? player.currentUTR : null,
-        graduationYear: player.graduationYear,
-        now,
-      }),
-    [fitReport?.utr, player.currentUTR, player.graduationYear, now]
-  );
   const firstName = player.name.trim().split(/\s+/)[0] || "";
   const [savedToast, setSavedToast] = useState<string | null>(null);
 
@@ -314,21 +231,11 @@ function DashboardInner({ schools }: DashboardViewProps) {
     }
   };
 
-  const { design } = useDesign();
   const layoutProps = {
     firstName,
-    tier,
     player,
-    targetUTR,
-    estimatePath,
-    goalUtr: planGoal.goal?.value ?? null,
-    utrStatus,
-    utrError,
     actualPoints,
     targetPoints,
-    UTRTrajectoryChart,
-    weeklyHours,
-    weekSessions,
     targetSchools,
     setUtrDrawerOpen,
     setCheckinDrawerOpen,
@@ -341,11 +248,7 @@ function DashboardInner({ schools }: DashboardViewProps) {
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      {design === "seeded" ? (
-        <SeededDashboardLayout {...layoutProps} />
-      ) : (
-        <LegacyDashboardLayout {...layoutProps} />
-      )}
+      <SeededDashboardLayout {...layoutProps} />
 
       <UtrLogDrawer
         open={utrDrawerOpen}
@@ -382,20 +285,9 @@ function DashboardInner({ schools }: DashboardViewProps) {
 
 export interface DashboardLayoutProps {
   firstName: string;
-  tier: ReturnType<typeof useTier>["tier"];
   player: ReturnType<typeof usePlayer>["player"];
-  targetUTR: number;
-  /** projectionPath(report.utr): the one projection, for the Legacy chart. */
-  estimatePath: UtrEstimatePoint[];
-  /** The plan goal, or null — never the 0 sentinel. */
-  goalUtr: number | null;
-  utrStatus: "idle" | "loading" | "saving" | "error";
-  utrError: string;
   actualPoints: { date: Date; utr: number }[];
   targetPoints: { date: Date; utr: number }[];
-  UTRTrajectoryChart: typeof UTRTrajectoryChart;
-  weeklyHours: number;
-  weekSessions: { day: WeekdayShort; sessions: TrainingSession[] }[];
   targetSchools: SchoolLite[];
   setUtrDrawerOpen: (v: boolean) => void;
   setCheckinDrawerOpen: (v: boolean) => void;
@@ -409,298 +301,6 @@ export interface DashboardLayoutProps {
   goalPace: GoalPace | null;
   /** Saves the planning estimate as the goal (the pace warning offers it). */
   onUseEstimateGoal: (value: number) => void;
-}
-
-function LegacyDashboardLayout({
-  firstName,
-  tier,
-  player,
-  targetUTR,
-  utrStatus,
-  utrError,
-  actualPoints,
-  targetPoints,
-  estimatePath,
-  goalUtr,
-  UTRTrajectoryChart,
-  weeklyHours,
-  weekSessions,
-  targetSchools,
-  setUtrDrawerOpen,
-  setCheckinDrawerOpen,
-  sundayCheckinDue,
-  setSundayCheckinOpen,
-}: DashboardLayoutProps) {
-  return (
-    <>
-      {/* greeting */}
-      <Reveal className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <span className="eyebrow text-gold">Your workspace</span>
-          <h1 className="display-serif mt-3 text-4xl text-ink sm:text-5xl">
-            {firstName ? `Good to see you, ${firstName}.` : "Good to see you."}
-          </h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={tier === "free" ? "outline" : "leaf"} size="md">
-            {tier === "free"
-              ? "Free plan"
-              : tier === "player"
-                ? "Player plan"
-                : "Family plan"}
-          </Badge>
-          <Button variant="primary" size="sm" onClick={() => setUtrDrawerOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Update UTR
-          </Button>
-        </div>
-      </Reveal>
-
-      {sundayCheckinDue && (
-        <Reveal className="mt-6">
-          <Card className="flex flex-wrap items-center justify-between gap-4 border-grass/25 bg-grass-50 p-5">
-            <div>
-              <p className="font-medium text-ink">Sunday check-in</p>
-              <p className="text-sm text-stone">
-                Quick weekly update — your UTR, plus a match result if you played one.
-              </p>
-            </div>
-            <Button variant="primary" size="sm" onClick={() => setSundayCheckinOpen(true)}>
-              <Sparkles className="h-4 w-4" />
-              Start check-in
-            </Button>
-          </Card>
-        </Reveal>
-      )}
-
-      <div className="mt-8 space-y-8">
-        {/* job 1: show progress */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Reveal index={1} className="min-w-0 lg:col-span-2">
-            <Card className="h-full p-5 sm:p-7">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-ink">Your UTR progress</h2>
-                {utrStatus === "error" && (
-                  <p className="text-xs text-error">{utrError}</p>
-                )}
-              </div>
-              <div className="mt-4">
-                <UTRTrajectoryChart
-                  actualEntries={actualPoints}
-                  targetPoints={targetPoints}
-                  estimatePath={estimatePath}
-                  goalUtr={goalUtr}
-                />
-              </div>
-            </Card>
-          </Reveal>
-
-          {/* The dashboard's thesis moment — the one number a player opens
-              this page to check — so it's the one place on this page that
-              spends the "bold" budget: biggest/heaviest type on the page,
-              plus a single restrained court-line accent bleeding off the
-              corner. No gradient/glow fill on the card itself (Phase 4
-              deliberately removed those everywhere else; this stays solid
-              bg-grass like every other themed surface). */}
-          <Reveal index={2}>
-            <Card className="relative flex h-full flex-col justify-center overflow-hidden bg-grass p-6 text-on-primary shadow-glow">
-              <svg
-                viewBox="0 0 160 160"
-                aria-hidden
-                className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 text-on-primary/20"
-              >
-                {/* Two concentric quarter-circles centered on the card's
-                    own bottom-right corner (160,160) — the only part of
-                    this box the card's `overflow-hidden` doesn't clip away,
-                    so the curves read as court sidelines sweeping in from
-                    the corner rather than vanishing off-card. */}
-                <path
-                  d="M20 160 A140 140 0 0 1 160 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M60 160 A100 100 0 0 1 160 60"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-              <p className="text-sm text-on-primary/80">Your current UTR</p>
-              <div className="relative mt-1 text-6xl font-bold tracking-tight sm:text-7xl">
-                {hasRealUtr(player.currentUTR) ? (
-                  <AnimatedNumber key={player.currentUTR} value={player.currentUTR} decimals={2} />
-                ) : (
-                  <span className="text-3xl font-semibold sm:text-4xl">Not tracked</span>
-                )}
-              </div>
-              <p className="relative mt-3 text-sm text-on-primary/80">
-                {!hasRealUtr(player.currentUTR)
-                  ? "Log a UTR to see how far you are from your goal."
-                  : goalUtr == null
-                    ? "No goal set yet. Set one on your plan."
-                    : targetUTR > player.currentUTR
-                    ? `+${formatUTR(targetUTR - player.currentUTR)} to reach your ${formatUTR(targetUTR)} goal`
-                    : "You're at or above your current goal"}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="relative mt-4 border-on-primary/30 bg-transparent text-on-primary hover:bg-on-primary/10"
-                onClick={() => setUtrDrawerOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Log a new UTR
-              </Button>
-            </Card>
-          </Reveal>
-        </div>
-
-        {/* job 2: what to do this week */}
-        <Reveal index={3}>
-          <Card className="p-5 sm:p-7">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-medium text-ink">This week</h2>
-                <p className="text-sm text-stone">
-                  {Math.round(weeklyHours * 10) / 10} hrs planned
-                </p>
-              </div>
-              <Link
-                href="/events"
-                className="flex min-h-11 shrink-0 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
-              >
-                Open planner
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-4 space-y-1.5">
-              {weekSessions.map(({ day, sessions }, i) => {
-                const hours = sessions.reduce((sum, s) => sum + s.duration / 60, 0);
-                return (
-                  <Reveal
-                    key={day}
-                    index={i}
-                    step={0.04}
-                    className="flex items-center gap-3 rounded-xl border-[0.5px] border-line bg-cream/50 px-3 py-2.5"
-                  >
-                    <span className="w-9 shrink-0 text-xs font-medium uppercase text-stone-light">
-                      {day}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                      {sessions.length === 0 ? (
-                        <span className="text-xs text-stone-light">Rest day</span>
-                      ) : (
-                        sessions.map((s) => {
-                          return (
-                            <span key={s.id} className="rounded-full bg-grass-50 px-2 py-0.5 text-xs font-medium text-grass-700">
-                              {sessionType(s.typeId).label}
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-                    <span className="shrink-0 text-xs text-stone">
-                      {Math.round(hours * 10) / 10}h
-                    </span>
-                  </Reveal>
-                );
-              })}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 w-full"
-              onClick={() => setCheckinDrawerOpen(true)}
-            >
-              <Sparkles className="h-4 w-4" />
-              Log today's check-in
-            </Button>
-          </Card>
-        </Reveal>
-
-        {/* job 3: target schools */}
-        <Reveal index={4}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-ink">Your target schools</h2>
-            <Link
-              href="/roadmap"
-              className="flex min-h-11 items-center gap-1 text-sm text-grass transition-colors hover:text-grass-600"
-            >
-              Full roadmap
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-          {targetSchools.length > 0 ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {targetSchools.map((s, i) => (
-                <Reveal key={s.id} index={i} step={0.05}>
-                  <Link href={`/schools/${s.slug}`}>
-                    <Card interactive className="flex items-center gap-3 p-4">
-                      <SchoolBadge school={s} size={42} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-ink">
-                          {s.shortName}
-                        </p>
-                        <p className="text-xs text-stone-light">
-                          Avg UTR {s.avgRosterUTR} · {s.conference}
-                        </p>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 text-stone-light" />
-                    </Card>
-                  </Link>
-                </Reveal>
-              ))}
-            </div>
-          ) : (
-            <Card className="mt-4 p-6 text-center">
-              <p className="text-sm text-stone">
-                You haven't picked any target schools yet.
-              </p>
-              <Link
-                href="/schools"
-                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-grass hover:text-grass-600"
-              >
-                Browse schools
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </Card>
-          )}
-        </Reveal>
-
-        {/* quick links — kept so match history and cost calculator stay
-            reachable without crowding the three sections above */}
-        <Reveal index={5} className="flex flex-wrap gap-2 border-t-[0.5px] border-line pt-6">
-          <QuickLink href="/matches" icon={Target} label="Results" />
-          <QuickLink href="/tournament-fit" icon={Compass} label="Tournament fit" />
-          <QuickLink href="/cost-calculator" icon={Calculator} label="Cost calculator" />
-        </Reveal>
-      </div>
-    </>
-  );
-}
-
-function QuickLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof Target;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex min-h-11 items-center gap-2 rounded-pill border-[0.5px] border-line bg-card px-4 py-2.5 text-sm font-medium text-stone transition-all hover:-translate-y-0.5 hover:border-grass/25 hover:bg-grass-50 hover:text-ink hover:shadow-soft"
-    >
-      <Icon className="h-4 w-4 text-grass" />
-      {label}
-    </Link>
-  );
 }
 
 function UtrLogDrawer({

@@ -10,16 +10,17 @@ const config: Config = {
     extend: {
       colors: {
         // All theme-aware tokens resolve to CSS variables (RGB triplets) so the
-        // four themes in theme-context.tsx restyle the whole UI at once.
+        // two modes (app/globals.css, :root[data-seeded-mode=…]) restyle the
+        // whole UI at once.
         cream: "rgb(var(--c-bg) / <alpha-value>)",
         card: "rgb(var(--c-card) / <alpha-value>)",
         grass: {
           DEFAULT: "rgb(var(--c-primary) / <alpha-value>)",
           50: "rgb(var(--c-primary-50) / <alpha-value>)",
           100: "rgb(var(--c-primary-100) / <alpha-value>)",
-          // Seeded-only (Legacy themes never define --c-primary-300): range-bar
-          // "team range" fill + the budget chart's "travel" segment — see
-          // app/globals.css's dark-mode block comment for why this exists.
+          // Range-bar "team range" fill + the budget chart's "travel"
+          // segment — see app/globals.css's dark-mode block comment for why
+          // this exists.
           300: "rgb(var(--c-primary-300) / <alpha-value>)",
           600: "rgb(var(--c-primary-600) / <alpha-value>)",
           700: "rgb(var(--c-primary-700) / <alpha-value>)",
@@ -29,8 +30,8 @@ const config: Config = {
         lime: {
           accent: "rgb(var(--c-lime) / <alpha-value>)",
         },
-        // Design system v2 rule 8: green on light, lime on dark. Legacy
-        // themes never define --c-focus, so it falls back to their primary.
+        // Design system v2 rule 8: green on light, lime on dark. Falls back
+        // to the primary wherever --c-focus is not defined.
         focus: "rgb(var(--c-focus, var(--c-primary)) / <alpha-value>)",
         // Fixed in both modes — see app/globals.css: text/borders sitting
         // directly on a solid bg-lime-accent fill (bright in both modes).
@@ -70,13 +71,10 @@ const config: Config = {
         // the "Seeded" wordmark, italic accent words, and numbered section
         // markers all render in across the site.
         serif: ["var(--font-cormorant)", "Georgia", "serif"],
-        // Seeded design system's display/headline face only
-        // (components/seeded/*) — Legacy never references this. Inter Tight,
-        // per the pixel-exact mockups.
+        // Seeded design system's display/headline face (components/seeded/*).
+        // Inter Tight, per the pixel-exact mockups.
         seeded: ["var(--font-inter-tight)", "ui-sans-serif", "system-ui", "sans-serif"],
-        // Resolves to JetBrains Mono under Seeded, IBM Plex Mono under
-        // Legacy's "Night Rally" concept theme — see --font-mono-active in
-        // globals.css.
+        // JetBrains Mono — see --font-mono-active in globals.css.
         mono: ["var(--font-mono-active)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
@@ -106,10 +104,6 @@ const config: Config = {
           "0%": { strokeDashoffset: "1000" },
           "100%": { strokeDashoffset: "0" },
         },
-        float: {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-8px)" },
-        },
       },
       animation: {
         "fade-up": "fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both",
@@ -121,7 +115,6 @@ const config: Config = {
         // the header at 375px (production sweep C3). At rest the value is
         // opacity 1 either way.
         "fade-in": "fade-in 0.15s ease-out backwards",
-        float: "float 5s cubic-bezier(0.45, 0, 0.55, 1) infinite",
       },
       boxShadow: {
         soft: "0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 24px rgba(17, 24, 39, 0.05)",
