@@ -49,7 +49,7 @@ per-player rows). Plan and sizing: `docs/CATALOG_EXPANSION.md`.
 
 | Class | Meaning | Allowed in fit math? | UI treatment |
 |---|---|---|---|
-| `verified` | From an official roster page or UTR profile, checked by a human within the freshness window, with source URL + date | Yes | Number + "Sourced {date}" (never "Verified" — see below) |
+| `verified` | From an official roster page or UTR profile, checked by a human within the freshness window, with source URL + date | Yes | Number + its source and date (never "Verified" — see below) |
 | `reliable` | Official/UTR source, automated or older check, within window | Yes | Number + source date |
 | `partially_reliable` | Team aggregate built from < 70% of roster with known UTR | Yes, low confidence | Number + "Partial roster" |
 | `provisional` | Self-reported or single unconfirmed source | Player's own UTR only | Number + "Self-reported" |
@@ -59,9 +59,13 @@ per-player rows). Plan and sizing: `docs/CATALOG_EXPANSION.md`.
 
 **Wording rule (2026-11-21):** a team range is never labelled "Verified" in
 the UI, whatever its class. Seeded cannot verify a range — it can only say
-where it came from and when. The label is "Sourced {date}" (with the source
-link), "Not tracked" when there is none, and "Unverified estimate"
-(`UTR_RANGE_SOURCE_LABEL`) for today's unsourced catalog numbers.
+where it came from and when. The label names the source and its date — the
+phase-1 code renders `"{source type}: {source}, {date}"` with the source link
+(`lib/catalog/programs.ts`), e.g. "Hand-curated from public sources: …" —
+"Not tracked" when there is no range, and "Unverified estimate"
+(`UTR_RANGE_SOURCE_LABEL`) for today's unsourced catalog numbers. The
+dev-only design-system preview still shows a "Verified" chip; no real range
+uses it.
 
 ## How unreliable UTRs distort outputs
 - **Team averages:** one missing or inflated top player moves a 6-player

@@ -26,7 +26,8 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
   or `design: "legacy"` (user_settings) reads as Match system
   (`lib/appearance.ts`), and `lib/no-legacy-theme.test.ts` fails the build if
   any of it returns. Its routes are server redirects: `/dashboard` →
-  `/today` (query kept, for Whop's `?checkout=success`), `/roadmap` →
+  `/today` (query dropped — Whop's `?checkout=success` does not reach
+  `/today`; see DECISIONS 2026-11-21 on post-checkout sync), `/roadmap` →
   `/plan`, `/coaches` → `/outreach`, `/cost-calculator` → `/family`, like
   `/training` → `/events` and `/match-mode` → `/matches`.
 - Primary nav is five items (Today, Plan, Schools, Outreach, Events) plus a

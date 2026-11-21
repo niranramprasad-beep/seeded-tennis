@@ -12,14 +12,16 @@ Newest first.
 Recorded as given in Niran's Saturday pre-review run brief. The D-/A- numbers
 refer to Niran's own audit list, which is not in this repo.
 
-- **Keep Google Analytics, with privacy guards (replaces D-158).** GA4 stays.
-  It receives the page path only (never the query string — the homepage
-  calculator puts UTR, GPA, grad year and gender there), never loads on
-  `/auth/*` or for an account that needs parental consent, skips automated
-  browsers and internal visits, and the server purchase event carries plan
-  and value only. Built in the `fix/ga-privacy` PR; the privacy-policy wording
-  goes to the lawyer as a proposal (`docs/legal/proposed-policy-edits.md`),
-  not live.
+- **Keep Google Analytics, with privacy guards (replaces D-158).** GA4 stays,
+  and is to be made safe: the page path only (never the query string — the
+  homepage calculator puts UTR, GPA, grad year and gender there), never on
+  `/auth/*` or for an account that needs parental consent, no automated
+  browsers or internal visits, and a server purchase event with plan and
+  value only. **Not built when this was recorded:** on `main` at this commit
+  `components/shared/google-analytics.tsx` still appends the query to
+  `page_path`, so production still sends those calculator values to Google.
+  The fix is the `fix/ga-privacy` PR; the privacy-policy wording goes to the
+  lawyer as a proposal, not live.
 - **The UI revamp happens now, screen by screen (replaces D-107 / D-212).**
   Not a big-bang rewrite: one screen per PR, each through the usual gate.
   Nothing of it ships today.
