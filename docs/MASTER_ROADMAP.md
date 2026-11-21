@@ -20,6 +20,27 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — /plan chart readout fixed (PR fix/chart-hover; no migration).**
+Hovering past "Now" on `PlanTrajectoryChart` stuck the dot at the last logged
+value (the readout clamped every date to the last log), and the crosshair
+drifted when the SVG scaled because the pointer offset was CSS pixels, not
+viewBox units. The readout now reads each line where it is drawn
+(`components/seeded/roadmap/plan-trajectory-values.ts`): Logged only from the
+first log to the last and never after today; Plan along the dashed line and
+nowhere past the last checkpoint (no goal → no Plan row); Estimate with its
+band along `projectionPath`. Pointer events with `touch-action: pan-y`; the
+chart is focusable (arrows step a month, Home/End, Escape) with an
+`aria-live` readout. Guard `plan-trajectory-values.test.ts` (mutation-tested:
+dropped scale factor, Logged past today, sticky last log, plan extrapolated
+or held past its last checkpoint). Screenshots (375/1440, light/dark,
+fake fixture) in `~/seeded-evidence/sat-prereview/pr3-chart/`.
+After review: Logged now shows only a real entry (the latest log on or
+before the date, with its own date, dot on that entry — never an
+interpolated rating); the row is "Planning estimate", distinct from the
+upside line's "Estimate"; the chart is `role="group"` +
+`aria-roledescription="chart"`, announcing on keyboard steps only; series,
+paths and dots all come from the helper module.
+
 **2026-11-21 — Google Analytics kept, made safe (PR-GA-PRIVACY, branch
 `fix/ga-privacy`; no migration).** Audit A-201: every page view sent
 `pathname?query`, and the homepage calculator keeps UTR, GPA, grad year and
