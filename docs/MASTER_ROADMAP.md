@@ -34,6 +34,12 @@ chart is focusable (arrows step a month, Home/End, Escape) with an
 dropped scale factor, Logged past today, sticky last log, plan extrapolated
 or held past its last checkpoint). Screenshots (375/1440, light/dark,
 fake fixture) in `~/seeded-evidence/sat-prereview/pr3-chart/`.
+After review: Logged now shows only a real entry (the latest log on or
+before the date, with its own date, dot on that entry — never an
+interpolated rating); the row is "Planning estimate", distinct from the
+upside line's "Estimate"; the chart is `role="group"` +
+`aria-roledescription="chart"`, announcing on keyboard steps only; series,
+paths and dots all come from the helper module.
 
 **2026-11-21 — The raw roster file is out of the repo (PR-ROSTER, Niran's
 decision; no migration, no app change).** `docs/data/official_rosters_2026-27.tsv`
