@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // An independent review found that "202 accessibility violations to zero"
-// was true only for the Seeded design. `--c-stone-light` is defined in
-// ELEVEN blocks in app/globals.css; Night 2 fixed two and left nine legacy
-// themes between 2.37:1 and 3.85:1. Those themes ship — Settings' legacy
-// branch renders a ThemeSwitcher offering all of them — so the same ~127
-// nodes still failed for anyone who picked one.
+// was true only for the Seeded design. `--c-stone-light` was defined in
+// ELEVEN blocks in app/globals.css; Night 2 fixed two and left nine Legacy
+// themes between 2.37:1 and 3.85:1. Those themes were deleted with the
+// Legacy design (2026-11-20); three blocks remain (the :root base and the
+// two Seeded modes), and every one of them must still pass.
 //
 // This parses the real stylesheet and checks every block, so the claim is
 // something the build verifies rather than something a commit message says.
@@ -72,11 +72,12 @@ const blocks = parseBlocks();
 
 describe("--c-stone-light meets WCAG AA in every theme that ships", () => {
   it("finds every block that defines the token (guards a vacuous sweep)", () => {
-    // Eleven at the time of writing. A parser that silently found none
-    // would make every assertion below pass.
-    expect(blocks.length).toBeGreaterThanOrEqual(11);
-    expect(blocks.some((b) => b.selector.includes('data-theme="grass"'))).toBe(true);
-    expect(blocks.some((b) => b.selector.includes("data-seeded-mode"))).toBe(true);
+    // Three since the Legacy palettes were deleted: :root and the two
+    // Seeded modes. A parser that silently found none would make every
+    // assertion below pass.
+    expect(blocks.length).toBeGreaterThanOrEqual(3);
+    expect(blocks.some((b) => b.selector.trim() === ":root")).toBe(true);
+    expect(blocks.filter((b) => b.selector.includes("data-seeded-mode")).length).toBe(2);
   });
 
   for (const b of blocks) {

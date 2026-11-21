@@ -4,9 +4,6 @@ import { Suspense, useLayoutEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { usePlayer } from "@/lib/context/player-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
-import { useDesign } from "@/lib/context/design-context";
-import { Nav } from "./nav";
-import { Sidebar } from "./sidebar";
 import { SeededNav } from "@/components/seeded/layout/nav";
 import { Footer } from "./footer";
 import { SeededSidebar } from "@/components/seeded/layout/sidebar";
@@ -36,7 +33,7 @@ function useScrollToTopOnRouteChange(pathname: string) {
 // component made internally via `showApp`, just now as two components.
 //
 // While session hydration is still in flight (e.g. a hard navigation
-// straight to an authenticated route like /roadmap, which has to wait on a
+// straight to an authenticated route like /plan, which has to wait on a
 // real round-trip to confirm the session), `isAuthed` briefly reads false
 // even for an already-signed-in user. Rendering neither header during that
 // window avoids flashing the marketing "Sign in / Request access" header at
@@ -63,8 +60,6 @@ function rendersPublicNavBeforeSession(pathname: string): boolean {
 export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated } = usePlayer();
   const { collapsed, hydrated: sidebarHydrated } = useSidebar();
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const pathname = usePathname();
   const showApp = hydrated && isAuthed;
   // Before the session check, an app route lays out as the app (sidebar
@@ -74,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // cannot know yet. A signed-out visitor who opened /today is about to be
   // sent to /login; reserving the sidebar for them shifted the page 0.16.
   const layoutAsApp = showApp;
-  const preSessionAppRoute = !hydrated && isSeeded && !rendersPublicNavBeforeSession(pathname);
+  const preSessionAppRoute = !hydrated && !rendersPublicNavBeforeSession(pathname);
   // /onboarding and /methodology used to be listed here too, each rendering
   // its own cut-down header instead. That was the mockups' structure, and on
   // a real site it meant the two pages a visitor is most likely to land on
@@ -88,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // /sample-report keeps its own header on purpose: it is a standalone
   // artefact of what the weekly parent report looks like, and must never
   // read as part of the authenticated app chrome.
-  const hideSeededNav = isSeeded && pathname === "/sample-report";
+  const hideSeededNav = pathname === "/sample-report";
   useScrollToTopOnRouteChange(pathname);
 
   return (
@@ -103,17 +98,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       {hydrated
         ? showApp
-          ? isSeeded
-            ? (
-              <>
-                <SeededSidebar />
-                <CommandPalette />
-              </>
-            )
-            : <Sidebar />
-          : isSeeded
-            ? hideSeededNav ? null : <SeededNav />
-            : <Nav />
+          ? (
+            <>
+              <SeededSidebar />
+              <CommandPalette />
+            </>
+          )
+          : hideSeededNav ? null : <SeededNav />
         : // Before the session check resolves, a PUBLIC page renders the
           // public nav straight away. It used to render nothing, so the
           // server HTML had no <header> at all: on hydration a 73px nav
@@ -130,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           // and gives <main> the sidebar margin. Without that, a signed-in
           // player opening /schools at desktop width watched the page slide
           // 248px sideways when the sidebar arrived (measured CLS 0.21).
-          rendersPublicNavBeforeSession(pathname) && isSeeded && !hideSeededNav
+          rendersPublicNavBeforeSession(pathname) && !hideSeededNav
           ? (
             <>
               <div className="pre-session-public-nav"><SeededNav /></div>
@@ -155,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         tabIndex={-1}
         className={cn(
           "focus:outline-none",
-          ((!hydrated && isSeeded && rendersPublicNavBeforeSession(pathname)) || preSessionAppRoute) && "pre-session-main",
+          ((!hydrated && rendersPublicNavBeforeSession(pathname)) || preSessionAppRoute) && "pre-session-main",
           preSessionAppRoute && "min-h-screen",
           layoutAsApp && [
             // pb-24 below lg: the phone tab bar (components/seeded/layout/

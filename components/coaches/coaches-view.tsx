@@ -1,21 +1,9 @@
 "use client";
 
-import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  Check,
-  CheckCircle2,
-  Copy,
-  Inbox,
-  Mail,
-  MailCheck,
-  RefreshCw,
-  Reply,
-  Send,
-} from "lucide-react";
+import { Mail } from "lucide-react";
 import { FEATURE_TIER, type School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import {
@@ -36,11 +24,7 @@ import { loadMatches, type MatchRecord } from "@/lib/db/events";
 import { loadUtrEntries, type UtrEntry } from "@/lib/db/plan";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { SchoolBadge } from "@/components/shared/school-badge";
-import { useDesign } from "@/lib/context/design-context";
+import { buttonVariants } from "@/components/ui/button";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
 import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 
@@ -52,15 +36,6 @@ import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 const LEGACY_OUTREACH_KEY = "seeded.outreach";
 
 type StatusMap = OutreachStatusMapDated;
-
-// Legacy's UI only ever showed 3 states (To do / Sent / Replied) and still
-// does — but the underlying table now spans 6 stages (shared with the new
-// Seeded board), so a row this view never wrote itself (e.g. "researching"
-// or "call_visit", created via Seeded) must still map onto that same
-// 3-state vocabulary correctly rather than silently reading as "To do".
-function legacyIsSentOrLater(status?: OutreachStatus): boolean {
-  return status !== undefined && status !== "researching";
-}
 
 export function CoachesView({ schools }: { schools: School[] }) {
   return (
@@ -87,8 +62,6 @@ export function CoachesView({ schools }: { schools: School[] }) {
 }
 
 function CoachesInner({ schools }: { schools: School[] }) {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const { player } = usePlayer();
 
   const targetSchools = useMemo(
@@ -277,13 +250,6 @@ function CoachesInner({ schools }: { schools: School[] }) {
     }
   };
 
-  const regenerate = () => {
-    if (!selectedSchool) return;
-    const email = buildCoachEmail(player, selectedSchool, results, { utrRecordedAt });
-    setSubject(email.subject);
-    setBody(email.body);
-  };
-
   // "New email": a fresh draft for any target school, whatever stage it is
   // in. It used to (a) list only schools with NO outreach row, so a school
   // ever touched (a stage move, "Remind me") could never get a new email,
@@ -318,14 +284,6 @@ function CoachesInner({ schools }: { schools: School[] }) {
     }
   };
 
-  // The legacy composer has Copy only (no Gmail button); it reads the same
-  // gate the Seeded composer's Copy and Open in Gmail read.
-  const draftActions = coachEmailActionState({ subject, body });
-
-  const targetSlugs = targetSchools.map((s) => s.slug);
-  const contactedCount = targetSlugs.filter((s) => legacyIsSentOrLater(statuses[s]?.status)).length;
-  const repliedCount = targetSlugs.filter((s) => statuses[s]?.status === "replied").length;
-
   if (targetSchools.length === 0) {
     return (
       <div className="mx-auto max-w-md px-5 py-24 text-center">
@@ -349,268 +307,30 @@ function CoachesInner({ schools }: { schools: School[] }) {
     );
   }
 
-  if (isSeeded) {
-    return (
-      <div className="mx-auto max-w-content container-px py-10">
-        <SeededOutreachLayout
-          loading={statusesLoading}
-          targetSchools={targetSchools}
-          statuses={statuses}
-          selectedSlug={selectedSchool?.slug ?? null}
-          setSelectedSlug={setSelectedSlug}
-          subject={subject}
-          setSubject={setSubject}
-          body={body}
-          setBody={setBody}
-          copied={copied}
-          copyAll={copyAll}
-          startNewEmail={startNewEmail}
-          setStatus={setStatus}
-          setReminder={setReminder}
-          outreachError={outreachError}
-          replyNote={replyNote}
-          setReplyNote={setReplyNote}
-          saveReplyNote={saveReplyNote}
-          recipient={recipient}
-          setRecipient={setRecipient}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div className="max-w-2xl">
-          <span className="eyebrow text-gold">Coach outreach</span>
-          <h1 className="mt-3 text-4xl sm:text-5xl display-serif text-ink">
-            Emails that sound like{" "}
-            <span className={isSeeded ? "seeded-gradient-text" : "serif-accent text-grass"}>you</span>.
-          </h1>
-          <p className="mt-3 text-pretty leading-relaxed text-stone">
-            Built from your real results — nothing we couldn't stand behind. Edit
-            anything, copy it, and track every coach from sent to replied.
-          </p>
-        </div>
-        {/* pipeline summary */}
-        <div className="flex gap-3">
-          <Stat icon={Send} label="Contacted" value={`${contactedCount}/${targetSchools.length}`} />
-          <Stat icon={Reply} label="Replied" value={String(repliedCount)} />
-        </div>
-      </div>
-
-      <div className="mt-8 grid gap-4 lg:grid-cols-[330px_1fr]">
-        {/* school list */}
-        <div className="flex flex-col gap-3">
-          <span className="text-sm font-medium text-ink">Your target schools</span>
-          {targetSchools.map((s) => {
-            const active = selectedSchool?.slug === s.slug;
-            const status = statuses[s.slug]?.status;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSlug(s.slug)}
-                className={cn(
-                  "flex items-center gap-3 rounded-card border p-3 text-left transition-all",
-                  isSeeded
-                    ? active
-                      ? "border-transparent seeded-glass shadow-seeded-2"
-                      : "border-[rgb(var(--c-line))] hover:shadow-seeded-1"
-                    : active
-                      ? "border-grass bg-grass-50 shadow-soft"
-                      : "border-line bg-card hover:shadow-soft"
-                )}
-              >
-                <SchoolBadge school={s} size={40} />
-                <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-sm font-medium text-ink", isSeeded && "font-seeded")}>
-                    {s.shortName}
-                  </p>
-                  <p className="truncate text-xs text-stone-light">
-                    {s.division} · {s.conference}
-                  </p>
-                </div>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={status ?? "todo"}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    {status === "replied" ? (
-                      <Badge variant="leaf" size="sm">
-                        <MailCheck className="h-3 w-3" />
-                        Replied
-                      </Badge>
-                    ) : legacyIsSentOrLater(status) ? (
-                      <Badge
-                        size="sm"
-                        variant={isSeeded ? undefined : "default"}
-                        style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
-                      >
-                        <Check className="h-3 w-3" />
-                        Sent
-                      </Badge>
-                    ) : (
-                      <Badge variant="muted" size="sm">
-                        <Inbox className="h-3 w-3" />
-                        To do
-                      </Badge>
-                    )}
-                  </motion.span>
-                </AnimatePresence>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* composer */}
-        {selectedSchool && (
-          <motion.div
-            key={selectedSchool.slug}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card className={cn("overflow-hidden", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-              <div className={cn("flex items-center justify-between border-b p-5", isSeeded ? "border-[rgb(var(--c-line))]" : "border-line bg-cream/50")}>
-                <div className="flex items-center gap-3">
-                  <SchoolBadge school={selectedSchool} size={42} />
-                  <div>
-                    <p className="font-medium text-ink">
-                      {selectedSchool.shortName}
-                    </p>
-                    <StaffDirectoryHint school={selectedSchool} className="mt-1" />
-                  </div>
-                </div>
-                <button
-                  onClick={regenerate}
-                  className="flex items-center gap-1.5 text-sm text-stone transition-colors hover:text-grass"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  <span className="hidden sm:inline">Regenerate</span>
-                </button>
-              </div>
-
-              <div className="border-b-[0.5px] border-line p-5">
-                <label className="mb-1.5 block text-xs text-stone-light">
-                  Subject
-                </label>
-                <input
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="w-full bg-transparent text-sm font-medium text-ink focus:outline-none"
-                />
-              </div>
-
-              <div className="p-5">
-                <label className="mb-1.5 block text-xs text-stone-light">
-                  Message
-                </label>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={18}
-                  className="w-full resize-none rounded-card border-[0.5px] border-line bg-cream/40 p-4 text-sm leading-relaxed text-ink focus:outline-none focus:ring-2 focus:ring-grass/20"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 border-t-[0.5px] border-line bg-cream/50 p-5">
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={copyAll}
-                  disabled={!draftActions.copy.enabled}
-                  aria-describedby={draftActions.copy.enabled ? undefined : "coaches-copy-reason"}
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copy email
-                    </>
-                  )}
-                </Button>
-                {legacyIsSentOrLater(statuses[selectedSchool.slug]?.status) ? (
-                  <Button
-                    variant="subtle"
-                    size="md"
-                    onClick={() => setStatus(selectedSchool.slug, null)}
-                  >
-                    <Check className="h-4 w-4" />
-                    Contacted
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => setStatus(selectedSchool.slug, "emailed")}
-                  >
-                    <Send className="h-4 w-4" />
-                    Mark as contacted
-                  </Button>
-                )}
-                <Button
-                  variant={
-                    statuses[selectedSchool.slug]?.status === "replied" ? "leaf" : "ghost"
-                  }
-                  size="md"
-                  onClick={() =>
-                    setStatus(
-                      selectedSchool.slug,
-                      statuses[selectedSchool.slug]?.status === "replied"
-                        ? "emailed"
-                        : "replied"
-                    )
-                  }
-                >
-                  <Reply className="h-4 w-4" />
-                  {statuses[selectedSchool.slug]?.status === "replied"
-                    ? "Coach replied"
-                    : "Mark replied"}
-                </Button>
-                {draftActions.copy.reason && (
-                  <p id="coaches-copy-reason" className="w-full text-xs text-stone">
-                    {draftActions.copy.reason}
-                  </p>
-                )}
-                {outreachError && (
-                  <p className="w-full rounded-xl bg-error-bg px-4 py-2.5 text-sm text-error">
-                    {outreachError}
-                  </p>
-                )}
-              </div>
-            </Card>
-          </motion.div>
-        )}
-      </div>
+      <SeededOutreachLayout
+        loading={statusesLoading}
+        targetSchools={targetSchools}
+        statuses={statuses}
+        selectedSlug={selectedSchool?.slug ?? null}
+        setSelectedSlug={setSelectedSlug}
+        subject={subject}
+        setSubject={setSubject}
+        body={body}
+        setBody={setBody}
+        copied={copied}
+        copyAll={copyAll}
+        startNewEmail={startNewEmail}
+        setStatus={setStatus}
+        setReminder={setReminder}
+        outreachError={outreachError}
+        replyNote={replyNote}
+        setReplyNote={setReplyNote}
+        saveReplyNote={saveReplyNote}
+        recipient={recipient}
+        setRecipient={setRecipient}
+      />
     </div>
-  );
-}
-
-function Stat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Send;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card className="flex items-center gap-3 px-4 py-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-grass-50 text-grass">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div>
-        <p className="text-lg font-medium leading-none text-ink">{value}</p>
-        <p className="mt-1 text-xs text-stone-light">{label}</p>
-      </div>
-    </Card>
   );
 }

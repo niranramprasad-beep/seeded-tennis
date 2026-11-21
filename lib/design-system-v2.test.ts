@@ -263,15 +263,15 @@ describe("rule 8: the focus ring is court green on light, lime only on dark", ()
   const varIn = (b: string, name: string) => b.match(new RegExp(`--${name}:\\s*([\\d\\s]+);`))?.[1].trim();
 
   it("light: --c-focus is the primary; dark: --c-focus is the lime", () => {
-    const light = block('[data-design="seeded"][data-seeded-mode="light"]');
-    const dark = block('[data-design="seeded"][data-seeded-mode="dark"]');
+    const light = block(':root[data-seeded-mode="light"]');
+    const dark = block(':root[data-seeded-mode="dark"]');
     expect(varIn(light, "c-focus")).toBe(varIn(light, "c-primary"));
     expect(varIn(light, "c-focus")).not.toBe(varIn(light, "c-lime"));
     expect(varIn(dark, "c-focus")).toBe(varIn(dark, "c-lime"));
   });
 
   it("every Seeded element gets a 2px, offset-2 ring in --c-focus", () => {
-    expect(css).toMatch(/\[data-design="seeded"\] :focus-visible \{\s*outline: 2px solid rgb\(var\(--c-focus\)\);\s*outline-offset: 2px;/);
+    expect(css).toMatch(/:root :focus-visible \{\s*outline: 2px solid rgb\(var\(--c-focus\)\);\s*outline-offset: 2px;/);
   });
 
   it("no component hard-codes a lime focus ring", () => {
@@ -291,14 +291,9 @@ export const GRADIENT =
   /bg-gradient-|(?:linear|radial|conic)-gradient\(|--s-accent-gradient|seeded-gradient-text|seeded-glass|\brule-gold\b/;
 
 // Files that may keep one, each with the reason. Shrink this list; never
-// grow it without a reason a reviewer would accept.
-const GRADIENT_ALLOWED: Record<string, string> = {
-  "components/layout/footer.tsx":
-    "the gradient sits in `isSeeded ?` branches below `if (isSeeded) return <SlimFooter />` — unreachable for Seeded, Legacy-only in practice",
-  "components/pricing/legacy-pricing-view.tsx": "the Legacy pricing page; Seeded renders seeded-pricing-view.tsx",
-  "components/shared/glow-orb.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
-  "components/shared/spotlight-card.tsx": "used only by Legacy views (legacy-home-view, roadmap-view, pricing-view)",
-};
+// grow it without a reason a reviewer would accept. Empty since the Legacy
+// design and its four entries were deleted (2026-11-20, PR-LEGACY).
+const GRADIENT_ALLOWED: Record<string, string> = {};
 
 const APP_ROUTE_EXTRA_DIRS = ["components/matches", "components/dashboard"];
 

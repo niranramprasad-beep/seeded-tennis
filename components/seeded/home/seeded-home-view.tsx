@@ -543,8 +543,8 @@ function ProductShotAction({
 
 function ParentsSection() {
   return (
-    // Deliberately always-dark panel (like a fixed Legacy concept-theme
-    // block), independent of site-wide light/dark mode — bg-[rgb(var(--c-night))] is a
+    // Deliberately always-dark panel, independent of site-wide light/dark
+    // mode — bg-[rgb(var(--c-night))] is a
     // fixed value (matching light mode's own --c-ink) rather than bg-ink,
     // which would otherwise flip bright once the site is in dark mode and
     // break every hardcoded light-on-dark color below it.

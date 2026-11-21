@@ -31,8 +31,8 @@ for (const r of rows) {
   if (r.imgsNoAlt?.length) add("img without alt", r, r.imgsNoAlt.join(","));
   if (r.h1 !== undefined && r.h1 !== 1 && !/\.(txt|xml)$/.test(r.route)) add(`h1 count ${r.h1}`, r, r.h1Text ?? "");
   if (r.cls > 0.05) add("CLS > 0.05", r, r.cls);
-  const wantMode = r.theme === "dark" || r.theme === "system-dark" ? "dark" : r.theme === "legacy" ? null : "light";
-  if (wantMode && r.renderedMode && r.renderedMode !== wantMode && r.renderedDesign !== "legacy") add("theme not applied", r, `${r.renderedMode}`);
+  const wantMode = r.theme === "dark" || r.theme === "system-dark" ? "dark" : "light";
+  if (r.renderedMode && r.renderedMode !== wantMode) add("theme not applied", r, `${r.renderedMode}`);
   if (r.spinnerOnly) add("blank / spinner only", r, `${r.textLength} chars`);
 }
 console.log(`${rows.length} records`);

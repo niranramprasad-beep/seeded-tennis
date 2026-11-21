@@ -9,11 +9,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  RETIRED_DESIGN_STORAGE_KEY,
+  RETIRED_THEME_STORAGE_KEY,
+  choseRetiredDesign,
+  parseSeededMode,
+  resolveStoredSystemSync,
+  type SeededMode,
+} from "@/lib/appearance";
 
-export type DesignSystemId = "legacy" | "seeded";
-export type SeededMode = "dark" | "light";
+export type { SeededMode } from "@/lib/appearance";
 
-const DESIGN_STORAGE_KEY = "seeded.design";
 const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
 // Separate from SEEDED_MODE_STORAGE_KEY on purpose: `data-seeded-mode` (and
 // everything CSS keys off) must always hold a concrete "dark"/"light" value,
@@ -21,9 +27,11 @@ const SEEDED_MODE_STORAGE_KEY = "seeded.mode";
 // why this stays a parallel preference flag instead of a 3rd SeededMode.
 const SYSTEM_SYNC_STORAGE_KEY = "seeded.mode.system";
 
+// The appearance of the one design, Seeded: Light, Dark or Match system.
+// (There used to be a second, opt-in "Legacy" design chosen here too; it was
+// deleted on 2026-11-20 — see lib/appearance.ts for how a stored "legacy"
+// choice is read now.)
 interface DesignContextValue {
-  design: DesignSystemId;
-  setDesign: (d: DesignSystemId) => void;
   seededMode: SeededMode;
   setSeededMode: (m: SeededMode) => void;
   /** True when the user picked "Match system" in Settings' Appearance card,
@@ -37,80 +45,68 @@ interface DesignContextValue {
    * good — see setSystemSync. */
   systemSync: boolean;
   setSystemSync: (v: boolean) => void;
-  /** Same hydration-gap pattern as ThemeProvider (see theme-context.tsx) —
-   * design/seededMode default to "seeded"/"dark" on the server and first
-   * client render to avoid a hydration mismatch with the pre-paint script in
-   * app/layout.tsx, which has already set the real attributes on <html>
-   * synchronously. Anything that renders design-specific UI should wait for
-   * this before trusting either value. */
+  /** Same hydration-gap pattern as the other contexts — seededMode defaults
+   * to "dark" on the server and first client render to avoid a hydration
+   * mismatch with the pre-paint script in app/layout.tsx, which has already
+   * set the real attribute on <html> synchronously. Anything that renders
+   * mode-specific UI should wait for this before trusting the value. */
   hydrated: boolean;
 }
 
-function systemPrefersDark(): boolean {
+/** The mode the OS currently asks for. */
+export function systemMode(): SeededMode {
   try {
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   } catch {
-    return false;
+    return "light";
   }
 }
 
 const DesignContext = createContext<DesignContextValue | null>(null);
 
 export function DesignProvider({ children }: { children: ReactNode }) {
-  // "seeded" is the default for anyone who has never explicitly chosen —
-  // new visitors and existing ones alike. Legacy is an opt-in escape
-  // hatch now, not the default.
-  const [design, setDesignState] = useState<DesignSystemId>("seeded");
   const [seededMode, setSeededModeState] = useState<SeededMode>("dark");
   const [systemSync, setSystemSyncState] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     // Resolve to a concrete value either way (stored or the default) and
-    // ALWAYS write both attributes — leaving data-seeded-mode unset when
-    // there's no stored preference would mean the
-    // [data-design="seeded"][data-seeded-mode="dark"] selector in
-    // app/globals.css never matches, silently falling through to
-    // Legacy's :root colors despite data-design correctly saying "seeded".
-    let resolvedDesign: DesignSystemId = "seeded";
+    // ALWAYS write the attribute — leaving data-seeded-mode unset would mean
+    // neither :root[data-seeded-mode=…] block in app/globals.css matches.
     let resolvedMode: SeededMode = "dark";
     let resolvedSystemSync = false;
     try {
-      const storedDesign = window.localStorage.getItem(DESIGN_STORAGE_KEY);
-      if (storedDesign === "legacy" || storedDesign === "seeded") resolvedDesign = storedDesign;
-      const storedMode = window.localStorage.getItem(SEEDED_MODE_STORAGE_KEY);
-      if (storedMode === "dark" || storedMode === "light") resolvedMode = storedMode;
-      const storedSystemSync = window.localStorage.getItem(SYSTEM_SYNC_STORAGE_KEY);
+      const storage = window.localStorage;
+      const storedDesign = storage.getItem(RETIRED_DESIGN_STORAGE_KEY);
+      resolvedMode = parseSeededMode(storage.getItem(SEEDED_MODE_STORAGE_KEY)) ?? resolvedMode;
       // A brand-new visitor — nobody has ever saved a preference on this
       // browser, explicit or "system" — gets the OS preference as their
       // real first default instead of a hardcoded "dark", same as "System"
       // means for anyone who picks it later. Once any explicit Light/Dark
       // pill is clicked, setSystemSync(false) below writes "0" here, so
-      // this branch only ever fires once per browser.
-      resolvedSystemSync = storedSystemSync === null ? true : storedSystemSync === "1";
+      // this branch only ever fires once per browser. A browser that had
+      // picked the deleted Legacy design follows the OS too.
+      resolvedSystemSync = resolveStoredSystemSync({
+        systemSync: storage.getItem(SYSTEM_SYNC_STORAGE_KEY),
+        design: storedDesign,
+      });
+      // One-time tidy-up of the deleted design's keys. The Legacy choice is
+      // carried over as an explicit "Match system", so dropping the key
+      // cannot change what the next visit shows.
+      if (choseRetiredDesign(storedDesign)) storage.setItem(SYSTEM_SYNC_STORAGE_KEY, "1");
+      storage.removeItem(RETIRED_DESIGN_STORAGE_KEY);
+      storage.removeItem(RETIRED_THEME_STORAGE_KEY);
       // "Match system" wins over whatever concrete mode was last stored —
       // the stored mode is kept around only as the fallback for the next
       // time systemSync is off (see setSystemSync below).
-      if (resolvedSystemSync) resolvedMode = systemPrefersDark() ? "dark" : "light";
+      if (resolvedSystemSync) resolvedMode = systemMode();
     } catch {
       // ignore
     }
-    setDesignState(resolvedDesign);
     setSeededModeState(resolvedMode);
     setSystemSyncState(resolvedSystemSync);
-    document.documentElement.setAttribute("data-design", resolvedDesign);
     document.documentElement.setAttribute("data-seeded-mode", resolvedMode);
     setHydrated(true);
-  }, []);
-
-  const setDesign = useCallback((d: DesignSystemId) => {
-    setDesignState(d);
-    document.documentElement.setAttribute("data-design", d);
-    try {
-      window.localStorage.setItem(DESIGN_STORAGE_KEY, d);
-    } catch {
-      // ignore
-    }
   }, []);
 
   // The concrete mode actually painted — `data-seeded-mode` (and every CSS
@@ -137,7 +133,7 @@ export function DesignProvider({ children }: { children: ReactNode }) {
       }
       // Resolve immediately so picking "Match system" doesn't wait for the
       // next OS change event to actually take effect.
-      if (v) setSeededMode(systemPrefersDark() ? "dark" : "light");
+      if (v) setSeededMode(systemMode());
     },
     [setSeededMode]
   );
@@ -160,15 +156,13 @@ export function DesignProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      design,
-      setDesign,
       seededMode,
       setSeededMode,
       systemSync,
       setSystemSync,
       hydrated,
     }),
-    [design, setDesign, seededMode, setSeededMode, systemSync, setSystemSync, hydrated]
+    [seededMode, setSeededMode, systemSync, setSystemSync, hydrated]
   );
 
   return <DesignContext.Provider value={value}>{children}</DesignContext.Provider>;

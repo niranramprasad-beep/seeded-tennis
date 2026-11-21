@@ -3,15 +3,28 @@
 @tailwind utilities;
 
 @layer base {
-  :root,
-  [data-theme="grass"] {
+  /* These two used to win over next/font's own `--font-inter` /
+     `--font-cormorant` (set by a class on <html>) only because next/font's
+     CSS happened to load in an EARLIER stylesheet chunk — same specificity,
+     later rule wins. Deleting the Legacy fonts merged the chunks and flipped
+     the order, which changed the fallback glyphs (≈, →) and native <select>
+     text. `html:root` (0,1,1) keeps what production paints regardless of
+     chunk order (PR-LEGACY, 2026-11-20). Dropping this rule would switch to
+     next/font's metric-adjusted fallback — a deliberate visual change for
+     another PR, not a side effect of this one. */
+  html:root {
     --font-inter: "Inter", sans-serif;
     --font-cormorant: "Cormorant Garamond", serif;
-    /* Legacy's "Night Rally" concept theme keeps IBM Plex Mono; Seeded
-       overrides this to JetBrains Mono below. */
-    --font-mono-active: var(--font-plex-mono);
+  }
 
-    /* Grass Court — modern flat white, near-black ink, confident emerald */
+  :root {
+    /* The mono face (font-mono): JetBrains Mono, the mockups' data/number
+       face. */
+    --font-mono-active: var(--font-jetbrains-mono);
+
+    /* Base values every token falls back to. The light and dark blocks
+       below redefine the full --c-* palette for the mode actually painted;
+       this block only matters for tokens they leave alone. */
     --c-bg: 250 250 250;
     --c-card: 255 255 255;
     --c-primary: 21 128 61;
@@ -42,335 +55,37 @@
     --c-error: 156 59 34;
     --c-error-strong: 111 40 22;
 
-    /* Warm accent — set on :root so it cascades to every theme. */
+    /* Warm accent — set on :root so it cascades to both modes. */
     --c-gold: 180 138 74;
 
     /* Text/overlay color for content sitting directly on a solid --c-primary
      * fill (e.g. `bg-grass text-on-primary`). This is NOT the same thing as
      * the page background (--c-bg/"cream") — those only happen to be the
-     * same shade in light themes. Every shipped theme's primary is dark/
-     * saturated enough for white text, so this is set once here and only
-     * overridden by themes whose primary is bright (see concept themes
-     * below). */
+     * same shade in light mode. A mode block below may override it. */
     --c-on-primary: 255 255 255;
 
     --c-scroll-thumb: 209 213 219;
-    --c-thumb-ring: 255 255 255;
-  }
-
-  /* Clay — warm terracotta & sand */
-  [data-theme="clay"] {
-    --c-bg: 251 244 238;
-    --c-card: 255 249 243;
-    --c-primary: 160 67 42;
-    --c-primary-50: 251 238 231;
-    --c-primary-100: 244 219 203;
-    --c-primary-600: 181 83 47;
-    --c-primary-700: 160 67 42;
-    --c-primary-800: 130 52 32;
-    --c-primary-900: 94 37 22;
-    --c-lime: 232 196 154;
-    --c-leaf: 224 121 75;
-    --c-tennis: 242 160 61;
-    --c-ink: 42 33 28;
-    --c-stone: 122 106 95;
-    --c-stone-light: 118 108 98;
-    --c-line: 236 223 210;
-    --c-error-bg: 251 234 229;
-    --c-error: 156 59 34;
-    --c-error-strong: 111 40 22;
-
-    --c-scroll-thumb: 219 198 180;
-    --c-thumb-ring: 255 249 243;
-  }
-
-  /* Night Match — the app's dark mode, built directly off Whop's real design
-     tokens (pulled from whop.com's shipped CSS, not approximated): the exact
-     near-black neutral scale (#111 / #191919 / #222 / ...), their blue-9
-     brand accent (#1754d8), and their green/sky/amber semantic colors reused
-     as Seeded's leaf/tennis/lime secondary accents. Borders are a real,
-     visible (if subtle) gray-6 hairline rather than an invisible one —
-     that's Whop's own card convention, not ours.
-     Fonts: body text already matches (Inter, same as every theme). Headings
-     reuse --font-space-grotesk here in place of the serif — Whop's actual
-     display face (FFF Acid Grotesk) is a commercial font we can't bundle;
-     Space Grotesk is the closest free equivalent in spirit (bold geometric
-     grotesque) and is already loaded in this project. */
-  [data-theme="night"] {
-    --font-cormorant: var(--font-space-grotesk);
-
-    --c-bg: 17 17 17;
-    --c-card: 25 25 25;
-    --c-primary: 23 84 216;
-    --c-primary-50: 17 37 76;
-    --c-primary-100: 20 47 102;
-    --c-primary-600: 64 108 200;
-    --c-primary-700: 23 84 216;
-    --c-primary-800: 136 181 255;
-    --c-primary-900: 209 226 255;
-    --c-lime: 255 197 61;
-    --c-leaf: 48 164 108;
-    --c-tennis: 124 226 254;
-    --c-ink: 238 238 238;
-    --c-stone: 180 180 180;
-    --c-stone-light: 132 132 132;
-    --c-line: 58 58 58;
-    --c-error-bg: 57 23 20;
-    --c-error: 229 77 46;
-    --c-error-strong: 255 151 125;
-
-    --c-scroll-thumb: 72 72 72;
-    --c-thumb-ring: 25 25 25;
-  }
-
-  /* Hard Court — cool off-white, electric blue */
-  [data-theme="hard"] {
-    --c-bg: 244 246 248;
-    --c-card: 255 255 255;
-    --c-primary: 31 111 235;
-    --c-primary-50: 233 241 254;
-    --c-primary-100: 207 224 251;
-    --c-primary-600: 45 123 245;
-    --c-primary-700: 31 111 235;
-    --c-primary-800: 24 87 192;
-    --c-primary-900: 18 63 140;
-    --c-lime: 187 216 255;
-    --c-leaf: 56 189 248;
-    --c-tennis: 34 211 238;
-    --c-ink: 15 23 42;
-    --c-stone: 71 85 105;
-    --c-stone-light: 102 112 127;
-    --c-line: 226 232 240;
-    --c-error-bg: 251 234 229;
-    --c-error: 156 59 34;
-    --c-error-strong: 111 40 22;
-
-    --c-scroll-thumb: 203 213 225;
-    --c-thumb-ring: 255 255 255;
-  }
-
-  /* UTR Pulse — clean sports-tech with sharp rating green */
-  [data-theme="utr"] {
-    --c-bg: 248 250 247;
-    --c-card: 255 255 253;
-    --c-primary: 20 22 16;
-    --c-primary-50: 238 245 231;
-    --c-primary-100: 220 238 203;
-    --c-primary-600: 38 44 31;
-    --c-primary-700: 20 22 16;
-    --c-primary-800: 13 15 11;
-    --c-primary-900: 7 9 6;
-    --c-lime: 183 255 60;
-    --c-leaf: 111 207 58;
-    --c-tennis: 203 255 55;
-    --c-ink: 17 20 14;
-    --c-stone: 88 94 79;
-    --c-stone-light: 109 115 100;
-    --c-line: 222 228 216;
-    --c-error-bg: 251 234 229;
-    --c-error: 156 59 34;
-    --c-error-strong: 111 40 22;
-
-    --c-scroll-thumb: 198 209 188;
-    --c-thumb-ring: 255 255 253;
-  }
-
-  /* Championship — editorial ivory, graphite navy, trophy gold */
-  [data-theme="championship"] {
-    --c-bg: 250 247 239;
-    --c-card: 255 253 247;
-    --c-primary: 22 32 51;
-    --c-primary-50: 239 242 245;
-    --c-primary-100: 216 224 233;
-    --c-primary-600: 34 48 75;
-    --c-primary-700: 22 32 51;
-    --c-primary-800: 15 24 41;
-    --c-primary-900: 10 16 28;
-    --c-lime: 232 218 170;
-    --c-leaf: 200 168 78;
-    --c-tennis: 228 200 105;
-    --c-ink: 22 25 29;
-    --c-stone: 95 91 82;
-    --c-stone-light: 116 112 101;
-    --c-line: 229 222 207;
-    --c-error-bg: 251 234 229;
-    --c-error: 156 59 34;
-    --c-error-strong: 111 40 22;
-
-    --c-scroll-thumb: 211 202 185;
-    --c-thumb-ring: 255 253 247;
-  }
-
-  /* A black shadow is invisible on a near-black background, so dark mode
-     gets its own elevation treatment: a faint light ring standing in for a
-     border, plus a soft blue-tinted glow on the "lift" variant (hover /
-     elevated states) instead of a plain drop shadow — matching Whop's own
-     glossy hover-glow card treatment. */
-  [data-theme="night"] .shadow-soft {
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.06),
-      0 8px 24px rgb(0 0 0 / 0.4);
-  }
-  [data-theme="night"] .shadow-lift {
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.1),
-      0 16px 40px rgb(0 0 0 / 0.5),
-      0 0 32px rgb(23 84 216 / 0.18);
-  }
-
-  /* ---- Design concepts (draft) ----
-     Three live, toggleable directions for finalizing the overall look —
-     pick one via Settings → Theme, compare across real pages, then we
-     finalize and remove the other two. */
-
-  /* Match Point — bold sports-broadcast energy. Deep forest, not navy;
-     volt-chartreuse accent; display type carries real weight. */
-  [data-theme="concept-matchpoint"] {
-    --c-bg: 15 23 16;
-    --c-card: 22 32 26;
-    --c-primary: 198 241 53;
-    /* This theme's primary is a bright volt-chartreuse — white text would be
-     * low-contrast, so dark text wins here instead of the site-wide default. */
-    --c-on-primary: 15 23 16;
-    --c-primary-50: 32 42 20;
-    --c-primary-100: 40 54 24;
-    --c-primary-600: 180 220 60;
-    --c-primary-700: 198 241 53;
-    --c-primary-800: 210 245 90;
-    --c-primary-900: 225 250 140;
-    --c-lime: 216 232 74;
-    --c-leaf: 120 200 110;
-    --c-tennis: 216 232 74;
-    --c-ink: 243 246 238;
-    --c-stone: 155 166 154;
-    --c-stone-light: 128 137 127;
-    --c-line: 27 38 31;
-    --c-error-bg: 45 24 24;
-    --c-error: 248 113 113;
-    --c-error-strong: 254 202 202;
-
-    --c-scroll-thumb: 48 56 46;
-    --c-thumb-ring: 22 32 26;
-  }
-  [data-theme="concept-matchpoint"] .display-serif,
-  [data-theme="concept-matchpoint"] .stat-number {
-    font-family: var(--font-space-grotesk);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-  [data-theme="concept-matchpoint"] .shadow-soft {
-    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 24px rgb(0 0 0 / 0.45);
-  }
-  [data-theme="concept-matchpoint"] .shadow-lift {
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.07),
-      0 16px 40px rgb(0 0 0 / 0.55),
-      0 0 32px rgb(198 241 53 / 0.12);
-  }
-
-  /* Clubhouse — heritage tennis club, executed crisp and cool rather than
-     warm/cream: sage-neutral base, deep pine primary, brass accent. */
-  [data-theme="concept-clubhouse"] {
-    --c-bg: 246 245 240;
-    --c-card: 255 255 255;
-    --c-primary: 30 58 52;
-    --c-primary-50: 230 238 234;
-    --c-primary-100: 210 225 218;
-    --c-primary-600: 40 72 64;
-    --c-primary-700: 30 58 52;
-    --c-primary-800: 22 45 40;
-    --c-primary-900: 15 32 28;
-    --c-lime: 224 204 150;
-    --c-leaf: 184 149 79;
-    --c-tennis: 200 168 96;
-    --c-ink: 21 32 28;
-    --c-stone: 92 102 94;
-    --c-stone-light: 106 112 105;
-    --c-line: 225 222 212;
-    --c-gold: 184 149 79;
-    --c-error-bg: 251 234 229;
-    --c-error: 156 59 34;
-    --c-error-strong: 111 40 22;
-
-    --c-scroll-thumb: 211 206 194;
-    --c-thumb-ring: 255 255 255;
-  }
-  [data-theme="concept-clubhouse"] .display-serif {
-    font-family: var(--font-cormorant);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-  [data-theme="concept-clubhouse"] .serif-accent {
-    font-family: var(--font-cormorant);
-    font-style: italic;
-  }
-
-  /* Night Rally — refined precision-instrument dark mode. Cooler and more
-     restrained than Match Point; every stat number renders in a mono face
-     for a "this is a measuring tool" feel. */
-  [data-theme="concept-nightrally"] {
-    --c-bg: 10 10 12;
-    --c-card: 19 19 22;
-    --c-primary: 52 211 153;
-    /* Bright mint primary — dark text reads better here than the site-wide
-     * white default. */
-    --c-on-primary: 10 10 12;
-    --c-primary-50: 16 36 30;
-    --c-primary-100: 20 46 38;
-    --c-primary-600: 70 224 170;
-    --c-primary-700: 52 211 153;
-    --c-primary-800: 110 231 185;
-    --c-primary-900: 170 240 210;
-    --c-lime: 167 243 208;
-    --c-leaf: 52 211 153;
-    --c-tennis: 110 231 185;
-    --c-ink: 237 237 239;
-    --c-stone: 139 139 147;
-    --c-stone-light: 127 127 134;
-    --c-line: 24 24 28;
-    --c-error-bg: 45 20 24;
-    --c-error: 248 113 140;
-    --c-error-strong: 254 202 214;
-
-    --c-scroll-thumb: 46 46 52;
-    --c-thumb-ring: 19 19 22;
-  }
-  [data-theme="concept-nightrally"] .stat-number {
-    font-family: var(--font-plex-mono);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-  }
-  [data-theme="concept-nightrally"] .shadow-soft {
-    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 24px rgb(0 0 0 / 0.5);
-  }
-  [data-theme="concept-nightrally"] .shadow-lift {
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.07),
-      0 16px 40px rgb(0 0 0 / 0.6),
-      0 0 32px rgb(52 211 153 / 0.14);
   }
 
   /* ---- Seeded design system ----
      Being rebuilt pixel-exact to the 11 Seeded Redesign Mockups
      (DesignSystem.dc.html etc.) — "scoreboard calm": cream bg, court green,
-     ball yellow, clay, mono numerals. Toggled via `data-design`, fully
-     independent of the 9 Legacy `data-theme` palettes above — see
-     lib/context/design-context.tsx. Each mode defines the complete --c-* set
-     Legacy already uses, so every existing var-driven primitive (Button,
-     Card, Badge) works unmodified under Seeded.
+     ball yellow, clay, mono numerals. The mode is `data-seeded-mode` on
+     <html> ("light" | "dark"), set before paint by app/layout.tsx's head
+     script and kept by lib/context/design-context.tsx. Each mode defines the
+     complete --c-* set, so every var-driven primitive (Button, Card, Badge)
+     works unmodified in both. The selectors are `:root[...]`, never a bare
+     `[data-seeded-mode]`, so they keep the specificity (0,2,0) they had
+     when they also carried the deleted `data-design` attribute.
      --s-* vars (glass/mesh/elevation) are TRANSITIONAL: still referenced by
      not-yet-rewritten Seeded components (sidebar, nav, command palette,
      dashboard/roadmap/schools layouts) until later redesign phases migrate
      them off glass/gradient styling. Grep `--s-` under components/seeded to
      track remaining consumers; remove once that grep is empty. */
 
-  [data-design="seeded"] {
-    --font-mono-active: var(--font-jetbrains-mono);
-  }
-
   /* Light — the 11 mockups' one shipped palette. Values unchanged from the
      original single light/dark-duplicate block. */
-  [data-design="seeded"][data-seeded-mode="light"] {
+  :root[data-seeded-mode="light"] {
     /* Design system v2, rule 8: the focus ring on light is court green —
        lime is too pale to see on cream (1.2:1). */
     --c-focus: 31 107 74;
@@ -419,7 +134,6 @@
     --c-error-solid: 194 54 47;
     --c-error-solid-hover: 142 38 32;
     --c-scroll-thumb: 214 211 200;
-    --c-thumb-ring: 255 255 255;
     /* The recurring "secondary" pair every input, dashed empty-state border,
        and outline/secondary button across components/seeded/* was hardcoding
        directly as border-[#D6D3C8]/hover:bg-[#F1EFE8] (40+ call sites) —
@@ -491,7 +205,7 @@
    is now >= 4.5:1 against its own block's --c-bg and --c-card. A comment
    asserting a deliberate exemption is exactly what would get the fix
    reverted by the next reader. */
-  [data-design="seeded"][data-seeded-mode="dark"] {
+  :root[data-seeded-mode="dark"] {
     /* Rule 8: lime is the focus ring on dark only. */
     --c-focus: 222 242 120;
     --c-bg: 14 20 17;
@@ -526,7 +240,6 @@
     --c-error-solid: 194 54 47;
     --c-error-solid-hover: 142 38 32;
     --c-scroll-thumb: 66 78 69;
-    --c-thumb-ring: 23 30 26;
     /* A step lighter than --c-line so inputs/secondary-button outlines read
        as a deliberately stronger border, not just another hairline —
        mirrors light mode's own input-border being a step darker than its
@@ -570,11 +283,10 @@
     --s-glass-bg: rgba(30, 38, 33, 0.72);
     --s-glass-border: rgba(255, 255, 255, 0.08);
     --s-glass-blur: 20px;
-    /* Same "black shadow is invisible on a near-black bg" fix the Legacy
-       "night" theme applies to .shadow-soft/.shadow-lift below, applied
-       here to Seeded's own elevation recipe: a faint light ring stands in
-       for a border, and the top elevation step gets a soft primary-tinted
-       glow instead of relying on shadow darkness alone. */
+    /* A black shadow is invisible on a near-black bg, so dark mode's
+       elevation recipe uses a faint light ring standing in for a border,
+       and the top elevation step gets a soft primary-tinted glow instead of
+       relying on shadow darkness alone. */
     --s-elevation-1: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.35);
     --s-elevation-2: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.45);
     --s-elevation-3:
@@ -601,10 +313,7 @@
     color-scheme: light;
   }
 
-  [data-theme="night"],
-  [data-theme="concept-matchpoint"],
-  [data-theme="concept-nightrally"],
-  [data-design="seeded"][data-seeded-mode="dark"] {
+  :root[data-seeded-mode="dark"] {
     color-scheme: dark;
   }
 
@@ -639,7 +348,7 @@
      on light and lime on dark (--c-focus). A component that draws its own
      ring (focus-visible:outline-none + ring-*) still wins: utilities sit in a
      later layer. */
-  [data-design="seeded"] :focus-visible {
+  :root :focus-visible {
     outline: 2px solid rgb(var(--c-focus));
     outline-offset: 2px;
   }
@@ -647,7 +356,7 @@
      so a screen reader announces them) are never reached by Tab, so a ring
      there is noise — on the onboarding report it drew a green line through
      the headline. Keyboard-reachable elements keep the ring above. */
-  [data-design="seeded"] [tabindex="-1"]:focus-visible {
+  :root [tabindex="-1"]:focus-visible {
     outline: none;
   }
 
@@ -698,8 +407,7 @@
 
   /* Base numeral treatment for every headline stat (AnimatedNumber renders
      this class everywhere). Tabular figures stop digits reflowing width as
-     a count-up animates; the concept themes already layer their own
-     font-family/weight on top of this via higher-specificity selectors. */
+     a count-up animates. */
   .stat-number {
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
@@ -717,34 +425,6 @@
     backdrop-filter: blur(var(--s-glass-blur));
     -webkit-backdrop-filter: blur(var(--s-glass-blur));
     transition: background-color 0.3s ease, border-color 0.3s ease;
-  }
-
-  .seeded-gradient-text {
-    background: var(--s-accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  /* Thin brass divider. */
-  .rule-gold {
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgb(var(--c-gold) / 0.55),
-      transparent
-    );
-  }
-
-  .rule-green {
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgb(var(--c-grass) / 0.32),
-      transparent
-    );
   }
 
   .container-px {
@@ -767,47 +447,6 @@
     @apply relative overflow-hidden rounded-[20px] border border-line bg-card shadow-soft;
   }
 
-  /* Range slider */
-  .seeded-range {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    border-radius: 999px;
-    outline: none;
-    cursor: pointer;
-  }
-  /* Total thumb size (border included, via border-box) is 44px to meet the
-     minimum touch-target size (WCAG 2.5.5) — same visual proportions as
-     before, just a bigger hit area. */
-  .seeded-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    box-sizing: border-box;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgb(var(--c-primary));
-    border: 6px solid rgb(var(--c-thumb-ring));
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    transition: transform 0.15s ease;
-  }
-  .seeded-range::-webkit-slider-thumb:hover {
-    transform: scale(1.08);
-  }
-  .seeded-range:active::-webkit-slider-thumb {
-    transform: scale(0.96);
-  }
-  .seeded-range::-moz-range-thumb {
-    box-sizing: border-box;
-    width: 44px;
-    height: 44px;
-    border: 6px solid rgb(var(--c-thumb-ring));
-    border-radius: 50%;
-    background: rgb(var(--c-primary));
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-  }
 }
 
 @layer utilities {
@@ -816,15 +455,6 @@
   }
   .text-pretty {
     text-wrap: pretty;
-  }
-
-  /* Faint dot-grid texture, the structural backdrop premium SaaS pages use
-     instead of a flat fill — paired with a radial mask so it fades out
-     before reaching a section's edges rather than cutting off hard. */
-  .bg-grid-dots {
-    background-image: radial-gradient(rgb(var(--c-ink) / 0.08) 1px, transparent 1px);
-    background-size: 24px 24px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent 75%);
   }
 }
 

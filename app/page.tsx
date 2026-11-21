@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSchoolsLite } from "@/lib/db/schools";
-import { HomeDesignSwitch } from "@/components/home/home-design-switch";
+import { SeededHomeView } from "@/components/seeded/home/seeded-home-view";
 import { AuthedHomeRedirect } from "@/components/home/authed-home-redirect";
 
 export const metadata: Metadata = {
@@ -12,12 +12,11 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const schools = await getSchoolsLite();
-  const marqueeSchools = schools.slice(0, 18);
 
   return (
     <>
       <AuthedHomeRedirect />
-      <HomeDesignSwitch schools={schools} marqueeSchools={marqueeSchools} />
+      <SeededHomeView schools={schools} />
     </>
   );
 }

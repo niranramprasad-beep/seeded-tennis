@@ -9,7 +9,6 @@ import useSWR from "swr";
 import { usePlayer } from "@/lib/context/player-context";
 import { loadMyConsentState } from "@/lib/db/family-join";
 import { ConsentPendingScreen } from "@/components/seeded/family/consent-pending-screen";
-import { useDesign } from "@/lib/context/design-context";
 import { loginHrefFor } from "@/lib/config/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,14 +52,10 @@ export function AuthGate({
   // because on the first effect pass `awaitingParentConsent` is false for
   // everyone, including an account that is in fact waiting.
   const consentResolved = consent !== undefined;
-  const { design } = useDesign();
   const router = useRouter();
   const pathname = usePathname();
-  // Where a blocked player lands depends on design: Seeded's home for that
-  // role moved to /today in Phase 3, Legacy's stayed at /dashboard. Reading
-  // this directly (rather than letting the old /dashboard route's own
-  // SeededRouteRedirect handle it) avoids a double-redirect flash.
-  const playerHome = design === "seeded" ? "/today" : "/dashboard";
+  // A blocked player lands on their home, /today.
+  const playerHome = "/today";
 
   useEffect(() => {
     if (!hydrated || connectionError) return;

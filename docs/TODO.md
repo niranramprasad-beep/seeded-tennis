@@ -106,11 +106,11 @@ polish PR (Niran, 2026-11-16):**
    grade and men's. They are visible choices the player confirms, not silent
    defaults, but they produce a graduation year and a growth curve the
    player never chose if they click through.
-7. **Delete Legacy (P1-UX-2).** Tonight found Legacy-only raw hex colours
-   (`components/tournaments/tournament-fit-view.tsx`,
-   `components/home/fit-finder-teaser.tsx`), a Legacy match-mode "8pm
-   reminder" (browser notifications while open), and Legacy school-page
-   copy; every honesty guard covers Legacy twice.
+7. ~~**Delete Legacy (P1-UX-2).**~~ **DONE 2026-11-20 (PR-LEGACY,
+   `chore/delete-legacy-theme`).** Every Legacy view, palette, font and
+   switch is deleted; its four routes are server redirects;
+   `lib/no-legacy-theme.test.ts` fails the build if any of it returns. The
+   one follow-up is the optional cleanup migration under "Smaller things".
 8. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
    `http://localhost` return URL, so the four checkout starts could only be
    checked to the request. `/api/whop/checkout` now pins the return URL to
@@ -228,8 +228,7 @@ Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
     every roster number reads "Unverified estimate". P1-FIT-4 made this
     sharper, not softer — a 3.0 visitor now correctly sees 0 programs in
     range, which is the honest answer and a bad product.
-11. **P1-UX-2** — delete Legacy. Last place with its own copy and its own
-    coach view; every honesty guard has to cover it twice.
+11. ~~**P1-UX-2** — delete Legacy.~~ DONE 2026-11-20 (PR-LEGACY).
 12. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
     middleware, and `main`'s middleware is currently the maintenance page,
     so this waits until that is reverted (P2).
@@ -382,6 +381,21 @@ Specifically needs a human with legal training:
   Week 2, not launch-blocking.
 
 ## Smaller things worth not forgetting
+
+- **Optional: a cleanup migration for stored "legacy" appearance values**
+  (PR-LEGACY, 2026-11-20). The Legacy design is deleted, but accounts that
+  had picked it still hold `user_settings.notification_preferences.design =
+  'legacy'` (and browsers hold localStorage `seeded.design = 'legacy'`). The
+  code reads both as "Match system" (`lib/appearance.ts`), never Legacy, so
+  nothing is broken. The browser key is removed on the next visit; the
+  database key is dropped the next time the account picks Light/Dark/Match
+  system (`saveDesignPreference`). A migration could drop every `design` key
+  from the bag in one go (`update user_settings set notification_preferences
+  = notification_preferences - 'design' where notification_preferences ?
+  'design'`) — staging first, then production on Niran's go. Once it has run
+  and no browser can still hold the key, `RETIRED_DESIGN_*` and
+  `choseRetiredDesign` can go, with their allow-list entries in
+  `lib/no-legacy-theme.test.ts`. Not urgent; not a blocker.
 
 - Regenerate `lib/db/database.types.ts` against production after the
   rollout. It is currently hand-maintained against staging: `profiles`

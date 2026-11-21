@@ -7,9 +7,8 @@ import { useTier } from "@/lib/context/tier-context";
 import { usePlayer } from "@/lib/context/player-context";
 import { getSupabase } from "@/lib/supabase/client";
 
-// The checkout wiring both pricing designs share, moved here unchanged from
-// pricing-view.tsx's choose()/manageBilling() so the Seeded and Legacy cards
-// cannot drift into two behaviours.
+// The /pricing checkout wiring: plan choice, sign-in hand-off and the
+// billing-portal link, kept out of the view so it can be read on its own.
 
 async function getAccessToken(): Promise<string | undefined> {
   const supabase = getSupabase();

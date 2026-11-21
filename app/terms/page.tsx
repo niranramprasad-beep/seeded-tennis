@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/shared/reveal";
-import { useDesign } from "@/lib/context/design-context";
 
 const TERMS = [
   {
@@ -45,35 +43,7 @@ function PrivacyLink() {
 }
 
 export default function TermsPage() {
-  const { design } = useDesign();
-  return design === "seeded" ? <SeededTerms /> : <LegacyTerms />;
-}
-
-function LegacyTerms() {
-  return (
-    <div className="mx-auto max-w-4xl container-px py-16">
-      <div className="mb-8">
-        <p className="font-serif text-lg italic text-leaf-accent">Seeded terms</p>
-        <h1 className="mt-2 text-4xl font-light tracking-tight text-ink">Terms, kept simple.</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone">
-          These are the current terms for using Seeded, effective 2026-11-15. We'll post an update here if anything changes.
-        </p>
-      </div>
-      <Card className="divide-y-[0.5px] divide-line">
-        {TERMS.map((term) => (
-          <section
-            key={term.title}
-            id={term.title === "Privacy" ? "privacy" : undefined}
-            className="scroll-mt-20 p-6 sm:p-8"
-          >
-            <h2 className="text-xl font-medium text-ink">{term.title}</h2>
-            <p className="mt-3 leading-relaxed text-stone">{term.body}</p>
-          </section>
-        ))}
-      </Card>
-      <PrivacyLink />
-    </div>
-  );
+  return <SeededTerms />;
 }
 
 function SeededTerms() {

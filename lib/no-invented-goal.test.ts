@@ -137,10 +137,7 @@ describe("no invented tournament goal (049)", () => {
   });
 
   it("every screen that shows the planned count goes through plannedThisSeason()", () => {
-    for (const f of [
-      join("components", "parents", "parent-dashboard-view.tsx"),
-      join("components", "seeded", "settings", "profile-card.tsx"),
-    ]) {
+    for (const f of [join("components", "seeded", "settings", "profile-card.tsx")]) {
       expect(readFileSync(f, "utf8")).toContain("plannedThisSeason(");
     }
   });

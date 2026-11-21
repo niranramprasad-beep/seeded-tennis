@@ -6,15 +6,14 @@
 // NULL now means "Not set", and nothing in the app may supply a number the
 // player did not give (lib/no-invented-goal.test.ts fails the build).
 //
-// "Played this season" is NOT stored on the profile any more. It is counted
-// from the player's own tournament_entries rows marked Played (047) whose
-// event date falls in the current season (lib/time.ts seasonKey()).
+// "Played this season" is NOT stored on the profile any more. The one screen
+// that counted it (from tournament_entries marked Played, 047) was the Legacy
+// parent dashboard, deleted with the Legacy design on 2026-11-20.
 //
 // Pure — no Supabase — so the diagnostic, Settings, the dashboards and the
 // tests share one rule.
 
-import type { TournamentEntryStatus } from "@/lib/tournament-status";
-import { parseLocalDate, seasonKey } from "@/lib/time";
+import { seasonKey } from "@/lib/time";
 
 export const TOURNAMENTS_PLANNED_LABEL = "Tournaments planned this season";
 export const TOURNAMENTS_PLANNED_NOT_SET = "Not set";
@@ -75,13 +74,3 @@ export function formatTournamentsPlanned(v: number | null | undefined): string {
   return v == null ? TOURNAMENTS_PLANNED_NOT_SET : String(v);
 }
 
-/** How many of these entries were PLAYED in the season `now` is in. The
- * caller passes one player's entries (never a pooled family list). */
-export function countPlayedThisSeason(
-  entries: ReadonlyArray<{ status: TournamentEntryStatus; eventDate: string }>,
-  now: Date = new Date()
-): number {
-  const current = seasonKey(now);
-  return entries.filter((e) => e.status === "played" && e.eventDate && seasonKey(parseLocalDate(e.eventDate)) === current)
-    .length;
-}

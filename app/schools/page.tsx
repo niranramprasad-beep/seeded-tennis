@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import {
-  getCatalogCounts,
-  getConferences,
-  getDivisions,
-  getSchools,
-  getStates,
-} from "@/lib/db/schools";
+import { getDivisions, getSchools } from "@/lib/db/schools";
 import { SchoolsBrowser } from "@/components/schools/schools-browser";
-import { SchoolsHeader } from "@/components/seeded/schools/seeded-schools-header";
 import { ImportedProgramsSection } from "@/components/schools/imported-programs-section";
 import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
 
@@ -19,26 +12,15 @@ export const metadata: Metadata = {
 };
 
 export default async function SchoolsPage() {
-  const [schools, conferences, states, divisions, counts] = await Promise.all([
-    getSchools(),
-    getConferences(),
-    getStates(),
-    getDivisions(),
-    getCatalogCounts(),
-  ]);
+  const [schools, divisions] = await Promise.all([getSchools(), getDivisions()]);
 
   return (
     <>
       <div className="mx-auto max-w-content container-px py-10">
-        <SchoolsHeader counts={counts} />
-
+        {/* The title/subtitle/search row lives inside SeededSchoolsBrowser
+            (it needs the live ranked count). */}
         <div className="mt-8">
-          <SchoolsBrowser
-            schools={schools}
-            conferences={conferences}
-            states={states}
-            divisions={divisions}
-          />
+          <SchoolsBrowser schools={schools} divisions={divisions} />
         </div>
 
         {/* Catalog phase 1 (048). Off by default; off = this page unchanged. */}

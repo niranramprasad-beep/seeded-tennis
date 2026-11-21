@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { CalendarCheck, MailCheck, ShieldCheck, TrendingUp } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { FadeIn } from "@/components/shared/fade-in";
 import { Reveal } from "@/components/shared/reveal";
-import { useDesign } from "@/lib/context/design-context";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 
 const items = [
@@ -39,50 +34,7 @@ const items = [
 ];
 
 export default function ParentsPage() {
-  const { design } = useDesign();
-  return design === "seeded" ? <SeededParents /> : <LegacyParents />;
-}
-
-function LegacyParents() {
-  return (
-    <>
-      <div className="mx-auto max-w-content container-px py-16">
-        <FadeIn className="max-w-3xl">
-          <Badge variant="leaf" size="md">For parents</Badge>
-          <h1 className="mt-5 text-balance text-4xl font-light tracking-tight text-ink sm:text-6xl">
-            A calmer way to manage{" "}
-            <span className="serif-accent text-grass">college tennis</span> recruiting.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-stone">
-            Seeded gives families one place for school fit, UTR progress, tournaments,
-            spending and coach outreach &mdash; without the spreadsheet spiral.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="/signup" className={buttonVariants({ variant: "primary", size: "lg" })}>
-              Start a family account
-            </Link>
-            <Link href="/pricing" className={buttonVariants({ variant: "outline", size: "lg" })}>
-              See plans
-            </Link>
-          </div>
-        </FadeIn>
-
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
-          {items.map((item, i) => (
-            <FadeIn key={item.title} delay={i * 0.08}>
-              <Card interactive className="h-full p-7">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grass text-on-primary">
-                  <item.icon className="h-5 w-5" />
-                </span>
-                <h2 className="mt-5 text-xl font-medium text-ink">{item.title}</h2>
-                <p className="mt-2 leading-relaxed text-stone">{item.body}</p>
-              </Card>
-            </FadeIn>
-          ))}
-        </div>
-      </div>
-    </>
-  );
+  return <SeededParents />;
 }
 
 function SeededParents() {
