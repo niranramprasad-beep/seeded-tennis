@@ -66,6 +66,27 @@ told), no error grouping, no roster-freshness check. The honest path to
 alerts is a Vercel log drain or Sentry; both need an account/plan decision
 from Niran.
 
+**2026-11-21 — `lib/fit.ts` split (branch `refactor/fit-split`; pure move,
+no behaviour change, no migration, NEXT 10 item 8's first file).** The
+1,345-line fit engine is now `lib/fit/pace.ts` (the planning pace cap,
+logged pace), `projection.ts` (`recruitingTimeUtr` and the chart paths),
+`goal.ts` (the plan goal and its pace banner), `bands.ts` (`buildFitReport`,
+what is read off the report) and `diagnostic.ts` (onboarding). `lib/fit.ts`
+only re-exports the same 56 names (39 values, 17 types), so no importer
+changed; imports run one way (pace → projection → goal/bands → diagnostic).
+Proof: before anything moved, all 62 top-level statements of the original
+were hashed with their leading comments into
+`lib/fit/__split-manifest.json`; `lib/fit-split-purity.test.ts` asserts each
+is byte-identical in exactly one new file, nothing else is declared, the
+barrel's export list (source and loaded module) is the original's, no
+cycles, and nothing imports `lib/fit/*` directly. That test is a snapshot:
+changing a fit declaration on purpose means re-recording it
+(`FIT_SPLIT_MANIFEST_FROM=engine`, see the test). The guards that read or
+allow-listed `lib/fit.ts` (fit-single-source, projection-single-source,
+pace-honesty, plan-goal) now use `FIT_ENGINE_FILES`
+(`lib/fit/engine-files.ts`), each mutation-tested against the moved code and
+against a new file outside the set.
+
 **2026-11-21 — Honest zero state and pace copy (PR fix/honest-zero-state;
 no migration, copy and zero-state logic only; audit A-001/002/005/006/007/
 008/022/035).** The homepage card no longer shows "0 / 0 / 0" or "See my —
@@ -1378,8 +1399,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
 6. **Wire the recruiting checklist into Today.**
 7. **Weekly email** — needs a real sending path (none exists; "Remind them"
    only re-sorts). Copy must not promise it before then.
-8. **File splits**: `lib/fit.ts`, `lib/auth.ts`, the schools browser,
-   `signup-flow.tsx`, the dashboard view (boundaries in REVIEWER_GUIDE §9).
+8. **File splits**: ~~`lib/fit.ts`~~ (DONE 2026-11-21, `refactor/fit-split`:
+   a pure move into `lib/fit/*.ts`, `lib/fit.ts` a barrel), `lib/auth.ts`,
+   the schools browser, `signup-flow.tsx`, the dashboard view (boundaries in
+   REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
 10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no

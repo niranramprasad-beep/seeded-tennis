@@ -1,0 +1,565 @@
+{
+  "about": "Every top-level statement of lib/fit.ts (imports excepted), hashed with its leading comments. lib/fit-split-purity.test.ts checks the engine files against it. Re-record with FIT_SPLIT_MANIFEST_FROM=engine only when a fit declaration changed on purpose.",
+  "source": "lib/fit.ts at origin/main 5c57deb (before the split)",
+  "sourceSha256": "af88f8de0df245fbace5788646fbca82c2335590f7e76059aa4eca4f7b8c06d1",
+  "exports": {
+    "values": [
+      "LOGGED_PACE_MAX_MONTHS",
+      "LOGGED_PACE_MIN_MONTHS",
+      "LOGGED_PACE_YEAR_AGO_FROM_MONTHS",
+      "PACE_STRETCH_MARGIN_PER_YEAR",
+      "PACE_STRETCH_NOTE",
+      "PLANNING_PACE_CAP_PER_YEAR",
+      "PLANNING_RULE_SENTENCE",
+      "SUMMER_STARTED_NOTE",
+      "buildDiagnosticFitReport",
+      "buildFitReport",
+      "chartEndLabels",
+      "closestSchoolsFromReport",
+      "compareSchoolBands",
+      "countBands",
+      "diagnosticProjection",
+      "estimateOnDate",
+      "formatPacePerYear",
+      "isRealisticTarget",
+      "isUsableUtr",
+      "loggedPaceAssumption",
+      "loggedPaceFor",
+      "paceUpsideSentence",
+      "planGoalInputError",
+      "planGoalNeedsPaceWarning",
+      "planGoalPaceSeverity",
+      "planningPacePerYear",
+      "playerPacePerYear",
+      "projectUtrAtRecruiting",
+      "projectedUtrOn",
+      "projectionAssumptionLabel",
+      "projectionPath",
+      "projectionReachDate",
+      "projectionTargetDate",
+      "projectionTargetLabel",
+      "recruitingTimeUtr",
+      "resolvePlanGoal",
+      "upsideProjectionPath",
+      "utrHistoryFromEntries",
+      "yearsUntilRecruiting"
+    ],
+    "types": [
+      "BandCounts",
+      "DiagnosticProjection",
+      "DiagnosticProjectionBasis",
+      "FitBasisKind",
+      "FitReport",
+      "FitRow",
+      "FitView",
+      "LoggedPace",
+      "PaceUpside",
+      "PlanGoal",
+      "PlanGoalPaceSeverity",
+      "ProjectionSubject",
+      "RecruitingTimeUtr",
+      "RecruitingUtrSource",
+      "SchoolBandComparison",
+      "UtrEstimatePoint",
+      "UtrProjection"
+    ]
+  },
+  "declarations": [
+    {
+      "names": [
+        "formatPacePerYear"
+      ],
+      "kind": "ExportDeclaration",
+      "exported": true,
+      "sha256": "d5d194df607ce56e6757226368509c8335e3f7e88098ac91361294db21483dc0"
+    },
+    {
+      "names": [
+        "UtrProjection"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "9aaea91f26c22d42c88fc249f0c659d69b5084cd692c9ef2cd76a1e1ce965496"
+    },
+    {
+      "names": [
+        "SchoolBandComparison"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "785f07e29fece73aa18335e011fee81daab94e3c5809bb0744d56c624e997cb3"
+    },
+    {
+      "names": [
+        "MS_PER_YEAR"
+      ],
+      "kind": "VariableStatement",
+      "exported": false,
+      "sha256": "dc2a54ed9782aae026412ba08916f69422231197c58c2100153840ff0d6cb8db"
+    },
+    {
+      "names": [
+        "PLANNING_PACE_CAP_PER_YEAR"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "4670492f4558bf708cdcf9469e1180d043b0ae2bd9f19c4c6a8227cffb82eb79"
+    },
+    {
+      "names": [
+        "planningPacePerYear"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "74184100e02eda7232edd95f8233abb782a5e9a733aaacd78eb2d53dea7a30c9"
+    },
+    {
+      "names": [
+        "projectionTargetDate"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "ae5b572de9a84551bfd46d8b4069a36cb8b7d92054ad3c5dfebeedde7d03f39f"
+    },
+    {
+      "names": [
+        "projectionTargetLabel"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "432611fef32869b64770db9b676744f0aa6cf56ffbc2079e93f0f09ebeb7635c"
+    },
+    {
+      "names": [
+        "yearsUntilRecruiting"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "71977f66817938e9b5165fd512b36630effb80bc34fe2f6754b8bdf48acd7e31"
+    },
+    {
+      "names": [
+        "projectUtrAtRecruiting"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "6917dcf38e51bc94824281585ccf2d0087b85ab52431942a780252ab69ae74d4"
+    },
+    {
+      "names": [
+        "ProjectionSubject"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "245a4e2ff3c7e6d9daa2251d8042923b28a392a1805d37069ce48cd0b2db7115"
+    },
+    {
+      "names": [
+        "projectedUtrOn"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "8cbf497df169a07dfadc18c008409c66d26fcbee45eb50d5c7b2f7d50b37df35"
+    },
+    {
+      "names": [
+        "projectionReachDate"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "f357fa099430606dcfefb6ea20389428c8e28dd665b5741f744a985337c0704b"
+    },
+    {
+      "names": [
+        "UtrEstimatePoint"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "bdc82d7dae9daeb4f75f3408aa1fc2fd2e424a58e4b69f0e6d148ea736dc4680"
+    },
+    {
+      "names": [
+        "projectionPath"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "b8c6bd070591ee688c2c6fbef000467588525a9d49a4919b8675f4f24bac204d"
+    },
+    {
+      "names": [
+        "upsideProjectionPath"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "f4c3e6d335a7ea86e4345055304a42ff7b542881c2e4ef85f2c5dc6bdc8a2bbf"
+    },
+    {
+      "names": [
+        "chartEndLabels"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "409e6c58b2b23dc1f1d375911bedd304274e4acbf6d6e1cd41a2883890db5fce"
+    },
+    {
+      "names": [
+        "estimateOnDate"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "02f5c6266a0c80b2d231a728f17041e3b0da0294cb360b5c32b3e742703ff17f"
+    },
+    {
+      "names": [
+        "PlanGoal"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "bb63e29ad63c4e9c723058af1f25216dd47fb8a9d6fe38994e38cb7d3d9ce0fe"
+    },
+    {
+      "names": [
+        "resolvePlanGoal"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "72798ce0d45180f27c25232f1c0c6c0deeb1f345e600af5ae5f66304f824b30a"
+    },
+    {
+      "names": [
+        "PACE_STRETCH_MARGIN_PER_YEAR"
+      ],
+      "kind": "ExportDeclaration",
+      "exported": true,
+      "sha256": "8232cfa351953a8744679652a961cc423bdc2d754060c6932303172a33f826d9"
+    },
+    {
+      "names": [
+        "PlanGoalPaceSeverity"
+      ],
+      "kind": "TypeAliasDeclaration",
+      "exported": true,
+      "sha256": "f55cb767b486bad269bdd41c1f6ae5df2bae179a3619bf88f4b1c46f5dfb03f2"
+    },
+    {
+      "names": [
+        "planGoalPaceSeverity"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "55bf459cfb88807ef95604b22be45ac5bc02b146fe21865c51c56f6e1994beaf"
+    },
+    {
+      "names": [
+        "planGoalNeedsPaceWarning"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "5f29b1bf7779454b48445ac65683fa466f082e308ec8c768cc59c6181d9a2413"
+    },
+    {
+      "names": [
+        "PLANNING_RULE_SENTENCE"
+      ],
+      "kind": "ExportDeclaration",
+      "exported": true,
+      "sha256": "9689b7fdbc9fe15499653892b1cefceb2ae251c8e50e6b7637dc63a62209f62c"
+    },
+    {
+      "names": [
+        "PACE_STRETCH_NOTE"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "83ed7d0ec25e8ea0b9a002c828fee4ae9164c28f61604c0cd7c09c2399fc18b3"
+    },
+    {
+      "names": [
+        "planGoalInputError"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "aa48a3b5c01ea2834f4b641c8b66a072c6d91721c30b466dc10dce304f11dd7f"
+    },
+    {
+      "names": [
+        "isRealisticTarget"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "b53361a75495dafe246a0c0af209407f987c0e76992e71854d6a3e87122ce633"
+    },
+    {
+      "names": [
+        "projectionAssumptionLabel"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "53e52873e3c5114f7825d2debbda89fe83541e72177ab8f763fa19bd997255eb"
+    },
+    {
+      "names": [
+        "compareSchoolBands"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "a8e97a5c02072e222217c63c7aed13dc2305eac18ae1d9a5c224e1c4e5d609ee"
+    },
+    {
+      "names": [
+        "BandCounts"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "94d5487df6320b2a380703e36e591beb0830517cf6065d85b954122a0040168e"
+    },
+    {
+      "names": [
+        "countBands"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "b3ca63e5e88bf811d21b5abec37d630b2fee39a36519b04ab72e113d3f5d617b"
+    },
+    {
+      "names": [
+        "FitBasisKind"
+      ],
+      "kind": "TypeAliasDeclaration",
+      "exported": true,
+      "sha256": "7bc374e0f3514bf13542a9eac837b36298f43ea6bb9ce518e02dc60a5903f3e0"
+    },
+    {
+      "names": [
+        "FitView"
+      ],
+      "kind": "TypeAliasDeclaration",
+      "exported": true,
+      "sha256": "881a27404b103bef5e006f635199f6419cb964fff514534d4859b2769562dc6c"
+    },
+    {
+      "names": [
+        "RecruitingUtrSource"
+      ],
+      "kind": "TypeAliasDeclaration",
+      "exported": true,
+      "sha256": "936ad384e9808273d95e0f9a974ba3d5d185cf4055c590fe613ed3247ca84848"
+    },
+    {
+      "names": [
+        "RecruitingTimeUtr"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "89de9e2cf80d44341806561fed2c3b3cc1b26f6ed34de3c28c6b85c7f4100425"
+    },
+    {
+      "names": [
+        "PaceUpside"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "8947991398814f99695e6e2dd131c5c10f2fe6e6bd241afc0e2dfa4a10280907"
+    },
+    {
+      "names": [
+        "paceUpsideSentence"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "2d3d32ed041c926e8f53763592bcfcdb97b493303baf02bca6927a2921995753"
+    },
+    {
+      "names": [
+        "LOGGED_PACE_MIN_MONTHS"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "fe09aab77973775feceef0ba255cd3272d8ade4ba77559ddef014937f9fce3fc"
+    },
+    {
+      "names": [
+        "LOGGED_PACE_MAX_MONTHS"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "08c7820ab1d80221e8203943e3a66ad5cdaa5a401e9a372b56fde7c7bb8e2018"
+    },
+    {
+      "names": [
+        "LOGGED_PACE_YEAR_AGO_FROM_MONTHS"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "7168a9071c330f372ee4e26cfb7d68d2b6f44b758078558c563772e10d98ad7f"
+    },
+    {
+      "names": [
+        "YEAR_AGO_TARGET_MONTHS"
+      ],
+      "kind": "VariableStatement",
+      "exported": false,
+      "sha256": "c9402fc10ca84d7c3ae6a9102c941fb19403da8fc12727cf84bb1e5c5901cd6d"
+    },
+    {
+      "names": [
+        "SIX_MONTHS_TARGET_MONTHS"
+      ],
+      "kind": "VariableStatement",
+      "exported": false,
+      "sha256": "1d835ebb1e0bc589f7452481858cdf135136898c086ff8af7be12c4aa9634b30"
+    },
+    {
+      "names": [
+        "LoggedPace"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "24ae4f7b1ae636628b455fda941bd8b20625f18709b95283532be7e4bbf81d9d"
+    },
+    {
+      "names": [
+        "loggedPaceFor"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "3678f8bd538ceebbbf9f562ef253d37ba03eea82005ee71c4d845ddf80503199"
+    },
+    {
+      "names": [
+        "playerPacePerYear"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "61c86b5756849d383102f7082729d19a5676b0e71aab7503993dd0b3b93b177f"
+    },
+    {
+      "names": [
+        "loggedPaceAssumption"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "a558d7027cc29b6435a0b624c3c82946f4655c83c87b2b895c9864a9030167fb"
+    },
+    {
+      "names": [
+        "utrHistoryFromEntries"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "894c03a199417c3d4de56df85dab6dcce3423ea22c5f4ec3e52e400dde20d797"
+    },
+    {
+      "names": [
+        "recruitingTimeUtr"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "aed4c5a0b5e6ca0e1cfd13f88851880a817f99623972d13b14f04f4d30347fc2"
+    },
+    {
+      "names": [
+        "FitRow"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "e3f5bbe62350ba07ea80fa48f225f0fddce5a7900d34fa7a7a8581e663ab6398"
+    },
+    {
+      "names": [
+        "FitReport"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "04b5c3dcae9b333ca00226a27645555c30f00bd53ebb70c81c91fd139f550f90"
+    },
+    {
+      "names": [
+        "inRangeOf"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": false,
+      "sha256": "c0f341544bc067c2840ea2bd4e97bd75228113166401f7b64cdc632f028e409a"
+    },
+    {
+      "names": [
+        "sameCounts"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": false,
+      "sha256": "fef52f833fa7dc79f45fd08cb64d6fb0126fe1c15ac8ccba0c3c2087315e4292"
+    },
+    {
+      "names": [
+        "buildFitReport"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "a61ccd94f674b81ace20950d99c8aa38eff7f7240127695696d20e1dc39f5963"
+    },
+    {
+      "names": [
+        "DiagnosticProjectionBasis"
+      ],
+      "kind": "TypeAliasDeclaration",
+      "exported": true,
+      "sha256": "57e8ff3560ee23a752ad15b161ecf466348cb1d95f972a0b48581d419c2bd570"
+    },
+    {
+      "names": [
+        "DiagnosticProjection"
+      ],
+      "kind": "InterfaceDeclaration",
+      "exported": true,
+      "sha256": "ff63e3cb5b02b8a72253ad63e378794df8be37e51f18195492c8a33f28d7b7f5"
+    },
+    {
+      "names": [
+        "isUsableUtr"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "2dc803eb62825ecc56d51d61a34030907e3c80d616dc852fb46043d3d67439a6"
+    },
+    {
+      "names": [
+        "SUMMER_STARTED_NOTE"
+      ],
+      "kind": "VariableStatement",
+      "exported": true,
+      "sha256": "668e5741b01a97d7e257635e17c6724a6cb8013901551671bce64d4f874de7f8"
+    },
+    {
+      "names": [
+        "diagnosticPastRatings"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": false,
+      "sha256": "24824ac1edaadfae871c175d5938764b3f48cd003739c74522b6718dae0e1481"
+    },
+    {
+      "names": [
+        "diagnosticProjection"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "da2906eb5562626442e807311e4026f43e8143c86b1b03c5617b1c8f6dbbbf91"
+    },
+    {
+      "names": [
+        "buildDiagnosticFitReport"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "b82b8a4a29ac6dc2712ac6e9bc53efdc30110ef144873127a76d79eb33dd40ff"
+    },
+    {
+      "names": [
+        "closestSchoolsFromReport"
+      ],
+      "kind": "FunctionDeclaration",
+      "exported": true,
+      "sha256": "b1e03556ff63f9b52a0bbdafa2c8783aea7715b7443b5941b4b111aab991ed8b"
+    }
+  ]
+}
