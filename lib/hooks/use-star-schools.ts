@@ -10,16 +10,19 @@
 // rollback if the write actually fails.
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT } from "@/lib/types";
 import { toggleTargetSchoolSlug } from "@/lib/db/targets";
+import { loadMyConsentState } from "@/lib/db/family-join";
+import { targetSchoolEditRefusal } from "@/lib/config/consent";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
 
 export interface StarToast {
   message: string;
   variant: ToastVariant;
-  action: ToastAction;
+  action?: ToastAction;
 }
 
 export interface UseStarSchoolsResult {
@@ -44,10 +47,21 @@ export interface UseStarSchoolsResult {
 export const STAR_TOAST_DURATION_MS = 5000;
 
 export function useStarSchools(): UseStarSchoolsResult {
-  const { player, updatePlayer } = usePlayer();
+  const { player, updatePlayer, isAuthed, hydrated } = usePlayer();
   const { canAccess } = useTier();
   const router = useRouter();
   const [toast, setToast] = useState<StarToast | null>(null);
+
+  // QA sweep H1 (UI half). An under-13 account waiting for a parent's
+  // consent must not add or remove targets. /schools is public, so
+  // ConsentPendingScreen (AuthGate) never covers it. Same SWR key AuthGate
+  // uses, so the answer is shared rather than fetched twice. This is the
+  // UI's refusal only — the database-side fix is a separate migration.
+  const { data: consent } = useSWR(
+    isAuthed && hydrated ? "my-consent-state" : null,
+    () => loadMyConsentState()
+  );
+  const consentRefusal = targetSchoolEditRefusal(consent?.status);
 
   // Always-fresh membership list, readable from closures created on a
   // previous render (the undo/rollback callbacks below) without needing
@@ -71,6 +85,10 @@ export function useStarSchools(): UseStarSchoolsResult {
   const toggleStar = useCallback(
     (slug: string, label: string) => {
       if (!canStar) return;
+      if (consentRefusal) {
+        setToast({ message: consentRefusal, variant: "default" });
+        return;
+      }
       const wasStarred = slugsRef.current.includes(slug);
       const next = toggleTargetSchoolSlug(slugsRef.current, slug);
 
@@ -125,12 +143,16 @@ export function useStarSchools(): UseStarSchoolsResult {
         action: { label: "Undo", onClick: undo },
       });
     },
-    [updatePlayer, canAccess, router, canStar]
+    [updatePlayer, canAccess, router, canStar, consentRefusal]
   );
 
   const addManyToTargets = useCallback(
     (slugs: string[]) => {
       if (!canStar) return;
+      if (consentRefusal) {
+        setToast({ message: consentRefusal, variant: "default" });
+        return;
+      }
       const before = slugsRef.current;
       const merged = Array.from(new Set([...before, ...slugs]));
       const added = merged.length - before.length;
@@ -157,7 +179,7 @@ export function useStarSchools(): UseStarSchoolsResult {
         },
       });
     },
-    [canStar, canAccess, router, updatePlayer]
+    [canStar, canAccess, router, updatePlayer, consentRefusal]
   );
 
   return { isStarred, toggleStar, toast, dismissToast, canStar, addManyToTargets };

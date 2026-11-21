@@ -47,7 +47,7 @@ export function SeededSettingsView({
   /** Arrived from /onboarding after already onboarding (D2). */
   fromOnboarding?: boolean;
 }) {
-  const { player, updatePlayer, signOut } = usePlayer();
+  const { player, updatePlayer, setPlayerLocal, signOut } = usePlayer();
   const { tier } = useTier();
   const router = useRouter();
   const activeTab = section;
@@ -128,7 +128,18 @@ export function SeededSettingsView({
     }
   };
 
-  const savePlayer = (patch: Partial<Player>) => updatePlayer(patch);
+  // updatePlayer() applies the patch optimistically. When the write fails,
+  // put the in-memory fields back (without a second save), so the rest of
+  // the app never shows values the database refused (QA sweep H3). The
+  // card keeps the typed draft and shows the error.
+  const savePlayer = async (patch: Partial<Player>) => {
+    const before = Object.fromEntries(
+      Object.keys(patch).map((k) => [k, player[k as keyof Player]])
+    ) as Partial<Player>;
+    const ok = await updatePlayer(patch);
+    if (!ok) setPlayerLocal(before);
+    return ok;
+  };
 
   return (
     <SeededSettingsShell active={activeTab}>

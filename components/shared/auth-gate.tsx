@@ -10,6 +10,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { loadMyConsentState } from "@/lib/db/family-join";
 import { ConsentPendingScreen } from "@/components/seeded/family/consent-pending-screen";
 import { useDesign } from "@/lib/context/design-context";
+import { loginHrefFor } from "@/lib/config/auth";
 import { Button } from "@/components/ui/button";
 import {
   isConsentPendingAllowedPath,
@@ -64,7 +65,9 @@ export function AuthGate({
   useEffect(() => {
     if (!hydrated || connectionError) return;
     if (!isAuthed) {
-      router.replace("/login");
+      // Keep where they were going (QA sweep M3); loginHrefFor only ever
+      // carries a same-origin path, so this cannot become an open redirect.
+      router.replace(loginHrefFor(pathname + window.location.search));
     } else if (player.role === "parent" && !isParentAllowedPath(pathname)) {
       router.replace("/family");
     } else if (player.role !== "parent" && isPlayerBlockedPath(pathname)) {

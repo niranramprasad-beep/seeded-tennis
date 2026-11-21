@@ -303,6 +303,12 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "reads as a notification; Seeded sends none — follow-ups are flagged in the app",
   },
   {
+    // QA sweep 2026-11-20 (L1): the outreach card's button. It only stores
+    // remind_at; the card shows "Reminder due" in the app.
+    pattern: /Remind me (?:in|on|later|about)\b/i,
+    why: "reads as a reminder Seeded will send; it sends none — the button only sets a follow-up date",
+  },
+  {
     pattern: /lowest reliable (?:player|rating)|highest reliable rating/i,
     why: "describes per-player roster ratings Seeded does not store; it is an estimated floor",
   },

@@ -3,6 +3,7 @@ import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { writeCurrentPlayerProfile } from "@/lib/auth";
 import { PlayerBodySchema, playerWriteFromBody } from "@/lib/api-schemas/profile";
+import { profileWriteFailure } from "@/lib/profile-fields";
 import {
   FREE_TIER_TARGET_SCHOOL_LIMIT,
   TIER_RANK,
@@ -108,9 +109,9 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save your profile. Try again." },
-      { status: 500 }
-    );
+    // A CHECK violation (e.g. profiles_gpa_check) is a 400 with a sentence,
+    // not a 500 with raw Postgres text (QA sweep H3).
+    const failure = profileWriteFailure(err);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

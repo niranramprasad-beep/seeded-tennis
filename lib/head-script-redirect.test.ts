@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { SIGNED_IN_ONLY_PREFIXES, isSignedInOnlyPath } from "@/lib/route-access";
+import { loginHrefFor } from "@/lib/config/auth";
 
 // D8: the head script in app/layout.tsx sends a browser with NO saved
 // Supabase session straight to /login from a signed-in-only route, before
@@ -17,7 +18,7 @@ const match = layout.match(/__html: `([\s\S]*?)`,/);
 if (!match) throw new Error("head script not found in app/layout.tsx");
 const script = match[1].replace("${SIGNED_IN_ONLY_JSON}", JSON.stringify(SIGNED_IN_ONLY_PREFIXES));
 
-function run(pathname: string, storage: Record<string, string> | "throws") {
+function run(pathname: string, storage: Record<string, string> | "throws", search = "") {
   const attrs: Record<string, string> = {};
   const replaced: string[] = [];
   const keys = storage === "throws" ? [] : Object.keys(storage);
@@ -35,7 +36,7 @@ function run(pathname: string, storage: Record<string, string> | "throws") {
     localStorage,
     window: { matchMedia: () => ({ matches: false }) },
     document: { documentElement: { setAttribute: (k: string, v: string) => (attrs[k] = v) } },
-    location: { pathname, replace: (to: string) => replaced.push(to) },
+    location: { pathname, search, replace: (to: string) => replaced.push(to) },
   });
   return { attrs, replaced };
 }
@@ -45,8 +46,8 @@ const SESSION = { "sb-gnlcpnsweqbtwpaqhqqg-auth-token": "{}" };
 describe("head script early /login redirect", () => {
   it("redirects a browser with no session from every signed-in-only prefix (and below it)", () => {
     for (const p of SIGNED_IN_ONLY_PREFIXES) {
-      expect(run(p, {}).replaced).toEqual(["/login"]);
-      expect(run(`${p}/anything`, {}).replaced).toEqual(["/login"]);
+      expect(run(p, {}).replaced).toEqual([loginHrefFor(p)]);
+      expect(run(`${p}/anything`, {}).replaced).toEqual([loginHrefFor(`${p}/anything`)]);
     }
   });
 
@@ -66,7 +67,16 @@ describe("head script early /login redirect", () => {
   });
 
   it("a PKCE code-verifier key alone is not a session", () => {
-    expect(run("/today", { "sb-x-auth-token-code-verifier": "v" }).replaced).toEqual(["/login"]);
+    expect(run("/today", { "sb-x-auth-token-code-verifier": "v" }).replaced).toEqual(["/login?next=%2Ftoday"]);
+  });
+
+  it("carries the page and its query string as ?next=, exactly as AuthGate does (QA sweep M3)", () => {
+    expect(run("/outreach", {}, "?school=stanford-m").replaced).toEqual([
+      "/login?next=%2Foutreach%3Fschool%3Dstanford-m",
+    ]);
+    expect(run("/outreach", {}, "?school=stanford-m").replaced).toEqual([
+      loginHrefFor("/outreach?school=stanford-m"),
+    ]);
   });
 
   it("does nothing when storage throws — AuthGate decides then", () => {

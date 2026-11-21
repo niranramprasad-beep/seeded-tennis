@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+
+// Its own title (QA sweep M7) instead of the home page's.
+export const metadata: Metadata = {
+  title: "Page not found — Seeded",
+};
 
 export default function NotFound() {
   return (

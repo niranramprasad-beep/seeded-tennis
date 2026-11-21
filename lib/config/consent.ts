@@ -61,3 +61,20 @@ export function birthYearOptions(now: Date = new Date()): number[] {
   for (let y = current; y >= current - 90; y--) years.push(y);
   return years;
 }
+
+/** QA sweep 2026-11-20 (H1, UI half). What a consent-pending account is told
+ * when it tries to add or remove a target school. Same words as
+ * ConsentPendingScreen ("A parent needs to say yes first", "no target
+ * schools"). Deliberately says nothing about the database: until the profiles
+ * migration lands, the database still accepts this write from the account
+ * itself, so this refusal is the UI's, not a guarantee. */
+export const CONSENT_PENDING_TARGETS_MESSAGE =
+  "A parent needs to say yes first. Until they do, you can't save target schools.";
+
+/** Null when a target-school add/remove may go ahead, else the sentence to
+ * show. `undefined` = the consent check has not answered yet. */
+export function targetSchoolEditRefusal(
+  consentStatus: "pending" | "granted" | "not_required" | "unknown" | undefined
+): string | null {
+  return consentStatus === "pending" ? CONSENT_PENDING_TARGETS_MESSAGE : null;
+}

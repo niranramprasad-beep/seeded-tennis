@@ -117,7 +117,7 @@ export function SeededSidebar() {
           {!collapsed && (
             <button
               onClick={toggleCollapsed}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light opacity-0 transition-opacity duration-150 hover:border-[rgb(var(--c-line))] hover:text-ink group-hover/header:opacity-100"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-transparent text-stone-light opacity-0 transition-opacity duration-150 hover:border-[rgb(var(--c-line))] hover:text-ink group-hover/header:opacity-100 focus-visible:text-ink focus-visible:opacity-100"
               aria-label="Collapse sidebar"
             >
               <ChevronsLeft className="h-4 w-4" />
