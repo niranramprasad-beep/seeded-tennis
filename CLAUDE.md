@@ -4,7 +4,8 @@
 - Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
 - Production database: every migration through **050**, 048 included (ledger 52 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Staging `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal re-runs in its ledger, and the imported catalog rows (production has none). `.env.local` and Vercel Preview point at it.
-- Catalog phase 1 (PR E #9) is merged behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF in production, no production data. Open: the parent-approver gap (TODO "Who may approve a parent joiner"); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+- Merged 2026-11-20 night: 050 (parent-only budget), code quality, docs, catalog phase 1 (PR E #9, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF, no production data), visual polish, sweep fixes, and the Legacy design deleted (one design system; Appearance = Light / Dark / Match system).
+- Open: **PR #17 — migration 051** (a pending-consent under-13 can still write tennis fields on its own profile; staging-tested, needs Niran's go); the parent-approver gap and the post-checkout sync decision (both in docs/TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
 
@@ -125,7 +126,7 @@ npm run dev          # local dev server, localhost:3000 (reads .env.local = stag
 npm test             # full Vitest suite (npx vitest run)
 npm run test:tz      # the suite in America/New_York and Pacific/Auckland
 npm run typecheck    # tsc --noEmit
-npm run lint         # next lint
+npm run lint         # next lint --max-warnings=0 (fails on any warning)
 npm run build        # production build (rm -rf .next first if you hit a
                      # stale-cache module error — known, not a real bug)
 ```
@@ -187,7 +188,7 @@ is still open — see `docs/TODO.md`.
 Formerly "Current blockers". Every bullet below is either DONE (with the rule it left behind, which still applies) or names what is still open. The rules in **Always / Never / Non-negotiable** above are the short form; these are the reasons.
 - P0-3: DONE — invented coach names/emails/recruits/ranks/URLs are deleted from the `School` type and all 68 catalog entries; `lib/db/schools-catalog-honesty.test.ts` fails the build on any re-add. Roster UTR numbers are still unsourced estimates, now labeled via `UTR_RANGE_SOURCE_LABEL`. Real fix = P1-DATA-1.
 - P0-4: DONE — every sentence in the coach email traces to a value the player entered, or to the school's name/division/conference. UTR is labeled "(self-reported)". Keep it that way: saying more about a program needs sourced data (P1-DATA-1), not better phrasing.
-- P0-5: DONE 2026-11-16 — the maintenance page is gone. PR niranramprasad-beep/seeded-tennis#4 merged `v1` into `main` (`b16d85b`); `middleware.ts` is absent on `main`, every public route returns 200, the deployed client reads production's Supabase (`tfpjssmhiptbwigarxpx`, 0 staging refs). `main` auto-deploys with no staging gate, so the merge gate is still a person.
+- P0-5: DONE 2026-11-16 — the maintenance page is gone. PR niranramprasad-beep/seeded-tennis#4 merged the (now retired) `v1` line into `main` (`b16d85b`); `middleware.ts` is absent on `main`, every public route returns 200, the deployed client reads production's Supabase (`tfpjssmhiptbwigarxpx`, 0 staging refs). `main` auto-deploys with no staging gate, so the merge gate is still a person.
 - P0-6: DONE (it was "partly done" until local dev moved to staging on 2026-11-15; the history below is why the rule exists). Staging is
   `gnlcpnsweqbtwpaqhqqg`, a verified nine-category schema clone, and Vercel
   **Preview** genuinely reads it (proved by grepping the deployed client
@@ -259,7 +260,7 @@ Formerly "Current blockers". Every bullet below is either DONE (with the rule it
 - **BILLING: the Whop webhook has never delivered.** Two real payments
   (2026-10-03, 2026-11-02) left the buyer on `free`. The endpoint is on a
   legacy payload version while its events are v1 names, so nothing ever
-  matched. Fixed in code on `v1`; the dashboard steps are Niran's — **HANDOFF
+  matched. Fixed in code (on the then-current `v1` line, now in `main`); the dashboard steps are Niran's — **HANDOFF
   §K**. Three things to know before touching billing:
   - **Prices live only in `TIER_PRICE_USD` (lib/types).** Player $12/mo,
     $99/yr; Family $19/mo, $159/yr. Never retype a price in a component.

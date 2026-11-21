@@ -81,13 +81,13 @@ personas have no usable password by design.
 
 ### Environment variables
 
-Every variable the code reads (`grep -rn "process.env" app lib components`):
+Every variable the code reads (`grep -rn "process.env" app lib components next.config.mjs`):
 
 | Variable | Where | Used for | Without it |
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase project URL | No sign-in; public pages still work |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public | Supabase publishable (anon-role) key | Same as above |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Whop webhook / membership sync write `subscription_tier` | Billing sync refuses to run |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Whop webhook / membership sync write `subscription_tier`; the staging-only catalog importer (`scripts/import-rosters.ts`, refuses production) | Billing sync refuses to run. Not needed for local development |
 | `WHOP_API_KEY` | **server only** | Whop checkout + membership lookups | Pricing page shows a clear checkout error |
 | `WHOP_WEBHOOK_SECRET` | **server only** | Verifies Whop webhook signatures | Webhook refuses every delivery |
 | `WHOP_PLAN_PLAYER_MONTHLY`, `WHOP_PLAN_PLAYER_YEARLY`, `WHOP_PLAN_FAMILY_MONTHLY`, `WHOP_PLAN_FAMILY_YEARLY` | server | The four plans on sale | That plan's checkout is unavailable |

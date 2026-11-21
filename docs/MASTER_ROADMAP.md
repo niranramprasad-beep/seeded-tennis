@@ -20,6 +20,17 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-20 (night) — Review-ready run: summary.** Merged to `main`, each
+after CI `verify`, a Vercel Preview smoke test, an independent verifier
+(no open HIGH) and the full local gate, then checked live (routes 200, 0
+runtime errors, client on production Supabase): #13 migration 050
+(parent-only budget, on production 23:20 UTC), #14 code quality, #15 docs,
+#9 catalog phase 1 (048 on production 23:55 UTC; flag off), #16 visual
+polish, #18 sweep fixes, #19 Legacy design deleted, plus this docs PR.
+Production ledger 52. Open: #17 (migration 051, needs Niran's go). Tests:
+119 files / 1,766. Report: `~/seeded-evidence/review-ready/REPORT.md`.
+
+
 **2026-11-20 night — PR-LEGACY (`chore/delete-legacy-theme`; no
 migration, no visual change to Seeded).** P1-UX-2 done: the opt-in Legacy
 design is deleted — its home, pricing, settings, contact/terms/parents/
@@ -1148,6 +1159,9 @@ The launch list this replaces (production rollout, PR B, PR D, 049, Legacy)
 is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
 Production runs every migration through 050 except 048.
 
+0. **Migration 051 (PR #17)** — a pending-consent under-13 can still write
+   tennis fields on its own profile through the API. Staging-tested; needs
+   Niran's go, then GO-SEQUENCE row 26 and merge.
 1. **Decide who may approve a parent joiner**, then close the second-account
    route to budget writes (docs/TODO.md "Who may approve a parent joiner";
    found by the 050 review). One migration, 033's pattern.
