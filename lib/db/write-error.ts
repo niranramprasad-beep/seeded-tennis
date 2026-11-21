@@ -1,5 +1,4 @@
-// S-10. A failed database write, kept distinguishable from our own
-// validation sentences.
+// S-10. What a write route may show the browser when a lib/db write fails.
 //
 // lib/db/{plan,events,outreach,family}.ts used to rethrow a PostgREST error
 // as `new Error(error.message)`, and five API routes sent `err.message` to
@@ -8,18 +7,32 @@
 // constraint "budget_expenses_amount_check"` — table, column and constraint
 // names the client has no use for. The same catch also carried our own
 // validation sentences ("Budget total can't be negative."), which the UI
-// shows on purpose, so the route could not just stop sending messages.
+// shows on purpose.
 //
-// DatabaseWriteError keeps `.message` exactly as before (so nothing that
-// reads it on the server changes) and adds the SQLSTATE. The routes ask
-// `clientWriteErrorMessage()` what to show: a database error becomes the
-// route's generic sentence, except the two sentences our own migrations
-// raise for people (028/034's rate limit, "Sign in first."); a plain Error
-// — our validation — is shown as it always was.
+// The rule is FAIL-CLOSED: `clientWriteErrorMessage()` shows text only when
+// it is known to be written for a person —
+//   - a `UserFacingError` (our own validation sentences, thrown by the
+//     lib/db write functions before any database call), or
+//   - a `DatabaseWriteError` whose SQLSTATE is one of the two our
+//     migrations raise for people, mapped BY CODE to a fixed sentence here
+//     (the database's text is never forwarded).
+// Everything else — a DatabaseWriteError with any other code, a raw
+// PostgrestError (which extends Error), a TypeError, a string — gets the
+// route's generic fallback. An earlier version passed any plain Error's
+// message through, so a stray `throw error;` of a PostgrestError leaked
+// Postgres's text (independent verifier, PR #28).
 //
-// lib/api-logging.test.ts fails the build if one of those four files goes
-// back to `throw new Error(x.message)` or a route goes back to sending
-// `err.message`.
+// lib/api-logging.test.ts fails the build if a route sends a caught value's
+// message or a lib/db writer goes back to rethrowing raw errors.
+
+/** A sentence written for the person using the app. Only throw this with
+ * text we wrote — never with an upstream error's message. */
+export class UserFacingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserFacingError";
+  }
+}
 
 export class DatabaseWriteError extends Error {
   /** Postgres SQLSTATE / PostgREST code, when there is one. */
@@ -32,31 +45,27 @@ export class DatabaseWriteError extends Error {
   }
 }
 
-/** SQLSTATEs whose message, when it is not Postgres's own wording, is a
- * sentence one of our migrations raises for a person to read:
- * 53400 = "Too many changes at once. Try again later." (034's rate-limit
- * trigger, reachable when two writes race past the route's peek);
- * 28000 = "Sign in first." (028). */
-const OUR_SENTENCE_CODES = new Set(["53400", "28000"]);
-
-/** Postgres's own wording, which is never shown even under one of the codes
- * above. */
-const POSTGRES_WORDING =
-  /violates|row-level security|null value in column|invalid input|out of range|syntax|constraint|relation|column|permission denied|bucket|duplicate key|does not exist/i;
+/** SQLSTATEs our migrations raise with a sentence for people, mapped to that
+ * sentence here so the database's text is never what gets shown.
+ * 53400: 034's rate-limit trigger (reachable when two writes race past the
+ * route's peek). 28000: "Sign in first." (028). */
+const SENTENCE_BY_CODE: Record<string, string> = {
+  "53400": "Too many changes at once. Try again later.",
+  "28000": "Sign in first.",
+};
 
 /**
  * What a write route may send to the browser for an error caught around a
- * lib/db write: our own validation sentence (a plain Error) as-is; a
- * database error as `fallback`, unless it is one of our migrations'
- * sentences; anything else as `fallback`.
+ * lib/db write. Fail-closed: see the header.
  */
 export function clientWriteErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof DatabaseWriteError) {
-    if (err.code && OUR_SENTENCE_CODES.has(err.code) && err.message && !POSTGRES_WORDING.test(err.message)) {
-      return err.message;
-    }
-    return fallback;
+  if (err instanceof UserFacingError && err.message) return err.message;
+  if (err instanceof DatabaseWriteError && err.code && Object.prototype.hasOwnProperty.call(SENTENCE_BY_CODE, err.code)) {
+    // The code AND the exact sentence: 53400 is also raised for "No
+    // rate-limit bucket defined for table …", a configuration fault that
+    // must not read as "you went too fast".
+    const sentence = SENTENCE_BY_CODE[err.code];
+    if (err.message === sentence) return sentence;
   }
-  if (err instanceof Error && err.message) return err.message;
   return fallback;
 }

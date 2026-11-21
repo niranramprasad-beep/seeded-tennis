@@ -34,20 +34,33 @@ Used at every `app/api` failure point (all 13 routes), the Whop webhook
 deletion (`account.deletion.failed`) and the GA4 purchase send
 (`ga4.purchase.send_failed`). (2) `GET /api/health` → `{ ok, commit,
 checks: { app, database } }`, no-store, anonymous; `database` = Supabase
-Auth's public health endpoint (publishable key, 2 s timeout, 30 s
-per-instance cache), 503 when it does not answer. (3)
+Auth's public health endpoint (publishable key, 2 s timeout, per-instance
+cache 30 s after a success and 5 s after a failure), 503 when it does not
+answer. (3)
 `.github/workflows/uptime.yml`: hourly (:17) + manual, curls `/` and
 `/api/health`, fails unless both are 200 and health says `"ok": true`; a
 failed scheduled run is reported only by GitHub's own Actions notification
 to whoever last edited the cron line (~720 billed minutes/month once
 private). (4) **S-10 fixed:** the five write routes that still sent raw
 Postgres text now send their generic sentence (`DatabaseWriteError` +
-`clientWriteErrorMessage`, `lib/db/write-error.ts`); validation sentences,
-034's rate-limit sentence and status codes unchanged; the raw text goes to
-the log. Guards: `lib/server-log.test.ts`, `lib/health.test.ts`,
+`clientWriteErrorMessage`, `lib/db/write-error.ts`), fail-closed: only a
+`UserFacingError` (our validation sentences) or 034's rate-limit / "Sign in
+first." sentence (by SQLSTATE + exact wording) is shown; status codes
+unchanged; the raw text goes to the log. Guards: `lib/server-log.test.ts`, `lib/health.test.ts`,
 `lib/api-logging.test.ts` (no `console.*` in `app/api`, every answering
 catch logs, no route sends `err.message`, health reads no table, workflow
-stays hourly/secret-free) — 31 mutations, all caught. **Still not done:**
+stays hourly/secret-free) — 31 mutations, all caught. **Review fixes
+(same day, independent verifier on PR #28):** three probes beat the first
+S-10 guard (`e.message` under another name, `String(err)`, a raw `throw
+error;` of a PostgrestError, which extends Error); `clientWriteErrorMessage`
+now fails closed and the guard checks every caught-value name for
+`.message`/`String()`/templates/concatenation/the object itself. Those
+three probes (four variants) and 14 more new mutations fail the build; the
+27 earlier mutations that still apply were re-run and are all caught. Also: logger input cut to 2,000 chars
+before any regex; `name`/`ip`/`tel`/`uid`/`buyer` keys redacted as whole
+words; E.164 phones stripped; health caches a failure only 5 s and the
+workflow retries 10 s apart (job limit 4 min), so one blip no longer fails
+the uptime run. **Still not done:**
 no alert on a 5xx rate, webhook failure or deletion failure (logged, nobody
 told), no error grouping, no roster-freshness check. The honest path to
 alerts is a Vercel log drain or Sentry; both need an account/plan decision

@@ -113,15 +113,22 @@ What exists (P1-OPS-2, 2026-11-21), and nothing more:
 - **Health endpoint:** `GET /api/health` → `{ ok, commit, checks: { app,
   database } }`, `Cache-Control: no-store`, no auth. `database` is Supabase
   Auth's public health endpoint (`/auth/v1/health`, publishable key, 2 s
-  timeout, cached 30 s per instance): it proves the Supabase project is up
+  timeout; per instance a success is cached 30 s and a failure 5 s): it proves the Supabase project is up
   and reachable from the deployment, **not** that a query would succeed.
   200 when it answers; 503 when it does not (and when Supabase is not
   configured on a production deployment); `skipped` with 200 elsewhere
   without configuration. `commit` is the short `VERCEL_GIT_COMMIT_SHA`, or
   `local`.
+- **Logger limits:** input is cut to 2,000 characters before any pattern
+  runs. Phone numbers are stripped only in E.164 form (`+15551234567`);
+  looser shapes are indistinguishable from dates, SQLSTATEs and counts, so
+  keys named `phone`/`tel` are redacted by name instead (as are `name`,
+  `ip`, `uid`, `buyer…`).
 - **Uptime check:** `.github/workflows/uptime.yml`, hourly at :17 plus
   manual runs. Fails if `https://seededtennis.com/` or `/api/health` is not
-  200 (health must also say `"ok": true`), 20 s per attempt, 2 retries. A
+  200 (health must also say `"ok": true`), 20 s per attempt, 2 retries 10 s
+  apart (so a retry re-asks Supabase rather than reading a cached failure;
+  job limit 4 minutes). A
   failed scheduled run is reported by GitHub's own Actions notification to
   the user who last changed its `cron` line, per that user's notification
   settings. That is the only notification. Outages shorter than an hour can

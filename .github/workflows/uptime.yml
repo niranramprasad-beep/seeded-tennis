@@ -19,6 +19,12 @@ name: Uptime
 # checking the account's included minutes first. GitHub also delays
 # scheduled runs under load, so "hourly" is approximate.
 #
+# RETRIES: 20 s per attempt, 2 retries 10 s apart (curl retries timeouts
+# and 408/429/500/502/503/504). Worst case is about 80 s per URL, hence the
+# 4-minute job limit. /api/health caches a failed database check for only
+# 5 s (lib/health.ts), so each retry asks Supabase again instead of
+# re-reading the first failure — one blip does not fail the run.
+#
 # No secrets, no third-party actions (plain curl and jq, both preinstalled on
 # ubuntu-latest), read-nothing permissions. It touches ci.yml not at all.
 
@@ -37,7 +43,7 @@ jobs:
   check:
     name: check
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
 
     steps:
       - name: Homepage answers 200
@@ -45,7 +51,7 @@ jobs:
           set -u
           code=$(curl --silent --show-error --output /dev/null \
             --write-out '%{http_code}' \
-            --max-time 20 --retry 2 --retry-delay 5 --retry-connrefused \
+            --max-time 20 --retry 2 --retry-delay 10 --retry-connrefused \
             https://seededtennis.com/) || code="curl-failed"
           echo "https://seededtennis.com/ -> ${code}"
           if [ "${code}" != "200" ]; then
@@ -59,7 +65,7 @@ jobs:
           body_file="$(mktemp)"
           code=$(curl --silent --show-error --output "${body_file}" \
             --write-out '%{http_code}' \
-            --max-time 20 --retry 2 --retry-delay 5 --retry-connrefused \
+            --max-time 20 --retry 2 --retry-delay 10 --retry-connrefused \
             -H 'Cache-Control: no-cache' \
             https://seededtennis.com/api/health) || code="curl-failed"
           echo "https://seededtennis.com/api/health -> ${code}"

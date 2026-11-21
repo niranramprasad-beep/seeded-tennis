@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HEALTH_DB_CACHE_MS,
+  HEALTH_DB_FAILURE_CACHE_MS,
+  HEALTH_DB_TIMEOUT_MS,
   checkDatabaseReachable,
   healthResponseBody,
   resetHealthCacheForTests,
@@ -51,6 +53,26 @@ describe("checkDatabaseReachable", () => {
     });
     expect(await checkDatabaseReachable({ env: ENV, fetchImpl: fThrow, onFailure })).toBe("unreachable");
     expect(onFailure).toHaveBeenCalledTimes(2);
+  });
+
+  it("pins the limits: 2 s timeout, 30 s success cache, 5 s failure cache", () => {
+    expect(HEALTH_DB_TIMEOUT_MS).toBe(2_000);
+    expect(HEALTH_DB_CACHE_MS).toBe(30_000);
+    expect(HEALTH_DB_FAILURE_CACHE_MS).toBe(5_000);
+  });
+
+  it("caches a failure for only 5 s, so the uptime retry asks Supabase again", async () => {
+    let t = 2_000_000;
+    let up = false;
+    const f = fakeFetch(async () => new Response("{}", { status: up ? 200 : 503 }));
+    expect(await checkDatabaseReachable({ env: ENV, fetchImpl: f, now: () => t })).toBe("unreachable");
+    t += HEALTH_DB_FAILURE_CACHE_MS - 1;
+    expect(await checkDatabaseReachable({ env: ENV, fetchImpl: f, now: () => t })).toBe("unreachable");
+    expect(f).toHaveBeenCalledTimes(1);
+    up = true;
+    t += 2;
+    expect(await checkDatabaseReachable({ env: ENV, fetchImpl: f, now: () => t })).toBe("ok");
+    expect(f).toHaveBeenCalledTimes(2);
   });
 
   it("caches the result for 30 s per instance, so it cannot be used to hammer Supabase", async () => {

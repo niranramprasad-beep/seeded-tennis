@@ -28,9 +28,11 @@ table (migration 034); most routes only peek so they can answer 429 first; `acco
 **S-10 (fixed 2026-11-21, `feat/monitoring`):** no route returns raw
 Postgres error text any more. utr-entries, matches, outreach, family/budget
 and family/budget/expenses answer a 500 with their generic sentence
-(`clientWriteErrorMessage`, `lib/db/write-error.ts`) and keep our own
-validation sentences and the two sentences our migrations raise for people
-(034's rate limit, "Sign in first."); profile was fixed earlier
+(`clientWriteErrorMessage`, `lib/db/write-error.ts`). It fails closed:
+the only text shown is a `UserFacingError` (our own validation sentences)
+or, matched by SQLSTATE and exact wording, the two sentences our migrations
+raise for people (034's rate limit, "Sign in first."); everything else gets
+the route's fallback. Profile was fixed earlier
 (`profileWriteFailure`). The database's text goes to the runtime log through
 `lib/server-log.ts`. Guard: `lib/api-logging.test.ts`.
 

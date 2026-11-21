@@ -43,10 +43,30 @@ export interface ServerEventRecord {
 
 const MAX_MESSAGE_LENGTH = 300;
 const MAX_CONTEXT_STRING_LENGTH = 200;
+/** Input is cut to this BEFORE any regex runs: some of the patterns below
+ * backtrack, and a 50 KB upstream message must not cost seconds. Only the
+ * first MAX_MESSAGE_LENGTH characters survive anyway. */
+export const MAX_SANITIZE_INPUT = 2_000;
 
 /** Keys whose VALUE is never written, whatever it looks like. Booleans are
- * exempt (`hasEmail: true` says nothing about anyone). */
-const SENSITIVE_KEY = /(e-?mail|token|secret|passw(or)?d|authori[sz]ation|cookie|session|user_?id|jwt|api_?key|bearer|body|payload|phone|address)/i;
+ * exempt (`hasEmail: true` says nothing about anyone). Matched anywhere in
+ * the key... */
+const SENSITIVE_KEY_SUBSTRING =
+  /(e-?mail|token|secret|passw(or)?d|authori[sz]ation|cookie|session|user_?id|jwt|api_?key|bearer|body|payload|phone|address)/i;
+/** ...and these short ones only as a whole word of the key (`ipAddress`,
+ * `client_ip`, `tel`, `uid`, `name`, `fullName`), because as substrings they
+ * hit harmless keys: "ip" is inside `membershipId`, "uid" inside `guide`. */
+const SENSITIVE_KEY_WORDS = new Set(["ip", "tel", "uid", "name", "phone", "buyer", "dob"]);
+
+function isSensitiveKey(key: string): boolean {
+  if (SENSITIVE_KEY_SUBSTRING.test(key)) return true;
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .map((w) => w.toLowerCase())
+    .filter(Boolean);
+  return words.some((w) => SENSITIVE_KEY_WORDS.has(w));
+}
 
 /**
  * Strips anything that identifies a person or authenticates a caller from a
@@ -57,7 +77,7 @@ const SENSITIVE_KEY = /(e-?mail|token|secret|passw(or)?d|authori[sz]ation|cookie
  * rule would split), then everything else.
  */
 export function sanitizeLogText(input: string): string {
-  let text = input;
+  let text = input.length > MAX_SANITIZE_INPUT ? input.slice(0, MAX_SANITIZE_INPUT) : input;
 
   // A multi-line error is a message plus DETAIL/HINT/CONTEXT or a stack
   // trace. Only the first line is the message.
@@ -97,6 +117,13 @@ export function sanitizeLogText(input: string): string {
 
   // Email addresses, plain and URL-encoded.
   text = text.replace(/[A-Za-z0-9._%+-]+(?:@|%40)[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, "[email]");
+
+  // Phone numbers, E.164 form only (`+15551234567`). Free-form numbers
+  // ("555-123-4567", "(555) 123 4567") are deliberately NOT matched: that
+  // shape is indistinguishable from dates, SQLSTATEs, counts and ids, and a
+  // pattern loose enough to catch them would eat the useful half of every
+  // message. Context keys named phone/tel are redacted by name instead.
+  text = text.replace(/\+\d{8,15}\b/g, "[phone]");
 
   // UUIDs: Supabase user ids, row ids.
   text = text.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "[uuid]");
@@ -147,7 +174,7 @@ function cleanContext(context: LogContext | undefined): {
       route = sanitizeLogText(raw).slice(0, MAX_CONTEXT_STRING_LENGTH);
       continue;
     }
-    if (SENSITIVE_KEY.test(key) && typeof raw !== "boolean" && raw !== null) {
+    if (isSensitiveKey(key) && typeof raw !== "boolean" && raw !== null) {
       rest[key] = "[redacted]";
       continue;
     }

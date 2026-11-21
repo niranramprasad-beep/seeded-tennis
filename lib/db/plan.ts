@@ -14,7 +14,7 @@ import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import type { Tables } from "./database.types";
-import { DatabaseWriteError } from "./write-error";
+import { DatabaseWriteError, UserFacingError } from "./write-error";
 
 /* ---------------------------------------------------------------- roadmap */
 
@@ -201,7 +201,7 @@ export async function createUtrEntry(
   ctx?: UtrWriteContext
 ): Promise<UtrEntry | null> {
   const validationError = validateUtrEntryInput(input);
-  if (validationError) throw new Error(validationError);
+  if (validationError) throw new UserFacingError(validationError);
 
   if (!ctx) {
     const userId = await getUserId();

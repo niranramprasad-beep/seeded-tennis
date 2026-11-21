@@ -3,6 +3,7 @@ import {
   errorCodeOf,
   logServerError,
   logServerEvent,
+  MAX_SANITIZE_INPUT,
   sanitizeLogText,
   serverErrorRecord,
 } from "./server-log";
@@ -110,6 +111,28 @@ describe("sanitizeLogText", () => {
     expect(sanitizeLogText("could not save\nrow: Fake Name, 2009, Fake School")).toBe("could not save");
     expect(sanitizeLogText("x".repeat(1000)).length).toBeLessThanOrEqual(301);
   });
+
+  it("cuts huge input before any regex runs (no quadratic blow-up on 50 KB+)", () => {
+    expect(MAX_SANITIZE_INPUT).toBe(2_000);
+    const nasty = [
+      "a".repeat(200_000),
+      "Key (x)=(" + "(".repeat(100_000),
+      "-".repeat(200_000) + "@",
+      "Bearer" + " ".repeat(200_000),
+      "a1".repeat(100_000),
+    ];
+    for (const input of nasty) {
+      const t = performance.now();
+      const out = sanitizeLogText(input);
+      expect(performance.now() - t, input.slice(0, 12)).toBeLessThan(200);
+      expect(out.length).toBeLessThanOrEqual(301);
+    }
+  });
+
+  it("strips E.164 phone numbers and leaves dates, codes and counts alone", () => {
+    expect(sanitizeLogText("sms to +15555550123 failed")).toBe("sms to [phone] failed");
+    expect(sanitizeLogText("on 2026-11-21, code 23514, 12345678 rows")).toBe("on 2026-11-21, code 23514, 12345678 rows");
+  });
 });
 
 describe("errorCodeOf", () => {
@@ -195,6 +218,40 @@ describe("serverErrorRecord / logServerError", () => {
     });
     expect(rec.message).toBe("");
     expect(rec.code).toBeNull();
+  });
+
+  it("redacts name / ip / tel / uid / phone / buyer keys as whole words, not as substrings", () => {
+    const rec = serverErrorRecord("e", null, {
+      name: "Fake Person",
+      fullName: "Fake Person",
+      buyer_name: "Fake Buyer",
+      buyerEmail: "x",
+      ip: "203.0.113.7",
+      clientIp: "203.0.113.7",
+      tel: "5550123",
+      uid: "abc",
+      phoneNumber: "5550123",
+      // Harmless keys that CONTAIN those letters stay readable.
+      membershipId: "mem_FAKE123",
+      guide: "g",
+      type: "membership.activated",
+      tier: "player",
+    });
+    expect(rec.context).toEqual({
+      name: "[redacted]",
+      fullName: "[redacted]",
+      buyer_name: "[redacted]",
+      buyerEmail: "[redacted]",
+      ip: "[redacted]",
+      clientIp: "[redacted]",
+      tel: "[redacted]",
+      uid: "[redacted]",
+      phoneNumber: "[redacted]",
+      membershipId: "mem_FAKE123",
+      guide: "g",
+      type: "membership.activated",
+      tier: "player",
+    });
   });
 
   it("handles strings, plain objects and junk as the error", () => {

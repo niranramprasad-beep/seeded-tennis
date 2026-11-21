@@ -17,6 +17,11 @@ export type DatabaseCheck = "ok" | "unreachable" | "skipped";
 
 export const HEALTH_DB_TIMEOUT_MS = 2_000;
 export const HEALTH_DB_CACHE_MS = 30_000;
+/** A failure is cached briefly: long enough that a burst of calls during an
+ * outage still makes one upstream request per instance, short enough that
+ * the uptime workflow's retry (10 s later) asks Supabase again rather than
+ * re-reading a stale "unreachable". */
+export const HEALTH_DB_FAILURE_CACHE_MS = 5_000;
 
 interface CacheEntry {
   at: number;
@@ -24,8 +29,9 @@ interface CacheEntry {
 }
 
 // Per serverless instance. At most one upstream request per instance per
-// HEALTH_DB_CACHE_MS, however often /api/health is called, and concurrent
-// callers share one in-flight request.
+// HEALTH_DB_CACHE_MS after a success (HEALTH_DB_FAILURE_CACHE_MS after a
+// failure), however often /api/health is called, and concurrent callers
+// share one in-flight request.
 let cache: CacheEntry | null = null;
 let inflight: Promise<DatabaseCheck> | null = null;
 
@@ -47,7 +53,10 @@ export async function checkDatabaseReachable(opts: DatabaseCheckOptions = {}): P
   const env = opts.env ?? process.env;
   const now = opts.now ?? Date.now;
 
-  if (cache && now() - cache.at < HEALTH_DB_CACHE_MS) return cache.result;
+  if (cache) {
+    const ttl = cache.result === "unreachable" ? HEALTH_DB_FAILURE_CACHE_MS : HEALTH_DB_CACHE_MS;
+    if (now() - cache.at < ttl) return cache.result;
+  }
   if (inflight) return inflight;
 
   inflight = (async () => {
