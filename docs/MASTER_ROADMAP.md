@@ -20,6 +20,36 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
+branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
+a bad email is caught on the email field itself — on blur, and before
+step 1 of /signup or /parent-signup is left, and on the onboarding
+"Save it with a free account" form (player and parent). The message names
+the field ("Email: that address doesn't look right. Check it for a typo."),
+the input gets `aria-invalid` and points at it with `aria-describedby`, and
+focus moves to it. A server refusal of the address (`email_address_invalid`
+/ `_not_authorized`, which until now arrived as an unnamed banner on step 3
+of 3) sends the person back to step 1 with the message on the field.
+Addresses are trimmed before they are sent (a pasted trailing space was
+refused on the last step). Pure checks: `lib/signup-checks.ts`; hook:
+`components/auth/email-field.ts`. (2) **A16:** /signup's name placeholders
+describe the field ("First name and last initial" / "First and last name")
+instead of reading like a person's name, and a birth year that is two or
+more years from usual for the grade picked (e.g. 2008 with 10th grade)
+gets a gentle, non-blocking hint. (3) **A7:** GA never loads on /login,
+/signup, /parent-signup, /reset-password (and /parent-login), as on
+/auth/* already — `GA_EXCLUDED_PATH_PREFIXES` in `lib/ga-privacy.ts`. A
+client navigation onto one of them after gtag.js loaded on an earlier page
+sets `ga-disable-<ID>` while the route RENDERS (`GaRuntime.guardPath`),
+before Next pushes the history entry, so GA's own history listener cannot
+count it either; `update()` re-enables only on an allowed page. Guards:
+`lib/signup-checks.test.ts` (new) and `lib/ga-privacy.test.ts`, which now
+walks `app/` and fails the build if an auth page route (login / signup /
+password / auth / verify / callback …) is not excluded, or an excluded
+prefix has no page. Onboarding walks (player 14+, under-13 on /signup and
+on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
+`~/seeded-evidence/final-check/prC/SUMMARY.md`.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1408,6 +1438,11 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
+
+Final-check (2026-11-21) rows closed by PR C (`fix/signup-onboarding-c`,
+not merged): A6 (email checked on its field), A7 (no GA on the sign-in /
+sign-up pages), A16 (name placeholder, birth-year/grade hint). Still open
+from that list: A1–A5, A8–A15, A17–A19 (`~/seeded-evidence/final-check/FINDINGS.md`).
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
