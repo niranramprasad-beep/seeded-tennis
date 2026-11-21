@@ -76,6 +76,11 @@ function caughtValueLeaks(src: string): string[] {
       [new RegExp(`\\b${N}\\s*\\.\\s*toString\\(`), `${n}.toString()`],
       [new RegExp(`\\b${N}\\s*\\+\\s*["'\`]|["'\`]\\s*\\+\\s*${N}\\b`), `string + ${n}`],
       [new RegExp(`:\\s*${N}\\s*[,}]`), `${n} itself as a JSON value`],
+      // Round 2 (PR #28): a cast or an alias moves the caught value out of
+      // sight of every check above. Neither is needed to log or to call
+      // clientWriteErrorMessage(err, …), so both are refused outright.
+      [new RegExp(`\\(\\s*${N}\\s+as\\b`), `(${n} as …) cast`],
+      [new RegExp(`=\\s*${N}\\s*[;,)\\n]`), `alias of ${n}`],
     ];
     for (const [re, why] of checks) {
       const hit = src.match(re);
@@ -183,6 +188,9 @@ describe("S-10: no route sends the database's text", () => {
       "destructured": `} catch ({ message }) { return NextResponse.json({ error: message }); }`,
       "promise .catch": `const r = await go().catch((problem) => ({ msg: problem.message }));`,
       "message via a local": `} catch (err) { const m = (err as Error); return NextResponse.json({ error: m.message }); }`,
+      "round 2: cast then local": `} catch (err) { const raw = (err as Error).message; return NextResponse.json({ error: raw ?? clientWriteErrorMessage(err, "x") }); }`,
+      "round 2: details via a cast": `} catch (err) { return NextResponse.json({ error: clientWriteErrorMessage(err, "x"), detail: (err as { details?: string }).details }); }`,
+      "round 2: plain alias": `} catch (err) { const e = err; return NextResponse.json({ error: e.message }); }`,
     };
     for (const [name, src] of Object.entries(probes)) {
       expect(caughtValueLeaks(src), name).not.toEqual([]);
@@ -207,6 +215,17 @@ describe("S-10: no route sends the database's text", () => {
       expect(src).toMatch(/throw new DatabaseWriteError\(/);
     });
   }
+
+  it("UserFacingError only ever carries our own sentence: a string literal or a validator's result", () => {
+    // Round 2 (PR #28): `new UserFacingError(error.message)` passed every
+    // other test and would have sent Postgres's text to the browser.
+    for (const writer of S10_WRITERS) {
+      const src = codeOnly(join(ROOT, writer));
+      for (const m of src.matchAll(/new UserFacingError\(\s*([^)]*)\)/g)) {
+        expect(m[1].trim(), `${writer}: new UserFacingError(${m[1]})`).toMatch(/^("[^"]*"|'[^']*'|`[^`$]*`|validationError)$/);
+      }
+    }
+  });
 
   it("the write paths behind the S-10 routes throw validation as UserFacingError and nothing as a bare Error", () => {
     for (const writer of S10_WRITERS.filter((w) => w !== "lib/db/settings.ts")) {
