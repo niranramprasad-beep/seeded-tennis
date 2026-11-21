@@ -61,7 +61,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-stone">
           Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
-          Target and Likely.
+          Target, Likely and Out of range.
         </p>
         <FitCalculatorCard schools={schools} mobile />
       </div>
@@ -202,7 +202,9 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         {/* The same disclosure as the desktop card: these starting values
             are an example, not the visitor's (and only fields they change
             are sent on — lib/home-calculator.ts). */}
-        <p className="text-xs text-stone">Example values. Change them to yours.</p>
+        <p className="text-xs text-stone">
+          {touched.size === 0 ? "Example values. Change them to yours." : "Your values — these go to your fit report."}
+        </p>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniField label="UTR">
             <input
