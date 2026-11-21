@@ -468,6 +468,25 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
+## Left open by the review-ready sweep (R9, 2026-11-20) — `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`
+
+- **M1 — budget expenses cannot be edited or deleted.** `lib/db/family.ts`
+  has load + insert only. Add update/delete (RLS already allows a parent:
+  `budget_expenses_write_update/delete`) and an Undo toast like Results.
+- **M2 — a parent's /schools shows "Saved 0"** while the parent Overview
+  says the player has 3 targets: the browser reads the signed-in parent's
+  own (empty) list. Use the player's targets from `family_members()`.
+- **GPA rules disagree**: Settings accepts 0–5 (the DB CHECK, weighted GPAs);
+  onboarding's `parseGpaText` (lib/onboarding/diagnostic.ts) caps at 4.0.
+  Pick one rule (likely 0–5) and share `lib/profile-fields.ts`.
+- **A blank name already stored** still loads as the login email in Settings
+  (`lib/auth.ts` fallback). It can no longer reach the coach email.
+- **Low**: mixed date formats; "11.00" vs "11.0" for the same estimate;
+  "Schedule" vs "Training calendar"; "Male" vs "Men's"; no `global-error.tsx`;
+  a contradictory Google sentence in the privacy policy (`lib/legal/policy.ts`
+  ~130); the `my-consent-state` SWR key is not per-user; `/./login` as
+  `?next=` causes one extra bounce (never a loop).
+
 ## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
 **MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
