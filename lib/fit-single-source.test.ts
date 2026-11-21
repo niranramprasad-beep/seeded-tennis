@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { buildFitReport, recruitingTimeUtr, type FitView } from "./fit";
 import type { SchoolLite } from "./types";
+import { FIT_ENGINE_FILES } from "./fit/engine-files";
 
 // WORKSTREAM A, GUARD (a) AND (b).
 //
@@ -244,7 +245,12 @@ describe("(b) band classification is reachable only through lib/fit.ts", () => {
     const minters = libFiles.filter((f) => /\bfitBasis\s*\(/.test(stripComments(readFileSync(f, "utf8"))));
     // school-fit.ts defines it; fit.ts owns the decision; school-sort and
     // today-actions are lib-level helpers that classify on fit.ts's behalf.
-    expect(minters.sort()).toEqual(
+    // "lib/fit.ts" is the fit engine: since the 2026-11-21 split its code is
+    // in lib/fit/*.ts (FIT_ENGINE_FILES), so the engine must mint and any
+    // file of it counts as "lib/fit.ts"; every other minter is listed.
+    const engine = minters.filter((f) => FIT_ENGINE_FILES.includes(f));
+    expect(engine.length, "the fit engine mints the basis").toBeGreaterThan(0);
+    expect(["lib/fit.ts", ...minters.filter((f) => !FIT_ENGINE_FILES.includes(f))].sort()).toEqual(
       ["lib/fit.ts", "lib/school-fit.ts", "lib/school-sort.ts", "lib/today-actions.ts"].sort()
     );
   });
@@ -301,7 +307,7 @@ describe("(e) the projection target is the summer before senior year — one pla
     for (const y of [2027, 2028, 2029, 2030, 2031, 2032]) {
       expect(projectionTargetDate(y).getTime()).toBe(summerBeforeSeniorYear(y).getTime());
     }
-    const src = readFileSync("lib/fit.ts", "utf8");
+    const src = FIT_ENGINE_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
     expect(src).not.toMatch(/RECRUITING_GRADE/);
   });
 });

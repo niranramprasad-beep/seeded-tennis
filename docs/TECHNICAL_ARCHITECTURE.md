@@ -38,6 +38,12 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
   (migration 048) are on production (applied 2026-11-20 23:55 UTC) with
   **no rows**; staging holds the imported rows, and the reading code is
   behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` (off) — `docs/CATALOG_EXPANSION.md`.
+- Fit engine: `lib/fit.ts` is the one entry point every screen imports
+  (projection, bands, plan goal, onboarding diagnostic); since 2026-11-21 it
+  is a barrel over `lib/fit/{pace,projection,goal,bands,diagnostic}.ts`
+  (imports one way, pace → projection → goal/bands → diagnostic). The
+  banding rules themselves are in `lib/school-fit.ts`. Guard tests treat
+  `FIT_ENGINE_FILES` (`lib/fit/engine-files.ts`) as "lib/fit.ts".
 
 ## Backend
 - Route handlers in `app/api/*` (13 `route.ts` files — see
