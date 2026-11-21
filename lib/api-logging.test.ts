@@ -3,7 +3,13 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { codeOnly } from "./testing/source-text";
 import { PostgrestError } from "@supabase/supabase-js";
-import { DatabaseWriteError, UserFacingError, clientWriteErrorMessage } from "./db/write-error";
+import {
+  DatabaseWriteError,
+  PERMISSION_DENIED_MESSAGE,
+  UserFacingError,
+  clientWriteErrorMessage,
+  clientWriteErrorStatus,
+} from "./db/write-error";
 import { saveBudgetExpense, saveSeasonBudget } from "./db/family";
 import { createUtrEntry } from "./db/plan";
 
@@ -254,12 +260,16 @@ describe("clientWriteErrorMessage", () => {
     expect(
       clientWriteErrorMessage(new DatabaseWriteError({ message: "Too many changes at once. Try again later. extra", code: "53400" }), FALLBACK)
     ).toBe(FALLBACK);
-    expect(clientWriteErrorMessage(new DatabaseWriteError({ message: "Sign in first.", code: "42501" }), FALLBACK)).toBe(FALLBACK);
+    // 42501 with a sentence of our own in it still gets the FIXED
+    // permission sentence — the database's text is never what is shown.
+    expect(clientWriteErrorMessage(new DatabaseWriteError({ message: "Sign in first.", code: "42501" }), FALLBACK)).toBe(
+      PERMISSION_DENIED_MESSAGE
+    );
+    expect(clientWriteErrorStatus(raw)).toBe(500);
   });
 
   it("hides Postgres's text behind the route's sentence", () => {
     for (const [message, code] of [
-      ['new row violates row-level security policy for table "matches"', "42501"],
       ['new row for relation "budget_expenses" violates check constraint "budget_expenses_amount_check"', "23514"],
       ['duplicate key value violates unique constraint "coach_outreach_pkey"', "23505"],
       ['column "x" does not exist', "42703"],
@@ -267,6 +277,42 @@ describe("clientWriteErrorMessage", () => {
       ["", null],
     ] as const) {
       expect(clientWriteErrorMessage(new DatabaseWriteError({ message, code }), FALLBACK)).toBe(FALLBACK);
+    }
+  });
+
+  it("A5: a permission refusal (42501) is a 403 with exactly one fixed sentence, never Postgres's text", () => {
+    expect(PERMISSION_DENIED_MESSAGE).toBe("You don't have permission to do that.");
+    for (const message of [
+      'new row violates row-level security policy for table "matches"',
+      'new row violates row-level security policy for table "season_budgets"',
+      "permission denied for table budget_expenses",
+      "",
+    ]) {
+      const err = new DatabaseWriteError({ message, code: "42501" });
+      expect(clientWriteErrorMessage(err, FALLBACK)).toBe(PERMISSION_DENIED_MESSAGE);
+      expect(clientWriteErrorStatus(err)).toBe(403);
+    }
+    // Fail-closed stays: only a DatabaseWriteError carrying the code counts.
+    // A raw PostgrestError with 42501 is not trusted to be what it says.
+    const raw = new PostgrestError({ message: "x", details: "", hint: "", code: "42501" });
+    expect(clientWriteErrorMessage(raw, FALLBACK)).toBe(FALLBACK);
+    expect(clientWriteErrorStatus(raw)).toBe(500);
+    expect(clientWriteErrorStatus({ code: "42501" })).toBe(500);
+  });
+
+  it("the status goes with the sentence: 400 for our validation, 500 for anything else", () => {
+    expect(clientWriteErrorStatus(new UserFacingError("A season budget can be at most $250,000."))).toBe(400);
+    expect(clientWriteErrorStatus(new DatabaseWriteError({ message: "x", code: "23514" }))).toBe(500);
+    expect(clientWriteErrorStatus(new DatabaseWriteError({ message: "Too many changes at once. Try again later.", code: "53400" }))).toBe(500);
+    expect(clientWriteErrorStatus(new TypeError("fetch failed"))).toBe(500);
+    expect(clientWriteErrorStatus(null)).toBe(500);
+  });
+
+  it("every S-10 route answers with clientWriteErrorStatus(err), not a fixed 500", () => {
+    for (const route of S10_ROUTES) {
+      const src = codeOnly(join(ROOT, route));
+      expect(src, route).toMatch(/clientWriteErrorMessage\(err, "[^"]+"\) \},\s*\{ status: clientWriteErrorStatus\(err\) \}/);
+      expect(src, route).not.toMatch(/clientWriteErrorMessage\(err, "[^"]+"\) \},\s*\{ status: 500 \}/);
     }
   });
 

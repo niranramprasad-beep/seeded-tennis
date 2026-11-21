@@ -1,7 +1,8 @@
 import type { SchoolLite } from "@/lib/types";
 import type { BandCounts, FitReport, RecruitingTimeUtr } from "@/lib/fit";
 import { PLANNING_PACE_CAP_PER_YEAR, formatPacePerYear, isUsableUtr, projectionTargetLabel } from "@/lib/fit";
-import { schoolUtrRange } from "@/lib/school-fit";
+import { schoolUtrRange, summerBeforeSeniorYear } from "@/lib/school-fit";
+import { WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR } from "@/lib/what-if-utr";
 import { formatPlayerUtr, formatUtrEstimate, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
 
 // The words that sit next to the fit counts — the homepage calculator's
@@ -215,12 +216,72 @@ export function fitReportHeadline(
 ): string {
   const n = report.todayInRange;
   const m = report.recruitingInRange;
-  const today = `Today, ${plural(n, "program", "programs")} ${n === 1 ? "is" : "are"} in range.`;
-  const pace = report.utr.planningPacePerYear;
-  if (!report.utr.isProjected || pace == null || pace <= 0 || m === 0) return today;
+  // "No program is in range today", never "0 programs" (final-check A4).
+  const today =
+    n === 0 ? "Today, no program is in range." : `Today, ${plural(n, "program", "programs")} ${n === 1 ? "is" : "are"} in range.`;
+  if (!headlineProjects(report)) return today;
+  const pace = report.utr.planningPacePerYear as number;
   const perYear = formatPacePerYear(pace, { signed: false }).replace(/ a year$/, "");
   const who = audience === "parent" ? "your player gains" : "you gain";
   return `${today} If ${who} about ${perYear} UTR a year (${headlinePaceSource(report.utr, audience)}), that could be ${m} by ${projectionTargetLabel(report.utr.year)}.`;
+}
+
+/** Whether fitReportHeadline adds its "that could be {m} by summer …" half. */
+function headlineProjects(report: Pick<FitReport, "recruitingInRange" | "utr">): boolean {
+  const pace = report.utr.planningPacePerYear;
+  return report.utr.isProjected && pace != null && pace > 0 && report.recruitingInRange > 0;
+}
+
+/**
+ * The fit report's lead (final-check A4). fitReportHeadline, except when
+ * nothing is in range today AND the headline would add no projection
+ * (nothing by the summer either, or no projection at all): then the
+ * homepage hero's zero sentence — the catalogue count, the closest
+ * program and its gap, labelled an estimate (nothingInRangeSentence, the
+ * same helper heroFitCta uses). It used to read "Today, 0 programs are in
+ * range." over "By summer 2027: 0 Target and 0 Likely." and "0 today → 0".
+ * `zero.utr` is TODAY's rating, as nothingInRangeSentence requires.
+ */
+export function fitReportLead(
+  report: Pick<FitReport, "todayInRange" | "recruitingInRange" | "utr">,
+  audience: "player" | "parent",
+  zero: Parameters<typeof nothingInRangeSentence>[0]
+): string {
+  if (report.todayInRange === 0 && !headlineProjects(report)) {
+    const sentence = nothingInRangeSentence(zero);
+    if (sentence) return sentence;
+  }
+  return fitReportHeadline(report, audience);
+}
+
+export type FitTabBand = "reach" | "target" | "likely" | "out-of-range";
+
+/**
+ * The band tab the fit report opens on: the first non-empty one, in-range
+ * bands first — Target, Likely, Reach, then Out of range — so it never opens
+ * on an empty Target tab when every program is Out of range (A4).
+ */
+export function defaultFitTab(counts: Pick<BandCounts, "reach" | "target" | "likely" | "outOfRange">): FitTabBand {
+  if (counts.target > 0) return "target";
+  if (counts.likely > 0) return "likely";
+  if (counts.reach > 0) return "reach";
+  if (counts.outOfRange > 0) return "out-of-range";
+  return "target";
+}
+
+/** What an empty band tab says, in words (A4) — what the band means and
+ *  that no program in the list is in it at this rating. */
+export function emptyBandSentence(band: FitTabBand): string {
+  switch (band) {
+    case "target":
+      return "No program has this rating between its estimated floor and its estimated average.";
+    case "likely":
+      return "No program has this rating at or above its estimated average.";
+    case "reach":
+      return "No program is a Reach: none has an estimated floor above this rating that the pace we plan with reaches by the summer before senior year.";
+    case "out-of-range":
+      return "No program is Out of range: every estimated floor above this rating is one the pace we plan with reaches by the summer before senior year.";
+  }
 }
 
 /**
@@ -239,4 +300,103 @@ export function teamLineRelation(rating: number, line: number, which: "average" 
   const diff = line - rating;
   if (Math.abs(diff) < 1e-9) return `at the team ${which}`;
   return `${formatUtrDistance(diff)} ${diff > 0 ? "below" : "above"} the team ${which}`;
+}
+
+// ---------------------------------------------------------------------
+// WHICH RATING A NUMBER IS (final-check A1/A2, 2026-11-21)
+//
+// The same school showed "You 8.20 · 2.3 below the team average" on Plan and
+// "8.7 · 1.8 below average" on its own page and on the Schools list: one was
+// today's rating, the other the summer estimate, and neither said so. And the
+// Schools "Why this band" panel printed a what-if value as "You're 8.99
+// today". Every rating printed next to a team line now carries its basis,
+// in one vocabulary, from here:
+//   - "today"                                  — the rating the player logged
+//   - "by summer 2027, estimate"               — the fit report's projection
+//   - "by summer 2027, what-if at +1.50 a year" — the what-if slider's choice
+// The year is always the projection's own (report.utr.year, or the summer
+// before senior year for a what-if) — never a hardcoded one.
+// ---------------------------------------------------------------------
+
+export type WhatIfBasisPace = "mine" | "plus1.5" | "custom";
+
+export type RatingBasis =
+  | { kind: "today" }
+  | { kind: "estimate"; year: number }
+  /** `year` null once the summer before senior year has begun (the what-if
+   *  is then about now, as the what-if panel says). */
+  | { kind: "what-if"; year: number | null; pace: WhatIfBasisPace | null; pacePerYear?: number | null };
+
+/** The basis of a fit report's rating: the estimate when it is projected,
+ *  today's rating otherwise. */
+export function basisOfReportUtr(utr: Pick<RecruitingTimeUtr, "isProjected" | "year">): RatingBasis {
+  return utr.isProjected ? { kind: "estimate", year: utr.year } : { kind: "today" };
+}
+
+/** "today" · "by summer 2027, estimate" · "by summer 2027, what-if at +1.50 a year". */
+export function ratingBasisLabel(basis: RatingBasis): string {
+  if (basis.kind === "today") return "today";
+  if (basis.kind === "estimate") return `by ${projectionTargetLabel(basis.year)}, estimate`;
+  const when = basis.year == null ? "now" : `by ${projectionTargetLabel(basis.year)}`;
+  const how =
+    basis.pace === "plus1.5" && basis.pacePerYear != null
+      ? ` at ${formatPacePerYear(basis.pacePerYear)}`
+      : basis.pace === "mine"
+        ? " at your pace"
+        : "";
+  return `${when}, what-if${how}`;
+}
+
+/** A rating printed the way its basis is: a logged or what-if rating at two
+ *  decimals, an estimate at one (lib/utils.ts, C10). */
+export function formatRatingForBasis(value: number, basis: RatingBasis): string {
+  return basis.kind === "estimate" ? formatUtrEstimate(value) : formatPlayerUtr(value);
+}
+
+/** "You 8.20 today" · "Bailey 8.7 by summer 2027, estimate". Null without a
+ *  real rating — the caller shows "Not tracked" or its own prompt. */
+export function ratingWithBasis(value: number | null | undefined, basis: RatingBasis, who = "You"): string | null {
+  if (!hasRealUtr(value)) return null;
+  return `${who} ${formatRatingForBasis(value, basis)} ${ratingBasisLabel(basis)}`;
+}
+
+/**
+ * "You 8.20 today: 2.3 below the team average" — a gap sentence that says
+ * which rating it measured. `lines` picks which team lines, in order. Null
+ * without a real rating.
+ */
+export function teamGapSentence(
+  value: number | null | undefined,
+  basis: RatingBasis,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  opts: { who?: string; lines?: readonly ("floor" | "average")[] } = {}
+): string | null {
+  const head = ratingWithBasis(value, basis, opts.who ?? "You");
+  if (head == null || !hasRealUtr(value)) return null;
+  const lines = opts.lines ?? (["floor", "average"] as const);
+  const parts = lines.map((which) =>
+    teamLineRelation(value, which === "floor" ? school.minCompetitiveUTR : school.avgRosterUTR, which)
+  );
+  return `${head}: ${parts.join(" · ")}`;
+}
+
+/**
+ * The basis of the what-if slider's value, or null while the slider is
+ * untouched (the page then shows the report's own rating, basisOfReportUtr).
+ * The year is the summer before senior year — the date the what-if panel's
+ * own question names ("What if my UTR is 8.99 by June 2027?").
+ */
+export function whatIfBasis(
+  whatIf: { isAtRealCurrent: boolean; activePaceMode: WhatIfBasisPace | null },
+  graduationYear: number,
+  now: Date = new Date()
+): RatingBasis | null {
+  if (whatIf.isAtRealCurrent) return null;
+  const milestone = summerBeforeSeniorYear(graduationYear);
+  return {
+    kind: "what-if",
+    year: now.getTime() >= milestone.getTime() ? null : milestone.getFullYear(),
+    pace: whatIf.activePaceMode,
+    pacePerYear: whatIf.activePaceMode === "plus1.5" ? WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR : null,
+  };
 }

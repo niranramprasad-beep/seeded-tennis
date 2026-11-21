@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
 import { deleteMatch, saveMatch } from "@/lib/db/events";
 import { MatchesBodySchema } from "@/lib/api-schemas/matches";
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     logServerError("api.matches.write_failed", err, { route: "/api/matches" });
     return NextResponse.json(
       { error: clientWriteErrorMessage(err, "Could not save that match. Try again.") },
-      { status: 500 }
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

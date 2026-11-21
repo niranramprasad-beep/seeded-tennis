@@ -29,6 +29,7 @@ import { gradeStandingName } from "@/lib/utr-projection";
 import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
 import { DataNote } from "@/components/seeded/ui/data-note";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
+import { chartLegendSentence } from "@/lib/chart-legend";
 
 function seasonLabel(graduationYear: number, now: Date): string {
   const standing = gradeStandingName(getCurrentGrade(graduationYear, now));
@@ -280,8 +281,15 @@ export function SeededDashboardLayout({
                   PR #16): the chart may end at the next checkpoint rather
                   than the summer before senior year, and the grey line only
                   exists when the player's own pace beats the planning cap. */}
+              {/* One vocabulary with /plan's chart (lib/chart-legend.ts,
+                  final-check A3). The estimate is drawn dotted here too,
+                  so "dotted" means the same line on both screens. */}
               {estimatePath.length > 1
-                ? `Solid: UTRs you logged. Green dashes: the estimate we plan with.${upsidePath.length > 1 ? " Grey dashes: your own faster pace, never used for bands." : ""}${nextCheckpoint ? " Gold line: your next checkpoint." : ""}`
+                ? chartLegendSentence({
+                    estimate: true,
+                    plan: nextCheckpoint ? "next-checkpoint" : null,
+                    upside: upsidePath.length > 1,
+                  })
                 : "The line is the UTRs you've logged."}
             </DataNote>
           ) : null}

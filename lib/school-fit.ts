@@ -404,6 +404,10 @@ function computeNextBandChange(
   const utrNeeded = targetBand === "likely" ? school.avgRosterUTR : school.minCompetitiveUTR;
   const gap = Math.round((utrNeeded - playerUtr) * 100) / 100;
   const byDate = localDateKey(milestone);
+  // Today's rating is already past the line that would move the band (the
+  // band was judged on a what-if or an estimate below today's rating): there
+  // is no gap to close, and "needs about -0.30 a year" is not a sentence.
+  if (gap <= 0) return null;
 
   const yearsRemaining = (milestone.getTime() - now.getTime()) / MS_PER_YEAR;
   if (yearsRemaining <= 0) {
@@ -534,6 +538,13 @@ function hasLoggedTrend(history: UtrDataPoint[]): boolean {
  * logged yet" — the same `currentUTR <= 0` convention already used by the
  * pre-auth tournament-fit calculator — without ever having to invent a
  * placeholder value to pass in.
+ *
+ * `playerUtr` is TODAY's real rating, and nothing else: the summary prints
+ * it as "You're 8.20 today". A what-if slider value or a projection is NOT a
+ * valid argument — /schools passed the what-if value here and told a 8.20
+ * player "You're 8.99 today" (final-check A1, 2026-11-21). Pass the band the
+ * what-if or the estimate produced as `input.band`, and print the
+ * hypothetical with its own label (lib/fit-copy.ts teamGapSentence).
  */
 export function explainSchoolFit(
   playerUtr: number | null,

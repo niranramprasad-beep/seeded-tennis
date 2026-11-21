@@ -8,7 +8,8 @@ import {
 } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
+import { MAX_BUDGET_EXPENSE_USD, EXPENSE_AMOUNT_TOO_HIGH } from "@/lib/budget-limits";
 import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 
 // Real write path behind /family's "Add expense" — parent/family money
@@ -20,7 +21,7 @@ import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 const BodySchema = z.object({
   category: z.enum(["entries", "travel", "camps"]),
   label: z.string(),
-  amount: z.number(),
+  amount: z.number().max(MAX_BUDGET_EXPENSE_USD, EXPENSE_AMOUNT_TOO_HIGH),
   expenseDate: z.string(),
 });
 
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
     logServerError("api.family_budget_expenses.write_failed", err, { route: "/api/family/budget/expenses" });
     return NextResponse.json(
       { error: clientWriteErrorMessage(err, "Could not save the expense. Try again.") },
-      { status: 500 }
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

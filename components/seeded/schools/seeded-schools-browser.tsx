@@ -22,7 +22,7 @@ import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
 import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import {
   missingPlayerUtrPhrase,
   pickFamilyPlayer,
@@ -41,8 +41,8 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
 import { Drawer } from "@/components/ui/drawer";
-import { cn, formatUtrEstimate, formatUtrFor, hasRealUtr, plural } from "@/lib/utils";
-import { teamLineRelation } from "@/lib/fit-copy";
+import { cn, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
+import { basisOfReportUtr, ratingBasisLabel, ratingWithBasis, teamGapSentence, whatIfBasis, type RatingBasis } from "@/lib/fit-copy";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
@@ -313,6 +313,18 @@ export function SeededSchoolsBrowser({
   });
 
   const judgingUtr: number | null = report?.utr.value ?? null;
+  // Which rating `judgingUtr` is — printed beside every number that came
+  // from it (final-check A2). An explicit what-if is its own basis; the
+  // report alone would call it "today" (buildFitReport treats an override
+  // as a current rating).
+  const judgingBasis: RatingBasis | null = report
+    ? (!viewingAsParent ? whatIfBasis(whatIf, player.graduationYear) : null) ?? basisOfReportUtr(report.utr)
+    : null;
+  const judgingWho = viewingAsParent ? (subjectName ?? "Player") : "You";
+  // TODAY's real rating — the only number "today" may ever describe. The
+  // "Why this band" summary printed the what-if value as "You're 8.99
+  // today" for a 8.20 player (final-check A1).
+  const todayUtr: number | null = whatIf.todayUtr;
   const hasFit = report != null;
 
   const bandFor = useCallback(
@@ -878,7 +890,7 @@ export function SeededSchoolsBrowser({
               // five weakest programs — both measured against the sentinel.
               const explanation =
                 expanded && hasUtr
-                  ? explainSchoolFit(effectiveUtr, s, { ...explanationInput, band: fit ?? undefined })
+                  ? explainSchoolFit(todayUtr, s, { ...explanationInput, band: fit ?? undefined })
                   : null;
               return (
                 <div key={s.id}>
@@ -965,14 +977,15 @@ export function SeededSchoolsBrowser({
                       caption={
                         judgingUtr === null
                           ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
-                          : `${projectedYouLabel(report?.utr, viewingAsParent ? subjectName : null)} ${formatUtrFor(judgingUtr, report?.utr.isProjected ?? false)} · ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                          : `${ratingWithBasis(judgingUtr, judgingBasis ?? { kind: "today" }, viewingAsParent ? (subjectName ?? "Player") : "You")} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
                       high={range.max}
                       you={judgingUtr}
                       youIsEstimate={report?.utr.isProjected ?? false}
-                      youLabel={projectedYouLabel(report?.utr, viewingAsParent ? (subjectName ?? "Player") : null)}
+                      youLabel={judgingWho}
+                      youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
                     />
                     {showOpenings && (
                       <DataChip status={openingsChip(s).status}>{openingsChip(s).label}</DataChip>
@@ -1000,12 +1013,19 @@ export function SeededSchoolsBrowser({
                   {expanded && explanation && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-ink last:border-b-0">
                       <p>{explanation.summary}</p>
-                      {explanation.gapToFloor != null && explanation.gapToMedian != null && (
+                      {/* "1.2 below the team floor · 0.3 above the team
+                          average" (A-007), not a signed gap — and now
+                          saying WHICH rating: the band's own (estimate or
+                          what-if), then today's when that differs
+                          (final-check A1/A2). */}
+                      {judgingBasis && judgingUtr != null && (
                         <p className="mt-1.5 text-stone">
-                          {/* "1.2 below the team floor · 0.3 above the team
-                              average" (A-007), not a signed gap. */}
-                          {teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")} ·{" "}
-                          {teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")}
+                          {teamGapSentence(judgingUtr, judgingBasis, s, { who: judgingWho })}
+                        </p>
+                      )}
+                      {judgingBasis?.kind !== "today" && todayUtr != null && explanation.band !== "unverified" && (
+                        <p className="mt-1 text-stone">
+                          {teamGapSentence(todayUtr, { kind: "today" }, s)}
                         </p>
                       )}
                       {explanation.nextBand && (

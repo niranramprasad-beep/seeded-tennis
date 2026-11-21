@@ -19,9 +19,9 @@ import {
 } from "@/lib/family-view";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { formatPacePerYear, paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
-import { teamLineRelation } from "@/lib/fit-copy";
-import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { formatPacePerYear, paceUpsideSentence } from "@/lib/fit";
+import { basisOfReportUtr, ratingBasisLabel, ratingWithBasis, teamGapSentence } from "@/lib/fit-copy";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
@@ -31,7 +31,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -129,6 +129,10 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   // judged the band — the same one the /schools row shows — so the two pages
   // print the same "Gap to team average" for the same school.
   const judgingValue = judging?.value ?? null;
+  // Which rating that is, said beside every number from it (final-check A2):
+  // "by summer 2027, estimate" or "today", in lib/fit-copy.ts's words.
+  const judgingBasis = judging ? basisOfReportUtr(judging) : null;
+  const subjectWho = subjectFirst ?? "You";
   const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
   const alreadyContacted = Boolean(outreach?.[school.slug]);
@@ -209,13 +213,14 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         <FitDriverRow
           label="UTR"
           description={
-            judging.isProjected
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: ${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")} · today ${formatPlayerUtr(subjectUtr as number)}`
-              : `${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")}`
+            `${teamGapSentence(judging.value, judgingBasis ?? { kind: "today" }, school, { who: subjectWho })}.` +
+            (judging.isProjected && hasRealUtr(subjectUtr)
+              ? ` ${ratingWithBasis(subjectUtr, { kind: "today" }, subjectWho)}.`
+              : "")
           }
           chip={
             bandPositionLabel(explanation.band) +
-            (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
+            (judging.isProjected && judgingBasis ? ` ${ratingBasisLabel(judgingBasis)}` : "")
           }
         />
       )}
@@ -262,7 +267,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           youPct={judgingValue != null ? utrToPct(judgingValue) : null}
           caption={
             judgingValue != null
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrFor(judgingValue, judging?.isProjected ?? false)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+              ? `${ratingWithBasis(judgingValue, judgingBasis ?? { kind: "today" }, subjectWho)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
               : subjectFirst
                 ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
                 : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`
@@ -272,7 +277,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           high={range.max}
           you={judgingValue}
           youIsEstimate={judging?.isProjected ?? false}
-          youLabel={projectedYouLabel(judging, subjectFirst)}
+          youLabel={subjectWho}
+          youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
         />
       </div>
       <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>

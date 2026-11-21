@@ -12,6 +12,7 @@ import type { PlayerGender } from "@/lib/types";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import type { SchoolFitProjectionInput } from "@/lib/school-fit";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
+import { hasRealUtr } from "@/lib/utils";
 import { recruitingTimeUtr } from "@/lib/fit";
 import {
   clampToRealisticUtr,
@@ -49,6 +50,10 @@ export interface UseWhatIfUtrResult {
   minUTR: number;
   maxUTR: number;
   isAtRealCurrent: boolean;
+  /** The player's REAL rating today, or null without one (hasRealUtr).
+   *  Never the slider's value: the only number a "today" label may print
+   *  (final-check A1 — /schools printed the what-if as "You're 8.99 today"). */
+  todayUtr: number | null;
   selectMyPace: () => void;
   selectPlusPace: () => void;
   /** Manual drag/typed entry — always flips the mode to "custom" since the
@@ -135,6 +140,7 @@ export function useWhatIfUtr({
     minUTR: REALISTIC_UTR_FLOOR,
     maxUTR: REALISTIC_UTR_CEILING[gender],
     isAtRealCurrent,
+    todayUtr: hasRealUtr(currentUTR) ? currentUTR : null,
     selectMyPace,
     selectPlusPace,
     setCustom,

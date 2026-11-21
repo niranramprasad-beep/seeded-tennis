@@ -11,7 +11,7 @@ import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { formatDate } from "@/lib/time";
 import { cn, hasRealUtr } from "@/lib/utils";
-import { teamLineRelation } from "@/lib/fit-copy";
+import { ratingBasisLabel, teamGapSentence, type RatingBasis } from "@/lib/fit-copy";
 
 interface TargetSchoolsListProps {
   /** Real order from player.targetSchoolSlugs, resolved to school objects
@@ -20,7 +20,15 @@ interface TargetSchoolsListProps {
   /** Full same-gender catalog minus whatever's already targeted, for the
    * "add a target school" search. */
   addableSchools: SchoolLite[];
-  effectiveUtr: number;
+  /** TODAY's real rating, or null. Only the "what would move it" read uses
+   *  it; it is never printed as anything but today's. */
+  todayUtr: number | null;
+  /** The rating the bands were judged on (the fit report's: the estimate,
+   *  or the what-if once the slider moved) and which one it is. The gap on
+   *  every row is measured from it and says so (final-check A2): Plan said
+   *  "8.20 · 2.3 below" while /schools said "8.7 · 1.8 below" for one school. */
+  judgingUtr: number | null;
+  judgingBasis: RatingBasis | null;
   explanationInput: SchoolFitExplanationInput;
   /** Bands from the shared fit report (lib/fit.ts). Every row's badge reads
    * these, so /plan and /schools cannot band the same school differently. */
@@ -34,10 +42,6 @@ interface TargetSchoolsListProps {
    * reordering a partial view would silently scramble the real full
    * order, so it only runs against the complete list. */
   reorderable: boolean;
-}
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function insertBefore(order: string[], draggedSlug: string, dropSlug: string): string[] {
@@ -60,7 +64,9 @@ function insertBefore(order: string[], draggedSlug: string, dropSlug: string): s
 export function TargetSchoolsList({
   targetSchools,
   addableSchools,
-  effectiveUtr,
+  todayUtr,
+  judgingUtr,
+  judgingBasis,
   explanationInput,
   reportBandBySlug,
   isStarred,
@@ -130,7 +136,7 @@ export function TargetSchoolsList({
 
       <ul className="mt-3.5 flex flex-col gap-3 text-sm">
         {targetSchools.map((s) => {
-          const explanation = explainSchoolFit(effectiveUtr, s, {
+          const explanation = explainSchoolFit(todayUtr, s, {
             ...explanationInput,
             band: reportBandBySlug?.get(s.slug),
           });
@@ -138,12 +144,14 @@ export function TargetSchoolsList({
           // "0.3 below the team average", never a signed "+0.3 to their
           // roster average" (A-007; it could print "+0.0"). The band picks
           // which line matters; teamLineRelation says which side.
-          const gapLabel =
-            explanation.band === "unverified"
-              ? "Log a UTR to see your gap."
-              : explanation.band === "likely" || explanation.band === "target"
-                ? `${capitalize(teamLineRelation(effectiveUtr, s.avgRosterUTR, "average"))}.`
-                : `${capitalize(teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor"))}.`;
+          const band = reportBandBySlug?.get(s.slug) ?? explanation.band;
+          const gapSentence =
+            judgingBasis && band !== "unverified"
+              ? teamGapSentence(judgingUtr, judgingBasis, s, {
+                  lines: band === "likely" || band === "target" ? ["average"] : ["floor"],
+                })
+              : null;
+          const gapLabel = gapSentence ? `${gapSentence}.` : "Log a UTR to see your gap.";
 
           return (
             <li
@@ -182,17 +190,19 @@ export function TargetSchoolsList({
                     {s.shortName}
                   </Link>
                 </div>
-                <FitBadge band={explanation.band} />
+                <FitBadge band={band} />
               </div>
               <RangeBar
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(s.avgRosterUTR)}
-                youPct={hasRealUtr(effectiveUtr) ? utrToPct(effectiveUtr) : null}
+                youPct={hasRealUtr(judgingUtr) ? utrToPct(judgingUtr) : null}
                 low={range.min}
                 median={s.avgRosterUTR}
                 high={range.max}
-                you={hasRealUtr(effectiveUtr) ? effectiveUtr : null}
+                you={hasRealUtr(judgingUtr) ? judgingUtr : null}
+                youIsEstimate={judgingBasis?.kind === "estimate"}
+                youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
               />
               <p className="text-xs text-stone">
                 {gapLabel}

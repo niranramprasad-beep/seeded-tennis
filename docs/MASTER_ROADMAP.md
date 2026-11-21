@@ -20,6 +20,49 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
+`fix/known-bugs-a`; no migration, no env var, no setting).**
+(A1) The Schools "Why this band" panel printed the what-if slider's value as
+"You're 8.99 today" for a 8.20 player. `explainSchoolFit()` now only ever
+gets TODAY's real rating (`useWhatIfUtr().todayUtr`, hasRealUtr-gated); the
+what-if gets its own line, "You 8.99 by summer 2027, what-if at +1.50 a
+year: …", with the year from the summer before senior year. Its "what would
+move it" read returns nothing when today's rating is already past the line
+(no "needs about -0.30 a year").
+(A2) One school showed two unlabelled gaps (Plan from today's 8.20, the
+school page and Schools list from the 8.7 summer estimate). Every gap and
+rating beside a team line now goes through `lib/fit-copy.ts`
+(`ratingBasisLabel` / `ratingWithBasis` / `teamGapSentence`) and says its
+basis: "today", "by summer {year}, estimate" or "…, what-if". Plan's target
+list now measures from the same rating its bands use (the fit report's),
+so Plan and the school page print the same gap. The range-bar tooltip
+(`youBasis`), the fit report's row captions and Plan's "Closest schools"
+(which said "your current UTR" over gaps from the estimate) use it too.
+(A3) The two chart legends gave green dashes two meanings. One vocabulary in
+`lib/chart-legend.ts` — Logged (solid), Planning estimate (dotted), Your
+plan (dashes + gold), Estimate at your own pace (grey dashes) — for both
+legends and Plan's readout; /today's and /family's estimate lines are now
+drawn dotted like /plan's so the legend is true.
+(A4) The fit report's zero state: the lead is the homepage hero's own zero
+sentence (`fitReportLead` → `nothingInRangeSentence`: catalogue count,
+closest program, its gap, "(estimate)"); the "0 Target and 0 Likely" and
+"0 today → 0" lines only render when non-zero; the tab opens on the first
+non-empty band (`defaultFitTab`, Out of range when that is all); an empty
+tab says what the band means (`emptyBandSentence`). "Today, 0 programs are
+in range." now reads "Today, no program is in range."
+(A5) Budget limits: season budget ≤ $250,000, one expense ≤ $50,000
+(`lib/budget-limits.ts`; staging's columns are numeric(9,2) and
+numeric(8,2)), enforced in both routes' zod schemas, `lib/db/family.ts` and
+both forms, with a message naming the limit. On the five S-10 write routes a
+permission refusal (a `DatabaseWriteError` with SQLSTATE 42501) is now HTTP
+403 "You don't have permission to do that." (`clientWriteErrorStatus`), our
+own validation sentence is 400, everything else stays a 500 with the
+route's fallback — still fail-closed: no Postgres text reaches the client,
+and a raw PostgrestError is not trusted. Tests: `lib/final-check-a.test.ts`,
+`lib/budget-limits.test.ts`, new cases in `lib/api-logging.test.ts`; guards
+in `lib/honest-zero-state.test.ts` and `plan-trajectory-values.test.ts`
+updated to the new call sites and words. Not merged; Niran's go.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1408,6 +1451,9 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
+
+Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5
+fixed on `fix/known-bugs-a` (PR A, not merged). The B/C/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
 import {
   saveCoachOutreachReminder,
   saveCoachOutreachReplyNote,
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     logServerError("api.outreach.write_failed", err, { route: "/api/outreach" });
     return NextResponse.json(
       { error: clientWriteErrorMessage(err, "Could not save that. Try again.") },
-      { status: 500 }
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

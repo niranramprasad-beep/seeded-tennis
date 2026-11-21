@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
 import { createUtrEntry } from "@/lib/db/plan";
 import { UtrEntryBodySchema } from "@/lib/api-schemas/utr-entries";
 
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     logServerError("api.utr_entries.write_failed", err, { route: "/api/utr-entries" });
     return NextResponse.json(
       { error: clientWriteErrorMessage(err, "Could not save your UTR entry. Try again.") },
-      { status: 500 }
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

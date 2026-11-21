@@ -8,6 +8,7 @@ import { useDialog } from "@/lib/hooks/use-dialog";
 import { Portal } from "@/components/ui/portal";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
+import { expenseAmountLimitError, seasonBudgetLimitError } from "@/lib/budget-limits";
 import { cn } from "@/lib/utils";
 
 // Shared overlay + panel shell — same motion/shape language as
@@ -111,6 +112,10 @@ export function EditBudgetModal({
     const totalBudget = Number(total);
     if (!label.trim()) return setError("Season label is required.");
     if (!Number.isFinite(totalBudget) || totalBudget < 0) return setError("Enter a valid budget amount.");
+    // A5: the same limit the route's zod schema enforces, said before a
+    // request is made (lib/budget-limits.ts).
+    const tooHigh = seasonBudgetLimitError(totalBudget);
+    if (tooHigh) return setError(tooHigh);
     setSaving(true);
     setError("");
     try {
@@ -154,7 +159,7 @@ export function EditBudgetModal({
           />
         </div>
       </label>
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
       <div className="mt-5 flex items-center justify-end gap-3">
         <button
           type="button"
@@ -212,6 +217,8 @@ export function AddExpenseModal({
     const amt = Number(amount);
     if (!label.trim()) return setError("A short description is required.");
     if (!Number.isFinite(amt) || amt < 0) return setError("Cost can't be negative.");
+    const tooHigh = expenseAmountLimitError(amt);
+    if (tooHigh) return setError(tooHigh);
     if (!date) return setError("Enter a date.");
     setSaving(true);
     setError("");
@@ -287,7 +294,7 @@ export function AddExpenseModal({
         </label>
       </div>
 
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
       <div className="mt-5 flex items-center justify-end gap-3">
         <button
           type="button"
