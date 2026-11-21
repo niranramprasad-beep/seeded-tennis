@@ -36,7 +36,7 @@ import { CheckinDrawer } from "@/components/seeded/dashboard/checkin-drawer";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { formatDate, localDateKey, parseLocalDate } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { cn, formatPlayerUtr, formatUTR, hasRealUtr, utrInputValue } from "@/lib/utils";
+import { formatPlayerUtr, formatUTR, hasRealUtr, utrInputValue } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,

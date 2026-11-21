@@ -1,4 +1,4 @@
-// D8 perf audit (docs/perf/audit-2-perf.md): a local stand-in for Vercel's
+// D8 perf audit (docs/archive/audit-2-perf.md): a local stand-in for Vercel's
 // edge so Lighthouse numbers from a local `next start` are comparable with
 // production's. `next start` speaks HTTP/1.1 with gzip; Vercel serves
 // HTTP/2 with brotli, and Lighthouse's simulated slow-4G is very sensitive

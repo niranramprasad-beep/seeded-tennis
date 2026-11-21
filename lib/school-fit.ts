@@ -211,7 +211,7 @@ export function schoolUtrRange(
 // Fixed reference scale so every RangeBar on a page is visually comparable
 // to every other one (not auto-scaled per row) — covers the full catalog's
 // real range (~8.1–14.3) with margin on both ends.
-export const SCHOOL_UTR_SCALE = { min: 6, max: 15 };
+const SCHOOL_UTR_SCALE = { min: 6, max: 15 };
 
 export function utrToPct(utr: number): number {
   const { min, max } = SCHOOL_UTR_SCALE;

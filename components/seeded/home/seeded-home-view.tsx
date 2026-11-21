@@ -11,7 +11,6 @@ import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
-import { SeededButton } from "@/components/seeded/ui/button";
 import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/heading";
 
 // Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No

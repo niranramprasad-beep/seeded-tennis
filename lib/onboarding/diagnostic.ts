@@ -41,7 +41,7 @@ export const STEP = {
 } as const;
 
 /** "Question N of 10" for a player. The result is not a question. */
-export const QUESTION_COUNT = 10;
+const QUESTION_COUNT = 10;
 
 /** How many questions THIS person is asked: a parent is never asked the
  * last one (tournaments planned), so their progress reads "of 9". */
@@ -92,8 +92,8 @@ export const EMPTY_ANSWERS: DiagnosticAnswers = {
 
 /* --------------------------------------------------------------- parsing */
 
-export const UTR_INPUT_ERROR = "Enter a UTR from 1.00 to 16.50.";
-export const GPA_INPUT_ERROR = "Enter a GPA from 0.0 to 4.0.";
+const UTR_INPUT_ERROR = "Enter a UTR from 1.00 to 16.50.";
+const GPA_INPUT_ERROR = "Enter a GPA from 0.0 to 4.0.";
 
 /** A typed UTR: null + no error when empty, null + error when it is not a
  * rating, the number otherwise. Two decimals at most, as UTR publishes. */
@@ -147,7 +147,7 @@ export function diagnosticValues(a: DiagnosticAnswers): DiagnosticValues {
 
 /* ------------------------------------------------------------ navigation */
 
-export function isAnswered(step: number, a: DiagnosticAnswers): boolean {
+function isAnswered(step: number, a: DiagnosticAnswers): boolean {
   switch (step) {
     case STEP.role:
       return a.role != null;
@@ -417,7 +417,7 @@ export function signupGradeFor(gradYear: number | null, now: Date = new Date()):
 
 /** sessionStorage, not localStorage: it dies with the tab, so answers about
  * a child never outlive the sign-up they were typed for. */
-export const PENDING_ANSWERS_KEY = "seeded.onboarding.pending";
+const PENDING_ANSWERS_KEY = "seeded.onboarding.pending";
 const PENDING_TTL_MS = 60 * 60 * 1000;
 
 export function serializePendingAnswers(a: DiagnosticAnswers, now: Date = new Date()): string {

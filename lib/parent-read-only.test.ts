@@ -6,7 +6,7 @@ import { join } from "node:path";
 //
 // What a parent may WRITE is decided by RLS (budget + expenses via
 // is_parent_member, notes via 033) and attack-tested on staging — see
-// docs/FINAL_PASS_REPORT.md. What this file pins is the app's half: no
+// docs/archive/FINAL_PASS_REPORT.md. What this file pins is the app's half: no
 // route accepts a parent's write to player data, no parent screen offers
 // one, and a parent's Settings is about the parent.
 

@@ -11,8 +11,9 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  type TooltipProps,
 } from "recharts";
-import { useThemeColors } from "@/lib/context/theme-context";
+import { useThemeColors, type ThemeColors } from "@/lib/context/theme-context";
 import {
   buildUtrChartSeries,
   buildUtrSummaryLine,
@@ -47,7 +48,7 @@ function formatTick(dateMs: number): string {
   return new Date(dateMs).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 
-function ChartTooltip({ active, payload, c }: any) {
+function ChartTooltip({ active, payload, c }: TooltipProps<number, string> & { c: ThemeColors }) {
   if (!active || !payload?.length) return null;
   const date = payload[0]?.payload?.dateMs;
   const rows: { key: string; label: string; value: number; color: string }[] = [];

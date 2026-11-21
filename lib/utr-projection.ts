@@ -247,17 +247,6 @@ function projectionHorizon(
   return lastTarget;
 }
 
-function monthlyStepsBetween(start: Date, end: Date): Date[] {
-  const steps: Date[] = [];
-  let cursor = addMonths(start, 1);
-  while (cursor < end) {
-    steps.push(cursor);
-    cursor = addMonths(cursor, 1);
-  }
-  steps.push(end);
-  return steps;
-}
-
 /**
  * Builds a single merged row set for the chart: actual history (clipped to
  * the selected range), a projected line seeded at the last real point (so it

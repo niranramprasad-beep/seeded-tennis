@@ -1,5 +1,5 @@
-// Real data access behind /settings: notification toggles, the "Public
-// recruiting page" toggle, the design/seededMode preference, the Whop
+// Real data access behind /settings: the plan goal, the design/seededMode
+// preference, the Whop
 // membership lookup used by the billing tab, and account deletion.
 // Moved verbatim from the former lib/supabase/settings-prefs.ts,
 // lib/supabase/design-preference.ts, and lib/supabase/billing.ts. Account
@@ -17,33 +17,6 @@ async function getUserId(): Promise<string | null> {
   const { data } = await getAuthedUser(supabase);
   return data.user?.id ?? null;
 }
-
-/* ------------------------------------------------------- notification prefs */
-// Reuses the existing `user_settings.notification_preferences` JSONB column
-// (also used below for design/seededMode, and by lib/db/events.ts for
-// session types/training preferences) rather than new columns on
-// `profiles` — no schema change needed for either of these two /settings
-// toggles. Both readers tolerate keys they don't own sitting alongside
-// theirs in the same blob, same discipline as the other callers.
-
-export interface NotificationPrefs {
-  weeklyDigest: boolean;
-  schoolBandChange: boolean;
-  followUpReminders: boolean;
-  tournamentDeadlines: boolean;
-  productNews: boolean;
-}
-
-// Matches "17 Settings + account.png": every toggle on except Product news —
-// "Default is one weekly digest. Only coach replies and deadlines come
-// right away."
-export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
-  weeklyDigest: true,
-  schoolBandChange: true,
-  followUpReminders: true,
-  tournamentDeadlines: true,
-  productNews: false,
-};
 
 async function loadBag(): Promise<Record<string, unknown> | null> {
   const supabase = getSupabase();
@@ -79,25 +52,6 @@ async function mergeIntoBag(patch: Record<string, unknown>): Promise<void> {
       ...patch,
     } as unknown as Json,
   });
-}
-
-export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
-  const bag = await loadBag();
-  const stored = bag?.notifications as Partial<NotificationPrefs> | undefined;
-  return { ...DEFAULT_NOTIFICATION_PREFS, ...stored };
-}
-
-export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<void> {
-  await mergeIntoBag({ notifications: prefs });
-}
-
-export async function loadPublicRecruitingPage(): Promise<boolean> {
-  const bag = await loadBag();
-  return Boolean(bag?.publicRecruitingPage);
-}
-
-export async function savePublicRecruitingPage(value: boolean): Promise<void> {
-  await mergeIntoBag({ publicRecruitingPage: value });
 }
 
 /* ------------------------------------------------------------ plan goal */

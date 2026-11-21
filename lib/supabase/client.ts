@@ -78,7 +78,7 @@ type UserResult = Awaited<ReturnType<typeof fetchVerifiedUser>>;
 /**
  * ONE server check of the session per access token, shared by every caller.
  *
- * WHY (D8, docs/perf/audit-2-perf.md): `auth.getUser()` is a network round
+ * WHY (D8, docs/archive/audit-2-perf.md): `auth.getUser()` is a network round
  * trip to Supabase Auth, and supabase-js runs it while holding its auth lock
  * — the same lock every REST query takes to read the access token. Each
  * data loader called this on its own, so a signed-in /today load made TEN

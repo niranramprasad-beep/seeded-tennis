@@ -1172,7 +1172,7 @@ export const SUMMER_STARTED_NOTE = "The summer before senior year has started, s
  * 12 and 6 months before `now` — the dates sign-up writes them at. Oldest
  * first; an answer that is not a usable rating is left out.
  */
-export function diagnosticPastRatings(input: {
+function diagnosticPastRatings(input: {
   sixMonthsAgoUtr?: number | null;
   yearAgoUtr?: number | null;
   now: Date;

@@ -26,7 +26,7 @@ export const CONSENT_REQUIRED_WITHIN_YEARS = 13;
 
 /** The lowest birth year a person could plausibly enter, to keep a typo
  * ("19" or "216") from quietly reading as a child. */
-export const EARLIEST_BIRTH_YEAR = 1900;
+const EARLIEST_BIRTH_YEAR = 1900;
 
 export function parentConsentRequired(
   birthYear: number | null | undefined,

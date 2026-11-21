@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./db/database.types";
 import { applyMembershipToProfile, escapeLikePattern, findProfileIdByEmail } from "./whop-sync";
 
 // A stand-in for the service-role client, holding profile rows in memory and
@@ -94,7 +96,7 @@ function fakeAdmin(rows: Row[], opts: { failWrites?: boolean } = {}) {
   }
 
   // Shaped to the four query forms lib/whop-sync.ts builds, nothing wider.
-  return { client: { from } as any, state };
+  return { client: { from } as unknown as SupabaseClient<Database>, state };
 }
 
 // Four of the six real plan ids; the registry is read from process.env here,

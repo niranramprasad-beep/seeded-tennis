@@ -22,7 +22,7 @@ export function CinematicBand({
   return (
     <section className="relative flex min-h-[420px] items-center justify-center overflow-hidden border-y-hairline border-line bg-card lg:min-h-[520px]">
       <Parallax offset={36} className="absolute inset-x-0 -top-[15%] h-[130%]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop sized by its parallax wrapper; next/image would change its layout */}
         <img src={image} alt="" className="h-full w-full object-cover" aria-hidden />
       </Parallax>
       <div className="absolute inset-0 bg-cream/45" />

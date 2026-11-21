@@ -1,4 +1,4 @@
-// D8 perf audit (docs/perf/audit-2-perf.md): Lighthouse mobile — default
+// D8 perf audit (docs/archive/audit-2-perf.md): Lighthouse mobile — default
 // simulated slow-4G + 4x CPU — on a list of routes, N runs each, median
 // reported. Signed-out only: a fresh Lighthouse profile holds no session.
 //

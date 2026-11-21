@@ -98,6 +98,14 @@ export const ACCOUNT_EXPORT_OMISSIONS: Record<string, string> = {
   parent_reports: "nothing generates these; family-scoped, not account-scoped",
   // Just the family's own code, already included via the `families` row.
   family_codes: "duplicate of families.code, already exported",
+  // 048, catalog phase 1. Reference data about college programs, the same
+  // for every visitor; no row is about the account asking. team_ranges
+  // carries entered_by, but only an app admin (the owner) can ever create a
+  // row, and that column is not readable by any client.
+  programs: "public catalog reference data, not about any account",
+  program_class_counts: "public catalog reference data (roster class counts only, no names)",
+  team_ranges: "public catalog reference data entered by the owner-admin",
+  app_admins: "owner-admin allowlist, unreadable by any client",
 };
 
 export interface AccountExport {
