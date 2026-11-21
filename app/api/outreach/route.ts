@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
+import { clientWriteErrorMessage } from "@/lib/db/write-error";
 import {
   saveCoachOutreachReminder,
   saveCoachOutreachReplyNote,
@@ -68,8 +70,11 @@ export async function POST(req: Request) {
     await saveCoachOutreachReplyNote(parsed.data.schoolSlug, parsed.data.note, writeCtx);
     return NextResponse.json({ ok: true });
   } catch (err) {
+    // S-10: the database's own text goes to the log, never to the response
+    // (lib/db/write-error.ts). Our validation sentences still reach the UI.
+    logServerError("api.outreach.write_failed", err, { route: "/api/outreach" });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save that. Try again." },
+      { error: clientWriteErrorMessage(err, "Could not save that. Try again.") },
       { status: 500 }
     );
   }

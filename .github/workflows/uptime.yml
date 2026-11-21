@@ -1,0 +1,76 @@
+name: Uptime
+
+# P1-OPS-2. Once an hour, ask production two questions from outside it:
+# does the homepage answer 200, and does /api/health answer 200 with
+# "ok": true (the app is up AND it can reach its Supabase project — see
+# app/api/health/route.ts and lib/health.ts).
+#
+# WHAT A FAILURE DOES: the run fails, and GitHub's own Actions notification
+# goes to the user who last changed the `cron` line below, according to that
+# user's GitHub notification settings (Settings -> Notifications ->
+# Actions). That is the whole of it. It is not a pager, it does not retry
+# into a second alert, and it watches nothing between runs — an outage
+# shorter than an hour can be missed entirely. docs/TECHNICAL_ARCHITECTURE.md
+# "Monitoring" says what exists and what does not.
+#
+# WHY HOURLY AND NOT MORE: the repo is going private, and a private repo's
+# Actions minutes are billed. Each run rounds up to one minute, so this is
+# about 24 x 30 = 720 minutes a month. Do not make it more frequent without
+# checking the account's included minutes first. GitHub also delays
+# scheduled runs under load, so "hourly" is approximate.
+#
+# No secrets, no third-party actions (plain curl and jq, both preinstalled on
+# ubuntu-latest), read-nothing permissions. It touches ci.yml not at all.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Homepage answers 200
+        run: |
+          set -u
+          code=$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' \
+            --max-time 20 --retry 2 --retry-delay 5 --retry-connrefused \
+            https://seededtennis.com/) || code="curl-failed"
+          echo "https://seededtennis.com/ -> ${code}"
+          if [ "${code}" != "200" ]; then
+            echo "::error title=Homepage down::https://seededtennis.com/ answered ${code}, expected 200"
+            exit 1
+          fi
+
+      - name: /api/health answers 200 with ok true
+        run: |
+          set -u
+          body_file="$(mktemp)"
+          code=$(curl --silent --show-error --output "${body_file}" \
+            --write-out '%{http_code}' \
+            --max-time 20 --retry 2 --retry-delay 5 --retry-connrefused \
+            -H 'Cache-Control: no-cache' \
+            https://seededtennis.com/api/health) || code="curl-failed"
+          echo "https://seededtennis.com/api/health -> ${code}"
+          # The body is public by design (ok, commit, checks) and carries no
+          # upstream error text, so printing it is safe and useful.
+          head -c 500 "${body_file}"; echo
+          if [ "${code}" != "200" ]; then
+            echo "::error title=Health check failed::/api/health answered ${code}, expected 200"
+            exit 1
+          fi
+          if ! jq -e '.ok == true' "${body_file}" > /dev/null; then
+            echo "::error title=Health check failed::/api/health answered 200 without \"ok\": true"
+            exit 1
+          fi

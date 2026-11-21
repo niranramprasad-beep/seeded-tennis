@@ -20,6 +20,39 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
+`feat/monitoring`; no migration, no new service, no env var).** Built only
+from what already exists — Vercel runtime logs and GitHub Actions:
+(1) `lib/server-log.ts`: `logServerError` / `logServerEvent` write one
+sanitised JSON line (`level, event, route, message, code, context, ts`) —
+first line of the message only, emails / JWTs / Bearer values / provider
+keys / `api_secret=` / UUIDs / long tokens / Postgres DETAIL values
+stripped, sensitive context keys redacted by name, never a stack or body.
+Used at every `app/api` failure point (all 13 routes), the Whop webhook
+(`whop.webhook.signature_invalid`, `.event_ignored`,
+`.membership_unmatched`, `.sync_failed`, `.unhandled`, …), account
+deletion (`account.deletion.failed`) and the GA4 purchase send
+(`ga4.purchase.send_failed`). (2) `GET /api/health` → `{ ok, commit,
+checks: { app, database } }`, no-store, anonymous; `database` = Supabase
+Auth's public health endpoint (publishable key, 2 s timeout, 30 s
+per-instance cache), 503 when it does not answer. (3)
+`.github/workflows/uptime.yml`: hourly (:17) + manual, curls `/` and
+`/api/health`, fails unless both are 200 and health says `"ok": true`; a
+failed scheduled run is reported only by GitHub's own Actions notification
+to whoever last edited the cron line (~720 billed minutes/month once
+private). (4) **S-10 fixed:** the five write routes that still sent raw
+Postgres text now send their generic sentence (`DatabaseWriteError` +
+`clientWriteErrorMessage`, `lib/db/write-error.ts`); validation sentences,
+034's rate-limit sentence and status codes unchanged; the raw text goes to
+the log. Guards: `lib/server-log.test.ts`, `lib/health.test.ts`,
+`lib/api-logging.test.ts` (no `console.*` in `app/api`, every answering
+catch logs, no route sends `err.message`, health reads no table, workflow
+stays hourly/secret-free) — 31 mutations, all caught. **Still not done:**
+no alert on a 5xx rate, webhook failure or deletion failure (logged, nobody
+told), no error grouping, no roster-freshness check. The honest path to
+alerts is a Vercel log drain or Sentry; both need an account/plan decision
+from Niran.
+
 **2026-11-21 — Honest zero state and pace copy (PR fix/honest-zero-state;
 no migration, copy and zero-state logic only; audit A-001/002/005/006/007/
 008/022/035).** The homepage card no longer shows "0 / 0 / 0" or "See my —
@@ -1123,7 +1156,7 @@ settings, and the product problem — P1-DATA-1.
   add a rule for `main` → *Require a pull request before merging* + *Require
   status checks to pass* → select **`verify`**. Without that, the workflow
   reports but blocks nothing.
-- [ ] **P1-OPS-2 Error tracking + uptime** — add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
+- [~] **P1-OPS-2 Error tracking + uptime** — PARTIAL 2026-11-21 (`feat/monitoring`): structured, sanitised server logs (`lib/server-log.ts`) at every API failure point, `GET /api/health`, and an hourly GitHub Actions uptime check on `/` and `/api/health` (`.github/workflows/uptime.yml`). NOT done: alerting (5xx rate, webhook/deletion failures) and error grouping — needs a Vercel log drain or Sentry, Niran's call. Original: add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
 - [x] **P1-OPS-3 Migration history drift** — RESOLVED 2026-11-14. Both live-only migrations accounted for: one recovered as a single real statement, the other shown to need no content (`rls_auto_enable` is a Supabase platform default, and `020` already does its revokes). Also uncovered a bigger problem — the repo did not reproduce production at all; see migration 025 and DATABASE_SPEC. Original note follows. ~~ — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
 - [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE; MIGRATION APPLIED + TESTED ON STAGING (6/6: Free blocked from outreach, Player allowed, Free capped at 3 targets, Player unlimited, downgraded account can still prune). Not on production.
   Niran's decision (2026-11-11): **outreach belongs in Player ($19), not
@@ -1223,7 +1256,7 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 ---
 
 ## Architecture tasks
-- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
+- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [x] Add `/api/health` (2026-11-21, `feat/monitoring`).
 
 ## Database tasks
 - [ ] P0-1, P0-2, P1-SEC-2, P1-SEC-6, P1-OPS-3. [ ] Migration 012 teams/players/roster_sources. [ ] Drop dead tables (P3). [ ] RLS test suite (see QA_CHECKLIST.md).
@@ -1290,7 +1323,8 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 - [ ] P0-8 (REQUIRES LEGAL/ADULT REVIEW). [ ] UTR data: the product stores self-reported numbers only — keep it that way; never scrape. [ ] Roster data licensing review before import (DATA_QUALITY.md §Licensing).
 
 ## Monitoring tasks
-- [ ] P1-OPS-2. Alerts: 5xx rate on `/api/*`, Whop webhook failures, deletion job failures, data freshness > 120 days on any roster.
+- [~] P1-OPS-2. Alerts: 5xx rate on `/api/*`, Whop webhook failures, deletion job failures, data freshness > 120 days on any roster.
+  2026-11-21: the first three are now LOGGED (`api.*.write_failed`, `whop.webhook.*`, `account.deletion.failed` in Vercel runtime logs) but nothing alerts on them. Uptime of `/` and `/api/health` is checked hourly by `.github/workflows/uptime.yml` (failure = GitHub's Actions notification only). Roster freshness: nothing yet.
 
 ---
 
@@ -1334,8 +1368,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
 8. **File splits**: `lib/fit.ts`, `lib/auth.ts`, the schools browser,
    `signup-flow.tsx`, the dashboard view (boundaries in REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
-10. **Observability** — no error tracking or alerting exists beyond Vercel
-    runtime logs; the billing incident is what that looks like.
+10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
+    sanitised server logs, `/api/health`, hourly uptime workflow). Still no
+    alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
+    then alert on `"level":"error"` lines and on the uptime workflow.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

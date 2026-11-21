@@ -3,6 +3,9 @@ import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { getWhop, planIdFor } from "@/lib/whop";
+import { logServerError } from "@/lib/server-log";
+
+const ROUTE = "/api/whop/checkout";
 
 const BodySchema = z.object({
   tier: z.enum(["player", "family"], { message: "Unknown plan." }),
@@ -15,6 +18,7 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const whop = getWhop();
   if (!whop) {
+    logServerError("whop.checkout.not_configured", null, { route: ROUTE });
     return NextResponse.json({ error: "Billing isn't configured yet." }, { status: 500 });
   }
 
@@ -33,6 +37,7 @@ export async function POST(req: Request) {
     // Deliberately NOT falling back to the other interval or to a legacy
     // plan. A missing env var means we do not know what to charge, and
     // charging the wrong price is worse than not selling.
+    logServerError("whop.checkout.plan_unavailable", null, { route: ROUTE, tier, interval });
     return NextResponse.json(
       { error: "That plan isn't available right now." },
       { status: 500 }
@@ -72,7 +77,7 @@ export async function POST(req: Request) {
       redirect_url: `${returnBase}/dashboard?checkout=success`,
     });
   } catch (err) {
-    console.error("[whop/checkout] create failed", err instanceof Error ? err.message : String(err));
+    logServerError("whop.checkout.create_failed", err, { route: ROUTE, tier, interval });
     return NextResponse.json(
       { error: "Couldn't reach Whop to start checkout. Try again in a minute." },
       { status: 502 }
@@ -80,6 +85,7 @@ export async function POST(req: Request) {
   }
 
   if (!config.purchase_url) {
+    logServerError("whop.checkout.no_purchase_url", null, { route: ROUTE, tier, interval });
     return NextResponse.json({ error: "Could not start checkout." }, { status: 500 });
   }
 

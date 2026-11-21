@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
 import {
   TrainingWriteError,
   createTrainingSessions,
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
       consentPending = data?.consent_status === "pending";
     }
     const status = err instanceof TrainingWriteError && err.code === "42501" ? 403 : err instanceof TrainingWriteError && err.code === "not_found" ? 404 : 500;
+    if (status === 500) logServerError("api.training_sessions.write_failed", err, { route: "/api/training/sessions" });
     return NextResponse.json({ error: trainingSaveErrorMessage(err, consentPending) }, { status });
   }
 }

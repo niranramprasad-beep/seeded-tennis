@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
 import { buildAccountExport } from "@/lib/db/account-export";
 
 // P0-8. The complete, machine-readable record of everything stored about the
@@ -36,7 +37,8 @@ export async function GET(req: Request) {
         "cache-control": "no-store, private",
       },
     });
-  } catch {
+  } catch (err) {
+    logServerError("account.export.failed", err, { route: "/api/account/export" });
     // Deliberately generic (S-10): the message would otherwise carry table
     // and column names straight from Postgres to the client.
     return NextResponse.json(

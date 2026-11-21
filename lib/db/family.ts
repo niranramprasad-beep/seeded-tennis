@@ -12,6 +12,7 @@ import {
   resolveMyFamilyCode,
 } from "./family-scope";
 import type { Json, Tables } from "./database.types";
+import { DatabaseWriteError } from "./write-error";
 
 // text columns backed only by a Postgres CHECK constraint — see
 // lib/db/narrow.ts's header for why these need narrowing back down from
@@ -232,7 +233,7 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapCost(data);
 }
 
@@ -376,7 +377,7 @@ export async function saveSeasonBudget(
     )
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapSeasonBudget(data);
 }
 
@@ -442,6 +443,6 @@ export async function saveBudgetExpense(
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapBudgetExpense(data);
 }

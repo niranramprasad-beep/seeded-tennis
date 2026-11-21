@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
 import { deleteMyAccount } from "@/lib/db/settings";
 
 // P0-8. This route used to start and cancel a 30-day "deletion grace
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
   try {
     const result = await deleteMyAccount(ctx.supabase);
     return NextResponse.json({ ok: true, familyDeleted: result.familyDeleted });
-  } catch {
+  } catch (err) {
+    // The account was NOT deleted. This log line is the only trace of that
+    // besides the error the person sees.
+    logServerError("account.deletion.failed", err, { route: "/api/account/deletion" });
     return NextResponse.json(
       { error: "Could not delete your account. Try again, or contact support." },
       { status: 500 }

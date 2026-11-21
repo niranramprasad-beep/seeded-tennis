@@ -6,6 +6,7 @@ import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { subjectUserIds, type DataSubject } from "./family-scope";
 import type { Tables } from "./database.types";
+import { DatabaseWriteError } from "./write-error";
 
 async function userIdAndProfile(): Promise<{ id: string | null; profile: Tables<"profiles"> | null }> {
   const supabase = getSupabase();
@@ -163,7 +164,7 @@ export async function saveCoachOutreachStatus(
       { user_id: ctx.userId, family_code: ctx.familyCode ?? null, school_slug: schoolSlug, status },
       { onConflict: "user_id,school_slug" }
     );
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
 }
 
 // How far out "Remind me in 14 days" sets remind_at. A player can re-click
@@ -193,7 +194,7 @@ export async function saveCoachOutreachReminder(
     .update({ remind_at: remindAt })
     .eq("user_id", ctx.userId)
     .eq("school_slug", schoolSlug);
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return remindAt;
 }
 
@@ -218,5 +219,5 @@ export async function saveCoachOutreachReplyNote(
     .update({ reply_note: note.trim() || null })
     .eq("user_id", ctx.userId)
     .eq("school_slug", schoolSlug);
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
 }

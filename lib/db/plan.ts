@@ -14,6 +14,7 @@ import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { UTR_MAX, UTR_MIN } from "@/lib/tournament-fit";
 import type { Tables } from "./database.types";
+import { DatabaseWriteError } from "./write-error";
 
 /* ---------------------------------------------------------------- roadmap */
 
@@ -139,7 +140,7 @@ export async function loadUtrEntriesFor(
   if (error) {
     // Keep the dashboard usable if the migration has not been applied yet.
     if (error.code === "42P01") return [];
-    throw new Error(error.message);
+    throw new DatabaseWriteError(error);
   }
 
   return (data ?? []).map((entry) => ({
@@ -222,7 +223,7 @@ export async function createUtrEntry(
     .select("id, utr, recorded_at, note")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
 
   // The profile's current_utr must always reflect whichever entry is most
   // recently DATED, not whichever one was just logged — backfilling an
@@ -237,14 +238,14 @@ export async function createUtrEntry(
     .limit(1)
     .single();
 
-  if (latestError) throw new Error(latestError.message);
+  if (latestError) throw new DatabaseWriteError(latestError);
 
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ current_utr: latest.utr })
     .eq("id", userId);
 
-  if (profileError) throw new Error(profileError.message);
+  if (profileError) throw new DatabaseWriteError(profileError);
 
   return {
     id: data.id,
@@ -350,7 +351,7 @@ export async function saveDailyCheckin(input: {
     )
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapCheckin(data);
 }
 
