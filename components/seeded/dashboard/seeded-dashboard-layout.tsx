@@ -284,13 +284,12 @@ export function SeededDashboardLayout({
               {/* One vocabulary with /plan's chart (lib/chart-legend.ts,
                   final-check A3). The estimate is drawn dotted here too,
                   so "dotted" means the same line on both screens. */}
-              {estimatePath.length > 1
-                ? chartLegendSentence({
-                    estimate: true,
-                    plan: nextCheckpoint ? "next-checkpoint" : null,
-                    upside: upsidePath.length > 1,
-                  })
-                : "The line is the UTRs you've logged."}
+              {/* B24: the logged-only case says it in the same words too. */}
+              {chartLegendSentence({
+                estimate: estimatePath.length > 1,
+                plan: nextCheckpoint ? "next-checkpoint" : null,
+                upside: upsidePath.length > 1,
+              })}
             </DataNote>
           ) : null}
           {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}

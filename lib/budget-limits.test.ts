@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { join } from "node:path";
 import { codeOnly } from "./testing/source-text";
 import {
+  BUDGET_AMOUNT_REQUIRED,
+  EXPENSE_AMOUNT_REQUIRED,
+  amountIsBlank,
   EXPENSE_AMOUNT_TOO_HIGH,
   MAX_BUDGET_EXPENSE_USD,
   MAX_SEASON_BUDGET_USD,
@@ -66,5 +69,20 @@ describe("budget limits", () => {
     const forms = codeOnly(join(ROOT, "components/seeded/family/budget-modals.tsx"));
     expect(forms).toMatch(/seasonBudgetLimitError\(totalBudget\)/);
     expect(forms).toMatch(/expenseAmountLimitError\(amt\)/);
+  });
+
+  it("B4: a blank amount is refused with a message, never saved as $0", () => {
+    expect(Number("")).toBe(0); // why the check exists
+    expect(amountIsBlank("")).toBe(true);
+    expect(amountIsBlank("   ")).toBe(true);
+    expect(amountIsBlank("0")).toBe(false);
+    expect(amountIsBlank("1200")).toBe(false);
+    expect(BUDGET_AMOUNT_REQUIRED).toBe("Enter a budget amount.");
+    expect(EXPENSE_AMOUNT_REQUIRED).toBe("Enter a cost.");
+    const forms = codeOnly(join(ROOT, "components/seeded/family/budget-modals.tsx"));
+    // Checked before the number is used, in both dialogs.
+    expect(forms).toMatch(/if \(amountIsBlank\(total\)\) return setError\(BUDGET_AMOUNT_REQUIRED\);/);
+    expect(forms).toMatch(/if \(amountIsBlank\(amount\)\) return setError\(EXPENSE_AMOUNT_REQUIRED\);/);
+    expect(forms.indexOf("amountIsBlank(total)")).toBeLessThan(forms.indexOf("seasonBudgetLimitError(totalBudget)"));
   });
 });

@@ -161,7 +161,9 @@ describe("A3: one chart vocabulary", () => {
       expect(codeOnly(file), file).toMatch(/points=\{(paths\.estimate|estimateLine)\}[^>]*strokeDasharray="0\.5 6"/);
     }
     for (const file of ["components/seeded/roadmap/plan-trajectory-chart.tsx", "components/seeded/dashboard/seeded-dashboard-layout.tsx"]) {
-      expect(codeOnly(file), file).not.toMatch(/Green dashes|Dashed: your plan|Dotted: your estimate/);
+      // B24 too: "The line is the UTRs you've logged." was the logged-only
+      // case's own wording on /today.
+      expect(codeOnly(file), file).not.toMatch(/Green dashes|Dashed: your plan|Dotted: your estimate|The line is the UTRs|UTRs you've logged/);
     }
   });
 });

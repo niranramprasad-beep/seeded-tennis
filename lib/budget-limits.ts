@@ -15,6 +15,16 @@ export const MAX_BUDGET_EXPENSE_USD = 50_000;
 export const SEASON_BUDGET_TOO_HIGH = "A season budget can be at most $250,000.";
 export const EXPENSE_AMOUNT_TOO_HIGH = "A single expense can be at most $50,000.";
 
+/** B4: an empty amount field is not $0. `Number("")` is 0, so the budget
+ * dialog saved a blank total as $0 and closed with no message. */
+export const BUDGET_AMOUNT_REQUIRED = "Enter a budget amount.";
+export const EXPENSE_AMOUNT_REQUIRED = "Enter a cost.";
+
+/** True when an amount field holds nothing a person typed. */
+export function amountIsBlank(text: string): boolean {
+  return text.trim() === "";
+}
+
 /** Null when the season total is within the limit (the negative / not-a-
  * number check stays with the caller's own sentence). */
 export function seasonBudgetLimitError(totalBudget: number): string | null {

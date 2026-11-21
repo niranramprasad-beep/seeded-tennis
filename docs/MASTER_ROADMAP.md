@@ -61,7 +61,12 @@ route's fallback — still fail-closed: no Postgres text reaches the client,
 and a raw PostgrestError is not trusted. Tests: `lib/final-check-a.test.ts`,
 `lib/budget-limits.test.ts`, new cases in `lib/api-logging.test.ts`; guards
 in `lib/honest-zero-state.test.ts` and `plan-trajectory-values.test.ts`
-updated to the new call sites and words. Not merged; Niran's go.
+updated to the new call sites and words. Also folded in from the sweep:
+(B4) a blank budget total or expense cost no longer saves as $0 and closes
+(`Number("")` is 0) — "Enter a budget amount." / "Enter a cost."; (B24)
+/today's logged-only legend ("The line is the UTRs you've logged.") now
+uses the same `chartLegendSentence` as every other case. Not merged;
+Niran's go.
 
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
@@ -1452,8 +1457,9 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
 
-Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5
-fixed on `fix/known-bugs-a` (PR A, not merged). The B/C/E rows are other PRs.
+Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5,
+B4 and B24 fixed on `fix/known-bugs-a` (PR A, not merged). The other B/C/E
+rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

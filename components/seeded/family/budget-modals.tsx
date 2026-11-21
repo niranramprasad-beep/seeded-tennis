@@ -8,7 +8,13 @@ import { useDialog } from "@/lib/hooks/use-dialog";
 import { Portal } from "@/components/ui/portal";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
-import { expenseAmountLimitError, seasonBudgetLimitError } from "@/lib/budget-limits";
+import {
+  BUDGET_AMOUNT_REQUIRED,
+  EXPENSE_AMOUNT_REQUIRED,
+  amountIsBlank,
+  expenseAmountLimitError,
+  seasonBudgetLimitError,
+} from "@/lib/budget-limits";
 import { cn } from "@/lib/utils";
 
 // Shared overlay + panel shell — same motion/shape language as
@@ -111,6 +117,8 @@ export function EditBudgetModal({
   const submit = async () => {
     const totalBudget = Number(total);
     if (!label.trim()) return setError("Season label is required.");
+    // B4: blank is not $0 (Number("") === 0 saved silently and closed).
+    if (amountIsBlank(total)) return setError(BUDGET_AMOUNT_REQUIRED);
     if (!Number.isFinite(totalBudget) || totalBudget < 0) return setError("Enter a valid budget amount.");
     // A5: the same limit the route's zod schema enforces, said before a
     // request is made (lib/budget-limits.ts).
@@ -216,6 +224,7 @@ export function AddExpenseModal({
   const submit = async () => {
     const amt = Number(amount);
     if (!label.trim()) return setError("A short description is required.");
+    if (amountIsBlank(amount)) return setError(EXPENSE_AMOUNT_REQUIRED);
     if (!Number.isFinite(amt) || amt < 0) return setError("Cost can't be negative.");
     const tooHigh = expenseAmountLimitError(amt);
     if (tooHigh) return setError(tooHigh);
