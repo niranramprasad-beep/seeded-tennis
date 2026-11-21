@@ -65,6 +65,7 @@ export function BillingPreview({ states }: { states: BillingPreviewState[] }) {
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        userId: "dev-preview",
       }}
     >
       <TierContext.Provider

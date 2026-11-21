@@ -31,6 +31,7 @@ export function FamilyWeeklyReportPreview({ schools }: { schools: SchoolLite[] }
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        userId: "dev-preview",
       }}
     >
       <SeededWeeklyReportView schools={schools} />

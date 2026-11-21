@@ -15,8 +15,16 @@ import { emptyPlayer } from "@/lib/data/user";
 import {
   getSessionState,
   saveCurrentPlayer,
+  getSessionUserId,
   signOut as signOutOfSupabase,
 } from "@/lib/auth";
+import {
+  USER_ID_LOOKUP_DELAY_MS,
+  USER_ID_LOOKUP_RETRIES,
+  authEventAction,
+  needsUserIdLookup,
+  nextUserId,
+} from "@/lib/session-identity";
 import { createUtrEntry } from "@/lib/db/plan";
 import { localDateKey } from "@/lib/time";
 import { hasRealUtr } from "@/lib/utils";
@@ -24,6 +32,10 @@ import { hasRealUtr } from "@/lib/utils";
 // head script in app/layout.tsx can size pre-session placeholders before
 // React runs. Layout hints, never access decisions. Cleared on sign-out.
 import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
+import { mutate } from "swr";
+import { isMyConsentStateKey } from "@/lib/db/family-join";
+import { getSupabase } from "@/lib/supabase/client";
+import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
 
 interface PlayerContextValue {
   player: Player;
@@ -46,6 +58,10 @@ interface PlayerContextValue {
    * deletion in components/seeded/settings/seeded-settings-view.tsx). */
   setPlayerLocal: (patch: Partial<Player>) => void;
   signOut: () => void;
+  /** The signed-in auth user's id, or null when signed out / not known yet.
+   * Never part of `Player` (so never round-tripped into a profile write);
+   * it exists to key per-account caches such as the consent answer. */
+  userId: string | null;
 }
 
 // Exported (not just consumed via usePlayer()) so dev-only harness pages
@@ -59,6 +75,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isAuthed, setIsAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = userId;
 
   // Supabase is the only source of truth for a session — there is no local
   // cache to fall back on. "Signed out" and "Supabase is unreachable" are
@@ -80,11 +99,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (state.status === "authed") {
       setPlayer(state.player);
       setIsAuthed(true);
+      setUserId((cur) => nextUserId(cur, { type: "hydrate-authed", userId: state.userId }));
       setConnectionError(null);
       rememberRole(state.player.role === "parent" ? "parent" : "player");
     } else if (state.status === "signed-out") {
       setPlayer(emptyPlayer);
       setIsAuthed(false);
+      // A live session with no profile row yet (Google sign-up, before
+      // /auth/complete calls beginSession) keeps its id.
+      setUserId((cur) =>
+        nextUserId(cur, { type: "hydrate-signed-out", sessionUserId: state.sessionUserId ?? null })
+      );
       setConnectionError(null);
       rememberRole(null);
     } else {
@@ -96,6 +121,61 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  // Identity changes, in this tab or another (supabase-js relays sign-in and
+  // sign-out across tabs). What each event means is authEventAction()
+  // (lib/session-identity.ts, tested): a sign-out elsewhere signs this tab
+  // out and clears its storage; a DIFFERENT account signing in re-hydrates;
+  // everything else changes nothing.
+  useEffect(() => {
+    const supa = getSupabase();
+    if (!supa) return;
+    const { data } = supa.auth.onAuthStateChange((event, session) => {
+      const sessionUserId = session?.user?.id ?? null;
+      const action = authEventAction(event, sessionUserId, userIdRef.current);
+      if (action === "none") return;
+      setUserId(nextUserId(userIdRef.current, { type: "auth-event", event, sessionUserId }));
+      void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+      if (action === "signOutLocal") {
+        setIsAuthed(false);
+        setPlayer(emptyPlayer);
+        rememberRole(null);
+        // localStorage was cleared by the tab that signed out; this tab's
+        // sessionStorage is its own.
+        clearSeededBrowserStorage();
+        return;
+      }
+      void hydrate();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [hydrate]);
+
+  // Signed in but whose session is not known yet (beginSession's lookup has
+  // not landed, or failed): look it up, retrying a few times, so AuthGate
+  // and the star hook — which wait on a per-user consent key — never stay
+  // stuck.
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  useEffect(() => {
+    if (!needsUserIdLookup(isAuthed, userId)) {
+      if (lookupAttempt !== 0) setLookupAttempt(0);
+      return;
+    }
+    if (lookupAttempt >= USER_ID_LOOKUP_RETRIES) return;
+    let cancelled = false;
+    const timer = setTimeout(
+      async () => {
+        const sessionUserId = await getSessionUserId();
+        if (cancelled) return;
+        if (sessionUserId) setUserId((cur) => nextUserId(cur, { type: "session-lookup", sessionUserId }));
+        else setLookupAttempt((n) => n + 1);
+      },
+      lookupAttempt === 0 ? 0 : USER_ID_LOOKUP_DELAY_MS
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isAuthed, userId, lookupAttempt]);
 
   // Every path that signs someone in (hydrate, sign-in's beginSession,
   // onboarding) lands here, so the role is stored before the next full load
@@ -122,6 +202,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const beginSession = useCallback((next: Player) => {
     setPlayer(next);
     setIsAuthed(true);
+    // Record whose session this is (it may be a different account from the
+    // one this tab last showed). Until it lands, the fallback lookup above
+    // covers it.
+    void getSessionUserId().then((sessionUserId) =>
+      setUserId((cur) => nextUserId(cur, { type: "session-lookup", sessionUserId }))
+    );
   }, []);
 
   const completeOnboarding = useCallback((next: Player) => {
@@ -190,6 +276,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsAuthed(false);
     setPlayer(emptyPlayer);
     rememberRole(null);
+    // A-033: nothing this browser remembered about the account outlives it
+    // (theme and the internal-analytics flag excepted).
+    clearSeededBrowserStorage();
+    // Drop the cached consent answer, so the next account signed in on this
+    // tab never reads the last one's (AuthGate, the star hook and Google
+    // Analytics all key off it).
+    setUserId(null);
+    void mutate(isMyConsentStateKey, undefined, { revalidate: false });
     void signOutOfSupabase();
   }, []);
 
@@ -205,6 +299,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      userId,
     }),
     [
       player,
@@ -217,6 +312,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      userId,
     ]
   );
 

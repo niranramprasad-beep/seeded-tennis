@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { chartEndLabels, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
 import type { RoadmapYear } from "@/lib/types";
@@ -8,17 +8,21 @@ import { formatCheckpointUtr, formatPlayerUtr } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
 import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
+import {
+  buildChartSeries,
+  clientXToViewBoxX,
+  cursorAfterKey,
+  cursorTime,
+  readoutAt,
+  seriesPaths,
+  type ChartCursor,
+  type ReadoutRow,
+} from "./plan-trajectory-values";
 
 // Every text element sets its font-family explicitly — SVG text does not
 // reliably inherit the page's font cascade.
 const LABEL_FONT = "var(--font-inter)";
 const NUMBER_FONT = "var(--font-mono-active)";
-
-interface Checkpoint {
-  date: Date;
-  utr: number;
-  label: string;
-}
 
 interface PlanTrajectoryChartProps {
   actualPoints: UtrDataPoint[];
@@ -34,6 +38,8 @@ interface PlanTrajectoryChartProps {
   upside?: UtrEstimatePoint[];
   /** Opens the goal editor above the chart. */
   onChangeGoal?: () => void;
+  /** Where "logged" ends for the readout. Defaults to the current date. */
+  today?: Date;
 }
 
 const H = 240;
@@ -53,25 +59,28 @@ const BASELINE = H - 30;
 //
 // Drawn in a viewBox as wide as the column (useMeasuredWidth), so labels
 // stay legible at 320px and never run off the edge (C21).
-export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal }: PlanTrajectoryChartProps) {
+export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal, today }: PlanTrajectoryChartProps) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>(900);
-  const [hoverX, setHoverX] = useState<number | null>(null);
+  // The cursor is a DATE (an anchor plus keyboard month steps), so it
+  // survives a resize and the arrow keys never drift the day; its x is
+  // derived below.
+  const [cursorState, setCursorState] = useState<ChartCursor>(null);
+  // What the aria-live region says — set on KEYBOARD steps only, so a
+  // screen reader is not flooded on every pointer move.
+  const [announcement, setAnnouncement] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
 
-  const sortedActual = [...actualPoints].sort((a, b) => a.date.getTime() - b.date.getTime());
-  if (sortedActual.length === 0) {
+  // Every line, diamond and readout dot comes from this one series
+  // (plan-trajectory-values.ts) — the chart builds no series of its own.
+  const series = buildChartSeries({ actualPoints, roadmap, estimate, today });
+  if (!series) {
     return (
       <div ref={ref} className="flex h-[120px] items-center rounded-lg border border-dashed border-line px-4 text-sm text-stone">
         Log a UTR to start your plan chart.
       </div>
     );
   }
-  const now = sortedActual[sortedActual.length - 1];
-
-  const checkpoints: Checkpoint[] = roadmap
-    .map((y) => ({ date: new Date(y.calendarYear, 5, 1), utr: y.utrTarget, label: y.gradeLabel }))
-    .filter((c) => c.date.getTime() > now.date.getTime())
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const { logged: sortedActual, now, checkpoints } = series;
 
   const estimateEnd = estimate[estimate.length - 1];
   const upsideEnd = upside[upside.length - 1];
@@ -104,44 +113,44 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
   const plotW = W - PAD_L - PAD_R;
   const x = (t: number) => PAD_L + ((t - dateMin) / (dateMax - dateMin)) * plotW;
   const y = (utr: number) => BASELINE - ((utr - utrMin) / (utrMax - utrMin)) * (BASELINE - PAD_TOP);
+  const geometry = { x, y };
   const clampX = (cx: number, textW: number, anchor: "start" | "end") =>
     anchor === "start" ? Math.min(cx, W - PAD_R - textW) : Math.max(cx, PAD_L + textW);
 
-  const actualLine = sortedActual.map((p) => `${x(p.date.getTime())},${y(p.utr)}`).join(" ");
-  const dashedLine = [now, ...checkpoints].map((c) => `${x(c.date.getTime())},${y(c.utr)}`).join(" ");
-
-  const bandPath =
-    estimate.length > 1
-      ? `M${estimate.map((p) => `${x(p.date.getTime())},${y(p.high)}`).join(" L")} L${[...estimate]
-          .reverse()
-          .map((p) => `${x(p.date.getTime())},${y(p.low)}`)
-          .join(" L")} Z`
-      : null;
-
-  const estimateLine = estimate.length > 1 ? estimate.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
+  const paths = seriesPaths(series, geometry);
   const upsideLine = upside.length > 1 ? upside.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
 
   const yTicks = utrTicks(utrMin, utrMax);
   const xTicks = monthTicks(dateMin, dateMax, plotW);
 
-  // Hover reads only the solid line — real logged values, interpolated
-  // along the segment the chart already draws between them.
-  const actualValueAt = (t: number) => {
-    if (sortedActual.length === 1) return sortedActual[0];
-    const clamped = Math.min(Math.max(t, dateMin), now.date.getTime());
-    let i = 0;
-    while (i < sortedActual.length - 2 && sortedActual[i + 1].date.getTime() < clamped) i++;
-    const a = sortedActual[i];
-    const b = sortedActual[i + 1];
-    const span = b.date.getTime() - a.date.getTime();
-    const f = span === 0 ? 0 : (clamped - a.date.getTime()) / span;
-    return { date: new Date(clamped), utr: a.utr + (b.utr - a.utr) * f };
+  // The readout at the cursor's date (readoutAt): Logged is the real entry
+  // in force, its dot on that entry; Plan and Planning estimate are read off
+  // their own lines, their dots under the crosshair.
+  const bounds = { min: dateMin, max: dateMax };
+  const cursor = cursorTime(cursorState, bounds);
+  const hoverX = cursor != null ? x(cursor) : null;
+  const readout = cursor != null ? readoutAt(series, cursor, geometry, goal?.value) : null;
+  const rows = readout?.rows ?? [];
+
+  const onPointer = (e: PointerEvent<SVGSVGElement>) => {
+    const vx = clientXToViewBoxX(e.clientX, e.currentTarget.getBoundingClientRect(), W);
+    const t = dateMin + ((Math.min(Math.max(vx, PAD_L), W - PAD_R) - PAD_L) / plotW) * (dateMax - dateMin);
+    setCursorState({ anchor: t, months: 0 });
   };
-  const hoverT = hoverX != null ? dateMin + ((hoverX - PAD_L) / plotW) * (dateMax - dateMin) : null;
-  const hoverPoint = hoverT != null ? actualValueAt(hoverT) : null;
-  const onMove = (clientX: number, target: SVGSVGElement) => {
-    const rect = target.getBoundingClientRect();
-    setHoverX(Math.min(Math.max(clientX - rect.left, PAD_L), W - PAD_R));
+  const onKey = (e: KeyboardEvent<SVGSVGElement>) => {
+    // Keys pressed on a checkpoint button are that button's, not the cursor's.
+    if (e.target !== e.currentTarget) return;
+    const next = cursorAfterKey(cursorState, e.key, bounds, now.date.getTime());
+    if (next === undefined) return;
+    e.preventDefault();
+    setCursorState(next);
+    const t = cursorTime(next, bounds);
+    setAnnouncement(t == null ? "" : readoutAt(series, t, geometry, goal?.value).sentence);
+  };
+  const onBlur = (e: FocusEvent<SVGSVGElement>) => {
+    // Focus moving onto a checkpoint button inside the chart keeps the cursor.
+    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+    setCursorState(null);
   };
 
   const nowX = x(now.date.getTime());
@@ -151,22 +160,36 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
 
   return (
     <div ref={ref} className="w-full">
+      {/* Focusable: Left/Right step the cursor a month, Home/End jump to
+          the ends, Escape clears it. role="group" (not "img", whose
+          children are presentational) so the checkpoint buttons stay
+          reachable. touch-action pan-y pinch-zoom: a vertical finger drag
+          still scrolls and pinch still zooms; a horizontal drag scrubs. */}
       <svg
-        role="img"
+        role="group"
+        aria-roledescription="chart"
+        tabIndex={0}
         aria-label={`UTR ${formatPlayerUtr(now.utr)} as of ${monthYearLabel(now.date)}${
           checkpoints.length
             ? `, plan checkpoints: ${checkpoints.map((c) => `${formatCheckpointUtr(c.utr, goal?.value)} by ${monthYearLabel(c.date)}`).join(", ")}`
             : ""
-        }`}
+        }. Use the left and right arrow keys to read the chart month by month.`}
         viewBox={`0 0 ${W} ${H}`}
         width={W}
         height={H}
-        className="block max-w-full cursor-crosshair"
-        onMouseMove={(e) => onMove(e.clientX, e.currentTarget)}
-        onMouseLeave={() => setHoverX(null)}
+        style={{ touchAction: "pan-y pinch-zoom" }}
+        className="block max-w-full cursor-crosshair rounded-md focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "mouse") setCursorState(null);
+        }}
+        onPointerCancel={() => setCursorState(null)}
+        onKeyDown={onKey}
+        onBlur={onBlur}
       >
         {yTicks.map((v) => (
-          <g key={v}>
+          <g key={v} aria-hidden="true">
             <line x1={PAD_L} y1={y(v)} x2={W - PAD_R} y2={y(v)} stroke="rgb(var(--c-line))" strokeWidth="1" />
             <text x={PAD_L - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fontFamily={NUMBER_FONT} fill="rgb(var(--c-stone))">
               {Number.isInteger(v) ? v : v.toFixed(1)}
@@ -179,26 +202,24 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           const tw = approxTextWidth(text, 11);
           const cx = Math.min(Math.max(x(d.getTime()), PAD_L + tw / 2), W - PAD_R - tw / 2);
           return (
-            <text key={i} x={cx} y={H - 8} textAnchor="middle" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+            <text key={i} aria-hidden="true" x={cx} y={H - 8} textAnchor="middle" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
               {text}
             </text>
           );
         })}
 
-        {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
+        {paths.band && <path d={paths.band} fill="rgb(var(--c-primary-50))" />}
         {/* The estimate's own line, dotted (dashes are the checkpoints). A
             logged-pace estimate has low === high, so the band alone has no
             area and drew nothing under a caption saying "Shaded" (PR-POLISH). */}
-        {estimateLine && (
-          <polyline points={estimateLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
+        {paths.estimate && (
+          <polyline points={paths.estimate} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
         )}
         {upsideLine && (
           <polyline points={upsideLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />
         )}
-        {sortedActual.length > 1 && <polyline points={actualLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="3" />}
-        {checkpoints.length > 0 && (
-          <polyline points={dashedLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2" strokeDasharray="6 5" />
-        )}
+        {paths.logged && <polyline points={paths.logged} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="3" />}
+        {paths.plan && <polyline points={paths.plan} fill="none" stroke={PLAN_STROKE} strokeWidth="2" strokeDasharray="6 5" />}
 
         {checkpoints.map((c, i) => {
           const cx = x(c.date.getTime());
@@ -241,7 +262,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                   transform={`rotate(45 ${cx} ${cy})`}
                 />
               </g>
-              <text x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
+              <text aria-hidden="true" x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
                 {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatCheckpointUtr(c.utr, goal?.value)}</tspan>
               </text>
             </g>
@@ -253,6 +274,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
             lib/fit.ts chartEndLabels, the numbers the report prints. */}
         {estimateEnd && endLabels.plan && (
           <text
+            aria-hidden="true"
             x={W - PAD_R}
             y={Math.max(14, Math.min(BASELINE - 4, y(estimateEnd.value) + (upsideEnd || checkpointAtEnd ? 20 : -9)))}
             textAnchor="end"
@@ -266,6 +288,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         )}
         {upsideEnd && endLabels.upside && (
           <text
+            aria-hidden="true"
             x={W - PAD_R}
             y={Math.max(PAD_TOP - 6, y(upsideEnd.value) - 8)}
             textAnchor="end"
@@ -277,10 +300,11 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           </text>
         )}
 
-        <circle cx={nowX} cy={nowY} r="7" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
+        <circle aria-hidden="true" cx={nowX} cy={nowY} r="7" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
         {/* Below-right of the dot: the logged line arrives from the left and
             the plan leaves up-right, so this corner is clear of both. */}
         <text
+          aria-hidden="true"
           x={clampX(nowX + 10, approxTextWidth(nowText, 12), "start")}
           y={Math.min(BASELINE - 4, nowY + 22)}
           fontSize="12"
@@ -291,27 +315,61 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           Now <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(now.utr)}</tspan>
         </text>
 
-        {hoverX != null && hoverPoint && (
-          <g pointerEvents="none">
+        {hoverX != null && readout && (
+          <g pointerEvents="none" aria-hidden="true">
             <line x1={hoverX} y1={PAD_TOP} x2={hoverX} y2={BASELINE} stroke="rgb(var(--c-ink))" strokeOpacity="0.25" strokeWidth="1" />
-            <circle cx={hoverX} cy={y(hoverPoint.utr)} r="4" fill="rgb(var(--c-ink))" />
-            <g transform={`translate(${hoverX > W - 140 ? hoverX - 130 : hoverX + 8}, ${PAD_TOP})`}>
-              <rect width="122" height="38" rx="6" fill="rgb(var(--c-card))" stroke="rgb(var(--c-line))" />
-              <text x="8" y="15" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
-                {monthYearLabel(hoverPoint.date)}
-              </text>
-              <text x="8" y="30" fontSize="13" fontWeight="600" fontFamily={NUMBER_FONT} fill="rgb(var(--c-ink))">
-                {formatPlayerUtr(hoverPoint.utr)} UTR
-              </text>
-            </g>
+            {rows.map((r) => (
+              <ReadoutDot key={r.key} row={r} cx={r.dot.cx} cy={r.dot.cy} r={4.5} />
+            ))}
+            {(() => {
+              const rowH = 16;
+              const textW = Math.max(
+                approxTextWidth(readout.date, 11),
+                ...rows.map((r) => approxTextWidth(`${r.label} ${r.text}`, 12) + 14),
+                rows.length ? 0 : approxTextWidth("Not tracked", 12)
+              );
+              const boxW = Math.min(textW + 16, W - PAD_L - PAD_R);
+              const boxH = 22 + Math.max(1, rows.length) * rowH;
+              // Right of the crosshair, or left of it when that would run
+              // off the edge — never over the dots on the crosshair.
+              const bx = hoverX + 8 + boxW <= W - PAD_R ? hoverX + 8 : Math.max(PAD_L, hoverX - 8 - boxW);
+              return (
+                <g transform={`translate(${bx}, ${PAD_TOP - 18})`}>
+                  <rect width={boxW} height={boxH} rx="6" fill="rgb(var(--c-card))" stroke="rgb(var(--c-line))" />
+                  <text x="8" y="15" fontSize="11" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                    {readout.date}
+                  </text>
+                  {rows.length ? (
+                    rows.map((r, i) => (
+                      <g key={r.key} transform={`translate(8, ${22 + i * rowH})`}>
+                        <ReadoutDot row={r} cx={4} cy={8} r={4} />
+                        <text x="14" y="12" fontSize="12" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                          {r.label}{" "}
+                          <tspan fontWeight="600" fontFamily={NUMBER_FONT} fill="rgb(var(--c-ink))">
+                            {r.text}
+                          </tspan>
+                        </text>
+                      </g>
+                    ))
+                  ) : (
+                    <text x="8" y="34" fontSize="12" fontFamily={LABEL_FONT} fill="rgb(var(--c-stone))">
+                      Not tracked
+                    </text>
+                  )}
+                </g>
+              );
+            })()}
           </g>
         )}
       </svg>
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
 
       <p className="mt-2 text-sm text-stone">
         Solid: the UTRs you&apos;ve logged.
         {checkpoints.length > 0 && " Dashed: your plan's checkpoints."}
-        {bandPath && ` Dotted: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
+        {paths.band && ` Dotted: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
         {upsideLine && " Grey dashes: Estimate at your own pace, not used for your bands."}
       </p>
 
@@ -337,4 +395,18 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
       )}
     </div>
   );
+}
+
+/** The dashed plan line's colour — its readout dot matches it. */
+const PLAN_STROKE = "rgb(var(--c-primary))";
+
+/** A readout dot, styled like its line: Logged a solid ink dot on the
+ *  entry, Plan a filled dot in the dashed line's colour, Planning estimate
+ *  a hollow ring like the dotted line. */
+function ReadoutDot({ row, cx, cy, r }: { row: ReadoutRow; cx: number; cy: number; r: number }) {
+  if (row.key === "estimate") {
+    return <circle cx={cx} cy={cy} r={r} fill="rgb(var(--c-card))" stroke="rgb(var(--c-primary))" strokeWidth="2" />;
+  }
+  const fill = row.key === "plan" ? PLAN_STROKE : "rgb(var(--c-ink))";
+  return <circle cx={cx} cy={cy} r={r} fill={fill} stroke="rgb(var(--c-card))" strokeWidth="1.5" />;
 }

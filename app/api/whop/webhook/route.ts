@@ -145,11 +145,9 @@ export async function POST(req: Request) {
   if (type === "membership.activated" && outcome.applied && outcome.tier !== "free") {
     const value = priceUsdForPlanId(planId, TIER_PRICE_USD);
     if (value !== null) {
-      await reportPurchaseToGA4({
-        transactionId: membershipId,
-        value,
-        itemName: `${outcome.tier} subscription`,
-      });
+      // Plan and price only — never the membership id or anything about
+      // the buyer (lib/ga4-server.ts).
+      await reportPurchaseToGA4({ plan: outcome.tier, value });
     } else {
       log("skipped GA4 purchase: plan id is not one of ours", { membershipId });
     }
