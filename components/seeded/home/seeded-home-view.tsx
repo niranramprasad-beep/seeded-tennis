@@ -19,9 +19,8 @@ import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/
 // responsive split here is pure CSS breakpoints within one tree (see
 // components/layout/nav.tsx), so the mobile/desktop hero split below
 // follows that same convention rather than introducing a new pattern.
-// Hero renders with no scroll-reveal (server-paintable, no fade-in above
-// the fold); everything below it keeps the existing Reveal fade-up —
-// the phase spec only calls out the hero specifically.
+// Nothing on this page animates in: Reveal is a plain <div> since
+// PR-POLISH (2026-11-20), so every section is legible at first paint.
 export function SeededHomeView({ schools }: { schools: SchoolLite[] }) {
   return (
     <div className="text-ink">

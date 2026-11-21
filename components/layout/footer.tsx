@@ -48,12 +48,12 @@ const COLUMNS: {
 
 const LEGACY_FOOTER_ROUTES = ["/", "/parents", "/how-it-works", "/tournament-fit", "/schools", "/schools/", "/pricing"];
 
-export function Footer() {
+export function Footer({ inApp = false }: { inApp?: boolean } = {}) {
   const { design } = useDesign();
   const pathname = usePathname() ?? "/";
   const isSeeded = design === "seeded";
 
-  if (isSeeded) return <SlimFooter />;
+  if (isSeeded) return <SlimFooter inApp={inApp} />;
   // Legacy keeps its old footprint: the four-column footer only on the
   // marketing pages that rendered it before AppShell took over footers, not
   // on its app routes and auth screens (independent review, 2026-11-16).
@@ -166,12 +166,29 @@ export function Footer() {
  * purpose: Legacy is a setting (Settings -> Appearance), not something a
  * first-time visitor should trip over (DECISIONS.md, 2026-11-16).
  */
-function SlimFooter() {
+// Pages whose content column is the 1200px marketing one (the public nav's
+// width). Every other page a signed-in user sees inside the sidebar shell
+// uses `max-w-content container-px`, and the footer follows that column.
+const MARKETING_COLUMN_ROUTES = ["/", "/parents", "/how-it-works", "/methodology", "/onboarding", "/sample-report"];
+
+function SlimFooter({ inApp }: { inApp: boolean }) {
+  const pathname = usePathname() ?? "/";
+  // PR-POLISH (2026-11-20): inside the app the footer used the marketing
+  // column (1200px, 24px padding) while every app page uses max-w-content +
+  // container-px, so at 1440 the footer text started ~17px left of the
+  // content and its rule ran the full width of the window. It now sits in
+  // the same column as the page above it, rule included.
+  const appColumn = inApp && !MARKETING_COLUMN_ROUTES.includes(pathname);
   const linkClass =
     "inline-flex min-h-11 items-center text-stone underline-offset-2 transition-colors hover:text-ink hover:underline sm:min-h-6";
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-x-6 gap-y-1 px-6 py-6 text-sm sm:flex-row sm:flex-wrap sm:items-center">
+    <footer className={appColumn ? "mx-auto max-w-content container-px" : "border-t border-line"}>
+      <div
+        className={cn(
+          "flex flex-col gap-x-6 gap-y-1 py-6 text-sm sm:flex-row sm:flex-wrap sm:items-center",
+          appColumn ? "border-t border-line" : "mx-auto max-w-[1200px] px-6"
+        )}
+      >
         <span className="font-seeded font-semibold text-ink sm:mr-auto">Seeded</span>
         <Link href="/methodology" className={linkClass}>
           How we calculate fit

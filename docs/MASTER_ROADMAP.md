@@ -13,6 +13,27 @@
 
 ## Executive status
 
+**2026-11-20 night — PR-POLISH (`fix/visual-polish`, NOT merged): low-risk
+visual pass, presentation only.** No number, band or fit math changed; no
+migration. (1) No entrance animations: AppShell's route fade-in is gone (the
+keyed remount stays) and `Reveal`/`FadeIn` are plain `<div>`s, so nothing
+server-renders at opacity 0 — `/` had 59 text nodes invisible until JS ran.
+(2) /today: "UTR vs plan" moved into the main column (filled ~400px of empty
+space at 1440; phone order unchanged), chart 278×150 → 714×220 with y-axis
+and month ticks, a dashed estimate line (a logged-pace estimate has
+low = high, so the shaded band drew nothing under a caption saying
+"Shaded" — same fix, dotted, on /plan), and ONE data note with "About our
+data" instead of a caption plus a second note. Body text 13–14px → 15px;
+`DataNote` is 15px everywhere. (3) The slim footer sits in the app's content
+column (`max-w-content container-px`) on app routes: left edge 272 → 289 at
+1440 (= content), 24 → 20 at 375. (4) `formatTargetUtr` (lib/utils.ts): plan
+checkpoints, the upside "Estimate" and "We plan with …" print at the nearest
+0.05 (6.59 → 6.60); the final checkpoint IS the typed goal and prints as typed
+(`formatCheckpointUtr`). Guard `lib/target-utr-format.test.ts`. Deviation to
+review: Today.dc.html has the chart in the rail. Left alone: /events' cards
+stay at their own heights (C22 chose that on purpose). Evidence:
+`~/seeded-evidence/review-ready/r12-polish/`.
+
 **2026-11-20 (night) — Migration 050 on production: the season budget is
 parent-only.** `is_parent_member()` now requires the writer's own
 `profiles.role = 'parent'` AND approved membership (033's pattern), closing

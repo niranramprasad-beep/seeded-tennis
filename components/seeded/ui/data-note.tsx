@@ -25,7 +25,7 @@ export function DataNote({
   showLink?: boolean;
 }) {
   return (
-    <p className={cn("flex items-start gap-2 text-sm leading-relaxed text-stone", className)}>
+    <p className={cn("flex items-start gap-2 text-[15px] leading-relaxed text-stone", className)}>
       <Info className="mt-[3px] h-4 w-4 shrink-0" aria-hidden />
       <span>
         {children}

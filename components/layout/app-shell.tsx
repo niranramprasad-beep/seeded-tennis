@@ -177,9 +177,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           laid-out) page sat ABOVE the new one, so every navigation landed
           scrolled to the bottom of a doubled-up page — "nothing loaded"
           until you scrolled past the invisible old content to find it.
-          A plain CSS fade-in on mount (key={pathname} forces a fresh mount
-          per route) gets the same instant feel with no second page ever
-          sharing the layout.
+          key={pathname} still forces a fresh mount per route, so no second
+          page ever shares the layout. The CSS fade-in that rode on it is gone
+          (PR-POLISH, 2026-11-20): it started every page at opacity 0.01, so
+          on a slow phone each navigation painted greyed-out text first.
         */}
         {/* Post-checkout safety net. Mounted here, above every page, rather
             than on the checkout redirect target: `?checkout=success` lands on
@@ -195,11 +196,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             and was pushed down as the page filled in — measured CLS 0.7 to
             1.5 on 311 page loads in the first after-pass. A shift below the
             viewport does not count toward CLS. */}
-        <div key={pathname} className="min-h-[100svh] animate-fade-in">{children}</div>
+        <div key={pathname} className="min-h-[100svh]">{children}</div>
         {/* The ONE footer, on every route (design system v2). Outside the
             keyed fade so it never remounts or flashes between pages, and
             inside <main> so app routes give it the sidebar margin. */}
-        <Footer />
+        <Footer inApp={layoutAsApp} />
       </main>
       {/* B6: fixed-position, drawn after mount, so it can never push the
           page. Renders nothing unless signed in with an unconfirmed email. */}

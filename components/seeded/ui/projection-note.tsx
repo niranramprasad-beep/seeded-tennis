@@ -70,15 +70,27 @@ export function PaceUpsideNote({
   utr,
   who,
   className,
+  withLink = false,
 }: {
   utr: RecruitingTimeUtr | null | undefined;
   who?: string | null;
   className?: string;
+  /** Render as the card's ONE data note (rule 2): info icon + "About our
+   *  data" — /today's chart card, where this sentence replaces the caption. */
+  withLink?: boolean;
 }) {
   const sentence = paceUpsideSentence(utr, who);
   if (!sentence) return null;
+  if (withLink) {
+    return (
+      <DataNote className={className}>
+        <EstimateChip className="mr-1.5" />
+        {sentence}
+      </DataNote>
+    );
+  }
   return (
-    <p className={cn("text-[13px] leading-relaxed text-stone", className)}>
+    <p className={cn("text-[15px] leading-relaxed text-stone", className)}>
       <EstimateChip className="mr-1.5" />
       {sentence}
     </p>

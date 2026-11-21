@@ -2,14 +2,16 @@
 
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { chartEndLabels, estimateOnDate, type UtrEstimatePoint } from "@/lib/fit";
-import { formatPlayerUtr, hasRealUtr } from "@/lib/utils";
-import { formatDate } from "@/lib/time";
+import { formatCheckpointUtr, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
-import { approxTextWidth, monthYearLabel } from "@/components/seeded/ui/chart-axis";
+import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
 
 interface UtrVsPlanChartProps {
   actualPoints: UtrDataPoint[];
   nextCheckpoint: { date: Date; utr: number } | null;
+  /** The player's own goal — the last checkpoint IS this number and prints
+   *  exactly as typed (lib/utils.ts formatCheckpointUtr). */
+  goalValue?: number | null;
   /** lib/fit.ts projectionPath — the same estimate /plan shades and every
    *  ProjectionNote prints. Empty once the summer before senior year has
    *  begun. */
@@ -19,10 +21,15 @@ interface UtrVsPlanChartProps {
   upside?: UtrEstimatePoint[];
 }
 
-const H = 150;
-const PAD_X = 10;
-const PAD_TOP = 22;
-const BASELINE = H - 24;
+// 220 tall (was 150) since PR-POLISH: the card now sits in the main column,
+// so the chart is ~750px wide at 1440 instead of ~280, with a y-axis and
+// month ticks. Height is fixed, so measuring the width never shifts the page.
+const H = 220;
+const PAD_L = 34;
+const PAD_R = 10;
+const PAD_TOP = 26;
+const BASELINE = H - 28;
+const AXIS_FONT_SIZE = 12;
 const FONT = "var(--font-inter)";
 const NUMBER_FONT = "var(--font-mono-active)";
 
@@ -36,15 +43,18 @@ const NUMBER_FONT = "var(--font-mono-active)";
 // C21: the end labels used to sit at fixed offsets in a 300-wide viewBox and
 // were clipped ("Jun '2", "Jun '27 · 9.0"), and the y-axis only spanned the
 // first and last ratings, so a dip between them fell off the chart. The
-// viewBox is now the column's real width, every label is anchored inside it,
-// and the y-range covers every logged value.
-export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate, upside = [] }: UtrVsPlanChartProps) {
+// viewBox is the column's real width, every label is anchored inside it, and
+// the y-range covers every logged value.
+//
+// The card's one data note (design system v2, rule 2) is rendered by the
+// card in seeded-dashboard-layout.tsx, not here — this draws only.
+export function UtrVsPlanChart({ actualPoints, nextCheckpoint, goalValue, estimate, upside = [] }: UtrVsPlanChartProps) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>(320);
   const sorted = [...actualPoints].filter((p) => hasRealUtr(p.utr)).sort((a, b) => a.date.getTime() - b.date.getTime());
 
   if (sorted.length === 0) {
     return (
-      <div ref={ref} className="flex h-[120px] items-center rounded-lg border border-dashed border-line px-4 text-sm text-stone">
+      <div ref={ref} className="flex h-[120px] items-center rounded-lg border border-dashed border-line px-4 text-[15px] text-stone">
         Log a UTR to start your chart.
       </div>
     );
@@ -74,13 +84,15 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate, upside 
     ...band.flatMap((p) => [p.low, p.high]),
     ...up.map((p) => p.value),
   ];
-  const utrMin = Math.min(...utrValues) - 0.3;
-  const utrMax = Math.max(...utrValues) + 0.3;
+  // Snapped to half points so the gridlines land on round numbers.
+  const utrMin = Math.floor((Math.min(...utrValues) - 0.3) * 2) / 2;
+  const utrMax = Math.ceil((Math.max(...utrValues) + 0.3) * 2) / 2;
   const dateMin = start.date.getTime();
   const dateMax = Math.max(endDate.getTime(), dateMin + 1);
 
   const W = Math.max(240, width);
-  const x = (t: number) => PAD_X + ((t - dateMin) / (dateMax - dateMin)) * (W - 2 * PAD_X);
+  const plotW = W - PAD_L - PAD_R;
+  const x = (t: number) => PAD_L + ((t - dateMin) / (dateMax - dateMin)) * plotW;
   const y = (utr: number) => BASELINE - ((utr - utrMin) / (utrMax - utrMin)) * (BASELINE - PAD_TOP);
 
   const linePoints = sorted.map((p) => `${x(p.date.getTime())},${y(p.utr)}`).join(" ");
@@ -92,36 +104,77 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate, upside 
           .join(" L")} Z`
       : null;
 
+  const estimateLine = band.length > 1 ? band.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
   const upLine = up.length > 1 ? up.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
   const bandEnd = band[band.length - 1];
   const upEnd = up[up.length - 1];
 
+  const yTicks = utrTicks(utrMin, utrMax);
+  // Month ticks spaced for a 12px label; a phone gets fewer.
+  const xTicks = monthTicks(dateMin, dateMax, plotW, 76);
+
   const endX = x(endDate.getTime());
-  const checkpointText = checkpoint ? `${monthYearLabel(checkpoint.date)} · ${formatPlayerUtr(checkpoint.utr)}` : "";
+  const checkpointUtrText = checkpoint ? formatCheckpointUtr(checkpoint.utr, goalValue) : "";
+  const checkpointText = checkpoint ? `${monthYearLabel(checkpoint.date)} · ${checkpointUtrText}` : "";
   // Anchored to END at the marker, so it reads leftwards from the edge
   // instead of running off it.
-  const checkpointLabelX = Math.max(PAD_X + approxTextWidth(checkpointText, 11), endX - 4);
+  const checkpointLabelX = Math.max(PAD_L + approxTextWidth(checkpointText, AXIS_FONT_SIZE), endX - 4);
 
   return (
     <div ref={ref} className="w-full">
       <svg
         role="img"
         aria-label={`UTR ${formatPlayerUtr(now.utr)} as of ${monthYearLabel(now.date)}${
-          checkpoint ? `, next checkpoint ${formatPlayerUtr(checkpoint.utr)} by ${monthYearLabel(checkpoint.date)}` : ""
+          checkpoint ? `, next checkpoint ${checkpointUtrText} by ${monthYearLabel(checkpoint.date)}` : ""
         }`}
         viewBox={`0 0 ${W} ${H}`}
         width={W}
         height={H}
         className="block max-w-full"
       >
+        {yTicks.map((v) => (
+          <g key={v}>
+            <line x1={PAD_L} y1={y(v)} x2={W - PAD_R} y2={y(v)} stroke="rgb(var(--c-line))" strokeWidth="1" />
+            <text
+              x={PAD_L - 6}
+              y={y(v) + 4}
+              textAnchor="end"
+              fontSize={AXIS_FONT_SIZE}
+              fontFamily={NUMBER_FONT}
+              fill="rgb(var(--c-stone))"
+            >
+              {Number.isInteger(v) ? v : v.toFixed(1)}
+            </text>
+          </g>
+        ))}
+        {xTicks.map((d, i) => {
+          const text = monthYearLabel(d);
+          const tw = approxTextWidth(text, AXIS_FONT_SIZE);
+          const cx = Math.min(Math.max(x(d.getTime()), PAD_L + tw / 2), W - PAD_R - tw / 2);
+          return (
+            <text key={i} x={cx} y={H - 8} textAnchor="middle" fontSize={AXIS_FONT_SIZE} fontFamily={FONT} fill="rgb(var(--c-stone))">
+              {text}
+            </text>
+          );
+        })}
+
         {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
+        {/* The estimate's own line, dashed. A logged-pace estimate has
+            low === high, so the shaded band alone has no area and drew
+            nothing at all — the old caption said "Shaded" over an empty
+            stretch of chart. */}
+        {estimateLine && (
+          <polyline points={estimateLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2" strokeDasharray="6 5" />
+        )}
         {upLine && <polyline points={upLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />}
         {endLabels.plan && bandEnd && (
           <text
-            x={W - PAD_X}
-            y={Math.max(PAD_TOP + 10, Math.min(BASELINE - 4, y(bandEnd.value) + (endLabels.upside ? 16 : 4)))}
+            x={W - PAD_R}
+            // Above the dashed line's end (below it when the upside label
+            // takes the space above), so the number never sits on the line.
+            y={Math.max(14, Math.min(BASELINE - 4, y(bandEnd.value) + (endLabels.upside ? 20 : -9)))}
             textAnchor="end"
-            fontSize="11"
+            fontSize="13"
             fontWeight="600"
             fill="rgb(var(--c-primary))"
             fontFamily={NUMBER_FONT}
@@ -130,7 +183,14 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate, upside 
           </text>
         )}
         {endLabels.upside && upEnd && (
-          <text x={W - PAD_X} y={Math.max(PAD_TOP - 6, y(upEnd.value) - 8)} textAnchor="end" fontSize="11" fill="rgb(var(--c-stone))" fontFamily={FONT}>
+          <text
+            x={W - PAD_R}
+            y={Math.max(PAD_TOP - 6, y(upEnd.value) - 8)}
+            textAnchor="end"
+            fontSize={AXIS_FONT_SIZE}
+            fill="rgb(var(--c-stone))"
+            fontFamily={FONT}
+          >
             {endLabels.upside}
           </text>
         )}
@@ -138,26 +198,20 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, estimate, upside 
         {checkpoint && (
           <>
             <line x1={endX} y1={PAD_TOP - 4} x2={endX} y2={BASELINE} stroke="rgb(var(--c-gold))" strokeDasharray="3 3" />
-            <text x={checkpointLabelX} y={PAD_TOP - 8} textAnchor="end" fontSize="11" fill="rgb(var(--c-ink))" fontFamily={FONT}>
-              {monthYearLabel(checkpoint.date)} · <tspan fontFamily={NUMBER_FONT}>{formatPlayerUtr(checkpoint.utr)}</tspan>
+            <text
+              x={checkpointLabelX}
+              y={PAD_TOP - 10}
+              textAnchor="end"
+              fontSize={AXIS_FONT_SIZE}
+              fill="rgb(var(--c-ink))"
+              fontFamily={FONT}
+            >
+              {monthYearLabel(checkpoint.date)} · <tspan fontFamily={NUMBER_FONT}>{checkpointUtrText}</tspan>
             </text>
           </>
         )}
         <circle cx={x(now.date.getTime())} cy={y(now.utr)} r="6" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="2" />
-        <text x={PAD_X} y={H - 6} fontSize="11" fill="rgb(var(--c-stone))" fontFamily={FONT}>
-          {monthYearLabel(start.date)}
-        </text>
-        <text x={W - PAD_X} y={H - 6} textAnchor="end" fontSize="11" fill="rgb(var(--c-stone))" fontFamily={FONT}>
-          {monthYearLabel(endDate)}
-        </text>
       </svg>
-      <p className="mt-1.5 text-[13px] text-stone">
-        {bandPath
-          ? `Shaded: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`
-          : "Your logged UTRs."}
-        {upLine && " Grey dashes: Estimate at your own pace, not used for your bands."}
-        {checkpoint && ` Next checkpoint: ${formatPlayerUtr(checkpoint.utr)} by ${formatDate(checkpoint.date)}.`}
-      </p>
     </div>
   );
 }
