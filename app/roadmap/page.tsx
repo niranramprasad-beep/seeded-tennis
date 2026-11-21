@@ -1,21 +1,16 @@
 import type { Metadata } from "next";
-import { getSchoolsLite } from "@/lib/db/schools";
-import { RoadmapView } from "@/components/roadmap/roadmap-view";
-import { SeededRouteRedirect } from "@/components/shared/seeded-route-redirect";
+import { redirect } from "next/navigation";
 
-// Behind an AuthGate and disallowed in robots.txt. The meta tag is the
-// belt-and-braces half: robots.txt is a request, a meta robots tag is an
-// instruction to a crawler that already has the page.
+// Still a private route (it resolves, by redirecting), so it keeps the
+// noindex every private page carries.
 export const metadata: Metadata = {
   title: "Roadmap — Seeded",
   robots: { index: false, follow: false },
 };
 
-export default async function RoadmapPage() {
-  const schools = await getSchoolsLite();
-  return (
-    <SeededRouteRedirect to="/plan">
-      <RoadmapView schools={schools} />
-    </SeededRouteRedirect>
-  );
+// /roadmap was the Legacy design's year-by-year roadmap. Legacy is deleted
+// (2026-11-20, PR-LEGACY); /plan is the same page now, and old links and
+// bookmarks land there.
+export default function RoadmapPage() {
+  redirect("/plan");
 }

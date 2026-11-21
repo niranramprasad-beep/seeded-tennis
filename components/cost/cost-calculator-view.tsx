@@ -17,7 +17,6 @@ import {
   type CostInputs,
 } from "@/lib/db/family";
 import { usePlayer } from "@/lib/context/player-context";
-import { useDesign } from "@/lib/context/design-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -60,8 +59,6 @@ function CostCalculatorInner({
   playerGraduationYear?: number | null;
 }) {
   const Heading = embedded ? "h3" : "h1";
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   const { player } = usePlayer();
   const { data: saved = [], mutate: mutateSaved } = useSWR<CostCalculation[]>(
     "cost-calculations",
@@ -112,8 +109,8 @@ function CostCalculatorInner({
     <div className="mx-auto max-w-content container-px py-10">
       <Reveal className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <span className={cn("eyebrow", isSeeded ? "font-seeded uppercase tracking-[0.2em] text-grass" : "text-gold")}>Cost calculator</span>
-          <Heading className={cn("mt-3", embedded ? "text-2xl" : "text-4xl sm:text-5xl", isSeeded ? "font-seeded font-semibold tracking-tight text-ink" : "display-serif text-ink")}>
+          <span className={cn("eyebrow", "font-seeded uppercase tracking-[0.2em] text-grass")}>Cost calculator</span>
+          <Heading className={cn("mt-3", embedded ? "text-2xl" : "text-4xl sm:text-5xl", "font-seeded font-semibold tracking-tight text-ink")}>
             See the real cost of the pursuit.
           </Heading>
           <p className="mt-2 max-w-2xl text-sm text-stone">
@@ -122,8 +119,7 @@ function CostCalculatorInner({
         </div>
         <Badge
           size="md"
-          variant={isSeeded ? undefined : "leaf"}
-          style={isSeeded ? { background: "var(--s-accent-gradient)", color: "white" } : undefined}
+          style={{ background: "var(--s-accent-gradient)", color: "white" }}
         >
           <DollarSign className="h-4 w-4" />
           {results.total > 0 ? Math.round(results.total).toLocaleString() : "Enter your costs"}
@@ -132,8 +128,8 @@ function CostCalculatorInner({
 
       <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
         <Reveal index={1}>
-        <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-          <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Inputs</h2>
+        <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
+          <h2 className={cn("font-medium text-ink", "font-seeded")}>Inputs</h2>
           <div className="mt-4 space-y-3">
             <NumberInput label="Years remaining" value={inputs.yearsRemaining} onChange={(v) => updateNumber("yearsRemaining", v)} />
             <NumberInput label="Tournaments per year" value={inputs.tournamentsPerYear} onChange={(v) => updateNumber("tournamentsPerYear", v)} />
@@ -163,10 +159,10 @@ function CostCalculatorInner({
             ))}
           </div>
           <Reveal index={3}>
-          <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+          <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-grass" aria-hidden />
-              <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Scholarships and cost of attendance</h2>
+              <h2 className={cn("font-medium text-ink", "font-seeded")}>Scholarships and cost of attendance</h2>
             </div>
             {/* This card used to print "Rough scholarship value" and "Net"
                 under real school names, from one generic number per
@@ -179,8 +175,8 @@ function CostCalculatorInner({
           </Card>
           </Reveal>
           <Reveal index={4}>
-          <Card className={cn("p-6", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
-            <h2 className={cn("font-medium text-ink", isSeeded && "font-seeded")}>Saved projections</h2>
+          <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
+            <h2 className={cn("font-medium text-ink", "font-seeded")}>Saved projections</h2>
             <div className="mt-4 space-y-2">
               {saved.slice(0, 4).map((row) => (
                 <div key={row.id} className="flex items-center justify-between rounded-xl bg-cream px-4 py-3 text-sm">
@@ -249,12 +245,10 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 }
 
 function CostCard({ label, value }: { label: string; value: number }) {
-  const { design } = useDesign();
-  const isSeeded = design === "seeded";
   return (
-    <Card interactive className={cn("h-full p-5", isSeeded && "seeded-glass border-0 shadow-seeded-1")}>
+    <Card interactive className={cn("h-full p-5", "seeded-glass border-0 shadow-seeded-1")}>
       <p className="text-xs text-stone-light">{label}</p>
-      <p className={cn("mt-2 text-2xl text-ink", isSeeded ? "font-mono" : "font-light")}>
+      <p className={cn("mt-2 text-2xl text-ink", "font-mono")}>
         ${Math.round(value).toLocaleString()}
       </p>
     </Card>

@@ -1,5 +1,5 @@
-// Real data access behind /settings: the plan goal, the design/seededMode
-// preference, the Whop
+// Real data access behind /settings: the plan goal, the Light/Dark
+// (seededMode) preference, the Whop
 // membership lookup used by the billing tab, and account deletion.
 // Moved verbatim from the former lib/supabase/settings-prefs.ts,
 // lib/supabase/design-preference.ts, and lib/supabase/billing.ts. Account
@@ -7,7 +7,12 @@
 // app/api/account/deletion/route.ts, the real server-validated path for it.
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
-import type { DesignSystemId, SeededMode } from "@/lib/context/design-context";
+import {
+  RETIRED_DESIGN_BAG_KEY,
+  parseRemoteAppearance,
+  type RemoteAppearance,
+  type SeededMode,
+} from "@/lib/appearance";
 import type { Json } from "./database.types";
 import { parseBillingLookup, type BillingLookup } from "@/lib/billing-view";
 
@@ -32,25 +37,29 @@ async function loadBag(): Promise<Record<string, unknown> | null> {
   return (data?.notification_preferences as Record<string, unknown> | undefined) ?? null;
 }
 
-async function mergeIntoBag(patch: Record<string, unknown>): Promise<void> {
+/** `remove`: keys this write retires — dropped from the stored bag. */
+async function mergeIntoBag(patch: Record<string, unknown>, remove: readonly string[] = []): Promise<void> {
   const supabase = getSupabase();
   const userId = await getUserId();
   if (!supabase || !userId) return;
 
   // Read-then-merge so this write never clobbers keys it doesn't own (e.g.
-  // design/seededMode, session_types, training_preferences).
+  // seededMode, session_types, training_preferences).
   const { data: existing } = await supabase
     .from("user_settings")
     .select("notification_preferences")
     .eq("user_id", userId)
     .maybeSingle();
 
+  const merged: Record<string, unknown> = {
+    ...((existing?.notification_preferences as Record<string, unknown> | undefined) ?? {}),
+    ...patch,
+  };
+  for (const key of remove) delete merged[key];
+
   await supabase.from("user_settings").upsert({
     user_id: userId,
-    notification_preferences: {
-      ...((existing?.notification_preferences as Record<string, unknown> | undefined) ?? {}),
-      ...patch,
-    } as unknown as Json,
+    notification_preferences: merged as unknown as Json,
   });
 }
 
@@ -83,26 +92,22 @@ export async function savePlanGoalUtr(value: number | null): Promise<void> {
 /* ------------------------------------------------------- design preference */
 
 export interface DesignPreference {
-  design: DesignSystemId;
   seededMode: SeededMode;
 }
 
 // Reuses the same `user_settings.notification_preferences` JSONB column as
 // above — no schema change. Both readers tolerate keys they don't own
-// sitting alongside theirs in the same blob.
-export async function loadDesignPreference(): Promise<Partial<DesignPreference> | null> {
-  const bag = await loadBag();
-  if (!bag) return null;
-  const design = bag.design;
-  const seededMode = bag.seededMode;
-  return {
-    design: design === "legacy" || design === "seeded" ? design : undefined,
-    seededMode: seededMode === "dark" || seededMode === "light" ? seededMode : undefined,
-  };
+// sitting alongside theirs in the same blob. A stored `design: "legacy"`
+// (the deleted Legacy design) reads as "Match system" — see
+// lib/appearance.ts.
+export async function loadDesignPreference(): Promise<RemoteAppearance | null> {
+  return parseRemoteAppearance(await loadBag());
 }
 
+// Saving a mode also drops the retired `design` key, so an account that had
+// picked Legacy stops being read as "Match system" once it chooses again.
 export async function saveDesignPreference(pref: DesignPreference): Promise<void> {
-  await mergeIntoBag({ design: pref.design, seededMode: pref.seededMode });
+  await mergeIntoBag({ seededMode: pref.seededMode }, [RETIRED_DESIGN_BAG_KEY]);
 }
 
 /* ------------------------------------------------------------------ billing */

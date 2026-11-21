@@ -97,9 +97,10 @@ describe("every Manage billing entry goes to /settings/billing", () => {
   });
 
   it("finds the entries it is guarding", () => {
-    // Legacy settings, Seeded account card, both pricing designs.
+    // The Settings account card and /pricing. Was 4+ while the Legacy
+    // settings and pricing pages existed (deleted 2026-11-20).
     const withEntry = FILES.filter((f) => /manage\s+billing/i.test(codeOnly(f)));
-    expect(withEntry.length).toBeGreaterThanOrEqual(4);
+    expect(withEntry.length).toBeGreaterThanOrEqual(2);
   });
 
   it("no Manage billing link or handler points anywhere else", () => {

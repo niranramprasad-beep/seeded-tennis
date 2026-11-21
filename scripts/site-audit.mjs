@@ -4,7 +4,7 @@
 //   node scripts/site-audit.mjs tier1                 # chromium, all routes x personas, 375+1440, light+dark
 //   node scripts/site-audit.mjs widths                # public routes, 7 widths, signed out
 //   node scripts/site-audit.mjs browsers              # webkit + firefox, key routes
-//   node scripts/site-audit.mjs extras                # legacy theme, OS-sync, 200% zoom, reduced motion
+//   node scripts/site-audit.mjs extras                # OS-sync, 200% zoom, reduced motion
 //   node scripts/site-audit.mjs tier1 a f             # only those personas
 //
 // Routes are ENUMERATED from app/**/page.tsx, not hand-picked, so a new page
@@ -196,7 +196,7 @@ const PASSES = {
     personas: ["h", "a", "f"],
     routes: ["/", "/onboarding", "/schools", "/schools/stanford-m", "/pricing", "/today", "/plan", "/family", "/settings"],
     viewports: [W(1440, 900)],
-    themes: ["legacy", "system-dark", "zoom200", "reduced-motion"],
+    themes: ["system-dark", "zoom200", "reduced-motion"],
     axe: true,
     shots: true,
   },
@@ -219,12 +219,11 @@ const LAUNCH = {
 };
 
 function themeInit(theme) {
-  // Sets the design keys only. Never clears storage — that would sign the
+  // Sets the mode keys only. Never clears storage — that would sign the
   // persona out (harness bug #3 from earlier passes).
-  const design = theme === "legacy" ? "legacy" : "seeded";
   const mode = theme === "dark" ? "dark" : "light";
   const sync = theme === "system-dark" ? "1" : "0";
-  return `try{localStorage.setItem("seeded.design","${design}");localStorage.setItem("seeded.mode","${mode}");localStorage.setItem("seeded.mode.system","${sync}");}catch(e){}`;
+  return `try{localStorage.setItem("seeded.mode","${mode}");localStorage.setItem("seeded.mode.system","${sync}");}catch(e){}`;
 }
 
 const PERF_INIT = `(() => {
@@ -387,7 +386,6 @@ async function measure(page) {
       // What actually rendered. A signed-in user's stored theme overrides the
       // one this harness puts in localStorage (DesignPreferenceSync), and the
       // first tier-1 run recorded "dark" captures that had rendered light.
-      renderedDesign: document.documentElement.getAttribute("data-design"),
       renderedMode: document.documentElement.getAttribute("data-seeded-mode"),
       title: document.title,
       // Visible h1s; the source may hold a second, display:none, layout

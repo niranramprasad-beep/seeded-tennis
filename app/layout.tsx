@@ -26,8 +26,8 @@ const SIGNED_IN_ONLY_JSON = JSON.stringify(SIGNED_IN_ONLY_PREFIXES);
 // The files in app/fonts/ are the latin subset, pulled once from Google's
 // own CDN and committed. Same faces, same glyphs, no build-time network.
 // Variable files where Google publishes one (Inter, Inter Tight, JetBrains
-// Mono, Space Grotesk) so a single file covers every weight; static files
-// for the two families that have no variable version.
+// Mono) so a single file covers every weight; static files for Cormorant
+// Garamond, which has no variable version.
 //
 // `display: "swap"` and the CSS variable names are unchanged, so globals.css
 // and every component keep working untouched.
@@ -45,9 +45,8 @@ const SIGNED_IN_ONLY_JSON = JSON.stringify(SIGNED_IN_ONLY_PREFIXES);
 // Inter Tight (headlines), JetBrains Mono (numerals). Everything else has
 // `preload: false`: its @font-face is still declared, and the browser
 // fetches a file only when something on the page actually renders in it —
-// Cormorant's 400 italic on the few pages with a `serif-accent` word, and
-// the Legacy concept-theme faces only under those opt-in themes. The visual
-// design is unchanged; only the download order is.
+// Cormorant's 400 italic on the few pages with a `serif-accent` word. The
+// visual design is unchanged; only the download order is.
 
 const inter = localFont({
   src: "./fonts/Inter-Variable.woff2",
@@ -58,7 +57,7 @@ const inter = localFont({
 
 // Seeded design system's display/headline face (components/seeded/ui/*,
 // text headlines in components/seeded/*) — pixel-matches the mockups'
-// "Inter Tight" spec. Legacy never references --font-inter-tight.
+// "Inter Tight" spec.
 const interTight = localFont({
   src: "./fonts/InterTight-Variable.woff2",
   weight: "100 900",
@@ -68,8 +67,7 @@ const interTight = localFont({
 
 // Seeded design system's data/number face (table numerals, UTR, $, dates) —
 // pixel-matches the mockups' "JetBrains Mono" spec. Selected via the
-// --font-mono-active indirection in globals.css so Legacy's "Night Rally"
-// concept theme keeps IBM Plex Mono (below) unchanged.
+// --font-mono-active indirection in globals.css.
 const jetbrainsMono = localFont({
   src: "./fonts/JetBrainsMono-Variable.woff2",
   weight: "100 800",
@@ -96,26 +94,6 @@ const cormorant = localFont({
   display: "swap",
 });
 
-// Used only by the "Match Point" design concept theme.
-const spaceGrotesk = localFont({
-  src: "./fonts/SpaceGrotesk-Variable.woff2",
-  weight: "300 700",
-  variable: "--font-space-grotesk",
-  preload: false,
-  display: "swap",
-});
-
-// Used only by the "Night Rally" design concept theme — every stat number
-// renders in this mono face there, for a precision-instrument feel.
-const plexMono = localFont({
-  src: [
-    { path: "./fonts/IBMPlexMono-500.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/IBMPlexMono-600.woff2", weight: "600", style: "normal" },
-  ],
-  variable: "--font-plex-mono",
-  preload: false,
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://seededtennis.com"),
@@ -132,19 +110,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-design="seeded"
       data-seeded-mode="dark"
-      className={`${inter.variable} ${interTight.variable} ${cormorant.variable} ${spaceGrotesk.variable} ${plexMono.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${interTight.variable} ${cormorant.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <head>
-        {/* Apply the saved theme/design before paint to avoid a flash of the
-            default. Mirrors design-context.tsx's mount effect exactly,
-            including its "brand-new visitor with nothing saved yet defaults
-            to the OS preference, not a hardcoded mode" rule — syncRaw===null
-            (the 'seeded.mode.system' key has literally never been written)
-            is treated the same as sync=true so a first-time visit on a
-            light-OS machine never flashes dark before React hydrates.
+        {/* Apply the saved Light/Dark mode before paint to avoid a flash of
+            the default. Mirrors design-context.tsx's mount effect exactly
+            (lib/appearance.ts resolveStoredSystemSync), including its
+            "brand-new visitor with nothing saved yet defaults to the OS
+            preference, not a hardcoded mode" rule — syncRaw===null (the
+            'seeded.mode.system' key has literally never been written) is
+            treated the same as sync=true so a first-time visit on a
+            light-OS machine never flashes dark before React hydrates. A
+            browser that had picked the deleted Legacy design
+            ('seeded.design' === 'legacy') follows the OS too.
             It also marks html[data-session] when a Supabase session is
             saved, so a public route lays out as the app from first paint
             (see the pre-session rules at the end of globals.css), plus
@@ -160,7 +140,7 @@ export default function RootLayout({
             same-origin by construction. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('seeded.theme');if(t){document.documentElement.setAttribute('data-theme',t);}var d=localStorage.getItem('seeded.design');if(d){document.documentElement.setAttribute('data-design',d);}var syncRaw=localStorage.getItem('seeded.mode.system');var sync=syncRaw===null?true:syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}var s=0;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.+-auth-token$/.test(k)){s=1;document.documentElement.setAttribute('data-session','1');var r=localStorage.getItem('seeded.role');if(r==='parent'||r==='player'){document.documentElement.setAttribute('data-role',r);}var sh=localStorage.getItem('seeded.schools.shape');if(sh==='fit'||sh==='nofit'||sh==='prompt'){document.documentElement.setAttribute('data-schools-shape',sh);}break;}}if(localStorage.getItem('seeded.sidebar.collapsed')==='1'){document.documentElement.setAttribute('data-sidebar-collapsed','1');}if(!s){var p=location.pathname,a=${SIGNED_IN_ONLY_JSON};for(var j=0;j<a.length;j++){if(p===a[j]||p.indexOf(a[j]+'/')===0){location.replace('/login?next='+encodeURIComponent(p+(location.search||'')));break;}}}}catch(e){}})();`,
+            __html: `(function(){try{var syncRaw=localStorage.getItem('seeded.mode.system');var sync=localStorage.getItem('seeded.design')==='legacy'||syncRaw===null||syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}var s=0;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.+-auth-token$/.test(k)){s=1;document.documentElement.setAttribute('data-session','1');var r=localStorage.getItem('seeded.role');if(r==='parent'||r==='player'){document.documentElement.setAttribute('data-role',r);}var sh=localStorage.getItem('seeded.schools.shape');if(sh==='fit'||sh==='nofit'||sh==='prompt'){document.documentElement.setAttribute('data-schools-shape',sh);}break;}}if(localStorage.getItem('seeded.sidebar.collapsed')==='1'){document.documentElement.setAttribute('data-sidebar-collapsed','1');}if(!s){var p=location.pathname,a=${SIGNED_IN_ONLY_JSON};for(var j=0;j<a.length;j++){if(p===a[j]||p.indexOf(a[j]+'/')===0){location.replace('/login?next='+encodeURIComponent(p+(location.search||'')));break;}}}}catch(e){}})();`,
           }}
         />
       </head>

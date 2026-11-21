@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { MotionConfig } from "framer-motion";
 import { SWRConfig } from "swr";
-import { ThemeProvider } from "@/lib/context/theme-context";
 import { DesignProvider } from "@/lib/context/design-context";
 import { PlayerProvider } from "@/lib/context/player-context";
 import { TierProvider } from "@/lib/context/tier-context";
@@ -33,18 +32,16 @@ export function Providers({ children }: { children: ReactNode }) {
         }}
       >
         <DesignProvider>
-          <ThemeProvider>
-            <PlayerProvider>
-              <TierProvider>
-                <GenderProvider>
-                  <SidebarProvider>
-                    <DesignPreferenceSync />
-                    {children}
-                  </SidebarProvider>
-                </GenderProvider>
-              </TierProvider>
-            </PlayerProvider>
-          </ThemeProvider>
+          <PlayerProvider>
+            <TierProvider>
+              <GenderProvider>
+                <SidebarProvider>
+                  <DesignPreferenceSync />
+                  {children}
+                </SidebarProvider>
+              </GenderProvider>
+            </TierProvider>
+          </PlayerProvider>
         </DesignProvider>
       </SWRConfig>
     </MotionConfig>

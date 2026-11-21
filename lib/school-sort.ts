@@ -1,10 +1,8 @@
-// Seeded-only sort modes for the Schools table — layered on top of
-// whatever order the parent SchoolsBrowser's existing `ranked` list already
-// provides (that mechanism stays the single source of base sort/filter
-// state, shared with Legacy; see seeded-schools-browser.tsx's file banner).
-// These three new modes are Seeded-exclusive because they need the real
-// fit-band math (classifySchoolFit) Legacy's UI has no use for, so they're
-// owned here instead of pushed up into the shared parent.
+// Sort modes for the Schools table — layered on top of whatever order the
+// parent SchoolsBrowser's `ranked` list already provides (that stays the
+// single source of base sort/filter state; see seeded-schools-browser.tsx's
+// file banner). These modes need the real fit-band math
+// (classifySchoolFit), so they're owned here instead of in the parent.
 import type { SchoolLite } from "@/lib/types";
 import { classifySchoolFit, fitBasis, type SchoolFitBand } from "@/lib/school-fit";
 

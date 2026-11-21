@@ -225,7 +225,6 @@ for (const persona of chosen) {
         page.on("pageerror", (e) => errors.push("pageerror: " + String(e.message).slice(0, 200)));
         await page.addInitScript((m) => {
           try {
-            localStorage.setItem("seeded.design", "seeded");
             localStorage.setItem("seeded.mode", m);
             localStorage.setItem("seeded.mode.system", "0");
           } catch {}

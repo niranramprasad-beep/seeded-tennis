@@ -108,14 +108,6 @@ export async function getSchoolsBySlugs(slugs: string[]): Promise<School[]> {
   return resolve(schoolsData.filter((s) => set.has(s.slug)));
 }
 
-export async function getConferences(): Promise<string[]> {
-  return resolve(Array.from(new Set(schoolsData.map((s) => s.conference))).sort());
-}
-
-export async function getStates(): Promise<string[]> {
-  return resolve(Array.from(new Set(schoolsData.map((s) => s.state))).sort());
-}
-
 export async function getDivisions(): Promise<Division[]> {
   const order: Division[] = ["D1", "D2", "D3"];
   const present = new Set(schoolsData.map((s) => s.division));
@@ -432,7 +424,7 @@ export interface CoachEmailActionState {
 
 /**
  * The ONE place that decides whether a draft may leave Seeded. Both buttons
- * (Copy and Open in Gmail, in both the Seeded and legacy composers) read it,
+ * (Copy and Open in Gmail) read it,
  * and both handlers re-check it before acting, so a disabled-attribute bug
  * cannot ship a bracket to a coach.
  */
