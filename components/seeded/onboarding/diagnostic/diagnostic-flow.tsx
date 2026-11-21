@@ -3,7 +3,8 @@
 import { forwardRef, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EnrollmentTerm, PlayerGender, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
-import { diagnosticProjection, projectionTargetDate, projectionTargetLabel } from "@/lib/fit";
+import { diagnosticProjection, projectionTargetDate } from "@/lib/fit";
+import { seniorSummerMeasureSentence } from "@/lib/senior-summer";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import {
   EMPTY_ANSWERS,
@@ -739,15 +740,18 @@ function ResultBody({
   signedIn?: boolean;
 }) {
   const parent = answers.role === "parent";
-  const summer =
+  const who = parent ? "your player" : "you";
+  // B20: the tense follows the real date (lib/senior-summer.ts) — never
+  // "We'll measure you at summer 2026" in November 2026.
+  const heading =
     gradYear != null
-      ? projectionTargetLabel(projectionTargetDate(gradYear).getFullYear())
-      : "the summer before senior year";
+      ? seniorSummerMeasureSentence(who, projectionTargetDate(gradYear).getFullYear())
+      : `We’ll measure ${who} at the summer before senior year.`;
   return (
     <>
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">Your result</p>
       <QuestionHeading id={headingId} ref={headingRef}>
-        We&rsquo;ll measure {parent ? "your player" : "you"} at {summer}, the summer before senior year.
+        {heading}
       </QuestionHeading>
       <Help>
         The fit report compares that rating with {programCount}{" "}

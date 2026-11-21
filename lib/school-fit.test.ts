@@ -332,7 +332,8 @@ describe("explainSchoolFit — required pace vs the realistic 0.5-1.5/yr band (p
     const nextBand = explanation.nextBand!;
     expect(nextBand.paceRead).toBe("no-time-left");
     expect(nextBand.requiredPaceUtrPerYear).toBeNull();
-    expect(nextBand.message).toContain("already passed");
+    // B20: the tense follows the date — Nov 2025 is after summer 2025.
+    expect(nextBand.message).toContain("The summer before senior year has passed");
     expect(explanation.unreachable).toBe(true);
   });
 

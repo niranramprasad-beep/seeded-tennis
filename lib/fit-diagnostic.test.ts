@@ -94,7 +94,9 @@ describe("diagnosticProjection", () => {
     expect(p.display).toBe("11.00");
     expect(p.isEstimate).toBe(false);
     expect(p.monthsToTarget).toBe(0);
-    expect(p.note).toBe(SUMMER_STARTED_NOTE);
+    // B20: Nov 2026 is after summer 2026 (class of 2027), so "has passed".
+    expect(p.note).toBe("The summer before senior year has passed, so this is today's UTR.");
+    expect(SUMMER_STARTED_NOTE).toMatch(/has started/);
   });
 
   it("June 1 itself counts as started; May 31 still has a sliver of growth", () => {

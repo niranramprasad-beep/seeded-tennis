@@ -56,7 +56,17 @@ was lost, no request reached Supabase and no account was made. Reproduced on
 local builds of main and of this branch; the card is now a `<div>` on the
 save step (`QuestionShell`). Guard: `lib/onboarding-no-nested-form.test.ts`.
 The fit report's own "Save your report" form was not nested and was not
-affected. Onboarding walks (player 14+, under-13 on /signup and
+affected. (5) **B20:** the summer before senior year now has one tense,
+from the real date (`lib/senior-summer.ts`: upcoming before June 1,
+"has started" until the Aug 1 school-year rollover, "has passed" after).
+For the class of 2027 in November 2026 the onboarding result said "We'll
+measure you at summer 2026", the report "has started", the school page
+"has begun" beside "has already passed"; all four now say "has passed"
+(result heading, report note, school page, Schools/Plan pace messages).
+Wording only — the band logic is unchanged. Guard:
+`lib/senior-summer.test.ts`; `lib/fit/__split-manifest.json`'s hash for
+`diagnosticProjection` re-recorded (its note now comes from the helper).
+Onboarding walks (player 14+, under-13 on /signup and
 on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
 `~/seeded-evidence/final-check/prC/SUMMARY.md`.
 
@@ -1451,8 +1461,10 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
 
 Final-check (2026-11-21) rows closed by PR C (`fix/signup-onboarding-c`,
 not merged): A6 (email checked on its field), A7 (no GA on the sign-in /
-sign-up pages), A16 (name placeholder, birth-year/grade hint). Still open
-from that list: A1–A5, A8–A15, A17–A19 (`~/seeded-evidence/final-check/FINDINGS.md`).
+sign-up pages), A16 (name placeholder, birth-year/grade hint), B20 (one
+tense for the summer before senior year), and the onboarding sign-up's
+nested form found on the walk. Still open from that list: A1–A5, A8–A15,
+A17–A19 and the rest of section B (`~/seeded-evidence/final-check/FINDINGS.md`).
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
