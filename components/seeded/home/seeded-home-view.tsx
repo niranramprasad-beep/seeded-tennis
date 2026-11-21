@@ -15,8 +15,8 @@ import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/
 
 // Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No
 // JS viewport detection exists anywhere in this codebase — every other
-// responsive split here is pure CSS breakpoints within one tree (see
-// components/layout/nav.tsx), so the mobile/desktop hero split below
+// responsive split here is pure CSS breakpoints within one tree (as the
+// Seeded nav does), so the mobile/desktop hero split below
 // follows that same convention rather than introducing a new pattern.
 // Nothing on this page animates in: Reveal is a plain <div> since
 // PR-POLISH (2026-11-20), so every section is legible at first paint.

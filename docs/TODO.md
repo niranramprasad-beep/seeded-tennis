@@ -482,6 +482,26 @@ Both want the same fix: distinguish "no family" from "could not ask", and
 show an error state for the second. Small, and worth doing before the first
 support email about it.
 
+## Post-checkout sync never runs (found by the PR-LEGACY review, 2026-11-20) — billing, Niran's call
+
+Whop's checkout returns to `/dashboard?checkout=success`. Since the redesign,
+`/dashboard` redirected to `/today` WITHOUT the query, so `CheckoutSync`
+(mounted on every route) never saw `checkout=success` and never called
+`/api/whop/sync`. Tier changes rely on the webhook alone. PR-LEGACY keeps
+that behaviour on purpose (`app/dashboard/page.tsx`). Keeping the query would
+start a live sync call on every purchase and show "Whop doesn't show a
+membership for this account yet…" when the webhook is slower than the
+redirect. Decide: keep webhook-only, or forward the query (and soften the
+banner), or point Whop's return URL at `/today?checkout=success`.
+
+## The Legacy guard test is a lint, not a proof (PR-LEGACY review, LOW)
+
+`lib/no-legacy-theme.test.ts` misses some re-adds (a capitalised "Legacy",
+`dataset["design"]`, a renamed design value, imports of
+`choseRetiredDesign()` outside `lib/appearance.ts`) and does not scan the
+repo root, `public/` or `scripts/`. Same stance as `family-scope.test.ts`:
+it catches the realistic regressions; review catches the rest.
+
 ## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
 **MEDIUM, open.** 050 makes the budget parent-only, but "parent" is a role
@@ -590,8 +610,9 @@ JS-executing client only. Lighthouse SEO scores 100 because it does not
 check rendered content.
 
 Not fixed because the fix is a real architecture decision, not a tweak: the
-design choice is read from `localStorage`, which is why this cannot be a
-server redirect (see the comment in `components/shared/seeded-route-redirect.tsx`).
+design choice was read from `localStorage`, which is why this could not be a
+server redirect (that component was deleted with Legacy on 2026-11-20; re-check
+whether the reason still holds).
 Options are to server-render the pre-auth flow as the default and swap after
 hydration, or to accept it and drop the page's sitemap priority.
 
