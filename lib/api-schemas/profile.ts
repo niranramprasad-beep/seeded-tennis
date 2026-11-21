@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ENROLLMENT_TERMS } from "@/lib/types";
 import { SEASON_KEY_PATTERN, TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-planned";
+import { GPA_MAX, GPA_MIN, GPA_RANGE_ERROR, PROFILE_NAME_REQUIRED, hasVisibleName } from "@/lib/profile-fields";
 
 // Shape validated by app/api/profile's route handler before it ever calls
 // writeCurrentPlayerProfile (lib/auth.ts) — the single highest-traffic
@@ -15,7 +16,10 @@ import { SEASON_KEY_PATTERN, TOURNAMENTS_PLANNED_MAX } from "@/lib/tournaments-p
 // place it can be exported for app/api/profile/route.test.ts to exercise
 // directly.
 export const PlayerBodySchema = z.object({
-  name: z.string(),
+  // Never blank (QA sweep H2): a blank name was saved, and the next load
+  // showed the login email in its place — which then reached the coach
+  // email. Trimmed here, so "  " is blank too.
+  name: z.string().trim().refine(hasVisibleName, PROFILE_NAME_REQUIRED),
   currentUTR: z.number(),
   graduationYear: z.number(),
   commitmentDate: z.string(),
@@ -36,7 +40,9 @@ export const PlayerBodySchema = z.object({
   onboarded: z.boolean(),
   homeArea: z.string().optional(),
   utrProfileLink: z.string().optional(),
-  gpa: z.number().nullable().optional(),
+  // profiles_gpa_check (014) is 0–5. Checked here so a bad value is a 400
+  // with a sentence, not a 500 carrying raw Postgres text (QA sweep H3).
+  gpa: z.number().min(GPA_MIN, GPA_RANGE_ERROR).max(GPA_MAX, GPA_RANGE_ERROR).nullable().optional(),
   deletionRequestedAt: z.string().nullable().optional(),
   // Migration 041. The CHECK constraints are the real rule; these only turn
   // a bad value into a 400 instead of a raw 23514. birthMonth is write-once

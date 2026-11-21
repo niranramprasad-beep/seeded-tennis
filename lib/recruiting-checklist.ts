@@ -218,6 +218,17 @@ export interface MergedRecruitingChecklistItem {
   editable: boolean;
 }
 
+/** Why a checklist box is disabled, for screen readers (QA sweep L12: they
+ * heard only "dimmed"). Null for a box the player ticks by hand. True of
+ * every non-editable step: its tick comes from real app data (targets,
+ * the UTR profile link, coach outreach), never from the box. */
+export const CHECKLIST_AUTO_TRACKED_REASON =
+  "Seeded ticks this step for you from what you've done in the app, so you can't tick it by hand.";
+
+export function checklistDisabledReason(item: Pick<MergedRecruitingChecklistItem, "editable">): string | null {
+  return item.editable ? null : CHECKLIST_AUTO_TRACKED_REASON;
+}
+
 /**
  * Combines the computed defaults with a player's real persisted
  * completed/hidden/custom state into one render-ready list. Pure — the

@@ -1035,11 +1035,18 @@ export async function writeCurrentPlayerProfile(
 
   if (error?.code === "42703") {
     const { error: fallbackError } = await ctx.supabase.from("profiles").upsert(base);
-    if (fallbackError) throw new Error(fallbackError.message);
+    if (fallbackError) throw profileWriteError(fallbackError);
     return;
   }
 
-  if (error) throw new Error(error.message);
+  if (error) throw profileWriteError(error);
+}
+
+/** Keeps the Postgres code on the thrown Error, so app/api/profile can answer
+ * a CHECK violation with a 400 and a sentence (lib/profile-fields.ts
+ * profileWriteFailure) instead of a 500 carrying raw Postgres text. */
+function profileWriteError(error: { message: string; code?: string }): Error & { code?: string } {
+  return Object.assign(new Error(error.message), { code: error.code });
 }
 
 async function ensureSupabaseProfile(input: {

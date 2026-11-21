@@ -20,6 +20,20 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-20 night — PR-SWEEP (`fix/sweep-1`): eleven R9 QA-sweep findings fixed in the app.**
+Settings → Profile refuses a blank name and a GPA outside 0–5 (DB CHECK, weighted GPAs allowed)
+inline, `/api/profile` refuses both with a 400 sentence and answers any CHECK violation 400 not
+500, and "Saved" shows only after a real 200 (H2/H3). The coach email never puts an email address
+where the name goes — `[Your name]`, which keeps Copy/Gmail off. A consent-pending under-13 is
+refused target-school adds/removes in the UI (H1, **UI half only — the database still accepts the
+write from the account itself until the profiles migration lands**). Sign-in keeps `?next=`
+(AuthGate and the head script; same-origin paths only, no auth pages) (M3). Also: focusable
+"Collapse sidebar" visible on focus (M6), own metadata + canonical for /how-it-works, /parents,
+/contact, /terms and the 404 (M7), no link-wrapped buttons (M9), "Follow up in 14 days" (L1, now
+banned phrasing in copy-honesty), "1 coach emailed" (L8), disabled checklist boxes describe why
+(L12). ⌘K focus return (L4) did not reproduce on this main — no change. Status per row:
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`. No migration.
+
 **2026-11-20 night — PR-POLISH (`fix/visual-polish`, NOT merged): low-risk
 visual pass, presentation only.** No number, band or fit math changed; no
 migration. (1) No entrance animations: AppShell's route fade-in is gone (the
@@ -1134,6 +1148,14 @@ Production runs every migration through 050 except 048.
 9. **Public SEO school pages** once ranges are sourced.
 10. **Observability** — no error tracking or alerting exists beyond Vercel
     runtime logs; the billing incident is what that looks like.
+
+Still open from the R9 QA sweep after `fix/sweep-1` (row status in
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): **H1's database half** —
+a consent-pending under-13 can still write every column of its own `profiles`
+row through PostgREST (030's own-row carve-out) — migration 051 (BEFORE
+UPDATE trigger) is written, staging-tested, in an open PR waiting for
+Niran's go (GO-SEQUENCE row 26). Also M1, M2, M4, M5, M8, L2, L3, L5–L7,
+L9–L11.
 
 Niran's own list (dashboards/keys, not code): revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate

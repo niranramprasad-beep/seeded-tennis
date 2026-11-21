@@ -150,5 +150,11 @@ export function slugify(input: string): string {
  * `${n} …s`. Pass both forms: English plurals are not a suffix rule
  * ("match"/"matches", "entry"/"entries"). */
 export function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${n} ${pluralNoun(n, one, many)}`;
+}
+
+/** The noun alone, for when the count is rendered separately (a stat tile's
+ * big number and its label): "1" + "coach emailed this week". */
+export function pluralNoun(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }

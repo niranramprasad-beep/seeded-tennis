@@ -52,3 +52,29 @@ export function safeRedirectPath(next: string | null | undefined): string | null
   if (/[\u0000-\u001f\u007f]/.test(value)) return null;
   return value;
 }
+
+/** Pages a post-sign-in `?next=` must never point at: /login's own "already
+ * signed in" effect would bounce to it again, for ever. */
+const AUTH_PAGE = /^\/(?:login|signup|parent-signup|reset-password|auth)(?:[/?#]|$)/;
+
+/**
+ * safeRedirectPath, minus the auth pages. What /login honours after a
+ * successful sign-in (QA sweep M3).
+ */
+export function safeLoginNext(next: string | null | undefined): string | null {
+  const safe = safeRedirectPath(next);
+  if (!safe || AUTH_PAGE.test(safe)) return null;
+  return safe;
+}
+
+/**
+ * Where a signed-out visitor on a signed-in-only page is sent: /login, with
+ * the page they asked for as `?next=` so signing in lands them back there
+ * (QA sweep M3: "Draft an email to the head coach" on every school page went
+ * to a bare /login, and after signing in the visitor landed on Today).
+ * Anything safeLoginNext would refuse — or "/" — gets a bare /login.
+ */
+export function loginHrefFor(pathAndSearch: string | null | undefined): string {
+  const safe = safeLoginNext(pathAndSearch);
+  return safe && safe !== "/" ? `/login?next=${encodeURIComponent(safe)}` : "/login";
+}

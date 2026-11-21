@@ -432,3 +432,34 @@ describe("coach email gate: half-deleted placeholders (PR D review)", () => {
     expect(s.gmail.enabled).toBe(true);
   });
 });
+
+// QA sweep 2026-11-20, H2: a blank profiles.name loads as the login email
+// (lib/auth.ts), and the draft read "I'm demo-player@example.com, …".
+describe("coach email: never an email address (or nothing) where the name goes", () => {
+  for (const name of ["", "   ", "demo-player@example.com", " someone@example.org "]) {
+    it(`name=${JSON.stringify(name)} → [Your name] in subject and signature, none in the intro`, () => {
+      const e = buildCoachEmail({ ...base, name }, school, results);
+      expect(e.subject).not.toContain("@");
+      expect(e.body).not.toContain("@");
+      expect(e.subject).toContain(COACH_EMAIL_PLACEHOLDERS.name);
+      expect(e.body.trimEnd().split("\n").slice(-2)[0]).toBe(COACH_EMAIL_PLACEHOLDERS.name);
+      expect(e.body).toMatch(/^I'm an? \d+\w*-grade /m);
+      for (const p of [...e.subjectParts, ...e.parts]) {
+        expect(p.sources).not.toContain("player.name");
+        if (bracketedParts(p.text).length > 0) expect(p.sources).toEqual(["placeholder"]);
+      }
+      // The bracket keeps Copy and Gmail disabled until the player types it.
+      const gate = coachEmailActionState({ subject: e.subject, body: e.body, recipientValid: true });
+      expect(gate.copy.enabled).toBe(false);
+      expect(gate.gmail.enabled).toBe(false);
+      expect(gate.unresolved).toContain(COACH_EMAIL_PLACEHOLDERS.name);
+    });
+  }
+
+  it("a real name is used as typed (trimmed), with no stand-in", () => {
+    const e = buildCoachEmail({ ...base, name: "  Sam R. " }, school, results);
+    expect(e.subject).toContain("Sam R.");
+    expect(e.body).toContain("I'm Sam R., ");
+    expect(e.body).not.toContain(COACH_EMAIL_PLACEHOLDERS.name);
+  });
+});

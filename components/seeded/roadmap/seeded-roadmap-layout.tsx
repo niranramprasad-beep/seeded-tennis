@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { useMemo, useState } from "react";
-import { SeededButton } from "@/components/seeded/ui/button";
+import { seededLinkButtonClass } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { Toast } from "@/components/seeded/ui/toast";
 import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
@@ -297,8 +297,8 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
           />
         </div>
         <div className="flex gap-2">
-          <Link href="/settings">
-            <SeededButton variant="secondary">Edit profile</SeededButton>
+          <Link href="/settings" className={seededLinkButtonClass("secondary")}>
+            Edit profile
           </Link>
         </div>
       </div>
@@ -382,8 +382,8 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
           <h2 id="recent-results-heading" className="text-base font-semibold text-ink">
             Recent results
           </h2>
-          <Link href="/matches">
-            <SeededButton variant="secondary">Log a result</SeededButton>
+          <Link href="/matches" className={seededLinkButtonClass("secondary")}>
+            Log a result
           </Link>
         </div>
         {recentMatches.length === 0 ? (

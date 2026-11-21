@@ -30,6 +30,16 @@ export interface SeededButtonProps
 // Focus ring per design system v2 rule 8: 2px, offset 2 — court green on
 // light, lime on dark (the --c-focus token) — done as a focus-visible outline (not a Tailwind ring
 // utility) so it never clips inside a scroll container.
+const SEEDED_BUTTON_FOCUS =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+
+/** A <Link> that looks like a SeededButton. Use it instead of wrapping a
+ * <button> in an <a>: that nesting is invalid HTML and gives one action two
+ * tab stops (QA sweep M9). */
+export function seededLinkButtonClass(variant: "primary" | "secondary" | "ghost" = "primary", className?: string) {
+  return cn(seededButtonVariants({ variant }), SEEDED_BUTTON_FOCUS, className);
+}
+
 export const SeededButton = forwardRef<HTMLButtonElement, SeededButtonProps>(
   ({ className, variant, loading, disabled, children, ...props }, ref) => (
     <button
@@ -37,7 +47,7 @@ export const SeededButton = forwardRef<HTMLButtonElement, SeededButtonProps>(
       disabled={disabled || loading}
       className={cn(
         seededButtonVariants({ variant }),
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        SEEDED_BUTTON_FOCUS,
         className
       )}
       {...props}

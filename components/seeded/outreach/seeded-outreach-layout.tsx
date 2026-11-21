@@ -316,7 +316,10 @@ export function SeededOutreachLayout({
                         }}
                         className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-6"
                       >
-                        Remind me in {REMIND_ME_AFTER_DAYS} days
+                        {/* Sets a date and nothing else: Seeded sends no
+                            email or push, so "Remind me" promised a message
+                            (QA sweep L1). The card flags it when due. */}
+                        Follow up in {REMIND_ME_AFTER_DAYS} days
                       </button>
                     </div>
                   );

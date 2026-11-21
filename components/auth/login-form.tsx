@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { usePlayer } from "@/lib/context/player-context";
 import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signIn } from "@/lib/auth";
-import { safeRedirectPath } from "@/lib/config/auth";
+import { safeLoginNext } from "@/lib/config/auth";
 import { SeededButton } from "@/components/seeded/ui/button";
 import {
   AuthCard,
@@ -39,7 +39,7 @@ export function LoginForm() {
   // The OAuth callback redirects here with an error CODE; only a sentence we
   // wrote is ever rendered for it (components/auth/oauth-errors.ts).
   const authError = oauthErrorMessage(searchParams.get("authError"));
-  const next = safeRedirectPath(searchParams.get("next"));
+  const next = safeLoginNext(searchParams.get("next"));
 
   // Already signed in: /login has nothing to offer, so go where signing in
   // would have gone. It used to show the sign-in form to a signed-in user.

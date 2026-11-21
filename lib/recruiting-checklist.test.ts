@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDefaultRecruitingChecklist,
+  CHECKLIST_AUTO_TRACKED_REASON,
+  checklistDisabledReason,
   mergeRecruitingChecklist,
   type RecruitingChecklistContext,
 } from "./recruiting-checklist";
@@ -138,5 +140,28 @@ describe("mergeRecruitingChecklist", () => {
     expect(custom.completed).toBe(true);
     expect(custom.editable).toBe(true);
     expect(custom.dueDate).toBeNull();
+  });
+});
+
+// QA sweep 2026-11-20, L12: a disabled box gave screen readers no reason.
+describe("checklistDisabledReason", () => {
+  it("names a reason for every auto-tracked (disabled) step and none for a hand-ticked one", () => {
+    const merged = mergeRecruitingChecklist(context({ targetSchoolCount: 2 }), {
+      completedIds: [],
+      hiddenIds: [],
+      customItems: [{ id: "custom-1", label: "Mine" }],
+    });
+    const disabled = merged.filter((i) => !i.editable);
+    expect(disabled.map((i) => i.id).sort()).toEqual(["coach-emails", "target-list", "utr-profile-link"]);
+    for (const i of merged) {
+      expect(checklistDisabledReason(i), i.id).toBe(i.editable ? null : CHECKLIST_AUTO_TRACKED_REASON);
+    }
+  });
+
+  it("the row wires it to the checkbox", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(`${__dirname}/../components/seeded/roadmap/recruiting-checklist.tsx`, "utf8");
+    expect(src).toMatch(/checklistDisabledReason\(item\)/);
+    expect(src).toMatch(/aria-describedby=\{\s*disabledReason/);
   });
 });
