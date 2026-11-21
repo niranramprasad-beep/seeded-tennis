@@ -94,6 +94,7 @@ Every variable the code reads (`grep -rn "process.env" app lib components`):
 | `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY` | server | Legacy plans still subscribed — resolve-only, never sold | Old subscribers' tier can't be mapped |
 | `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | public | Shows "Continue with Google" when `true` | Email/password sign-in only |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` | public / server | Google Analytics (production only) | No analytics |
+| `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` | public | `true` shows the imported-programs section on /schools (catalog phase 1). Unset in every Vercel environment | Section hidden; /schools unchanged |
 | `VERCEL_URL`, `VERCEL_ENV` | set by Vercel | On a Preview deployment, Whop checkout returns to that preview's URL | Checkout returns to https://seededtennis.com |
 | `SEEDED_LOCAL_HTTP_AUDIT` | local only | Lets the audit scripts load a local production build over plain HTTP (drops `upgrade-insecure-requests` from the CSP) | Normal CSP |
 
@@ -154,8 +155,8 @@ New York and Auckland → build.
   `025_reconcile_profiles_schema_drift.sql` too, and apply `019` before `018`
   (production's real order). See [docs/DATABASE_SPEC.md](docs/DATABASE_SPEC.md).
 - The production ledger is the source of truth — check `list_migrations` on
-  the production project rather than this file. On 2026-11-20 it held 51
-  rows, through migration 050; 048 (catalog tables) ships with PR E.
+  the production project rather than this file. On 2026-11-20 it held 52
+  rows, through migration 050 (048 included).
 
 ## Deploying
 

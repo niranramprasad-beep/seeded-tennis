@@ -40,6 +40,9 @@ export const PRIVATE_ROUTE_PREFIXES = [
   "/cost-calculator",
 
   // Never content.
+  // Owner-only tools (catalog phase 1, migration 048). The page refuses
+  // anyone is_app_admin() says no to; RLS refuses their writes regardless.
+  "/admin/",
   "/api/",
   "/dev/",
   "/auth/",

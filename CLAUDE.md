@@ -2,9 +2,9 @@
 
 ## Current state (2026-11-20, night)
 - Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
-- Production database: every migration through **050** except 048 (ledger 51 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
-- Staging `gnlcpnsweqbtwpaqhqqg` is ahead by design (048, rehearsal re-runs). `.env.local` and Vercel Preview point at it.
-- Open: PR E (#9, catalog phase 1, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, off); the parent-approver gap (TODO "Who may approve a parent joiner"); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+- Production database: every migration through **050**, 048 included (ledger 52 on 2026-11-20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Staging `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal re-runs in its ledger, and the imported catalog rows (production has none). `.env.local` and Vercel Preview point at it.
+- Catalog phase 1 (PR E #9) is merged behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF in production, no production data. Open: the parent-approver gap (TODO "Who may approve a parent joiner"); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
 

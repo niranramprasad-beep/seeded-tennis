@@ -1,7 +1,7 @@
 # Seeded — Handoff
 
 **What this file is now (2026-11-20):** the production rollout runbook.
-- **§J** is the step-by-step plan for every production migration (Steps 1–24:
+- **§J** is the step-by-step plan for every production migration (Steps 1–25:
   migrations 022–050), each with its pre-flight, verify-as-real-roles and a
   pasteable rollback. `docs/GO-SEQUENCE.md` is the one-page order that points
   into it.
@@ -14,7 +14,7 @@
   [MASTER_ROADMAP.md](MASTER_ROADMAP.md), [TODO.md](TODO.md).
 
 ## Contents
-- [J. Production rollout plan](#j-production-rollout-plan--p0-1-p0-2-p1-price-1-written-2026-11-14) — Steps 1–14d (022–040, launch, 2026-11-16), Step 15 (the `v1` → `main` merge), Steps 16–20 (PR B, 041–045), Steps 21–23 (PR D and 049), Step 24 (050)
+- [J. Production rollout plan](#j-production-rollout-plan--p0-1-p0-2-p1-price-1-written-2026-11-14) — Steps 1–14d (022–040, launch, 2026-11-16), Step 15 (the `v1` → `main` merge), Steps 16–20 (PR B, 041–045), Steps 21–23 (PR D and 049), Step 24 (050), Step 25 (048)
 - [K. Billing — the webhook has never fired](#k-billing--the-webhook-has-never-fired-written-2026-11-14)
 
 ---
@@ -2885,6 +2885,27 @@ grant execute on function public.is_parent_member(text) to service_role;
 comment on function public.is_parent_member(text) is null;
 ```
 Only roll back if a probe proves 050 itself is wrong (a real parent refused).
+
+### Step 25 — migration 048 (catalog tables; PR E)
+
+**RUN ON PRODUCTION 2026-11-20 23:55:04 UTC** on the overnight pre-approved
+GO, after a backup (`~/seeded-backups/prod-20261120-1854-pre048.dump`), and
+after 050 (independent of it). Ledger 51 → 52. Evidence:
+`~/seeded-evidence/review-ready/r8-catalog/`.
+
+Verify: production's fingerprint (RLS flags, policies, table and column
+grants, constraints, `is_app_admin` body + ACL) equals staging's; probe as
+real roles in a rolled-back block — anon/player writes to all four tables
+42501, `app_admins` unreadable, a player cannot self-grant admin, a valid
+admin insert is stamped `entered_by = auth.uid()`, future-dated or spoofed
+`entered_by` refused, no DELETE. 0 residue. Nothing is imported to
+production; the flag `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` stays unset.
+
+Rollback (nothing else references these objects):
+```sql
+drop table if exists public.team_ranges, public.program_class_counts, public.programs, public.app_admins;
+drop function if exists public.is_app_admin();
+```
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 

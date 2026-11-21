@@ -1,0 +1,24 @@
+Conference	School	Gender	HeadCoach	RosterURL	SeasonShown	Player	Class	Hometown	Notes
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 1	Fr.	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 2	So.	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 3	Jr.	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 4	Sr.	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 5	Gr.	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 6	Fr/So	Test Town	
+NESCAC	Test College A	Women	Test Coach A	https://example.com/test-college-a/womens-tennis/roster	2026-27	Player 1	Fr.	Test Town	duplicate row
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 7	R-Fr	Test Town	
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 8	Sophomore	Test Town	
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 9	Junior	Test Town	
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 10	Senior	Test Town	
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 11	Senior	Test Town	
+NESCAC	Test College A	Men	Test Coach B	https://example.com/test-college-a/mens-tennis/roster	2025-26	Player 12	5th Year	Test Town	
+Ivy League	Test College B	W	Test Coach C	https://example.com/test-college-b/wten/roster	2026–27	Player 13	'30	Test Town	
+Ivy League	Test College B	W	Test Coach C	https://example.com/test-college-b/wten/roster	2026–27	Player 14	2029	Test Town	
+Ivy League	Test College B	W	Test Coach C	https://example.com/test-college-b/wten/roster	2026–27	Player 15	Class of 2028	Test Town	
+Ivy League	Test College B	W	Test Coach C	https://example.com/test-college-b/wten/roster	2026–27	Player 16	2027	Test Town	
+Ivy League	Test College B	W	Test Coach C	https://example.com/test-college-b/wten/roster	2026–27	Player 17	2031	Test Town	
+Patriot League	Test College C	Men		https://example.com/test-college-c/mten/roster	2026-27				roster page listed no players
+Ivy League	Test College B	Men's	Test Coach D	https://example.com/test-college-b/mten/roster	2026-27	Player 18	FY	Test Town	
+Ivy League	Test College B	Men's	Test Coach D	https://example.com/test-college-b/mten/roster	2026-27	Player 19	Senior	Test Town	
+Ivy League	Test College B	Men's	Test Coach D	https://example.com/test-college-b/mten/roster	2026-27	Player 20	Sr	Test Town	
+Test Conference	Test College D	Women			2026-27	Player 21	Fr	Test Town	unknown conference -> row error

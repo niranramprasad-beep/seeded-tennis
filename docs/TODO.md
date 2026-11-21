@@ -604,3 +604,26 @@ hydration, or to accept it and drop the page's sitemap priority.
 - `scripts/sweep-c.mjs` depends on a staging persona password that no longer
   exists by design; document how to set and scramble one per run.
 
+## Catalog phase 1 follow-ups (PR E review, 2026-11-20) — before the flag goes on
+
+- **Importer is not atomic** (`scripts/import-rosters.ts --upsert`): it
+  upserts a program, deletes its class counts, then inserts new ones. A
+  failure in the last step leaves `players_listed > 0` with no counts, and the
+  UI would read that as "0 seniors". Wrap each program in one transaction (or
+  an RPC) before the first production import.
+- **Admin error text is too generic**: every RLS refusal (future date in UTC,
+  inactive account) shows "Only an app admin can add a range." The form
+  compares against the browser's local date while Postgres uses UTC
+  `current_date`. Map the cases and compare in UTC.
+- **Weak source checks**: `source = '...'` and a 1900 source date are accepted
+  (shown greyed, never banded). Tighten the CHECKs in a follow-up migration.
+- **`programs.head_coach` is readable by anon** through the table grant (real
+  names as printed on roster pages; not rendered). Narrow the grant to the
+  columns the UI uses, or drop the column, before the flag goes on.
+- **`--emit-sql`'s safety check** only tests that 048's tables exist, so it
+  stops distinguishing staging from production once 048 is on production.
+  Give staging a marker row and check for it.
+- **The roster TSV in `docs/data/` names ~1,936 real college students** (and
+  hometowns). It is in the private repo's history now. Owner's call whether to
+  keep the source file outside the repo going forward; the database and every
+  generated report hold no names.

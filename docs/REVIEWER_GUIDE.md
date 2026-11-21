@@ -166,8 +166,8 @@ release. Migrations ship **before** the code that needs them, each through
 [GO-SEQUENCE.md](GO-SEQUENCE.md): fresh `pg_dump` backup → apply → probe as
 real roles in rolled-back transactions → record the result in §J of
 [HANDOFF.md](HANDOFF.md), which also holds a pasteable rollback per step.
-Production ledger: check `list_migrations` (51 rows on 2026-11-20, through
-050; 048 ships with PR E). Code rollback: Vercel Instant Rollback or a revert PR.
+Production ledger: check `list_migrations` (52 rows on 2026-11-20, through
+050, 048 included). Code rollback: Vercel Instant Rollback or a revert PR.
 
 ## 9. Known trade-offs and open debt (ranked)
 
@@ -191,9 +191,10 @@ Production ledger: check `list_migrations` (51 rows on 2026-11-20, through
    component per step. Not done yet because each touches guard-tested code
    and deserves its own reviewed PR.
 4. **Catalog team UTR ranges are unverified estimates**, labelled as such.
-   Phase 1 of a sourced catalog (PR E, #9: programs imported from official
-   roster pages, behind a feature flag that stays off) adds the tables and an
-   owner-only form; ranges must then be entered by hand from sources
+   Phase 1 of a sourced catalog (PR E #9, merged 2026-11-20 behind a
+   feature flag that is off; tables in production, no rows) adds the tables,
+   an importer that refuses production, and an owner-only form; ranges must
+   then be entered by hand from sources
    ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)).
 5. **Auth rate limits and leaked-password protection are Supabase project
    settings**, not code (the browser calls Supabase Auth directly); they need

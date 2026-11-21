@@ -20,6 +20,12 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-20 (night) — Migration 048 on production; PR E merging with the flag OFF.**
+Backup, apply (23:55 UTC, ledger 51 → 52), fingerprint identical to staging, probed as real roles
+(rolled back). No catalog data imported to production; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`
+unset in every Vercel environment. Review fix: the most recently ENTERED range is current, so a
+wrong source date can be corrected. Follow-ups in docs/TODO.md (before the flag goes on).
+
 **2026-11-20 (night) — PR-DOCS: the repo reads true for a first-time
 reviewer.** README rewritten from the code and lockfile; new
 `docs/REVIEWER_GUIDE.md` and `docs/README.md` (map); eleven dated reports
@@ -67,6 +73,19 @@ Backup first, 049 in one transaction with its ledger row (production ledger
 merge; post-deploy 0 stray 12s. PR #11 (`e099051`) deployed; 22 routes 200,
 0 runtime errors. Report: `~/seeded-evidence/no-invented-goal/REPORT.md`.
 The entry below was written before the run.
+
+**2026-11-20 — PR E (#9): the real roster file imported to STAGING only;
+not merged, nothing on production.** `docs/data/official_rosters_2026-27.tsv`
+(1,947 rows, rosters read 2026-11-08): 0 row errors after fixing what the real
+file broke (teams with no roster, a bare "2026" season, "Fr. '30" labels, a
+roster with no class column, 18 teams already in the 68-program catalog under
+longer names). 179 teams imported, 10 named in the file with no roster, 2 on
+the conferences' own lists but absent (Saint Louis M/W; list with sources in
+`docs/data/expected_programs_2026-27.tsv`). Staging verified by md5 against
+the parser. No team ranges exist, so every imported team reads "Level not
+rated yet" and none reaches a fit band; P1-DATA-1 now needs ranges entered at
+`/admin/team-ranges`, starting from the 20 listed in
+`docs/catalog/phase-1-import.md`. Flag off in production; 048 not there.
 
 **2026-11-20 — fix/no-invented-goal (NOT merged; migration 049 on STAGING
 only).** `profiles.tournaments_goal` was a hardcoded 12 for every account
