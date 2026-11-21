@@ -18,8 +18,11 @@ import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import type { UtrDataPoint } from "@/lib/utr-projection";
 import { formatPacePerYear, formatPlayerUtr, formatTargetUtr, formatUtrEstimate } from "@/lib/utils";
 import {
-  REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
+  PACE_STRETCH_MARGIN_PER_YEAR,
+  PACE_STRETCH_PHRASE,
+  PLANNING_RULE_SENTENCE,
   classifySchoolFit,
+  paceIsStretch,
   fitBasis,
   type ClosestSchoolResult,
   type GoalPace,
@@ -101,7 +104,8 @@ const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
  * the onboarding result will ever assume: 1.5 UTR a year. A player whose own
  * logged pace is faster is PLANNED at this; their own pace is shown beside it
  * as an upside ("At your current pace you'd reach 9.40. We plan with 8.10
- * because most players improve 0.5–1.5 a year."), and never moves a band.
+ * instead. We plan with at most 1.5 UTR a year. That's our planning rule,
+ * not a measured average."), and never moves a band.
  *
  * WHY. A real player (men's 5.80, Class of 2029) jumped from 4.50 to 5.65 in
  * four months and then held. Carrying that jump forward put them at 9.40 by
@@ -111,10 +115,13 @@ const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
  * least reliable thing in a junior's history, and a band is what a family
  * spends a season chasing. So bands take min(own pace, this).
  *
- * WHY 1.5. It is the top of the 0.5–1.5 a year band the product has always
- * stated as what most players manage (REALISTIC_UTR_IMPROVEMENT_PER_YEAR,
- * /methodology) — not a new number. Typical growth (UTR_GROWTH_PER_YEAR) sits
- * inside it, and lib/pace-cap.test.ts fails if either ever exceeds it.
+ * WHY 1.5. It is the top of REALISTIC_UTR_IMPROVEMENT_PER_YEAR — not a new
+ * number. Typical growth (UTR_GROWTH_PER_YEAR) sits inside it, and
+ * lib/pace-cap.test.ts fails if either ever exceeds it. Seeded has no data
+ * on how fast juniors improve, so the screens state 1.5 as OUR PLANNING
+ * RULE (PLANNING_RULE_SENTENCE), never as what "most players" manage — that
+ * sentence was removed 2026-11-21 (A-008) and lib/copy-honesty.test.ts
+ * fails the build if it returns.
  *
  * ONE CONSTANT. Every rule that projects a rating reads it: recruitingTimeUtr
  * (bands, the onboarding diagnostic), projectedUtrOn, projectionReachDate,
@@ -433,23 +440,47 @@ export function resolvePlanGoal(input: {
   return { value: chosen, estimate: est };
 }
 
+/** The stretch band's half-width, 0.05 a year — defined beside paceIsStretch
+ * in lib/school-fit.ts, re-exported here. */
+export { PACE_STRETCH_MARGIN_PER_YEAR };
+
+export type PlanGoalPaceSeverity = "warning" | "stretch" | null;
+
 /**
- * THE rule for the unrealistic-pace warning — /plan and /today both render
+ * THE rule for the pace banner under a goal — /plan and /today both render
  * GoalPaceWarning, which asks this, so the two screens cannot disagree.
  *
- * Only for a goal the PLAYER SET (there is no other kind now), and only when
- * it needs more than PLANNING_PACE_CAP_PER_YEAR — the same cap the bands
- * plan with — or when there is no time left to close it.
+ * Only for a goal the PLAYER SET (there is no other kind now):
+ *  - "warning" (red): it needs more than the cap + the stretch margin
+ *    (above 1.55 a year), or there is no time left to close it;
+ *  - "stretch" (amber): it needs within PACE_STRETCH_MARGIN_PER_YEAR of the
+ *    cap (1.45–1.55 a year) — right at the limit the bands plan with, which
+ *    is a stretch, not a red flag;
+ *  - null: anything slower, or no goal.
+ * Compared in hundredths: requiredPaceUtrPerYear is rounded to two decimals
+ * (computeGoalPace), and 1.55 − 1.5 is not ≤ 0.05 in floating point.
  */
-export function planGoalNeedsPaceWarning(goal: PlanGoal | null, pace: GoalPace | null): boolean {
-  if (!goal || !pace) return false;
-  if (pace.paceRead === "no-time-left") return true;
-  return pace.requiredPaceUtrPerYear != null && pace.requiredPaceUtrPerYear > PLANNING_PACE_CAP_PER_YEAR;
+export function planGoalPaceSeverity(goal: PlanGoal | null, pace: GoalPace | null): PlanGoalPaceSeverity {
+  if (!goal || !pace) return null;
+  if (pace.paceRead === "no-time-left") return "warning";
+  if (pace.requiredPaceUtrPerYear == null) return null;
+  if (paceIsStretch(pace.requiredPaceUtrPerYear)) return "stretch";
+  return Math.round(pace.requiredPaceUtrPerYear * 100) > Math.round(PLANNING_PACE_CAP_PER_YEAR * 100) ? "warning" : null;
 }
 
-/** "0.5–1.5 a year" — the band most players improve within, whose top is the
- * planning cap. Said one way everywhere. */
-export const TYPICAL_PACE_RANGE_LABEL = `${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${PLANNING_PACE_CAP_PER_YEAR} a year`;
+/** The red warning only — a goal needing more than the cap plus the stretch
+ * margin, or with no time left. See planGoalPaceSeverity. */
+export function planGoalNeedsPaceWarning(goal: PlanGoal | null, pace: GoalPace | null): boolean {
+  return planGoalPaceSeverity(goal, pace) === "warning";
+}
+
+/** "We plan with at most 1.5 UTR a year. That's our planning rule, not a
+ * measured average." — defined in lib/school-fit.ts (its next-band message
+ * says it too), re-exported here beside the cap it states. */
+export { PLANNING_RULE_SENTENCE };
+
+/** The amber banner's words for a goal in the stretch band (A-022). */
+export const PACE_STRETCH_NOTE = `That's ${PACE_STRETCH_PHRASE}.`;
 
 /**
  * Why a goal the player typed can't be saved, or null when it can. A goal is
@@ -631,8 +662,9 @@ export interface PaceUpside {
 }
 
 /**
- * "At your current pace you'd reach 9.40. We plan with 8.10 because most
- * players improve 0.5–1.5 a year." — THE sentence beside a capped
+ * "At your current pace you'd reach 9.40. We plan with 8.10 instead. We plan
+ * with at most 1.5 UTR a year. That's our planning rule, not a measured
+ * average." — THE sentence beside a capped
  * projection, on every screen that shows one. Null when there is no upside
  * (the player's own pace is within the cap, or there is no logged pace).
  * Two decimals for both numbers (owner's wording, 2026-11-19).
@@ -642,7 +674,7 @@ export interface PaceUpside {
 export function paceUpsideSentence(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string | null {
   if (!utr?.upside) return null;
   const at = who ? `At ${who}'s current pace ${who} would reach` : "At your current pace you'd reach";
-  return `${at} ${formatTargetUtr(utr.upside.value)}. We plan with ${formatPlayerUtr(utr.value)} because most players improve ${TYPICAL_PACE_RANGE_LABEL}.`;
+  return `${at} ${formatTargetUtr(utr.upside.value)}, but we plan with ${formatPlayerUtr(utr.value)}. ${PLANNING_RULE_SENTENCE}`;
 }
 
 /* --------------------------------------------------------- logged pace */

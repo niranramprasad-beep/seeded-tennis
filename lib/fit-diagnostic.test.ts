@@ -75,7 +75,7 @@ describe("diagnosticProjection", () => {
     expect(p.display).toBe("11.8");
     expect(p.isEstimate).toBe(true);
     expect(p.note).toBe(projectionAssumptionLabel("normal"));
-    expect(p.note).toBe("Assumes typical growth of 1.0 UTR per year.");
+    expect(p.note).toBe("Uses our default assumption of 1.0 UTR a year.");
     expect(p.recruiting.low).toBe(typical.slow);
     expect(p.recruiting.high).toBe(typical.fast);
   });

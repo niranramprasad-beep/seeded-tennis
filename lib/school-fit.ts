@@ -235,6 +235,39 @@ export function utrToPct(utr: number): number {
  * split is decided by the player's REAL slope, not this generic band. */
 export const REALISTIC_UTR_IMPROVEMENT_PER_YEAR = { min: 0.5, max: 1.5 };
 
+/**
+ * THE sentence that states the planning cap, said one way on every screen
+ * that compares a pace with it (A-008, 2026-11-21). It replaced "most players
+ * improve 0.5–1.5 a year": Seeded has no measurement of how fast juniors
+ * improve, so 1.5 is stated as what it is — our planning rule. Lives here
+ * (not lib/fit.ts) because this module's next-band message says it and
+ * lib/fit.ts imports this module; lib/fit.ts re-exports it, and
+ * lib/honest-zero-state.test.ts pins its number to PLANNING_PACE_CAP_PER_YEAR.
+ */
+export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} UTR a year. That's our planning rule, not a measured average.`;
+
+/**
+ * How close to the planning cap a required pace may sit and still be called
+ * "a stretch" rather than more than the plan allows: |required − cap| ≤ this,
+ * UTR a year (A-022, 2026-11-21). 1.45–1.55 is the stretch band. The goal
+ * banner (lib/fit.ts planGoalPaceSeverity) and the next-band message both use
+ * paceIsStretch, so the two say the same thing about the same pace.
+ */
+export const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
+
+/** "a stretch: right at our 1.5-a-year planning limit" */
+export const PACE_STRETCH_PHRASE = `a stretch: right at our ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}-a-year planning limit`;
+
+/** True when a required pace is within PACE_STRETCH_MARGIN_PER_YEAR of the
+ * cap. Compared in hundredths: paces are rounded to two decimals, and
+ * 1.55 − 1.5 is not ≤ 0.05 in floating point. */
+export function paceIsStretch(requiredPerYear: number): boolean {
+  const req = Math.round(requiredPerYear * 100);
+  const cap = Math.round(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max * 100);
+  const margin = Math.round(PACE_STRETCH_MARGIN_PER_YEAR * 100);
+  return Math.abs(req - cap) <= margin;
+}
+
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
 export type PaceRead = "faster-than-realistic" | "within-realistic-range" | "slower-than-realistic" | "no-time-left";
@@ -387,12 +420,16 @@ function computeNextBandChange(
 
   const requiredPaceUtrPerYear = Math.round((gap / yearsRemaining) * 100) / 100;
   const paceRead = paceReadFor(requiredPaceUtrPerYear);
-  const readPhrase =
-    paceRead === "faster-than-realistic"
-      ? "that's faster than most players improve"
+  // Compared with OUR planning rule, never with what "most players" do —
+  // Seeded has no data on that (A-008).
+  // Same stretch band and words as the goal banner (1.45–1.55 a year).
+  const readPhrase = paceIsStretch(requiredPaceUtrPerYear)
+    ? PACE_STRETCH_PHRASE
+    : paceRead === "faster-than-realistic"
+      ? "more than our planning limit"
       : paceRead === "slower-than-realistic"
-        ? "that's a slower pace than most players need — there's room"
-        : "that's a realistic pace";
+        ? "well within our planning limit — there's room"
+        : "within our planning limit";
 
   return {
     targetBand,
@@ -403,7 +440,7 @@ function computeNextBandChange(
     paceRead,
     // The pace through formatPacePerYear, the one pace formatter ("needs
     // about 2.25 a year"); it read "about 2.3/year … 0.5–1.5/yr" (D1).
-    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, and ${readPhrase} (most players improve ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min}–${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max} a year).`,
+    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
   };
 }
 
@@ -571,7 +608,14 @@ export function explainSchoolFit(
       };
 
   const nextBand = computeNextBandChange(band, playerUtr, school, now, milestone, who);
-  const unreachable = nextBand != null && (nextBand.paceRead === "faster-than-realistic" || nextBand.paceRead === "no-time-left");
+  // A pace in the stretch band (1.45–1.55 a year) is "a stretch", not out of
+  // reach: the next-band line says so, and the card must not also say "won't
+  // realistically close" or offer alternatives (verifier, 2026-11-21).
+  const unreachable =
+    nextBand != null &&
+    (nextBand.paceRead === "no-time-left" ||
+      (nextBand.paceRead === "faster-than-realistic" &&
+        !(nextBand.requiredPaceUtrPerYear != null && paceIsStretch(nextBand.requiredPaceUtrPerYear))));
   const alternatives = unreachable ? findAlternativeSchools(school, input.catalog ?? [], playerUtr, projection) : [];
 
   return {

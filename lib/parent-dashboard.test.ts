@@ -345,7 +345,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     const model = buildUtrChart(input)!;
     // 1.0 points at 1.0/yr from Nov 18 2026 -> about Nov 2027
     expect(utrChartCaption(model, { ...input, childFirst: "Maya" })).toBe(
-      "At a typical pace, Maya reaches the start of their target range around November 2027."
+      "At our default assumption of 1.0 UTR a year, Maya reaches the start of their target range around November 2027."
     );
   });
 
@@ -375,7 +375,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     const far = { ...input, targetFloor: 11 };
     const model = buildUtrChart(far)!;
     expect(utrChartCaption(model, { ...far, childFirst: "Maya" })).toMatch(
-      /^At a typical pace, Maya is about \d+\.\d short of where their target schools start by summer 2028\.$/
+      /^At our default assumption of 1\.0 UTR a year, Maya is about \d+\.\d short of where their target schools start by summer 2028\.$/
     );
   });
 

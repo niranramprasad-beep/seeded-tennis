@@ -294,7 +294,7 @@ describe("explainSchoolFit — required pace vs the realistic 0.5-1.5/yr band (p
     expect(nextBand.paceRead).toBe("within-realistic-range");
     expect(nextBand.requiredPaceUtrPerYear).toBeGreaterThanOrEqual(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.min);
     expect(nextBand.requiredPaceUtrPerYear).toBeLessThanOrEqual(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max);
-    expect(nextBand.message).toContain("a realistic pace");
+    expect(nextBand.message).toContain("within our planning limit");
     expect(explanation.unreachable).toBe(false);
     expect(explanation.alternatives).toEqual([]);
   });
@@ -320,7 +320,8 @@ describe("explainSchoolFit — required pace vs the realistic 0.5-1.5/yr band (p
     expect(nextBand.utrNeeded).toBe(10);
     expect(nextBand.paceRead).toBe("faster-than-realistic");
     expect(nextBand.requiredPaceUtrPerYear).toBeGreaterThan(REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max);
-    expect(nextBand.message).toContain("faster than most players improve");
+    expect(nextBand.message).toContain("more than our planning limit");
+    expect(nextBand.message).toContain("That's our planning rule, not a measured average.");
     expect(explanation.unreachable).toBe(true);
   });
 

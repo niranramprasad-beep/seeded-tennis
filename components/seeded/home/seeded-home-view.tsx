@@ -6,7 +6,8 @@ import { onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator"
 import { ChevronDown } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
-import { buildFitReport } from "@/lib/fit";
+import { buildFitReport, isUsableUtr } from "@/lib/fit";
+import { heroFitCta } from "@/lib/fit-copy";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
     <section className="mx-auto max-w-[1200px] px-6 pb-8 pt-10 md:pb-12 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pt-18">
       {/* Desktop: two-column, left copy / right live calculator */}
       <div className="hidden min-w-0 flex-[1.05_1_480px] lg:block">
-        <HeroCopy />
+        <HeroCopy teamCount={schools.length} />
       </div>
       <div className="hidden min-w-0 flex-[0.95_1_440px] lg:block">
         <FitCalculatorCard schools={schools} />
@@ -56,8 +57,11 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
         <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-ink">
           Know which teams you can make, and what to do this month.
         </h1>
+        {/* A-035: says what the comparison is against — our estimated
+            range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-stone">
-          Your UTR against real programs, sorted into Reach, Target and Likely.
+          Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
+          Target and Likely.
         </p>
         <FitCalculatorCard schools={schools} mobile />
       </div>
@@ -65,7 +69,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
   );
 }
 
-function HeroCopy() {
+function HeroCopy({ teamCount }: { teamCount: number }) {
   return (
     <div>
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
@@ -78,10 +82,14 @@ function HeroCopy() {
       {/* P0-7: "compares you to real rosters" — the comparison is against
           team UTR estimates, not real rosters. Say "real programs": the
           schools are real, the roster numbers aren't sourced yet. */}
+      {/* A-035 (2026-11-21): "compares you to real programs" did not say the
+          comparison is against our ESTIMATED team ranges. The count is the
+          catalogue's own length, never a typed number. */}
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
-        Enter your UTR and grad year. Seeded compares you to real programs,
-        sorts schools into Reach, Target and Likely, and turns the gap into
-        season targets you plan against, with a family view your parents can follow.
+        Enter your UTR and grad year. Seeded compares your UTR with our estimated
+        range for {teamCount} college teams, sorts them into Reach, Target and Likely,
+        and turns the gap into season targets you plan against, with a family view
+        your parents can follow.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
         <Link
@@ -98,7 +106,7 @@ function HeroCopy() {
         </Link>
       </div>
       <p className="mt-4 text-sm text-stone">
-        Free. No card. Takes 60 seconds. Results before you make an account.
+        Free. No card. Takes about 90 seconds. Results before you make an account.
       </p>
     </div>
   );
@@ -160,7 +168,9 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   const report = useMemo(
     () =>
       buildFitReport({
-        currentUtr: utrNum > 0 ? utrNum : null,
+        // Only a rating Postgres would accept (1–16.5): "25" is not a UTR,
+        // and the card says so (heroFitCta) instead of counting it.
+        currentUtr: isUsableUtr(utrNum) ? utrNum : null,
         graduationYear: gradYear,
         gender: gender === "women" ? "female" : "male",
         schools: filtered,
@@ -168,8 +178,21 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       }),
     [utrNum, gradYear, gender, filtered, projection]
   );
-  const counts = report?.counts ?? { reach: 0, target: 0, likely: 0, outOfRange: 0 };
-  const total = report?.inRange ?? 0;
+  // The tiles and the button come from one pure function (lib/fit-copy.ts):
+  // never "0 / 0 / 0", never "See my — schools", and the button's number is
+  // Target + Likely, the count it names (A-001, A-002). TODAY's counts, like
+  // the fit report the button opens (A-006); the summer estimate is a
+  // separate, labelled line, shown only when it is higher.
+  const cta = heroFitCta({
+    counts: report?.todayCounts,
+    projected: report?.utr.isProjected
+      ? { inRange: report.recruitingInRange, year: report.utr.year }
+      : null,
+    utr: utrNum,
+    schools: filtered,
+    programLabel: gender === "women" ? "women's" : "men's",
+  });
+  const counts = report?.todayCounts;
 
   const query = onboardingQueryFor({ utr, gradYear: String(gradYear), gender, gpa }, touched);
 
@@ -239,7 +262,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   return (
     <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-[15px]">Your fit, in 60 seconds</strong>
+        <strong className="text-[15px]">Your fit, in about 90 seconds</strong>
         {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
             verified and no verification date is stored anywhere. */}
         <EstimateChip />
@@ -300,19 +323,36 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           />
         </MiniField>
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        <CountTile value={counts.reach} label="Reach" bg="rgb(var(--c-clay-tint-bg))" fg="rgb(var(--c-clay-tint-text))" />
-        <CountTile value={counts.target} label="Target" bg="rgb(var(--c-primary-50))" fg="rgb(var(--c-primary))" />
-        <CountTile value={counts.likely} label="Likely" bg="rgb(var(--c-sage-tint-bg))" fg="rgb(var(--c-sage-tint-text))" />
-      </div>
-      {/* Secondary on purpose (design system v2 rule 1): beside it, the hero
-          copy's "Get my free fit report" is the screen's one green button. */}
-      <Link
-        href={query ? `/onboarding?${query}` : "/onboarding"}
-        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
-      >
-        See my {total || "—"} schools
-      </Link>
+      {cta.showCounts && counts ? (
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          <CountTile value={counts.reach} label="Reach" bg="rgb(var(--c-clay-tint-bg))" fg="rgb(var(--c-clay-tint-text))" />
+          <CountTile value={counts.target} label="Target" bg="rgb(var(--c-primary-50))" fg="rgb(var(--c-primary))" />
+          <CountTile value={counts.likely} label="Likely" bg="rgb(var(--c-sage-tint-bg))" fg="rgb(var(--c-sage-tint-text))" />
+        </div>
+      ) : cta.kind === "no-utr" ? (
+        <p className="mt-5 text-sm text-stone">{cta.note}</p>
+      ) : null}
+      {cta.projectedNote && <p className="mt-2 text-xs text-stone">{cta.projectedNote}</p>}
+      {cta.kind === "zero" ? (
+        <div className="mt-4 text-sm text-ink">
+          <p className="m-0">{cta.sentence}</p>
+          <Link
+            href={cta.link.href}
+            className="mt-2 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6"
+          >
+            {cta.link.label}
+          </Link>
+        </div>
+      ) : (
+        // Secondary on purpose (design system v2 rule 1): beside it, the hero
+        // copy's "Get my free fit report" is the screen's one green button.
+        <Link
+          href={query ? `/onboarding?${query}` : "/onboarding"}
+          className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
+        >
+          {cta.label}
+        </Link>
+      )}
       <p className="mt-2.5 text-xs text-stone">Example output. Counts depend on your inputs.</p>
     </div>
   );

@@ -20,6 +20,7 @@ import {
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { formatPacePerYear, paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
+import { teamLineRelation } from "@/lib/fit-copy";
 import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
@@ -43,10 +44,6 @@ interface Props {
    * band"'s alternative-school suggestion (lib/school-fit.ts's
    * explainSchoolFit), only used when the gap here turns out unreachable. */
   allSchools: School[];
-}
-
-function signed(value: number): string {
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
 }
 
 // Client Component (promoted from Server Component — needs usePlayer() for
@@ -213,8 +210,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           label="UTR"
           description={
             judging.isProjected
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)} · today ${formatPlayerUtr(subjectUtr as number)}`
-              : `Gap to floor ${signed(gaps.gapToFloor)} · gap to team average ${signed(gaps.gapToMedian)}`
+              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: ${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")} · today ${formatPlayerUtr(subjectUtr as number)}`
+              : `${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")}`
           }
           chip={
             bandPositionLabel(explanation.band) +

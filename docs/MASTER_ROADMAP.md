@@ -20,6 +20,43 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Honest zero state and pace copy (PR fix/honest-zero-state;
+no migration, copy and zero-state logic only; audit A-001/002/005/006/007/
+008/022/035).** The homepage card no longer shows "0 / 0 / 0" or "See my —
+schools": its button says "See my N Target and Likely schools" (Target +
+Likely, FitReport.inRange's meaning), and with nothing in range it says
+"None of our {N} programs are in range at {UTR} yet. Closest: {school}, about
++{gap} away (estimate)." with "See all programs" (N = the gender's catalogue
+length; closest = smallest gap from today's UTR to a program's estimated
+floor, programs without a range skipped; nothing without a real UTR). The fit
+report leads with "Today, n programs are in range. If you gain about {pace}
+UTR a year ({source}), that could be m by summer {year}." (pace =
+report.utr.planningPacePerYear, m = recruitingInRange — no second
+projection). "Most players improve 0.5–1.5 a year" is gone everywhere
+(`PLANNING_RULE_SENTENCE`: "We plan with at most 1.5 UTR a year. That's our
+planning rule, not a measured average."); a goal needing within 0.05/yr of
+the cap is an amber "stretch", red only above 1.55; "Gap to team average
++0.3" reads "0.3 below the team average"; "Takes 60 seconds" → "about 90";
+home subhead and meta description name "our estimated range for {N} college
+teams" (counted). Pure builders in `lib/fit-copy.ts`, tested in
+`lib/honest-zero-state.test.ts`; four new `lib/copy-honesty.test.ts` guards,
+each mutation-tested. **Verifier follow-up (same day):** the card now counts
+TODAY (button and tiles) with a labelled "By summer {year}, est.: N" line only
+when higher, and says "UTRs run from 1.00 to 16.50" for a typed 25; the zero
+sentence names the gender ("31 women's programs"); the headline's parenthesis
+says where the pace came from ("your pace so far" / "our planning limit" /
+"our default assumption"); `teamLineRelation(rating, line, …)` says "at" only
+when equal (8.06 vs 8.1 is "0.04 below the team floor", matching the chip),
+with every call site pinned by a test; "typical growth/pace" is now "our
+default assumption of 1.0 UTR a year" and guarded; the next-band line uses
+the goal banner's "a stretch" wording for 1.45–1.55. **Round 2:** a parent
+reads "(your player's pace so far)"; a stretch-band pace is no longer
+`unreachable` (no "won't realistically close" / "Consider instead" beside "a
+stretch"); /plan's target list says "0.3 below the team average" instead of
+"+0.3 to their roster average"; the upside reads "…you'd reach 8.90, but we
+plan with 8.10. We plan with at most 1.5 UTR a year. That's our planning
+rule, not a measured average."
+
 **2026-11-21 — /plan chart readout fixed (PR fix/chart-hover; no migration).**
 Hovering past "Now" on `PlanTrajectoryChart` stuck the dot at the last logged
 value (the readout clamped every date to the last log), and the crosshair

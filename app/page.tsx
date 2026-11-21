@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
-import { getSchoolsLite } from "@/lib/db/schools";
+import { getCatalogCounts, getSchoolsLite } from "@/lib/db/schools";
 import { SeededHomeView } from "@/components/seeded/home/seeded-home-view";
 import { AuthedHomeRedirect } from "@/components/home/authed-home-redirect";
 
-export const metadata: Metadata = {
-  title: "Seeded — your path to college tennis, mapped",
-  description:
-    "Enter your UTR and grad year. Seeded compares you to real programs, sorts schools into Reach, Target and Likely, and turns the gap into season targets you plan against, with a family view your parents can follow.",
-  alternates: { canonical: "/" },
-};
+// A-035 (2026-11-21): the description says what the comparison is against —
+// our ESTIMATED team ranges — and how many teams, counted from the catalogue
+// (getCatalogCounts), never typed.
+export async function generateMetadata(): Promise<Metadata> {
+  const { total } = await getCatalogCounts();
+  return {
+    title: "Seeded — your path to college tennis, mapped",
+    description: `Enter your UTR and grad year. Seeded compares your UTR with our estimated range for ${total} college teams, sorts them into Reach, Target and Likely, and turns the gap into season targets you plan against, with a family view your parents can follow.`,
+    alternates: { canonical: "/" },
+  };
+}
 
 export default async function HomePage() {
   const schools = await getSchoolsLite();

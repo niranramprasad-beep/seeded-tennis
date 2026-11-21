@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  PACE_STRETCH_NOTE,
   PLANNING_PACE_CAP_PER_YEAR,
   buildFitReport,
   isRealisticTarget,
   planGoalNeedsPaceWarning,
+  planGoalPaceSeverity,
   recruitingTimeUtr,
   resolvePlanGoal,
 } from "./fit";
@@ -73,12 +75,30 @@ describe("D1 (was C11) — the plan goal is the player's, or there is none", () 
     expect(readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8")).toMatch(/planGoalNeedsPaceWarning\(goal, goalPace\)/);
   });
 
-  it("the warning's threshold is the planning cap: just above warns, at it does not", () => {
+  it("the red warning starts above the cap plus the 0.05 stretch margin; at or near the cap is amber (A-022)", () => {
     const goal = { value: 9, estimate: null };
     const at = { gap: 1, byDate: "2028-06-01", requiredPaceUtrPerYear: PLANNING_PACE_CAP_PER_YEAR, paceRead: "within-realistic-range" as const };
+    const faster = (r: number) => ({ ...at, requiredPaceUtrPerYear: r, paceRead: "faster-than-realistic" as const });
     expect(planGoalNeedsPaceWarning(goal, at)).toBe(false);
-    expect(planGoalNeedsPaceWarning(goal, { ...at, requiredPaceUtrPerYear: PLANNING_PACE_CAP_PER_YEAR + 0.01, paceRead: "faster-than-realistic" })).toBe(true);
+    expect(planGoalPaceSeverity(goal, at)).toBe("stretch");
+    // 1.51 and 1.55 were red; they are right at the limit, a stretch.
+    expect(planGoalNeedsPaceWarning(goal, faster(1.51))).toBe(false);
+    expect(planGoalPaceSeverity(goal, faster(1.51))).toBe("stretch");
+    expect(planGoalPaceSeverity(goal, faster(1.55))).toBe("stretch");
+    expect(planGoalPaceSeverity(goal, faster(1.56))).toBe("warning");
+    expect(planGoalNeedsPaceWarning(goal, faster(1.56))).toBe(true);
+    // Within 0.05 below the cap is a stretch too; further below, nothing.
+    expect(planGoalPaceSeverity(goal, { ...at, requiredPaceUtrPerYear: 1.45 })).toBe("stretch");
+    expect(planGoalPaceSeverity(goal, { ...at, requiredPaceUtrPerYear: 1.44 })).toBeNull();
     expect(planGoalNeedsPaceWarning(goal, { ...at, requiredPaceUtrPerYear: null, paceRead: "no-time-left" })).toBe(true);
+    expect(planGoalPaceSeverity(null, faster(3))).toBeNull();
+    expect(PACE_STRETCH_NOTE).toBe("That's a stretch: right at our 1.5-a-year planning limit.");
+    // The banner uses the amber (gold) tokens for the stretch, never clay.
+    const src = readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8");
+    const stretch = src.slice(src.indexOf('severity === "stretch"'), src.indexOf("planGoalNeedsPaceWarning(goal, goalPace)"));
+    expect(stretch).toMatch(/--c-gold-tint-bg/);
+    expect(stretch).not.toMatch(/clay-tint/);
+    expect(stretch).toMatch(/PACE_STRETCH_NOTE/);
   });
 
   it("usePlanGoal hands the estimate over only as an offer, never as the goal", () => {
