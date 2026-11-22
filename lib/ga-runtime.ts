@@ -18,7 +18,7 @@
 // Not closed by code: GA4 enhanced measurement is configured in the GA
 // property, and some of its events (outbound clicks' link_url, history
 // changes, site search) may read the browser's address or the clicked link
-// directly. It must be switched off in GA Admin — docs/MASTER_ROADMAP.md.
+// directly. It must be switched off in GA Admin — docs/TODO.md §1.
 
 import {
   gaConfigParams,

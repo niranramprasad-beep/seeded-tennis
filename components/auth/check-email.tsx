@@ -11,8 +11,8 @@ import { AuthCard } from "./auth-card";
 // is deliberately NOT shown yet. The sender is a Supabase Auth SMTP setting
 // this repo cannot read, and the docs disagree about it:
 // docs/archive/GO-SEQUENCE.md and docs/archive/FINAL_PASS_REPORT.md describe Google
-// Workspace SMTP from that address, while docs/MASTER_ROADMAP.md (NEXT 10
-// #3) still lists custom SMTP as an open dashboard step and docs/TODO.md says
+// Workspace SMTP from that address, while docs/MASTER_ROADMAP.md (NEXT 10,
+// "Parent email delivery") still lists SMTP as an open check and docs/TODO.md says
 // Resend is being wired. Telling someone to look for mail from an address it
 // does not come from sends them to spam for the wrong thing. Once the sender
 // is confirmed in the Supabase dashboard, set this to SUPPORT_EMAIL from

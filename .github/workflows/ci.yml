@@ -55,7 +55,7 @@ jobs:
         run: npm run lint
 
       # Includes the honesty guards. Each was confirmed to actually fail when
-      # its bug is reintroduced — see the notes in MASTER_ROADMAP.
+      # its bug is reintroduced — see the notes in docs/archive/ROADMAP_HISTORY.md.
       - name: Tests (UTC)
         run: npm test
 

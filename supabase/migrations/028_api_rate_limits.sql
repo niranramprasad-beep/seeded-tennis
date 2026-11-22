@@ -160,7 +160,7 @@ grant execute on function public.consume_rate_limit(text) to authenticated;
 --   * leaked-password protection + a minimum password length, still off
 --     (advisor WARN).
 -- Both are project settings, not SQL, and are listed as Niran's items in
--- docs/MASTER_ROADMAP.md. Claiming "rate limits on login" while that is
+-- docs/MASTER_ROADMAP.md (now docs/TODO.md §1). Claiming "rate limits on login" while that is
 -- untrue would be exactly the kind of statement P0-7 removed.
 --
 -- The Whop webhook is also deliberately unlimited: it is not a user, it is
