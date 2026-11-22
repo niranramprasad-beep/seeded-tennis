@@ -37,6 +37,54 @@ verified with a real Google account by Claude (no disposable Google account
 exists, and signing in as a real person is out of bounds) — Niran's one-click
 check is in the PR.
 
+**2026-11-21 — Parents can verify with Google (final-check PR D; branch
+`fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
+checks found production has not sent a magic-link/recovery email since
+2026-10-22 and 0 profiles have `email_verified_at`, so a parent may never
+receive 043's link (whether production has custom SMTP is not readable from
+here). 043 already accepts a second proof — a Google identity whose VERIFIED
+email equals the CURRENT auth email (`mark_email_verified()` and
+`email_is_verified()`, re-read live on production: amr methods
+`otp`/`magiclink` only, plus the Google-identity half). Production has 0
+Google identities yet, so the linking half is unproven until Niran's test.
+- Every parent verify prompt (join step, approve/consent card on Family and
+  Settings → Family, the banner) gains a secondary **"Verify with Google
+  instead"** with one line: it works when the Google account uses the same
+  email address. Flag-guarded inside `GoogleVerifyButton` (auth-card.tsx),
+  like `GoogleButton`. It remembers the return screen (and a join's code),
+  remembers WHICH account asked, and Google returns to `/auth/verified` —
+  the page the emailed link already uses — which runs the existing
+  `mark_email_verified()`. No new redirect URL.
+- If Google comes back as a DIFFERENT account (different address), the page
+  signs it out through PlayerProvider and says why in plain English; a
+  cancel says nothing changed. The database still decides; who must verify
+  is unchanged.
+- A failed "Send the link" now points to "Verify with Google instead"
+  (`sendFailureMessage`) instead of only "try again".
+- Review fixes (PR #29): the different-account path signs out with scope
+  "local" only (PlayerProvider `signOutLocal`) and checks no session is left
+  before saying so; the decision after the code exchange is the pure
+  `verifiedActionFor()` / `verifiedScreenFor()`; a stale marker is ignored
+  unless the session came from OAuth (JWT amr); a network blip on
+  `mark_email_verified()` is "unreachable" with Try again, never "not
+  confirmed"; `#error=` is read as well as `?error=`; the mismatch copy says a
+  sign-in may have been created for that Google address and that a pending
+  family code is lost. Mutation-checked (prD/mutation.txt).
+- Review round 2: both sign-outs run one tested sequence
+  (`lib/sign-out-steps.ts`: invalidate in-flight hydrate, reset, clear
+  storage, forget user, then Supabase with the scope); "still signed in"
+  offers Try again (local) instead of the menu's global sign-out; the
+  session's OAuth-ness is mapped by the tested `verifiedSessionFrom()`
+  (access-token amr, never app_metadata); an emailed link's own error
+  (`otp_expired`) shows the link copy even with a leftover Google marker;
+  `markEmailVerified()` is tested with a stubbed rpc.
+- Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
+  same/different account, error mapping, and a real render proving the
+  option is empty unless the flag is exactly "true");
+  `google-button-flag.test.ts` gains the new guard.
+- Niran's dashboard steps (SMTP, redirect URLs, a real Google test,
+  optional staging Google): `~/seeded-evidence/final-check/prD/STEPS.md`.
+
 **2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
 `fix/known-bugs-a`; no migration, no env var, no setting).**
 (A1) The Schools "Why this band" panel printed the what-if slider's value as
@@ -99,7 +147,7 @@ function/table/schema …", matched server-side only) → the route's fallback
 and 500. (LOW) a what-if below today's rating says so; no pace text once no
 year remains; captions capitalise "Your player"; amount fields take a plain
 decimal only ("$50", "1,000", "0x10", "1e5" → "Enter a valid cost." /
-"Enter a valid budget amount."). Not merged; Niran's go.
+"Enter a valid budget amount."). Merged 2026-11-21 (#32).
 
 **2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
 branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
@@ -1549,18 +1597,25 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    the schools browser, `signup-flow.tsx`, the dashboard view (boundaries in
    REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
+9b. **Parent email delivery** (final-check PR D): check production SMTP and
+   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`).
+   Until then the emailed link may never arrive. "Verify with Google instead"
+   works only when `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` is exactly "true" AND the
+   Google provider is configured in that Supabase project (on for production,
+   off for staging/Preview), and only for a Google account with the SAME
+   address. Then the profile-less auth users it can leave (TODO, PR D review).
 10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
 
 Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5,
-B4 and B24 fixed on `fix/known-bugs-a` (PR A). Rows closed by PR C (#33,
+B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows closed by PR C (#33,
 `fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
 field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
 birth-year/grade hint), B20 (one tense for the summer before senior year),
-and the onboarding sign-up's nested form found on the walk. The other B/E
-rows are other PRs.
+and the onboarding sign-up's nested form found on the walk. PR D (`fix/parent-verify-google-d`) adds "Verify with Google" for
+parents. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

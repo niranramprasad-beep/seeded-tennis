@@ -24,6 +24,13 @@ export const OAUTH_CALLBACK_PATH = "/auth/callback";
  * them as if they were. */
 export const OAUTH_COMPLETE_PATH = "/auth/complete";
 
+/** Where a parent's email-proof lands (migration 043): the emailed link AND
+ * "Verify with Google instead" both come back here, and this page runs
+ * mark_email_verified(). One path, so the Supabase redirect allow-list needs
+ * nothing new for the Google option. Re-exported by
+ * lib/db/email-verification.ts. */
+export const EMAIL_VERIFIED_PATH = "/auth/verified";
+
 /**
  * Makes a `?next=` value safe to redirect to.
  *

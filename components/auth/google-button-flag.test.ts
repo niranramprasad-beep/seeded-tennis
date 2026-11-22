@@ -35,6 +35,12 @@ describe("the Google button cannot render with the flag off", () => {
     expect(body).toContain("if (!GOOGLE_AUTH_ENABLED) return null;");
   });
 
+  it("guards 'Verify with Google instead' too (PR D, final-check)", () => {
+    const fn = card.slice(card.indexOf("export function GoogleVerifyButton"));
+    const body = fn.slice(0, fn.indexOf("\n/**"));
+    expect(body).toContain("if (!GOOGLE_AUTH_ENABLED) return null;");
+  });
+
   it("reads the flag strictly — only the exact string \"true\"", () => {
     const config = readFileSync(
       join(__dirname, "..", "..", "lib", "config", "auth.ts"),
@@ -66,7 +72,8 @@ describe("the Google button cannot render with the flag off", () => {
         (f) =>
           f !== "lib/auth.ts" &&
           f !== "lib/legal/policy.ts" &&
-          !f.endsWith("google-button-flag.test.ts")
+          // Tests name it in assertions; none of them render a button.
+          !/\.test\.tsx?$/.test(f)
       );
 
     expect(

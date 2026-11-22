@@ -128,10 +128,14 @@ describe("sessionStorage too (A-033 follow-up)", () => {
 describe("every sign-out and deletion path clears", () => {
   it("PlayerProvider.signOut() clears (sidebar and both Settings views go through it)", () => {
     const src = codeOnly(join(ROOT, "lib/context/player-context.tsx"));
-    const body = src.slice(src.indexOf("const signOut = useCallback("), src.indexOf("}, []);", src.indexOf("const signOut = useCallback(")));
-    expect(body).toMatch(/clearSeededBrowserStorage\(\)/);
-    expect(body).toMatch(/setUserId\(null\)/);
-    expect(body).toMatch(/mutate\(isMyConsentStateKey, undefined/);
+    // PR D: signOut() and signOutLocal() share one effects object, run in
+    // order by runSignOut() (lib/sign-out-steps.test.ts pins the order).
+    const fx = src.slice(src.indexOf("const signOutEffects = useMemo"), src.indexOf("const signOut = useCallback("));
+    expect(fx).toMatch(/clearBrowserStorage: \(\) => void clearSeededBrowserStorage\(\)/);
+    expect(fx).toMatch(/setUserId\(null\)/);
+    expect(fx).toMatch(/mutate\(isMyConsentStateKey, undefined/);
+    expect(src).toMatch(/const signOut = useCallback\(\(\) => \{\s*void runSignOut\(signOutEffects, "global"\);/);
+    expect(src).toMatch(/const signOutLocal = useCallback\(\(\) => runSignOut\(signOutEffects, "local"\)/);
   });
 
   it.each(["components/seeded/settings/seeded-settings-view.tsx", "components/seeded/settings/parent-settings-view.tsx"])(
