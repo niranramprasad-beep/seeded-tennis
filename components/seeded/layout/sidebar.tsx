@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SeededMark } from "@/components/seeded/icons";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
@@ -107,7 +108,7 @@ export function SeededSidebar() {
           )}
         >
           <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-on-lime" />
+            <SeededMark size={22} className="shrink-0" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
                 Seeded
@@ -218,7 +219,7 @@ export function SeededSidebar() {
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
         {/* 44px tall: the phone sweep measured this link at 28px (C29). */}
         <Link href={homeHref} className="flex min-h-11 items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
+          <SeededMark size={22} className="shrink-0" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
         <SeededAvatarTrigger
