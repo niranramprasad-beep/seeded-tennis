@@ -63,7 +63,7 @@ export function SeededDialog({
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
-              className="pointer-events-auto flex max-h-[84vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-line bg-card shadow-card focus:outline-none"
+              className="pointer-events-auto flex max-h-[84vh] w-full max-w-md flex-col overflow-hidden rounded-card border border-line bg-card shadow-card focus:outline-none"
             >
               <div className="flex items-start justify-between gap-3 px-5 pt-5">
                 <div className="min-w-0">

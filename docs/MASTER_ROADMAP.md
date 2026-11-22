@@ -20,6 +20,36 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-22 — Design polish round 1 (branch `herdy-work`, from the 22 Nov
+consult; no migration, no setting, palette unchanged).** Fit badges get an
+icon per band; the sidebar's active item gets a green left bar and the
+tennis-ball mark replaces the lime dot; the phone tab bar marks the active
+tab; yearly pricing shows twelve monthly payments struck through, derived
+from `TIER_PRICE_USD`; the family UTR tile shows the percent beside the
+change (`formatUtrPercentChange`); landing feature cards get tinted icon
+tiles and shorter copy; school rows and the school header get an initials
+tile. Reference: Figma "WD — NiranRamprasad — Seeded" (DECISIONS 2026-11-22).
+Open from that file: SeededCard/Pill primitives and their migration, the
+copy cuts in `docs/COPY_CUTS.md`, signup field order, the family page, the
+sample-report header when signed in, section motion, a visual check.
+Merged with `main` on 2026-11-22 (design kept, main's review fixes kept):
+Today's "UTR · Update" button keeps main's tone-aware track pill
+(`onTrackPill`) and `doneThisWeekLine`; the chart note is main's one-vocabulary
+`chartLegendSentence` in a `DataNote`, with the next checkpoint's value and
+date (formerly the header chip) appended; the home hero keeps main's copy
+naming all four bands; FitBadge keeps the band icon and main's `label`
+override; the onboarding zero-state card keeps `rounded-card` and main's
+`leadIsZeroSentence` logic.
+Review of the merge (2026-11-22): /plan's collapsed what-if now says on its
+summary when a moved slider is re-banding the rows; the family UTR tile says
+"Needs two logged ratings to show a change." instead of "No change yet." for a
+single rating; the struck yearly price is read as "12 months at the monthly
+price", never "Was" (copy-honesty guard); landing feature cards lost a hover
+lift they had without being links; the school-page initials tile is sm+ only
+(320px overflow); "NC State" → "NCS"; the % helper rounds gains and losses
+alike; the collapsed sidebar's home link and the phone tab bar's active tab are
+named for screen readers.
+
 **2026-11-21 — Parent-approval rule (migration 052, branch
 `feat/parent-approval-rule`; P-015 / S-005). Built and probed on staging
 2026-11-21; applied to PRODUCTION 2026-11-22 on Niran's go, after a fresh

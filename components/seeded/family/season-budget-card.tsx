@@ -72,7 +72,7 @@ export function SeasonBudgetCard({
   const rows = compact ? summary.lineItems.slice(0, 3) : summary.lineItems;
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-ink">Season budget · {seasonLabel}</h2>
         {canEdit ? (

@@ -149,7 +149,7 @@ export function SundayCheckinDrawer({
                   className={
                     result === r
                       ? "h-11 rounded-xl border border-grass bg-grass text-sm font-semibold text-on-primary"
-                      : "h-11 rounded-xl border border-line bg-card text-sm font-semibold text-ink"
+                      : "h-11 rounded-card border border-line bg-card text-sm font-semibold text-ink"
                   }
                 >
                   {r === "win" ? "Win" : "Loss"}

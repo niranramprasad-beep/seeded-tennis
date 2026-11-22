@@ -49,7 +49,7 @@ export function DiagnosticAside({
 
   return (
     <aside aria-label="Your answers so far" className="flex min-w-0 flex-col gap-5">
-      <section className="rounded-xl border border-line bg-card p-5">
+      <section className="rounded-card border border-line bg-card p-5">
         <h2 className="m-0 font-seeded text-base font-semibold text-ink">Your profile so far</h2>
         <dl className="m-0 mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           {rows.map(([label, value, mono]) => (

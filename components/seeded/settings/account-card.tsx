@@ -27,7 +27,7 @@ export function AccountCard({
   const router = useRouter();
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Account</h2>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
         <Field label={player.role === "parent" ? "Account" : "Player"} value={player.name || "—"} />

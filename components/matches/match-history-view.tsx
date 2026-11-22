@@ -119,7 +119,7 @@ function MatchHistoryInner() {
       </p>
 
       <div className="mt-6 grid items-start gap-5 lg:grid-cols-[400px_minmax(0,1fr)]">
-        <section aria-labelledby="log-heading" className="rounded-xl border border-line bg-card p-5">
+        <section aria-labelledby="log-heading" className="rounded-card border border-line bg-card p-5">
           <h2 id="log-heading" className="text-lg font-semibold text-ink">
             Log a result
           </h2>
@@ -155,7 +155,7 @@ function MatchHistoryInner() {
             {visible.map((match) => {
               const vs = opponentLine(match);
               return (
-                <li key={match.id} className="rounded-xl border border-line bg-card p-4">
+                <li key={match.id} className="rounded-card border border-line bg-card p-4">
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">

@@ -278,7 +278,7 @@ function FamilyAwaitingPlayer({ familyCode }: { familyCode: string }) {
       </p>
 
       <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="rounded-xl border border-line bg-card p-5">
+        <div className="rounded-card border border-line bg-card p-5">
           <p className="font-medium text-ink">Nothing to show yet</p>
           <p className="mt-1.5 text-sm text-stone">
             Seeded won&rsquo;t estimate a rating, a class year or a target list for a player it hasn&rsquo;t met. Share

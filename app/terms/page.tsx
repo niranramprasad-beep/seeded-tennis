@@ -59,7 +59,7 @@ function SeededTerms() {
         </p>
       </Reveal>
       <Reveal index={1}>
-        <div className="divide-y divide-line rounded-xl border border-line bg-card">
+        <div className="divide-y divide-line rounded-card border border-line bg-card">
           {TERMS.map((term) => (
             <section
               key={term.title}

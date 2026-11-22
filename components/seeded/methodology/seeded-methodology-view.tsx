@@ -122,7 +122,7 @@ export function SeededMethodologyView() {
                 store rosters, individual player ratings or coach records &mdash; so no team page can show you one.
                 Every range is labelled an unverified estimate wherever it appears.
               </p>
-              <div className="mt-4 rounded-xl border border-line bg-card">
+              <div className="mt-4 rounded-card border border-line bg-card">
                 {DATA_SOURCE_ROWS.map((row, i) => (
                   <div
                     key={row.label}
@@ -184,7 +184,7 @@ export function SeededMethodologyView() {
                 the bar is not a number we have: it is drawn as far above the average as the floor is below it, so
                 there is somewhere to show you landing. Your yellow dot is your rating.
               </p>
-              <div className="mt-4 rounded-xl border border-line bg-card p-[22px]">
+              <div className="mt-4 rounded-card border border-line bg-card p-[22px]">
                 <RangeBar
                   rangeStartPct={utrToPct(RANGE_EXAMPLE.low)}
                   rangeEndPct={utrToPct(RANGE_EXAMPLE.high)}
@@ -214,7 +214,7 @@ export function SeededMethodologyView() {
             </Section>
 
             <Section id="fit-bands" number={5} title="Fit bands">
-              <div className="rounded-xl border border-line bg-card">
+              <div className="rounded-card border border-line bg-card">
                 {FIT_BAND_ROWS.map((row, i) => (
                   <div
                     key={row.band}
