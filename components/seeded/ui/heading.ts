@@ -33,8 +33,3 @@ export const seededSectionHeading =
 /** Card / sub-section title — the H2 step of the scale (24px desktop). */
 export const seededCardHeading =
   "font-seeded text-xl font-bold leading-[1.2] tracking-[-0.01em] text-balance text-ink sm:text-2xl";
-
-/** Short centred supporting copy under a heading. `text-pretty` stops a
- *  single trailing word; it is for paragraphs, where `balance` would make
- *  long copy look ragged. */
-export const seededLede = "text-pretty leading-[1.55] text-stone";

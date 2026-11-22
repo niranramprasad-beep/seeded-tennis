@@ -82,26 +82,26 @@ export interface StartHereRow {
 /** "D3 and lower-level D1 first": the order the owner asked for. In this
  * file's ten conferences, "lower-level D1" is read as every D1 conference
  * except the Ivy League. A sort order, not a claim about any team's level. */
-export function startHereTier(p: { division: string; conference: string }): number {
+function startHereTier(p: { division: string; conference: string }): number {
   if (p.division === "D3") return 0;
   if (p.division === "D1" && p.conference !== "Ivy League") return 1;
   return 2;
 }
 
-export const START_HERE_COUNT = 20;
+const START_HERE_COUNT = 20;
 
 function seasonLabel(start: number): string {
   return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
 /** A local Date for a yyyy-mm-dd string, at noon so no zone moves the day. */
-export function localDateFromIso(iso: string): Date {
+function localDateFromIso(iso: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) throw new Error(`Not a yyyy-mm-dd date: ${iso}`);
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
 }
 
-export function draftToProgram(d: ProgramDraft, checkedOn: string, ranges: TeamRange[] = []): ImportedProgram {
+function draftToProgram(d: ProgramDraft, checkedOn: string, ranges: TeamRange[] = []): ImportedProgram {
   return {
     id: d.slug,
     slug: d.slug,

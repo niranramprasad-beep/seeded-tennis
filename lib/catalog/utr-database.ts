@@ -66,7 +66,7 @@ export const MIN_RATED_PLAYERS = 5;
 
 const DIVISIONS: readonly CatalogDivision[] = ["D1", "D2", "D3", "NAIA", "JUCO"];
 
-export const TEAMS_COLUMNS = [
+const TEAMS_COLUMNS = [
   "Division",
   "Conference",
   "School",
@@ -78,7 +78,7 @@ export const TEAMS_COLUMNS = [
   "Last Verified",
 ] as const;
 
-export const PLAYERS_COLUMNS = [
+const PLAYERS_COLUMNS = [
   "Division",
   "Gender",
   "School",

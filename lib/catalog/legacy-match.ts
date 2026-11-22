@@ -18,7 +18,7 @@ import { slugify, type CatalogGender } from "./roster-import";
 
 /** Short name in the roster file -> the distinctive part of the full name.
  * Only names the filler-word rule cannot reach. */
-export const SCHOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
+const SCHOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
   penn: "pennsylvania",
   nyu: "new-york",
   wustl: "washington-st-louis",

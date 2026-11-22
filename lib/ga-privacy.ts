@@ -30,7 +30,7 @@
 /** The localStorage flag that marks a browser as ours (Niran, testers). */
 export const GA_INTERNAL_FLAG_KEY = "seeded.internal";
 /** `?seeded_internal=1` sets the flag; `?seeded_internal=0` clears it. */
-export const GA_INTERNAL_PARAM = "seeded_internal";
+const GA_INTERNAL_PARAM = "seeded_internal";
 
 /** consent_status as my_consent_state() reports it; undefined = not answered. */
 export type GaConsentStatus = "not_required" | "pending" | "granted" | "unknown" | undefined;

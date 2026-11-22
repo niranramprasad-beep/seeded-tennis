@@ -61,7 +61,7 @@ const SENTENCE_BY_CODE: Record<string, string> = {
 
 /** SQLSTATE 42501, insufficient_privilege — what Postgres raises for a row
  * RLS refuses and what our own refusing triggers raise. */
-export const PERMISSION_DENIED_CODE = "42501";
+const PERMISSION_DENIED_CODE = "42501";
 
 /** The one sentence a permission refusal shows, whatever the database said. */
 export const PERMISSION_DENIED_MESSAGE = "You don't have permission to do that.";

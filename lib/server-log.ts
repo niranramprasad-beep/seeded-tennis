@@ -210,7 +210,7 @@ export function serverErrorRecord(
 }
 
 /** Builds the record without writing it. Exported for the tests. */
-export function serverEventRecord(
+function serverEventRecord(
   event: string,
   context?: LogContext,
   level: "info" | "warn" = "info",

@@ -204,6 +204,3 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
  * consent card. One string so both say the same thing. */
 export const SIGNUP_CONSENT_NOTE =
   "By creating an account you agree to the Terms and the Privacy policy.";
-
-export const PARENT_CONSENT_POLICY_NOTE =
-  "Approving means you agree, as this player's parent or guardian, to Seeded storing their information as described in the Privacy policy.";

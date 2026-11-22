@@ -9,7 +9,7 @@ import { sessionType } from "@/lib/training/session-types";
 import { toLocalDateString } from "@/lib/time";
 import type { IcsEvent } from "./ics";
 
-export const SITE_URL = "https://seededtennis.com";
+const SITE_URL = "https://seededtennis.com";
 
 /** A LOCAL "YYYY-MM-DD" + "HH:MM" → the instant it names in this device's
  *  time zone — the zone the player typed it in. The builder writes it as

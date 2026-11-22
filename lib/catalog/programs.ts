@@ -30,7 +30,7 @@ export const RANGE_SOURCE_TYPE_LABEL: Record<RangeSourceType, string> = {
 };
 
 /** CATALOG_EXPANSION.md: "A range older than about 12 months shows as stale." */
-export const RANGE_STALE_AFTER_DAYS = 365;
+const RANGE_STALE_AFTER_DAYS = 365;
 
 export const LEVEL_NOT_RATED = "Level not rated yet";
 
@@ -107,7 +107,7 @@ export function currentRange(program: Pick<ImportedProgram, "ranges">): TeamRang
   )[0];
 }
 
-export function rangeIsStale(range: TeamRange, now: Date): boolean {
+function rangeIsStale(range: TeamRange, now: Date): boolean {
   return daysSince(range.sourceDate, now) > RANGE_STALE_AFTER_DAYS;
 }
 
@@ -175,7 +175,7 @@ export function finalYearCountFor(program: Pick<ImportedProgram, "classCounts" |
 }
 
 /** True when the roster is from an earlier season than the one under way. */
-export function rosterIsFromEarlierSeason(program: Pick<ImportedProgram, "seasonStartYear">, now: Date): boolean {
+function rosterIsFromEarlierSeason(program: Pick<ImportedProgram, "seasonStartYear">, now: Date): boolean {
   return program.seasonStartYear < currentSeasonStartYear(now);
 }
 

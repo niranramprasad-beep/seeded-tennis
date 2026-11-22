@@ -54,8 +54,6 @@ export const FEATURE_TIER = {
 // of the key into the plan registry in lib/whop.ts.
 export type BillingInterval = "monthly" | "yearly";
 
-export const BILLING_INTERVALS: readonly BillingInterval[] = ["monthly", "yearly"] as const;
-
 // The current list prices, in one place.
 //
 // Display AND reporting: the pricing page, the paywall copy, the billing tab
