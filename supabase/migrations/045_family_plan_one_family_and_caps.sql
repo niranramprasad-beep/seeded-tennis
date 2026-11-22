@@ -2,7 +2,7 @@
 --
 -- STATUS: written 2026-11-19 for PR B. Applied and probed on STAGING
 -- (gnlcpnsweqbtwpaqhqqg) first; production gets it after 044, per
--- docs/GO-SEQUENCE.md §3b and docs/HANDOFF.md §J Step 20. Needs 042
+-- docs/archive/GO-SEQUENCE.md §3b and docs/HANDOFF.md §J Step 20. Needs 042
 -- (family_has_tier) and 043 (join_family / approve_family_join with the
 -- email check).
 --

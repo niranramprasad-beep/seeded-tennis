@@ -78,7 +78,7 @@ parent's /schools on a phone (0.07–0.10, TODO #14). LCP is TODO #15.
 enforced in the database, and the maintenance page removed"**. 99 commits,
 440 files. Merge only after the 18 migrations are on production.
 
-### GO sequence — `docs/GO-SEQUENCE.md` (pasteable), in short
+### GO sequence — `docs/archive/GO-SEQUENCE.md` (pasteable), in short
 
 `chmod 600 ~/seeded-backup.env` first (it is world-readable). Then:
 1. **Backup** — `pg_dump --format=custom` to `~/seeded-backups/`, then

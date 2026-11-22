@@ -18,8 +18,8 @@ lint, tests, build), an independent review pass by a separate agent that is
 told to break the change, and tests — many of them *guard tests* that fail
 the build if a known bug or untrue claim comes back. Database changes are
 rehearsed on a staging project and probed as real roles before production.
-The process is documented in [GO-SEQUENCE.md](GO-SEQUENCE.md) and
-[DECISIONS.md](DECISIONS.md); the rules every change follows are in
+The process is documented in [HANDOFF.md](HANDOFF.md) §J ("How to ship a
+migration to production") and [DECISIONS.md](DECISIONS.md); the rules every change follows are in
 [../CLAUDE.md](../CLAUDE.md).
 
 ## 2. The 10-minute tour
@@ -29,7 +29,7 @@ The process is documented in [GO-SEQUENCE.md](GO-SEQUENCE.md) and
 | [`lib/fit.ts`](../lib/fit.ts) + [`lib/school-fit.ts`](../lib/school-fit.ts) | The product's core: the one fit engine every screen uses (see §6). |
 | [`lib/db/family-scope.ts`](../lib/db/family-scope.ts) | How family data is scoped across the two membership shapes (see §5). |
 | [`supabase/migrations/042_family_plan_lock.sql`](../supabase/migrations/042_family_plan_lock.sql) and [`045_family_plan_one_family_and_caps.sql`](../supabase/migrations/045_family_plan_one_family_and_caps.sql) | Representative migrations: the paid-plan lock enforced in RLS, with the reasoning in the file. |
-| [`supabase/migrations/050_budget_writes_parents_only.sql`](../supabase/migrations/050_budget_writes_parents_only.sql) | A small, explained RLS fix with its rollback in the file (051, the newest, is the same shape as a trigger). |
+| [`supabase/migrations/050_budget_writes_parents_only.sql`](../supabase/migrations/050_budget_writes_parents_only.sql) | A small, explained RLS fix with its rollback in the file (051 is the same shape as a trigger). |
 | [`lib/db/family-scope.test.ts`](../lib/db/family-scope.test.ts) | A guard test: scans `app/`, `lib/`, `components/` and fails on any cross-user `profiles` read. |
 | [`app/api/utr-entries/route.ts`](../app/api/utr-entries/route.ts) | A typical API route: request-scoped Supabase client (RLS applies), Postgres rate limit, zod validation. |
 | [`app/api/whop/webhook/route.ts`](../app/api/whop/webhook/route.ts) | The only path that changes a user's paid tier (service role, signature-verified). |
@@ -168,13 +168,16 @@ the production build on every PR and every push to `main`.
 
 `main` auto-deploys to production with no staging gate, so the merge is the
 release. Migrations ship **before** the code that needs them, each through
-[GO-SEQUENCE.md](GO-SEQUENCE.md): fresh `pg_dump` backup → apply → probe as
-real roles in rolled-back transactions → record the result in §J of
-[HANDOFF.md](HANDOFF.md), which also holds a pasteable rollback per step.
-Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
-051). Code rollback: Vercel Instant Rollback or a revert PR.
+the procedure at the top of [HANDOFF.md](HANDOFF.md) §J: staging first →
+fresh `pg_dump` backup → apply → probe as real roles in rolled-back
+transactions → record the result in its §J Step, which also holds a
+pasteable rollback. Production ledger: check `list_migrations` (through 052
+on 2026-11-22). Code rollback: Vercel Instant Rollback or a revert PR.
 
 ## 9. Known trade-offs and open debt (ranked)
+
+A ranked summary for a reviewer. The full open list is [TODO.md](TODO.md);
+the order work happens in is [MASTER_ROADMAP.md](MASTER_ROADMAP.md) NEXT 10.
 
 1. **`Player.currentUTR` uses `0` as an in-memory "no rating" sentinel.**
    The database rejects 0, so writes convert it to NULL and every derived
@@ -186,27 +189,28 @@ Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
    sibling can create a parent account and approve it. Visible on the roster,
    capped at 2 parents. Decided 2026-11-21: a player may approve only a
    family's first parent; after that only an approved parent approves
-   parents, and only a parent removes a parent. **Built and attack-tested on
-   staging only** ([052](../supabase/migrations/052_parent_approval_rule.sql),
-   branch `feat/parent-approval-rule`); **not on production** until Niran's
-   go, so production still has the gap. Settings → Family showing who
-   approved whom is not built yet. A fake *first* parent stays possible and
+   parents, and only a parent removes a parent. That is migration
+   [052](../supabase/migrations/052_parent_approval_rule.sql), **on
+   production since 2026-11-22**. Settings → Family showing who approved
+   whom is not built yet. A fake *first* parent stays possible and
    is accepted — [DECISIONS.md](DECISIONS.md), [TODO.md](TODO.md) "Who may approve a parent joiner".
-3. **Large files.** `lib/fit.ts` (~1,310 lines), `lib/auth.ts` (~1,170),
+3. **Large files.** `lib/auth.ts` (~1,170),
    `components/seeded/schools/seeded-schools-browser.tsx` (~1,170),
    `components/auth/signup-flow.tsx` (~790), and the Today layout
-   (`components/seeded/dashboard/seeded-dashboard-layout.tsx`). Suggested splits: fit →
-   `projection.ts` / `bands.ts` / `pace.ts`; auth → `session.ts` /
+   (`components/seeded/dashboard/seeded-dashboard-layout.tsx`). (`lib/fit.ts`
+   was split on 2026-11-21 into `lib/fit/*.ts` — `projection.ts` / `bands.ts`
+   / `pace.ts` and three more — with `lib/fit.ts` left as a barrel.)
+   Suggested splits: auth → `session.ts` /
    `profile-write.ts` / `family-signup.ts`; schools browser → filters,
    list, and row components plus a `useSchoolFilters` hook; signup-flow → one
    component per step. Not done yet because each touches guard-tested code
    and deserves its own reviewed PR.
 4. **Catalog team UTR ranges are unverified estimates**, labelled as such.
-   Phase 1 of a sourced catalog (PR E #9, merged 2026-11-20 behind a
-   feature flag that is off; tables in production, no rows) adds the tables,
-   an importer that refuses production, and an owner-only form; ranges must
-   then be entered by hand from sources
-   ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)). The raw roster file it was
+   Phase 1 of a sourced catalog (PR E #9) adds the tables, an importer, and
+   an owner-only form ([CATALOG_EXPANSION.md](CATALOG_EXPANSION.md)). Since
+   2026-11-22 it is **on in production**, with 35 programs and 34
+   hand-curated team ranges from the owner's UTR database; the 68 legacy
+   programs still carry the labelled estimates. The raw roster file it was
    built from (one row per student, ~1,900 real names) was in the repo from
    2026-11-20 to 2026-11-21; it is replaced by per-team counts, but it is
    still in git history until the owner decides on a purge ([TODO.md](TODO.md)).
@@ -226,10 +230,11 @@ Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
    edited/deleted; a parent's /schools shows the parent's own empty list; two
    GPA rules) — [TODO.md](TODO.md) "Left open by the review-ready sweep".
 
-## 10. What's next (after this review)
+## 10. What's next
 
-A full UI revamp; an AI goal coach that turns a player's goals into
-year/month/week goals (V1 ships no AI); wiring the recruiting checklist into
-Today; a weekly email (needs a real sending path first); catalog team
-ranges from sources, then public SEO school pages. Order and status:
+A UI revamp, one screen per PR (design polish round 1 is merged); an AI goal
+coach that turns a player's goals into year/month/week goals (V1 ships no
+AI); wiring the recruiting checklist into Today; a weekly email (needs a
+real sending path first); catalog team ranges from sources, then public SEO
+school pages. Order and status:
 [MASTER_ROADMAP.md](MASTER_ROADMAP.md).

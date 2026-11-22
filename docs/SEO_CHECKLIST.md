@@ -18,15 +18,14 @@ Checked against the code on 2026-11-20 (not against a live crawl).
 - Unknown school slugs return a real 404 (`dynamicParams = false`).
 - Invented coach names/emails/recruits are gone from the catalog (P0-3), so
   nothing fabricated is being indexed.
+- Legacy routes (`/dashboard`, `/roadmap`, `/coaches`,
+  `/cost-calculator`) are server redirects since the Legacy design was
+  deleted (2026-11-20, PR-LEGACY): `redirect()` in each `page.tsx`, like
+  `/training` and `/match-mode`. Still disallowed and noindexed.
 
 ## Open
-- [ ] The Seeded homepage (`components/seeded/home/seeded-home-view.tsx`)
-      renders two `<h1>` (mobile and desktop copies). Keep one.
-- [ ] Structured data: none yet. `Organization` on `/`; `SportsTeam`
-      (+ `CollegeOrUniversity`) on school pages once team data is sourced.
-- [x] Legacy routes (`/dashboard`, `/roadmap`, `/coaches`,
-      `/cost-calculator`) are server redirects since the Legacy design was
-      deleted (2026-11-20, PR-LEGACY): `redirect()` in each `page.tsx`, like
-      `/training` and `/match-mode`. Still disallowed and noindexed.
-- [ ] Generic 404s: confirm production returns status 404 (not verified for
-      this doc).
+
+The open SEO items (one `<h1>` on the homepage, structured data, generic
+404 status) moved to [`TODO.md`](TODO.md) §6 on 2026-11-22, so there is one
+list of open work. When you add a public page, check it against "In place"
+above.

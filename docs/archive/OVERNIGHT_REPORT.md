@@ -534,7 +534,7 @@ build if it moves back out or a fourth caller reimplements the button.
 Verified both ways: flag unset → no button on `/login` or `/signup`; flag set
 → "Continue with Google" renders (dev server, `find` result).
 
-### Rebuilt to docs/DESIGN_MOCKUP_SPEC.md
+### Rebuilt to docs/archive/DESIGN_MOCKUP_SPEC.md
 
 - **New `AuthCard`** — centred 420px card, H2 + subline, Google first, "or"
   divider, 44px/16px inputs (16px because iOS Safari zooms below it), spec

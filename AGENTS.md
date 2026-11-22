@@ -23,7 +23,7 @@ likely to get wrong.
   protected (PR plus a green `verify` check). Never push or merge to it, or
   apply a migration, without the owner's explicit sign-off.
 - Before claiming something works:
-  `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run`.
+  `rm -rf .next && npx tsc --noEmit && npm run lint && npx vitest run`.
 
 ## Done (kept so nobody re-does it)
 

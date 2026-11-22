@@ -38,7 +38,7 @@ the route's fallback. Profile was fixed earlier
 
 Removed: `/api/training/copilot` (Gemini), `/api/training/planner`,
 `/api/training/templates`, `/api/stripe/*`. History:
-`docs/MASTER_ROADMAP.md` (P1-SEC-1, P1-SEC-5) and CLAUDE.md (no
+`docs/archive/ROADMAP_HISTORY.md` (P1-SEC-1, P1-SEC-5) and CLAUDE.md (no
 auto-generated training plans).
 
 ## External

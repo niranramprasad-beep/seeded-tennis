@@ -14,7 +14,7 @@ import { codeOnly, readableSource } from "./testing/source-text";
  * Scope: the Seeded design (components/seeded, components/layout,
  * components/auth, components/pricing, components/shared, app/). The Legacy
  * design (components/home, components/training, components/tournaments …)
- * is slated for deletion (docs/TODO.md) and is not held to v2.
+ * is slated for deletion (docs/archive/TODO_DONE.md) and is not held to v2.
  */
 
 const ROOT = join(__dirname, "..");

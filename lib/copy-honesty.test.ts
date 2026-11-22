@@ -233,7 +233,7 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     // It is still carved out here on purpose, because the fix is to DELETE
     // THE GENERATOR, not to rename it — banning the phrase would push
     // someone to relabel the button and leave the behaviour. That is
-    // docs/TODO.md #2 and it is a product change, out of scope for a
+    // docs/archive/TODO_DONE.md #2 and it is a product change, out of scope for a
     // copy pass. Recorded so the exemption is not mistaken for a finding
     // that the feature is fine.
     pattern:

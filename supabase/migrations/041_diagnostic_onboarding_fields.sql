@@ -2,7 +2,7 @@
 --
 -- STATUS: written 2026-11-18 for PR B (diagnostic onboarding, B1/B3).
 -- Applied and probed on STAGING (gnlcpnsweqbtwpaqhqqg) only. Production
--- gets it later, on Niran's go, per docs/GO-SEQUENCE.md §3 and
+-- gets it later, on Niran's go, per docs/archive/GO-SEQUENCE.md §3 and
 -- docs/HANDOFF.md §J Step 16. Needs 035 (profile_row_exists()) and is
 -- otherwise independent of 042/043.
 --

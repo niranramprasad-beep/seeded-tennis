@@ -13,7 +13,7 @@
 // display family nor a weight class, so they fell back to body Inter at 400
 // and read as paragraphs that happened to be large.
 //
-// docs/DESIGN_MOCKUP_SPEC.md's scale is: Display 56/36 · H1 36/28 · H2
+// docs/archive/DESIGN_MOCKUP_SPEC.md's scale is: Display 56/36 · H1 36/28 · H2
 // 24/20 · Body 16. So a section title is the H1 step (36px) and a card
 // title is the H2 step (24px), both in Inter Tight at 700. The section step
 // carries the spec's -0.02em display tracking; the card step uses -0.01em,

@@ -2,7 +2,7 @@
 
 **Title:** Seeded V1: honest data, family privacy enforced in the database, and the maintenance page removed
 
-**Merge only after** the 18 migrations in `docs/GO-SEQUENCE.md` §3 are applied
+**Merge only after** the 18 migrations in `docs/archive/GO-SEQUENCE.md` §3 are applied
 to production and verified. The code calls RPCs and relies on policies that
 do not exist on production until then.
 
@@ -86,6 +86,6 @@ re-checked on the HTTPS preview (Whop rejects a localhost return URL).
 ## Rollback
 
 Vercel → previous production deployment → Promote. Database changes do not
-roll back with the code — see `docs/GO-SEQUENCE.md` §5 and HANDOFF §J.
+roll back with the code — see `docs/archive/GO-SEQUENCE.md` §5 and HANDOFF §J.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

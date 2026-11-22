@@ -10,7 +10,7 @@
 - Evidence:
 
 ## Migration?
-<!-- no — or: yes, number NNN, GO-SEQUENCE row N, HANDOFF §J Step N. Applied to staging? production? -->
+<!-- no — or: yes, number NNN, HANDOFF §J Step N (procedure: §J "How to ship a migration to production"). Applied to staging? production? -->
 
 ## Screenshots
 <!-- Before / after at 375px and 1440px, light + dark, for any visible change. "No UI change" otherwise. -->

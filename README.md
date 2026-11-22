@@ -1,184 +1,161 @@
 # Seeded
 
-Seeded helps junior tennis players and their parents plan college recruiting:
-it shows which college teams a player's UTR rating realistically fits, and
-keeps their results, school list, coach outreach and tournament plan in one place.
+Seeded helps junior tennis players and their parents plan college
+recruiting. A player logs their UTR rating; Seeded shows which college
+teams that rating realistically fits — **Likely / Target / Reach / Out of
+range**, using a projection of where the rating is heading — and keeps their
+results, school list, coach outreach and tournament plan in one place.
+Parents get a read-only family view plus a season budget. Live at
+**https://seededtennis.com**. Private — all rights reserved.
 
-Live at **https://seededtennis.com**. Status: live and early — a handful of
-real accounts, no public launch yet. Private — all rights reserved.
-
-New here? Read [docs/REVIEWER_GUIDE.md](docs/REVIEWER_GUIDE.md) first (a
-10-minute tour), then [docs/README.md](docs/README.md) for the map of every doc.
+This page is the five-minute start. Then read [docs/README.md](docs/README.md),
+the index of every doc.
 
 ## Stack
 
-Versions are the ones resolved in `package-lock.json`.
-
-| Piece | Version / service |
+| Piece | What |
 |---|---|
-| Framework | Next.js 15.5 (App Router), React 18.3 |
-| Language | TypeScript 5.9 |
-| Styling | Tailwind CSS 3.4 |
-| Database + auth | Supabase: Postgres, Supabase Auth, Row Level Security (supabase-js 2.106) |
-| Billing | Whop (`@whop/sdk` 2.8) — checkout, plus a webhook that sets the subscription tier |
+| Framework | Next.js 15 (App Router), React 18, TypeScript |
+| Styling | Tailwind CSS 3; the design system is `components/seeded/` |
+| Database + auth | Supabase: Postgres with Row Level Security, Supabase Auth (`@supabase/supabase-js`; no SSR helper) |
 | Hosting | Vercel (hosting, Web Analytics, Speed Insights) |
-| Validation | zod 4 |
-| Tests | Vitest 1.6 (unit + source-scanning guard tests), Playwright (`playwright-core` 1.49 audit harness in `scripts/`), axe-core 4.10, Lighthouse 12 |
+| Billing | Whop (`@whop/sdk`) — checkout, plus a webhook that sets the paid tier |
+| Validation | zod 4 on every API body |
+| Tests | Vitest (unit + source-scanning guard tests); Playwright, axe-core and Lighthouse scripts in `scripts/` |
+| Lint | ESLint 9, flat config in `eslint.config.mjs` |
 
-## Architecture in six bullets
+Exact versions: `package.json` / `package-lock.json`. Node **24** (`.nvmrc`,
+`engines.node` = `24.x`; the same major CI and Vercel use).
 
-- **App Router.** Pages in `app/` are server components where possible;
-  API routes are route handlers in `app/api/*`. User write routes are
-  rate-limited in Postgres and validate their body with zod; the Whop
-  webhook is authenticated by its signature instead.
-- **Row Level Security is the security boundary.** Every table in `public`
-  has RLS on. UI gates such as `AuthGate` and `PaidGate` are cosmetic — the
-  database refuses what a user may not do. See
-  [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
-- **Business logic lives in `lib/`.** Components render; `lib/` decides.
-  Database access is in `lib/db/`.
-- **One fit engine.** `lib/fit.ts` (with `lib/school-fit.ts`) is the single
-  source of the Likely / Target / Reach / Out-of-range bands; every screen
-  calls it. See [/methodology](https://seededtennis.com/methodology).
-- **Billing.** Whop checkout → Whop webhook (`app/api/whop/webhook`) →
-  `profiles.subscription_tier`, written only with the service-role key on
-  the server. The client can never write its own tier (a database trigger
-  refuses it).
-- **Two Supabase projects.** Staging `gnlcpnsweqbtwpaqhqqg` and production
-  `tfpjssmhiptbwigarxpx`. Vercel **Preview** deployments read staging;
-  **Production** reads production.
+## Folders
 
-## Local setup (staging only)
+```
+app/                 Next.js routes. Pages are server components where possible;
+  api/               route handlers: account, family, health, matches, outreach,
+                     profile, training, utr-entries, whop (checkout, sync, webhook)
+components/
+  seeded/            the design system and every current screen (ui/, layout/,
+                     dashboard/ = Today, schools/, family/, onboarding/, settings/, …)
+  auth/              sign-in, sign-up, OAuth landing
+  ui/, shared/, …    smaller shared pieces and older feature folders
+lib/                 business logic — components render, lib/ decides
+  db/                every database read/write (family scoping lives here)
+  fit/ + fit.ts      the one fit engine (projection, pace, bands); school-fit.ts
+  catalog/           imported programs and team ranges (catalog phase 1)
+  legal/             /privacy and /terms text, each claim tied to code
+  seo/, onboarding/, training/, config/, hooks/, context/, …
+  *.test.ts          tests live next to the code
+supabase/migrations/ numbered SQL migrations (0001_init … 052)
+scripts/             audit, persona and import scripts — see scripts/README.md
+docs/                the docs; docs/README.md is the index
+public/              static brand assets and images
+```
 
-> **Never point local development at production, and never sign in locally
-> with a real account.** Local dev talks to whatever Supabase project
-> `.env.local` names; use staging.
-
-Prerequisites: Node.js 24 (see `.nvmrc`; the same major CI and Vercel use)
-and npm.
+## Run it in five minutes
 
 ```bash
-git clone https://github.com/niranramprasad-beep/seeded-tennis.git
-cd seeded-tennis
+nvm use                         # or any Node 24 (.nvmrc)
 npm ci
 cp .env.local.example .env.local
+npm run dev                     # http://localhost:3000
 ```
 
-Typecheck, lint, tests and the production build need **no environment
-variables at all** — CI runs them with none. To run the app:
-
-```bash
-npm run dev
-```
-
-Open http://localhost:3000. Without Supabase variables the public pages work
-and sign-in shows a "not connected to Supabase" message. To sign in, fill
-the two public Supabase values in `.env.local` with **staging's** project
-URL and publishable key (ask the maintainer; they are the same values every
-Vercel Preview deployment ships to the browser), then **sign up** a new,
-clearly-fake account (an `@example.com` address) — the existing staging
-personas have no usable password by design.
-
-### Environment variables
-
-Every variable the code reads (`grep -rn "process.env" app lib components next.config.mjs`):
-
-| Variable | Where | Used for | Without it |
-|---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase project URL | No sign-in; public pages still work |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public | Supabase publishable (anon-role) key | Same as above |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Whop webhook / membership sync write `subscription_tier`; the staging-only catalog importer (`scripts/import-rosters.ts`, refuses production) | Billing sync refuses to run. Not needed for local development |
-| `WHOP_API_KEY` | **server only** | Whop checkout + membership lookups | Pricing page shows a clear checkout error |
-| `WHOP_WEBHOOK_SECRET` | **server only** | Verifies Whop webhook signatures | Webhook refuses every delivery |
-| `WHOP_PLAN_PLAYER_MONTHLY`, `WHOP_PLAN_PLAYER_YEARLY`, `WHOP_PLAN_FAMILY_MONTHLY`, `WHOP_PLAN_FAMILY_YEARLY` | server | The four plans on sale | That plan's checkout is unavailable |
-| `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY` | server | Legacy plans still subscribed — resolve-only, never sold | Old subscribers' tier can't be mapped |
-| `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | public | Shows "Continue with Google" when `true` | Email/password sign-in only |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` | public / server | Google Analytics (production only) | No analytics |
-| `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` | public | `true` shows the imported-programs section on /schools (catalog phase 1). Unset in every Vercel environment | Section hidden; /schools unchanged |
-| `VERCEL_URL`, `VERCEL_ENV` | set by Vercel | On a Preview deployment, Whop checkout returns to that preview's URL | Checkout returns to https://seededtennis.com |
-| `SEEDED_LOCAL_HTTP_AUDIT` | local only | Lets the audit scripts load a local production build over plain HTTP (drops `upgrade-insecure-requests` from the CSP) | Normal CSP |
-
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` is read only as a fallback name for the
-publishable key. Server-only values must never appear in client code, logs,
-screenshots or commits.
-
-## Scripts
+Typecheck, lint, tests and the build need **no environment variables** — CI
+runs them with none. Without Supabase values the public pages work and
+sign-in says it is not connected. To sign in locally, ask Niran for the
+**staging** project's URL and publishable key (the two
+`NEXT_PUBLIC_SUPABASE_*` values in `.env.local`; they are the same public
+values every Vercel Preview ships to the browser), then **sign up** a new,
+clearly-fake `@example.com` account. Never put production values in
+`.env.local`, never commit it, and never sign in with a real person's
+account.
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Dev server on http://localhost:3000 |
-| `npm run build` | Production build (`next build`) |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint CLI, `eslint . --max-warnings=0` (fails on any warning; config in `eslint.config.mjs`) |
+| `npm test` | Every Vitest test once (`vitest run`) |
+| `npm run test:tz` | The suite again in `America/New_York` and `Pacific/Auckland` |
+| `npm run lint` | `eslint . --max-warnings=0` — fails on any warning |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Every Vitest test once |
-| `npm run test:tz` | The suite again in `America/New_York` and `Pacific/Auckland` (date bugs hide in time zones) |
+| `npm run build` | Production build (`next build`); `npm run start` serves it |
 
-The full local gate, the same as CI:
+The full gate, the same as CI's `verify` job:
 
 ```bash
 rm -rf .next && npm run typecheck && npm run lint && npm test && npm run test:tz && npm run build
 ```
 
-## Testing
+### Environment variables
 
-- **Unit tests** (`*.test.ts` next to the code) — fit math, formatters,
-  billing mapping, family scoping, copy.
-- **Guard tests** — tests that read source or SQL and fail the build when a
-  known-bad pattern returns: invented data, untrue copy, a cross-user
-  `profiles` read, an RLS policy losing its Family-plan ceiling, a budget
-  write without the parent check. Each was mutation-tested (the bug was
-  re-introduced on purpose and the test had to fail). Examples:
-  `lib/db/family-scope.test.ts`, `lib/db/family-plan-lock.test.ts`,
-  `lib/db/budget-parent-only.test.ts`, `lib/copy-honesty.test.ts`.
-- **Time zones** — `npm run test:tz`.
-- **Browser harness** — Playwright scripts in `scripts/` (route audit,
-  personas, keyboard, CLS, Lighthouse). They run against a local or preview
-  build pointed at staging; see [scripts/README.md](scripts/README.md).
-- **RLS probes** — SQL that runs as the `authenticated` role with a user's
-  JWT claims inside a block that always rolls back, used on staging before a
-  migration and on production after it. Recorded in
-  [docs/HANDOFF.md](docs/HANDOFF.md) §J and `docs/GO-SEQUENCE.md`.
+Every variable the code reads. Names only — values live in Vercel and your
+local `.env.local`, never in the repo.
 
-CI (`.github/workflows/ci.yml`, job **verify**) runs on every pull request
-into `main` and every push to `main`: install → typecheck → lint → tests (UTC) → tests in
-New York and Auckland → build.
+| Variable | Where | Used for | Without it |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public | Supabase project (staging locally) | No sign-in; public pages still work |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Whop webhook / sync writing the paid tier; the staging-only catalog importer | Billing sync refuses to run. Not needed locally |
+| `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET` | **server only** | Whop checkout and membership lookups; webhook signature check | Checkout shows a clear error; webhook refuses deliveries |
+| `WHOP_PLAN_PLAYER_MONTHLY`, `WHOP_PLAN_PLAYER_YEARLY`, `WHOP_PLAN_FAMILY_MONTHLY`, `WHOP_PLAN_FAMILY_YEARLY` | server | The four plans on sale | That plan's checkout is unavailable |
+| `WHOP_PLAN_PLAYER`, `WHOP_PLAN_FAMILY` | server | Legacy plans people are still on — resolve-only, never sold. Never delete | Old subscribers' tier can't be mapped |
+| `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | public | Shows "Continue with Google" when exactly `true` | Email/password only |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `GA4_MEASUREMENT_PROTOCOL_API_SECRET` | public / server | Google Analytics (production only) | No analytics |
+| `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` | public | `true` shows the imported programs on /schools (on in production) | Section hidden |
+| `VERCEL_URL`, `VERCEL_ENV` | set by Vercel | On a Preview, Whop checkout returns to that preview | Returns to seededtennis.com |
+| `SEEDED_LOCAL_HTTP_AUDIT` | local only | Lets the audit scripts load a local production build over plain HTTP | Normal CSP |
 
-## Database and migrations
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` is read only as a fallback name for the
+publishable key.
 
-- Numbered SQL files in `supabase/migrations/`. They go to **staging first**,
-  are attack-tested there as real roles, and reach production only through
-  [docs/GO-SEQUENCE.md](docs/GO-SEQUENCE.md): fresh backup → apply → probe as
-  real roles in rolled-back transactions → record the result.
-- Two quirks if you build a database from scratch: the files do not
-  reproduce production from `0001` alone — apply
-  `025_reconcile_profiles_schema_drift.sql` too, and apply `019` before `018`
-  (production's real order). See [docs/DATABASE_SPEC.md](docs/DATABASE_SPEC.md).
-- The production ledger is the source of truth — check `list_migrations` on
-  the production project rather than this file. On 2026-11-21 it held 53
-  rows, through migration 051.
+## Environments and branch flow
 
-## Deploying
+| | Supabase project | Who reads it |
+|---|---|---|
+| **Staging** | `gnlcpnsweqbtwpaqhqqg` | Local dev (`.env.local`), every Vercel **Preview** deployment |
+| **Production** | `tfpjssmhiptbwigarxpx` | Vercel **Production** = seededtennis.com |
 
-branch from `main` → pull request → CI **verify** green → Vercel Preview
-(reads staging) → merge → Vercel deploys `main` to production.
-`main` is protected: a pull request and a green `verify` are required.
-There is no staging gate between `main` and production, so the merge is the
-release — migrations go first, per GO-SEQUENCE. Rollback: Vercel Instant
-Rollback to the previous deployment, or a revert PR.
+Flow: short-lived branch from `main` → pull request → CI **verify** green
+(typecheck, lint, tests in three time zones, build) → Vercel Preview (reads
+staging) → merge → Vercel deploys `main` to production.
 
-## Security in four lines
+`main` is protected (a PR and a green `verify` are required) and
+**auto-deploys to production with no staging gate**, so the merge is the
+release: merge only when Niran says go. Code rollback: Vercel Instant
+Rollback or a revert PR. Database changes do not roll back with the code.
 
-- RLS on every table; the client can never write privileged profile columns
-  (tier, role, family code, billing ids, email-verification state).
-- Family data is visible only inside an approved family, and only on the
-  Family plan; under-13 accounts are inert until a parent consents.
-- User write API routes are rate-limited in Postgres and fail closed.
-- Secrets live only in Vercel and local `.env.local` (git-ignored).
-  Details: [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
+## The rules that bite
 
-## Project docs
+The full rulebook is [CLAUDE.md](CLAUDE.md). The ones a newcomer breaks first:
 
-- [docs/REVIEWER_GUIDE.md](docs/REVIEWER_GUIDE.md) — start here.
-- [docs/README.md](docs/README.md) — every living doc, what it is for and when to read it.
-- [CLAUDE.md](CLAUDE.md) — the rulebook for anyone (human or AI) changing the code.
+- **No invented data, anywhere.** No made-up coach names, emails, rankings,
+  UTRs or defaults — not even as placeholders in shipped code. Missing data
+  shows an honest "Not tracked" / empty state. Guard tests fail the build if
+  invented data or an untrue claim comes back (`lib/copy-honesty.test.ts`,
+  `lib/db/schools-catalog-honesty.test.ts`, …).
+- **Row Level Security is the security boundary.** Every table has RLS on;
+  `AuthGate` / `PaidGate` in the UI are cosmetic. Never write privileged
+  `profiles` columns from the client (tier, role, family code, billing ids,
+  email-verification state), and never read another user's `profiles` row —
+  family data goes through `lib/db/family-scope.ts`. Before touching auth,
+  RLS, family or billing: [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
+- **Migrations follow the runbook.** Staging first, attack-tested as real
+  roles, then production only on Niran's explicit go, after a backup, and
+  **before** the code that needs them —
+  [docs/HANDOFF.md](docs/HANDOFF.md) §J "How to ship a migration to
+  production". The repo does not rebuild production from `0001` alone
+  ([docs/DATABASE_SPEC.md](docs/DATABASE_SPEC.md)).
+- **UTR is never fetched or scraped.** A UTR profile link plus the player's
+  own manual check-ins, nothing else. The in-memory `currentUTR` of `0` means
+  "no rating" and must never reach Postgres (CLAUDE.md "The UTR placeholder").
+- **One fit engine.** Every band comes from `lib/fit.ts` / `classifySchoolFit`
+  with a real projection — never a second calculation in a component.
+- **Prices live only in `TIER_PRICE_USD`** (`lib/types.ts`). Never retype one.
+- **No secrets anywhere in the repo** — code, docs, logs, screenshots,
+  commits. Names only. The repo is public.
+
+## Read next
+
+1. [docs/README.md](docs/README.md) — the index: every doc, what it is for, when to read it.
+2. [docs/MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md) — what is live, what blocks launch, the next ten tasks.
+3. [docs/REVIEWER_GUIDE.md](docs/REVIEWER_GUIDE.md) — a ten-minute tour of the code.
+4. [docs/TODO.md](docs/TODO.md) — every open item, before you start in an area.
+5. [CLAUDE.md](CLAUDE.md) — the rules, and the history behind each one.
