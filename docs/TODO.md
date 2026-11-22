@@ -388,12 +388,22 @@ banner), or point Whop's return URL at `/today?checkout=success`.
 
 ### Design polish round 2 (open from round 1, 2026-11-22)
 
-Round 1 (`herdy-work`, PR #37) is merged. Open from it (DECISIONS
-2026-11-22; the Figma file named there is the reference where it differs
-from the mockups): SeededCard/Pill primitives and their migration, the copy
-cuts in [`COPY_CUTS.md`](COPY_CUTS.md), signup field order, the family page,
-the sample-report header when signed in, section motion, a visual check.
-MASTER_ROADMAP NEXT 10 #4.
+Round 1 (`herdy-work`, PR #37) is merged; round 2 (`herdy-work` again,
+2026-11-22 evening) does the rest: the remaining copy cuts, static pills on
+`Pill`, the family page polish, the signed-in sample-report CTA and CSS-only
+section motion. Signup field order shipped in PR #39.
+Still open:
+- **A signed-in visual check on staging** (light/dark, 1440/390). Round 2
+  was checked only on the public pages and the `/dev` previews, with
+  placeholder Supabase values.
+- **Interactive chips** (filters, toggles, result chips, the division chip
+  on the checklist, the dashed `DataNote` chip) were left as they are on
+  purpose; they are not status pills.
+- `bandPositionLabel` (lib/school-fit.ts) and `schoolPageUtrRow().chipSuffix`
+  have no screen caller since the school page dropped its band-position
+  chip; only tests read them. Delete with their tests, or keep on purpose.
+- Sidebar footer now reads "Billing" (was "Parent · Billing", mockup 18).
+  Niran to confirm.
 
 ### Parent dashboard upgrade (Niran's #1, 2026-11-16)
 

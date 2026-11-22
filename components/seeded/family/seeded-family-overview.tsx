@@ -226,7 +226,9 @@ export function SeededFamilyOverview({ schools }: { schools: SchoolLite[] }) {
       <div key="family-overview" className={L.PAGE}>
         <DashboardBody
           model={model}
-          eyebrow={now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          // The computed season ("Fall 2026"), never the budget's editable
+          // label: that is free text and could overflow the 16px eyebrow.
+          eyebrow={seasonTitle(now)}
           playerNote={multiPlayerNote(members.data ?? [], firstName)}
           canEditBudget={canEdit}
           onSendNote={() => setNoteOpen(true)}

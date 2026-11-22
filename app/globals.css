@@ -557,3 +557,22 @@ html[data-session][data-role="parent"][data-schools-shape="nofit"] .pre-session-
 html[data-session][data-schools-shape="prompt"] .pre-session-hide {
   display: block;
 }
+
+/* Design polish round 1 (Figma 03 Motion): sections fade up 8px as they
+   scroll into view. CSS only — no JavaScript, so nothing is hidden waiting
+   for hydration (the reason the old framer-motion Reveal was removed,
+   2026-11-20). Browsers without scroll-driven animations, and anyone who
+   asks for reduced motion, simply see the content with no animation. */
+@keyframes seeded-reveal-up {
+  from { opacity: 0.001; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .seeded-reveal {
+      animation: seeded-reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}

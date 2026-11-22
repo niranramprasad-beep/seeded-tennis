@@ -15,6 +15,7 @@ import {
   type PaidPlanDescription,
 } from "@/lib/billing-view";
 import { DataNote } from "@/components/seeded/ui/data-note";
+import { Pill } from "@/components/seeded/ui/pill";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -45,17 +46,9 @@ const secondaryLink = cn(seededButtonVariants({ variant: "secondary" }), FOCUS);
 
 function Chip({ tone, children }: { tone: "active" | "neutral" | "warning"; children: ReactNode }) {
   return (
-    <span
-      className={cn(
-        "inline-flex w-fit items-center whitespace-nowrap rounded-pill border px-2.5 py-1 text-xs font-semibold",
-        tone === "active" && "border-grass-100 bg-grass-50 text-grass",
-        tone === "neutral" && "border-line bg-card text-stone",
-        tone === "warning" &&
-          "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]"
-      )}
-    >
+    <Pill tone={tone === "active" ? "green" : tone === "warning" ? "gold" : "neutral"} className="w-fit">
       {children}
-    </span>
+    </Pill>
   );
 }
 

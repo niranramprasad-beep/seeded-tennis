@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, Eye } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarDays, Eye, School, TrendingUp, Wallet, type LucideIcon } from "lucide-react";
+import { Pill } from "@/components/seeded/ui/pill";
 import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import type { BudgetBar, ParentDashboardModel, WeekAction } from "@/lib/parent-dashboard";
 import { formatMoney } from "@/lib/parent-dashboard";
@@ -59,11 +60,10 @@ export function DashboardBody({
           <p className={L.EYEBROW}>{eyebrow}</p>
           <Title className={L.H1}>{child}&rsquo;s season</Title>
           <div className={L.PILL_ROW}>
-            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border border-line bg-card px-3 text-sm font-medium text-stone">
-              <Eye className="h-4 w-4 text-grass" aria-hidden />
-              Read-only · {child}
-              {model.classYear != null && <>, Class of {model.classYear}</>}
-            </span>
+            {/* The H1 already names the player (22 Nov copy cut). */}
+            <Pill tone="neutral" icon={<Eye className="h-3.5 w-3.5 text-grass" aria-hidden />}>
+              Read-only{model.classYear != null && <> · Class of {model.classYear}</>}
+            </Pill>
             {playerNote && <span className="text-sm text-stone">{playerNote}</span>}
           </div>
         </div>
@@ -77,7 +77,7 @@ export function DashboardBody({
       </div>
 
       <div className={L.KPI_ROW}>
-        <KpiCard label="UTR">
+        <KpiCard label="UTR" icon={TrendingUp} tint="green">
           <p className={cn("mt-2 text-ink", model.utr.hasUtr ? "font-mono text-[30px] leading-9" : "font-seeded text-2xl font-semibold leading-9")}>
             {model.utr.value}
           </p>
@@ -106,12 +106,12 @@ export function DashboardBody({
           </p>
         </KpiCard>
 
-        <KpiCard label="Target schools">
+        <KpiCard label="Target schools" icon={School} tint="sage">
           <p className="mt-2 font-mono text-[30px] leading-9 text-ink">{model.targets.value}</p>
           <p className="mt-auto pt-3 text-sm text-stone">{model.targets.sentence}</p>
         </KpiCard>
 
-        <KpiCard label="Season spend">
+        <KpiCard label="Season spend" icon={Wallet} tint="gold">
           <p className="mt-2 font-mono text-[30px] leading-9 text-ink">{model.spend.value}</p>
           <p className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-sm text-stone">
             <span className={cn(model.spend.status != null && "font-mono")}>{model.spend.detail}</span>
@@ -120,7 +120,7 @@ export function DashboardBody({
           </p>
         </KpiCard>
 
-        <KpiCard label="Next event">
+        <KpiCard label="Next event" icon={CalendarDays} tint="neutral">
           {model.nextEvent ? (
             <>
               <p className="mt-2 line-clamp-2 font-seeded text-lg font-semibold leading-6 text-ink">{model.nextEvent.name}</p>
@@ -132,7 +132,6 @@ export function DashboardBody({
           ) : (
             <>
               <p className="mt-2 font-seeded text-lg font-semibold leading-6 text-ink">Nothing coming up</p>
-              <p className="mt-auto pt-3 text-sm text-stone">Events {child} saves show up here.</p>
             </>
           )}
         </KpiCard>
@@ -154,8 +153,7 @@ export function DashboardBody({
           ) : (
             <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-input px-6 text-center">
               <p className="max-w-sm text-sm text-stone">
-                <strong className="text-ink">No UTR yet.</strong> When {child} logs a rating, the trend and an estimate
-                to the summer before senior year show here.
+                <strong className="text-ink">No UTR yet.</strong> The trend shows once {child} logs a rating.
               </p>
             </div>
           )}
@@ -163,7 +161,7 @@ export function DashboardBody({
         <div className={L.CHART_FOOT}>
           {model.chart && <p className="text-[15px] text-ink">{model.chartCaption}</p>}
           {model.chart?.targetFloor != null && (
-            <DataNote className="mt-2">Where target schools start is our estimate of team level, not a published roster.</DataNote>
+            <DataNote className="mt-2">Target-school line: our estimate, not a published roster.</DataNote>
           )}
         </div>
       </section>
@@ -185,7 +183,9 @@ export function DashboardBody({
           </div>
           {model.budget.hasBudget ? (
             <>
-              <BudgetRow bar={model.budget.total} strong />
+              {/* The total's near/over state is already the KPI chip above and
+                  the sentence below; saying it a third time here was noise. */}
+              <BudgetRow bar={model.budget.total} strong hideStatus />
               <ul className="mt-2 flex flex-col">
                 {model.budget.categories.map((c) => (
                   <li key={c.key}>
@@ -212,8 +212,8 @@ export function DashboardBody({
               title="No season budget yet."
               description={
                 canEditBudget
-                  ? "Set a total, and entered tournaments and logged expenses count against it."
-                  : "A parent can set one, and entered tournaments and logged expenses count against it."
+                  ? "Set a total to track spend."
+                  : "A parent can set a total to track spend."
               }
             />
           )}
@@ -245,11 +245,7 @@ export function DashboardBody({
               ))}
             </ul>
           ) : (
-            <EmptyState
-              className="mt-4"
-              title="No spend logged yet."
-              description="Logged expenses and entered tournaments show up here."
-            />
+            <EmptyState className="mt-4" title="No spend logged yet." />
           )}
         </section>
 
@@ -300,7 +296,7 @@ export function DashboardBody({
               ))}
             </ul>
           ) : (
-            <EmptyState className="mt-4" title="Nothing needs you this week." description={`New results, spend and events for ${child} show up here.`} />
+            <EmptyState className="mt-4" title="Nothing needs you this week." />
           )}
         </section>
       </div>
@@ -308,10 +304,34 @@ export function DashboardBody({
   );
 }
 
-function KpiCard({ label, children }: { label: string; children: ReactNode }) {
+// Design polish round 1 (Figma 03 Stat tile): a tinted icon tile beside the
+// label, from the palette's existing tints.
+const KPI_TINT = {
+  green: "border-grass-100 bg-grass-50 text-grass",
+  sage: "border-[rgb(var(--c-sage-tint-border))] bg-[rgb(var(--c-sage-tint-bg))] text-[rgb(var(--c-sage-tint-text))]",
+  gold: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",
+  neutral: "border-line bg-panel text-stone",
+} as const;
+
+function KpiCard({
+  label,
+  icon: Icon,
+  tint,
+  children,
+}: {
+  label: string;
+  icon: LucideIcon;
+  tint: keyof typeof KPI_TINT;
+  children: ReactNode;
+}) {
   return (
     <div className={L.KPI_CARD}>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone">{label}</p>
+      <p className="flex items-center gap-2 text-sm font-semibold text-stone">
+        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border", KPI_TINT[tint])}>
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        {label}
+      </p>
       {children}
     </div>
   );
@@ -334,15 +354,15 @@ function StatusChip({ tone, children }: { tone: "near" | "over"; children: React
 
 /** One budget line: label, mono amounts, a bar, and — whenever the colour
  *  means something — a chip that says it in words. */
-function BudgetRow({ bar, strong = false }: { bar: BudgetBar; strong?: boolean }) {
+function BudgetRow({ bar, strong = false, hideStatus = false }: { bar: BudgetBar; strong?: boolean; hideStatus?: boolean }) {
   const fill = bar.status === "over" ? "bg-error" : bar.status === "near" ? "bg-gold" : "bg-grass";
   return (
     <div className={cn("py-2", strong && "mt-3")}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
         <span className={cn("flex items-center gap-2", strong ? "font-semibold text-ink" : "text-ink")}>
           {bar.label}
-          {bar.status === "near" && <StatusChip tone="near">Near limit</StatusChip>}
-          {bar.status === "over" && <StatusChip tone="over">Over by {formatMoney(bar.overBy ?? 0)}</StatusChip>}
+          {!hideStatus && bar.status === "near" && <StatusChip tone="near">Near limit</StatusChip>}
+          {!hideStatus && bar.status === "over" && <StatusChip tone="over">Over by {formatMoney(bar.overBy ?? 0)}</StatusChip>}
         </span>
         <span className="font-mono text-stone">
           <span className="text-ink">{formatMoney(bar.spent)}</span>

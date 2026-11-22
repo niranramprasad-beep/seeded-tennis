@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import useSWR from "swr";
-import { ArrowLeft, Building2, User } from "lucide-react";
+import { ArrowLeft, Building2, Star, User } from "lucide-react";
 import type { School } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { bandPositionLabel, explainSchoolFit, fitGaps, schoolUtrRange, utrToPct } from "@/lib/school-fit";
+import { explainSchoolFit, fitGaps, schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { loadCoachOutreach } from "@/lib/db/outreach";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
@@ -27,7 +27,6 @@ import { formatDate, parseLocalDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
-import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
@@ -142,11 +141,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
 
-  // Same shared star-to-target mechanism as the Schools browser and Plan —
-  // optimistic update, Undo toast, silent rollback on a real write
-  // failure. "Save to targets" below is this page's existing text-button
-  // affordance for the exact same action; the star icon next to the title
-  // is the new one, both wired to the same toggleStar call.
+  // One text-and-star control uses the shared target mechanism, including
+  // the Free cap, optimistic update, Undo toast and rollback on failure.
   const { isStarred, toggleStar, toast, dismissToast, canStar } = useStarSchools();
   const saved = isStarred(school.slug);
   // Before the session resolves, `player.role` is the default ("player"),
@@ -171,9 +167,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   // pace formatter, and — when it is faster than the planning cap — the
   // upside sentence. Both from the report; nothing is computed here.
   const ownPace = judging?.source === "logged-pace" && judging.pace ? judging.pace.perYear : null;
-  const paceSentence =
-    (ownPace != null ? ` ${Whose} pace: ${formatPacePerYear(ownPace)}.` : "") +
-    (paceUpsideSentence(judging, subjectFirst) ? ` ${paceUpsideSentence(judging, subjectFirst)}` : "");
+  const upside = paceUpsideSentence(judging, subjectFirst);
+  const paceSentence = (ownPace != null ? ` ${Whose} pace: ${formatPacePerYear(ownPace)}.` : "") + (upside ? ` ${upside}` : "");
   const paceDescription =
     pace.status !== "ready"
       ? subjectFirst
@@ -181,17 +176,17 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         : "Log a UTR to see your pace."
       : !pace.isProjected
         ? `Judged on ${whose} rating today, ${formatPlayerUtr(pace.projectedUTR)}: the summer before senior year ${seniorSummerVerb(seniorSummerPhase(parseLocalDate(pace.byDate).getFullYear()))}.`
-        : `Estimated ${formatUtrEstimate(pace.projectedUTR)} by ${formatDate(pace.byDate)}.` +
-          paceSentence +
+        : `Estimated ${formatUtrEstimate(pace.projectedUTR)} by ${formatDate(pace.byDate)}` +
           (pace.loggedPaceReachesFloor === true
-            ? ` At the pace we plan with, ${whose} logged ratings reach this team's floor by then.`
+            ? `; at the pace we plan with, ${whose} logged ratings reach this team's floor.`
             : pace.loggedPaceReachesFloor === false
-              ? ` At the pace we plan with, ${whose} logged ratings don't reach this team's floor by then.`
+              ? `; at the pace we plan with, ${whose} logged ratings don't reach this team's floor.`
               : explanation.band === "reach"
                 ? subjectFirst
-                  ? ` Three logged ratings will show whether ${whose} own pace reaches the floor.`
-                  : " Log 3 ratings to see whether your own pace reaches the floor."
-                : "");
+                  ? `; three logged ratings will show whether ${whose} pace reaches the floor.`
+                  : "; log 3 ratings to see whether your pace reaches the floor."
+                : ".") +
+          paceSentence;
 
   const fitSkeleton = (
     <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
@@ -221,7 +216,6 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         <FitDriverRow
           label="UTR"
           description={utrRow?.description ?? ""}
-          chip={bandPositionLabel(explanation.band) + (utrRow?.chipSuffix ?? "")}
         />
       )}
       <FitDriverRow label="Pace" description={paceDescription} />
@@ -254,7 +248,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
     <div className="flex min-w-0 flex-col rounded-card border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">
-          {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
+          {subjectFirst ? `${subjectFirst} vs team range` : "You vs team range"}
         </h2>
         <EstimateChip />
       </div>
@@ -282,7 +276,6 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
         />
       </div>
-      <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>
 
       {/* "Academics and cost" was its own card in the row below, two
           sentences in a box sized to its taller neighbour, while this card
@@ -300,8 +293,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
               was jargon about a Seeded-only ranking. The rank a family can
               check is the U.S. News one. */}
-          {academicRankSentence(school.usNewsRanking)} No cost or aid data here; ask the school&apos;s aid
-          office.
+          {academicRankSentence(school.usNewsRanking)} Cost and aid: Not tracked; ask the aid office.
         </p>
       </div>
     </div>
@@ -332,16 +324,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-1.5">
-              {canStar && (
-                <StarButton
-                  starred={saved}
-                  onToggle={() => toggleStar(school.slug, school.shortName)}
-                  label={school.shortName}
-                  className={playerOnlyUntilHydrated}
-                />
-              )}
-              {/* sm and up only, like the /schools rows: on a 320px phone the star,
-                  this 48px tile and a 34px one-word school name overflowed. */}
+              {/* Keep the tile off narrow phones, like the /schools rows. */}
               <SchoolMonogram name={school.shortName} division={school.division} size="lg" className="mr-1.5 hidden sm:inline-flex" />
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
                 {school.name} · {programType} tennis
@@ -350,16 +333,6 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
             <p className="mt-1.5 text-stone">
               {school.division} · {school.conference} · {school.city}, {school.state}
             </p>
-            <div className="mt-2.5">
-              <a
-                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
-                  `Wrong data on ${school.name}`
-                )}`}
-                className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-3 text-sm font-semibold text-stone hover:text-ink sm:min-h-8"
-              >
-                Report an error
-              </a>
-            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -372,8 +345,10 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
               <SeededButton
                 variant={saved ? "secondary" : "primary"}
                 onClick={() => toggleStar(school.slug, school.shortName)}
+                aria-pressed={saved}
                 className={playerOnlyUntilHydrated}
               >
+                <Star className={cn("h-[18px] w-[18px]", saved && "fill-current")} aria-hidden />
                 {saved ? "Saved to targets" : "Save to targets"}
               </SeededButton>
             )}
@@ -409,6 +384,14 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
             </div>
           )}
         </div>
+        <a
+          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+            `Wrong data on ${school.name}`
+          )}`}
+          className="mt-5 inline-flex min-h-11 items-center text-xs text-stone underline-offset-4 hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          Report an error
+        </a>
       </div>
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
         {toast?.message ?? " "}
@@ -420,27 +403,14 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
 function FitDriverRow({
   label,
   description,
-  chip,
 }: {
   label: string;
   description: string;
-  /** Only for a fact about THIS row (the band position) — never a caveat. */
-  chip?: string;
 }) {
   return (
-    // The chip always sits UNDER the description, at every width. In an
-    // `auto` third column a long chip ("Between floor and average by summer
-    // 2030 (est.)") pushed the card to 609px on a 375px phone, and at 1440
-    // — half a 1200px page — it squeezed the UTR row's description into a
-    // ~150px column of one-word lines (D7).
     <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)]">
       <span className="font-semibold text-ink">{label}</span>
       <span className="min-w-0 text-stone">{description}</span>
-      {chip && (
-        <span className="col-start-2 inline-flex items-center justify-self-start rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-          {chip}
-        </span>
-      )}
     </div>
   );
 }

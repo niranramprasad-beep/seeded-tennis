@@ -133,8 +133,8 @@ export function pickFamilyPlayer<
  * (RLS: is_parent_member, 033) and nothing else.
  */
 export function parentSidebarNote(playerFirst: string | null): string {
-  if (!playerFirst) return "No player has joined your family yet. You can edit the budget and send notes.";
-  return `You're viewing ${playerFirst}'s account. You can edit the budget and send notes. Everything else is ${playerFirst}'s.`;
+  if (!playerFirst) return "No player has joined your family yet. You can edit: budget, notes.";
+  return "You can edit: budget, notes.";
 }
 
 /**

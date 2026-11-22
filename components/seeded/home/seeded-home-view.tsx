@@ -14,6 +14,7 @@ import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import { FIT_BAND_LABEL, FIT_BAND_RULE, FIT_BAND_TONE, FitBandIcon } from "@/components/seeded/ui/fit-badge";
 import { utrChange } from "@/lib/utr-percent";
 import { cn } from "@/lib/utils";
+import { Pill } from "@/components/seeded/ui/pill";
 import { Reveal } from "@/components/shared/reveal";
 import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/heading";
 
@@ -496,25 +497,15 @@ function WhatItDoes() {
               )}
               {c.title === "Compete smarter" && (
                 <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
-                    Good fit · L3 Richmond
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-clay-tint-text))]">
-                    Skip · L5 Bethesda
-                  </span>
+                  <Pill tone="green">Good fit · L3 Richmond</Pill>
+                  <Pill tone="clay">Skip · L5 Bethesda</Pill>
                 </div>
               )}
               {c.title === "Reach out on time" && (
                 <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[13px]">
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-                    Emailed 8
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-                    Replied 3
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
-                    2 follow-ups due
-                  </span>
+                  <Pill tone="neutral">Emailed 8</Pill>
+                  <Pill tone="neutral">Replied 3</Pill>
+                  <Pill tone="gold">2 follow-ups due</Pill>
                 </div>
               )}
             </div>

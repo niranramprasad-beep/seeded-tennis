@@ -9,6 +9,7 @@ import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { AddToCalendarButton } from "@/components/seeded/ui/add-to-calendar-button";
 import { tournamentIcsEvent } from "@/lib/ics-items";
+import { Pill, type PillTone } from "@/components/seeded/ui/pill";
 import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 
@@ -16,31 +17,17 @@ import { formatShortDate } from "@/lib/time";
 // verdict card: green = Worth it, gold = Worth a look, clay = Skip it. The
 // three words are the checker's own headlines, so a tournament reads the
 // same on both screens. ("Worth a look" used to show as "Skip it" here.)
-const VERDICT_CHIP: Record<Verdict, { label: string; className: string }> = {
-  good: { label: "Worth it", className: "border-grass-100 bg-grass-50 text-grass" },
-  decent: {
-    label: "Worth a look",
-    className:
-      "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",
-  },
-  bad: {
-    label: "Skip it",
-    className:
-      "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))]",
-  },
+const VERDICT_CHIP: Record<Verdict, { label: string; tone: PillTone }> = {
+  good: { label: "Worth it", tone: "green" },
+  decent: { label: "Worth a look", tone: "gold" },
+  bad: { label: "Skip it", tone: "clay" },
 };
-const NEUTRAL_CLASS = "border-line bg-card text-stone";
 
-function Chip({ className, children }: { className: string; children: ReactNode }) {
+function Chip({ tone, children }: { tone: PillTone; children: ReactNode }) {
   return (
-    <span
-      className={cn(
-        "inline-flex w-fit shrink-0 items-center whitespace-nowrap rounded-pill border px-2.5 py-1 text-xs font-semibold",
-        className
-      )}
-    >
+    <Pill tone={tone} className="w-fit shrink-0">
       {children}
-    </span>
+    </Pill>
   );
 }
 
@@ -135,7 +122,7 @@ export function UpcomingTournamentsCard({
                   </div>
                   {fit ? (
                     <>
-                      <Chip className={VERDICT_CHIP[fit.verdict].className}>{VERDICT_CHIP[fit.verdict].label}</Chip>
+                      <Chip tone={VERDICT_CHIP[fit.verdict].tone}>{VERDICT_CHIP[fit.verdict].label}</Chip>
                       <SeededButton
                         variant="secondary"
                         className="min-h-11 px-4 sm:min-h-[38px]"
@@ -146,7 +133,7 @@ export function UpcomingTournamentsCard({
                       </SeededButton>
                     </>
                   ) : (
-                    <Chip className={NEUTRAL_CLASS}>No verdict</Chip>
+                    <Chip tone="neutral">No verdict</Chip>
                   )}
                 </div>
                 {noVerdictReason && <p className="mt-1.5 text-sm text-stone sm:ml-[72px]">{noVerdictReason}</p>}

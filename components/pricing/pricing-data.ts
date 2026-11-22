@@ -45,18 +45,9 @@ export function tierIncludes(tier: SubscriptionTier, required: SubscriptionTier)
 
 // ---------------------------------------------------------------- prices
 
-/** "$45" — same shape as formatTierPrice, for an amount that is not a list
- * price (the yearly saving). This is Seeded's own subscription price, not a
- * school's cost, which is what the per-year price guard in
- * lib/no-invented-school-data.test.ts is about. */
+/** Twelve monthly payments, for comparison with the yearly price. */
 function formatUsd(amount: number): string {
   return "$" + amount;
-}
-
-/** What a year saves against twelve monthly payments, in dollars. */
-function yearlySavingsUsd(tier: SubscriptionTier): number {
-  const { monthly, yearly } = TIER_PRICE_USD[tier];
-  return monthly * 12 - yearly;
 }
 
 /**
@@ -94,7 +85,7 @@ export function priceBlockFor(tier: SubscriptionTier, interval: BillingInterval)
     return {
       amount: formatTierPrice(tier, "yearly"),
       cadence: "per year",
-      note: `About ${yearlyAsMonthlyLabel(tier)} a month. Saves ${formatUsd(yearlySavingsUsd(tier))} a year.`,
+      note: `About ${yearlyAsMonthlyLabel(tier)} a month.`,
       wasAmount: formatUsd(TIER_PRICE_USD[tier].monthly * 12),
     };
   }

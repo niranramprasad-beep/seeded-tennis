@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { SeededMark } from "@/components/seeded/icons";
 import type { ReactNode } from "react";
 import { DataChip } from "@/components/seeded/ui/data-chip";
+import { SampleReportCta } from "./sample-report-cta";
 import { cn } from "@/lib/utils";
 
 // 2026-11-15 overnight: REWRITTEN TO MATCH THE REAL REPORT. This page sold
@@ -111,12 +112,7 @@ export function SampleReportView() {
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Back to Seeded
           </Link>
-          <Link
-            href="/onboarding"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
-          >
-            Get my free fit report
-          </Link>
+          <SampleReportCta />
         </div>
       </header>
 

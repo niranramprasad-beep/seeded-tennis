@@ -9,7 +9,7 @@ export type PillTone = "neutral" | "green" | "clay" | "sage" | "gold";
 
 const TONE: Record<PillTone, string> = {
   neutral: "border-line bg-card text-stone",
-  green: "border-grass-100 bg-grass-50 text-grass-700",
+  green: "border-grass-100 bg-grass-50 text-grass",
   clay: "border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))]",
   sage: "border-[rgb(var(--c-sage-tint-border))] bg-[rgb(var(--c-sage-tint-bg))] text-[rgb(var(--c-sage-tint-text))]",
   gold: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]",

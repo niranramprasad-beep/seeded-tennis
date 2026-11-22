@@ -38,8 +38,12 @@ export function FamilyDashboardSkeleton({ label = "Loading your family…" }: { 
         <div className={L.KPI_ROW}>
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className={L.KPI_CARD}>
-              <div className={cn("h-3 w-20", bar)} />
-              <div className={cn("mt-3 h-8 w-24", bar)} />
+              {/* Icon tile + label row (28px), as KpiCard draws it. */}
+              <div className="flex items-center gap-2">
+                <div className={cn("h-7 w-7 rounded-lg", bar)} />
+                <div className={cn("h-3 w-20", bar)} />
+              </div>
+              <div className={cn("mt-2 h-8 w-24", bar)} />
               <div className={cn("mt-auto h-4 w-36", bar)} />
             </div>
           ))}

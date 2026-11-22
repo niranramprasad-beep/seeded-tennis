@@ -59,6 +59,18 @@ docs reorganisation).
   no fake clickable affordances, percent-first comparisons, one fit-band
   pill component, landing layout and logo fixes. Still needs a real Google
   sign-in test by Niran (TODO).
+- **Design polish round 2** (branch `herdy-work`, 2026-11-22 evening; no
+  migration, palette unchanged): the remaining `COPY_CUTS.md` cuts on the
+  sidebar, pricing, Schools and the school page (honesty labels shortened,
+  never cut; pinned tests updated deliberately); static status pills use the
+  shared `Pill`; the family page gets icon KPI tiles, one read-only pill, the
+  computed season as its eyebrow, the over-budget state said twice not three
+  times, shorter empty states, and a skeleton the same height as the cards;
+  sections fade up as they scroll in, CSS only (`.seeded-reveal`, nothing
+  hidden waiting for JavaScript, off under reduced motion); the sample
+  report offers a signed-in visitor "Back to Today/Family" instead of a
+  sign-up. Still open: the parent dashboard upgrade (TODO §4), a real
+  signed-in visual check on staging.
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly
