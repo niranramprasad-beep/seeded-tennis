@@ -20,9 +20,10 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
-**2026-11-21 — Parent-approval rule built on STAGING (migration 052, branch
-`feat/parent-approval-rule`; P-015 / S-005; NOT on production — waits for
-Niran's go after the review).** Niran's decision: a player may approve only a
+**2026-11-21 — Parent-approval rule (migration 052, branch
+`feat/parent-approval-rule`; P-015 / S-005). Built and probed on staging
+2026-11-21; applied to PRODUCTION 2026-11-22 on Niran's go, after a fresh
+backup, and the 35-case probe re-run there (rolled back).** Niran's decision: a player may approve only a
 family's FIRST parent; once the family has a parent of its own, only such a
 parent approves another parent (42501 `parent_approval_requires_parent`), and
 only such a parent removes one (42501 `parents_only_remove_parent`). Player
@@ -46,6 +47,26 @@ later parents and cannot be removed by a player. Follow-ups: production
 (GO-SEQUENCE row 27, HANDOFF §J Step 27); the "approved by" line in Settings
 → Family; `deny_family_join()` still lets any member decline a pending
 parent (TODO).
+
+**2026-11-21 (night) — The owner's "College Tennis UTR Database" imported
+(branch `feat/utr-database-import`, PR #36; no migration). Staging first;
+PRODUCTION on 2026-11-22 on Niran's go (`--target production`, after a
+backup): 35 programs, 135 class-count rows, 34 ranges, current ranges
+checksum-identical to staging; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` set
+on Vercel production.** Mentor-meeting action item. `scripts/import-utr-database.ts` +
+`lib/catalog/utr-database.ts` read the sheet's Teams and Players tabs (CSV
+exports kept outside the repo) and write `programs`, class counts and the
+first `hand_curated` `team_ranges`: staging went from 179 programs / 0
+ranges to 214 / 34 (35 programs, 33 ACC + 2 SEC men; Pittsburgh women and
+California women's range held — see DATA_QUALITY "Second source"). Rows on
+staging checksum-identical to the importer's output. No player data stored
+(test). The phase-1 section now renders on Vercel PREVIEW builds (they read
+staging) and, with the flag, on production.
+`legacy-match` learned UNC ("… at Chapel Hill"). Range rule (owner's
+decision, same night): floor = lower quartile, middle = median, top =
+highest, inclusive quartiles as in Google Sheets — see DATA_QUALITY. Still open
+for the owner: UTR licensing, and replacing the 15 legacy estimates these
+duplicate.
 
 **2026-11-21 — Google sign-in shows the signed-in app without a refresh
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in
@@ -1724,8 +1745,13 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    "Who may approve a parent joiner"). Then the decided post-checkout Whop
    re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
-   enter ranges by hand from official rosters in `/admin/team-ranges`, then
-   turn the flag on. Every band still rests on labelled estimates until then.
+   34 hand-curated ACC/SEC ranges from the owner's UTR database are on
+   STAGING (`feat/utr-database-import`, 2026-11-21; floor = lower quartile,
+   middle = median, decided). Next: the owner decides UTR licensing
+   (DATA_QUALITY "Second source"), the same
+   import runs on production on their go, rated imported programs feed the
+   bands in place of the legacy estimates they duplicate, then the flag goes
+   on. Every production band still rests on labelled estimates until then.
 3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (139
    uses in 38 non-test files, re-measured 2026-11-21); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
 4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*) — decided
