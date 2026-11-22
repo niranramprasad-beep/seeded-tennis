@@ -70,7 +70,8 @@ change.
    Production" (instant; code only).
 2. Database changes do **not** roll back with the code. Use the migration's
    written rollback from HANDOFF §J — rehearsed ones only.
-3. Note the incident in `docs/CHANGELOG.md`.
+3. Note the incident as a dated entry at the top of
+   `docs/archive/ROADMAP_HISTORY.md`'s log.
 
 ## Environment variables
 Names and purpose: `.env.example` (it does not yet list

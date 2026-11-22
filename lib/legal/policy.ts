@@ -85,7 +85,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     // the budget — proved through real auth, not inferred. 050 makes it
     // role-aware (caller's own profiles.role = 'parent' AND approved), and the
     // disclosure was deleted in the same commit rather than reworded, per
-    // docs/TODO.md. Attack-tested both ways on staging and production:
+    // docs/archive/TODO_DONE.md. Attack-tested both ways on staging and production:
     // ~/seeded-evidence/review-ready/r4-rls/.
     //
     // The removal sentence below was FALSE when 036 first shipped it, for

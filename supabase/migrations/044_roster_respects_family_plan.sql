@@ -2,7 +2,7 @@
 --
 -- STATUS: written 2026-11-18 for PR B. Applied and probed on STAGING
 -- (gnlcpnsweqbtwpaqhqqg) only. Production gets it after 042, on Niran's go,
--- per docs/GO-SEQUENCE.md §3b and docs/HANDOFF.md §J Step 19. Needs 038
+-- per docs/archive/GO-SEQUENCE.md §3b and docs/HANDOFF.md §J Step 19. Needs 038
 -- (the definition replaced here) and 042 (family_has_tier).
 --
 -- ===========================================================================

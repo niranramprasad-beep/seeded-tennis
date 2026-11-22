@@ -1,10 +1,12 @@
 # Seeded — Handoff
 
-**What this file is now (2026-11-20):** the production rollout runbook.
-- **§J** is the step-by-step plan for every production migration (Steps 1–26:
-  migrations 022–051), each with its pre-flight, verify-as-real-roles and a
-  pasteable rollback. `docs/GO-SEQUENCE.md` is the one-page order that points
-  into it.
+**What this file is now (2026-11-22):** the production migration runbook.
+- **§J** starts with [how to ship a migration to production](#how-to-ship-a-migration-to-production)
+  (the procedure every new migration follows), then the step-by-step record
+  of every production migration (Steps 1–27: migrations 022–052), each with
+  its pre-flight, verify-as-real-roles and a pasteable rollback. The
+  one-page order used for the 2026-11-16 launch and its per-migration rows
+  are archived in [archive/GO-SEQUENCE.md](archive/GO-SEQUENCE.md).
 - **§K** is the Whop billing incident and the dashboard steps that fixed it.
 - Sections **A–I** (product, stack, architecture, routes, database,
   decisions, state, TODO, gotchas — written 2026-11-10) were history and
@@ -14,20 +16,73 @@
   [MASTER_ROADMAP.md](MASTER_ROADMAP.md), [TODO.md](TODO.md).
 
 ## Contents
-- [J. Production rollout plan](#j-production-rollout-plan--p0-1-p0-2-p1-price-1-written-2026-11-14) — Steps 1–14d (022–040, launch, 2026-11-16), Step 15 (the `v1` → `main` merge), Steps 16–20 (PR B, 041–045), Steps 21–23 (PR D and 049), Step 24 (050), Step 25 (048)
+- [J. Production rollout plan](#j-production-rollout-plan--p0-1-p0-2-p1-price-1-written-2026-11-14) — [How to ship a migration to production](#how-to-ship-a-migration-to-production); Steps 1–14d (022–040, launch, 2026-11-16), Step 15 (the `v1` → `main` merge), Steps 16–20 (PR B, 041–045), Steps 21–23 (PR D and 049), Step 24 (050), Step 25 (048), Step 26 (051), Step 27 (052)
 - [K. Billing — the webhook has never fired](#k-billing--the-webhook-has-never-fired-written-2026-11-14)
 
 ---
 
 ## J. Production rollout plan — P0-1, P0-2, P1-PRICE-1 (written 2026-11-14)
 
-> **Status (2026-11-20):** every step below has since RUN ON PRODUCTION —
+> **Status (2026-11-22):** every step below has since RUN ON PRODUCTION —
 > Steps 1–15 on 2026-11-16 (launch), 16–20 on 2026-11-19, 21–23 on
 > 2026-11-20, Steps 24–25 (050, 048) on 2026-11-20 night, Step 26 (051) on
-> 2026-11-21. The two paragraphs that
-> follow were written on 2026-11-14, before any of it, and are kept as the
-> plan of record; they do not describe production today. Production state:
-> `list_migrations` on `tfpjssmhiptbwigarxpx`, and docs/GO-SEQUENCE.md.
+> 2026-11-21, Step 27 (052) on 2026-11-22. The two paragraphs after the
+> procedure below were written on 2026-11-14, before any of it, and are kept
+> as the plan of record; they do not describe production today. Production
+> state: `list_migrations` on `tfpjssmhiptbwigarxpx`, not this file.
+
+### How to ship a migration to production
+
+The standing procedure. Moved here on 2026-11-22 from the launch-day
+`docs/GO-SEQUENCE.md` (now [archive/GO-SEQUENCE.md](archive/GO-SEQUENCE.md)),
+which applied it once per migration, 022 → 052.
+
+1. **Staging first.** Apply to `gnlcpnsweqbtwpaqhqqg`, then probe it as real
+   roles: `set local role authenticated` plus
+   `select set_config('request.jwt.claims', '{"sub":"<id>","role":"authenticated"}', true);`
+   inside a transaction you roll back. As `postgres` (the SQL editor's
+   default) RLS is bypassed and every count passes, so the role switch is
+   mandatory. Re-run the nine-category schema fingerprint against
+   production. Fake accounts: [STAGING_PERSONAS.md](STAGING_PERSONAS.md).
+2. **Write its §J Step** below: what it changes, a read-only pre-flight with
+   a STOP condition, the verify-as-real-roles probe and its expected
+   results, and a pasteable rollback **rehearsed on staging** (restoring a
+   dropped SECURITY DEFINER function needs its `revoke`/`grant` pair again).
+3. **Niran's explicit go, in the current turn.** Never without it.
+4. **Back up production to disk.** Shell notes for this Mac: the Postgres
+   client tools are Homebrew `libpq`, which is keg-only, so use full paths
+   (or `export PATH="/opt/homebrew/opt/libpq/bin:$PATH"` in that terminal
+   first). Load the connection without printing it (`chmod 600` the file
+   first; it holds production credentials):
+
+   ```bash
+   set -a; source ~/seeded-backup.env; set +a
+   mkdir -p ~/seeded-backups
+   /opt/homebrew/opt/libpq/bin/pg_dump "$PROD_DB_URL" --format=custom --no-owner --file ~/seeded-backups/prod-$(date +%Y%m%d-%H%M).dump
+   /opt/homebrew/opt/libpq/bin/pg_restore --list ~/seeded-backups/prod-*.dump | grep -c "TABLE DATA"
+   ```
+
+   **Stop unless** the dump file is non-empty and `pg_restore --list` lists
+   table data for `profiles`, `utr_entries`, `parent_accounts`, `families`.
+5. **Pre-flight:** `list_migrations` on `tfpjssmhiptbwigarxpx` ends where
+   you expect (anything newer means someone changed it — stop), then the
+   Step's own read-only checks.
+6. **Apply, then verify** with the same real-role probe, in a rolled-back
+   transaction. If a STOP condition is met, run the Step's rollback.
+7. **Migration before code.** The code that needs it merges only after the
+   migration is on production — see [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
+   "Before every production deploy" for why (the `/privacy` tests read
+   migration files, not the database).
+8. **Record it:** the date, backup file and result in the Step's status
+   line; a dated entry at the top of
+   [archive/ROADMAP_HISTORY.md](archive/ROADMAP_HISTORY.md); the status in
+   [MASTER_ROADMAP.md](MASTER_ROADMAP.md).
+
+Code rollback is separate: Vercel → Deployments → previous production
+deployment → Promote to Production. Database changes do not roll back with
+it.
+
+### The plan as written on 2026-11-14
 
 *(As written 2026-11-14:)* Everything below is **already applied and tested on staging**
 (`gnlcpnsweqbtwpaqhqqg`), never on production. Production
@@ -2935,7 +2990,9 @@ drop function if exists public.pending_consent_profile_guard();
 
 ### Step 27 — migration 052 (only a parent of the family approves / removes a parent; branch `feat/parent-approval-rule`)
 
-**NOT RUN ON PRODUCTION.** Applied to staging 2026-11-21 (`052_parent_approval_rule`,
+**RUN ON PRODUCTION 2026-11-22** on Niran's go, after a fresh backup; the
+35-case probe re-run there, rolled back (`archive/ROADMAP_HISTORY.md`, the
+2026-11-21 "Parent-approval rule" entry). *As written before that:* **NOT RUN ON PRODUCTION.** Applied to staging 2026-11-21 (`052_parent_approval_rule`,
 then the final body as `052b_parent_approval_rule_home_family` after an
 independent review); production waits for Niran's current-turn go after the
 review and gets only `supabase/migrations/052_parent_approval_rule.sql`.

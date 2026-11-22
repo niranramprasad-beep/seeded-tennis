@@ -1,3 +1,11 @@
+> **Archived 2026-11-22.** The v1 mockup spec (Claude Design canvas, before
+> launch). [`../DESIGN_MOCKUP_SPEC_V2.md`](../DESIGN_MOCKUP_SPEC_V2.md) is the
+> current spec: it keeps these tokens and supersedes this file for /pricing,
+> /login and /signup. Two things only this file describes, still the
+> reference until v2 or the Figma file redraws them: the type scale
+> (`components/seeded/ui/heading.ts` cites it) and the /family members card
+> and invite box.
+
 # Seeded mockup spec (source: Claude Design canvas "Seeded Redesign Mockups")
 
 Extracted from Pricing, Onboarding, Family and DesignSystem mockups. Use the repo's existing tokens/components;

@@ -2,7 +2,7 @@
 --
 -- STATUS: written 2026-11-18 for PR B (B6). Applied and probed on STAGING
 -- (gnlcpnsweqbtwpaqhqqg) only. Production gets it later, on Niran's go, per
--- docs/GO-SEQUENCE.md §3 and docs/HANDOFF.md §J Step 18. Apply AFTER 041:
+-- docs/archive/GO-SEQUENCE.md §3 and docs/HANDOFF.md §J Step 18. Apply AFTER 041:
 -- it replaces protect_privileged_profile_columns() again and keeps 041's
 -- birth_month block.
 --

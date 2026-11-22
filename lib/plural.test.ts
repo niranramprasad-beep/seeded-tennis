@@ -78,7 +78,7 @@ describe("no hand-rolled plurals", () => {
     const hits: string[] = [];
     for (const f of files) {
       const rel = relative(ROOT, f);
-      // Legacy design, slated for deletion (docs/TODO.md); not on any Seeded screen.
+      // Legacy design, slated for deletion (docs/archive/TODO_DONE.md); not on any Seeded screen.
       if (/^components\/(home|roadmap|coaches|cost|parents|tournaments|onboarding|dashboard\/dashboard-view)/.test(rel)) continue;
       if (rel.startsWith("components/dev/") || rel.startsWith("app/dev/")) continue;
       const src = readFileSync(f, "utf8");

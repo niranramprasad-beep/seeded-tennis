@@ -1,3 +1,12 @@
+> **Archived 2026-11-22.** This was the one-time production rollout plan
+> written 2026-11-16 for `v1` → `main`, extended with one row per migration
+> through 052 (row 27). Every row has run: 052, the last, on 2026-11-22 —
+> §3f below still says "NOT RUN" because it was written before that. The
+> procedure that is still used (backup to disk, staging first, verify as real
+> roles, migration before code) is now in [`../HANDOFF.md`](../HANDOFF.md) §J
+> "How to ship a migration to production"; a new migration gets a §J Step,
+> not a row here. Kept because migration headers and §J cite its rows.
+
 # GO sequence — v1 to production
 
 Written 2026-11-16 by the overnight pass. **Nothing here has been run

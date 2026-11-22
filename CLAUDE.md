@@ -8,7 +8,7 @@
 - Done 2026-11-21: **migration 051** (PR #17) — a pending-consent under-13 can no longer change tennis/recruiting fields on its own profile (BEFORE UPDATE trigger; the sign-up INSERT is not covered, see TODO).
 - Open: the parent-approver gap and post-checkout sync (both DECIDED by Niran 2026-11-21, build after the review — DECISIONS.md, TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
-- New here? `docs/REVIEWER_GUIDE.md`, then `docs/README.md`.
+- New here? `README.md`, then `docs/README.md` (the index), then `docs/REVIEWER_GUIDE.md`.
 - The GitHub repo is **public** for the 2026-11-21 review and goes **private** after it (Niran's call). Write every commit, doc and test as if it is public — names only, never a secret or a real person's data.
 
 ## Branches
@@ -16,7 +16,7 @@
 protected: a PR and a green `verify` are required. Merge only after CI passes
 and Niran says go in the current turn — `main` auto-deploys to
 seededtennis.com with no staging gate, which is why that gate is a person.
-Migrations go to production *before* the code that needs them (GO-SEQUENCE).
+Migrations go to production *before* the code that needs them (HANDOFF §J "How to ship a migration to production").
 
 History: `v1` was the single line of development from 2026-11-11 until the
 launch merge on 2026-11-16 (PR #4, `b16d85b`); since then every change is a
@@ -34,7 +34,7 @@ pre-redesign commits that never landed — don't merge it.
 ## Always
 - Update `docs/MASTER_ROADMAP.md` in the same commit as the work: status, new findings, NEXT 10.
 - Before modifying auth/authorization, read the live policies (`pg_policies`) and the 022 trigger. Never replace RLS with a client-side check — `AuthGate`/`PaidGate` are cosmetic.
-- Run `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run` before saying something works.
+- Run `rm -rf .next && npx tsc --noEmit && npm run lint && npx vitest run` before saying something works.
 - Use one fit-band path: `classifySchoolFit` must always get a projection that can return "out-of-range".
 - Show "Not tracked" for missing data. Show the source and date next to any roster number.
 - Keep secrets out of code, docs, logs, screenshots, and commits. Names only.
@@ -235,7 +235,7 @@ Formerly "Current blockers". Every bullet below is either DONE (with the rule it
   **`lib/auth.ts`'s `familyCode: profile.family_code` must stay the raw column.** It is round-tripped back through `writeCurrentPlayerProfile()`, and 022/030/035's trigger rejects any client change to `family_code` with 42501 — substituting a joiner's real code there would make renaming yourself in Settings fail for every member who joined with a code.
   **Never restore the old `playerMember?.currentUtr ?? player.currentUTR` fallback** — it papered over the read gap by rendering the signed-in PARENT's own placeholder UTR of 7 as if it were the player's. `lib/family-utr-honesty.test.ts` fails the build if it returns.
   **Fixed by migration 050 (2026-11-20):** `is_parent_member()` used to grant season-budget writes to any approved joiner regardless of `role`, so a sibling player could write the budget. 050 mirrors 033: the caller's own `profiles.role = 'parent'` AND approved membership (either shape); the Family-plan (042) and consent (030) gates stay separate RESTRICTIVE policies. Guard: `lib/db/budget-parent-only.test.ts`. Not closed by 050: a player can sign up a second account as a parent and approve its join themselves (any approved member may approve) — `docs/TODO.md` "Who may approve a parent joiner". Check `pg_policies`, not this file.
-- **PR B migrations 041–045 are ON PRODUCTION as of 2026-11-19** (ledger 47; each probed as real users in rolled-back transactions, results in `~/seeded-evidence/rollout-2026-11-19/`), applied on Niran's go before PR B (#6) merged the same day (GO-SEQUENCE §3b, HANDOFF §J Steps 16–20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line. PR B = niranramprasad-beep/seeded-tennis#6 (→ main), PR C = #7 (stacked on PR B). **044 nulls the roster's player stats for families without the Family plan.** 043's proof must be FRESH and for the CURRENT address (`request_email_verification()` then `mark_email_verified()`; an `auth.users` trigger records email changes) — an independent review moved verification to an unproven address with the first version.
+- **PR B migrations 041–045 are ON PRODUCTION as of 2026-11-19** (ledger 47; each probed as real users in rolled-back transactions, results in `~/seeded-evidence/rollout-2026-11-19/`), applied on Niran's go before PR B (#6) merged the same day (docs/archive/GO-SEQUENCE.md §3b, HANDOFF §J Steps 16–20). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line. PR B = niranramprasad-beep/seeded-tennis#6 (→ main), PR C = #7 (stacked on PR B). **044 nulls the roster's player stats for families without the Family plan.** 043's proof must be FRESH and for the CURRENT address (`request_email_verification()` then `mark_email_verified()`; an `auth.users` trigger records email changes) — an independent review moved verification to an unproven address with the first version.
   - **045: one Family plan unlocks ONE family — the payer's home family (`home_family_code()`, the same rule as `my_family_code()`, which now calls it) — and a family holds at most 4 players and 2 parents.** `join_family` returns `family_full`; `approve_family_join` raises `family_full_<role>`; existing members are never removed. The numbers live in `FAMILY_PLAN_MAX_PLAYERS` / `FAMILY_PLAN_MAX_PARENTS` (lib/types) and `lib/family-plan-scope.test.ts` pins them to the SQL. A new family-wide unlock must go through `family_has_tier`, never a raw `subscription_tier = 'family'` check.
   - **042 locks the Family plan in RLS.** A family is unlocked when ANY member (either membership shape) is on `family` — narrowed by 045 to a member whose HOME family it is. Locked = no member reads another member's rows (restrictive `family_plan_required` on every table whose SELECT uses `shares_approved_family_with`) and nobody reads/writes `season_budgets`/`budget_expenses`/`parent_reports`/`encouragement_notes` (a parent keeps reading notes they wrote). A new cross-member read policy MUST get the same ceiling — `lib/db/family-plan-lock.test.ts` fails the build otherwise. Ask the database with `lib/db/family-plan.ts`; API routes call `refuseUnlessFamilyPlan()`. `family_members()` still returns `current_utr`/`target_school_slugs` to a free family (owner's call: the roster stays open).
   - **043: parents prove their email before join/approve/consent** (`42501 verify_email_required`; players never). The proof is a session whose JWT `amr` is `otp`/`magiclink`/`recovery`/`email/signup`, or a verified Google identity — **never `auth.users.email_confirmed_at`, which production auto-confirms at sign-up.** `email_verified_for` must equal the current auth email, so an email change un-verifies.

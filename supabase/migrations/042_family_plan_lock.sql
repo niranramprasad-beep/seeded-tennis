@@ -3,7 +3,7 @@
 -- STATUS: written 2026-11-18 for PR B (B4, "lock the Family plan now" — the
 -- owner's decision, already made). Applied and attack-probed on STAGING
 -- (gnlcpnsweqbtwpaqhqqg) only. Production gets it later, on Niran's go, per
--- docs/GO-SEQUENCE.md §3 and docs/HANDOFF.md §J Step 17. Needs 036
+-- docs/archive/GO-SEQUENCE.md §3 and docs/HANDOFF.md §J Step 17. Needs 036
 -- (shares_approved_family_with), 037 and 039 in place.
 --
 -- ===========================================================================

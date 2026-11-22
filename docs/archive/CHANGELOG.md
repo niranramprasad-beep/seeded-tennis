@@ -1,3 +1,8 @@
+> **Archived 2026-11-22.** Entries stop at 2026-11-14; since then the dated
+> record is [`ROADMAP_HISTORY.md`](ROADMAP_HISTORY.md) (status log) and
+> [`../DECISIONS.md`](../DECISIONS.md) (calls and why). Record an incident as
+> a dated entry at the top of `ROADMAP_HISTORY.md`'s log.
+
 # Changelog
 
 ## 2026-11-14 — Billing: the webhook has never fired, and monthly/yearly plans

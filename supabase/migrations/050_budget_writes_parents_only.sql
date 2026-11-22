@@ -1,6 +1,6 @@
 -- 050_budget_writes_parents_only.sql
 --
--- STATUS: see docs/GO-SEQUENCE.md row 24 and `list_migrations` — not this line.
+-- STATUS: see docs/archive/GO-SEQUENCE.md row 24 and `list_migrations` — not this line.
 --
 -- The season budget is parent-only, in the database.
 --
@@ -11,7 +11,7 @@
 -- player or parent — gets a parent_accounts row. So a sibling PLAYER who
 -- joined with the code could insert/update/delete `season_budgets` and
 -- `budget_expenses`. Measured twice on 2026-11-15 through the app's own
--- client (docs/TODO.md "WEEK 1, ITEM #1"), disclosed in /privacy since.
+-- client (docs/archive/TODO_DONE.md "WEEK 1, ITEM #1"), disclosed in /privacy since.
 --
 -- AFTER: the caller's OWN `profiles.role` is 'parent' AND they are an approved
 -- member of that family in either membership shape (is_family_member(): the

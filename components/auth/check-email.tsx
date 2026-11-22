@@ -10,7 +10,7 @@ import { AuthCard } from "./auth-card";
 // Board 21 also says "It comes from support@seededtennis.com." That sentence
 // is deliberately NOT shown yet. The sender is a Supabase Auth SMTP setting
 // this repo cannot read, and the docs disagree about it:
-// docs/GO-SEQUENCE.md and docs/archive/FINAL_PASS_REPORT.md describe Google
+// docs/archive/GO-SEQUENCE.md and docs/archive/FINAL_PASS_REPORT.md describe Google
 // Workspace SMTP from that address, while docs/MASTER_ROADMAP.md (NEXT 10
 // #3) still lists custom SMTP as an open dashboard step and docs/TODO.md says
 // Resend is being wired. Telling someone to look for mail from an address it

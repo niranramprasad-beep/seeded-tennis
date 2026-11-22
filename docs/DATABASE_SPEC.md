@@ -7,8 +7,8 @@ bite. For live policy text, query `pg_policies` — not this file.
 ## Two projects
 | | project | migrations |
 |---|---|---|
-| **Production** | `tfpjssmhiptbwigarxpx` (Vercel Production) | Every repo migration through **050 except 048**. Ledger: 51 rows on 2026-11-20 |
-| **Staging** | `gnlcpnsweqbtwpaqhqqg` (Vercel Preview + Development, local `.env.local`) | Everything production has, plus 048 (PR E catalog tables) |
+| **Production** | `tfpjssmhiptbwigarxpx` (Vercel Production) | Every repo migration through **052** (052 applied 2026-11-22). Ledger: 51 rows on 2026-11-20, 53 after 051 on 2026-11-21 |
+| **Staging** | `gnlcpnsweqbtwpaqhqqg` (Vercel Preview + Development, local `.env.local`) | Everything production has, plus rehearsal re-runs in its ledger (e.g. `052b_…`) |
 
 Check `list_migrations` on the project before relying on either row.
 Staging holds only fake accounts — `docs/STAGING_PERSONAS.md`.
@@ -83,7 +83,8 @@ Production uses `0001`–`006` then timestamps; staging is all timestamps
 
 ### Rollout record
 Order, per-step verification and per-step rollback for 022–050:
-`docs/HANDOFF.md` §J and `docs/GO-SEQUENCE.md`.
+`docs/HANDOFF.md` §J (the procedure for a new one is §J "How to ship a
+migration to production"; the launch-day order is `docs/archive/GO-SEQUENCE.md`).
 
 ## Conventions
 - Every new table: RLS on, policies `to authenticated`, `(select auth.uid())`

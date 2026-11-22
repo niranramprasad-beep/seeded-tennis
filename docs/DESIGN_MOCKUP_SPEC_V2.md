@@ -1,7 +1,7 @@
 # Seeded design mockups v2 (Nov 16, post-launch)
 
 Source: the "Seeded Redesign Mockups" canvas, boards 19–23 (claude.ai artifact VF2PKmid2aohsQ5iyv7QQR).
-Claude Code cannot open the canvas, so this file is the spec. It extends docs/DESIGN_MOCKUP_SPEC.md (same tokens).
+Claude Code cannot open the canvas, so this file is the spec. It extends docs/archive/DESIGN_MOCKUP_SPEC.md (same tokens; that file also still describes the type scale and the /family members card and invite box, which v2 does not redraw). Design polish round 1 (2026-11-22) follows a Figma file where it differs from these boards: DECISIONS 2026-11-22.
 Mockup numbers are illustrative. In the app every number comes from real rows; never copy mockup data.
 
 ## Tokens (unchanged from v1 — use existing CSS variables, never raw hex)
