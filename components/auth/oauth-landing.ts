@@ -15,6 +15,7 @@
 // same order as password sign-in (components/auth/login-form.tsx).
 
 import type { Player } from "@/lib/types";
+import type { SignupRoleIntent } from "@/lib/config/auth";
 
 export interface OAuthLandingDeps {
   /** The signed-in user's Seeded player, or null when there is no profile row
@@ -25,17 +26,46 @@ export interface OAuthLandingDeps {
   beginSession: (player: Player) => void;
 }
 
+/**
+ * Where a signed-in player goes when nothing asked for a page: the same split
+ * as password sign-in (login-form.tsx) and the signed-in home redirect — a
+ * parent to /family, a player who has not finished onboarding to
+ * /onboarding, everyone else to /today. Google sign-in used to send every
+ * returning user to /today and leave the split to AuthGate's second redirect.
+ */
+export function homeFor(player: Pick<Player, "role" | "onboarded">): string {
+  if (player.role === "parent") return "/family";
+  return player.onboarded ? "/today" : "/onboarding";
+}
+
+/** /auth/complete, carrying `next` and the sign-up page's role (both
+ * optional, both already validated by the caller). */
+export function completePathFor(
+  completePath: string,
+  next: string | null,
+  role: SignupRoleIntent | null = null
+): string {
+  const query = new URLSearchParams();
+  if (next) query.set("next", next);
+  if (role) query.set("role", role);
+  const qs = query.toString();
+  return qs ? `${completePath}?${qs}` : completePath;
+}
+
 /** Where to send the browser. Calls beginSession first for a returning user. */
 export async function landAfterOAuth(
   deps: OAuthLandingDeps,
   next: string | null,
-  completePath: string
+  completePath: string,
+  /** Which sign-up page the Google button was on. Used only for a NEW user;
+   * a returning user's profile decides. */
+  role: SignupRoleIntent | null = null
 ): Promise<string> {
   const player = await deps.loadPlayer().catch(() => null);
   if (!player) {
     // Authenticated, but not finished signing up.
-    return next ? `${completePath}?next=${encodeURIComponent(next)}` : completePath;
+    return completePathFor(completePath, next, role);
   }
   deps.beginSession(player);
-  return next ?? "/today";
+  return next ?? homeFor(player);
 }
