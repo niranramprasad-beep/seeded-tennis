@@ -23,7 +23,7 @@
 // No VALARM: Seeded sends no reminders, and the file does not ask a calendar
 // app to either.
 
-export const ICS_UID_DOMAIN = "seededtennis.com";
+const ICS_UID_DOMAIN = "seededtennis.com";
 export const ICS_PRODID = "-//Seeded//Seeded Tennis//EN";
 
 interface IcsEventBase {

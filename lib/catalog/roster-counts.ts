@@ -56,7 +56,7 @@ export const COUNTS_TAIL_COLUMNS = [
 ] as const;
 
 /** Columns that would carry personal data. Their presence makes a file raw. */
-export const PERSONAL_COLUMNS = ["Player", "Hometown", "Notes"] as const;
+const PERSONAL_COLUMNS = ["Player", "Hometown", "Notes"] as const;
 
 const CLASS_COLUMN = /^Class of (\d{4})$/;
 const STATUS_IMPORTED = "imported";
@@ -70,14 +70,14 @@ const SAFE_LABEL = /^[A-Za-z0-9.'\u2019/()\- ]{1,12}$/;
 const TWO_CAPITALISED_WORDS = /[A-Z][a-z]+[ ,]+[A-Z][a-z]+/;
 export const UNREADABLE_LABEL = "(unreadable)";
 
-export function isSafeClassLabel(label: string): boolean {
+function isSafeClassLabel(label: string): boolean {
   return SAFE_LABEL.test(label) && !TWO_CAPITALISED_WORDS.test(label);
 }
 
 /** The raw parser quotes cell text in some row-error reasons (a conference,
  * a gender, a season — or, in a shifted row, a name). The aggregate keeps
  * the line number and the shape of the reason, never quoted cell text. */
-export function redactReason(reason: string): string {
+function redactReason(reason: string): string {
   return reason.replace(/"[^"]*"/g, '"…"');
 }
 

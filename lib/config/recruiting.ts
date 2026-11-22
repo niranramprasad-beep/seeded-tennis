@@ -67,11 +67,6 @@ export const D3_OFFICIAL_VISIT_DAY = 1;
 export const D3_OFFICIAL_VISIT_BEFORE_GRADE = 11;
 export const D3_OFFICIAL_VISIT_YEAR_OFFSET = 1;
 
-// D3: unofficial visits are unrestricted throughout — no date gate, kept
-// here only so callers have a single named constant to point to rather
-// than hardcoding "no restriction" prose in more than one place.
-export const D3_UNOFFICIAL_VISITS_UNRESTRICTED = true;
-
 // Default verbal-commitment target: September 1 of senior year. A realistic
 // planning target, not a hard rule. Written to profiles.commitment_date at
 // sign-up; as of 2026-11-20 no screen displays it (audit for 049).

@@ -23,7 +23,7 @@ import { formatPlayerUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, p
 // the phrase means.
 
 /** Target + Likely — the one meaning of "in range" (FitReport.inRange). */
-export function inRangeCount(counts: Pick<BandCounts, "target" | "likely">): number {
+function inRangeCount(counts: Pick<BandCounts, "target" | "likely">): number {
   return counts.target + counts.likely;
 }
 
@@ -352,7 +352,7 @@ export function ratingBasisLabel(basis: RatingBasis): string {
 
 /** A rating printed the way its basis is: a logged or what-if rating at two
  *  decimals, an estimate at one (lib/utils.ts, C10). */
-export function formatRatingForBasis(value: number, basis: RatingBasis): string {
+function formatRatingForBasis(value: number, basis: RatingBasis): string {
   return basis.kind === "estimate" ? formatUtrEstimate(value) : formatPlayerUtr(value);
 }
 

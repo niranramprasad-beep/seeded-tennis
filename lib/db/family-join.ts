@@ -245,8 +245,8 @@ export async function grantParentConsent(userId: string): Promise<string | null>
 /** Migration 052's refusals (errcode 42501), raised by approve_family_join()
  * and remove_family_member(). The database is the control; this only words
  * it for the person who hit it. */
-export const PARENT_APPROVAL_REQUIRES_PARENT = "parent_approval_requires_parent";
-export const PARENTS_ONLY_REMOVE_PARENT = "parents_only_remove_parent";
+const PARENT_APPROVAL_REQUIRES_PARENT = "parent_approval_requires_parent";
+const PARENTS_ONLY_REMOVE_PARENT = "parents_only_remove_parent";
 export const PARENT_APPROVAL_REQUIRES_PARENT_MESSAGE =
   "Your family already has a parent, so only a parent can approve another parent.";
 export const PARENTS_ONLY_REMOVE_PARENT_MESSAGE = "Only a parent can remove a parent from the family.";

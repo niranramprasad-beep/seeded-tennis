@@ -16,7 +16,7 @@
 import { seasonKey } from "@/lib/time";
 
 export const TOURNAMENTS_PLANNED_LABEL = "Tournaments planned this season";
-export const TOURNAMENTS_PLANNED_NOT_SET = "Not set";
+const TOURNAMENTS_PLANNED_NOT_SET = "Not set";
 
 /** Mirrors 049's CHECK (`tournaments_goal between 0 and 60`). A sanity
  * ceiling on what can be stored — not a target anyone is steered towards. */
@@ -73,4 +73,3 @@ export function stampTournamentsPlanned(
 export function formatTournamentsPlanned(v: number | null | undefined): string {
   return v == null ? TOURNAMENTS_PLANNED_NOT_SET : String(v);
 }
-
