@@ -19,8 +19,11 @@ export const OAUTH_ERROR_MESSAGES = {
   // a sign-in started on the deployment's vercel.app address came back to
   // seededtennis.com, and the person was left on the home page, signed out,
   // with no message at all.
+  // Not "Google": next.config.mjs forwards EVERY Site-URL fallback (/?code=)
+  // here, and a password-reset or email link opened in another browser lands
+  // on this same message.
   different_browser:
-    "That Google sign-in started on a different web address or in another browser. Start it again from this page.",
+    "That sign-in started on a different web address or in another browser. Start it again from this page.",
   // Supabase's own refusals, by error_code (oauthProviderErrorCode below).
   google_unavailable: "Google sign-in isn't available right now. Use your email and password instead.",
   signups_closed: "New accounts are paused right now. Try again later.",
@@ -64,6 +67,10 @@ export function oauthProviderErrorCode(params: {
   const code = (errorCode ?? "").toLowerCase();
   const text = `${error ?? ""} ${description ?? ""}`.toLowerCase();
 
+  // An expired or already-used EMAIL link (reset, confirm, magic link). It
+  // reaches the callback through the / forward in next.config.mjs, and
+  // Supabase sends it as error=access_denied — which is not a cancel.
+  if (code === "otp_expired" || text.includes("link is invalid or has expired")) return "link_expired";
   if (error === "access_denied" && !code) return "cancelled";
   if (code === "signup_disabled" || text.includes("signups not allowed")) return "signups_closed";
   if (

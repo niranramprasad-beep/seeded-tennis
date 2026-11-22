@@ -175,6 +175,10 @@ describe("the callback names the real problem", () => {
     ["error=invalid_request&error_code=flow_state_not_found", "link_expired"],
     ["error=server_error&error_code=unexpected_failure&error_description=Database+error+saving+new+user", "server_error"],
     ["error=server_error&error_description=Database+error+saving+new+user", "server_error"],
+    // An expired email link forwarded from / (next.config.mjs) is not a
+    // cancelled Google sign-in.
+    ["error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired", "link_expired"],
+    ["error=access_denied&error_description=Email+link+is+invalid+or+has+expired", "link_expired"],
     ["error=temporarily_unavailable", "google_failed"],
     ["error_description=something+new", "google_failed"],
   ])("%s -> %s", (qs, code) => {
@@ -188,6 +192,10 @@ describe("the callback names the real problem", () => {
     expect(oauthExchangeErrorCode({ code: "pkce_code_verifier_not_found" })).toBe("different_browser");
     expect(oauthExchangeErrorCode({ code: "flow_state_expired", message: "invalid flow state" })).toBe("link_expired");
     expect(oauthExchangeErrorCode(null)).toBe("link_expired");
+  });
+
+  it("the 'started elsewhere' sentence does not name Google (password-reset and email links land on it too)", () => {
+    expect(OAUTH_ERROR_MESSAGES.different_browser).not.toMatch(/google/i);
   });
 
   it("every code has a sentence of ours, and none echoes provider text", () => {
