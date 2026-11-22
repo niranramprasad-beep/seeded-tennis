@@ -8,6 +8,9 @@ import { seniorSummerMeasureSentence } from "@/lib/senior-summer";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import {
   EMPTY_ANSWERS,
+  answerGradYear,
+  birthYearNeedsFullList,
+  diagnosticBirthYearChoices,
   questionCountFor,
   RESULT_STEP,
   STEP,
@@ -20,7 +23,6 @@ import {
   parseGpaText,
   parseUtrText,
   pastRatingMonthLabel,
-  playerBirthYearOptions,
   playerNeedsParent,
   stepAfter,
   stepBefore,
@@ -28,6 +30,7 @@ import {
   type DiagnosticRole,
 } from "@/lib/onboarding/diagnostic";
 import { MONTH_NAMES, currentSeason } from "@/lib/time";
+import { SHOW_ALL_BIRTH_YEARS_LABEL } from "@/lib/grade-birth-year";
 import {
   TOURNAMENTS_PLANNED_LABEL,
   parseTournamentsPlannedText,
@@ -114,6 +117,19 @@ export function SeededDiagnosticOnboarding({
   // birth_month is write-once too (041): a month already on the account is
   // shown, never offered for change (the save would be refused, 42501).
   const [lockedBirthMonth] = useState(() => (signedIn ? initialAnswers.birthMonth : null));
+  // The class year filters the birth years offered (lib/grade-birth-year.ts).
+  // "Show all years" lifts the filter; a year a class-year change clears is
+  // reported on the birth question, never swapped silently.
+  const [showAllBirthYears, setShowAllBirthYears] = useState(() => birthYearNeedsFullList(initialAnswers));
+  const [birthYearNotice, setBirthYearNotice] = useState<string | null>(null);
+  const pickGradYear = (gradYear: number) => {
+    const next = answerGradYear(answers, gradYear, {
+      showAllBirthYears,
+      birthYearLocked: lockedBirthYear != null,
+    });
+    setAnswers(next.answers);
+    setBirthYearNotice(next.birthYearNotice);
+  };
   const back = () => {
     if (view === "save") return setView("questions");
     setStep((s) => Math.max(minStep, stepBefore(s, answers)));
@@ -242,6 +258,14 @@ export function SeededDiagnosticOnboarding({
                 set={set}
                 lockedBirthYear={lockedBirthYear}
                 lockedBirthMonth={lockedBirthMonth}
+                onPickGradYear={pickGradYear}
+                showAllBirthYears={showAllBirthYears}
+                onShowAllBirthYears={() => setShowAllBirthYears(true)}
+                birthYearNotice={birthYearNotice}
+                onPickBirthYear={(birthYear) => {
+                  set({ birthYear });
+                  setBirthYearNotice(null);
+                }}
                 onNoUtr={() => {
                   const cleared = { ...answers, noUtrYet: true, utrTodayText: "", utrSixMonthsText: "", utrYearText: "" };
                   setAnswers(cleared);
@@ -429,6 +453,11 @@ function QuestionBody({
   onNoUtr,
   lockedBirthYear = null,
   lockedBirthMonth = null,
+  onPickGradYear,
+  showAllBirthYears,
+  onShowAllBirthYears,
+  birthYearNotice,
+  onPickBirthYear,
 }: {
   step: number;
   headingId: string;
@@ -440,6 +469,13 @@ function QuestionBody({
   lockedBirthYear?: number | null;
   /** Signed in with a birth month on file: shown, not asked. */
   lockedBirthMonth?: number | null;
+  /** Answering the class year also re-checks a birth year already picked. */
+  onPickGradYear: (gradYear: number) => void;
+  showAllBirthYears: boolean;
+  onShowAllBirthYears: () => void;
+  /** Why a birth year was just cleared, or null. */
+  birthYearNotice: string | null;
+  onPickBirthYear: (birthYear: number | null) => void;
 }) {
   const parent = answers.role === "parent";
   const helpId = useId();
@@ -542,7 +578,7 @@ function QuestionBody({
                     name="diag-grad"
                     value={y}
                     checked={checked}
-                    onChange={() => set({ gradYear: y })}
+                    onChange={() => onPickGradYear(y)}
                     className="peer sr-only"
                   />
                   <span
@@ -562,6 +598,8 @@ function QuestionBody({
       );
     case STEP.birth: {
       const under13 = playerNeedsParent(answers);
+      const birthYears = diagnosticBirthYearChoices(answers, showAllBirthYears);
+      const filtered = lockedBirthYear == null && answers.gradYear != null && !showAllBirthYears;
       const note = lockedBirthYear != null && lockedBirthMonth != null
         ? "Already on your account."
         : lockedBirthYear != null
@@ -599,16 +637,16 @@ function QuestionBody({
               Year
               <select
                 value={answers.birthYear ?? ""}
-                onChange={(e) => set({ birthYear: e.target.value ? Number(e.target.value) : null })}
-                aria-describedby={helpId}
+                onChange={(e) => onPickBirthYear(e.target.value ? Number(e.target.value) : null)}
+                aria-describedby={birthYearNotice ? `${helpId} ${helpId}-notice` : helpId}
                 disabled={lockedBirthYear != null}
                 className="h-12 rounded-lg border border-input bg-card px-3 text-base text-ink disabled:bg-cream disabled:text-stone"
               >
                 <option value="">Year</option>
-                {lockedBirthYear != null && !playerBirthYearOptions().includes(lockedBirthYear) && (
+                {lockedBirthYear != null && !birthYears.includes(lockedBirthYear) && (
                   <option value={lockedBirthYear}>{lockedBirthYear}</option>
                 )}
-                {playerBirthYearOptions().map((y) => (
+                {birthYears.map((y) => (
                   <option key={y} value={y}>
                     {y}
                   </option>
@@ -616,6 +654,19 @@ function QuestionBody({
               </select>
             </label>
           </div>
+          {filtered && (
+            <SeededButton type="button" variant="ghost" className="mt-2 -ml-[18px]" onClick={onShowAllBirthYears}>
+              {SHOW_ALL_BIRTH_YEARS_LABEL}
+            </SeededButton>
+          )}
+          {/* Polite: it reports what just happened to the answer. */}
+          <p
+            id={`${helpId}-notice`}
+            aria-live="polite"
+            className={cn("m-0 mt-3 max-w-[440px] text-sm leading-snug text-stone", !birthYearNotice && "sr-only")}
+          >
+            {birthYearNotice ?? ""}
+          </p>
           <p
             className={cn(
               "m-0 mt-4 max-w-[440px] rounded-lg px-4 py-3 text-sm leading-snug",
