@@ -1,3 +1,6 @@
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
 /** @type {import('next').NextConfig} */
 
 // S-7 (P1-SEC-4). Seeded sent no security headers at all. These are set
@@ -120,6 +123,11 @@ const nextConfig = {
   // normal browser AND for "Googlebot", and Lighthouse SEO fell to 91.
   // Matching every user agent restores blocking metadata in <head>.
   htmlLimitedBots: /.*/,
+  // Pin the file-tracing root to this directory. Without it, a build run
+  // from a git worktree nested inside the main checkout (.claude/worktrees/…)
+  // sees two package-lock.json files, warns, and traces from the PARENT
+  // checkout. On Vercel this is the same directory Next would pick anyway.
+  outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

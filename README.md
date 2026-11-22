@@ -109,7 +109,7 @@ screenshots or commits.
 | `npm run dev` | Dev server on http://localhost:3000 |
 | `npm run build` | Production build (`next build`) |
 | `npm run start` | Serve the production build |
-| `npm run lint` | ESLint via `next lint` (fails on any warning) |
+| `npm run lint` | ESLint CLI, `eslint . --max-warnings=0` (fails on any warning; config in `eslint.config.mjs`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Every Vitest test once |
 | `npm run test:tz` | The suite again in `America/New_York` and `Pacific/Auckland` (date bugs hide in time zones) |

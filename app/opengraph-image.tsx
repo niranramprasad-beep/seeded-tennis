@@ -1,6 +1,9 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+// No `runtime = "edge"`: the image reads no request data, so on the default
+// Node.js runtime Next renders it once at build time and serves a static
+// PNG. The edge runtime forced it dynamic and made every build warn
+// "Using edge runtime on a page currently disables static generation".
 export const alt = "Seeded — your path to college tennis, mapped";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
