@@ -545,7 +545,7 @@ export function SeededSchoolsBrowser({
     "28px",
     "28px",
     "minmax(0,2.2fr)",
-    ...(showFitCol ? ["100px"] : []),
+    ...(showFitCol ? ["124px"] : []),
     "minmax(0,2fr)",
     ...(showOpenings ? ["80px"] : []),
     "104px",
