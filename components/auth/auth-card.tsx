@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { signInWithGoogle } from "@/lib/auth";
-import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
+import { GOOGLE_AUTH_ENABLED, type SignupRoleIntent } from "@/lib/config/auth";
 import { rememberMyGoogleVerifyStart } from "@/lib/db/email-verification";
 import { VERIFY_COPY, startGoogleVerify, takeGoogleVerifyStart } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
@@ -154,7 +154,7 @@ export function AuthCard({
   /** Renders the Google button and the "or with email" divider above the
    * form. Omit on screens where Google makes no sense (finishing a Google
    * signup, resetting a password). */
-  google?: { next?: string; label?: string };
+  google?: { next?: string; label?: string; role?: SignupRoleIntent };
   /** Small line above the title — the signup step counter. */
   eyebrow?: ReactNode;
   /** Below the card, centred: "New here? Create a free account". */
@@ -185,7 +185,7 @@ export function AuthCard({
           <div className="mt-6">
             {google && GOOGLE_AUTH_ENABLED && (
               <>
-                <GoogleButton next={google.next} label={google.label} />
+                <GoogleButton next={google.next} label={google.label} role={google.role} />
                 <GoogleDivider label="or with email" />
               </>
             )}
@@ -203,6 +203,9 @@ export function AuthCard({
 interface GoogleButtonProps {
   next?: string;
   label?: string;
+  /** The sign-up page's role (parseSignupRoleIntent): carried through
+   * Google so /auth/complete opens on the same choice. */
+  role?: SignupRoleIntent;
   /** Runs just before the browser leaves for Google — the onboarding
    * diagnostic keeps its answers in sessionStorage here, so they survive
    * the redirect and are applied on /auth/complete. */
@@ -229,7 +232,7 @@ interface GoogleButtonProps {
  * still on the page they started from, and sending them somewhere else to
  * read an error would lose whatever they had typed.
  */
-export function GoogleButton({ next, label, onStart }: GoogleButtonProps) {
+export function GoogleButton({ next, label, role, onStart }: GoogleButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -239,7 +242,7 @@ export function GoogleButton({ next, label, onStart }: GoogleButtonProps) {
     setError(null);
     setLoading(true);
     onStart?.();
-    const result = await signInWithGoogle(next);
+    const result = await signInWithGoogle(next, { role });
     // On success the browser is already navigating to Google; leaving the
     // button in its loading state is correct, not a stuck spinner.
     if (!result.ok) {

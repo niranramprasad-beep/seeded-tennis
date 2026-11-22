@@ -164,9 +164,9 @@ export class GaRuntime {
       this.setDisabled(false);
       const win = this.win;
       win.dataLayer = win.dataLayer || [];
-      // gtag.js reads Arguments objects off dataLayer, not arrays.
+      // gtag.js reads Arguments objects off dataLayer, not arrays, so this
+      // pushes `arguments` on purpose — never a rest parameter.
       win.gtag = function gtag() {
-        // eslint-disable-next-line prefer-rest-params
         win.dataLayer!.push(arguments);
       };
       win.gtag("js", new Date());

@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useState } from "react";
 import type { TrainingSession } from "@/lib/db/training";
-import { SESSION_TYPES } from "@/lib/training/session-types";
+import { SESSION_TYPES, sessionType } from "@/lib/training/session-types";
 import { MAX_SERIES_WEEKS } from "@/lib/training/calendar-interactions";
 import type { SessionFormValues } from "@/lib/hooks/use-events-calendar";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { SeededDialog } from "@/components/seeded/ui/dialog";
+import { AddToCalendarButton } from "@/components/seeded/ui/add-to-calendar-button";
+import { sessionIcsEvent } from "@/lib/ics-items";
 import { localDateKey, parseLocalDate } from "@/lib/time";
 import { plural } from "@/lib/utils";
 
@@ -108,6 +110,14 @@ export function SessionFormModal({
                 </button>
               )}
             </div>
+          )}
+          {/* The SAVED session, not unsaved edits in the form. */}
+          {session && (
+            <AddToCalendarButton
+              variant="ghost"
+              events={[sessionIcsEvent(session)]}
+              filename={`seeded-${sessionType(session.typeId).label}-${session.date}`}
+            />
           )}
           <SeededButton variant="secondary" type="button" onClick={onClose}>
             Cancel
