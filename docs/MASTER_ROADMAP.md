@@ -20,6 +20,23 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Google sign-in shows the signed-in app without a refresh
+(branch `fix/google-header-signin`; no migration, no setting).** Reported in
+the 2026-11-21 review call: after "Continue with Google", a returning user
+could land on /today under the public "Sign in" header until they refreshed.
+`/auth/callback` (and `/auth/complete`, for a profile that already exists)
+only navigated. The first `hydrate()` normally sees the session, but if it was
+still in flight at navigation, or ended in "can't reach" on a transient
+failure, the header stayed public — and PlayerProvider ignores a SIGNED_IN
+while the tab shows nobody (`authEventAction`, by design). Now both pages load
+the player and call `beginSession` before navigating, and `beginSession` is
+authoritative: it marks the app hydrated, clears a connection error and
+discards any in-flight `hydrate()` (`components/auth/oauth-landing.ts`, tested
+in `oauth-landing.test.ts`). Not
+verified with a real Google account by Claude (no disposable Google account
+exists, and signing in as a real person is out of bounds) — Niran's one-click
+check is in the PR.
+
 **2026-11-21 — Final-check UI polish, PR B (branch `fix/ui-polish-b`; no
 migration, no setting, no new route).** The Low items the final-check sweep
 bucketed "B". Honest empty states from one pure module
@@ -1714,7 +1731,7 @@ B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows clos
 field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
 birth-year/grade hint), B20 (one tense for the summer before senior year),
 and the onboarding sign-up's nested form found on the walk. PR D (#29, `fix/parent-verify-google-d`, merged 2026-11-21) adds "Verify
-with Google" for parents. PR E (#30, `fix/billing-e`, merged 2026-11-21) covers the billing rows; PR F (#31, `fix/uptime-f`, merged 2026-11-21) the uptime schedule and the Supabase check; PR B (#34, `fix/ui-polish-b`) the section-B polish. The other B/E rows are other PRs.
+with Google" for parents. PR E (#30, `fix/billing-e`, merged 2026-11-21) covers the billing rows; PR F (#31, `fix/uptime-f`, merged 2026-11-21) the uptime schedule and the Supabase check; PR B (#34, `fix/ui-polish-b`, merged 2026-11-21) the section-B polish. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
-import { hasSeededProfile } from "@/lib/auth";
+import { getCurrentPlayer } from "@/lib/auth";
+import { usePlayer } from "@/lib/context/player-context";
 import { OAUTH_COMPLETE_PATH, safeRedirectPath } from "@/lib/config/auth";
 import type { OAuthErrorCode } from "./oauth-errors";
+import { landAfterOAuth } from "./oauth-landing";
 
 // Where Google sends the browser back to. The only place in the app that
 // exchanges an OAuth code, and the only place that decides where a user goes
@@ -34,6 +36,7 @@ import type { OAuthErrorCode } from "./oauth-errors";
 export function OAuthCallback() {
   const params = useSearchParams();
   const router = useRouter();
+  const { beginSession } = usePlayer();
   const [stuck, setStuck] = useState(false);
   // React double-mounts effects in development; exchanging a code twice
   // fails the second time, and the failure would look like a real error.
@@ -77,17 +80,17 @@ export function OAuthCallback() {
         return fail("incomplete");
       }
 
-      if (!(await hasSeededProfile())) {
-        // Authenticated, but not finished signing up.
-        const next = safeRedirectPath(params.get("next"));
-        return router.replace(
-          next ? `${OAUTH_COMPLETE_PATH}?next=${encodeURIComponent(next)}` : OAUTH_COMPLETE_PATH
-        );
-      }
-
-      router.replace(safeRedirectPath(params.get("next")) ?? "/today");
+      // A returning user is handed to PlayerProvider BEFORE navigating, so
+      // the signed-in header and sidebar show without a refresh
+      // (./oauth-landing.ts says why this was not guaranteed before).
+      const target = await landAfterOAuth(
+        { loadPlayer: getCurrentPlayer, beginSession },
+        safeRedirectPath(params.get("next")),
+        OAUTH_COMPLETE_PATH
+      );
+      router.replace(target);
     })().catch(() => fail("unknown"));
-  }, [params, router]);
+  }, [params, router, beginSession]);
 
   // If a redirect somehow does not happen, say so rather than spinning
   // forever at someone who has just handed over their Google account.

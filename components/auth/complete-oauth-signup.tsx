@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
-import { completeOAuthProfile, hasSeededProfile } from "@/lib/auth";
+import { completeOAuthProfile, getCurrentPlayer } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/config/auth";
 import {
@@ -81,7 +81,14 @@ export function CompleteOAuthSignup() {
       const { data } = await supabase.auth.getUser();
       if (cancelled) return;
       if (!data.user) return router.replace("/login");
-      if (await hasSeededProfile()) return router.replace(next ?? "/today");
+      // Already has a profile: start the session before leaving, so the
+      // signed-in header shows without a refresh (./oauth-landing.ts).
+      const existing = await getCurrentPlayer().catch(() => null);
+      if (cancelled) return;
+      if (existing) {
+        beginSession(existing);
+        return router.replace(next ?? "/today");
+      }
       const meta = data.user.user_metadata as { full_name?: string; name?: string } | null;
       if (!cancelled) {
         setName((meta?.full_name ?? meta?.name ?? "").toString());
@@ -105,7 +112,7 @@ export function CompleteOAuthSignup() {
     return () => {
       cancelled = true;
     };
-  }, [router, next]);
+  }, [router, next, beginSession]);
 
   const isParent = role === "parent";
   // Same rule as the email signup: an under-13 player cannot start their own
