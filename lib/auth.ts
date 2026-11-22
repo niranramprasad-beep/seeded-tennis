@@ -7,7 +7,13 @@ import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } fro
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { isSeasonKey, toTournamentsPlannedOrNull } from "@/lib/tournaments-planned";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
-import { EMAIL_VERIFIED_PATH, OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
+import {
+  EMAIL_VERIFIED_PATH,
+  OAUTH_CALLBACK_PATH,
+  parseSignupRoleIntent,
+  safeRedirectPath,
+  type SignupRoleIntent,
+} from "@/lib/config/auth";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 
 export interface AccountInput {
@@ -133,6 +139,26 @@ export const AUTH_ERROR_MESSAGES = {
   verifyEmailRequired: VERIFY_EMAIL_REQUIRED_MESSAGE,
   unknown: "Something went wrong. Try again in a moment.",
 } as const;
+
+/**
+ * The sign-up form's "already registered" sentence, with a Google hint when
+ * Google sign-in is on.
+ *
+ * A Google sign-in creates the auth account the moment Google says yes —
+ * before /auth/complete — so someone whose Google attempt broke halfway
+ * (production, 2026-11-21) then tried email + password and was told only
+ * "Sign in, or reset your password", for an account that has no password.
+ * Signing in with Google is the one step that works for them. Every other
+ * message passes through unchanged.
+ */
+export const ALREADY_REGISTERED_GOOGLE_MESSAGE =
+  "There's already an account with that email. If you used Google before, sign in with Google. Otherwise sign in, or reset your password.";
+
+export function signupErrorMessage(message: string, googleEnabled: boolean): string {
+  return googleEnabled && message === AUTH_ERROR_MESSAGES.alreadyRegistered
+    ? ALREADY_REGISTERED_GOOGLE_MESSAGE
+    : message;
+}
 
 /**
  * Turn a raw Supabase / network error into a sentence a player can act on.
@@ -355,11 +381,19 @@ export async function signUp(
 export function googleRedirectTo(
   origin: string,
   next: string | null | undefined,
-  purpose: "sign-in" | "verify-email"
+  purpose: "sign-in" | "verify-email",
+  /** Sign-in only: which sign-up page the button was on (see
+   * parseSignupRoleIntent). Never sent for verify-email. */
+  role?: SignupRoleIntent | null
 ): string {
   if (purpose === "verify-email") return `${origin}${EMAIL_VERIFIED_PATH}`;
+  const query = new URLSearchParams();
   const safeNext = safeRedirectPath(next ?? null);
-  return `${origin}${OAUTH_CALLBACK_PATH}${safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""}`;
+  if (safeNext) query.set("next", safeNext);
+  const safeRole = parseSignupRoleIntent(role);
+  if (safeRole) query.set("role", safeRole);
+  const qs = query.toString();
+  return `${origin}${OAUTH_CALLBACK_PATH}${qs ? `?${qs}` : ""}`;
 }
 
 // Starts Google OAuth via Supabase. This calls the real Supabase API — it's
@@ -377,7 +411,7 @@ export function googleRedirectTo(
 // mark_email_verified(). The database decides; nothing here marks anything.
 export async function signInWithGoogle(
   next?: string,
-  opts?: { purpose?: "sign-in" | "verify-email" }
+  opts?: { purpose?: "sign-in" | "verify-email"; role?: SignupRoleIntent | null }
 ): Promise<AuthResult> {
   const supa = getSupabase();
   if (!supa) return notConfiguredResult();
@@ -388,7 +422,7 @@ export async function signInWithGoogle(
   // a brand-new user goes, and a redirect URL that changed per page — so the
   // Supabase allowlist had to be wide. One path, allowlisted once.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const redirectTo = googleRedirectTo(origin, next, opts?.purpose ?? "sign-in");
+  const redirectTo = googleRedirectTo(origin, next, opts?.purpose ?? "sign-in", opts?.role);
 
   try {
     const { error } = await supa.auth.signInWithOAuth({
