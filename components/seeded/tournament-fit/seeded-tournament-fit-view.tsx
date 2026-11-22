@@ -271,7 +271,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
       <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[440px_minmax(0,1fr)] lg:items-start">
         {/* ------------------------------------------------------- inputs */}
-        <div className="rounded-xl border border-line bg-card p-6">
+        <div className="rounded-card border border-line bg-card p-6">
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-ink">Tournament name</span>
             <input
@@ -438,7 +438,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
 
         {/* ------------------------------------------------- live verdict */}
         <div className="min-w-0 lg:sticky lg:top-8">
-          <div className="rounded-xl border border-line bg-card p-6">
+          <div className="rounded-card border border-line bg-card p-6">
             {result && meta ? (
               <>
             <div className={cn("rounded-lg border p-5", meta.card)}>

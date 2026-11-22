@@ -154,6 +154,7 @@ describe("KPI sentences", () => {
       delta: 0.5,
       deltaText: "+0.50 since February",
       deltaAmount: "+0.50",
+      deltaPercent: "+7.1%",
       since: "February",
       direction: "up",
     });

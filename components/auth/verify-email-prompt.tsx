@@ -96,7 +96,7 @@ export function VerifyEmailToJoin({
   };
 
   return (
-    <div className={bare ? undefined : "rounded-xl border border-line bg-card p-5"} data-testid="verify-email-to-join">
+    <div className={bare ? undefined : "rounded-card border border-line bg-card p-5"} data-testid="verify-email-to-join">
       <div className="flex items-start gap-2.5">
         {!bare && <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-grass" aria-hidden />}
         <div className="min-w-0">

@@ -17,7 +17,7 @@ export function RecentResultsCard({ matches, className }: { matches: MatchRecord
   const resolved = (matches ?? []).filter((m) => m.result).slice(0, RESULTS_SHOWN);
 
   return (
-    <section aria-labelledby="results-heading" className={`flex flex-col rounded-xl border border-line bg-card p-5 ${className ?? ""}`}>
+    <section aria-labelledby="results-heading" className={`flex flex-col rounded-card border border-line bg-card p-5 ${className ?? ""}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="results-heading" className="text-lg font-semibold text-ink">
           Recent results

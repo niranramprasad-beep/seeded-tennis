@@ -183,7 +183,7 @@ export function DiagnosticFitReport({
 
           <section
             aria-label="Projected rating at recruiting time"
-            className="mt-5 rounded-xl border border-line bg-card p-5"
+            className="mt-5 rounded-card border border-line bg-card p-5"
           >
             {!report || !projection ? (
               <>
@@ -240,7 +240,7 @@ export function DiagnosticFitReport({
           </section>
 
           {nothingInRange && (
-            <div className="mt-6 rounded-xl border border-line bg-card p-5">
+            <div className="mt-6 rounded-card border border-line bg-card p-5">
               {!leadIsZeroSentence && <p className="m-0 font-semibold text-ink">{nothingInRange}</p>}
               <p className={cn("text-sm text-stone", !leadIsZeroSentence && "mt-1.5", leadIsZeroSentence && "m-0")}>
                 That is a fact about our catalogue, not a verdict on the player.
@@ -283,7 +283,7 @@ export function DiagnosticFitReport({
                 ))}
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-xl border border-line bg-card">
+              <div className="mt-4 overflow-hidden rounded-card border border-line bg-card">
                 <div className="grid grid-cols-[2.2fr_2fr] gap-4 border-b border-line px-5 py-3 text-[13px] font-medium text-stone">
                   <span>Program</span>
                   <span>
@@ -356,7 +356,7 @@ export function DiagnosticFitReport({
           )}
         </section>
 
-        <aside className="min-w-0 flex-[1_1_340px] rounded-xl border border-line bg-card p-6">
+        <aside className="min-w-0 flex-[1_1_340px] rounded-card border border-line bg-card p-6">
           <h2 className="m-0 text-xl text-ink">
             {signedIn ? "Save to your profile" : parent ? "Make your parent account" : "Save your report"}
           </h2>

@@ -8,9 +8,11 @@
 // the official roster page), as in the --upsert path.
 //
 // Guard: it raises before writing anything unless migration 048's tables
-// exist, which is true on staging and NOT on production (048 is unapplied
-// there). That is a seatbelt, not the control — the control is that this
-// file is only ever run against staging.
+// exist. That no longer tells staging from production — 048 has been on
+// production since 2026-11-20 (empty) — so it only catches a database
+// without the catalog at all. scripts/import-utr-database.ts's SQL adds a
+// second seatbelt (refuse where `programs` is empty). Neither is the control:
+// the control is that this file is only ever run against staging.
 
 import type { ProgramDraft } from "./roster-import";
 

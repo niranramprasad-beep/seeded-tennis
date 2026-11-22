@@ -370,7 +370,7 @@ export function SeededOutreachLayout({
           with a 9-row message box, at 1440 and on phones alike. */}
       <section
         ref={editorRef}
-        className="w-full scroll-mt-6 rounded-xl border border-line bg-card p-5 sm:p-6"
+        className="w-full scroll-mt-6 rounded-card border border-line bg-card p-5 sm:p-6"
         aria-label="Email editor"
       >
         {!selectedSchool ? (

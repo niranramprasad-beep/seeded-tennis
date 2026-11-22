@@ -56,7 +56,7 @@ export function DashboardBody({
       <div className={L.HEADER}>
         <div className="min-w-0">
           <p className={L.EYEBROW}>{eyebrow}</p>
-          <Title className={L.H1}>{child}&rsquo;s season at a glance</Title>
+          <Title className={L.H1}>{child}&rsquo;s season</Title>
           <div className={L.PILL_ROW}>
             <span className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border border-line bg-card px-3 text-sm font-medium text-stone">
               <Eye className="h-4 w-4 text-grass" aria-hidden />
@@ -82,13 +82,18 @@ export function DashboardBody({
           </p>
           <p className="mt-auto pt-3 text-sm text-stone">
             {model.utr.deltaText ? (
-              <span className={cn("inline-flex items-center gap-1", model.utr.direction === "up" && "font-semibold text-grass")}>
+              <span className={cn("inline-flex flex-wrap items-center gap-x-1", model.utr.direction === "up" && "font-semibold text-grass")}>
                 {model.utr.direction === "up" && <ArrowUpRight className="h-4 w-4" aria-hidden />}
                 {model.utr.direction === "down" && <ArrowDownRight className="h-4 w-4" aria-hidden />}
-                <span className="font-mono">{model.utr.deltaAmount}</span> since {model.utr.since}
+                <span className="font-mono">{model.utr.deltaAmount}</span>
+                {model.utr.deltaPercent && <span className="font-mono text-stone">({model.utr.deltaPercent})</span>}
+                <span>since {model.utr.since}</span>
               </span>
             ) : model.utr.hasUtr ? (
-              "Not enough ratings logged to show a change."
+              // Fewer than two dated ratings: there is no change to report,
+              // which is not the same as "no change" (that is utrKpi's flat
+              // case, said above as "No change since …").
+              "Needs two logged ratings to show a change."
             ) : (
               `${child} hasn't logged one.`
             )}

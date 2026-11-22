@@ -55,7 +55,7 @@ function CheckinHistoryInner() {
         </SeededButton>
       </div>
 
-      <section aria-labelledby="heatmap-heading" className="mt-6 rounded-xl border border-line bg-card p-5">
+      <section aria-labelledby="heatmap-heading" className="mt-6 rounded-card border border-line bg-card p-5">
         <h2 id="heatmap-heading" className="text-lg font-semibold text-ink">
           Last 12 weeks
         </h2>
@@ -79,7 +79,7 @@ function CheckinHistoryInner() {
                 <li key={i} aria-hidden className="h-[72px] animate-pulse rounded-xl border border-line bg-line/40 motion-reduce:animate-none" />
               ))}
             {newestFirst.map((c) => (
-              <li key={c.id} className="flex gap-3 rounded-xl border border-line bg-card p-4">
+              <li key={c.id} className="flex gap-3 rounded-card border border-line bg-card p-4">
                 <span className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] ${MOOD_CLASS[c.mood] ?? ""}`} aria-hidden />
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-baseline gap-x-2 text-ink">

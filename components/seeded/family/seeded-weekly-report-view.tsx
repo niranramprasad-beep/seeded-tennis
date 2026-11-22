@@ -198,7 +198,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-line bg-card p-6">
+        <div className="rounded-card border border-line bg-card p-6">
           <h2 className="text-lg font-semibold text-ink">Coach activity this week</h2>
           {activityThisWeek.emailed.length === 0 ? (
             <div className="mt-3.5">
@@ -216,7 +216,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
           )}
         </div>
 
-        <div className="rounded-xl border border-line bg-card p-6">
+        <div className="rounded-card border border-line bg-card p-6">
           <h2 className="text-lg font-semibold text-ink">Upcoming events</h2>
           {upcomingEvents.length === 0 ? (
             <div className="mt-3.5">
@@ -242,7 +242,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
 
 function ReportTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-xl border border-line bg-card p-5">
+    <div className="rounded-card border border-line bg-card p-5">
       <p className="font-mono text-3xl text-ink">{value}</p>
       <p className="mt-1.5 text-sm text-stone">{label}</p>
     </div>

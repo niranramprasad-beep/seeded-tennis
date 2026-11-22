@@ -11,7 +11,7 @@
   America/New_York and Pacific/Auckland) — on pull requests to and pushes
   to `main`. `main` requires a green `verify` to merge.
 - **Locally, before saying something works:**
-  `rm -rf .next && npx tsc --noEmit && npx next lint && npx vitest run`
+  `rm -rf .next && npx tsc --noEmit && npm run lint && npx vitest run`
   (a stale `.next` can fail the typecheck on deleted routes).
 - **Not automated:** RLS, API-against-a-server, E2E, visual and a11y tests
   are not in CI. RLS is probed by hand as real users on staging (below);

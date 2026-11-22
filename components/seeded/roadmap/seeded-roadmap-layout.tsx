@@ -388,7 +388,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
         </div>
         {recentMatches.length === 0 ? (
           <div className="mt-3">
-            <EmptyState title="No matches logged yet." description="Log a result to start tracking your record." />
+            <EmptyState title="No matches logged yet." />
           </div>
         ) : (
           <ul className="mt-3.5 grid gap-x-8 gap-y-2.5 text-sm md:grid-cols-2">
@@ -433,26 +433,39 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
                 showRealisticOnly ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
               )}
             >
-              {showRealisticOnly ? "Show all targets" : `Show realistic targets (${realisticCount} of ${orderedTargetSchools.length})`}
+              {showRealisticOnly ? "Show all targets" : `Realistic only (${realisticCount})`}
             </button>
           )}
         </div>
         <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
-        <div className="mt-3.5">
+        {/* Collapsed by default (design polish round 1). A moved slider
+            still re-bands every row below, so the summary — the one part
+            that is always visible — says so; otherwise closing the panel
+            hid the only sign the bands were judged on a what-if number. */}
+        <details className="mt-3.5">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-grass">
+            What if my UTR…
+            {!whatIf.isAtRealCurrent && (
+              <span className="font-normal text-stone">
+                {" "}· bands below use what-if UTR{" "}
+                <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(whatIf.hypotheticalUTR)}</span>
+              </span>
+            )}
+          </summary>
           <WhatIfPanel
             {...whatIf}
             seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
             bandUtr={fitReport?.utr.value ?? null}
             historyLoaded={utrEntries !== undefined}
           />
-        </div>
+        </details>
         <div className="mt-3.5">
           {orderedTargetSchools.length === 0 ? (
             <EmptyState title="No target schools yet." description="Search below to add your first one." />
           ) : filtering && visibleTargetSchools.length === 0 ? (
             <p className="text-sm text-stone">
-              None of your targets is within reach of your estimated{" "}
-              {realReport ? <span className="font-mono">{formatUtrEstimate(realReport.utr.value)}</span> : "UTR"} by the
+              No targets within your estimated UTR{" "}
+              {realReport ? <span className="font-mono">{formatUtrEstimate(realReport.utr.value)}</span> : null} by the
               summer before senior year.{" "}
               <Link href="/schools" className="font-semibold text-grass">
                 Find schools in range

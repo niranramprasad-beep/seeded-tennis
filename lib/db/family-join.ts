@@ -242,12 +242,35 @@ export async function grantParentConsent(userId: string): Promise<string | null>
   return "You can't give consent for that person.";
 }
 
-/** Any APPROVED member may approve. Returns null on success, else a message. */
+/** Migration 052's refusals (errcode 42501), raised by approve_family_join()
+ * and remove_family_member(). The database is the control; this only words
+ * it for the person who hit it. */
+export const PARENT_APPROVAL_REQUIRES_PARENT = "parent_approval_requires_parent";
+export const PARENTS_ONLY_REMOVE_PARENT = "parents_only_remove_parent";
+export const PARENT_APPROVAL_REQUIRES_PARENT_MESSAGE =
+  "Your family already has a parent, so only a parent can approve another parent.";
+export const PARENTS_ONLY_REMOVE_PARENT_MESSAGE = "Only a parent can remove a parent from the family.";
+
+/** The plain sentence for a 052 refusal, or null when the error is something else. */
+export function parentRuleMessage(value: unknown): string | null {
+  const text = typeof value === "string" ? value : "";
+  if (text.includes(PARENT_APPROVAL_REQUIRES_PARENT)) return PARENT_APPROVAL_REQUIRES_PARENT_MESSAGE;
+  if (text.includes(PARENTS_ONLY_REMOVE_PARENT)) return PARENTS_ONLY_REMOVE_PARENT_MESSAGE;
+  return null;
+}
+
+/** Any APPROVED member may approve a player joiner. A parent joiner needs a
+ * parent approver once the family has an approved parent (052); a family with
+ * none yet may get its first parent from a player. Returns null on success,
+ * else a message. */
 export async function approveFamilyJoin(userId: string): Promise<string | null> {
   const supabase = getSupabase();
   if (!supabase) return "Not configured.";
   const { error } = await supabase.rpc("approve_family_join", { p_parent_user_id: userId });
   if (isEmailVerifyRequired(error)) return VERIFY_EMAIL_REQUIRED_MESSAGE;
+  // 052: a player approving a parent when the family already has one.
+  const ruleMessage = parentRuleMessage(error?.message);
+  if (ruleMessage) return ruleMessage;
   // 045: approving would take the family past 4 players / 2 parents.
   const fullRole = familyFullRole(error?.message);
   if (fullRole) return familyFullMessage(fullRole);
@@ -266,6 +289,9 @@ export async function removeFamilyMember(userId: string): Promise<string | null>
   const supabase = getSupabase();
   if (!supabase) return "Not configured.";
   const { error } = await supabase.rpc("remove_family_member", { p_user_id: userId });
+  // 052: a player removing an approved parent.
+  const ruleMessage = parentRuleMessage(error?.message);
+  if (ruleMessage) return ruleMessage;
   return error ? "Could not remove that person. Try again." : null;
 }
 

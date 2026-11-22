@@ -13,4 +13,12 @@
 // Turn it on only after migration 048 is on the target project and the
 // roster import has run there.
 
-export const CATALOG_PHASE1_ENABLED = process.env.NEXT_PUBLIC_CATALOG_PHASE1_ENABLED === "true";
+//
+// Vercel PREVIEW builds show it regardless (2026-11-21, so a catalog import
+// can be checked on the Preview): every Preview reads STAGING, which holds
+// 048 and the imported rows. NEXT_PUBLIC_VERCEL_ENV is Vercel's own system
+// variable ("production" | "preview" | "development"), inlined at build
+// time; production is still decided only by the explicit flag above.
+
+export const CATALOG_PHASE1_ENABLED =
+  process.env.NEXT_PUBLIC_CATALOG_PHASE1_ENABLED === "true" || process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
