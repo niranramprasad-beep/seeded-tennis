@@ -200,8 +200,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Start an authenticated session with a (possibly not-yet-onboarded) player —
   // used right after sign-up, before the tennis profile is filled in.
   const beginSession = useCallback((next: Player) => {
+    // The caller has just proved this session (a sign-in, a sign-up, the
+    // OAuth callback), so it is authoritative: a hydrate() still in flight
+    // started before the session existed and must not overwrite it with
+    // "signed out" or "can't reach", and the app is hydrated from here on.
+    // Without this, after Google sign-in the header could stay on the public
+    // "Sign in" nav (hydrated false, or a stale result winning) until a refresh.
+    ++hydrateGeneration.current;
     setPlayer(next);
     setIsAuthed(true);
+    setConnectionError(null);
+    setHydrated(true);
     // Record whose session this is (it may be a different account from the
     // one this tab last showed). Until it lands, the fallback lookup above
     // covers it.

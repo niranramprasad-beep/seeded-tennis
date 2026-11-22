@@ -1,25 +1,25 @@
 // What /auth/callback does once Google's code has become a session.
 // Pure (its two effects are passed in) so oauth-landing.test.ts can walk it.
 //
-// The returning-user half used to only navigate. PlayerProvider decides
+// Before this, the returning-user half only navigated. PlayerProvider decides
 // "signed in" from its first hydrate() plus beginSession(); it deliberately
 // ignores a SIGNED_IN event while the tab shows nobody (authEventAction in
 // lib/session-identity.ts — the page that signed you in is expected to call
-// beginSession). The callback never did, so whether the header and sidebar
-// switched to the signed-in app depended on whether that first hydrate()
-// happened to see the session the callback was still creating. When it did
-// not, the user landed on /today under the public "Sign in" header until
-// they refreshed (final-check, reported in the 2026-11-21 review call).
-//
-// Now: load the player, hand it to beginSession, THEN navigate — the same
-// order the password sign-in (components/auth/login-form.tsx) uses.
+// beginSession). The first hydrate() normally does see the session
+// (supabase-js exchanges the code during client initialisation, which
+// getSession/getUser wait for), but if it was still in flight at navigation,
+// or ended in "can't reach" on a transient failure, /today rendered under the
+// public "Sign in" header until a refresh (reported in the 2026-11-21 review
+// call). Now: load the player and hand it to beginSession — which also marks
+// the app hydrated and discards any in-flight hydrate() — THEN navigate, the
+// same order as password sign-in (components/auth/login-form.tsx).
 
 import type { Player } from "@/lib/types";
 
 export interface OAuthLandingDeps {
   /** The signed-in user's Seeded player, or null when there is no profile row
-   * yet (a Google SIGN-UP) — or it could not be read, which is treated the
-   * same way, as before: /auth/complete reads it again. */
+   * yet (a Google SIGN-UP). A failed read is treated as null, as before this
+   * change: /auth/complete checks again. */
   loadPlayer: () => Promise<Player | null>;
   /** PlayerProvider's beginSession. */
   beginSession: (player: Player) => void;
@@ -31,7 +31,7 @@ export async function landAfterOAuth(
   next: string | null,
   completePath: string
 ): Promise<string> {
-  const player = await deps.loadPlayer();
+  const player = await deps.loadPlayer().catch(() => null);
   if (!player) {
     // Authenticated, but not finished signing up.
     return next ? `${completePath}?next=${encodeURIComponent(next)}` : completePath;

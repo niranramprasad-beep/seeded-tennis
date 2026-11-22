@@ -40,11 +40,15 @@ describe("landAfterOAuth (Google sign-in shows the signed-in header without a re
     expect(beginSession).not.toHaveBeenCalled();
   });
 
-  it("lets a failed profile read reject, so the callback's catch reports it", async () => {
+  it("treats a failed profile read like no profile (to /auth/complete), as before", async () => {
     const beginSession = vi.fn();
-    await expect(
-      landAfterOAuth({ loadPlayer: async () => Promise.reject(new Error("down")), beginSession }, null, "/auth/complete")
-    ).rejects.toThrow("down");
+    expect(
+      await landAfterOAuth(
+        { loadPlayer: async () => Promise.reject(new Error("down")), beginSession },
+        null,
+        "/auth/complete"
+      )
+    ).toBe("/auth/complete");
     expect(beginSession).not.toHaveBeenCalled();
   });
 
@@ -53,5 +57,21 @@ describe("landAfterOAuth (Google sign-in shows the signed-in header without a re
     expect(src).toMatch(/landAfterOAuth\(\s*\{\s*loadPlayer:\s*getCurrentPlayer,\s*beginSession\s*\}/);
     expect(src).not.toMatch(/hasSeededProfile/);
     expect(src).not.toMatch(/\?\?\s*"\/today"/);
+  });
+
+  it("beginSession is authoritative: marks the app hydrated, clears a connection error, discards an in-flight hydrate", () => {
+    const src = readFileSync(join(__dirname, "..", "..", "lib", "context", "player-context.tsx"), "utf8");
+    const body = src.slice(src.indexOf("const beginSession = useCallback("), src.indexOf("const completeOnboarding"));
+    expect(body).toMatch(/\+\+hydrateGeneration\.current/);
+    expect(body).toMatch(/setHydrated\(true\)/);
+    expect(body).toMatch(/setConnectionError\(null\)/);
+    // hydrate() must still refuse to commit a stale generation.
+    expect(src).toMatch(/if \(generation !== hydrateGeneration\.current\) return;/);
+  });
+
+  it("/auth/complete starts the session for someone who already has a profile", () => {
+    const src = readFileSync(join(__dirname, "complete-oauth-signup.tsx"), "utf8");
+    expect(src).not.toMatch(/hasSeededProfile\(\)\)\s*return router\.replace/);
+    expect(src).toMatch(/beginSession\(existing\)/);
   });
 });

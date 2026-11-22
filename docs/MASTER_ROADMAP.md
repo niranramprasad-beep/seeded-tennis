@@ -24,13 +24,15 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in
 the 2026-11-21 review call: after "Continue with Google", a returning user
 could land on /today under the public "Sign in" header until they refreshed.
-`/auth/callback` only navigated; PlayerProvider ignores a SIGNED_IN while the
-tab shows nobody (`authEventAction`, by design — the signing-in page calls
-`beginSession`), so the header depended on whether the first `hydrate()`
-happened to see the session the callback was still creating. The callback now
-loads the player and calls `beginSession` before navigating, the same order as
-password sign-in (`components/auth/oauth-landing.ts`, tested in
-`oauth-landing.test.ts`, including a source guard on the callback). Not
+`/auth/callback` (and `/auth/complete`, for a profile that already exists)
+only navigated. The first `hydrate()` normally sees the session, but if it was
+still in flight at navigation, or ended in "can't reach" on a transient
+failure, the header stayed public — and PlayerProvider ignores a SIGNED_IN
+while the tab shows nobody (`authEventAction`, by design). Now both pages load
+the player and call `beginSession` before navigating, and `beginSession` is
+authoritative: it marks the app hydrated, clears a connection error and
+discards any in-flight `hydrate()` (`components/auth/oauth-landing.ts`, tested
+in `oauth-landing.test.ts`). Not
 verified with a real Google account by Claude (no disposable Google account
 exists, and signing in as a real person is out of bounds) — Niran's one-click
 check is in the PR.
