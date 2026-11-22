@@ -20,6 +20,21 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Google sign-in shows the signed-in app without a refresh
+(branch `fix/google-header-signin`; no migration, no setting).** Reported in
+the 2026-11-21 review call: after "Continue with Google", a returning user
+could land on /today under the public "Sign in" header until they refreshed.
+`/auth/callback` only navigated; PlayerProvider ignores a SIGNED_IN while the
+tab shows nobody (`authEventAction`, by design — the signing-in page calls
+`beginSession`), so the header depended on whether the first `hydrate()`
+happened to see the session the callback was still creating. The callback now
+loads the player and calls `beginSession` before navigating, the same order as
+password sign-in (`components/auth/oauth-landing.ts`, tested in
+`oauth-landing.test.ts`, including a source guard on the callback). Not
+verified with a real Google account by Claude (no disposable Google account
+exists, and signing in as a real person is out of bounds) — Niran's one-click
+check is in the PR.
+
 **2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
 `fix/known-bugs-a`; no migration, no env var, no setting).**
 (A1) The Schools "Why this band" panel printed the what-if slider's value as
