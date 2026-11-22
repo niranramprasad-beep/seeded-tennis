@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, getCurrentPlayer } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
-import { safeRedirectPath } from "@/lib/config/auth";
+import { parseSignupRoleIntent, safeRedirectPath } from "@/lib/config/auth";
 import {
   birthYearOptions,
   isPlausibleBirthYear,
@@ -21,6 +21,7 @@ import { ChipRadioGroup } from "./chip-radio-group";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/lib/context/player-context";
+import { homeFor } from "./oauth-landing";
 import {
   clearPendingAnswers,
   readPendingAnswers,
@@ -50,10 +51,14 @@ export function CompleteOAuthSignup() {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeRedirectPath(params.get("next"));
+  // The sign-up page the Google button was on (/parent-signup, or the Parent
+  // chip on /signup). A preselection only — the chip below is still theirs
+  // to change, and the profile goes through the same path either way.
+  const roleIntent = parseSignupRoleIntent(params.get("role"));
 
   const [checking, setChecking] = useState(true);
   const [name, setName] = useState("");
-  const [role, setRole] = useState<FamilyRole>("player");
+  const [role, setRole] = useState<FamilyRole>(roleIntent ?? "player");
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [country, setCountry] = useState("United States");
   // Team and grade start unanswered for a player (they used to start on
@@ -61,7 +66,11 @@ export function CompleteOAuthSignup() {
   // shown them; their own row gets PARENT_ROW_GRADE, which no screen shows.
   const [gender, setGender] = useState<PlayerGender | null>(null);
   const [grade, setGrade] = useState<number | null>(null);
-  const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
+  // Same defaults as the email sign-up (signup-flow.tsx): most parents are
+  // joining a family their player already started.
+  const [familyMode, setFamilyMode] = useState<"create" | "join">(
+    roleIntent === "parent" ? "join" : "create"
+  );
   const [joinCode, setJoinCode] = useState("");
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
   // 045: the family already holds 4 players / 2 parents.
@@ -87,7 +96,7 @@ export function CompleteOAuthSignup() {
       if (cancelled) return;
       if (existing) {
         beginSession(existing);
-        return router.replace(next ?? "/today");
+        return router.replace(next ?? homeFor(existing));
       }
       const meta = data.user.user_metadata as { full_name?: string; name?: string } | null;
       if (!cancelled) {
@@ -99,7 +108,7 @@ export function CompleteOAuthSignup() {
         const carried = readPendingAnswers();
         if (carried) {
           setPending(carried);
-          setRole(carried.role ?? "player");
+          setRole(carried.role ?? roleIntent ?? "player");
           if (carried.role === "player") {
             if (carried.birthYear != null) setBirthYear(carried.birthYear);
             if (carried.gender) setGender(carried.gender);
@@ -112,7 +121,7 @@ export function CompleteOAuthSignup() {
     return () => {
       cancelled = true;
     };
-  }, [router, next, beginSession]);
+  }, [router, next, roleIntent, beginSession]);
 
   const isParent = role === "parent";
   // Same rule as the email signup: an under-13 player cannot start their own

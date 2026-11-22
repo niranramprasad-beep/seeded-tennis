@@ -24,6 +24,28 @@ export const OAUTH_CALLBACK_PATH = "/auth/callback";
  * them as if they were. */
 export const OAUTH_COMPLETE_PATH = "/auth/complete";
 
+/**
+ * Which account a Google SIGN-UP started from: /parent-signup (or the Parent
+ * chip on /signup) says "parent", everything else says nothing.
+ *
+ * Google hands back an email and a name, never a role, so before this the
+ * hint was lost on the round trip and /auth/complete opened on "Player" for
+ * a parent who had just pressed "Continue with Google" on the parent page.
+ * It travels as `?role=` on our own callback URL (same host, so the Supabase
+ * redirect allow-list is unaffected) and then on /auth/complete.
+ *
+ * It is a PRESELECTION, not a grant: /auth/complete still shows the chip and
+ * the person still submits it, and the profile is created by the same
+ * ensureSupabaseProfile() as the email path. A returning user's existing
+ * profile always wins — the hint is ignored for anyone who has one.
+ * Anything but the two literal values is dropped.
+ */
+export type SignupRoleIntent = "player" | "parent";
+
+export function parseSignupRoleIntent(value: string | null | undefined): SignupRoleIntent | null {
+  return value === "parent" || value === "player" ? value : null;
+}
+
 /** Where a parent's email-proof lands (migration 043): the emailed link AND
  * "Verify with Google instead" both come back here, and this page runs
  * mark_email_verified(). One path, so the Supabase redirect allow-list needs

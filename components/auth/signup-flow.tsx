@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, Users, UserPlus } from "lucide-react";
 import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type Player, type PlayerGender, type FamilyRole } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
-import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signUp } from "@/lib/auth";
+import { AUTH_ERROR_MESSAGES, resendConfirmationEmail, signUp, signupErrorMessage } from "@/lib/auth";
+import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
 import {
   birthYearOptions,
   isPlausibleBirthYear,
@@ -262,7 +263,9 @@ export function SignupFlow({
         return;
       }
       // Already mapped by friendlyAuthError in lib/auth.ts.
-      setError(result.error ?? AUTH_ERROR_MESSAGES.unknown);
+      // An address that already has an account may have been created by a
+      // Google sign-in (no password): say Google, when Google is on.
+      setError(signupErrorMessage(result.error ?? AUTH_ERROR_MESSAGES.unknown, GOOGLE_AUTH_ENABLED));
       return;
     }
 
@@ -461,7 +464,9 @@ export function SignupFlow({
         }
         // A Google signup still lands on /auth/complete for birth year,
         // role and family — the under-13 consent gate has no bypass.
-        google={{}}
+        // The role chip travels with it, so /auth/complete opens on Parent
+        // for someone who started on the parent page.
+        google={{ role: accountRole }}
         error={error}
         errorId={ERROR_ID}
         footer={footer}
