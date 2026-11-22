@@ -21,7 +21,9 @@ export function CompareTable() {
       <table className="w-full table-fixed border-separate border-spacing-0 text-left">
         <caption className="sr-only">What each plan includes</caption>
         <colgroup>
-          <col className="w-[34%] sm:w-[46%]" />
+          {/* 40% at 375 (was 34%): feature names wrapped to 3–4 lines while
+              the plan columns had room to spare (final-check B19). */}
+          <col className="w-[40%] sm:w-[46%]" />
           <col />
           <col />
           <col />
@@ -91,7 +93,7 @@ const stickyHead =
 
 function CellContent({ cell }: { cell: CompareCell }) {
   if (cell.kind === "text") {
-    return <span className="text-[13px] font-medium tabular-nums text-ink sm:text-sm">{cell.value}</span>;
+    return <span className="text-xs font-medium leading-tight tabular-nums text-ink sm:text-sm">{cell.value}</span>;
   }
   if (cell.included) {
     return (

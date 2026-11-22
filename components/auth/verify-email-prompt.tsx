@@ -15,8 +15,11 @@ import {
   clearPendingJoinCode,
   joinOutcomeFor,
   rememberVerifyReturn,
+  sendFailureMessage,
 } from "@/lib/email-verify-flow";
 import { usePlayer } from "@/lib/context/player-context";
+import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
+import { GoogleVerifyButton } from "./auth-card";
 
 // The B6 "confirm your email" pieces (migration 043). Calm, never an error
 // state: the account is fine, there is one step left, and nothing the person
@@ -37,7 +40,14 @@ function useVerificationLink(opts: { returnPath: string }) {
     rememberVerifyReturn(opts.returnPath);
     const result = await sendVerificationLink();
     if (result.ok) setState({ phase: "sent", email: result.email });
-    else setState((s) => ({ phase: s.email ? "sent" : "idle", email: s.email, error: result.error }));
+    else
+      setState((s) => ({
+        phase: s.email ? "sent" : "idle",
+        email: s.email,
+        // Points to "Verify with Google instead" when it is on screen:
+        // a send that fails often fails again (PR D, final-check).
+        error: sendFailureMessage(result.error, GOOGLE_AUTH_ENABLED),
+      }));
   };
   return { state, send };
 }
@@ -136,6 +146,16 @@ export function VerifyEmailToJoin({
         </SeededButton>
       </div>
       {retryNote && <p className="mt-3 text-sm text-stone">{retryNote}</p>}
+      <GoogleVerifyButton
+        className="mt-4 border-t border-line pt-4"
+        hint={VERIFY_COPY.googleHint}
+        onBeforeStart={async () => {
+          // Same memory as the link: the code (bound to this account) and
+          // the screen to come back to.
+          await rememberMyPendingJoinCode(code);
+          rememberVerifyReturn(returnPath);
+        }}
+      />
     </div>
   );
 }
@@ -199,6 +219,11 @@ export function VerifyEmailToApprove({ note }: { note?: string }) {
         )}
       </div>
       {checkNote && <p className="mt-2 text-sm text-stone">{checkNote}</p>}
+      <GoogleVerifyButton
+        className="mt-3 border-t border-line pt-3"
+        hint={VERIFY_COPY.googleHint}
+        onBeforeStart={() => rememberVerifyReturn(pathname || "/family")}
+      />
     </div>
   );
 }

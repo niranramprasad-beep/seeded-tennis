@@ -6,9 +6,19 @@ import type { Gender, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
 import { schoolUtrRange, utrToPct } from "@/lib/school-fit";
 import { buildDiagnosticFitReport, projectionTargetLabel, type FitView } from "@/lib/fit";
-import { SEE_ALL_PROGRAMS, closestProgramAbove, fitReportHeadline, nothingInRangeSentence } from "@/lib/fit-copy";
+import {
+  SEE_ALL_PROGRAMS,
+  closestProgramAbove,
+  defaultFitTab,
+  emptyBandSentence,
+  fitReportLead,
+  nothingInRangeSentence,
+  ratingBasisLabel,
+  ratingWithBasis,
+  type RatingBasis,
+  type FitTabBand,
+} from "@/lib/fit-copy";
 import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagnostic";
-import { projectedYouLabel } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn, formatPlayerUtr, formatUtrEstimate, plural } from "@/lib/utils";
 import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION, DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
@@ -68,7 +78,10 @@ export function DiagnosticFitReport({
   const counts = report?.counts ?? { reach: 0, target: 0, likely: 0, outOfRange: 0 };
   const total = report?.inRange ?? 0;
 
-  const [tab, setTab] = useState<FitBand>("target");
+  // A4: open on the first non-empty band (Out of range when that is all
+  // there is), not on an empty Target tab. Null until the visitor picks one.
+  const [pickedTab, setTab] = useState<FitTabBand | null>(null);
+  const tab: FitTabBand = pickedTab ?? defaultFitTab(counts);
   const tabRows = useMemo(
     () =>
       filtered
@@ -82,15 +95,18 @@ export function DiagnosticFitReport({
   // the catalogue count and the nearest estimated range, never "0 programs"
   // alone (A-001). Today's rating; see nothingInRangeSentence for why that
   // stays true in the projected view.
-  const nothingInRange =
-    report && total === 0
-      ? nothingInRangeSentence({
-          programCount: filtered.length,
-          programLabel: GENDER_LABEL[gender].toLowerCase(),
-          utr: today,
-          closest: closestProgramAbove(today, filtered),
-        })
-      : null;
+  const zeroInput = {
+    programCount: filtered.length,
+    programLabel: GENDER_LABEL[gender].toLowerCase(),
+    utr: today,
+    closest: closestProgramAbove(today, filtered),
+  };
+  const nothingInRange = report && total === 0 ? nothingInRangeSentence({ ...zeroInput }) : null;
+  // A4: with nothing in range today or by the summer, the headline IS the
+  // zero sentence (closest program + its gap, an estimate), so the zero
+  // card below does not repeat it and the "0 Target and 0 Likely" lines go.
+  const lead = report ? fitReportLead(report, parent ? "parent" : "player", zeroInput) : null;
+  const leadIsZeroSentence = lead != null && lead === nothingInRangeSentence(zeroInput);
 
   // Arriving here is a new screen after a click: start at its top, and put
   // focus on its heading so a screen reader announces the result.
@@ -125,9 +141,9 @@ export function DiagnosticFitReport({
                 make it. Both counts carry their date (lib/fit-copy.ts). */}
             {!report
               ? `Add a UTR to see ${parent ? "your player's" : "your"} fit.`
-              : fitReportHeadline(report, parent ? "parent" : "player")}
+              : lead}
           </h1>
-          {report && (
+          {report && counts.target + counts.likely > 0 && (
             <p className="mt-2 text-base text-stone">
               {report.utr.isProjected && report.view === "recruiting"
                 ? `By ${projectionTargetLabel(report.utr.year)}: ${counts.target} Target and ${counts.likely} Likely.`
@@ -187,12 +203,14 @@ export function DiagnosticFitReport({
                   <EstimateChip />
                 </div>
                 <p className="mt-1.5 text-sm text-stone">{projection.note}</p>
-                <p className="mt-2.5 text-sm text-ink">
-                  Programs in range:{" "}
-                  <strong className="font-mono tabular-nums">{report.todayInRange}</strong> today
-                  → <strong className="font-mono tabular-nums">{report.recruitingInRange}</strong>{" "}
-                  by {projectionTargetLabel(projection.targetYear)}.
-                </p>
+                {report.todayInRange + report.recruitingInRange > 0 && (
+                  <p className="mt-2.5 text-sm text-ink">
+                    Programs in range:{" "}
+                    <strong className="font-mono tabular-nums">{report.todayInRange}</strong> today
+                    → <strong className="font-mono tabular-nums">{report.recruitingInRange}</strong>{" "}
+                    by {projectionTargetLabel(projection.targetYear)}.
+                  </p>
+                )}
                 <p className="mt-2.5 text-xs text-stone">
                   {projection.basis === "logged-pace"
                     ? `A guess from ${parent ? "your player's" : "your"} own past ratings, not a promise.`
@@ -223,8 +241,8 @@ export function DiagnosticFitReport({
 
           {nothingInRange && (
             <div className="mt-6 rounded-card border border-line bg-card p-5">
-              <p className="m-0 font-semibold text-ink">{nothingInRange}</p>
-              <p className="mt-1.5 text-sm text-stone">
+              {!leadIsZeroSentence && <p className="m-0 font-semibold text-ink">{nothingInRange}</p>}
+              <p className={cn("text-sm text-stone", !leadIsZeroSentence && "mt-1.5", leadIsZeroSentence && "m-0")}>
                 That is a fact about our catalogue, not a verdict on the player.
               </p>
               <div className="mt-3.5 flex flex-wrap gap-3">
@@ -275,9 +293,7 @@ export function DiagnosticFitReport({
                   </span>
                 </div>
                 {tabRows.length === 0 ? (
-                  <p className="px-5 py-6 text-sm text-stone">
-                    No {BAND_LABEL[tab].toLowerCase()} programs for this UTR and team yet.
-                  </p>
+                  <p className="px-5 py-6 text-sm text-stone">{emptyBandSentence(tab)}</p>
                 ) : (
                   tabRows.map((s) => {
                     const range = schoolUtrRange(s);
@@ -286,6 +302,10 @@ export function DiagnosticFitReport({
                     // The dot sits where the row's band was judged: the
                     // estimate in the summer view, today's rating today.
                     const judging = projectedView || today == null ? report.utr.value : today;
+                    // Which rating the dot is, in the one vocabulary every
+                    // screen uses (lib/fit-copy.ts, final-check A2).
+                    const basis: RatingBasis = projectedView ? { kind: "estimate", year: report.utr.year } : { kind: "today" };
+                    const whoLabel = parent ? "Player" : "You";
                     return (
                       <div
                         key={s.id}
@@ -313,14 +333,16 @@ export function DiagnosticFitReport({
                           youPct={utrToPct(judging)}
                           caption={
                             projectedView
-                              ? `Summer ${report.utr.year} ${projection?.display ?? ""} (estimate) · today ${today != null ? formatPlayerUtr(today) : ""} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
-                              : `${parent ? "Player" : "You"} ${formatPlayerUtr(judging)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                              ? `${ratingWithBasis(judging, basis, whoLabel)}${today != null ? ` · ${formatPlayerUtr(today)} today` : ""} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                              : `${ratingWithBasis(judging, basis, whoLabel)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                           }
                           low={range.min}
                           median={(range.min + range.max) / 2}
                           high={range.max}
                           you={judging}
-                          youLabel={projectedView ? projectedYouLabel(report.utr) : parent ? "Player" : "You"}
+                          youLabel={whoLabel}
+                          youBasis={ratingBasisLabel(basis)}
+                          youIsEstimate={projectedView}
                           todayPct={projectedView && today != null ? utrToPct(today) : null}
                           today={projectedView ? today : null}
                         />

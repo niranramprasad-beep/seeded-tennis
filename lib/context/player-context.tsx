@@ -34,8 +34,10 @@ import { hasRealUtr } from "@/lib/utils";
 import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
 import { mutate } from "swr";
 import { isMyConsentStateKey } from "@/lib/db/family-join";
+import { FAMILY_PLAN_STATUS_KEY } from "@/lib/db/family-plan";
 import { getSupabase } from "@/lib/supabase/client";
 import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
+import { runSignOut, type SignOutEffects } from "@/lib/sign-out-steps";
 
 interface PlayerContextValue {
   player: Player;
@@ -58,6 +60,11 @@ interface PlayerContextValue {
    * deletion in components/seeded/settings/seeded-settings-view.tsx). */
   setPlayerLocal: (patch: Partial<Player>) => void;
   signOut: () => void;
+  /** Like signOut, but ends only THIS browser's Supabase session (scope
+   * "local") and resolves once it is gone. For /auth/verified when Google
+   * came back as a different account: that account may be someone else's
+   * (a shared family Google account), so its other devices stay signed in. */
+  signOutLocal: () => Promise<void>;
   /** The signed-in auth user's id, or null when signed out / not known yet.
    * Never part of `Player` (so never round-tripped into a profile write);
    * it exists to key per-account caches such as the consent answer. */
@@ -136,6 +143,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (action === "none") return;
       setUserId(nextUserId(userIdRef.current, { type: "auth-event", event, sessionUserId }));
       void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+      void mutate(FAMILY_PLAN_STATUS_KEY, undefined, { revalidate: false });
       if (action === "signOutLocal") {
         setIsAuthed(false);
         setPlayer(emptyPlayer);
@@ -200,8 +208,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Start an authenticated session with a (possibly not-yet-onboarded) player —
   // used right after sign-up, before the tennis profile is filled in.
   const beginSession = useCallback((next: Player) => {
+    // The caller has just proved this session (a sign-in, a sign-up, the
+    // OAuth callback), so it is authoritative: a hydrate() still in flight
+    // started before the session existed and must not overwrite it with
+    // "signed out" or "can't reach", and the app is hydrated from here on.
+    // Without this, after Google sign-in the header could stay on the public
+    // "Sign in" nav (hydrated false, or a stale result winning) until a refresh.
+    ++hydrateGeneration.current;
     setPlayer(next);
     setIsAuthed(true);
+    setConnectionError(null);
+    setHydrated(true);
     // Record whose session this is (it may be a different account from the
     // one this tab last showed). Until it lands, the fallback lookup above
     // covers it.
@@ -272,20 +289,39 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlayer(next);
   }, []);
 
+  // Both sign-outs run the same tested sequence (lib/sign-out-steps.ts).
+  const signOutEffects = useMemo<SignOutEffects>(
+    () => ({
+      // An in-flight hydrate() must not repopulate what we are clearing.
+      bumpHydrateGeneration: () => void ++hydrateGeneration.current,
+      resetState: () => {
+        setIsAuthed(false);
+        setPlayer(emptyPlayer);
+        rememberRole(null);
+      },
+      // A-033: nothing this browser remembered about the account outlives it
+      // (theme and the internal-analytics flag excepted).
+      clearBrowserStorage: () => void clearSeededBrowserStorage(),
+      // Drop the cached consent answer, so the next account signed in on this
+      // tab never reads the last one's (AuthGate, the star hook and Google
+      // Analytics all key off it).
+      forgetUser: () => {
+        setUserId(null);
+        void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+        // Same for the family's plan: /pricing and Settings must never show
+        // account A's "your family already has it" to account B.
+        void mutate(FAMILY_PLAN_STATUS_KEY, undefined, { revalidate: false });
+      },
+      signOutOfSupabase: (scope) => signOutOfSupabase(scope === "local" ? { scope: "local" } : undefined),
+    }),
+    []
+  );
+
   const signOut = useCallback(() => {
-    setIsAuthed(false);
-    setPlayer(emptyPlayer);
-    rememberRole(null);
-    // A-033: nothing this browser remembered about the account outlives it
-    // (theme and the internal-analytics flag excepted).
-    clearSeededBrowserStorage();
-    // Drop the cached consent answer, so the next account signed in on this
-    // tab never reads the last one's (AuthGate, the star hook and Google
-    // Analytics all key off it).
-    setUserId(null);
-    void mutate(isMyConsentStateKey, undefined, { revalidate: false });
-    void signOutOfSupabase();
-  }, []);
+    void runSignOut(signOutEffects, "global");
+  }, [signOutEffects]);
+
+  const signOutLocal = useCallback(() => runSignOut(signOutEffects, "local"), [signOutEffects]);
 
   const value = useMemo(
     () => ({
@@ -299,6 +335,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      signOutLocal,
       userId,
     }),
     [
@@ -312,6 +349,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updatePlayer,
       setPlayerLocal,
       signOut,
+      signOutLocal,
       userId,
     ]
   );

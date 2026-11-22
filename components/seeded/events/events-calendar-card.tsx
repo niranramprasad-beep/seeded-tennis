@@ -94,6 +94,7 @@ export function EventsCalendarCard({
         </div>
         {view === "week" ? (
           <PeriodNav
+            key={view}
             label={weekLabel(weekOffset)}
             prevLabel="Previous week"
             nextLabel="Next week"
@@ -103,6 +104,7 @@ export function EventsCalendarCard({
           />
         ) : (
           <PeriodNav
+            key={view}
             label={monthLabel(monthOffset)}
             prevLabel="Previous month"
             nextLabel="Next month"

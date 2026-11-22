@@ -121,7 +121,8 @@ export function WhatIfPanel({
         </label>
       </div>
 
-      <p className={cn("mt-2 truncate text-xs text-stone-light", !historyLoaded && "invisible")}>
+      {/* Wraps: at 375 the ellipsis cut this hint mid-sentence (final-check B16). */}
+      <p className={cn("mt-2 text-xs text-stone-light", !historyLoaded && "invisible")}>
         {myPaceValue == null || myPacePerYear == null
           ? "My pace needs a UTR you logged about 6 to 12 months ago."
           : `My pace carries your pace, ${formatPacePerYear(myPacePerYear)}, forward.`}

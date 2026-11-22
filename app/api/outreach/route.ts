@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { z } from "zod";
 import { getProfileRoleAndFamily, getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
+import { writeRefusalContext } from "@/lib/db/write-refusal";
 import {
   saveCoachOutreachReminder,
   saveCoachOutreachReplyNote,
@@ -47,13 +49,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const json = await req.json().catch(() => null);
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(BodySchema, json, "Pick a school, then save again.");
+  if (!parsed.ok) return parsed.response;
 
   const { familyCode } = await getProfileRoleAndFamily(ctx.supabase, ctx.user.id);
   const writeCtx = { supabase: ctx.supabase, userId: ctx.user.id, familyCode };
@@ -73,9 +70,12 @@ export async function POST(req: Request) {
     // S-10: the database's own text goes to the log, never to the response
     // (lib/db/write-error.ts). Our validation sentences still reach the UI.
     logServerError("api.outreach.write_failed", err, { route: "/api/outreach" });
+    // A permission refusal reads its reason from the caller's own profile
+    // (consent pending / Free plan), never from the error's text.
+    const refusal = await writeRefusalContext(ctx.supabase, ctx.user.id, err, { needsPlayerPlan: true });
     return NextResponse.json(
-      { error: clientWriteErrorMessage(err, "Could not save that. Try again.") },
-      { status: 500 }
+      { error: clientWriteErrorMessage(err, "Could not save that. Try again.", refusal) },
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

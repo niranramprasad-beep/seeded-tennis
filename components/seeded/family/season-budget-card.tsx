@@ -127,20 +127,24 @@ export function SeasonBudgetCard({
 
       {rows.length > 0 || summary.skippedBadFitCount > 0 ? (
         <div className="mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label="Season expenses">
-          <table className="w-full min-w-[480px] text-sm">
+          {/* Headers match both kinds of row (final-check B3): a tournament
+              shows its fit, a logged expense its category — the description
+              sat under "Event" and "Camp" under "Fit". No min width: at 375
+              the table scrolled sideways; the item wraps instead. */}
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-stone">
-                <th className="py-2 pr-3">Date</th>
-                <th className="py-2 pr-3">Event</th>
-                <th className="py-2 pr-3">Fit</th>
-                <th className="py-2 text-right">Cost</th>
+                <th scope="col" className="py-2 pr-3">Date</th>
+                <th scope="col" className="py-2 pr-3">Item</th>
+                <th scope="col" className="py-2 pr-3">Fit / type</th>
+                <th scope="col" className="py-2 text-right">Cost</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-line last:border-0">
                   <td className="whitespace-nowrap py-3 pr-3 font-mono text-stone">{formatShortDate(row.date)}</td>
-                  <td className="py-3 pr-3 text-ink">{row.label}</td>
+                  <td className="py-3 pr-3 text-ink [overflow-wrap:anywhere]">{row.label}</td>
                   <td className="py-3 pr-3">
                     <BudgetChip chip={row.chip} />
                   </td>

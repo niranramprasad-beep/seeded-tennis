@@ -351,15 +351,25 @@ function UtrLogDrawer({
       eyebrow="Update UTR"
       title="Log your current rating"
       footer={
-        <Button className="w-full" onClick={submit} disabled={loading}>
+        // A real form (final-check B6): Enter in "Current UTR" did nothing.
+        // The footer sits outside the form's DOM, so it submits by id.
+        <Button className="w-full" type="submit" form="utr-log-form" disabled={loading}>
           {loading ? "Saving..." : "Save UTR entry"}
           <Check className="h-4 w-4" />
         </Button>
       }
     >
-      <div className="space-y-5">
+      <form
+        id="utr-log-form"
+        noValidate
+        className="space-y-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!loading) submit();
+        }}
+      >
         {(localError || error) && (
-          <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
+          <p className="rounded-xl bg-error-bg px-4 py-3 text-sm text-error" role="alert">
             {localError || error}
           </p>
         )}
@@ -393,7 +403,7 @@ function UtrLogDrawer({
             className="min-h-[104px] w-full rounded-xl border-[0.5px] border-line bg-card px-4 py-3 text-sm text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-grass/30"
           />
         </label>
-      </div>
+      </form>
     </Drawer>
   );
 }

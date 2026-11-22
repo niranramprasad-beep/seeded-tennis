@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
-import { teamLineRelation } from "@/lib/fit-copy";
+import { rangeBarYouLine } from "@/lib/fit-copy";
 
 interface RangeBarProps {
   /** Filled range, both 0–100, measured from the left edge. */
@@ -45,6 +45,11 @@ interface RangeBarProps {
    *  (lib/fit.ts) rather than a logged rating: it prints with one decimal,
    *  a logged rating with two (lib/utils.ts formatPlayerUtr — C10). */
   youIsEstimate?: boolean;
+  /** Which rating the dot is, in lib/fit-copy.ts ratingBasisLabel's words —
+   *  "today", "by summer 2027, estimate", "by summer 2027, what-if". Printed
+   *  after the number in the tooltip so a gap is never read as the wrong
+   *  rating's (final-check A2). */
+  youBasis?: string | null;
 }
 
 // Signature component, pixel-exact to DesignSystem.dc.html's "Range bar":
@@ -69,6 +74,7 @@ export function RangeBar({
   todayPct,
   today,
   youIsEstimate = false,
+  youBasis = null,
 }: RangeBarProps) {
   const reduceMotion = useReducedMotion();
   const [tapOpen, setTapOpen] = useState(false);
@@ -175,7 +181,7 @@ export function RangeBar({
               {/* "0.3 below the team average", never a signed "gap" a
                   family has to decode (A-007). The helper takes (rating,
                   line) and decides the side itself. */}
-              {youLabel} {formatUtrFor(you!, youIsEstimate)} · {teamLineRelation(you!, median!, "average")}
+              {rangeBarYouLine({ youLabel, you: you!, youIsEstimate, youBasis, median: median! })}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

@@ -149,6 +149,7 @@ function ChecklistRow({
         <label className="-my-2.5 -ml-2.5 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center sm:-my-0.5 sm:-ml-1 sm:h-6 sm:w-6">
           <input
             type="checkbox"
+            className="h-5 w-5 accent-grass sm:h-4 sm:w-4"
             checked={item.completed}
             disabled={!item.editable}
             onChange={() => item.editable && onToggleCompleted(item.id)}

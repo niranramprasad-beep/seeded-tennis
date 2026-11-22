@@ -26,8 +26,11 @@ import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
 import { currentSeason, formatDate, getCurrentGrade, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
-import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
+import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
+import { DataNote } from "@/components/seeded/ui/data-note";
+import { doneThisWeekLine, onTrackPill } from "@/lib/empty-state-copy";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
+import { chartLegendSentence } from "@/lib/chart-legend";
 
 function seasonLabel(graduationYear: number, now: Date): string {
   const standing = gradeStandingName(getCurrentGrade(graduationYear, now));
@@ -92,6 +95,7 @@ export function SeededDashboardLayout({
       }).length,
     [targetSchools, fitReport]
   );
+  const trackPill = onTrackPill(onTrackCount, targetSchools.length);
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
     const weekAgo = now.getTime() - 7 * 86_400_000;
@@ -173,9 +177,16 @@ export function SeededDashboardLayout({
           >
             {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"} · Update
           </button>
-          {targetSchools.length > 0 && (
-            <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
-              On track for {onTrackCount} of {plural(targetSchools.length, "target", "targets")}
+          {/* Green only for a real count: "On track for 0 of 3" in green sat
+              beside "3 of your 3 targets are a Reach" (final-check A9). */}
+          {trackPill && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-pill border px-2.5 py-1 text-xs font-semibold",
+                trackPill.tone === "good" ? "border-grass-100 bg-grass-50 text-grass" : "border-line bg-card text-stone"
+              )}
+            >
+              {trackPill.text}
             </span>
           )}
         </div>
@@ -218,7 +229,7 @@ export function SeededDashboardLayout({
                 <p>Your UTR, plus a match result if you played one.</p>
               </>
             )}
-            <p>Done this week: logged {plural(matchesThisWeek, "match", "matches")}</p>
+            <p>{doneThisWeekLine(matchesThisWeek)}</p>
           </div>
           {sundayCheckinDue && (
             <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
@@ -253,41 +264,34 @@ export function SeededDashboardLayout({
               upside={upsidePath}
             />
           </div>
-          {hasLoggedUtr && (
-            <ul aria-label="UTR vs plan" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-stone">
-              <li className="flex items-center gap-2">
-                <span aria-hidden className="w-5 border-t-2 border-grass" />
-                UTRs you logged
-              </li>
-              {estimatePath.length > 1 && (
-                <li className="flex items-center gap-2">
-                  <span aria-hidden className="w-5 border-t-2 border-dashed border-grass" />
-                  Estimate we plan with
-                </li>
-              )}
-              {upsidePath.length > 1 && (
-                <li className="flex items-center gap-2">
-                  <span aria-hidden className="w-5 border-t border-dashed border-stone" />
-                  Your own faster pace, never used for bands
-                </li>
-              )}
+          {hasLoggedUtr ? (
+            <DataNote className="mt-3">
+              {/* A legend for exactly what is drawn (independent review of
+                  PR #16): the chart may end at the next checkpoint rather
+                  than the summer before senior year, and the grey line only
+                  exists when the player's own pace beats the planning cap. */}
+              {/* One vocabulary with /plan's chart (lib/chart-legend.ts,
+                  final-check A3). The estimate is drawn dotted here too,
+                  so "dotted" means the same line on both screens. */}
+              {/* B24: the logged-only case says it in the same words too. */}
+              {chartLegendSentence({
+                estimate: estimatePath.length > 1,
+                plan: nextCheckpoint ? "next-checkpoint" : null,
+                upside: upsidePath.length > 1,
+              })}
+              {/* The header's "Next checkpoint" chip moved here in the
+                  design polish (herdy-work), so its value and date are said
+                  beside the gold line they name. */}
               {nextCheckpoint && (
-                <li className="flex items-center gap-2">
-                  <span aria-hidden className="w-5 border-t border-dashed border-[rgb(var(--c-gold))]" />
-                  Next checkpoint{" "}
+                <>
+                  {" "}Next checkpoint:{" "}
                   <span className="font-mono tabular-nums">{formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)}</span> by{" "}
-                  {formatDate(nextCheckpoint.date)}
-                </li>
+                  {formatDate(nextCheckpoint.date)}.
+                </>
               )}
-            </ul>
-          )}
-          {fitReport?.utr?.upside ? (
-            <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" />
-          ) : hasLoggedUtr ? (
-            <Link href="/methodology" className="mt-2 inline-flex min-h-11 items-center text-[15px] font-semibold text-grass underline underline-offset-2 sm:min-h-6">
-              About our data
-            </Link>
+            </DataNote>
           ) : null}
+          {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
         </div>
       </section>
 

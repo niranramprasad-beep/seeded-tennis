@@ -27,6 +27,8 @@ import {
 } from "@/lib/tournament-fit";
 import {
   TRAVEL_PILLS,
+  copyWithTimeout,
+  costPerMatchNote,
   decodeTournamentFitShareParams,
   encodeTournamentFitShareParams,
   travelHoursForPill,
@@ -126,6 +128,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const { mutate } = useSWRConfig();
   const [addOpen, setAddOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // The last UTR the player typed in — not a verified rating. See the same
   // rename in seeded-roadmap-layout.tsx (P0-7).
@@ -207,10 +210,18 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
       drawUtr: drawUtrNum,
     });
     const url = `${window.location.origin}/tournament-fit?${params.toString()}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    // Settles either way (final-check B12: a clipboard that never answered
+    // left the button with no feedback at all), and the button itself says
+    // "Link copied" for a moment as well as the toast.
+    const outcome = await copyWithTimeout(
+      typeof navigator !== "undefined" && navigator.clipboard ? (t) => navigator.clipboard.writeText(t) : undefined,
+      url
+    );
+    if (outcome === "copied") {
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 3000);
       setToast({ message: "Link copied — paste it anywhere to share this exact check.", variant: "success" });
-    } catch {
+    } else {
       setToast({ message: "Couldn't copy the link. Copy it from your browser's address bar instead.", variant: "error" });
     }
   };
@@ -448,8 +459,12 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 />
                 <Meter
                   label="Cost per match"
-                  value={`$${Math.round(result.costPerMatch)} / match`}
+                  value={result.costKnown ? `$${Math.round(result.costPerMatch)} / match` : "Not tracked"}
                   pct={result.costScore}
+                  note={costPerMatchNote(result.typicalMatches, result.totalCost, {
+                    known: result.costKnown,
+                    partial: result.costPartial,
+                  })}
                 />
                 <Meter label="Travel" value={`${result.travelScore}/100`} pct={result.travelScore} />
               </div>
@@ -477,7 +492,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 <SeededButton onClick={handleAddClick} disabled={!result}>Add to my events</SeededButton>
               )}
               <SeededButton variant="secondary" onClick={handleShare}>
-                {isParent ? "Copy a link to this check" : "Share with my coach"}
+                {shareCopied ? "Link copied" : isParent ? "Copy a link to this check" : "Share with my coach"}
               </SeededButton>
             </div>
 
@@ -524,7 +539,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   );
 }
 
-function Meter({ label, value, pct }: { label: string; value: string; pct: number }) {
+function Meter({ label, value, pct, note }: { label: string; value: string; pct: number; note?: string }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div>
@@ -535,6 +550,7 @@ function Meter({ label, value, pct }: { label: string; value: string; pct: numbe
       <div className="mt-1.5 h-2 overflow-hidden rounded-pill bg-line">
         <div className="h-full rounded-pill bg-grass-300" style={{ width: `${clamped}%` }} />
       </div>
+      {note && <p className="mt-1 text-xs text-stone">{note}</p>}
     </div>
   );
 }

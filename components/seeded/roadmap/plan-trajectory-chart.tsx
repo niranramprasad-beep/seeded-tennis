@@ -8,6 +8,7 @@ import { formatCheckpointUtr, formatPlayerUtr } from "@/lib/utils";
 import { formatDate } from "@/lib/time";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
 import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
+import { chartLegendSentence } from "@/lib/chart-legend";
 import {
   buildChartSeries,
   clientXToViewBoxX,
@@ -262,7 +263,19 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                   transform={`rotate(45 ${cx} ${cy})`}
                 />
               </g>
-              <text aria-hidden="true" x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
+              {/* Hidden while the readout is open: at 375 its box sat over
+                  "Jun '27 · 9.30" (final-check A12). The readout's Plan row
+                  carries the same value at the crosshair. */}
+              <text
+                aria-hidden="true"
+                x={lx}
+                y={ly}
+                textAnchor={fitsLeft ? "end" : "start"}
+                fontSize="12"
+                fill="rgb(var(--c-ink))"
+                fontFamily={LABEL_FONT}
+                opacity={hoverX != null && readout ? 0 : 1}
+              >
                 {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatCheckpointUtr(c.utr, goal?.value)}</tspan>
               </text>
             </g>
@@ -366,11 +379,15 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {announcement}
       </p>
 
+      {/* The same words as /today's chart legend (lib/chart-legend.ts,
+          final-check A3): each line style means one thing on both charts. */}
       <p className="mt-2 text-sm text-stone">
-        Solid: the UTRs you&apos;ve logged.
-        {checkpoints.length > 0 && " Dashed: your plan's checkpoints."}
-        {paths.band && ` Dotted: your estimate for the summer before senior year${endLabels.plan ? `, ${endLabels.plan}` : ""}.`}
-        {upsideLine && " Grey dashes: Estimate at your own pace, not used for your bands."}
+        {chartLegendSentence({
+          estimate: Boolean(paths.band),
+          estimateEnd: endLabels.plan,
+          plan: checkpoints.length > 0 ? "line" : null,
+          upside: Boolean(upsideLine),
+        })}
       </p>
 
       {sel && goal && (

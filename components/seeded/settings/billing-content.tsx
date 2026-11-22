@@ -4,6 +4,7 @@ import { FAMILY_PLAN_MAX_PARENTS, FAMILY_PLAN_MAX_PLAYERS, type SubscriptionTier
 import type { FamilyMember } from "@/lib/db/family";
 import { familyCapCounts } from "@/lib/family-settings";
 import {
+  NOT_PAYER_SELF_NOTE,
   SEE_PRICE_ON_WHOP,
   WHOP_UNREACHABLE_NOTE,
   billingDate,
@@ -243,6 +244,7 @@ export function BillingContent({
         <section className="rounded-card border border-line bg-card p-6">
           <h2 className="text-lg font-semibold text-ink">{view.tierName} plan</h2>
           <p className="mt-2 text-sm text-stone">{notPayerNote(view.payerFirstName)}</p>
+          <p className="mt-1 text-sm text-stone">{NOT_PAYER_SELF_NOTE}</p>
         </section>
         <IncludedCard tier={view.tier} familyMembers={familyMembers} />
       </>

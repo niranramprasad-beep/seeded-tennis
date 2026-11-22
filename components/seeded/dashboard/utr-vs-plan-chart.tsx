@@ -159,12 +159,12 @@ export function UtrVsPlanChart({ actualPoints, nextCheckpoint, goalValue, estima
         })}
 
         {bandPath && <path d={bandPath} fill="rgb(var(--c-primary-50))" />}
-        {/* The estimate's own line, dashed. A logged-pace estimate has
+        {/* The estimate's own line, DOTTED as on /plan (lib/chart-legend.ts). A logged-pace estimate has
             low === high, so the shaded band alone has no area and drew
             nothing at all — the old caption said "Shaded" over an empty
             stretch of chart. */}
         {estimateLine && (
-          <polyline points={estimateLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2" strokeDasharray="6 5" />
+          <polyline points={estimateLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
         )}
         {upLine && <polyline points={upLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />}
         {endLabels.plan && bandEnd && (

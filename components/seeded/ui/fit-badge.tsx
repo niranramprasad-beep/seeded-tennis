@@ -34,7 +34,10 @@ const BAND_ICON: Record<FitBand, LucideIcon> = {
   unverified: HelpCircle,
 };
 
-export function FitBadge({ band, className }: { band: FitBand; className?: string }) {
+/** `label` overrides the band's words for one case only: a parent on Free
+ *  whose child HAS a rating that the plan hides — "No UTR yet" said the
+ *  rating was missing when it is locked (final-check B8). */
+export function FitBadge({ band, className, label }: { band: FitBand; className?: string; label?: string }) {
   return (
     <span
       className={cn(
@@ -47,7 +50,7 @@ export function FitBadge({ band, className }: { band: FitBand; className?: strin
         const Icon = BAND_ICON[band];
         return <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />;
       })()}
-      {LABEL[band]}
+      {label ?? LABEL[band]}
     </span>
   );
 }

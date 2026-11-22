@@ -19,9 +19,9 @@ import {
 } from "@/lib/family-view";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { formatPacePerYear, paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
-import { teamLineRelation } from "@/lib/fit-copy";
-import { ProjectionNote, projectedYouLabel } from "@/components/seeded/ui/projection-note";
+import { formatPacePerYear, paceUpsideSentence } from "@/lib/fit";
+import { judgingRatingFor, rangeCaption, ratingBasisLabel, schoolPageUtrRow, todayRatingFor } from "@/lib/fit-copy";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
@@ -33,7 +33,7 @@ import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -131,6 +131,14 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   // judged the band — the same one the /schools row shows — so the two pages
   // print the same "Gap to team average" for the same school.
   const judgingValue = judging?.value ?? null;
+  // Which rating that is, said beside every number from it (final-check A2):
+  // "by summer 2027, estimate" or "today", in lib/fit-copy.ts's words.
+  // One pure helper for every fit screen (lib/fit-copy.ts, verifier M1).
+  // The school page has no what-if slider.
+  const judgingRating = judgingRatingFor({ report, whatIf: null, graduationYear: subject.graduationYear });
+  const judgingBasis = judgingRating?.basis ?? null;
+  const subjectWho = subjectFirst ?? "You";
+  const utrRow = judgingRating ? schoolPageUtrRow(judgingRating, todayRatingFor(subjectUtr), school, subjectWho) : null;
   const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
 
@@ -200,7 +208,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
     <div className="min-w-0 rounded-card border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
-        <FitBadge band={explanation.band} className="text-sm" />
+        <FitBadge
+          band={explanation.band}
+          className="text-sm"
+          label={explanationInput.ratingHidden && explanation.band === "unverified" ? "Locked — Family plan" : undefined}
+        />
       </div>
       <p className="mt-2 text-sm text-stone">
         {explanation.summary}
@@ -209,15 +221,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       {gaps && judging && explanation.band !== "unverified" && (
         <FitDriverRow
           label="UTR"
-          description={
-            judging.isProjected
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrEstimate(judging.value)}: ${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")} · today ${formatPlayerUtr(subjectUtr as number)}`
-              : `${teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")} · ${teamLineRelation(judging.value, school.avgRosterUTR, "average")}`
-          }
-          chip={
-            bandPositionLabel(explanation.band) +
-            (judging.isProjected ? ` by ${projectionTargetLabel(judging.year)} (est.)` : "")
-          }
+          description={utrRow?.description ?? ""}
+          chip={bandPositionLabel(explanation.band) + (utrRow?.chipSuffix ?? "")}
         />
       )}
       <FitDriverRow label="Pace" description={paceDescription} />
@@ -262,7 +267,9 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           youPct={judgingValue != null ? utrToPct(judgingValue) : null}
           caption={
             judgingValue != null
-              ? `${projectedYouLabel(judging, subjectFirst)} ${formatUtrFor(judgingValue, judging?.isProjected ?? false)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+              ? judgingRating
+                ? rangeCaption(judgingRating, subjectWho, range)
+                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
               : subjectFirst
                 ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
                 : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`
@@ -272,7 +279,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           high={range.max}
           you={judgingValue}
           youIsEstimate={judging?.isProjected ?? false}
-          youLabel={projectedYouLabel(judging, subjectFirst)}
+          youLabel={subjectWho}
+          youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
         />
       </div>
       <DataNote className="mt-4">The team range is our estimate, not a published roster.</DataNote>
