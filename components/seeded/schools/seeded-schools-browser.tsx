@@ -36,6 +36,7 @@ import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
+import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
@@ -947,12 +948,15 @@ export function SeededSchoolsBrowser({
                       <Link
                         href={`/schools/${s.slug}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex min-h-11 min-w-0 flex-col justify-center text-ink sm:min-h-6"
+                        className="flex min-h-11 min-w-0 items-center gap-3 text-ink sm:min-h-6"
                       >
-                        <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
-                        <p className="truncate text-xs text-stone-light">
-                          {s.conference} · {s.division} · {s.state}
-                        </p>
+                        <SchoolMonogram name={s.shortName} division={s.division} className="hidden sm:inline-flex" />
+                        <span className="flex min-w-0 flex-col justify-center">
+                          <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
+                          <span className="truncate text-xs text-stone-light">
+                            {s.conference} · {s.division} · {s.state}
+                          </span>
+                        </span>
                       </Link>
                     </div>
                     {showFitCol && (fit ? <FitBadge band={fit} /> : <span aria-hidden />)}

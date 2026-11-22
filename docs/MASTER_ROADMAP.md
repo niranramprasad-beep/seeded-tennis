@@ -20,6 +20,19 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-22 — Design polish round 1 (branch `herdy-work`, from the 22 Nov
+consult; no migration, no setting, palette unchanged).** Fit badges get an
+icon per band; the sidebar's active item gets a green left bar and the
+tennis-ball mark replaces the lime dot; the phone tab bar marks the active
+tab; yearly pricing shows twelve monthly payments struck through, derived
+from `TIER_PRICE_USD`; the family UTR tile shows the percent beside the
+change (`formatUtrPercentChange`); landing feature cards get tinted icon
+tiles and shorter copy; school rows and the school header get an initials
+tile. Reference: Figma "WD — NiranRamprasad — Seeded" (DECISIONS 2026-11-22).
+Open from that file: SeededCard/Pill primitives and their migration, the
+copy cuts in `docs/COPY_CUTS.md`, signup field order, the family page, the
+sample-report header when signed in, section motion, a visual check.
+
 **2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
 branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
 a bad email is caught on the email field itself — on blur, and before

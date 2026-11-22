@@ -36,7 +36,6 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
         {/* ---------------------------------------------------- hero + plans */}
         <section aria-labelledby="pricing-title">
           <div className="mx-auto max-w-[720px] text-center">
-            <p className="seeded-eyebrow">Pricing</p>
             <h1
               id="pricing-title"
               className="text-balance font-seeded text-[36px] font-semibold leading-[1.1] tracking-tight text-ink sm:text-[48px]"
@@ -96,7 +95,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               rows — [name][price, 92px][button][features] — so the buttons
               and the first feature line up across all three whatever the
               taglines do. Below lg they stack, each its own 4-row grid. */}
-          <div className="mt-10 grid gap-5 lg:grid-cols-3 lg:grid-rows-[auto_92px_auto_1fr]">
+          <div className="mt-10 grid gap-5 lg:grid-cols-3 lg:grid-rows-[auto_minmax(92px,auto)_auto_1fr]">
             {plans.map((plan) => {
               const btn = buttonState(plan.tier, plan.name);
               const price = priceBlockFor(plan.tier, interval);
@@ -105,7 +104,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                   key={plan.tier}
                   aria-labelledby={`plan-${plan.tier}`}
                   className={cn(
-                    "relative grid grid-rows-[auto_92px_auto_1fr] gap-y-0 rounded-xl bg-card lg:row-span-4 lg:grid-rows-subgrid",
+                    "relative grid grid-rows-[auto_minmax(92px,auto)_auto_1fr] gap-y-0 rounded-xl bg-card lg:row-span-4 lg:grid-rows-subgrid",
                     // 2px border on Player; 1px less padding keeps every
                     // card's content box at the same offset.
                     plan.recommended ? "border-2 border-grass p-[27px]" : "border border-line p-7"
