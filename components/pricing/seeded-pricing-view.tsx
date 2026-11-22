@@ -44,8 +44,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               <span className="block">Pay when you want a plan.</span>
             </h1>
             <p className="mx-auto mt-4 max-w-[600px] text-pretty text-lg leading-relaxed text-stone">
-              Every plan uses the same fit math. Paid plans add the weekly tools: unlimited
-              schools, coach outreach and a parent view.
+              Paid plans add unlimited schools, coach outreach and a parent view.
             </p>
             {error && (
               <p role="alert" className="mx-auto mt-4 max-w-md rounded-xl bg-error-bg px-4 py-3 text-sm text-error">
@@ -220,7 +219,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
           <h2 id="faq-heading" className={sectionTitle}>
             Questions
           </h2>
-          <div className="divide-y divide-line rounded-xl border border-line bg-card">
+          <div className="divide-y divide-line rounded-card border border-line bg-card">
             {/* Seeded design only: /onboarding renders the fit report before
                 any session check (seeded/onboarding/onboarding-page-switch.tsx). */}
             <Faq question="Is the fit report really free?">
@@ -293,7 +292,7 @@ function FreeCard({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-line bg-card p-6">
+    <div className="flex h-full flex-col rounded-card border border-line bg-card p-6">
       <h3 className="font-seeded text-lg font-semibold text-ink">{title}</h3>
       <p className="mt-2 text-[15px] leading-relaxed text-stone">{children}</p>
       {action && <div className="mt-auto pt-2">{action}</div>}

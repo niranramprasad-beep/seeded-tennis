@@ -40,7 +40,7 @@ export function PrivacyCard({
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <h2 className="border-b border-line pb-4 text-lg font-semibold text-ink">Privacy + data</h2>
 
       <div className="divide-y divide-line">

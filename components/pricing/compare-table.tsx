@@ -17,7 +17,7 @@ export function CompareTable() {
   const groups = compareGroups();
 
   return (
-    <div className="overflow-clip rounded-xl border border-line bg-card">
+    <div className="overflow-clip rounded-card border border-line bg-card">
       <table className="w-full table-fixed border-separate border-spacing-0 text-left">
         <caption className="sr-only">What each plan includes</caption>
         <colgroup>

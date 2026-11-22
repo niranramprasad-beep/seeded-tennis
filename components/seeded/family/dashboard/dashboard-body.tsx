@@ -56,7 +56,7 @@ export function DashboardBody({
       <div className={L.HEADER}>
         <div className="min-w-0">
           <p className={L.EYEBROW}>{eyebrow}</p>
-          <Title className={L.H1}>{child}&rsquo;s season at a glance</Title>
+          <Title className={L.H1}>{child}&rsquo;s season</Title>
           <div className={L.PILL_ROW}>
             <span className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border border-line bg-card px-3 text-sm font-medium text-stone">
               <Eye className="h-4 w-4 text-grass" aria-hidden />
@@ -90,7 +90,7 @@ export function DashboardBody({
                 <span>since {model.utr.since}</span>
               </span>
             ) : model.utr.hasUtr ? (
-              "Not enough ratings logged to show a change."
+              "No change yet."
             ) : (
               `${child} hasn't logged one.`
             )}

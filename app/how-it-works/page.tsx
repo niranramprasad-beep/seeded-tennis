@@ -53,7 +53,7 @@ function SeededHowItWorks() {
       <ol className="seeded-card-row grid-cols-1 md:grid-cols-2">
         {steps.map((step, index) => (
           <li key={step.title} className="h-full">
-            <Reveal index={index} step={0.06} className="flex h-full flex-col rounded-xl border border-line bg-card p-6">
+            <Reveal index={index} step={0.06} className="flex h-full flex-col rounded-card border border-line bg-card p-6">
               <div className="flex items-center justify-between">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-grass-50 text-grass">
                   <step.icon className="h-5 w-5" aria-hidden />

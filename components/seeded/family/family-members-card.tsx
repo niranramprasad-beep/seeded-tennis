@@ -45,7 +45,7 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
   };
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Family members</h2>
 
       <div className="mt-4 space-y-3">

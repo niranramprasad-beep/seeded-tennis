@@ -113,7 +113,7 @@ export function ProfileCard({
   };
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Player profile</h2>
       <p className="mt-1 text-[15px] text-stone">Changes here update your fit report and plan right away.</p>
 

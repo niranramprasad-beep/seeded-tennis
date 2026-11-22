@@ -133,7 +133,6 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   const judgingValue = judging?.value ?? null;
   const gaps = judgingValue != null ? fitGaps(judgingValue, school) : null;
   const range = schoolUtrRange(school);
-  const alreadyContacted = Boolean(outreach?.[school.slug]);
 
   // Same shared star-to-target mechanism as the Schools browser and Plan —
   // optimistic update, Undo toast, silent rollback on a real write
@@ -188,8 +187,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
 
   const fitSkeleton = (
     <div key="fit-skeleton" className="mt-6 grid gap-5 lg:grid-cols-2" aria-busy="true">
-      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
-      <div className="min-h-[420px] animate-pulse rounded-[10px] border border-line bg-card" />
+      <div className="min-h-[420px] animate-pulse rounded-card border border-line bg-card" />
+      <div className="min-h-[420px] animate-pulse rounded-card border border-line bg-card" />
     </div>
   );
   const fitCards = (
@@ -198,7 +197,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
   // heights). The roster card is a column whose academics block sits at its
   // foot, so the extra height is space between sections, not under them.
   <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
-    <div className="min-w-0 rounded-[10px] border border-line bg-card p-[22px]">
+    <div className="min-w-0 rounded-card border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Why this band</h2>
         <FitBadge band={explanation.band} className="text-sm" />
@@ -234,8 +233,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       {explanation.unreachable && explanation.alternatives.length > 0 && (
         <div className="mt-3 rounded-[8px] bg-cream p-3.5 text-sm text-ink">
           <strong>Consider instead: </strong>
-          {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or region, and
-          realistically in reach today.
+          {explanation.alternatives.map((a) => a.shortName).join(", ")}
         </div>
       )}
 
@@ -249,7 +247,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       )}
     </div>
 
-    <div className="flex min-w-0 flex-col rounded-[10px] border border-line bg-card p-[22px]">
+    <div className="flex min-w-0 flex-col rounded-card border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">
           {subjectFirst ? `Where ${subjectFirst} sits on this roster` : "Where you sit on this roster"}
@@ -295,8 +293,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
               was jargon about a Seeded-only ranking. The rank a family can
               check is the U.S. News one. */}
-          {academicRankSentence(school.usNewsRanking)} Seeded has no cost or aid figures; ask the
-          school&apos;s financial aid office.
+          {academicRankSentence(school.usNewsRanking)} No cost or aid data here; ask the school&apos;s aid
+          office.
         </p>
       </div>
     </div>
@@ -380,7 +378,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
             one-sentence "Recruiting timeline" card that once sat beside it
             is gone (design system v2 rule 5): the "Why this band" card's
             Timing row already says the same thing. */}
-        <div className="mt-5 grid min-w-0 gap-5 rounded-[10px] border border-line bg-card p-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-end">
+        <div className="mt-5 grid min-w-0 gap-5 rounded-card border border-line bg-card p-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-end">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-grass" aria-hidden />
@@ -393,14 +391,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
               player's behalf. */}
           {!isParent && (
             <div className={cn("min-w-0", playerOnlyUntilHydrated)}>
-              {outreach && !alreadyContacted && (
-                <p className="mb-2.5 text-xs text-stone-light">You haven&apos;t reached out to this coach yet.</p>
-              )}
               <Link
                 href={`/outreach?school=${school.slug}`}
                 className={cn(seededButtonVariants({ variant: "secondary" }), "w-full")}
               >
-                Draft an email to the head coach
+                Draft a coach email
               </Link>
             </div>
           )}

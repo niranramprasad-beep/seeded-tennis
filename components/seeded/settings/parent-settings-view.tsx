@@ -189,7 +189,7 @@ function ParentAccountCard({ onSignOut }: { onSignOut: () => void }) {
   };
 
   return (
-    <section aria-labelledby="parent-account-heading" className="rounded-xl border border-line bg-card p-6">
+    <section aria-labelledby="parent-account-heading" className="rounded-card border border-line bg-card p-6">
       <h2 id="parent-account-heading" className="text-lg font-semibold text-ink">
         Your account
       </h2>
@@ -303,7 +303,7 @@ function LinkedPlayersCard() {
   const statsLocked = rosterStatsLocked(plan);
 
   return (
-    <section aria-labelledby="linked-players-heading" className="rounded-xl border border-line bg-card p-6">
+    <section aria-labelledby="linked-players-heading" className="rounded-card border border-line bg-card p-6">
       <h2 id="linked-players-heading" className="text-lg font-semibold text-ink">
         Your {players.length === 1 ? "player" : "players"}
       </h2>

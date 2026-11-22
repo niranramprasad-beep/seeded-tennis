@@ -56,7 +56,7 @@ export function WhatIfPanel({
   const when = milestonePassed ? "now" : `by June ${seniorSummerYear}`;
 
   return (
-    <div className="rounded-xl border border-line bg-card p-[18px]">
+    <div className="rounded-card border border-line bg-card p-[18px]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[15px] font-semibold text-ink">
           What if my UTR is{" "}

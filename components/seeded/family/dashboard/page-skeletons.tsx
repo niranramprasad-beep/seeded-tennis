@@ -31,7 +31,7 @@ export function BudgetPageSkeleton() {
           <div className={cn("h-8 w-52", bar)} />
         </div>
         <div className={cn("mt-1.5 h-12 max-w-2xl", bar)} />
-        <div className="mt-6 min-h-[300px] rounded-xl border border-line bg-card p-6">
+        <div className="mt-6 min-h-[300px] rounded-card border border-line bg-card p-6">
           <div className={cn("h-6 w-60", bar)} />
           <div className={cn("mt-6 h-2.5 w-full", bar)} />
           <div className={cn("mt-6 h-4 w-3/4", bar)} />
@@ -62,15 +62,15 @@ export function WeeklyReportSkeleton() {
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="min-h-[104px] rounded-xl border border-line bg-card p-5">
+            <div key={i} className="min-h-[104px] rounded-card border border-line bg-card p-5">
               <div className={cn("h-8 w-20", bar)} />
               <div className={cn("mt-2 h-4 w-32", bar)} />
             </div>
           ))}
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="min-h-[180px] rounded-xl border border-line bg-card" />
-          <div className="min-h-[180px] rounded-xl border border-line bg-card" />
+          <div className="min-h-[180px] rounded-card border border-line bg-card" />
+          <div className="min-h-[180px] rounded-card border border-line bg-card" />
         </div>
       </div>
     </div>

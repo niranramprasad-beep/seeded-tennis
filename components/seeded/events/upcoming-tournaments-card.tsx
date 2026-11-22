@@ -91,7 +91,7 @@ export function UpcomingTournamentsCard({
   const [openWhyId, setOpenWhyId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-xl border border-line bg-card p-5">
+    <div className="rounded-card border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold text-ink">Upcoming tournaments</h2>
         <span className="text-[13px] text-stone">

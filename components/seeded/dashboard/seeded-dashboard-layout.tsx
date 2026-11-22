@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { useMemo } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -24,20 +24,14 @@ import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card"
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
-import { currentSeason, getCurrentGrade, formatDate, parseLocalDate } from "@/lib/time";
+import { currentSeason, formatDate, getCurrentGrade, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr, plural } from "@/lib/utils";
-import { DataNote } from "@/components/seeded/ui/data-note";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 
 function seasonLabel(graduationYear: number, now: Date): string {
   const standing = gradeStandingName(getCurrentGrade(graduationYear, now));
   return `${standing.charAt(0).toUpperCase()}${standing.slice(1)} ${currentSeason(now)}`;
-}
-
-function greeting(now: Date): string {
-  const hour = now.getHours();
-  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 }
 
 // Pixel-exact to Today.dc.html: a real rules-based action list (not static
@@ -46,7 +40,6 @@ function greeting(now: Date): string {
 // "command center" treatment is gone; this matches the mockup's flat
 // two-column layout.
 export function SeededDashboardLayout({
-  firstName,
   player,
   actualPoints,
   targetPoints,
@@ -143,10 +136,7 @@ export function SeededDashboardLayout({
 
   const hasLoggedUtr = actualPoints.some((p) => hasRealUtr(p.utr));
 
-  const dateLine = `${now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} · ${seasonLabel(
-    player.graduationYear,
-    now
-  )}`;
+  const dateLine = seasonLabel(player.graduationYear, now);
 
   if (rosterLoading || matchesLoading) {
     return (
@@ -173,33 +163,21 @@ export function SeededDashboardLayout({
       <div className="w-full">
         <p className="text-[15px] text-stone">{dateLine}</p>
         <h1 className="mt-1.5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">
-          {greeting(now)}, {firstName || "there"}.{" "}
           {todayHeadline(actions.length, nextSteps.length)}
         </h1>
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink">
-            {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"}
-          </span>
+          <button
+            type="button"
+            onClick={() => setUtrDrawerOpen(true)}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink sm:min-h-6"
+          >
+            {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"} · Update
+          </button>
           {targetSchools.length > 0 && (
             <span className="inline-flex items-center rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
               On track for {onTrackCount} of {plural(targetSchools.length, "target", "targets")}
             </span>
           )}
-          {nextCheckpoint && (
-            <span className="inline-flex items-center rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-              Next checkpoint: {formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)} by{" "}
-              {/* One date format everywhere a sentence names a date: the chip
-                  said "Jun 1" (which year?) beside a chart saying "Jun '27". */}
-              {formatDate(nextCheckpoint.date)}
-            </span>
-          )}
-          <button
-            onClick={() => setUtrDrawerOpen(true)}
-            className="ml-auto inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-grass sm:min-h-6"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Update UTR
-          </button>
         </div>
 
         {/* The same warning, rule and action /plan shows under its goal. */}
@@ -211,20 +189,6 @@ export function SeededDashboardLayout({
           className="mt-3.5"
         />
 
-        {sundayCheckinDue && (
-          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-grass-100 bg-grass-50 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-ink">Sunday check-in</p>
-              <p className="text-[15px] text-stone">
-                Quick weekly update — your UTR, plus a match result if you played one.
-              </p>
-            </div>
-            <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
-              <Sparkles className="h-3.5 w-3.5" />
-              Start check-in
-            </SeededButton>
-          </div>
-        )}
       </div>
 
       <section aria-labelledby="actions-heading" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
@@ -243,10 +207,25 @@ export function SeededDashboardLayout({
           />
         )}
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] border border-line bg-panel px-4 py-3 text-[15px] text-stone">
-          <span className="flex-1">
-            Done this week: logged {plural(matchesThisWeek, "match", "matches")}
-          </span>
+        <div className={cn(
+          "flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border px-4 py-3 text-[15px] text-stone",
+          sundayCheckinDue ? "border-grass-100 bg-grass-50" : "border-line bg-panel"
+        )}>
+          <div className="min-w-0 flex-1 basis-56">
+            {sundayCheckinDue && (
+              <>
+                <p className="text-sm font-semibold text-ink">Sunday check-in</p>
+                <p>Your UTR, plus a match result if you played one.</p>
+              </>
+            )}
+            <p>Done this week: logged {plural(matchesThisWeek, "match", "matches")}</p>
+          </div>
+          {sundayCheckinDue && (
+            <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
+              <Sparkles className="h-3.5 w-3.5" />
+              Start check-in
+            </SeededButton>
+          )}
           <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
             <Sparkles className="h-3.5 w-3.5" />
             Log check-in
@@ -274,18 +253,41 @@ export function SeededDashboardLayout({
               upside={upsidePath}
             />
           </div>
-          {hasLoggedUtr ? (
-            <DataNote className="mt-3">
-              {/* A legend for exactly what is drawn (independent review of
-                  PR #16): the chart may end at the next checkpoint rather
-                  than the summer before senior year, and the grey line only
-                  exists when the player's own pace beats the planning cap. */}
-              {estimatePath.length > 1
-                ? `Solid: UTRs you logged. Green dashes: the estimate we plan with.${upsidePath.length > 1 ? " Grey dashes: your own faster pace, never used for bands." : ""}${nextCheckpoint ? " Gold line: your next checkpoint." : ""}`
-                : "The line is the UTRs you've logged."}
-            </DataNote>
+          {hasLoggedUtr && (
+            <ul aria-label="UTR vs plan" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-stone">
+              <li className="flex items-center gap-2">
+                <span aria-hidden className="w-5 border-t-2 border-grass" />
+                UTRs you logged
+              </li>
+              {estimatePath.length > 1 && (
+                <li className="flex items-center gap-2">
+                  <span aria-hidden className="w-5 border-t-2 border-dashed border-grass" />
+                  Estimate we plan with
+                </li>
+              )}
+              {upsidePath.length > 1 && (
+                <li className="flex items-center gap-2">
+                  <span aria-hidden className="w-5 border-t border-dashed border-stone" />
+                  Your own faster pace, never used for bands
+                </li>
+              )}
+              {nextCheckpoint && (
+                <li className="flex items-center gap-2">
+                  <span aria-hidden className="w-5 border-t border-dashed border-[rgb(var(--c-gold))]" />
+                  Next checkpoint{" "}
+                  <span className="font-mono tabular-nums">{formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)}</span> by{" "}
+                  {formatDate(nextCheckpoint.date)}
+                </li>
+              )}
+            </ul>
+          )}
+          {fitReport?.utr?.upside ? (
+            <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" />
+          ) : hasLoggedUtr ? (
+            <Link href="/methodology" className="mt-2 inline-flex min-h-11 items-center text-[15px] font-semibold text-grass underline underline-offset-2 sm:min-h-6">
+              About our data
+            </Link>
           ) : null}
-          {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
         </div>
       </section>
 
@@ -356,7 +358,6 @@ function TodayActionRow({ action }: { action: TodayAction }) {
         <strong className="text-ink">{action.title}</strong>
         <div className="text-[15px] text-stone">{action.description}</div>
       </div>
-      <span className="shrink-0 text-sm text-stone">{action.minutes} min</span>
       {/* A link styled as a button — it used to be a <button> nested inside
           a <Link>, two interactive elements announced as one. Secondary:
           a list of these is a list of greens otherwise (design system v2

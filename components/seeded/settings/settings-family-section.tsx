@@ -151,7 +151,7 @@ export function SettingsFamilySection() {
 
   if (familyCode === null) {
     return (
-      <section aria-labelledby="settings-family-heading" className="rounded-xl border border-line bg-card p-6">
+      <section aria-labelledby="settings-family-heading" className="rounded-card border border-line bg-card p-6">
         <h2 id="settings-family-heading" className="text-lg font-semibold text-ink">
           Family
         </h2>
@@ -183,7 +183,7 @@ export function SettingsFamilySection() {
 
   return (
     <>
-      <section aria-labelledby="settings-family-heading" className="rounded-xl border border-line bg-card p-6">
+      <section aria-labelledby="settings-family-heading" className="rounded-card border border-line bg-card p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="settings-family-heading" className="text-lg font-semibold text-ink">
             Family
@@ -221,7 +221,7 @@ export function SettingsFamilySection() {
       </section>
 
       {pending.length > 0 && (
-        <section aria-labelledby="settings-family-requests" className="rounded-xl border border-line bg-card p-6">
+        <section aria-labelledby="settings-family-requests" className="rounded-card border border-line bg-card p-6">
           <h2 id="settings-family-requests" className="text-lg font-semibold text-ink">
             {plural(pending.length, "request", "requests")} to join
           </h2>
@@ -279,7 +279,7 @@ export function SettingsFamilySection() {
         </section>
       )}
 
-      <section aria-labelledby="settings-family-leave" className="rounded-xl border border-line bg-card p-6">
+      <section aria-labelledby="settings-family-leave" className="rounded-card border border-line bg-card p-6">
         <h2 id="settings-family-leave" className="text-lg font-semibold text-ink">
           Leave family
         </h2>

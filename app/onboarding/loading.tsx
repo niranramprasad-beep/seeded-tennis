@@ -21,7 +21,7 @@ export default function OnboardingLoading() {
           <Skeleton className="mt-3 h-16 w-full" />
         </div>
         <div className="flex flex-col gap-5">
-          <div className="h-[322px] rounded-xl border border-line bg-card" />
+          <div className="h-[322px] rounded-card border border-line bg-card" />
           <div className="h-[168px] rounded-xl bg-[rgb(var(--c-night))]" />
         </div>
       </div>

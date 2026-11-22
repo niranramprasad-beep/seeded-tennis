@@ -105,7 +105,7 @@ export function FamilyPendingScreen({
 
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="mx-auto max-w-md rounded-xl border border-line bg-card p-6">
+      <div className="mx-auto max-w-md rounded-card border border-line bg-card p-6">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-grass" aria-hidden />
           <h1 className="text-lg font-semibold text-ink">
@@ -275,7 +275,7 @@ function FamilyJoinCodeForm({ onJoined }: { onJoined: () => void }) {
 export function FamilyRequestDeclined({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="mx-auto max-w-md rounded-xl border border-line bg-card p-6">
+      <div className="mx-auto max-w-md rounded-card border border-line bg-card p-6">
         <h1 className="text-lg font-semibold text-ink">Request declined</h1>
         <p className="mt-2.5 text-sm text-stone">
           Someone in that family declined your request. If you think that was a mistake, check
@@ -293,7 +293,7 @@ export function FamilyRequestDeclined({ onRetry }: { onRetry: () => void }) {
 export function FamilyJoinPrompt({ onJoined }: { onJoined: () => void }) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="mx-auto max-w-md rounded-xl border border-line bg-card p-6">
+      <div className="mx-auto max-w-md rounded-card border border-line bg-card p-6">
         <h1 className="text-lg font-semibold text-ink">You&rsquo;re not in a family yet</h1>
         <p className="mt-2.5 text-sm text-stone">
           Ask the player for their family code. Someone already in the family has to approve you
