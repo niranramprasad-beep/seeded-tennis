@@ -725,6 +725,22 @@ hydration, or to accept it and drop the page's sitemap priority.
   and cached views (a force-push cannot remove those), and re-cloning every
   local checkout and worktree.
 
+## Left open by the PR E (billing) review, 2026-11-21 — both LOW
+
+- **L3: the body-reader detector in `lib/api-body.test.ts` is a lint, not a
+  proof.** It finds `.json()` on a handler's own parameter, `JSON.parse` of
+  its `.text()`, and arrow-function handlers. It does not follow the request
+  into a helper (`readBody(req)`), an aliased parameter (`const r = req`),
+  `formData()`, or `req.body` streams. A route written that way is not
+  exercised by the garbage-body behaviour test. Today no route does.
+- **L4: a Free PARENT in a family someone else unlocked can still buy
+  Player.** /pricing withholds only a second Family plan
+  (`lib/plan-entry.ts`); "Choose Player" stays live for every Free viewer,
+  because a Family plan does not raise anyone else's own tier (040's cap is
+  `has_tier` on the caller's row), so for a player it is a real purchase.
+  For a parent, Player buys nothing they would use. Decide whether a parent
+  account should be offered Player at all.
+
 ## "Verify with Google instead" can leave a profile-less auth user (PR D review, 2026-11-21, MEDIUM)
 
 When a parent picks a Google account whose address is NOT their Seeded

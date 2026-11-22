@@ -17,6 +17,16 @@
   production hourly (no secrets, not a required check, not part of
   `verify`). A failed run is reported only by GitHub's own Actions
   notification — see TECHNICAL_ARCHITECTURE "Monitoring".
+- **The red "Supabase Preview" check on `main` merges is expected — leave it
+  red.** It is Supabase's GitHub integration on the PRODUCTION project trying
+  to deploy `supabase/migrations/` on every push to `main`; it stops at
+  "Remote migration versions not found in local migrations directory"
+  because production's ledger versions are timestamps and the repo's files
+  are `001_…`. It is not a required check (`main` requires only `verify`).
+  **Never "fix" it by renaming migration files:** once versions match, the
+  next merge would apply migrations to production automatically, skipping
+  staging, the backup and the owner's go. The fix is turning the
+  integration's deploy off in the Supabase dashboard (owner's step).
 
 ## Environments
 | Env | Supabase | Who deploys |

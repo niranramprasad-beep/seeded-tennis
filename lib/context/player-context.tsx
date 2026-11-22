@@ -34,6 +34,7 @@ import { hasRealUtr } from "@/lib/utils";
 import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
 import { mutate } from "swr";
 import { isMyConsentStateKey } from "@/lib/db/family-join";
+import { FAMILY_PLAN_STATUS_KEY } from "@/lib/db/family-plan";
 import { getSupabase } from "@/lib/supabase/client";
 import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
 import { runSignOut, type SignOutEffects } from "@/lib/sign-out-steps";
@@ -142,6 +143,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (action === "none") return;
       setUserId(nextUserId(userIdRef.current, { type: "auth-event", event, sessionUserId }));
       void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+      void mutate(FAMILY_PLAN_STATUS_KEY, undefined, { revalidate: false });
       if (action === "signOutLocal") {
         setIsAuthed(false);
         setPlayer(emptyPlayer);
@@ -297,6 +299,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       forgetUser: () => {
         setUserId(null);
         void mutate(isMyConsentStateKey, undefined, { revalidate: false });
+        // Same for the family's plan: /pricing and Settings must never show
+        // account A's "your family already has it" to account B.
+        void mutate(FAMILY_PLAN_STATUS_KEY, undefined, { revalidate: false });
       },
       signOutOfSupabase: (scope) => signOutOfSupabase(scope === "local" ? { scope: "local" } : undefined),
     }),

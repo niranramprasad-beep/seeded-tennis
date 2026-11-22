@@ -8,7 +8,11 @@ name: Uptime
 # WHAT A FAILURE DOES: the run fails, and GitHub's own Actions notification
 # goes to the user who last changed the `cron` line below, according to that
 # user's GitHub notification settings (Settings -> Notifications ->
-# Actions). That is the whole of it. It is not a pager, it does not retry
+# Actions). GitHub decides "last changed" from the change as it lands on the
+# DEFAULT branch (`main`): treat it as whoever lands the cron change on
+# main. Whoever should hear about an outage should be the one who lands the
+# next change to this line (any minute edit counts), and should have Actions
+# notifications turned on for failed workflows. That is the whole of it. It is not a pager, it does not retry
 # into a second alert, and it watches nothing between runs — an outage
 # shorter than an hour can be missed entirely. docs/TECHNICAL_ARCHITECTURE.md
 # "Monitoring" says what exists and what does not.
@@ -28,9 +32,17 @@ name: Uptime
 # No secrets, no third-party actions (plain curl and jq, both preinstalled on
 # ubuntu-latest), read-nothing permissions. It touches ci.yml not at all.
 
+# WHY :23 (was :17): GitHub registers a schedule from the default branch's
+# copy of this file, and a brand-new workflow's schedule sometimes does not
+# register until the file changes again. The :17 schedule merged at 19:29
+# UTC on 2026-11-21 had produced no scheduled run by 21:50 UTC (only the
+# 19:32 manual run). Changing the minute is that change. Is it running? See
+# docs/TECHNICAL_ARCHITECTURE.md "Monitoring" — check that scheduled runs
+# exist, do not assume it.
+
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 permissions: {}
