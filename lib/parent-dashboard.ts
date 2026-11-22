@@ -17,7 +17,7 @@
 // rate.
 
 import type { FitReport } from "@/lib/fit";
-import { formatUtrPercentChange } from "@/lib/utr-percent";
+import { utrChange } from "@/lib/utr-percent";
 import {
   projectionPath,
   projectionReachDate,
@@ -223,8 +223,9 @@ export interface UtrKpi {
   /** The two halves of deltaText, for a screen that sets the number in mono:
    *  "+0.50" / "February". */
   deltaAmount: string | null;
-  /** "+5.6%" beside deltaAmount (never instead of it); null when flat or
-   *  either rating is not a real logged one. */
+  /** "+5.6%", shown LEADING with deltaAmount beside it as secondary text
+   *  (never instead of it); null when flat or either rating is not a real
+   *  logged one. */
   deltaPercent?: string | null;
   since: string | null;
   direction: "up" | "down" | "flat" | null;
@@ -258,13 +259,19 @@ export function utrKpi(
     (sorted[0].date.getTime() < latest.date.getTime() ? sorted[0] : null);
   if (!baseline) return none;
 
+  // lib/utr-percent.ts is the one helper for a change: the same rounding
+  // and sign everywhere, and no percent of a non-rating.
+  const change = utrChange(baseline.utr, latest.utr);
+  if (!change) return none;
   const delta = Math.round((latest.utr - baseline.utr) * 100) / 100;
   const monthsAgo = (now.getFullYear() - baseline.date.getFullYear()) * 12 + now.getMonth() - baseline.date.getMonth();
   const since = monthsAgo <= 11 ? MONTHS[baseline.date.getMonth()] : monthYear(baseline.date);
-  const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-  const deltaAmount = direction === "flat" ? "No change" : `${direction === "up" ? "+" : "−"}${Math.abs(delta).toFixed(2)}`;
-  const deltaPercent = formatUtrPercentChange(baseline.utr, latest.utr);
-  return { hasUtr: true, value, delta, deltaText: `${deltaAmount} since ${since}`, deltaAmount, deltaPercent, since, direction };
+  const direction = change.direction;
+  const deltaAmount = direction === "flat" ? "No change" : change.amount;
+  const deltaPercent = change.percent;
+  // The sentence form leads with the percent, like the tile does.
+  const lead = deltaPercent ? `${deltaPercent} (${deltaAmount})` : deltaAmount;
+  return { hasUtr: true, value, delta, deltaText: `${lead} since ${since}`, deltaAmount, deltaPercent, since, direction };
 }
 
 export interface TargetSchoolsKpi {

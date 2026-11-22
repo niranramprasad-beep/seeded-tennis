@@ -22,7 +22,7 @@ import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagn
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { cn, formatPlayerUtr, formatUtrEstimate, plural } from "@/lib/utils";
 import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION, DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
-import { type FitBand } from "@/components/seeded/ui/fit-badge";
+import { FIT_BAND_LABEL, FitBandIcon } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { DiagnosticSaveForm } from "@/components/seeded/onboarding/diagnostic/diagnostic-save";
 import { SignedInDiagnosticSave } from "@/components/seeded/onboarding/diagnostic/diagnostic-save-signed-in";
@@ -278,7 +278,10 @@ export function DiagnosticFitReport({
                         : "min-h-11 rounded-lg border border-line bg-card px-4 font-sans text-[15px] font-semibold text-ink"
                     }
                   >
-                    {BAND_LABEL[band]}  {band === "out-of-range" ? counts.outOfRange : counts[band]}
+                    <span className="inline-flex items-center gap-1.5">
+                      <FitBandIcon band={band} />
+                      {BAND_LABEL[band]} {band === "out-of-range" ? counts.outOfRange : counts[band]}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -382,11 +385,6 @@ export function DiagnosticFitReport({
   );
 }
 
-const BAND_LABEL: Record<FitBand, string> = {
-  reach: "Reach",
-  target: "Target",
-  likely: "Likely",
-  "out-of-range": "Out of range",
-  unverified: "No UTR yet",
-};
+// Band words come from the one fit pill (components/seeded/ui/fit-badge.tsx).
+const BAND_LABEL = FIT_BAND_LABEL;
 const GENDER_LABEL: Record<Gender, string> = { women: "Women's", men: "Men's" };

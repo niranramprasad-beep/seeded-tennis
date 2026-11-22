@@ -6,6 +6,8 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SeededMark } from "@/components/seeded/icons";
+import { activeNavHref } from "@/lib/nav-active";
 
 type NavLink = { href: string; label: string };
 
@@ -58,10 +60,8 @@ function SeededLogo({ onClick }: { onClick?: () => void }) {
       className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
       onClick={onClick}
     >
-      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22">
-        <circle cx="11" cy="11" r="10" fill="rgb(var(--c-lime))" stroke="rgb(var(--c-ink))" strokeWidth="1.5" />
-        <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" stroke="rgb(var(--c-ink))" strokeWidth="1.5" fill="none" />
-      </svg>
+      {/* The one mark (components/seeded/icons), same as the sidebar and footer. */}
+      <SeededMark size={22} className="shrink-0" />
       Seeded
     </Link>
   );
@@ -71,7 +71,9 @@ export function SeededNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  // lib/nav-active.ts: the same "current page" rule as the app sidebar.
+  const activeHref = activeNavHref(pathname, MARKETING_LINKS.map((l) => l.href));
+  const isActive = (href: string) => href === activeHref;
   const showCta = !NO_CTA_ROUTES.includes(pathname);
 
   if (LOGO_ONLY_ROUTES.includes(pathname)) {

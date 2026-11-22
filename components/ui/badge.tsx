@@ -2,8 +2,10 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+// A badge is a label, never a control: no hover grow/brighten (it read as
+// clickable and did nothing — lib/clickable-affordance.test.ts).
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-pill font-medium leading-none transition-all duration-200 hover:scale-105 hover:brightness-110",
+  "inline-flex items-center gap-1 rounded-pill font-medium leading-none",
   {
     variants: {
       variant: {

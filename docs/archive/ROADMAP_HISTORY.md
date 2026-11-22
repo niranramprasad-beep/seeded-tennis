@@ -14,6 +14,32 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-22 — Overnight run: every open branch merged, Herdy's action items
+done (PRs #36–#45, `chore/dead-code`, `chore/docs-organize`; migration 052 on
+production).** #36 UTR database import (also run against production after a
+backup; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` on Vercel Production). #26
+052 applied to production after a backup, probe 35/35, then merged. #37
+Herdy's `herdy-work` (archived as tag `archive/herdy-work`) merged with main's
+review fixes kept. #38 clean deploys. #39 Google sign-in + profile form.
+#40 `.ics` Add to calendar. #41–#45 active nav, clickable affordances,
+percent change, one fit pill (an independent review caught a legend that
+claimed imported quartile ranges feed bands — they don't yet; the wording
+says "estimated floor/average" and a test pins it), landing/logo. Every
+merge was followed by a production deploy check (all key routes 200, no
+runtime errors). Branches were archived as `archive/<name>` tags and deleted.
+
+**2026-11-22 — Dead-code sweep (branch `chore/dead-code`; no migration, no
+behaviour change).** `knip.json` + `npm run deadcode` added. Removed: 11 unused
+exports (the five unused `Card*` sub-components, `seededLede`,
+`GROWTH_ESTIMATE_CHIP`, `D3_UNOFFICIAL_VISITS_UNRESTRICTED`,
+`PARENT_CONSENT_POLICY_NOTE`, `BILLING_INTERVALS`, the deprecated
+`WHOP_PLAN_IDS` object — the legacy plans still resolve via `tierForPlanId`),
+28 module-private constants/functions un-exported, and the five unreferenced
+photos in `public/images/` (~2.7 MB). Kept on purpose and still reported by
+knip: `components/seeded/ui/card.tsx` / `pill.tsx` (SeededCard/Pill migration
+is open), exports a guard test or doc names, the fit barrel's exports
+(`lib/fit/__split-manifest.json`), and unused exported *types*.
+
 ## Snapshot — `docs/MASTER_ROADMAP.md` as it stood on 2026-11-22
 
 Moved here verbatim on 2026-11-22 (branch `chore/docs-organize`, from

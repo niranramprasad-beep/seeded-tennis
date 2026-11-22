@@ -8,8 +8,8 @@
 //   * a legacy JWT service key carries its own `ref` claim, which must agree
 //     with the URL (a staging URL with a production key is refused too).
 
-export const PRODUCTION_PROJECT_REF = "tfpjssmhiptbwigarxpx";
-export const STAGING_PROJECT_REF = "gnlcpnsweqbtwpaqhqqg";
+const PRODUCTION_PROJECT_REF = "tfpjssmhiptbwigarxpx";
+const STAGING_PROJECT_REF = "gnlcpnsweqbtwpaqhqqg";
 
 export function projectRefFromUrl(url: string): string | null {
   try {

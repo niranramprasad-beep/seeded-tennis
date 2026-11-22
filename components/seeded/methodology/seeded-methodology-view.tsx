@@ -1,4 +1,4 @@
-import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
+import { FIT_BAND_RULE, FIT_RANGE_RULE, FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { utrToPct } from "@/lib/school-fit";
@@ -71,12 +71,10 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   { label: "Academics", body: "A U.S. News academic rank per school, as entered in our catalogue with no edition year recorded. It is a filter and a sort on the Schools list; it is not part of your fit band." },
 ];
 
-const FIT_BAND_ROWS: { band: FitBand; body: string }[] = [
-  { band: "likely", body: "Your rating is at or above the team's estimated average." },
-  { band: "target", body: "Your rating is at or above the team's estimated floor, but below its average." },
-  { band: "reach", body: "Below the floor, but the pace in your logged ratings, at most 1.5 a year, carries you past it by the summer before senior year — or you haven't logged three ratings yet, so we can't show the gap is too big." },
-  { band: "out-of-range", body: "Below the floor, and the pace in your logged ratings, at most 1.5 a year, doesn't reach it by the summer before senior year." },
-];
+// The legend's words are the pill's tooltip words (FIT_BAND_RULE in
+// components/seeded/ui/fit-badge.tsx), worded to classifySchoolFit — one
+// place, so the legend and the pills cannot drift apart.
+const FIT_BAND_ROWS: FitBand[] = ["likely", "target", "reach", "out-of-range"];
 
 export function SeededMethodologyView() {
   return (
@@ -215,19 +213,20 @@ export function SeededMethodologyView() {
 
             <Section id="fit-bands" number={5} title="Fit bands">
               <div className="rounded-card border border-line bg-card">
-                {FIT_BAND_ROWS.map((row, i) => (
+                {FIT_BAND_ROWS.map((band, i) => (
                   <div
-                    key={row.band}
+                    key={band}
                     className={cn(
                       "grid grid-cols-[120px_minmax(0,1fr)] items-center gap-6 px-5 py-4",
                       i > 0 && "border-t border-line"
                     )}
                   >
-                    <FitBadge band={row.band} />
-                    <span className="text-[15px] leading-[1.5] text-ink">{row.body}</span>
+                    <FitBadge band={band} className="justify-self-start" />
+                    <span className="text-[15px] leading-[1.5] text-ink">{FIT_BAND_RULE[band]}</span>
                   </div>
                 ))}
               </div>
+              <p className="mt-3 text-stone">{FIT_RANGE_RULE}</p>
               <p className="mt-3 text-stone">
                 Nothing else moves a band. Players leaving, academics and your preferences are not tracked, so they
                 don&apos;t factor in &mdash; each school page says so under &ldquo;Why this band&rdquo;.

@@ -1,12 +1,11 @@
 # Seeded — notes for Claude
 
-## Current state (2026-11-21)
-- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate.
-- Production database: every migration through **051** (ledger 53 on 2026-11-21; 051 applied 03:18 UTC on Niran's go). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
-- Staging `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal re-runs in its ledger, and the imported catalog rows (production has none). `.env.local` and Vercel Preview point at it.
-- Merged 2026-11-20 night: 050 (parent-only budget), code quality, docs, catalog phase 1 (PR E #9, behind `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`, OFF, no production data), visual polish, sweep fixes, and the Legacy design deleted (one design system; Appearance = Light / Dark / Match system).
-- Done 2026-11-21: **migration 051** (PR #17) — a pending-consent under-13 can no longer change tennis/recruiting fields on its own profile (BEFORE UPDATE trigger; the sign-up INSERT is not covered, see TODO).
-- Open: the parent-approver gap and post-checkout sync (both DECIDED by Niran 2026-11-21, build after the review — DECISIONS.md, TODO.md); the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review.
+## Current state (2026-11-22)
+- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate. After the 2026-11-22 overnight run `main` is the only branch; old branches live on as `archive/<name>` tags.
+- Production database: every migration through **052** (ledger 54; 052 applied 2026-11-22 06:14 UTC on Niran's go, after a backup in `~/seeded-evidence/backups/`, probe 35/35). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Catalog phase 1 is ON in production: the owner's College Tennis UTR Database (35 programs, 34 ranges) is on staging AND production, `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` on Vercel Production. The phase-1 roster import (179 programs) is still staging-only. Imported ranges do not feed fit bands yet. Staging `gnlcpnsweqbtwpaqhqqg` has the same schema; `.env.local` and Vercel Preview point at it.
+- Merged 2026-11-22: Herdy's design polish (#37) and his action items (#38–#45: clean deploys / ESLint 9 / Node 24, Google sign-in paths, profile form order, .ics, active nav, clickable affordances, percent-first comparisons, one fit pill, landing/logo), a dead-code sweep, and the docs reorganisation (one roadmap, one TODO, `docs/README.md` index).
+- Open: a real Google sign-in test and Supabase/Google OAuth settings (Niran); post-checkout sync; the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review — see `docs/TODO.md`.
 - Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
 - New here? `README.md`, then `docs/README.md` (the index), then `docs/REVIEWER_GUIDE.md`.
 - The GitHub repo is **public** for the 2026-11-21 review and goes **private** after it (Niran's call). Write every commit, doc and test as if it is public — names only, never a secret or a real person's data.

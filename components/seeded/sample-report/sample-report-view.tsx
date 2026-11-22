@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { utrChange } from "@/lib/utr-percent";
+import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import { ArrowLeft } from "lucide-react";
 import { SeededMark } from "@/components/seeded/icons";
 import type { ReactNode } from "react";
@@ -72,6 +74,10 @@ function chip(className: string, children: ReactNode) {
   );
 }
 
+// Example values only (the page says so). The same week the landing page's
+// parent card shows.
+const SAMPLE_WEEK_CHANGE = utrChange(9.3, 9.42)!;
+
 function StatTile({ value, label }: { value: string; label: ReactNode }) {
   return (
     <div className="rounded-card border border-line bg-card p-5">
@@ -128,7 +134,9 @@ export function SampleReportView() {
             value="9.42"
             label={
               <>
-                UTR · <span className="font-semibold text-grass">+0.12</span> this week
+                {/* The example's week: 9.30 → 9.42. Percent leads, the raw
+                    change beside it, through the one helper real reports use. */}
+                UTR · <ChangeFigure className="text-grass" {...SAMPLE_WEEK_CHANGE} /> this week
               </>
             }
           />

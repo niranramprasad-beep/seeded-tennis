@@ -19,7 +19,9 @@ before relying on it.
 
 ## Status (2026-11-22)
 
-**Production** is seededtennis.com, deployed from `main` (`00ba20f`, PR #38).
+**Production** is seededtennis.com, deployed from `main` (after the
+2026-11-22 overnight merges, PRs #36–#45 plus the dead-code sweep and this
+docs reorganisation).
 `main` auto-deploys with no staging gate; it is protected (PR + green
 `verify`).
 
@@ -49,6 +51,14 @@ before relying on it.
   Node 26), `npm run lint` is the ESLint 9 CLI (`eslint . --max-warnings=0`,
   flat `eslint.config.mjs`; `next lint` is gone), the OG image is a static
   build-time PNG, and no build warning we own remains.
+- **Herdy's 22 Nov action items are merged** (PRs #39–#45): Google sign-in
+  paths (the `/?code=` fallback now reaches `/auth/callback`; specific
+  error messages; parent/player intent through OAuth), profile form order
+  (role → country → team → grade → year born, grade filters birth years),
+  "Add to calendar" `.ics` downloads, one active-page rule for every nav,
+  no fake clickable affordances, percent-first comparisons, one fit-band
+  pill component, landing layout and logo fixes. Still needs a real Google
+  sign-in test by Niran (TODO).
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly

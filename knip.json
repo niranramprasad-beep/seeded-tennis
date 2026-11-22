@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/{page,layout,route,error,not-found,template,loading,default,global-error,opengraph-image,twitter-image,icon,apple-icon,manifest,robots,sitemap}.{ts,tsx}",
+    "next.config.mjs",
+    "scripts/*.{ts,mjs}",
+    "vitest.config.ts",
+    "**/*.test.{ts,tsx}",
+    "eslint.config.mjs",
+    "tailwind.config.ts",
+    "postcss.config.mjs"
+  ],
+  "project": ["**/*.{ts,tsx,mjs,js}", "!.claude/**", "!.next/**"],
+  "ignore": ["lib/db/database.types.ts", "supabase/**"]
+}

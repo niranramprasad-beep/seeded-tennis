@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { cn, isValidEmailAddress } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 import { outreachSummaryLine } from "@/lib/empty-state-copy";
+import { outreachFollowUpIcsEvent } from "@/lib/ics-items";
+import { downloadIcs } from "@/components/seeded/ui/add-to-calendar-button";
 
 /**
  * The column a target school sits in. A saved target with no outreach row
@@ -276,6 +278,10 @@ export function SeededOutreachLayout({
                     stage.key === "emailed" && entry && !due
                       ? new Date(new Date(entry.updatedAt).getTime() + FOLLOW_UP_AFTER_DAYS * 86_400_000)
                       : null;
+                  // The date this card shows as still ahead — the player's
+                  // own "Follow up in N days" date first, else "Follow up
+                  // by" — is what "Add to calendar" exports.
+                  const calendarDate = (!reminderDue && remindAt) || followUpBy;
                   return (
                     <div
                       key={s.slug}
@@ -284,9 +290,22 @@ export function SeededOutreachLayout({
                         selectedSlug === s.slug ? "border-grass" : "border-line",
                         due && "border-gold"
                       )}
+                      // Mouse convenience only: the card holds a <select> and
+                      // buttons, so it cannot itself be a button. The school
+                      // name below is the real, keyboard-reachable control.
                       onClick={() => setSelectedSlug(s.slug)}
                     >
-                      <strong className="text-ink">{s.shortName}</strong>
+                      <button
+                        type="button"
+                        aria-pressed={selectedSlug === s.slug}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSlug(s.slug);
+                        }}
+                        className="-mx-1 -my-0.5 self-start rounded px-1 py-0.5 text-left font-semibold text-ink hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                      >
+                        {s.shortName}
+                      </button>
                       <span className="text-xs text-ink/60">
                         {s.division} · {s.conference}
                       </span>
@@ -335,6 +354,21 @@ export function SeededOutreachLayout({
                             (QA sweep L1). The card flags it when due. */}
                         Follow up in {REMIND_ME_AFTER_DAYS} days
                       </button>
+                      )}
+                      {calendarDate && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadIcs(`seeded-follow-up-${s.shortName}`, [
+                              outreachFollowUpIcsEvent({ schoolSlug: s.slug, schoolName: s.name, date: calendarDate }),
+                            ]);
+                          }}
+                          aria-label={`Add to calendar: follow up with ${s.shortName}, ${formatShortDate(calendarDate)}`}
+                          className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-grass hover:text-grass-600 sm:min-h-6"
+                        >
+                          Add to calendar
+                        </button>
                       )}
                     </div>
                   );

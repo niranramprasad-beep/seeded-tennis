@@ -6,8 +6,12 @@ import { Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { getCurrentPlayer } from "@/lib/auth";
 import { usePlayer } from "@/lib/context/player-context";
-import { OAUTH_COMPLETE_PATH, safeRedirectPath } from "@/lib/config/auth";
-import type { OAuthErrorCode } from "./oauth-errors";
+import { OAUTH_COMPLETE_PATH, parseSignupRoleIntent, safeRedirectPath } from "@/lib/config/auth";
+import {
+  oauthExchangeErrorCode,
+  oauthProviderErrorCode,
+  type OAuthErrorCode,
+} from "./oauth-errors";
 import { landAfterOAuth } from "./oauth-landing";
 
 // Where Google sends the browser back to. The only place in the app that
@@ -16,7 +20,8 @@ import { landAfterOAuth } from "./oauth-landing";
 //
 // Three outcomes, and the middle one is the one that matters:
 //
-//   Google returned an error  -> /login with an error CODE that /login turns
+//   Google (or Supabase Auth)
+//   returned an error         -> /login with an error CODE that /login turns
 //                                into a sentence it owns. Never a
 //                                blank page, and never the raw provider
 //                                string, which says things like
@@ -51,12 +56,11 @@ export function OAuthCallback() {
     const fail = (code: OAuthErrorCode) => router.replace(`/login?authError=${code}`);
 
     (async () => {
-      // Google reports a refusal in the query string, not as a failed
-      // exchange: the user cancelled, or the app is not configured.
-      const providerError = params.get("error_description") ?? params.get("error");
-      if (providerError) {
-        return fail(params.get("error") === "access_denied" ? "cancelled" : "google_failed");
-      }
+      // Google — or Supabase Auth itself — reports a refusal in the query
+      // string, not as a failed exchange: the user cancelled, sign-ups are
+      // off, creating the user failed. oauthProviderErrorCode says which.
+      const providerError = oauthProviderErrorCode(params);
+      if (providerError) return fail(providerError);
 
       const supabase = getSupabase();
       if (!supabase) return fail("unavailable");
@@ -70,7 +74,9 @@ export function OAuthCallback() {
         if (error) {
           const { data } = await supabase.auth.getSession();
           if (!data.session) {
-            return fail("link_expired");
+            // A missing code verifier means this browser, on this address,
+            // never started the sign-in: say so, rather than "expired".
+            return fail(oauthExchangeErrorCode(error));
           }
         }
       }
@@ -86,7 +92,10 @@ export function OAuthCallback() {
       const target = await landAfterOAuth(
         { loadPlayer: getCurrentPlayer, beginSession },
         safeRedirectPath(params.get("next")),
-        OAUTH_COMPLETE_PATH
+        OAUTH_COMPLETE_PATH,
+        // Which sign-up page the button was on; only a NEW user's
+        // /auth/complete uses it, as the preselected chip.
+        parseSignupRoleIntent(params.get("role"))
       );
       router.replace(target);
     })().catch(() => fail("unknown"));

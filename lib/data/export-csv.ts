@@ -92,16 +92,24 @@ export function buildAccountDataCsv({
   return lines.join("\n");
 }
 
+/** How long the blob: URL outlives the click. WebKit (Safari, and every
+ *  browser on iOS) starts the download asynchronously; revoking the URL in
+ *  the same tick can fail it ("WebKitBlobResource error 1") or save an
+ *  empty file. A minute is far longer than any start takes and the blob is
+ *  a few KB. */
+export const DOWNLOAD_URL_REVOKE_DELAY_MS = 60_000;
+
 // Pure DOM side effect, split out from the CSV-building logic above so that
 // logic stays unit-testable without a browser/DOM environment.
 export function downloadTextFile(filename: string, content: string, mimeType = "text/csv"): void {
-  const blob = new Blob([content], { type: `${mimeType};charset=utf-8;` });
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS);
 }

@@ -158,10 +158,3 @@ export function allConfiguredPlanIds(ids: WhopPlanIds = whopPlanIds()): string[]
     ids.legacyFamily,
   ].filter((id): id is string => typeof id === "string" && id.length > 0);
 }
-
-/** @deprecated Kept so nothing silently breaks mid-refactor. Use
- * `tierForPlanId` / `planIdFor`, which know about all six plans. */
-export const WHOP_PLAN_IDS = {
-  player: process.env.WHOP_PLAN_PLAYER,
-  family: process.env.WHOP_PLAN_FAMILY,
-} as const;

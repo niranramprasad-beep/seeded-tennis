@@ -33,7 +33,7 @@ import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-pla
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { GenderToggle } from "@/components/shared/gender-toggle";
-import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
+import { FIT_BAND_LABEL, FIT_BAND_TONE, FitBandIcon, FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
@@ -729,7 +729,7 @@ export function SeededSchoolsBrowser({
               remembered "nofit"/"prompt" shape): holding four chips that
               never arrive was then the shift (CLS 0.08 at 375, pb1/pb4). */}
           {(!sessionChecked || (awaitingShape === "fit" && !counts)) &&
-            ["Reach 00", "Target 00", "Likely 00", "Out of range 00"].map((label) => (
+            FILTER_BANDS.map((band) => `${FIT_BAND_LABEL[band]} 00`).map((label) => (
               <span
                 key={label}
                 aria-hidden
@@ -738,27 +738,21 @@ export function SeededSchoolsBrowser({
                   sessionChecked ? "inline-flex" : "pre-session-only pre-session-bands"
                 )}
               >
+                <span className="inline-block h-3.5 w-3.5" />
                 {label}
               </span>
             ))}
           {counts && (
             <>
-              <ChipButton active={chip === "reach"} onClick={() => setChip("reach")} variant="reach">
-                Reach {counts.reach}
-              </ChipButton>
-              <ChipButton active={chip === "target"} onClick={() => setChip("target")} variant="target">
-                Target {counts.target}
-              </ChipButton>
-              <ChipButton active={chip === "likely"} onClick={() => setChip("likely")} variant="likely">
-                Likely {counts.likely}
-              </ChipButton>
-              <ChipButton
-                active={chip === "out-of-range"}
-                onClick={() => setChip("out-of-range")}
-                variant="outOfRange"
-              >
-                Out of range {counts.outOfRange}
-              </ChipButton>
+              {/* Label, colour and icon from the one fit pill
+                  (components/seeded/ui/fit-badge.tsx); these are filter
+                  buttons, so they keep the button's size. */}
+              {FILTER_BANDS.map((band) => (
+                <ChipButton key={band} active={chip === band} onClick={() => setChip(band)} band={band}>
+                  <FitBandIcon band={band} />
+                  {FIT_BAND_LABEL[band]} {band === "out-of-range" ? counts.outOfRange : counts[band]}
+                </ChipButton>
+              ))}
             </>
           )}
           <ChipButton active={chip === "saved"} onClick={() => setChip("saved")} variant="plain">
@@ -1149,33 +1143,39 @@ export function SeededSchoolsBrowser({
   );
 }
 
+const CHIP_OFF = "bg-card text-stone border-line";
 const CHIP_VARIANT: Record<string, { on: string; off: string }> = {
-  dark: { on: "bg-ink text-cream border-ink", off: "bg-card text-stone border-line" },
-  reach: { on: "bg-[rgb(var(--c-clay-tint-bg))] text-[rgb(var(--c-clay-tint-text))] border-[rgb(var(--c-clay-tint-border))]", off: "bg-card text-stone border-line" },
-  target: { on: "bg-grass-50 text-grass border-grass-100", off: "bg-card text-stone border-line" },
-  likely: { on: "bg-[rgb(var(--c-sage-tint-bg))] text-[rgb(var(--c-sage-tint-text))] border-[rgb(var(--c-sage-tint-border))]", off: "bg-card text-stone border-line" },
-  outOfRange: { on: "bg-ink text-cream border-ink", off: "bg-card text-stone border-line" },
-  plain: { on: "bg-ink text-cream border-ink", off: "bg-card text-stone border-line" },
+  dark: { on: "bg-ink text-cream border-ink", off: CHIP_OFF },
+  plain: { on: "bg-ink text-cream border-ink", off: CHIP_OFF },
 };
+// Out of range's pill is card-on-card; as a pressed filter it needs the
+// solid "on" state the other plain chips use, or it never looks selected.
+const bandChipOn = (band: FilterBand) => (band === "out-of-range" ? "bg-ink text-cream border-ink" : FIT_BAND_TONE[band]);
+
+type FilterBand = "reach" | "target" | "likely" | "out-of-range";
+const FILTER_BANDS: FilterBand[] = ["reach", "target", "likely", "out-of-range"];
 
 function ChipButton({
   active,
   onClick,
   variant,
+  band,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  variant: keyof typeof CHIP_VARIANT;
+  variant?: keyof typeof CHIP_VARIANT;
+  band?: FilterBand;
   children: React.ReactNode;
 }) {
-  const v = CHIP_VARIANT[variant];
+  const on = band ? bandChipOn(band) : CHIP_VARIANT[variant ?? "plain"].on;
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-sm font-semibold transition-colors sm:min-h-6 sm:py-1.5",
-        active ? v.on : v.off
+        active ? on : CHIP_OFF
       )}
     >
       {children}

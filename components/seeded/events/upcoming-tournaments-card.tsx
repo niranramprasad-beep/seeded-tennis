@@ -7,6 +7,8 @@ import { checkTournamentFit, verdictBlockerSentence, verdictBlockers, type FitRe
 import { TOURNAMENT_STATUSES, type TournamentEntry, type TournamentEntryStatus } from "@/lib/db/events";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { AddToCalendarButton } from "@/components/seeded/ui/add-to-calendar-button";
+import { tournamentIcsEvent } from "@/lib/ics-items";
 import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 
@@ -159,7 +161,14 @@ export function UpcomingTournamentsCard({
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:ml-[72px]">
                   <StatusControl entry={t} onChange={(status) => onSetStatus(t.id, status)} />
-                  <div className="ml-auto flex gap-1">
+                  <div className="ml-auto flex flex-wrap items-center gap-1">
+                    <AddToCalendarButton
+                      variant="ghost"
+                      className="min-h-11 px-3 text-sm sm:min-h-9"
+                      events={[tournamentIcsEvent(t)]}
+                      filename={`seeded-${t.name}-${t.eventDate}`}
+                      label={`Add to calendar: ${t.name}`}
+                    />
                     <button
                       type="button"
                       onClick={() => onEdit(t)}

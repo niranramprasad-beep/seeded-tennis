@@ -208,7 +208,7 @@ describe("the sign-up forms use the field check (source guard)", () => {
     const submit = signup.slice(signup.indexOf("const submit = async"));
     const failure = submit.slice(submit.indexOf("if (!result.ok) {"));
     expect(failure).toMatch(
-      /^if \(!result\.ok\) \{\s*const sendBack = signupFailureSendBack\(result\.error\);\s*if \(sendBack\) \{\s*focusEmailOnStep\.current = true;\s*emailField\.setServerError\(sendBack\.emailMessage, \{ focus: false \}\);\s*setStep\(sendBack\.step\);\s*return;\s*\}\s*setError\(result\.error \?\? AUTH_ERROR_MESSAGES\.unknown\);/
+      /^if \(!result\.ok\) \{\s*const sendBack = signupFailureSendBack\(result\.error\);\s*if \(sendBack\) \{\s*focusEmailOnStep\.current = true;\s*emailField\.setServerError\(sendBack\.emailMessage, \{ focus: false \}\);\s*setStep\(sendBack\.step\);\s*return;\s*\}\s*setError\(signupErrorMessage\(result\.error \?\? AUTH_ERROR_MESSAGES\.unknown, GOOGLE_AUTH_ENABLED\)\);/
     );
     // And the step effect moves focus to the email field for it.
     expect(signup).toMatch(/if \(focusEmailOnStep\.current\) \{\s*focusEmailOnStep\.current = false;\s*document\.getElementById\(EMAIL_ID\)\?\.focus\(\);/);

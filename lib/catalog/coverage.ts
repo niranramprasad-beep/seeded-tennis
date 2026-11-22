@@ -11,8 +11,8 @@ import { countBands } from "@/lib/fit";
 import type { SchoolLite } from "@/lib/types";
 import { bandableRange, type ImportedProgram } from "./programs";
 
-export const COVERAGE_SAMPLE_UTRS = [5, 7, 9] as const;
-export const COVERAGE_GENDERS = ["men", "women"] as const;
+const COVERAGE_SAMPLE_UTRS = [5, 7, 9] as const;
+const COVERAGE_GENDERS = ["men", "women"] as const;
 
 export interface CoverageRow {
   utr: number;

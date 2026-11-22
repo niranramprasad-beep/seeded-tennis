@@ -220,7 +220,7 @@ export const COACH_EMAIL_PLACEHOLDERS = {
  * COACH_EMAIL_PLACEHOLDERS.name instead, which keeps Copy / Gmail disabled
  * (coachEmailActionState) until the player types their name.
  */
-export function coachEmailName(name: string | null | undefined): string | null {
+function coachEmailName(name: string | null | undefined): string | null {
   const t = (name ?? "").trim();
   if (!t || t.includes("@")) return null;
   return t;

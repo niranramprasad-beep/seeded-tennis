@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useDialog } from "@/lib/hooks/use-dialog";
 import { cn } from "@/lib/utils";
+import { activeNavHref } from "@/lib/nav-active";
 import {
   PARENT_NAV_LINKS,
   PARENT_SETTINGS_SECTION_LINKS,
@@ -51,6 +52,7 @@ const PARENT_SETTINGS_COMMANDS: Command[] = PARENT_SETTINGS_SECTION_LINKS.map(to
 export function CommandPalette() {
   const { player } = usePlayer();
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -67,6 +69,9 @@ export function CommandPalette() {
     // De-dupe by href (Tournament fit/Schools appear in both role lists).
     return Array.from(new Map(all.map((c) => [c.href, c])).values());
   }, [player.role]);
+
+  // The page you are on, by the same rule the sidebar uses (lib/nav-active.ts).
+  const currentHref = useMemo(() => activeNavHref(pathname, commands.map((c) => c.href)), [pathname, commands]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -171,6 +176,7 @@ export function CommandPalette() {
                   key={c.href}
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => go(c.href)}
+                  aria-current={c.href === currentHref ? "page" : undefined}
                   // The highlighted row is the sidebar's active style, not the
                   // old accent gradient (design system v2, sweep C17).
                   className={cn(
@@ -179,7 +185,10 @@ export function CommandPalette() {
                   )}
                 >
                   <c.icon className="h-4 w-4 shrink-0" />
-                  {c.label}
+                  <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                  {c.href === currentHref && (
+                    <span className="shrink-0 text-xs font-medium text-stone">Current page</span>
+                  )}
                 </button>
               ))}
             </div>

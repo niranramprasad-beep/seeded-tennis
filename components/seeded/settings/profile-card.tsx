@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import type { Player, PlayerGender } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
+import { countryOptionsIncluding } from "@/lib/countries";
+import { loadMyBirthYear } from "@/lib/db/account";
+import { savedBirthYearClassYearHint } from "@/lib/grade-birth-year";
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import {
   TOURNAMENTS_PLANNED_LABEL,
@@ -28,8 +31,12 @@ const TEAM_OPTIONS: { value: PlayerGender; label: string }[] = [
   { value: "male", label: "Men's" },
 ];
 
-// Pixel-exact to the mockup's "Player profile" card: Full name / High
-// school grad year / Team / Home area / UTR profile link / Unweighted GPA,
+// The mockup's "Player profile" card: Full name / High school grad year /
+// Team / Home area / UTR profile link / Unweighted GPA, reordered by the web
+// developer's review (2026-11-22) to the profile-form order every form uses —
+// country, team, grade (here the class year), year born — with Country and
+// a READ-ONLY "Year born" added (birth_year is write-once from the client,
+// 033: Settings shows it and never writes it). The fields are
 // all real fields on the `profiles` row (name/graduation_year/gender are
 // pre-existing columns; home_area/utr_profile_link/gpa are new in
 // migration 014_profile_fields_and_deletion.sql). Plus one field the
@@ -49,6 +56,19 @@ export function ProfileCard({
   const [name, setName] = useState(player.name);
   const [graduationYear, setGraduationYear] = useState(player.graduationYear);
   const [gender, setGender] = useState<PlayerGender>(player.gender);
+  const [country, setCountry] = useState(player.country);
+  // undefined = still loading; null = none on file (accounts from before
+  // migration 030 were never asked).
+  const [birthYear, setBirthYear] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    void loadMyBirthYear().then((y) => {
+      if (!cancelled) setBirthYear(y);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [homeArea, setHomeArea] = useState(player.homeArea ?? "");
   const [utrProfileLink, setUtrProfileLink] = useState(player.utrProfileLink ?? "");
   const [utrLinkError, setUtrLinkError] = useState<string | null>(null);
@@ -72,6 +92,10 @@ export function ProfileCard({
   // forward-looking window (e.g. a senior already graduated) — always
   // include it so the <select> never silently jumps to a different value.
   if (!years.includes(graduationYear)) years.unshift(graduationYear);
+  // The saved birth year cannot change, so a class year that disagrees with
+  // it gets the same gentle hint as sign-up (never a block): kids skip and
+  // repeat grades, and the class year is the field they CAN fix.
+  const birthYearHint = savedBirthYearClassYearHint(birthYear, graduationYear);
 
   const save = async () => {
     setSaved(false);
@@ -95,6 +119,7 @@ export function ProfileCard({
       name: name.trim(),
       graduationYear,
       gender,
+      country,
       homeArea: homeArea.trim(),
       utrProfileLink: linkCheck.normalized ?? "",
       gpa: parsedGpa.value,
@@ -138,15 +163,16 @@ export function ProfileCard({
           )}
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-stone">High school grad year</span>
+          <span className="mb-1.5 block text-sm font-medium text-stone">Country</span>
           <select
             className={inputClass}
-            value={graduationYear}
-            onChange={(e) => setGraduationYear(Number(e.target.value))}
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            autoComplete="country-name"
           >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
+            {countryOptionsIncluding(player.country).map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
@@ -165,6 +191,45 @@ export function ProfileCard({
               </option>
             ))}
           </select>
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-stone">High school grad year</span>
+          <select
+            className={inputClass}
+            value={graduationYear}
+            onChange={(e) => setGraduationYear(Number(e.target.value))}
+            aria-describedby={birthYearHint ? "settings-grad-hint" : undefined}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          {/* Polite, not an alert: "check this", never an error. */}
+          <p
+            id="settings-grad-hint"
+            aria-live="polite"
+            className={birthYearHint ? "mt-1.5 text-sm text-stone" : "sr-only"}
+          >
+            {birthYearHint ?? ""}
+          </p>
+        </label>
+
+        {/* Read-only: birth_year is write-once from the client (033) and is
+            what the under-13 consent rule runs on. Shown, never saved from
+            here — save() does not send it. */}
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-stone">Year born</span>
+          <input
+            className={`${inputClass} bg-cream text-stone`}
+            value={birthYear === undefined ? "…" : String(birthYear ?? "Not tracked")}
+            readOnly
+            aria-describedby="settings-birth-year-note"
+          />
+          <p id="settings-birth-year-note" className="mt-1.5 text-sm text-stone">
+            Set when the account was made. It can&rsquo;t be changed.
+          </p>
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-stone">Home area</span>

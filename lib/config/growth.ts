@@ -56,9 +56,6 @@ export const UTR_GROWTH_PER_YEAR: Record<GrowthPace, number> = {
 // lib/fit.ts — so the fit report agrees with the homepage, the what-if
 // slider and every pace read, which already used that milestone.
 
-/** Shown wherever a projected number appears. Short enough to sit in a chip. */
-export const GROWTH_ESTIMATE_CHIP = "Estimate";
-
 /** "1.0 UTR a year" — the default growth assumption, in words. */
 export const DEFAULT_GROWTH_LABEL = `${UTR_GROWTH_PER_YEAR.normal.toFixed(1)} UTR a year`;
 

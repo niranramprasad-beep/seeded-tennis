@@ -14,7 +14,15 @@ import { getSchoolsLite } from "@/lib/db/schools";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { buildTodayActions } from "@/lib/today-actions";
 import { cn } from "@/lib/utils";
-import { PARENT_NAV_LINKS, PARENT_TOOL_LINKS, PLAYER_NAV_LINKS, PLAYER_TOOL_LINKS, type NavLink } from "./nav-links";
+import {
+  PARENT_NAV_LINKS,
+  PARENT_TOOL_LINKS,
+  PLAYER_NAV_LINKS,
+  PLAYER_TOOL_LINKS,
+  SETTINGS_LINK,
+  type NavLink,
+} from "./nav-links";
+import { activeNavHref } from "@/lib/nav-active";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { parentSidebarNote, pickFamilyPlayer } from "@/lib/family-view";
 
@@ -74,15 +82,18 @@ export function SeededSidebar() {
     if (isParent || todayCount === 0) return base;
     return base.map((l) => (l.href === "/today" ? { ...l, badge: todayCount } : l));
   }, [isParent, todayCount]);
-  // "/family" (Overview) needs an exact match, not startsWith — otherwise
-  // it would also light up on its own sub-routes /family/budget and
-  // /family/weekly-reports, double-highlighting two nav items at once.
-  // Every other link (including those two sub-routes themselves) keeps the
-  // normal startsWith behavior for their own nested pages (e.g. /schools/
-  // [slug]).
   const toolLinks = isParent ? PARENT_TOOL_LINKS : PLAYER_TOOL_LINKS;
-  const isActive = (href: string) =>
-    href === "/family" ? pathname === "/family" : pathname === href || pathname.startsWith(href + "/");
+  // One current page across everything this component draws — the primary
+  // items, the Tools group, the bottom bar and the avatar menu — from the
+  // shared rule in lib/nav-active.ts. The longest matching href wins, so
+  // /family/budget lights "Budget" and not also "Overview" (/family), and a
+  // nested page such as /tournament-fit/… lights the Tools item it lives
+  // under exactly like /schools/[slug] lights Schools.
+  const activeHref = activeNavHref(
+    pathname,
+    [...navLinks, ...toolLinks, SETTINGS_LINK].map((l) => l.href)
+  );
+  const isActive = (href: string) => href === activeHref;
 
   const handleSignOut = () => {
     signOut();
@@ -212,6 +223,7 @@ export function SeededSidebar() {
             player={player}
             isParent={isParent}
             collapsed={collapsed}
+            activeHref={activeHref}
             open={desktopMenuOpen}
             onOpenChange={setDesktopMenuOpen}
             onSignOut={handleSignOut}
@@ -236,6 +248,7 @@ export function SeededSidebar() {
             <SeededAvatarPanel
               align="right"
               tools={toolLinks}
+              activeHref={activeHref}
               onClose={() => setMobileMenuOpen(false)}
               onSignOut={handleSignOut}
             />
@@ -411,6 +424,7 @@ function SeededAvatarMenu({
   player,
   isParent,
   collapsed,
+  activeHref,
   open,
   onOpenChange,
   onSignOut,
@@ -418,6 +432,7 @@ function SeededAvatarMenu({
   player: AvatarPlayer & { role?: string };
   isParent: boolean;
   collapsed: boolean;
+  activeHref: string | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSignOut: () => void;
@@ -485,7 +500,9 @@ function SeededAvatarMenu({
         </Link>
       )}
       <AnimatePresence>
-        {open && <SeededAvatarPanel align="left" onClose={() => onOpenChange(false)} onSignOut={onSignOut} />}
+        {open && (
+          <SeededAvatarPanel align="left" activeHref={activeHref} onClose={() => onOpenChange(false)} onSignOut={onSignOut} />
+        )}
       </AnimatePresence>
     </div>
   );
@@ -494,10 +511,14 @@ function SeededAvatarMenu({
 function SeededAvatarPanel({
   align,
   tools = [],
+  activeHref,
   onClose,
   onSignOut,
 }: {
   align: "left" | "right";
+  /** The sidebar's current page (lib/nav-active.ts), so a Tools page or
+   * Settings opened from this menu reads as current here too. */
+  activeHref: string | null;
   /** Phones only: the bottom bar holds the five, so Tools live here. On
    * desktop they are in the sidebar and this menu is account-only. */
   tools?: NavLink[];
@@ -516,11 +537,11 @@ function SeededAvatarPanel({
       )}
     >
       {tools.map((t) => (
-        <PanelLink key={t.href} href={t.href} icon={t.icon} onClick={onClose}>
+        <PanelLink key={t.href} href={t.href} icon={t.icon} active={activeHref === t.href} onClick={onClose}>
           {t.label}
         </PanelLink>
       ))}
-      <PanelLink href="/settings" icon={Settings} onClick={onClose}>
+      <PanelLink href="/settings" icon={Settings} active={activeHref === SETTINGS_LINK.href} onClick={onClose}>
         Settings
       </PanelLink>
       <button
@@ -537,11 +558,13 @@ function SeededAvatarPanel({
 function PanelLink({
   href,
   icon: Icon,
+  active,
   onClick,
   children,
 }: {
   href: string;
   icon: LucideIcon;
+  active: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -549,7 +572,11 @@ function PanelLink({
     <Link
       href={href}
       onClick={onClick}
-      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 font-sans text-sm text-ink transition-colors hover:bg-[rgb(var(--c-primary)/0.06)]"
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2.5 rounded-md px-2.5 py-2 font-sans text-sm transition-colors",
+        active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]"
+      )}
     >
       <Icon className="h-4 w-4 shrink-0" />
       {children}
