@@ -29,6 +29,10 @@ export const SCHOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
   // Conference sites' own abbreviations (expected-programs list).
   conn: "connecticut",
   uncw: "unc-wilmington",
+  // The UTR database (ACC) says "University of North Carolina"; the legacy
+  // catalog says "... at Chapel Hill". The conference requirement keeps
+  // UNC Wilmington (CAA) and other UNC campuses apart.
+  "north-carolina": "north-carolina-chapel-hill",
 };
 
 const FILLER = new Set(["university", "college", "the", "of", "at", "in"]);

@@ -46,6 +46,29 @@ the reading code is behind a flag that is off) moves the catalog into the databa
 This supersedes the 2026-11-10 draft (a reserved migration `012` with
 per-player rows). Plan and sizing: `docs/CATALOG_EXPANSION.md`.
 
+## Second source: the owner's UTR database (2026-11-21, staging only)
+The sheet "College Tennis UTR Database" is a person's hand check, team by
+team, of the official roster page against each player's public UTR
+profile, with every rating marked reliable or not and a "Last Verified"
+date (2026-11-02/03). It covers 36 teams: 34 ACC (16 men, 18 women;
+Pittsburgh women not started) and 2 SEC men. `scripts/import-utr-database.ts`
+turns it into `programs` + class counts + one `hand_curated` team range per
+team, by a written rule (`RANGE_RULE` in `lib/catalog/utr-database.ts`):
+**floor = lowest reliable singles UTR on the official roster, middle = their
+mean, top = highest**. Players the sheet marks "UTR only" (not on the
+official roster) or "not on roster page yet" are left out of everything, as
+the sheet's own team columns do. A team is held when its "Leaving by" counts
+disagree with its player rows; a range is held when the sheet's average
+disagrees with the reliable ratings (California women: 10.47 vs 10.31).
+No player name, profile link or note is stored.
+**Open for the owner before production:** (1) the floor rule — the lowest
+rated player is a generous Target threshold (Florida State women: floor
+7.58, middle 9.69); (2) UTR licensing (below) — these are UTR ratings, read
+by hand and cited, not fetched; (3) 15 of these programs are already in the
+legacy catalog with unverified estimates, and phase 1 shows the legacy row
+and hides the imported one, so the real numbers replace the estimates only
+when rated imported programs feed `/schools`' bands (the next phase).
+
 ## Reliability classes
 
 | Class | Meaning | Allowed in fit math? | UI treatment |

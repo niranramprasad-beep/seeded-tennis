@@ -24,6 +24,11 @@ describe("schoolNameKey", () => {
     // The conference sites' own abbreviations, from the expected-programs list.
     expect(schoolNameKey("Conn. College")).toBe(schoolNameKey("Connecticut College"));
     expect(schoolNameKey("UNCW")).toBe(schoolNameKey("UNC Wilmington"));
+    // The UTR database's ACC name vs the legacy catalog's.
+    expect(schoolNameKey("University of North Carolina")).toBe(
+      schoolNameKey("University of North Carolina at Chapel Hill")
+    );
+    expect(schoolNameKey("University of North Carolina")).not.toBe(schoolNameKey("UNC Wilmington"));
   });
   it("keeps different schools different", () => {
     const keys = ["Washington College", "Washington and Lee", "Washington St. Louis", "Penn State", "Penn"].map(
