@@ -11,7 +11,13 @@ import {
   isPlausibleBirthYear,
   parentConsentRequired,
 } from "@/lib/config/consent";
-import { getDefaultCommitDate, getGradYearFromGrade } from "@/lib/time";
+import { getDefaultCommitDate, getGradYearFromGrade, ordinalGrade } from "@/lib/time";
+import {
+  birthYearChoices,
+  birthYearRangeForGrade,
+  reconcileBirthYear,
+  type BirthYearRange,
+} from "@/lib/grade-birth-year";
 import { SeededButton } from "@/components/seeded/ui/button";
 import {
   AUTH_TITLE_ID,
@@ -23,6 +29,8 @@ import {
   describedBy,
 } from "./auth-card";
 import { ChipRadioGroup } from "./chip-radio-group";
+import { BirthYearField } from "./birth-year-field";
+import { COUNTRY_OPTIONS } from "@/lib/countries";
 import { CheckEmailCard } from "./check-email";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
 import { FamilyFullNotice } from "./family-full-notice";
@@ -40,33 +48,17 @@ import { useEmailField } from "./email-field";
 //
 //   1 Account   — the board's screen, plus the name field (every profile has
 //                 one; for a player it is first name + last initial).
-//   2 About you — country, gender, BIRTH YEAR (P0-8: decides whether the
-//                 account needs a parent's consent) and grade.
+//   2 About you — country, team, grade, then BIRTH YEAR (P0-8: decides
+//                 whether the account needs a parent's consent). That order
+//                 is the web developer's review (2026-11-22): role, country,
+//                 team, grade, year born — and the grade filters the years
+//                 offered (lib/grade-birth-year.ts).
 //   3 Family    — create a family or join one with a code. An under-13
 //                 player is offered only "join": nobody in a family of one
 //                 can give parental consent.
 //
 // Nothing is created until the last step, so steps 1 and 2 say "Continue"
 // and only step 3 says "Create free account".
-
-const COUNTRIES = [
-  "United States",
-  "Canada",
-  "United Kingdom",
-  "Spain",
-  "Germany",
-  "France",
-  "Italy",
-  "Australia",
-  "Mexico",
-  "Brazil",
-  "Argentina",
-  "India",
-  "China",
-  "Japan",
-  "South Korea",
-  "Other",
-];
 
 const STEPS = ["Account", "About you", "Family"];
 
@@ -121,13 +113,43 @@ export function SignupFlow({
   // Starts empty rather than at a plausible default: a prefilled birth year
   // is a guess the product would then act on.
   const [birthYear, setBirthYear] = useState<number | null>(null);
+  // The grade filters the birth-year list; "Show all years" lifts it, and a
+  // year a grade change clears is reported, never swapped silently.
+  const [showAllBirthYears, setShowAllBirthYears] = useState(false);
+  const [birthYearNotice, setBirthYearNotice] = useState<string | null>(null);
   const [familyMode, setFamilyMode] = useState<"create" | "join">(
     accountType === "parent" ? "join" : "create"
   );
   const [joinCode, setJoinCode] = useState("");
 
+  // A player's grade narrows the birth years offered; a parent's own birth
+  // year has no grade to narrow it.
+  const birthYearRangeFor = (g: number | null, parent: boolean): BirthYearRange | null =>
+    !parent && g != null ? birthYearRangeForGrade(g) : null;
+  const fitBirthYearTo = (g: number | null, parent: boolean) => {
+    const fitted = reconcileBirthYear(
+      birthYear,
+      birthYearRangeFor(g, parent),
+      showAllBirthYears,
+      g != null ? `${ordinalGrade(g)} grade` : "that grade"
+    );
+    setBirthYear(fitted.birthYear);
+    setBirthYearNotice(fitted.notice);
+  };
+  const chooseGrade = (g: number) => {
+    setGrade(g);
+    fitBirthYearTo(g, isParentSignup);
+  };
+  const chooseBirthYear = (y: number | null) => {
+    setBirthYear(y);
+    setBirthYearNotice(null);
+  };
+  const birthYearRange = birthYearRangeFor(grade, isParentSignup);
+  const birthYearList = birthYearChoices(birthYearOptions(), birthYearRange, showAllBirthYears);
+
   const chooseRole = (r: FamilyRole) => {
     setAccountRole(r);
+    fitBirthYearTo(grade, r === "parent");
     // Same defaults the two routes always had: most parents are joining a
     // player who already signed up; most players are starting a family.
     setFamilyMode(r === "parent" ? "join" : "create");
@@ -206,7 +228,7 @@ export function SignupFlow({
     e.preventDefault();
     setError(null);
     if (!isPlausibleBirthYear(birthYear)) return setError("Choose the year you were born.");
-    if (!isParentSignup && gender == null) return setError("Choose a gender.");
+    if (!isParentSignup && gender == null) return setError("Choose a team.");
     if (!isParentSignup && grade == null) return setError("Choose your grade in school.");
     go(1);
   };
@@ -577,7 +599,7 @@ export function SignupFlow({
               value={country}
               onChange={(e) => setCountry(e.target.value)}
             >
-              {COUNTRIES.map((c) => (
+              {COUNTRY_OPTIONS.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -588,47 +610,16 @@ export function SignupFlow({
               not asked for either (their own row never shows them). */}
           {!isParentSignup && (
             <ChipRadioGroup<PlayerGender>
-              label="Gender"
+              label="Team"
               name="signup-gender"
               options={[
-                { value: "male", label: "Male" },
-                { value: "female", label: "Female" },
+                { value: "female", label: "Women's" },
+                { value: "male", label: "Men's" },
               ]}
               value={gender}
               onChange={setGender}
             />
           )}
-          {/* P0-8. Year only. The product needs to know who is under 13; it
-              does not need a child's exact date of birth, which is a
-              permanent identifier it would then have to keep. */}
-          <AuthField
-            label="Year you were born"
-            htmlFor="signup-birth-year"
-            help={
-              needsParentConsent
-                ? "Because you're under 13, a parent or guardian has to set Seeded up and say yes before your account starts working. You'll need their family code on the next step."
-                : undefined
-            }
-          >
-            <select
-              id="signup-birth-year"
-              name="birth-year"
-              className={authInputClass}
-              value={birthYear ?? ""}
-              onChange={(e) => setBirthYear(e.target.value ? Number(e.target.value) : null)}
-              aria-describedby={describedBy("signup-birth-year", {
-                hint: needsParentConsent,
-                extra: [error && ERROR_ID, ageHint && AGE_HINT_ID],
-              })}
-            >
-              <option value="">Select a year</option>
-              {birthYearOptions().map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </AuthField>
           {!isParentSignup && (
             <ChipRadioGroup<number>
               label="Grade in school"
@@ -636,10 +627,29 @@ export function SignupFlow({
               columns={5}
               options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
               value={grade}
-              onChange={setGrade}
+              onChange={chooseGrade}
               describedById={ageHint ? AGE_HINT_ID : undefined}
             />
           )}
+          {/* P0-8. Year only. The product needs to know who is under 13; it
+              does not need a child's exact date of birth, which is a
+              permanent identifier it would then have to keep. */}
+          <BirthYearField
+            id="signup-birth-year"
+            label="Year you were born"
+            help={
+              needsParentConsent
+                ? "Because you're under 13, a parent or guardian has to set Seeded up and say yes before your account starts working. You'll need their family code on the next step."
+                : undefined
+            }
+            value={birthYear}
+            onChange={chooseBirthYear}
+            years={birthYearList}
+            filtered={birthYearRange != null && !showAllBirthYears}
+            onShowAll={() => setShowAllBirthYears(true)}
+            notice={birthYearNotice}
+            extraDescribedBy={[error && ERROR_ID, ageHint && AGE_HINT_ID]}
+          />
           {/* Polite, not an alert: this is a "check this", never an error. */}
           {!isParentSignup && (
             <p

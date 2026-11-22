@@ -21,6 +21,12 @@ import {
   shiftLocalMonths,
 } from "@/lib/time";
 import { parentConsentRequired } from "@/lib/config/consent";
+import {
+  birthYearChoices,
+  birthYearRangeForGradYear,
+  isInBirthYearRange,
+  reconcileBirthYear,
+} from "@/lib/grade-birth-year";
 import { isUsableUtr } from "@/lib/fit";
 import { parseTournamentsPlannedText, stampTournamentsPlanned } from "@/lib/tournaments-planned";
 
@@ -247,6 +253,48 @@ export function gradYearOptions(now: Date = new Date()): number[] {
 export function playerBirthYearOptions(now: Date = new Date()): number[] {
   const y = now.getFullYear();
   return Array.from({ length: 18 }, (_, i) => y - 8 - i);
+}
+
+/** The birth years the "When were you born?" question offers: once a class
+ * year is answered, only the realistic ones for it (lib/grade-birth-year.ts,
+ * one year of slack either side) unless "Show all years" was chosen. */
+export function diagnosticBirthYearChoices(
+  a: Pick<DiagnosticAnswers, "gradYear">,
+  showAll: boolean,
+  now: Date = new Date()
+): number[] {
+  const range = a.gradYear != null ? birthYearRangeForGradYear(a.gradYear) : null;
+  return birthYearChoices(playerBirthYearOptions(now), range, showAll);
+}
+
+/** Answering (or changing) the class year. A birth year already picked that
+ * the new class year makes unusual is CLEARED, with a notice saying so —
+ * never silently replaced. A year on the account (`birthYearLocked`, write-
+ * once) is never touched; neither is one picked from "Show all years". */
+export function answerGradYear(
+  a: DiagnosticAnswers,
+  gradYear: number,
+  opts: { showAllBirthYears: boolean; birthYearLocked: boolean }
+): { answers: DiagnosticAnswers; birthYearNotice: string | null } {
+  if (opts.birthYearLocked) return { answers: { ...a, gradYear }, birthYearNotice: null };
+  const fitted = reconcileBirthYear(
+    a.birthYear,
+    birthYearRangeForGradYear(gradYear),
+    opts.showAllBirthYears,
+    `the class of ${gradYear}`
+  );
+  return { answers: { ...a, gradYear, birthYear: fitted.birthYear }, birthYearNotice: fitted.notice };
+}
+
+/** True when the answers already hold a birth year the class-year filter
+ * would hide (e.g. carried in from elsewhere): the question then starts on
+ * the full list so the <select> never hides the value it holds. */
+export function birthYearNeedsFullList(a: Pick<DiagnosticAnswers, "gradYear" | "birthYear">): boolean {
+  return (
+    a.gradYear != null &&
+    a.birthYear != null &&
+    !isInBirthYearRange(a.birthYear, birthYearRangeForGradYear(a.gradYear))
+  );
 }
 
 /** P0-8, the same rule as every signup path (lib/config/consent.ts,
