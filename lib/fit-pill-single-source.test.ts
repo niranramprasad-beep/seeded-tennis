@@ -118,18 +118,20 @@ describe("the pill's words match the rule the code applies", () => {
   });
   const basis = (utr: number, h = history(utr, utr, utr)) => fitBasis(utr, projection(h));
 
-  it("Likely starts AT the middle; Target starts AT the floor", () => {
+  it("Likely starts AT the estimated average; Target starts AT the estimated floor", () => {
     expect(classifySchoolFit(basis(10), school)).toBe("likely");
     expect(classifySchoolFit(basis(9.99), school)).toBe("target");
     expect(classifySchoolFit(basis(9), school)).toBe("target");
-    expect(FIT_BAND_RULE.likely).toMatch(/at or above the middle/);
-    expect(FIT_BAND_RULE.target).toMatch(/at or above the floor/);
-    expect(FIT_BAND_RULE.target).toMatch(/below its middle/);
+    // avgRosterUTR / minCompetitiveUTR are hand-entered estimates today
+    // (/methodology section 1), so the words say so.
+    expect(FIT_BAND_RULE.likely).toMatch(/at or above the team's estimated average/);
+    expect(FIT_BAND_RULE.target).toMatch(/at or above the team's estimated floor/);
+    expect(FIT_BAND_RULE.target).toMatch(/below its estimated average/);
   });
 
   it("Reach / Out of range name the projection, its cap and its date", () => {
     for (const band of ["reach", "out-of-range"] as const) {
-      expect(FIT_BAND_RULE[band]).toMatch(/below the floor/);
+      expect(FIT_BAND_RULE[band]).toMatch(/below the team's estimated floor/);
       expect(FIT_BAND_RULE[band]).toContain(String(PLANNING_PACE_CAP_PER_YEAR));
       expect(FIT_BAND_RULE[band]).toMatch(/summer before senior year/);
     }
@@ -142,12 +144,17 @@ describe("the pill's words match the rule the code applies", () => {
     expect(classifySchoolFit(basis(8.6, history(7.6, 8.1, 8.6)), school)).toBe("reach");
   });
 
-  it("the range is defined as DATA_QUALITY.md's second source defines it", () => {
-    expect(FIT_RANGE_RULE).toMatch(/lower quartile/);
-    expect(FIT_RANGE_RULE).toMatch(/median/);
-    expect(FIT_RANGE_RULE).toMatch(/highest/);
-    // Legacy rows keep their honesty label.
-    expect(FIT_RANGE_RULE).toMatch(/Unverified estimate/);
+  it("the range is described as what feeds a band TODAY: hand-entered estimates", () => {
+    // No checked-roster range reaches classifySchoolFit yet (bandableRange in
+    // lib/catalog/programs.ts is not wired to /schools; the catalog flag is
+    // off and production has no imported rows). /methodology section 1 says
+    // the floor and average are estimates with no source; the legend must
+    // not claim a quartile/median/highest it does not use.
+    expect(FIT_RANGE_RULE).toMatch(/estimated/);
+    expect(FIT_RANGE_RULE).toMatch(/no published source or check date/);
+    for (const s of [FIT_RANGE_RULE, ...Object.values(FIT_BAND_RULE)]) {
+      expect(s).not.toMatch(/quartile|median|highest|checked roster|middle/i);
+    }
   });
 
   it("a band is never a percent", () => {
