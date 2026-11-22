@@ -190,7 +190,7 @@ describe("readoutAt — the words and where each dot sits", () => {
     const r = readoutAt(series, at, g, 10);
     expect(r.rows.map((x) => x.key)).toEqual(["plan", "estimate"]);
     const [plan, est] = r.rows;
-    expect(plan).toMatchObject({ label: "Plan", text: "9.00", dot: { cx: g.x(at), cy: g.y(9) } });
+    expect(plan).toMatchObject({ label: "Your plan", text: "9.00", dot: { cx: g.x(at), cy: g.y(9) } });
     const v = chartValuesAt(series, at).estimate!;
     expect(est.label).toBe("Planning estimate");
     // The middle value — not the band's high or low edge.

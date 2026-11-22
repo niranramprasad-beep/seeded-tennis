@@ -20,6 +20,70 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
+`fix/known-bugs-a`; no migration, no env var, no setting).**
+(A1) The Schools "Why this band" panel printed the what-if slider's value as
+"You're 8.99 today" for a 8.20 player. `explainSchoolFit()` now only ever
+gets TODAY's real rating (`useWhatIfUtr().todayUtr`, hasRealUtr-gated); the
+what-if gets its own line, "You 8.99 by summer 2027, what-if at +1.50 a
+year: …", with the year from the summer before senior year. Its "what would
+move it" read returns nothing when today's rating is already past the line
+(no "needs about -0.30 a year").
+(A2) One school showed two unlabelled gaps (Plan from today's 8.20, the
+school page and Schools list from the 8.7 summer estimate). Every gap and
+rating beside a team line now goes through `lib/fit-copy.ts`
+(`ratingBasisLabel` / `ratingWithBasis` / `teamGapSentence`) and says its
+basis: "today", "by summer {year}, estimate" or "…, what-if". Plan's target
+list now measures from the same rating its bands use (the fit report's),
+so Plan and the school page print the same gap. The range-bar tooltip
+(`youBasis`), the fit report's row captions and Plan's "Closest schools"
+(which said "your current UTR" over gaps from the estimate) use it too.
+(A3) The two chart legends gave green dashes two meanings. One vocabulary in
+`lib/chart-legend.ts` — Logged (solid), Planning estimate (dotted), Your
+plan (dashes + gold), Estimate at your own pace (grey dashes) — for both
+legends and Plan's readout; /today's and /family's estimate lines are now
+drawn dotted like /plan's so the legend is true.
+(A4) The fit report's zero state: the lead is the homepage hero's own zero
+sentence (`fitReportLead` → `nothingInRangeSentence`: catalogue count,
+closest program, its gap, "(estimate)"); the "0 Target and 0 Likely" and
+"0 today → 0" lines only render when non-zero; the tab opens on the first
+non-empty band (`defaultFitTab`, Out of range when that is all); an empty
+tab says what the band means (`emptyBandSentence`). "Today, 0 programs are
+in range." now reads "Today, no program is in range."
+(A5) Budget limits: season budget ≤ $250,000, one expense ≤ $50,000
+(`lib/budget-limits.ts`; staging's columns are numeric(9,2) and
+numeric(8,2)), enforced in both routes' zod schemas, `lib/db/family.ts` and
+both forms, with a message naming the limit. On the five S-10 write routes a
+permission refusal (a `DatabaseWriteError` with SQLSTATE 42501) is now HTTP
+403 "You don't have permission to do that." (`clientWriteErrorStatus`), our
+own validation sentence is 400, everything else stays a 500 with the
+route's fallback — still fail-closed: no Postgres text reaches the client,
+and a raw PostgrestError is not trusted. Tests: `lib/final-check-a.test.ts`,
+`lib/budget-limits.test.ts`, new cases in `lib/api-logging.test.ts`; guards
+in `lib/honest-zero-state.test.ts` and `plan-trajectory-values.test.ts`
+updated to the new call sites and words. Also folded in from the sweep:
+(B4) a blank budget total or expense cost no longer saves as $0 and closes
+(`Number("")` is 0) — "Enter a budget amount." / "Enter a cost."; (B24)
+/today's logged-only legend ("The line is the UTRs you've logged.") now
+uses the same `chartLegendSentence` as every other case.
+Verifier follow-up on PR #32: (M1) the screen wiring is now pure helpers in
+`lib/fit-copy.ts` — `judgingRatingFor`, `todayRatingFor`, `whyBandGapLines`,
+`targetRowGapSentence`, `schoolPageUtrRow`, `rangeCaption`,
+`closestSchoolsMeasuredFrom`, `rangeBarYouLine` — unit-tested for the
+what-if / estimate / today / sentinel cases; every screen's call is pinned;
+19 wiring mutations (the verifier's nine and more) all fail the suite. (M2)
+a 42501 on the five S-10 routes now reads its reason from the caller's own
+profile (`lib/db/write-refusal.ts`, the training route's lookup):
+consent-pending → "Your account can't save changes until a parent in your
+family gives consent.", Free on outreach → "Tracking coach outreach is part
+of the Player plan.", other RLS/trigger refusals → 403 "You don't have
+permission to do that."; a GRANT/config fault ("permission denied for
+function/table/schema …", matched server-side only) → the route's fallback
+and 500. (LOW) a what-if below today's rating says so; no pace text once no
+year remains; captions capitalise "Your player"; amount fields take a plain
+decimal only ("$50", "1,000", "0x10", "1e5" → "Enter a valid cost." /
+"Enter a valid budget amount."). Not merged; Niran's go.
+
 **2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
 branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
 a bad email is caught on the email field itself — on blur, and before
@@ -1473,12 +1537,13 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
 
-Final-check (2026-11-21) rows closed by PR C (`fix/signup-onboarding-c`,
-not merged): A6 (email checked on its field), A7 (no GA on the sign-in /
-sign-up pages), A16 (name placeholder, birth-year/grade hint), B20 (one
-tense for the summer before senior year), and the onboarding sign-up's
-nested form found on the walk. Still open from that list: A1–A5, A8–A15,
-A17–A19 and the rest of section B (`~/seeded-evidence/final-check/FINDINGS.md`).
+Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5,
+B4 and B24 fixed on `fix/known-bugs-a` (PR A). Rows closed by PR C (#33,
+`fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
+field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
+birth-year/grade hint), B20 (one tense for the summer before senior year),
+and the onboarding sign-up's nested form found on the walk. The other B/E
+rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

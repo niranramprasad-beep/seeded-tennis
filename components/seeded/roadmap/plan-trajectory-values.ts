@@ -3,6 +3,7 @@ import type { RoadmapYear } from "@/lib/types";
 import { formatCheckpointUtr, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 import { monthYearLabel } from "@/components/seeded/ui/chart-axis";
+import { CHART_LINE_NAMES } from "@/lib/chart-legend";
 
 /**
  * Everything PlanTrajectoryChart plots, and what its readout says at a date —
@@ -202,21 +203,21 @@ export function readoutAt(series: ChartSeries, t: number, g: ChartGeometry, goal
     const e = at.logged;
     rows.push({
       key: "logged",
-      label: "Logged",
+      label: CHART_LINE_NAMES.logged,
       text: e.undated ? `${formatPlayerUtr(e.utr)} · current` : `${formatPlayerUtr(e.utr)} · ${entryDate(e.date, cursor)}`,
       // On the ENTRY's own point on the solid line, not under the crosshair.
       dot: { cx: g.x(e.date.getTime()), cy: g.y(e.utr) },
     });
   }
   if (at.plan != null) {
-    rows.push({ key: "plan", label: "Plan", text: formatCheckpointUtr(at.plan, goalValue), dot: { cx, cy: g.y(at.plan) } });
+    rows.push({ key: "plan", label: CHART_LINE_NAMES.plan, text: formatCheckpointUtr(at.plan, goalValue), dot: { cx, cy: g.y(at.plan) } });
   }
   if (at.estimate) {
     const e = at.estimate;
     const band = e.high - e.low >= 0.05 ? ` (${formatUtrEstimate(e.low)}–${formatUtrEstimate(e.high)})` : "";
     rows.push({
       key: "estimate",
-      label: "Planning estimate",
+      label: CHART_LINE_NAMES.estimate,
       text: `${formatUtrEstimate(e.value)}${band}`,
       dot: { cx, cy: g.y(e.value) },
     });
