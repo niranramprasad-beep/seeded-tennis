@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { UtrChartModel } from "@/lib/parent-dashboard";
 import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { CHART_LINE_NAMES } from "@/lib/chart-legend";
 
 // Board 22's hero chart. Draws a model lib/parent-dashboard.ts built — it
 // computes nothing. Logged ratings are solid (line + dots); the estimate is
@@ -136,7 +137,9 @@ export function UtrTrendChart({ model, ariaLabel }: { model: UtrChartModel; aria
           Today
         </text>
 
-        {projLine && <polyline points={projLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth={2} strokeDasharray="6 5" />}
+        {/* Dotted, like the planning estimate on /today and /plan
+            (lib/chart-legend.ts, final-check A3). */}
+        {projLine && <polyline points={projLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth={2.5} strokeDasharray="0.5 6" strokeLinecap="round" />}
 
         {solid.length > 1 && <polyline points={solidLine} fill="none" stroke="rgb(var(--c-primary))" strokeWidth={2.5} />}
         {loggedPts.map((p) => (
@@ -170,7 +173,8 @@ export function UtrTrendChart({ model, ariaLabel }: { model: UtrChartModel; aria
 }
 
 /** Legend under the chart title. Line style, not colour alone, tells the
- *  three apart: solid, dashed green, dashed clay. */
+ *  three apart: solid, dotted green, dashed clay. Names from
+ *  lib/chart-legend.ts, the same as /today's and /plan's charts. */
 export function UtrTrendLegend({ showEstimate, showFloor }: { showEstimate: boolean; showFloor: boolean }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone" aria-label="Chart legend">
@@ -183,9 +187,9 @@ export function UtrTrendLegend({ showEstimate, showFloor }: { showEstimate: bool
       {showEstimate && (
         <li className="flex items-center gap-1.5">
           <svg width="22" height="8" aria-hidden>
-            <line x1="1" x2="21" y1="4" y2="4" stroke="rgb(var(--c-primary))" strokeWidth="2" strokeDasharray="5 4" />
+            <line x1="2" x2="21" y1="4" y2="4" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
           </svg>
-          Estimate
+          {CHART_LINE_NAMES.estimate}
         </li>
       )}
       {showFloor && (

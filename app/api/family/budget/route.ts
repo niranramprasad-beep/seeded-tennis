@@ -9,7 +9,9 @@ import {
 } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-log";
-import { clientWriteErrorMessage } from "@/lib/db/write-error";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
+import { writeRefusalContext } from "@/lib/db/write-refusal";
+import { MAX_SEASON_BUDGET_USD, SEASON_BUDGET_TOO_HIGH } from "@/lib/budget-limits";
 import { saveSeasonBudget } from "@/lib/db/family";
 
 // Real write path behind /family's "Edit budget" — parent/family money
@@ -20,7 +22,7 @@ import { saveSeasonBudget } from "@/lib/db/family";
 // — so there's exactly one place that logic can drift, not two.
 const BodySchema = z.object({
   seasonLabel: z.string(),
-  totalBudget: z.number(),
+  totalBudget: z.number().max(MAX_SEASON_BUDGET_USD, SEASON_BUDGET_TOO_HIGH),
 });
 
 export async function POST(req: Request) {
@@ -65,9 +67,12 @@ export async function POST(req: Request) {
     // S-10: the database's own text goes to the log, never to the response
     // (lib/db/write-error.ts). Our validation sentences still reach the UI.
     logServerError("api.family_budget.write_failed", err, { route: "/api/family/budget" });
+    // A permission refusal reads its reason from the caller's own profile
+    // (consent pending / Free plan), never from the error's text.
+    const refusal = await writeRefusalContext(ctx.supabase, ctx.user.id, err);
     return NextResponse.json(
-      { error: clientWriteErrorMessage(err, "Could not save the budget. Try again.") },
-      { status: 500 }
+      { error: clientWriteErrorMessage(err, "Could not save the budget. Try again.", refusal) },
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

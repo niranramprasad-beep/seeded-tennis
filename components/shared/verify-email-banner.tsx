@@ -10,9 +10,12 @@ import {
   dismissVerifyBanner,
   isVerifyBannerDismissed,
   rememberVerifyReturn,
+  sendFailureMessage,
   shouldShowVerifyBanner,
 } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { GoogleVerifyButton } from "@/components/auth/auth-card";
+import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
 
 // B6 (migration 043): "Confirm your email so you can approve family requests
 // and give consent." For a signed-in PARENT whose email is not confirmed —
@@ -60,7 +63,7 @@ export function VerifyEmailBanner() {
       setSentTo(result.email ?? null);
       setPhase("sent");
     } else {
-      setError(result.error ?? null);
+      setError(sendFailureMessage(result.error, GOOGLE_AUTH_ENABLED));
       setPhase(sentTo ? "sent" : "idle");
     }
   };
@@ -98,6 +101,11 @@ export function VerifyEmailBanner() {
               {phase === "sending" ? VERIFY_COPY.sending : VERIFY_COPY.send}
             </SeededButton>
           )}
+          <GoogleVerifyButton
+            className="mt-2"
+            hint={VERIFY_COPY.googleHint}
+            onBeforeStart={() => rememberVerifyReturn(pathname)}
+          />
         </div>
         <button
           type="button"

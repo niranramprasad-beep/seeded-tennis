@@ -36,6 +36,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
 import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
+import { judgingRatingFor } from "@/lib/fit-copy";
 import { PlanGoalEditor } from "./plan-goal-editor";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 
@@ -460,7 +461,8 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
           <TargetSchoolsList
             targetSchools={visibleTargetSchools}
             addableSchools={addableSchools}
-            effectiveUtr={effectiveUtr}
+            todayUtr={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
+            judging={judgingRatingFor({ report: fitReport, whatIf, graduationYear: player.graduationYear })}
             explanationInput={explanationInput}
             reportBandBySlug={reportBandBySlug}
             isStarred={isStarred}
@@ -471,7 +473,12 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
         </div>
       </div>
 
-      <ClosestSchoolsCard results={closestSchools} isStarred={isStarred} onToggleStar={toggleStar} />
+      <ClosestSchoolsCard
+        results={closestSchools}
+        isStarred={isStarred}
+        onToggleStar={toggleStar}
+        judging={judgingRatingFor({ report: realReport, whatIf: null, graduationYear: player.graduationYear })}
+      />
 
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
         {toast?.message ?? " "}
