@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { csvEscape, buildAccountDataCsv } from "./export-csv";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { csvEscape, buildAccountDataCsv, downloadTextFile, DOWNLOAD_URL_REVOKE_DELAY_MS } from "./export-csv";
 import { emptyPlayer } from "./user";
 
 describe("csvEscape", () => {
@@ -62,5 +62,61 @@ describe("buildAccountDataCsv", () => {
       outreach: {},
     });
     expect(csv).toContain("Duke,duke-w,ACC,NC,D1");
+  });
+});
+
+describe("downloadTextFile", () => {
+  // The DOM is stubbed: vitest runs in node. What matters is the ORDER —
+  // the blob: URL must still be alive after click(), because WebKit
+  // (Safari, every iOS browser) starts the download asynchronously and an
+  // immediate revoke fails it.
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function stubDom() {
+    const calls: string[] = [];
+    const link = {
+      href: "",
+      download: "",
+      rel: "",
+      click: () => calls.push("click"),
+    };
+    vi.stubGlobal("document", {
+      createElement: () => link,
+      body: {
+        appendChild: () => calls.push("append"),
+        removeChild: () => calls.push("remove"),
+      },
+    });
+    const blobs: Blob[] = [];
+    vi.stubGlobal("URL", {
+      createObjectURL: (b: Blob) => {
+        blobs.push(b);
+        return "blob:test";
+      },
+      revokeObjectURL: (u: string) => calls.push(`revoke ${u}`),
+    });
+    return { calls, link, blobs };
+  }
+
+  it("clicks first and revokes the blob URL only after a delay", () => {
+    vi.useFakeTimers();
+    const { calls, link } = stubDom();
+    downloadTextFile("seeded.ics", "BEGIN:VCALENDAR\r\n", "text/calendar");
+    expect(link.download).toBe("seeded.ics");
+    expect(calls).toEqual(["append", "click", "remove"]);
+    vi.advanceTimersByTime(DOWNLOAD_URL_REVOKE_DELAY_MS - 1);
+    expect(calls).not.toContain("revoke blob:test");
+    vi.advanceTimersByTime(1);
+    expect(calls).toContain("revoke blob:test");
+  });
+
+  it("labels the blob with a well-formed UTF-8 media type", () => {
+    vi.useFakeTimers();
+    const { blobs } = stubDom();
+    downloadTextFile("seeded.ics", "x", "text/calendar");
+    expect(blobs[0].type).toBe("text/calendar;charset=utf-8");
   });
 });
