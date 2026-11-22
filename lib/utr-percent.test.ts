@@ -10,6 +10,13 @@ describe("formatUtrPercentChange", () => {
     expect(formatUtrPercentChange(10, 9.79)).toBe("−2.1%");
   });
 
+  it("rounds a gain and a loss of the same size to the same digits", () => {
+    // ±0.07 on a 1.12 baseline is exactly ±6.25%; the first version printed
+    // "+6.2%" and "−6.3%".
+    expect(formatUtrPercentChange(1.12, 1.19)).toBe("+6.3%");
+    expect(formatUtrPercentChange(1.12, 1.05)).toBe("−6.3%");
+  });
+
   it("hides an unchanged rating", () => {
     expect(formatUtrPercentChange(10, 10)).toBeNull();
   });

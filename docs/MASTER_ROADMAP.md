@@ -40,6 +40,15 @@ date (formerly the header chip) appended; the home hero keeps main's copy
 naming all four bands; FitBadge keeps the band icon and main's `label`
 override; the onboarding zero-state card keeps `rounded-card` and main's
 `leadIsZeroSentence` logic.
+Review of the merge (2026-11-22): /plan's collapsed what-if now says on its
+summary when a moved slider is re-banding the rows; the family UTR tile says
+"Needs two logged ratings to show a change." instead of "No change yet." for a
+single rating; the struck yearly price is read as "12 months at the monthly
+price", never "Was" (copy-honesty guard); landing feature cards lost a hover
+lift they had without being links; the school-page initials tile is sm+ only
+(320px overflow); "NC State" → "NCS"; the % helper rounds gains and losses
+alike; the collapsed sidebar's home link and the phone tab bar's active tab are
+named for screen readers.
 
 **2026-11-21 — Google sign-in shows the signed-in app without a refresh
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in

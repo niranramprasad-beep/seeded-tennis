@@ -341,7 +341,9 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
                   className={playerOnlyUntilHydrated}
                 />
               )}
-              <SchoolMonogram name={school.shortName} division={school.division} size="lg" className="mr-1.5" />
+              {/* sm and up only, like the /schools rows: on a 320px phone the star,
+                  this 48px tile and a 34px one-word school name overflowed. */}
+              <SchoolMonogram name={school.shortName} division={school.division} size="lg" className="mr-1.5 hidden sm:inline-flex" />
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
                 {school.name} · {programType} tennis
               </h1>

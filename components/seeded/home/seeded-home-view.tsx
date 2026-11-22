@@ -464,7 +464,7 @@ function WhatItDoes() {
           <Reveal key={c.title} index={i} step={0.06}>
             <div
               className={cn(
-                "h-full rounded-[14px] border p-6 motion-safe:transition-transform motion-safe:duration-150 motion-safe:hover:-translate-y-0.5",
+                "h-full rounded-card border p-6",
                 CARD_TINT[i].card
               )}
             >

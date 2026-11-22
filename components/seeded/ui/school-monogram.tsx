@@ -14,12 +14,16 @@ export function schoolInitials(name: string): string {
     .split(/[\s-]+/)
     .filter((w) => w && !SKIP.has(w.toLowerCase()));
   if (words.length === 0) return name.slice(0, 2).toUpperCase();
-  // An all-caps short name ("UCLA", "USC", "NC State") keeps its own letters.
-  if (words.length === 1) {
-    const w = words[0];
-    return (w === w.toUpperCase() && w.length <= 4 ? w : w.slice(0, 2)).toUpperCase();
+  // An all-caps short word ("UCLA", "USC", the "NC" of "NC State") keeps its
+  // own letters; a following word adds its initial ("NC State" → "NCS", not
+  // "NS"), capped at four characters.
+  const first = words[0];
+  const isAcronym = first.length >= 2 && first.length <= 4 && first === first.toUpperCase() && /\p{L}/u.test(first);
+  if (isAcronym) {
+    return (words.length > 1 && first.length < 4 ? first + words[1][0] : first).toUpperCase();
   }
-  return (words[0][0] + words[1][0]).toUpperCase();
+  if (words.length === 1) return first.slice(0, 2).toUpperCase();
+  return (first[0] + words[1][0]).toUpperCase();
 }
 
 const DIVISION_TINT: Record<Division, string> = {

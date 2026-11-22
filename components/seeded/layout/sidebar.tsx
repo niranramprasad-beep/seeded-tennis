@@ -107,7 +107,11 @@ export function SeededSidebar() {
             collapsed && "justify-center px-0"
           )}
         >
-          <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+          <Link
+            href={homeHref}
+            aria-label={collapsed ? "Seeded" : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden"
+          >
             <SeededMark size={22} className="shrink-0" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
@@ -252,6 +256,7 @@ export function SeededSidebar() {
             <Link
               key={l.href}
               href={l.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex min-h-[52px] flex-1 flex-col items-center justify-center gap-[3px] text-[11px]",
                 active ? "font-semibold text-grass" : "text-stone"

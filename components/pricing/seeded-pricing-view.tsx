@@ -126,7 +126,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                     <p className="flex flex-wrap items-baseline gap-x-2">
                       {price.wasAmount && (
                         <s className="font-mono text-lg text-stone-light tabular-nums">
-                          <span className="sr-only">Was </span>
+                          <span className="sr-only">12 months at the monthly price: </span>
                           {price.wasAmount}
                         </s>
                       )}

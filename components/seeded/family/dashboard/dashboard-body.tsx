@@ -90,7 +90,10 @@ export function DashboardBody({
                 <span>since {model.utr.since}</span>
               </span>
             ) : model.utr.hasUtr ? (
-              "No change yet."
+              // Fewer than two dated ratings: there is no change to report,
+              // which is not the same as "no change" (that is utrKpi's flat
+              // case, said above as "No change since …").
+              "Needs two logged ratings to show a change."
             ) : (
               `${child} hasn't logged one.`
             )}

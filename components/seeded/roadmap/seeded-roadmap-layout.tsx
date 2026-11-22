@@ -438,9 +438,19 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
           )}
         </div>
         <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
+        {/* Collapsed by default (design polish round 1). A moved slider
+            still re-bands every row below, so the summary — the one part
+            that is always visible — says so; otherwise closing the panel
+            hid the only sign the bands were judged on a what-if number. */}
         <details className="mt-3.5">
           <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-grass">
             What if my UTR…
+            {!whatIf.isAtRealCurrent && (
+              <span className="font-normal text-stone">
+                {" "}· bands below use what-if UTR{" "}
+                <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(whatIf.hypotheticalUTR)}</span>
+              </span>
+            )}
           </summary>
           <WhatIfPanel
             {...whatIf}

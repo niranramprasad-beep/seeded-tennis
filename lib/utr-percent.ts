@@ -17,7 +17,10 @@ export function formatUtrPercentChange(
 ): string | null {
   if (!hasRealUtr(fromUtr) || !hasRealUtr(toUtr)) return null;
   const pct = ((toUtr - fromUtr) / fromUtr) * 100;
-  const rounded = Math.round(pct * 10) / 10;
-  if (rounded === 0) return null;
-  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded).toFixed(1)}%`;
+  // Round the magnitude, half up, so a gain and a loss of the same size print
+  // the same digits: Math.round(-62.5) is -62 but Math.round(62.5) is 63, and
+  // float noise (1.19 − 1.12 = 0.06999…) pushes exact halves either way.
+  const magnitude = Math.round(Math.abs(pct) * 10 + 1e-9) / 10;
+  if (magnitude === 0) return null;
+  return `${pct > 0 ? "+" : "−"}${magnitude.toFixed(1)}%`;
 }
