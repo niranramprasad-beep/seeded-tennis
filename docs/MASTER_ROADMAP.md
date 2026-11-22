@@ -20,6 +20,18 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-22 — Dead-code sweep (branch `chore/dead-code`; no migration, no
+behaviour change).** `knip.json` + `npm run deadcode` added. Removed: 11 unused
+exports (the five unused `Card*` sub-components, `seededLede`,
+`GROWTH_ESTIMATE_CHIP`, `D3_UNOFFICIAL_VISITS_UNRESTRICTED`,
+`PARENT_CONSENT_POLICY_NOTE`, `BILLING_INTERVALS`, the deprecated
+`WHOP_PLAN_IDS` object — the legacy plans still resolve via `tierForPlanId`),
+28 module-private constants/functions un-exported, and the five unreferenced
+photos in `public/images/` (~2.7 MB). Kept on purpose and still reported by
+knip: `components/seeded/ui/card.tsx` / `pill.tsx` (SeededCard/Pill migration
+is open, below), exports a guard test or doc names, the fit barrel's exports
+(`lib/fit/__split-manifest.json`), and unused exported *types*.
+
 **2026-11-22 — Design polish round 1 (branch `herdy-work`, from the 22 Nov
 consult; no migration, no setting, palette unchanged).** Fit badges get an
 icon per band; the sidebar's active item gets a green left bar and the
