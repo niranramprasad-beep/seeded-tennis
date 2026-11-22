@@ -246,7 +246,8 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 
 function CostCard({ label, value }: { label: string; value: number }) {
   return (
-    <Card interactive className={cn("h-full p-5", "seeded-glass border-0 shadow-seeded-1")}>
+    // A stat tile, not a link: no hover lift (lib/clickable-affordance.test.ts).
+    <Card className={cn("h-full p-5", "seeded-glass border-0 shadow-seeded-1")}>
       <p className="text-xs text-stone-light">{label}</p>
       <p className={cn("mt-2 text-2xl text-ink", "font-mono")}>
         ${Math.round(value).toLocaleString()}
