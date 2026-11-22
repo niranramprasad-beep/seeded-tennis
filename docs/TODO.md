@@ -545,17 +545,65 @@ it catches the realistic regressions; review catches the rest.
 
 ## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
+**BUILT ON STAGING 2026-11-21 — migration 052 (`feat/parent-approval-rule`);
+PRODUCTION PENDING Niran's go after the review** (GO-SEQUENCE row 27, HANDOFF
+§J Step 27). "A parent of the family" = `parent_acts_for_family(user, code)`:
+own role = 'parent' AND home family (`home_family_code()`, the rule
+`my_family_code()` uses) = code. `approve_family_join()`: once the family has
+such a parent (either shape), the approver must be one too (for the caller
+this equals 050's `is_parent_member(code)`) or gets 42501
+`parent_approval_requires_parent`; a family with no parent may still get its
+first from a player; player joiners unchanged. `remove_family_member()`: takes
+045's per-family lock, then removing a parent of the family needs a parent of
+the family (42501 `parents_only_remove_parent`). The first version counted a
+parent approved in ANY family, which an independent review showed locks a
+family whose only parent's home is elsewhere (that parent can never act in
+it); fixed before production. 043's email proof, 045's cap and lock, 030's
+consent and 037's account-holder rule are kept. Probe (35 cases incl. the
+multi-family one, all pass, rolled back) and a rollback rehearsal in
+`~/seeded-evidence/sat-prereview/p015/`. Guard
+`lib/db/parent-approval-rule.test.ts`. Client maps both codes to plain
+sentences (`lib/db/family-join.ts`).
+**Still open:** (1) production; (2) the "approved by" line in Settings →
+Family — `parent_accounts.approved_by` is already written by
+`approve_family_join()` (since 023; rows backfilled by 023 have it NULL), so this is UI plus exposing it through
+`family_members()` (a roster column, so 038's shape test and /privacy's
+column list change too); (3) `deny_family_join()` is unchanged — any
+approved member, a player included, may still decline a PENDING parent
+request (it grants nothing, but a player could keep turning away a real
+parent); (4) the accepted residual risk below has a sharper edge than it
+first reads: a fake first parent then becomes the gatekeeper for later
+parents, and a player cannot remove it — a real parent has to be approved by
+it, or the family has to start over; (5) not caused by 052 but seen in its
+probe: a parent whose home is family C and who also joined family A still
+counts toward A's 2-parent cap (045's `family_member_count` counts any
+approved link), and cannot leave A (`leave_family()` acts on the home family
+C). After 052 a player of A can remove them, which frees the slot; (6) the
+second accepted edge below (a parent whose home family is elsewhere does not
+act for this one) — the "approved by" line in (2) should show each parent's
+home family.
+
 **DECIDED by Niran 2026-11-21 — build after the developer review** (DECISIONS
 2026-11-21): a player may approve only the FIRST parent of a family; once an
 approved parent exists, only an approved parent can approve another parent.
 Settings → Family shows who approved whom (needs an `approved_by` on
 `parent_accounts`). Accepted residual risk: a player can still create a fake
 *first* parent; the "approved by" line makes that visible to the family.
-Implementation: one migration changing `approve_family_join` (033's pattern:
-the approver's own `profiles.role` + approved membership), a guard test, and
-the roster line.
+Second accepted edge (052 round-2 review, 2026-11-21): 052 counts only
+parents whose HOME family is this one. If a real parent is approved into two
+families and the other approval landed first (e.g. a family run by the
+player's second account), that parent does not act for this family: a player
+here may then approve a fake parent, and may remove the real parent and keep
+turning their rejoin requests away. It needs the real parent's own second
+join request, so a player cannot cause it alone (probes T1–T5,
+`~/seeded-evidence/sat-prereview/p015/round2/`). The "approved by" line
+should also show each parent's home family.
+Implementation: BUILT as migration 052 (`approve_family_join` and
+`remove_family_member`, 033's pattern: the approver's own `profiles.role` +
+approved membership) with the guard test; the roster line is still-open item
+(2) above.
 
-**MEDIUM, open until built.** 050 makes the budget parent-only, but "parent" is a role
+**MEDIUM, open on production until 052 ships.** 050 makes the budget parent-only, but "parent" is a role
 chosen at sign-up and any approved member may approve a join
 (`approve_family_join`, 026/045; a player approver needs no email proof). So
 a sibling player can create a second account as a parent, request to join,

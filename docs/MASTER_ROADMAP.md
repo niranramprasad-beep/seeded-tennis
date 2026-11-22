@@ -20,9 +20,40 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
-**2026-11-21 (night) — The owner's "College Tennis UTR Database" imported to
-STAGING (branch `feat/utr-database-import`; no migration; production
-untouched).** Mentor-meeting action item. `scripts/import-utr-database.ts` +
+**2026-11-21 — Parent-approval rule (migration 052, branch
+`feat/parent-approval-rule`; P-015 / S-005). Built and probed on staging
+2026-11-21; applied to PRODUCTION 2026-11-22 on Niran's go, after a fresh
+backup, and the 35-case probe re-run there (rolled back).** Niran's decision: a player may approve only a
+family's FIRST parent; once the family has a parent of its own, only such a
+parent approves another parent (42501 `parent_approval_requires_parent`), and
+only such a parent removes one (42501 `parents_only_remove_parent`). Player
+joiners keep today's rule. "A parent of the family" is one helper,
+`parent_acts_for_family(user, code)` = role parent AND home family
+(`home_family_code()`, what `my_family_code()` answers) = code, used for the
+approver, the "already has a parent" test and the removal target. An
+independent review of the first version found a lockout — a parent approved
+in A whose home is C counted as A's parent but can never act in A, so A
+froze — and a race (remove ran its check outside 045's per-family lock);
+both fixed before production, folded into the same 052 file. 043's email
+proof, 045's cap and `profile_required`, 030's consent and 037's
+account-holder rule are unchanged and in the same order. Probed on staging as
+`authenticated`, 35/35 cases incl. the multi-family scenario (rolled back, 0
+residue); the documented rollback was rehearsed inside an aborted
+transaction (bodies byte-identical to pre-052, helper dropped, gap reopens). Client: `lib/db/family-join.ts` words both codes. Guard
+`lib/db/parent-approval-rule.test.ts` (mutation-tested; pins the full bodies
+of every helper the rule relies on). **Accepted residual
+risk:** a player can still create a fake FIRST parent — which then gatekeeps
+later parents and cannot be removed by a player. Follow-ups: production
+(GO-SEQUENCE row 27, HANDOFF §J Step 27); the "approved by" line in Settings
+→ Family; `deny_family_join()` still lets any member decline a pending
+parent (TODO).
+
+**2026-11-21 (night) — The owner's "College Tennis UTR Database" imported
+(branch `feat/utr-database-import`, PR #36; no migration). Staging first;
+PRODUCTION on 2026-11-22 on Niran's go (`--target production`, after a
+backup): 35 programs, 135 class-count rows, 34 ranges, current ranges
+checksum-identical to staging; `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` set
+on Vercel production.** Mentor-meeting action item. `scripts/import-utr-database.ts` +
 `lib/catalog/utr-database.ts` read the sheet's Teams and Players tabs (CSV
 exports kept outside the repo) and write `programs`, class counts and the
 first `hand_curated` `team_ranges`: staging went from 179 programs / 0
@@ -30,12 +61,12 @@ ranges to 214 / 34 (35 programs, 33 ACC + 2 SEC men; Pittsburgh women and
 California women's range held — see DATA_QUALITY "Second source"). Rows on
 staging checksum-identical to the importer's output. No player data stored
 (test). The phase-1 section now renders on Vercel PREVIEW builds (they read
-staging); production still needs `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`.
+staging) and, with the flag, on production.
 `legacy-match` learned UNC ("… at Chapel Hill"). Range rule (owner's
 decision, same night): floor = lower quartile, middle = median, top =
-highest, inclusive quartiles as in Google Sheets — see DATA_QUALITY. Owner
-decisions still open before production: UTR licensing, and replacing the
-15 legacy estimates these duplicate.
+highest, inclusive quartiles as in Google Sheets — see DATA_QUALITY. Still open
+for the owner: UTR licensing, and replacing the 15 legacy estimates these
+duplicate.
 
 **2026-11-21 — Google sign-in shows the signed-in app without a refresh
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in
@@ -1705,12 +1736,14 @@ is done; it is in git history (`git log -p -- docs/MASTER_ROADMAP.md`).
 Production runs every migration through 051 (ledger 53, 2026-11-21).
 
 0. ~~Migration 051 (PR #17)~~ — DONE 2026-11-21 (on production, merged).
-1. **Build the decided parent-approval rule** (Niran, 2026-11-21): a player
-   may approve only a family's first parent; once an approved parent exists,
-   only an approved parent approves another parent; Settings → Family shows
-   who approved whom. One migration on `approve_family_join`, 033's pattern
-   (docs/TODO.md "Who may approve a parent joiner"). Then the decided
-   post-checkout Whop re-check (TODO "Post-checkout sync").
+1. **Ship the parent-approval rule** (Niran, 2026-11-21): the database half
+   is BUILT ON STAGING as migration 052 (`feat/parent-approval-rule`) — only
+   a parent approves another parent once a family has one, only a parent
+   removes a parent. Left: review, then production on Niran's go
+   (GO-SEQUENCE row 27, HANDOFF §J Step 27); Settings → Family showing who
+   approved whom (`parent_accounts.approved_by` is already written) (docs/TODO.md
+   "Who may approve a parent joiner"). Then the decided post-checkout Whop
+   re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    34 hand-curated ACC/SEC ranges from the owner's UTR database are on
    STAGING (`feat/utr-database-import`, 2026-11-21; floor = lower quartile,

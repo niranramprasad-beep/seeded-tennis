@@ -184,11 +184,14 @@ Production ledger: check `list_migrations` (53 rows on 2026-11-21, through
 2. **A player could get budget writes through a second "parent" account.**
    Role is chosen at sign-up and any approved member may approve a join, so a
    sibling can create a parent account and approve it. Visible on the roster,
-   capped at 2 parents. Decided 2026-11-21, to build after this review: a
-   player may approve only a family's first parent; after that only an
-   approved parent approves parents, and Settings → Family shows who
-   approved whom. A fake *first* parent stays possible and is accepted —
-   [DECISIONS.md](DECISIONS.md), [TODO.md](TODO.md) "Who may approve a parent joiner".
+   capped at 2 parents. Decided 2026-11-21: a player may approve only a
+   family's first parent; after that only an approved parent approves
+   parents, and only a parent removes a parent. **Built and attack-tested on
+   staging only** ([052](../supabase/migrations/052_parent_approval_rule.sql),
+   branch `feat/parent-approval-rule`); **not on production** until Niran's
+   go, so production still has the gap. Settings → Family showing who
+   approved whom is not built yet. A fake *first* parent stays possible and
+   is accepted — [DECISIONS.md](DECISIONS.md), [TODO.md](TODO.md) "Who may approve a parent joiner".
 3. **Large files.** `lib/fit.ts` (~1,310 lines), `lib/auth.ts` (~1,170),
    `components/seeded/schools/seeded-schools-browser.tsx` (~1,170),
    `components/auth/signup-flow.tsx` (~790), and the Today layout
