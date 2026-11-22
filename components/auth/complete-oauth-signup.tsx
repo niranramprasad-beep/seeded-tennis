@@ -6,13 +6,23 @@ import { Loader2 } from "lucide-react";
 import { PARENT_ROW_GENDER, PARENT_ROW_GRADE, familyFullMessage, type FamilyRole, type PlayerGender } from "@/lib/types";
 import { completeOAuthProfile, getCurrentPlayer } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase/client";
-import { safeRedirectPath } from "@/lib/config/auth";
+import { parseSignupRoleIntent, safeRedirectPath } from "@/lib/config/auth";
 import {
   birthYearOptions,
   isPlausibleBirthYear,
   parentConsentRequired,
 } from "@/lib/config/consent";
 import { AuthCard, AuthField, authInputClass, describedBy } from "./auth-card";
+import { BirthYearField } from "./birth-year-field";
+import { ordinalGrade } from "@/lib/time";
+import { COUNTRY_OPTIONS } from "@/lib/countries";
+import {
+  birthYearChoices,
+  birthYearRangeForGrade,
+  isInBirthYearRange,
+  reconcileBirthYear,
+  type BirthYearRange,
+} from "@/lib/grade-birth-year";
 import { VerifyEmailToJoin } from "./verify-email-prompt";
 import { FamilyFullNotice } from "./family-full-notice";
 import { VERIFY_COPY } from "@/lib/email-verify-flow";
@@ -21,6 +31,7 @@ import { ChipRadioGroup } from "./chip-radio-group";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/lib/context/player-context";
+import { homeFor } from "./oauth-landing";
 import {
   clearPendingAnswers,
   readPendingAnswers,
@@ -42,18 +53,25 @@ import { saveDiagnosticToAccount } from "@/lib/onboarding/save-diagnostic";
 // path calls, with the same arguments: the consent trigger derives
 // consent_status from the birth year, join_family() handles the family link,
 // and 022 blocks the privileged columns. Identical code, identical rules.
+//
+// Field order (web developer's review, 2026-11-22): role, then name,
+// country, team, grade, year born — the grade filters the years offered
+// (lib/grade-birth-year.ts), the same as /signup.
 
-const COUNTRIES = ["United States", "Canada", "United Kingdom", "Other"];
 const ERROR_ID = "oauth-complete-error";
 
 export function CompleteOAuthSignup() {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeRedirectPath(params.get("next"));
+  // The sign-up page the Google button was on (/parent-signup, or the Parent
+  // chip on /signup). A preselection only — the chip below is still theirs
+  // to change, and the profile goes through the same path either way.
+  const roleIntent = parseSignupRoleIntent(params.get("role"));
 
   const [checking, setChecking] = useState(true);
   const [name, setName] = useState("");
-  const [role, setRole] = useState<FamilyRole>("player");
+  const [role, setRole] = useState<FamilyRole>(roleIntent ?? "player");
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [country, setCountry] = useState("United States");
   // Team and grade start unanswered for a player (they used to start on
@@ -61,7 +79,15 @@ export function CompleteOAuthSignup() {
   // shown them; their own row gets PARENT_ROW_GRADE, which no screen shows.
   const [gender, setGender] = useState<PlayerGender | null>(null);
   const [grade, setGrade] = useState<number | null>(null);
-  const [familyMode, setFamilyMode] = useState<"create" | "join">("create");
+  // The grade filters the birth-year list; "Show all years" lifts it, and a
+  // year a grade change clears is reported, never swapped silently.
+  const [showAllBirthYears, setShowAllBirthYears] = useState(false);
+  const [birthYearNotice, setBirthYearNotice] = useState<string | null>(null);
+  // Same defaults as the email sign-up (signup-flow.tsx): most parents are
+  // joining a family their player already started.
+  const [familyMode, setFamilyMode] = useState<"create" | "join">(
+    roleIntent === "parent" ? "join" : "create"
+  );
   const [joinCode, setJoinCode] = useState("");
   const [verifyJoinCode, setVerifyJoinCode] = useState<string | null>(null);
   // 045: the family already holds 4 players / 2 parents.
@@ -87,7 +113,7 @@ export function CompleteOAuthSignup() {
       if (cancelled) return;
       if (existing) {
         beginSession(existing);
-        return router.replace(next ?? "/today");
+        return router.replace(next ?? homeFor(existing));
       }
       const meta = data.user.user_metadata as { full_name?: string; name?: string } | null;
       if (!cancelled) {
@@ -99,11 +125,21 @@ export function CompleteOAuthSignup() {
         const carried = readPendingAnswers();
         if (carried) {
           setPending(carried);
-          setRole(carried.role ?? "player");
+          setRole(carried.role ?? roleIntent ?? "player");
           if (carried.role === "player") {
             if (carried.birthYear != null) setBirthYear(carried.birthYear);
             if (carried.gender) setGender(carried.gender);
             if (carried.gradYear != null) setGrade(signupGradeFor(carried.gradYear));
+            // A year the diagnostic took from its full list ("Show all
+            // years") is kept as answered: show the full list here too, so
+            // the <select> never hides the value it holds.
+            if (
+              carried.birthYear != null &&
+              carried.gradYear != null &&
+              !isInBirthYearRange(carried.birthYear, birthYearRangeForGrade(signupGradeFor(carried.gradYear)))
+            ) {
+              setShowAllBirthYears(true);
+            }
           }
         }
         setChecking(false);
@@ -112,9 +148,38 @@ export function CompleteOAuthSignup() {
     return () => {
       cancelled = true;
     };
-  }, [router, next, beginSession]);
+  }, [router, next, roleIntent, beginSession]);
 
   const isParent = role === "parent";
+
+  // A player's grade narrows the birth years offered; a parent's own birth
+  // year has no grade to narrow it.
+  const birthYearRangeFor = (g: number | null, parent: boolean): BirthYearRange | null =>
+    !parent && g != null ? birthYearRangeForGrade(g) : null;
+  const fitBirthYearTo = (g: number | null, parent: boolean) => {
+    const fitted = reconcileBirthYear(
+      birthYear,
+      birthYearRangeFor(g, parent),
+      showAllBirthYears,
+      g != null ? `${ordinalGrade(g)} grade` : "that grade"
+    );
+    setBirthYear(fitted.birthYear);
+    setBirthYearNotice(fitted.notice);
+  };
+  const chooseRole = (r: FamilyRole) => {
+    setRole(r);
+    fitBirthYearTo(grade, r === "parent");
+  };
+  const chooseGrade = (g: number) => {
+    setGrade(g);
+    fitBirthYearTo(g, isParent);
+  };
+  const chooseBirthYear = (y: number | null) => {
+    setBirthYear(y);
+    setBirthYearNotice(null);
+  };
+  const birthYearRange = birthYearRangeFor(grade, isParent);
+  const birthYearList = birthYearChoices(birthYearOptions(), birthYearRange, showAllBirthYears);
   // Same rule as the email signup: an under-13 player cannot start their own
   // family, because nobody in a family of one can give parental consent.
   const needsParentConsent = !isParent && parentConsentRequired(birthYear);
@@ -244,6 +309,17 @@ export function CompleteOAuthSignup() {
       errorId={ERROR_ID}
     >
       <form onSubmit={submit} className="space-y-4" noValidate>
+        <ChipRadioGroup<FamilyRole>
+          label="I'm the"
+          name="oauth-role"
+          options={[
+            { value: "player", label: "Player" },
+            { value: "parent", label: "Parent" },
+          ]}
+          value={role}
+          onChange={chooseRole}
+        />
+
         <AuthField label="Full name" htmlFor="oauth-name">
           <input
             id="oauth-name"
@@ -256,65 +332,26 @@ export function CompleteOAuthSignup() {
           />
         </AuthField>
 
-        <ChipRadioGroup<FamilyRole>
-          label="I'm the"
-          name="oauth-role"
-          options={[
-            { value: "player", label: "Player" },
-            { value: "parent", label: "Parent" },
-          ]}
-          value={role}
-          onChange={setRole}
-        />
-
-        <AuthField
-          label="Year you were born"
-          htmlFor="oauth-birth-year"
-          help={
-            needsParentConsent
-              ? "Under 13, so a parent or guardian has to set Seeded up and say yes before your account works. You'll need their family code below."
-              : "Under 13? A parent creates the account and invites you."
-          }
-        >
+        <AuthField label="Country" htmlFor="oauth-country">
           <select
-            id="oauth-birth-year"
-            name="birth-year"
+            id="oauth-country"
+            name="country"
             className={authInputClass}
-            value={birthYear ?? ""}
-            onChange={(e) => setBirthYear(e.target.value ? Number(e.target.value) : null)}
-            aria-describedby={describedBy("oauth-birth-year", {
-              hint: true,
-              extra: [error && ERROR_ID],
-            })}
+            autoComplete="country-name"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
           >
-            <option value="">Select a year</option>
-            {birthYearOptions().map((y) => (
-              <option key={y} value={y}>
-                {y}
+            {COUNTRY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
         </AuthField>
 
+        {/* Team and grade are a PLAYER's answers; a parent is never asked. */}
         {!isParent && (
           <>
-            <AuthField label="Country" htmlFor="oauth-country">
-              <select
-                id="oauth-country"
-                name="country"
-                className={authInputClass}
-                autoComplete="country-name"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-              >
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </AuthField>
-
             <ChipRadioGroup<PlayerGender>
               label="Team"
               name="oauth-gender"
@@ -332,10 +369,27 @@ export function CompleteOAuthSignup() {
               columns={5}
               options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
               value={grade}
-              onChange={setGrade}
+              onChange={chooseGrade}
             />
           </>
         )}
+
+        <BirthYearField
+          id="oauth-birth-year"
+          label="Year you were born"
+          help={
+            needsParentConsent
+              ? "Under 13, so a parent or guardian has to set Seeded up and say yes before your account works. You'll need their family code below."
+              : "Under 13? A parent creates the account and invites you."
+          }
+          value={birthYear}
+          onChange={chooseBirthYear}
+          years={birthYearList}
+          filtered={birthYearRange != null && !showAllBirthYears}
+          onShowAll={() => setShowAllBirthYears(true)}
+          notice={birthYearNotice}
+          extraDescribedBy={[error && ERROR_ID]}
+        />
 
         {!needsParentConsent && (
           <ChipRadioGroup<"create" | "join">
