@@ -20,7 +20,27 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
-**2026-11-21 — Billing honesty (final-check PR E, branch `fix/billing-e`;
+**2026-11-21 — Uptime schedule + the red Supabase check (final-check PR F,
+branch `fix/uptime-f`; workflow and docs only).** (1) The hourly uptime
+workflow had **never run on schedule**: merged 19:29 UTC with cron `:17`,
+and by 21:50 UTC the only run was the 19:32 manual one (GitHub API,
+`event=schedule` → 0 runs). GitHub sometimes does not register a new
+workflow's schedule until the file changes again, so the cron is now
+`23 * * * *` (still hourly); the file and TECHNICAL_ARCHITECTURE
+"Monitoring" say the notification goes to whoever lands a change to the
+cron line, and how to check that scheduled runs exist (about weekly) —
+silence proves nothing. **Not proven until a scheduled run appears after
+this merges.** (2) The red "Supabase Preview" check on every merge to
+`main` is Supabase's GitHub integration on the PRODUCTION project trying to
+deploy `supabase/migrations/` (its `main` branch entry is
+`MIGRATIONS_FAILED`); it fails only because ledger versions are timestamps
+and the files are `001_…`. Not a required check (only `verify` is).
+DEPLOYMENT_CHECKLIST now says: leave it red, never rename files to make it
+pass (that would auto-apply migrations to production on merge). Turning the
+integration's deploy off is Niran's dashboard step (final-check
+`prF/SUPABASE_CHECK.md`).
+
+**2026-11-21 — Billing honesty (final-check PR E, #30, merged 2026-11-21, branch `fix/billing-e`;
 no migration, no Whop/Vercel change).** (1) `/api/whop/checkout`: billing
 not configured and plan not configured are **503**, not 500, with fixed
 sentences that say nothing was charged (`lib/checkout-messages.ts`); on a
@@ -1658,7 +1678,7 @@ B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows clos
 field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
 birth-year/grade hint), B20 (one tense for the summer before senior year),
 and the onboarding sign-up's nested form found on the walk. PR D (#29, `fix/parent-verify-google-d`, merged 2026-11-21) adds "Verify
-with Google" for parents. PR E (`fix/billing-e`) covers the billing rows. The other B/E rows are other PRs.
+with Google" for parents. PR E (#30, `fix/billing-e`, merged 2026-11-21) covers the billing rows; PR F (`fix/uptime-f`) the uptime schedule and the Supabase check. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
@@ -1666,7 +1686,12 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): **run the $0 production
+Niran's own list (dashboards/keys, not code): **turn off the Supabase GitHub
+integration's deploy to production** (Supabase → production project →
+Project Settings → Integrations → GitHub: "Deploy to production" off, or
+disconnect; final-check `prF/SUPABASE_CHECK.md`) — never by renaming
+migration files; confirm a scheduled Uptime run exists after PR F merges;
+**run the $0 production
 checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
 webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
 the only way to prove checkout → webhook → tier on production; revoke the old Gemini and

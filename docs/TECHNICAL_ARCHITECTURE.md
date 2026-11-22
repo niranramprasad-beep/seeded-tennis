@@ -130,16 +130,32 @@ What exists (P1-OPS-2, 2026-11-21), and nothing more:
   looser shapes are indistinguishable from dates, SQLSTATEs and counts, so
   keys named `phone`/`tel` are redacted by name instead (as are `name`,
   `ip`, `uid`, `buyer…`).
-- **Uptime check:** `.github/workflows/uptime.yml`, hourly at :17 plus
-  manual runs. Fails if `https://seededtennis.com/` or `/api/health` is not
+- **Uptime check:** `.github/workflows/uptime.yml`, hourly at :23 plus
+  manual runs (it was :17; that schedule never produced a run, see below). Fails if `https://seededtennis.com/` or `/api/health` is not
   200 (health must also say `"ok": true`), 20 s per attempt, 2 retries 10 s
   apart (so a retry re-asks Supabase rather than reading a cached failure;
   job limit 4 minutes). A
   failed scheduled run is reported by GitHub's own Actions notification to
-  the user who last changed its `cron` line, per that user's notification
-  settings. That is the only notification. Outages shorter than an hour can
+  the user who last changed its `cron` line on `main` (in practice whoever
+  landed that change on `main`), per that user's notification settings. That is the
+  only notification. Outages shorter than an hour can
   be missed; GitHub may delay scheduled runs. About 720 billed Actions
   minutes a month once the repo is private.
+- **Check that the schedule is actually running (about weekly, and after
+  any change to `uptime.yml`).** A workflow that never runs never fails, so
+  silence proves nothing: the first `:17` schedule (merged 19:29 UTC
+  2026-11-21) produced **no** scheduled run in its first two hours — only
+  the 19:32 manual run existed. Look at GitHub → Actions → Uptime and filter
+  by event "schedule", or ask the API (public repo; once private, add
+  `-H "Authorization: Bearer $(gh auth token)"` or use
+  `gh run list --workflow uptime.yml --event schedule`):
+  `curl -s "https://api.github.com/repos/niranramprasad-beep/seeded-tennis/actions/runs?event=schedule&per_page=5"`
+  — expect roughly one run per hour with `"name": "Uptime"`. None in the
+  last few hours means the schedule is not registered: a new commit that
+  edits the `cron` line on `main` re-registers it. While the repo is
+  **public**, GitHub also disables a scheduled workflow after 60 days
+  without repo activity (it then shows `"state": "disabled_inactivity"` at
+  `/actions/workflows`); that rule does not apply once the repo is private.
 
 What does **not** exist: alerting on a 5xx rate, on webhook failures or on
 deletion failures (they are logged, and nobody is told); error grouping or
