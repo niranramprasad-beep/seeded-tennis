@@ -56,9 +56,14 @@ exactly as it is**. The reference for this round is the Figma file
 "WD — NiranRamprasad — Seeded" (https://www.figma.com/design/A6ACANVOvQOjUvA3lBeH5d),
 not the Claude Design mockups, wherever the two differ.
 
-- Percent is shown BESIDE a UTR change ("+0.50 (+7.1%)"), never instead of
-  it, and only when both ratings are real (`lib/utr-percent.ts`). Fit bands
-  are still never a percent.
+- The percent now LEADS a change and the raw number sits beside it as
+  smaller secondary text: "+7.1% (+0.50)" (Herdy's follow-up, same day). The
+  raw number is never removed. One helper, `lib/utr-percent.ts`, and one
+  component, `components/seeded/ui/change-figure.tsx`; no percent unless both
+  values are real (no percent of the 0 sentinel, of a zero base, or of a flat
+  line). Fit bands are still never a percent. Not changed: "0.3 below the
+  team average" lines (a position against an estimated range, not a change)
+  and pace rates ("+1.45 a year").
 - Schools get an initials tile (`components/seeded/ui/school-monogram.tsx`),
   not a logo: no third-party marks, nothing that needs a source.
 - Primary nav is unchanged (5 items + Tools; phone bar exactly 5).
