@@ -23,6 +23,8 @@ import {
 import { startTimeFromPointer, resizedDuration } from "@/lib/training/calendar-interactions";
 import { localDateKey, parseLocalDate } from "@/lib/time";
 import { cn, plural } from "@/lib/utils";
+import { upcomingScheduleIcsEvents } from "@/lib/ics-items";
+import { AddToCalendarButton } from "@/components/seeded/ui/add-to-calendar-button";
 
 type CalendarView = "week" | "month";
 
@@ -62,6 +64,10 @@ export function EventsCalendarCard({
   const [monthOffset, setMonthOffset] = useState(0);
   const byDate = useMemo(() => groupByDate(sessions ?? []), [sessions]);
   const tournamentsByDate = useMemo(() => groupTournamentsByDate(tournamentEntries), [tournamentEntries]);
+  const upcomingEvents = useMemo(
+    () => upcomingScheduleIcsEvents(sessions ?? [], tournamentEntries),
+    [sessions, tournamentEntries]
+  );
 
   const openWeekOf = (dateKey: string) => {
     setWeekOffset(weekOffsetForDate(dateKey));
@@ -142,7 +148,17 @@ export function EventsCalendarCard({
         <MonthGrid byDate={byDate} tournamentsByDate={tournamentsByDate} monthOffset={monthOffset} onPickDay={openWeekOf} />
       )}
 
-      <p className="mt-3 text-[15px] text-stone">Only the sessions and tournaments you add. Nothing is planned for you.</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[15px] text-stone">Only the sessions and tournaments you add. Nothing is planned for you.</p>
+        {/* Everything from today on, as one .ics file. */}
+        <AddToCalendarButton
+          variant="secondary"
+          className="min-h-11 px-3 text-sm sm:min-h-9"
+          events={upcomingEvents}
+          filename="seeded-schedule"
+          label="Add to calendar: every upcoming session and tournament"
+        />
+      </div>
     </section>
   );
 }
