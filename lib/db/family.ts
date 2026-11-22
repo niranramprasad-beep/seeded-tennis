@@ -13,6 +13,7 @@ import {
 } from "./family-scope";
 import type { Json, Tables } from "./database.types";
 import { DatabaseWriteError, UserFacingError } from "./write-error";
+import { expenseAmountLimitError, seasonBudgetLimitError } from "@/lib/budget-limits";
 
 // text columns backed only by a Postgres CHECK constraint — see
 // lib/db/narrow.ts's header for why these need narrowing back down from
@@ -301,6 +302,8 @@ export function validateBudgetExpenseInput(input: NewBudgetExpenseInput): string
   if (!input.label || !input.label.trim()) return "A short description is required.";
   if (!BUDGET_EXPENSE_CATEGORIES.includes(input.category)) return "Choose a valid category.";
   if (!Number.isFinite(input.amount) || input.amount < 0) return "Cost can't be negative.";
+  const tooHigh = expenseAmountLimitError(input.amount);
+  if (tooHigh) return tooHigh;
   if (!isCalendarDateKey(input.expenseDate)) {
     return "Enter a valid date.";
   }
@@ -356,6 +359,10 @@ export async function saveSeasonBudget(
   if (!Number.isFinite(input.totalBudget) || input.totalBudget < 0) {
     throw new UserFacingError("Budget total can't be negative.");
   }
+  // A5: an upper limit under the column's numeric(9,2), so a huge total gets
+  // a sentence instead of a database overflow and "Try again".
+  const validationError = seasonBudgetLimitError(input.totalBudget);
+  if (validationError) throw new UserFacingError(validationError);
   if (!input.seasonLabel.trim()) throw new UserFacingError("Season label is required.");
 
   if (!ctx) {

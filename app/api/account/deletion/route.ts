@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
@@ -43,13 +44,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const json = await req.json().catch(() => null);
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(BodySchema, json, "Type DELETE to confirm.");
+  if (!parsed.ok) return parsed.response;
 
   try {
     const result = await deleteMyAccount(ctx.supabase);
