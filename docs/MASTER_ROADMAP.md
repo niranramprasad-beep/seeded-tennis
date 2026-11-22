@@ -31,9 +31,11 @@ California women's range held — see DATA_QUALITY "Second source"). Rows on
 staging checksum-identical to the importer's output. No player data stored
 (test). The phase-1 section now renders on Vercel PREVIEW builds (they read
 staging); production still needs `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`.
-`legacy-match` learned UNC ("… at Chapel Hill"). Owner decisions before
-production: the floor rule, UTR licensing, and replacing the 15 legacy
-estimates these duplicate.
+`legacy-match` learned UNC ("… at Chapel Hill"). Range rule (owner's
+decision, same night): floor = lower quartile, middle = median, top =
+highest, inclusive quartiles as in Google Sheets — see DATA_QUALITY. Owner
+decisions still open before production: UTR licensing, and replacing the
+15 legacy estimates these duplicate.
 
 **2026-11-21 — Google sign-in shows the signed-in app without a refresh
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in
@@ -1711,8 +1713,9 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    post-checkout Whop re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
    34 hand-curated ACC/SEC ranges from the owner's UTR database are on
-   STAGING (`feat/utr-database-import`, 2026-11-21). Next: the owner decides
-   the floor rule and UTR licensing (DATA_QUALITY "Second source"), the same
+   STAGING (`feat/utr-database-import`, 2026-11-21; floor = lower quartile,
+   middle = median, decided). Next: the owner decides UTR licensing
+   (DATA_QUALITY "Second source"), the same
    import runs on production on their go, rated imported programs feed the
    bands in place of the legacy estimates they duplicate, then the flag goes
    on. Every production band still rests on labelled estimates until then.

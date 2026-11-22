@@ -25,18 +25,37 @@
 //   2. The sheet's "Leaving by Spring <final year>" and "<final year + 1>"
 //      must equal the counts this module computes, or the team is HELD
 //      whole: two numbers for one fact means one of them is wrong.
-//   3. The range's middle is the sheet's "Team Avg UTR (reliable only)", and
-//      it must equal the mean this module computes from the reliable
-//      official-roster ratings (to the cent), or the RANGE is held. The
-//      program still imports: its class counts do not depend on ratings.
+//   3. The sheet's "Team Avg UTR (reliable only)" must equal the mean this
+//      module computes from the reliable official-roster ratings (to the
+//      cent), or the RANGE is held: it is a check that the ratings were read
+//      the way the sheet's author read them. The program still imports: its
+//      class counts do not depend on ratings.
 //   4. Fewer than MIN_RATED_PLAYERS reliable ratings -> no range.
 //   5. A team with no players -> held whole ("not started" in the sheet).
 
 import { plausibleClassYear, finalYearClass } from "./class-year";
 import { programSlug, type CatalogDivision, type CatalogGender, type ProgramDraft } from "./roster-import";
 
+// The range rule, decided by the owner 2026-11-21 (of three compared: lowest
+// player, this one, and the singles lineup). One low outlier — often a
+// walk-on — set the floor under "lowest player": on average 0.9 below the
+// team's mean, up to 2.1, and the floor is what makes a school "Target".
+// Quartiles use the INCLUSIVE method, the one Google Sheets' QUARTILE() and
+// Excel's QUARTILE.INC use, so any range can be checked in the sheet itself
+// with =QUARTILE(ratings, 1), =MEDIAN(ratings) and =MAX(ratings).
 export const RANGE_RULE =
-  "floor = lowest reliable singles UTR on the official roster; middle = their mean; top = highest";
+  "floor = lower quartile of the reliable singles UTRs on the official roster (as Sheets' QUARTILE(…, 1)); middle = their median; top = highest";
+
+/** Inclusive-method quantile (Sheets QUARTILE / Excel QUARTILE.INC):
+ * position (n − 1)·p in the sorted list, linear between neighbours. */
+export function quantileInclusive(values: readonly number[], p: number): number {
+  if (values.length === 0) throw new Error("no values");
+  const sorted = [...values].sort((a, b) => a - b);
+  const pos = (sorted.length - 1) * p;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
 
 /** The source line shown beside every range from this import. */
 export function rangeSource(seasonShown: string): string {
@@ -146,7 +165,8 @@ export function onOfficialRoster(rosterCheck: string): boolean {
   return !c.startsWith("utr only") && !c.includes("not on roster page yet");
 }
 
-const round2 = (v: number) => Math.round(v * 100) / 100;
+/** To the cent, half up, without float noise (12.675 -> 12.68, not 12.67). */
+export const round2 = (v: number) => Math.round(Number((v * 100).toPrecision(12))) / 100;
 
 function isoDate(raw: string): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
@@ -304,8 +324,8 @@ export function parseUtrDatabase(
     }
     const range: RangeDraft = {
       slug,
-      low: Math.min(...rated),
-      middle: sheetAvg,
+      low: round2(quantileInclusive(rated, 0.25)),
+      middle: round2(quantileInclusive(rated, 0.5)),
       high: Math.max(...rated),
       ratedPlayers: rated.length,
       sourceUrl: /^https?:\/\//.test(t["Team UTR Link"]) ? t["Team UTR Link"] : rosterUrl,

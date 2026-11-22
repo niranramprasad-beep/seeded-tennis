@@ -5,8 +5,11 @@ import {
   onOfficialRoster,
   parseCsv,
   parseUtrDatabase,
+  quantileInclusive,
+  RANGE_RULE,
   rangeSource,
   rating,
+  round2,
   UtrDatabaseError,
 } from "./utr-database";
 
@@ -29,8 +32,8 @@ function player(school: string, g: string, n: number, utr: string, reliable: str
 }
 
 // Test University (M): 6 official players, 5 reliable numeric ratings
-// (10, 11, 12, 13, 14 -> mean 12.00), one unreliable, plus one UTR-only
-// player who must be ignored everywhere.
+// (10, 11, 12, 13, 14 -> mean 12.00, lower quartile 11.00, median 12.00),
+// one unreliable, plus one UTR-only player who must be ignored everywhere.
 const ROSTER_A = [
   player("Test University", "M", 1, "10.00", "Y", "2027"),
   player("Test University", "M", 2, "11.00", "Y", "2027"),
@@ -54,6 +57,36 @@ describe("parseCsv", () => {
   });
   it("refuses a file that ends inside a quote", () => {
     expect(() => parseCsv('a,"b')).toThrow(UtrDatabaseError);
+  });
+});
+
+describe("the range rule (owner's decision 2026-11-21: lower quartile / median / top)", () => {
+  it("uses the inclusive quartile, the one Google Sheets' QUARTILE() uses", () => {
+    // =QUARTILE({1,2,3,4}, 1) is 1.75 in Sheets; the exclusive method gives 1.25.
+    expect(quantileInclusive([4, 1, 3, 2], 0.25)).toBe(1.75);
+    expect(quantileInclusive([4, 1, 3, 2], 0.5)).toBe(2.5);
+    expect(quantileInclusive([9.1, 7.58, 9.9, 10.67, 9.43, 9.69, 9.75, 9.55, 10.2], 0.25)).toBeCloseTo(9.43, 10);
+    expect(quantileInclusive([5], 0.25)).toBe(5);
+  });
+  it("one low outlier no longer sets the floor", () => {
+    const team = [7.58, 9.4, 9.5, 9.6, 9.7, 9.8, 10.0, 10.67];
+    expect(Math.min(...team)).toBe(7.58);
+    expect(quantileInclusive(team, 0.25)).toBeGreaterThan(9.4);
+  });
+  it("the floor never exceeds the middle, even when the mean would", () => {
+    // A low outlier drags the MEAN below the lower quartile (the reason the
+    // middle is the median): 13.41 > mean 13.36 on one real team.
+    const team = [11.53, 13.41, 13.41, 13.6, 13.7, 13.94, 13.94];
+    expect(quantileInclusive(team, 0.25)).toBeGreaterThan(team.reduce((a, b) => a + b) / team.length);
+    expect(quantileInclusive(team, 0.25)).toBeLessThanOrEqual(quantileInclusive(team, 0.5));
+  });
+  it("rounds half a cent up, without float noise", () => {
+    expect(round2(12.675)).toBe(12.68);
+    expect(round2(9.4325)).toBe(9.43);
+    expect(round2(1.005)).toBe(1.01);
+  });
+  it("names the rule where the script prints it", () => {
+    expect(RANGE_RULE).toMatch(/lower quartile.*QUARTILE.*median.*highest/);
   });
 });
 
@@ -95,7 +128,7 @@ describe("parseUtrDatabase", () => {
     expect(r.ranges).toEqual([
       {
         slug: "test-university-men",
-        low: 10,
+        low: 11,
         middle: 12,
         high: 14,
         ratedPlayers: 5,

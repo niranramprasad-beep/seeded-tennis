@@ -54,17 +54,21 @@ date (2026-11-02/03). It covers 36 teams: 34 ACC (16 men, 18 women;
 Pittsburgh women not started) and 2 SEC men. `scripts/import-utr-database.ts`
 turns it into `programs` + class counts + one `hand_curated` team range per
 team, by a written rule (`RANGE_RULE` in `lib/catalog/utr-database.ts`):
-**floor = lowest reliable singles UTR on the official roster, middle = their
-mean, top = highest**. Players the sheet marks "UTR only" (not on the
+**floor = lower quartile of the reliable singles UTRs on the official
+roster, middle = their median, top = highest** — the owner's choice on
+2026-11-21, over "lowest player" (one walk-on set the floor: on average 0.9
+below the team mean, up to 2.1) and "singles lineup" (6th-best / top-6
+average). Quartiles use the inclusive method, as Google Sheets' `QUARTILE()`,
+so any range can be re-checked in the sheet with `=QUARTILE(r,1)`,
+`=MEDIAN(r)`, `=MAX(r)`; cents round half up. The sheet's own team average
+must still equal the mean of the same ratings, as a read check. Players the sheet marks "UTR only" (not on the
 official roster) or "not on roster page yet" are left out of everything, as
 the sheet's own team columns do. A team is held when its "Leaving by" counts
 disagree with its player rows; a range is held when the sheet's average
 disagrees with the reliable ratings (California women: 10.47 vs 10.31).
 No player name, profile link or note is stored.
-**Open for the owner before production:** (1) the floor rule — the lowest
-rated player is a generous Target threshold (Florida State women: floor
-7.58, middle 9.69); (2) UTR licensing (below) — these are UTR ratings, read
-by hand and cited, not fetched; (3) 15 of these programs are already in the
+**Open for the owner before production:** (1) UTR licensing (below) —
+these are UTR ratings, read by hand and cited, not fetched; (2) 15 of these programs are already in the
 legacy catalog with unverified estimates, and phase 1 shows the legacy row
 and hides the imported one, so the real numbers replace the estimates only
 when rated imported programs feed `/schools`' bands (the next phase).
