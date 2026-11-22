@@ -7,6 +7,23 @@ Newest first.
 
 ---
 
+## 2026-11-22 (night) — The landing page sits on a hard court (Herdy's direction, Figma page 06)
+
+Herdy asked for a tennis-themed landing page; the court-lines direction and a
+full overhaul were chosen, mocked in the WD Figma file first and approved
+("Go, build it"). Two calls made while building:
+
+- **A fixed court colour, `--c-court` / `--c-court-text`.** Its value is light
+  mode's own primary (31 107 74) with white, defined once in the base
+  `:root` and NOT per theme — exactly like `--c-night`. Dark mode's primary is
+  a light green with dark text, so a hero built on `bg-grass` would put white
+  copy on light green in dark mode. White on the court measures 6.4:1; the
+  90%-white small print 5.57:1. The palette gains no new colour.
+- **The hero CTA is white with green text**, not the usual green button: green
+  on the green court would vanish, and lime fills are banned by
+  `design-system-v2.test.ts`.
+- Undo: revert the landing commit; the court components are self-contained.
+
 ## 2026-11-22 — Clean deploys: every build warning we own is gone (`fix/herdy-vercel-warnings`)
 
 Read from Vercel's build logs (production `main` 9c28391 and three previews)

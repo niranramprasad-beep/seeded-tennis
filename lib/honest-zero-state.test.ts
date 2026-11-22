@@ -260,7 +260,10 @@ describe("the screens render through these functions", () => {
 
   it("the home subhead and meta description name our estimated range and a counted N", () => {
     const home = readableSource("components/seeded/home/seeded-home-view.tsx");
-    expect(home).toMatch(/compares your UTR with our estimated range for \{teamCount\} college teams/);
+    // Landing overhaul (2026-11-22): the desktop subhead now uses the mobile
+    // wording. What this guards is unchanged — "our estimated range" and a
+    // counted N, never "real rosters" or a typed number.
+    expect(home).toMatch(/Your UTR against our estimated range for \{teamCount\} college teams/);
     expect(home).toMatch(/our estimated range for \{schools\.length\} college teams/);
     expect(home).toMatch(/Takes about 90 seconds\./);
     const page = readFileSync("app/page.tsx", "utf8");

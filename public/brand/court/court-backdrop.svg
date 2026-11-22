@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#FFFFFF" stroke-width="1.5" aria-hidden="true" focusable="false" pointer-events="none">
+  <rect width="1440" height="720" fill="#1F6B4A" stroke="none"/>
+  <g stroke="#FFFFFF" stroke-opacity="0.28">
+  <path d="M432 48V672H1008V48" vector-effect="non-scaling-stroke" />
+  <line x1="504" y1="48" x2="504" y2="672" vector-effect="non-scaling-stroke" />
+  <line x1="936" y1="48" x2="936" y2="672" vector-effect="non-scaling-stroke" />
+  <line x1="504" y1="384" x2="936" y2="384" vector-effect="non-scaling-stroke" />
+  <line x1="720" y1="48" x2="720" y2="384" vector-effect="non-scaling-stroke" />
+  <line x1="720" y1="664" x2="720" y2="672" vector-effect="non-scaling-stroke" />
+  <line x1="416" y1="48" x2="1024" y2="48" stroke-width="2" vector-effect="non-scaling-stroke" />
+  </g>
+</svg>

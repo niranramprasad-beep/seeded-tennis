@@ -71,6 +71,18 @@ docs reorganisation).
   report offers a signed-in visitor "Back to Today/Family" instead of a
   sign-up. Still open: the parent dashboard upgrade (TODO §4), a real
   signed-in visual check on staging.
+- **Landing overhaul, hard-court theme** (branch `herdy-work`, 2026-11-22
+  night; Figma "WD — NiranRamprasad — Seeded" page 06; no migration): the
+  hero and the closing band sit on a fixed court green (`--c-court`, light
+  mode's own primary pinned for both modes) with to-scale court lines
+  (`components/seeded/court`, Codex); white copy and a white/green CTA; a
+  CSS-only bouncing ball in the hero (idle hop paused off-screen) and one
+  arcing over a net divider into the parents band; court-corner lines behind
+  the features; the product shot on a light court band; scoreboard-numbered
+  "How fit works". All motion is off under reduced motion; the ball is
+  measured to stay clear of the copy and the calculator card. The desktop
+  subhead now uses the mobile wording (still "our estimated range" and a
+  counted N; `honest-zero-state.test.ts` updated deliberately).
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly
