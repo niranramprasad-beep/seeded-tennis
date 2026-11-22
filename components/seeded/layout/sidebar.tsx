@@ -259,7 +259,12 @@ export function SeededSidebar() {
               {/* Pixel-exact hand-drawn icons for the player's mockup-defined
                   5 items; parent mode has no mockup, so it falls back to the
                   same lucide icon used in the desktop nav. */}
-              <span className="relative">
+              <span
+                className={cn(
+                  "relative flex items-center justify-center rounded-pill px-3 py-0.5 motion-safe:transition-colors",
+                  active && "bg-grass-50"
+                )}
+              >
                 {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
                 {!!l.badge && (
                   <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-on-lime">
@@ -296,7 +301,9 @@ function SidebarLink({
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans transition-colors",
         small ? "text-sm" : "text-[15px]",
-        active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
+        active
+          ? "bg-grass-50 font-semibold text-grass before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-grass motion-safe:before:transition-all"
+          : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
         collapsed && "justify-center px-0"
       )}
     >

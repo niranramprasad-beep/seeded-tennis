@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Mail, Route, Trophy } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { buildFitReport, isUsableUtr } from "@/lib/fit";
@@ -417,7 +417,7 @@ function TrustStrip() {
 const CAPABILITY_CARDS = [
   {
     title: "Plan",
-    body: "Your UTR now vs where your target teams need you by the summer before senior year, with checkpoints each season.",
+    body: "Your UTR now vs what target teams need by the summer before senior year.",
     // An example, and said so. This named a real program ("Emory range
     // 9.1–10.6") with a range no source backs — roster UTRs are unsourced
     // estimates (UTR_RANGE_SOURCE_LABEL) — as a fact (2026-11-20).
@@ -425,27 +425,53 @@ const CAPABILITY_CARDS = [
   },
   {
     title: "Compete smarter",
-    body: "Check any tournament before you pay. Seeded scores the draw against your level, cost per match, and travel.",
+    body: "Check a tournament before you pay: draw, cost per match, travel.",
   },
   {
     title: "Reach out on time",
-    body: "A pipeline for every coach: draft, sent, replied, call, visit. Seeded flags a follow-up on Today when one is due.",
+    body: "A coach pipeline, with follow-ups flagged on Today.",
+  },
+] as const;
+
+// Design polish round 1 (Figma 04a): each card gets a tinted icon tile and a
+// light tint background — palette tints only, no new colours.
+const CARD_TINT = [
+  { icon: Route, card: "border-grass-100 bg-grass-50", tile: "border-grass-100 bg-card text-grass" },
+  {
+    icon: Trophy,
+    card: "border-[rgb(var(--c-sage-tint-border))] bg-[rgb(var(--c-sage-tint-bg))]",
+    tile: "border-[rgb(var(--c-sage-tint-border))] bg-card text-[rgb(var(--c-sage-tint-text))]",
+  },
+  {
+    icon: Mail,
+    card: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))]",
+    tile: "border-[rgb(var(--c-gold-tint-border))] bg-card text-[rgb(var(--c-gold-tint-text))]",
   },
 ] as const;
 
 function WhatItDoes() {
   return (
     <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
-      <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
-        UTR tells you where you stand. Seeded tells you what to do next.
-      </p>
-      <h2 className={cn(seededSectionHeading, "seeded-section-head mt-3 max-w-[760px] text-balance")}>
+      <h2 className={cn(seededSectionHeading, "seeded-section-head max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
       </h2>
       <div className="seeded-card-row grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {CAPABILITY_CARDS.map((c, i) => (
           <Reveal key={c.title} index={i} step={0.06}>
-            <div className="h-full rounded-xl border border-line bg-card p-6">
+            <div
+              className={cn(
+                "h-full rounded-[14px] border p-6 motion-safe:transition-transform motion-safe:duration-150 motion-safe:hover:-translate-y-0.5",
+                CARD_TINT[i].card
+              )}
+            >
+              {(() => {
+                const Icon = CARD_TINT[i].icon;
+                return (
+                  <span className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-[10px] border", CARD_TINT[i].tile)}>
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                );
+              })()}
               <h3 className="m-0 text-lg font-semibold text-ink">{c.title}</h3>
               <p className="mt-2 leading-[1.55] text-stone">{c.body}</p>
               {c.title === "Plan" && (
