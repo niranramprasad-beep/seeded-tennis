@@ -2,7 +2,7 @@
 //
 //   npx vite-node --config vitest.config.ts scripts/import-utr-database.ts -- \
 //     --teams ~/seeded-data/utr-db/Teams.csv --players ~/seeded-data/utr-db/Players.csv \
-//     [--season 2026-27] [--emit-sql out.sql] [--summary out.json]
+//     [--season 2026-27] [--emit-sql out.sql] [--summary out.json] [--target staging|production]
 //
 // The two CSVs are the sheet's "Teams" and "Players" tabs (File → Download →
 // CSV). The Players tab names real students, so both files stay OUTSIDE the
@@ -14,8 +14,9 @@
 // STAGING SQL session: programs upserted by slug, their class counts
 // replaced, and one hand-curated team range per rated team (skipped if the
 // identical range is already stored). The SQL refuses to run on a database
-// whose `programs` table is empty, which is production today. It never
-// fetches anything and never deletes a program.
+// whose `programs` table is empty (production's started empty), unless
+// `--target production` is given — the owner approved the production import
+// on 2026-11-22. It never fetches anything and never deletes a program.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -28,6 +29,7 @@ interface Args {
   season: string;
   emitSql: string | null;
   summary: string | null;
+  target: "staging" | "production";
 }
 
 function fail(message: string): never {
@@ -36,7 +38,7 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { teams: null, players: null, season: "2026-27", emitSql: null, summary: null };
+  const args: Args = { teams: null, players: null, season: "2026-27", emitSql: null, summary: null, target: "staging" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i] ?? fail(`${a} needs a value.`);
@@ -46,6 +48,11 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--season") args.season = next();
     else if (a === "--emit-sql") args.emitSql = next();
     else if (a === "--summary") args.summary = next();
+    else if (a === "--target") {
+      const t = next();
+      if (t !== "staging" && t !== "production") fail(`--target must be staging or production, got "${t}".`);
+      args.target = t;
+    }
     else fail(`Unknown argument: ${a}`);
   }
   return args;
@@ -108,8 +115,8 @@ function main() {
   }
 
   if (args.emitSql) {
-    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data));
-    console.log(`import-utr-database: wrote ${args.emitSql} (STAGING ONLY)`);
+    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target));
+    console.log(`import-utr-database: wrote ${args.emitSql} (target: ${args.target})`);
   }
 }
 
