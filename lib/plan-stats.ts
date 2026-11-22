@@ -14,6 +14,10 @@ export interface UtrDeltaWithBaseline {
    * "+0.51 since May" reads its month straight from this, rather than
    * repeating utrDeltaOverMonths' own cutoff/sort logic a second time. */
   baselineDate: string;
+  /** The two logged ratings the delta is between, so a screen can show the
+   * percent change (lib/utr-percent.ts) without re-deriving them. */
+  baselineUtr: number;
+  latestUtr: number;
 }
 
 /**
@@ -38,6 +42,8 @@ export function utrDeltaWithBaseline(
   return {
     delta: Math.round((latest.utr - baseline.utr) * 100) / 100,
     baselineDate: baseline.recordedAt,
+    baselineUtr: baseline.utr,
+    latestUtr: latest.utr,
   };
 }
 

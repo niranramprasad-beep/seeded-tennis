@@ -152,7 +152,7 @@ describe("KPI sentences", () => {
       hasUtr: true,
       value: "7.50",
       delta: 0.5,
-      deltaText: "+0.50 since February",
+      deltaText: "+7.1% (+0.50) since February",
       deltaAmount: "+0.50",
       deltaPercent: "+7.1%",
       since: "February",
@@ -172,7 +172,7 @@ describe("KPI sentences", () => {
       7.9,
       NOW
     );
-    expect(down.deltaText).toBe("−0.20 since March 2025");
+    expect(down.deltaText).toBe("−2.5% (−0.20) since March 2025");
     expect(down.direction).toBe("down");
   });
 
@@ -185,7 +185,7 @@ describe("KPI sentences", () => {
       6.4,
       NOW
     );
-    expect(k.deltaText).toBe("+0.40 since February");
+    expect(k.deltaText).toBe("+6.7% (+0.40) since February");
     expect(formatShortDate("2026-12-01")).toBe("Dec 1");
   });
 

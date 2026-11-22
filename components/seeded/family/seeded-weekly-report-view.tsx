@@ -1,7 +1,7 @@
 "use client";
 
 import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import type { SchoolLite } from "@/lib/types";
@@ -15,6 +15,8 @@ import { loadTournamentEntries } from "@/lib/db/events";
 import { loadBudgetExpenses, loadSeasonBudget } from "@/lib/db/family";
 import { buildSeasonBudgetSummary } from "@/lib/family-budget";
 import { utrDeltaWithBaseline } from "@/lib/plan-stats";
+import { utrChange } from "@/lib/utr-percent";
+import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import { daysSince } from "@/lib/today-actions";
 import { currentSeason, formatShortDate, toLocalDateString } from "@/lib/time";
 import { formatPlayerUtr, pluralNoun } from "@/lib/utils";
@@ -113,6 +115,9 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
     return utrDeltaWithBaseline(utrEntries, 0.25, now); // ~1 week window
   }, [utrEntries, now]);
 
+  // Percent leads, the raw change beside it (lib/utr-percent.ts).
+  const weekChange = weekDelta ? utrChange(weekDelta.baselineUtr, weekDelta.latestUtr) : null;
+
   const activityThisWeek = useMemo(() => {
     const entries = Object.entries(outreach ?? {}).filter(([, v]) => daysSince(v.updatedAt, now) <= 7);
     const emailed = entries.filter(([, v]) => v.status !== "researching");
@@ -180,9 +185,13 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
         <ReportTile
           value={currentUTR == null ? "No UTR yet" : formatPlayerUtr(currentUTR)}
           label={
-            weekDelta
-              ? `UTR · ${weekDelta.delta >= 0 ? "+" : ""}${weekDelta.delta.toFixed(2)} this week`
-              : "UTR · no change logged this week"
+            weekChange && weekChange.direction !== "flat" ? (
+              <>
+                UTR · <ChangeFigure amount={weekChange.amount} percent={weekChange.percent} /> this week
+              </>
+            ) : (
+              "UTR · no change logged this week"
+            )
           }
         />
         {/* "1 coaches emailed" (QA sweep L8): the noun follows the count. */}
@@ -240,7 +249,7 @@ export function SeededWeeklyReportView({ schools }: { schools: SchoolLite[] }) {
   );
 }
 
-function ReportTile({ value, label }: { value: string; label: string }) {
+function ReportTile({ value, label }: { value: string; label: ReactNode }) {
   return (
     <div className="rounded-card border border-line bg-card p-5">
       <p className="font-mono text-3xl text-ink">{value}</p>

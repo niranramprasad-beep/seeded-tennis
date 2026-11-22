@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Eye } from "lucide-react";
+import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import type { BudgetBar, ParentDashboardModel, WeekAction } from "@/lib/parent-dashboard";
 import { formatMoney } from "@/lib/parent-dashboard";
 import { cn, formatPlayerUtr } from "@/lib/utils";
@@ -85,8 +86,13 @@ export function DashboardBody({
               <span className={cn("inline-flex flex-wrap items-center gap-x-1", model.utr.direction === "up" && "font-semibold text-grass")}>
                 {model.utr.direction === "up" && <ArrowUpRight className="h-4 w-4" aria-hidden />}
                 {model.utr.direction === "down" && <ArrowDownRight className="h-4 w-4" aria-hidden />}
-                <span className="font-mono">{model.utr.deltaAmount}</span>
-                {model.utr.deltaPercent && <span className="font-mono text-stone">({model.utr.deltaPercent})</span>}
+                {/* Percent leads, raw change beside it (ChangeFigure). "No
+                    change" has no percent and shows as itself. */}
+                {model.utr.deltaAmount && model.utr.direction !== "flat" ? (
+                  <ChangeFigure amount={model.utr.deltaAmount} percent={model.utr.deltaPercent} />
+                ) : (
+                  <span className="font-mono">{model.utr.deltaAmount}</span>
+                )}
                 <span>since {model.utr.since}</span>
               </span>
             ) : model.utr.hasUtr ? (

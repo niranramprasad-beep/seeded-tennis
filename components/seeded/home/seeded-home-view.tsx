@@ -10,6 +10,8 @@ import { buildFitReport, isUsableUtr } from "@/lib/fit";
 import { heroFitCta } from "@/lib/fit-copy";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
+import { ChangeFigure } from "@/components/seeded/ui/change-figure";
+import { utrChange } from "@/lib/utr-percent";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
 import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/heading";
@@ -618,6 +620,9 @@ function ProductShotAction({
 
 /* ----------------------------------------------------------- PARENTS */
 
+// Example values only (the card says "Example").
+const EXAMPLE_WEEK_UTR_CHANGE = utrChange(9.3, 9.42)!;
+
 function ParentsSection() {
   return (
     // Deliberately always-dark panel, independent of site-wide light/dark
@@ -663,17 +668,24 @@ function ParentsSection() {
               Example
             </span>
           </div>
-          <div className="mt-3.5 grid grid-cols-3 gap-3">
+          {/* 22px on a phone: at 26px the three figures ran into each other at 375. */}
+          <div className="mt-3.5 grid grid-cols-3 gap-4">
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">+0.12</div>
+              {/* Same example week as /sample-report (9.30 → 9.42): the
+                  percent leads, the raw change beside it. */}
+              <ChangeFigure
+                {...EXAMPLE_WEEK_UTR_CHANGE}
+                className="text-[22px] font-normal leading-tight sm:text-[26px] text-[rgb(var(--c-night-text))]"
+                secondaryClassName="text-[13px] sm:text-[15px] text-[rgb(var(--c-night-muted))]"
+              />
               <div className="text-[13px] text-[rgb(var(--c-night-muted))]">UTR this week</div>
             </div>
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">2</div>
+              <div className="font-mono text-[22px] leading-tight tabular-nums sm:text-[26px] text-[rgb(var(--c-night-text))]">2</div>
               <div className="text-[13px] text-[rgb(var(--c-night-muted))]">coach replies</div>
             </div>
             <div>
-              <div className="font-mono text-[26px] tabular-nums text-[rgb(var(--c-night-text))]">$1,840</div>
+              <div className="font-mono text-[22px] leading-tight tabular-nums sm:text-[26px] text-[rgb(var(--c-night-text))]">$1,840</div>
               <div className="text-[13px] text-[rgb(var(--c-night-muted))]">season spend</div>
             </div>
           </div>
