@@ -56,7 +56,11 @@ const COURT_SECONDARY_CTA =
 function Hero({ schools }: { schools: SchoolLite[] }) {
   return (
     <section className="relative isolate overflow-hidden bg-[rgb(var(--c-court))] text-[rgb(var(--c-court-text))]">
-      <CourtBackdrop className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-[rgb(var(--c-court-text)/0.28)]" />
+      {/* Desktop: the court fills the hero. On phones a full-bleed court is
+          cropped to its centre and the centre/service lines ran through the
+          headline (Herdy, 22 Nov), so there the court sits only behind the
+          calculator card — see the mobile branch below. */}
+      <CourtBackdrop className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-[rgb(var(--c-court-text)/0.28)] lg:block" />
       <HeroBall className="pointer-events-none absolute bottom-10 right-[12%] hidden lg:block" />
     <div className="mx-auto max-w-[1200px] px-6 pb-10 pt-10 md:pb-14 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pb-40 lg:pt-18">
       {/* Desktop: two-column, left copy / right live calculator */}
@@ -78,8 +82,17 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
           Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
           Target, Likely and Out of range.
         </p>
-        <FitCalculatorCard schools={schools} mobile />
-        <p className="text-center text-xs text-[rgb(var(--c-court-text)/0.9)]">Free · no card · Takes about 90 seconds.</p>
+        {/* The card sits ON the court: the lines start just above it and
+            spill out around its edges, so the copy above stays on plain
+            court green. */}
+        <div className="relative mt-2">
+          <CourtBackdrop className="pointer-events-none absolute -inset-x-6 -bottom-4 -top-10 -z-10 h-[calc(100%+3.5rem)] w-[calc(100%+3rem)] text-[rgb(var(--c-court-text)/0.28)]" />
+          <FitCalculatorCard schools={schools} mobile />
+        </div>
+        <p className="mt-2 flex items-center justify-center gap-2 text-center text-xs text-[rgb(var(--c-court-text)/0.9)]">
+          <TennisBall size={16} className="h-4 w-4 shrink-0" />
+          Free · no card · Takes about 90 seconds.
+        </p>
       </div>
     </div>
     </section>
@@ -472,7 +485,7 @@ const CARD_TINT = [
 function WhatItDoes() {
   return (
     <section className="relative isolate overflow-hidden">
-      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-line" />
+      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-line lg:block" />
     <div className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <h2 className={cn(seededSectionHeading, "seeded-section-head max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
@@ -925,7 +938,7 @@ function FinalCta() {
     // court as the hero. White on --c-court is 6.4:1 in both modes; the
     // button is the court's white-with-green pair, not a green-on-green one.
     <section className="relative isolate overflow-hidden bg-[rgb(var(--c-court))] text-[rgb(var(--c-court-text))]">
-      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-[rgb(var(--c-court-text)/0.28)]" />
+      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-[rgb(var(--c-court-text)/0.28)] lg:block" />
       <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-6 text-center">
         <h2 className={cn(seededSectionHeading, "m-0 max-w-[700px] text-balance text-[rgb(var(--c-court-text))]")}>
           Find out where you fit before your next tournament.
