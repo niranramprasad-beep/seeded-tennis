@@ -11,6 +11,7 @@ import { heroFitCta } from "@/lib/fit-copy";
 import { realisticPaceProjectionFor } from "@/lib/what-if-utr";
 import { EstimateChip } from "@/components/seeded/ui/data-note";
 import { ChangeFigure } from "@/components/seeded/ui/change-figure";
+import { FIT_BAND_LABEL, FIT_BAND_RULE, FIT_BAND_TONE, FitBandIcon } from "@/components/seeded/ui/fit-badge";
 import { utrChange } from "@/lib/utr-percent";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
@@ -322,9 +323,9 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       </div>
       {cta.showCounts && counts ? (
         <div className="mt-5 grid grid-cols-3 gap-2">
-          <CountTile value={counts.reach} label="Reach" bg="rgb(var(--c-clay-tint-bg))" fg="rgb(var(--c-clay-tint-text))" />
-          <CountTile value={counts.target} label="Target" bg="rgb(var(--c-primary-50))" fg="rgb(var(--c-primary))" />
-          <CountTile value={counts.likely} label="Likely" bg="rgb(var(--c-sage-tint-bg))" fg="rgb(var(--c-sage-tint-text))" />
+          <CountTile value={counts.reach} band="reach" />
+          <CountTile value={counts.target} band="target" />
+          <CountTile value={counts.likely} band="likely" />
         </div>
       ) : cta.kind === "no-utr" ? (
         <p className="mt-5 text-sm text-stone">{cta.note}</p>
@@ -374,13 +375,15 @@ function MiniField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function CountTile({ value, label, bg, fg }: { value: number; label: string; bg: string; fg: string }) {
+// Label, tint and icon from the one fit pill (components/seeded/ui/fit-badge.tsx).
+function CountTile({ value, band }: { value: number; band: "reach" | "target" | "likely" }) {
   return (
-    <div className="rounded-lg p-3" style={{ background: bg }}>
-      <div className="font-mono text-2xl font-semibold tabular-nums" style={{ color: fg }}>
-        {value}
+    <div className={cn("rounded-lg border p-3", FIT_BAND_TONE[band])} title={FIT_BAND_RULE[band]}>
+      <div className="font-mono text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="flex items-center gap-1 text-[13px] text-stone">
+        <FitBandIcon band={band} className="h-3 w-3" />
+        {FIT_BAND_LABEL[band]}
       </div>
-      <div className="text-[13px] text-stone">{label}</div>
     </div>
   );
 }

@@ -283,7 +283,9 @@ function paceReadFor(requiredPaceUtrPerYear: number): Exclude<PaceRead, "no-time
   return "within-realistic-range";
 }
 
-const BAND_LABEL: Record<SchoolFitBand, string> = {
+/** The four band words. The one copy: the fit pill
+ *  (components/seeded/ui/fit-badge.tsx) spreads these into its own labels. */
+export const SCHOOL_FIT_BAND_LABEL: Record<SchoolFitBand, string> = {
   reach: "Reach",
   target: "Target",
   likely: "Likely",
@@ -419,7 +421,7 @@ function computeNextBandChange(
       byDate,
       requiredPaceUtrPerYear: null,
       paceRead: "no-time-left",
-      message: `The summer before senior year ${seniorSummerVerb(seniorSummerPhase(milestone.getFullYear(), now))}, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${BAND_LABEL[targetBand]}.`,
+      message: `The summer before senior year ${seniorSummerVerb(seniorSummerPhase(milestone.getFullYear(), now))}, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${SCHOOL_FIT_BAND_LABEL[targetBand]}.`,
     };
   }
 
@@ -445,7 +447,7 @@ function computeNextBandChange(
     paceRead,
     // The pace through formatPacePerYear, the one pace formatter ("needs
     // about 2.25 a year"); it read "about 2.3/year … 0.5–1.5/yr" (D1).
-    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
+    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${SCHOOL_FIT_BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
   };
 }
 
