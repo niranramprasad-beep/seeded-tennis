@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="142" height="40" viewBox="0 0 142 40" role="img" aria-labelledby="title">
+  <title id="title">Seeded</title>
+  <g transform="translate(1 9)" fill="none" stroke="#14181A" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="10" fill="#D7F25A" />
+    <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" />
+  </g>
+  <text x="32" y="30" fill="#14181A" font-family="'Inter Tight', sans-serif" font-size="30" font-weight="700">Seeded</text>
+</svg>
