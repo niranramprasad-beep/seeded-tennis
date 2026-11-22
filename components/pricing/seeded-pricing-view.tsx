@@ -36,7 +36,6 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
         {/* ---------------------------------------------------- hero + plans */}
         <section aria-labelledby="pricing-title">
           <div className="mx-auto max-w-[720px] text-center">
-            <p className="seeded-eyebrow">Pricing</p>
             <h1
               id="pricing-title"
               className="text-balance font-seeded text-[36px] font-semibold leading-[1.1] tracking-tight text-ink sm:text-[48px]"
@@ -45,8 +44,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               <span className="block">Pay when you want a plan.</span>
             </h1>
             <p className="mx-auto mt-4 max-w-[600px] text-pretty text-lg leading-relaxed text-stone">
-              Every plan uses the same fit math. Paid plans add the weekly tools: unlimited
-              schools, coach outreach and a parent view.
+              Paid plans add unlimited schools, coach outreach and a parent view.
             </p>
             {tier !== "free" && (
               <button
@@ -95,7 +93,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               rows — [name][price, 92px][button][features] — so the buttons
               and the first feature line up across all three whatever the
               taglines do. Below lg they stack, each its own 4-row grid. */}
-          <div className="mt-10 grid gap-5 lg:grid-cols-3 lg:grid-rows-[auto_92px_auto_1fr]">
+          <div className="mt-10 grid gap-5 lg:grid-cols-3 lg:grid-rows-[auto_minmax(92px,auto)_auto_1fr]">
             {plans.map((plan) => {
               const btn = buttonState(plan.tier, plan.name);
               const price = priceBlockFor(plan.tier, interval);
@@ -105,7 +103,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                   key={plan.tier}
                   aria-labelledby={`plan-${plan.tier}`}
                   className={cn(
-                    "relative grid grid-rows-[auto_92px_auto_1fr] gap-y-0 rounded-xl bg-card lg:row-span-4 lg:grid-rows-subgrid",
+                    "relative grid grid-rows-[auto_minmax(92px,auto)_auto_1fr] gap-y-0 rounded-xl bg-card lg:row-span-4 lg:grid-rows-subgrid",
                     // 2px border on Player; 1px less padding keeps every
                     // card's content box at the same offset.
                     plan.recommended ? "border-2 border-grass p-[27px]" : "border border-line p-7"
@@ -124,8 +122,14 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                     <p className="mt-1 text-[15px] text-stone">{plan.tagline}</p>
                   </div>
 
-                  <div className="h-[92px]">
-                    <p className="flex items-baseline gap-2">
+                  <div className="min-h-[92px]">
+                    <p className="flex flex-wrap items-baseline gap-x-2">
+                      {price.wasAmount && (
+                        <s className="font-mono text-lg text-stone-light tabular-nums">
+                          <span className="sr-only">12 months at the monthly price: </span>
+                          {price.wasAmount}
+                        </s>
+                      )}
                       <span className="font-mono text-[40px] font-semibold leading-none tracking-tight text-ink tabular-nums">
                         {price.amount}
                       </span>
@@ -234,7 +238,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
           <h2 id="faq-heading" className={sectionTitle}>
             Questions
           </h2>
-          <div className="divide-y divide-line rounded-xl border border-line bg-card">
+          <div className="divide-y divide-line rounded-card border border-line bg-card">
             {/* Seeded design only: /onboarding renders the fit report before
                 any session check (seeded/onboarding/onboarding-page-switch.tsx). */}
             <Faq question="Is the fit report really free?">
@@ -307,7 +311,7 @@ function FreeCard({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-line bg-card p-6">
+    <div className="flex h-full flex-col rounded-card border border-line bg-card p-6">
       <h3 className="font-seeded text-lg font-semibold text-ink">{title}</h3>
       <p className="mt-2 text-[15px] leading-relaxed text-stone">{children}</p>
       {action && <div className="mt-auto pt-2">{action}</div>}

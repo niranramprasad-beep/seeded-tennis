@@ -588,14 +588,27 @@ export function SignupFlow({
               not asked for either (their own row never shows them). */}
           {!isParentSignup && (
             <ChipRadioGroup<PlayerGender>
-              label="Gender"
+              label="Team"
               name="signup-gender"
               options={[
-                { value: "male", label: "Male" },
-                { value: "female", label: "Female" },
+                { value: "female", label: "Women's" },
+                { value: "male", label: "Men's" },
               ]}
               value={gender}
               onChange={setGender}
+            />
+          )}
+          {/* Design polish round 1 (22 Nov consult): grade comes before the
+              birth year — the order the Google sign-up already uses. */}
+          {!isParentSignup && (
+            <ChipRadioGroup<number>
+              label="Grade in school"
+              name="signup-grade"
+              columns={5}
+              options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
+              value={grade}
+              onChange={setGrade}
+              describedById={ageHint ? AGE_HINT_ID : undefined}
             />
           )}
           {/* P0-8. Year only. The product needs to know who is under 13; it
@@ -629,17 +642,6 @@ export function SignupFlow({
               ))}
             </select>
           </AuthField>
-          {!isParentSignup && (
-            <ChipRadioGroup<number>
-              label="Grade in school"
-              name="signup-grade"
-              columns={5}
-              options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
-              value={grade}
-              onChange={setGrade}
-              describedById={ageHint ? AGE_HINT_ID : undefined}
-            />
-          )}
           {/* Polite, not an alert: this is a "check this", never an error. */}
           {!isParentSignup && (
             <p

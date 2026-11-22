@@ -29,7 +29,7 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar, judging }
   if (results.length === 0 || !judging || !measuredFrom) return null;
 
   return (
-    <div className="mt-5 rounded-xl border border-line bg-card p-5">
+    <div className="mt-5 rounded-card border border-line bg-card p-5">
       <h2 className="text-base font-semibold text-ink">Closest schools to you</h2>
       <p className="mt-1 text-[15px] text-stone">
         The schools in our catalog whose estimated team average is nearest {measuredFrom} —

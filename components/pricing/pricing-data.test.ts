@@ -126,11 +126,13 @@ describe("prices are derived from TIER_PRICE_USD", () => {
       amount: "$99",
       cadence: "per year",
       note: "About $8.25 a month. Saves $45 a year.",
+      wasAmount: "$144",
     });
     expect(priceBlockFor("family", "yearly")).toEqual({
       amount: "$159",
       cadence: "per year",
       note: "About $13.25 a month. Saves $69 a year.",
+      wasAmount: "$228",
     });
   });
 

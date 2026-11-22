@@ -78,7 +78,7 @@ export function VerifyEmailBanner() {
       role="region"
       aria-label="Confirm your email"
       data-testid="verify-email-banner"
-      className="fixed inset-x-3 z-30 rounded-xl border border-line bg-card p-3 shadow-card bottom-[calc(max(18px,env(safe-area-inset-bottom))+68px)] lg:bottom-5 lg:left-auto lg:right-5 lg:w-[380px]"
+      className="fixed inset-x-3 z-30 rounded-card border border-line bg-card p-3 shadow-card bottom-[calc(max(18px,env(safe-area-inset-bottom))+68px)] lg:bottom-5 lg:left-auto lg:right-5 lg:w-[380px]"
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

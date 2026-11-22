@@ -79,6 +79,14 @@ function strippedSource(file: string): string {
 
 const BANNED: { pattern: RegExp; why: string }[] = [
   {
+    // Design polish round 1 struck "$144" through beside the yearly price
+    // with a screen-reader "Was ". No plan was ever $144 a year: it is twelve
+    // monthly payments, a comparison, not a former price.
+    // Matched on the decoded TEXT (tags are stripped), so the span is gone.
+    pattern: /\bwas\s+(?:\$\d|\{[^}]*wasAmount)|\bnow only \$\d/i,
+    why: "the struck yearly amount is 12 monthly payments, never a former price",
+  },
+  {
     pattern: /Rosters verified/i,
     why: "no roster has been verified and no verification date is stored",
   },

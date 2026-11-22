@@ -45,6 +45,25 @@ and a local `next build`. Calls made without asking:
 
 ---
 
+## 2026-11-22 — Design polish round 1 departs from the Claude Design mockups (Niran's ask, Herdy's direction)
+
+On the 22 Nov consult Niran said the UI "looks very overwhelming" and asked
+for it to be polished. Herdy (Crimson web-dev expert) set the direction:
+fewer words and pills, icons instead of some tags, a clear active nav state,
+tinted feature cards, a pricing strikethrough, percent beside UTR changes,
+initials tiles instead of school logos — and **the colour palette stays
+exactly as it is**. The reference for this round is the Figma file
+"WD — NiranRamprasad — Seeded" (https://www.figma.com/design/A6ACANVOvQOjUvA3lBeH5d),
+not the Claude Design mockups, wherever the two differ.
+
+- Percent is shown BESIDE a UTR change ("+0.50 (+7.1%)"), never instead of
+  it, and only when both ratings are real (`lib/utr-percent.ts`). Fit bands
+  are still never a percent.
+- Schools get an initials tile (`components/seeded/ui/school-monogram.tsx`),
+  not a logo: no third-party marks, nothing that needs a source.
+- Primary nav is unchanged (5 items + Tools; phone bar exactly 5).
+- Undo: revert the `herdy-work` branch commits; no data or migration involved.
+
 ## 2026-11-21 (Saturday) — Niran's product decisions before the review (owner's calls, not Claude's)
 
 Recorded as given in Niran's Saturday pre-review run brief. The D-/A- numbers

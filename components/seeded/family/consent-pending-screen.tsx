@@ -24,7 +24,7 @@ import { ShieldCheck } from "lucide-react";
 export function ConsentPendingScreen({ firstName }: { firstName?: string }) {
   return (
     <div className="mx-auto max-w-content container-px py-10">
-      <div className="mx-auto max-w-md rounded-xl border border-line bg-card p-6">
+      <div className="mx-auto max-w-md rounded-card border border-line bg-card p-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-grass" aria-hidden />
           <h1 className="text-lg font-semibold text-ink">

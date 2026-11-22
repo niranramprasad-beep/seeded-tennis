@@ -48,7 +48,7 @@ export function RecruitingChecklistCard({
   };
 
   return (
-    <div className="rounded-xl border border-line bg-card p-5">
+    <div className="rounded-card border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-ink">Recruiting timeline</h2>
         {hiddenItems.length > 0 && (

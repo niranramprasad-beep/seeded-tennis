@@ -36,6 +36,7 @@ import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
+import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
@@ -555,7 +556,7 @@ export function SeededSchoolsBrowser({
     "28px",
     "28px",
     "minmax(0,2.2fr)",
-    ...(showFitCol ? ["100px"] : []),
+    ...(showFitCol ? ["124px"] : []),
     "minmax(0,2fr)",
     ...(showOpenings ? ["80px"] : []),
     "104px",
@@ -678,10 +679,7 @@ export function SeededSchoolsBrowser({
                 <strong className="font-semibold">
                   {player.role === "parent" ? "Your player's fit shows once they join." : "Enter your UTR to see your fit."}
                 </strong>
-              )}{" "}
-              <span className="text-stone">
-                Every program below is listed either way — fit bands need a rating to compare against.
-              </span>
+              )}
             </p>
             {/* Secondary: the header's green "Get my free fit report" goes to
                 the same place, and the compare bar's "Compare side by side"
@@ -799,7 +797,7 @@ export function SeededSchoolsBrowser({
           narrow sidebar here used to cut off select text (e.g. "All" as
           "Al"); every control below gets real room for its full label. */}
       <div
-        className="mt-5 flex flex-wrap items-end gap-4 rounded-xl border border-line bg-card p-[18px]"
+        className="mt-5 flex flex-wrap items-end gap-4 rounded-card border border-line bg-card p-[18px]"
         aria-label="Filters"
       >
         <div className="flex flex-col gap-1.5 text-xs font-medium text-stone">
@@ -855,7 +853,7 @@ export function SeededSchoolsBrowser({
 
       <div className="mt-5">
 
-        <div className="overflow-x-auto rounded-xl border border-line bg-card">
+        <div className="overflow-x-auto rounded-card border border-line bg-card">
           <div className="min-w-[760px]">
             <div
               className="grid items-center gap-3.5 border-b border-line px-[18px] py-3 text-xs font-semibold uppercase tracking-wide text-stone"
@@ -957,12 +955,15 @@ export function SeededSchoolsBrowser({
                       <Link
                         href={`/schools/${s.slug}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex min-h-11 min-w-0 flex-col justify-center text-ink sm:min-h-6"
+                        className="flex min-h-11 min-w-0 items-center gap-3 text-ink sm:min-h-6"
                       >
-                        <p className="truncate text-[15px] font-semibold">{s.shortName}</p>
-                        <p className="truncate text-xs text-stone-light">
-                          {s.conference} · {s.division} · {s.state}
-                        </p>
+                        <SchoolMonogram name={s.shortName} division={s.division} className="hidden sm:inline-flex" />
+                        <span className="flex min-w-0 flex-col justify-center">
+                          <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
+                          <span className="truncate text-xs text-stone-light">
+                            {s.conference} · {s.division} · {s.state}
+                          </span>
+                        </span>
                       </Link>
                     </div>
                     {showFitCol && (fit ? <FitBadge band={fit} /> : <span aria-hidden />)}
@@ -1002,8 +1003,7 @@ export function SeededSchoolsBrowser({
                   {expanded && !hasUtr && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-stone last:border-b-0">
                       <p className="m-0">
-                        Add your UTR and Seeded will explain where you sit against this
-                        team&apos;s range and what would move you up a band.{" "}
+                        Add your UTR to see where you sit against this team&apos;s range.{" "}
                         <Link href={sessionChecked && player.onboarded ? TODAY_UTR_HREF : "/onboarding"} className="font-semibold text-grass underline underline-offset-4 hover:text-grass-700">
                           Enter my UTR
                         </Link>
@@ -1081,7 +1081,7 @@ export function SeededSchoolsBrowser({
       </div>
 
       {compareSlugs.length > 0 && (
-        <div className="sticky bottom-4 mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-card px-[18px] py-3 shadow-card">
+        <div className="sticky bottom-4 mt-5 flex flex-wrap items-center gap-3 rounded-card border border-line bg-card px-[18px] py-3 shadow-card">
           <span className="text-sm text-ink">
             <strong>{compareSlugs.length} selected</strong> · {compareSchools.map((s) => s.shortName).join(", ")}
           </span>

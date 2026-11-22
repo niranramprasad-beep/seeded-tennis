@@ -40,7 +40,7 @@ export function AppearanceCard() {
   ];
 
   return (
-    <div className="rounded-xl border border-line bg-card p-6">
+    <div className="rounded-card border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">Appearance</h2>
       <div className="mt-4 flex flex-wrap gap-2.5">
         {pills.map((p) => (

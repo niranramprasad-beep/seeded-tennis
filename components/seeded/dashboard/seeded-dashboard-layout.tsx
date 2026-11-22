@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { useMemo } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -24,7 +24,7 @@ import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card"
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadMatches } from "@/lib/db/events";
-import { currentSeason, getCurrentGrade, formatDate, parseLocalDate } from "@/lib/time";
+import { currentSeason, formatDate, getCurrentGrade, parseLocalDate } from "@/lib/time";
 import { gradeStandingName } from "@/lib/utr-projection";
 import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { DataNote } from "@/components/seeded/ui/data-note";
@@ -37,18 +37,12 @@ function seasonLabel(graduationYear: number, now: Date): string {
   return `${standing.charAt(0).toUpperCase()}${standing.slice(1)} ${currentSeason(now)}`;
 }
 
-function greeting(now: Date): string {
-  const hour = now.getHours();
-  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-}
-
 // Pixel-exact to Today.dc.html: a real rules-based action list (not static
 // mockup copy — see lib/today-actions.ts), fed by the props
 // dashboard-view.tsx builds (DashboardLayoutProps). The old glass/bento
 // "command center" treatment is gone; this matches the mockup's flat
 // two-column layout.
 export function SeededDashboardLayout({
-  firstName,
   player,
   actualPoints,
   targetPoints,
@@ -146,10 +140,7 @@ export function SeededDashboardLayout({
 
   const hasLoggedUtr = actualPoints.some((p) => hasRealUtr(p.utr));
 
-  const dateLine = `${now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} · ${seasonLabel(
-    player.graduationYear,
-    now
-  )}`;
+  const dateLine = seasonLabel(player.graduationYear, now);
 
   if (rosterLoading || matchesLoading) {
     return (
@@ -176,13 +167,16 @@ export function SeededDashboardLayout({
       <div className="w-full">
         <p className="text-[15px] text-stone">{dateLine}</p>
         <h1 className="mt-1.5 font-seeded text-[32px] font-bold leading-tight tracking-tight text-ink">
-          {greeting(now)}, {firstName || "there"}.{" "}
           {todayHeadline(actions.length, nextSteps.length)}
         </h1>
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink">
-            {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"}
-          </span>
+          <button
+            type="button"
+            onClick={() => setUtrDrawerOpen(true)}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line bg-card px-2.5 py-1 font-mono text-xs font-semibold text-ink sm:min-h-6"
+          >
+            {hasRealUtr(player.currentUTR) ? `UTR ${formatPlayerUtr(player.currentUTR)}` : "No UTR yet"} · Update
+          </button>
           {/* Green only for a real count: "On track for 0 of 3" in green sat
               beside "3 of your 3 targets are a Reach" (final-check A9). */}
           {trackPill && (
@@ -195,21 +189,6 @@ export function SeededDashboardLayout({
               {trackPill.text}
             </span>
           )}
-          {nextCheckpoint && (
-            <span className="inline-flex items-center rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-              Next checkpoint: {formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)} by{" "}
-              {/* One date format everywhere a sentence names a date: the chip
-                  said "Jun 1" (which year?) beside a chart saying "Jun '27". */}
-              {formatDate(nextCheckpoint.date)}
-            </span>
-          )}
-          <button
-            onClick={() => setUtrDrawerOpen(true)}
-            className="ml-auto inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-grass sm:min-h-6"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Update UTR
-          </button>
         </div>
 
         {/* The same warning, rule and action /plan shows under its goal. */}
@@ -221,20 +200,6 @@ export function SeededDashboardLayout({
           className="mt-3.5"
         />
 
-        {sundayCheckinDue && (
-          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-grass-100 bg-grass-50 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-ink">Sunday check-in</p>
-              <p className="text-[15px] text-stone">
-                Quick weekly update — your UTR, plus a match result if you played one.
-              </p>
-            </div>
-            <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
-              <Sparkles className="h-3.5 w-3.5" />
-              Start check-in
-            </SeededButton>
-          </div>
-        )}
       </div>
 
       <section aria-labelledby="actions-heading" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
@@ -253,10 +218,25 @@ export function SeededDashboardLayout({
           />
         )}
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] border border-line bg-panel px-4 py-3 text-[15px] text-stone">
-          <span className="flex-1">
-            {doneThisWeekLine(matchesThisWeek)}
-          </span>
+        <div className={cn(
+          "flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border px-4 py-3 text-[15px] text-stone",
+          sundayCheckinDue ? "border-grass-100 bg-grass-50" : "border-line bg-panel"
+        )}>
+          <div className="min-w-0 flex-1 basis-56">
+            {sundayCheckinDue && (
+              <>
+                <p className="text-sm font-semibold text-ink">Sunday check-in</p>
+                <p>Your UTR, plus a match result if you played one.</p>
+              </>
+            )}
+            <p>{doneThisWeekLine(matchesThisWeek)}</p>
+          </div>
+          {sundayCheckinDue && (
+            <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
+              <Sparkles className="h-3.5 w-3.5" />
+              Start check-in
+            </SeededButton>
+          )}
           <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
             <Sparkles className="h-3.5 w-3.5" />
             Log check-in
@@ -299,6 +279,16 @@ export function SeededDashboardLayout({
                 plan: nextCheckpoint ? "next-checkpoint" : null,
                 upside: upsidePath.length > 1,
               })}
+              {/* The header's "Next checkpoint" chip moved here in the
+                  design polish (herdy-work), so its value and date are said
+                  beside the gold line they name. */}
+              {nextCheckpoint && (
+                <>
+                  {" "}Next checkpoint:{" "}
+                  <span className="font-mono tabular-nums">{formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)}</span> by{" "}
+                  {formatDate(nextCheckpoint.date)}.
+                </>
+              )}
             </DataNote>
           ) : null}
           {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
@@ -372,7 +362,6 @@ function TodayActionRow({ action }: { action: TodayAction }) {
         <strong className="text-ink">{action.title}</strong>
         <div className="text-[15px] text-stone">{action.description}</div>
       </div>
-      <span className="shrink-0 text-sm text-stone">{action.minutes} min</span>
       {/* A link styled as a button — it used to be a <button> nested inside
           a <Link>, two interactive elements announced as one. Secondary:
           a list of these is a list of greens otherwise (design system v2

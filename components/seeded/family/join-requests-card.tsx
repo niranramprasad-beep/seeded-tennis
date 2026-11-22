@@ -105,7 +105,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
   };
 
   return (
-    <div className="rounded-xl border border-line bg-card p-5">
+    <div className="rounded-card border border-line bg-card p-5">
       <div className="flex items-center gap-2">
         <UserPlus className="h-4 w-4 text-grass" aria-hidden />
         {/* NOT "Needs a parent decision" — /family already has a card with

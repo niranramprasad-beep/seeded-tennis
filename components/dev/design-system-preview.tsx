@@ -61,7 +61,7 @@ export function DesignSystemPreview() {
         {/* ----------------------------------------------------------- Type */}
         <section>
           <SectionLabel>Type</SectionLabel>
-          <div className="flex flex-col gap-3.5 rounded-xl border border-line bg-card p-7">
+          <div className="flex flex-col gap-3.5 rounded-card border border-line bg-card p-7">
             <div className="font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em]">
               Display 56 / 36
             </div>
@@ -177,7 +177,7 @@ export function DesignSystemPreview() {
         {/* ------------------------------------------- Spacing/radius/motion */}
         <section>
           <SectionLabel>Spacing · radius · motion</SectionLabel>
-          <div className="flex flex-wrap items-end gap-7 rounded-xl border border-line bg-card p-6">
+          <div className="flex flex-wrap items-end gap-7 rounded-card border border-line bg-card p-6">
             <div className="flex items-end gap-2.5">
               {SPACING_STEPS.map((px) => (
                 <div key={px} className="bg-grass" style={{ width: px, height: px }} />
@@ -207,7 +207,7 @@ function SectionLabel({ children }: { children: string }) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3.5 rounded-xl border border-line bg-card p-6">
+    <div className="flex flex-col gap-3.5 rounded-card border border-line bg-card p-6">
       <strong className="text-ink">{title}</strong>
       {children}
     </div>
