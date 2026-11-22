@@ -525,7 +525,15 @@ function ProductShot() {
   return (
     <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <Reveal>
-        <div className="overflow-hidden rounded-xl border border-line bg-card shadow-card-lg">
+        {/* The shot draws Today's buttons ("Open draft", "Follow up"), which
+            look clickable. They used to do nothing; the whole frame is now
+            one link to where a visitor gets their own Today — the free fit
+            report — named for that, not for the example's text. */}
+        <Link
+          href="/onboarding"
+          aria-label="Example of the Today screen. Get your own free fit report"
+          className="block overflow-hidden rounded-xl border border-line bg-card shadow-card-lg transition-colors hover:border-grass/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+        >
           <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-3">
             <span className="text-[13px] text-stone">seededtennis.com/today</span>
           </div>
@@ -568,7 +576,7 @@ function ProductShot() {
               </div>
             </div>
           </div>
-        </div>
+        </Link>
         <p className="mt-3 text-center text-[13px] text-stone">What Today shows, for an example player.</p>
       </Reveal>
     </section>
