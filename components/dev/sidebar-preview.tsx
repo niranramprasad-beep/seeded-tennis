@@ -44,6 +44,7 @@ export function SidebarPreview() {
         updatePlayer: async () => true,
         setPlayerLocal: () => {},
         signOut: () => {},
+        signOutLocal: async () => {},
         userId: "dev-preview",
       }}
     >

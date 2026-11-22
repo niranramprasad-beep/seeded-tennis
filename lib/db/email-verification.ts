@@ -1,6 +1,12 @@
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
+import { EMAIL_VERIFIED_PATH } from "@/lib/config/auth";
 import { AUTH_ERROR_MESSAGES, friendlyAuthError, isEmailVerifiedFor } from "@/lib/auth";
-import { VERIFY_COPY, readPendingJoinCode, rememberPendingJoinCode } from "@/lib/email-verify-flow";
+import {
+  VERIFY_COPY,
+  readPendingJoinCode,
+  rememberGoogleVerifyStart,
+  rememberPendingJoinCode,
+} from "@/lib/email-verify-flow";
 
 // Parent email verification (B6, migration 043).
 //
@@ -35,8 +41,10 @@ import { VERIFY_COPY, readPendingJoinCode, rememberPendingJoinCode } from "@/lib
 // Supabase project settings (Auth -> Rate Limits, SMTP), not this repo.
 
 /** Where the link sends the browser. Must be in Supabase Auth's redirect
- * allow-list (Dashboard -> Authentication -> URL Configuration). */
-export const EMAIL_VERIFIED_PATH = "/auth/verified";
+ * allow-list (Dashboard -> Authentication -> URL Configuration). Defined in
+ * lib/config/auth.ts so the Google sign-in helper can use it without an import
+ * cycle. */
+export { EMAIL_VERIFIED_PATH } from "@/lib/config/auth";
 
 // The refusal's constants and detector live in a leaf module (import-cycle
 // safety, see that file); re-exported here as part of this module's contract.
@@ -150,24 +158,55 @@ export async function rememberMyPendingJoinCode(code: string): Promise<void> {
   rememberPendingJoinCode(code, await currentUserId());
 }
 
+/**
+ * Before "Verify with Google instead" leaves for Google: remember which
+ * account asked (id + current auth email), so /auth/verified can tell
+ * whether Google came back as the SAME account (linked by its verified
+ * email) or signed the browser into a different one. False when nobody is
+ * signed in — the caller then does not start Google at all.
+ */
+export async function rememberMyGoogleVerifyStart(): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { data } = await getAuthedUser(supabase);
+    const user = data.user;
+    if (!user) return false;
+    rememberGoogleVerifyStart(user.id, user.email ?? null);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The code the signed-in account left behind, or null — including when a
  *  code is stored for a different account. */
 export async function readMyPendingJoinCode(): Promise<string | null> {
   return readPendingJoinCode(await currentUserId());
 }
 
-export type MarkEmailVerifiedResult ="verified" | "not-proven" | "rate-limited";
+export type MarkEmailVerifiedResult = "verified" | "not-proven" | "rate-limited" | "unreachable";
 
 /** 043 raises this (errcode 53400) when its own profile write is refused by
  *  the profile_write limit. */
 const EMAIL_VERIFY_RATE_LIMITED = "email_verify_rate_limited";
 
-/** Which kind of failure a mark_email_verified() error is. */
-function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
+/**
+ * Which kind of failure a mark_email_verified() error is. Pure, exported for
+ * tests.
+ *   rate-limited -> 53400 / email_verify_rate_limited (043's own write).
+ *   not-proven   -> the DATABASE answered with an error (a SQLSTATE or a
+ *                   PostgREST PGRST code): it is not going to say yes.
+ *   unreachable  -> no answer at all (a thrown fetch, an error with no code,
+ *                   an HTTP-ish failure): a blip, never "not confirmed".
+ */
+export function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verified"> {
   const e = (error ?? {}) as { code?: unknown; message?: unknown };
-  const limited =
-    e.code === "53400" || (typeof e.message === "string" && e.message.includes(EMAIL_VERIFY_RATE_LIMITED));
-  return limited ? "rate-limited" : "not-proven";
+  const code = typeof e.code === "string" ? e.code : "";
+  const message = typeof e.message === "string" ? e.message : "";
+  if (code === "53400" || message.includes(EMAIL_VERIFY_RATE_LIMITED)) return "rate-limited";
+  if (/^[0-9A-Z]{5}$/.test(code) || /^PGRST\d+$/.test(code)) return "not-proven";
+  return "unreachable";
 }
 
 /**
@@ -175,12 +214,13 @@ function markErrorKind(error: unknown): Exclude<MarkEmailVerifiedResult, "verifi
  * the database agreed (a link/code session newer than the request, for the
  * requested address — or a Google identity for that address).
  * "rate-limited" when the write was refused by the profile_write limit, so
- * the screen says "too many tries" rather than "not proven". "not-proven"
- * otherwise, including on any other error.
+ * the screen says "too many tries" rather than "not proven". "unreachable"
+ * when the database never answered (network / server error). "not-proven"
+ * when it answered no.
  */
 export async function markEmailVerified(): Promise<MarkEmailVerifiedResult> {
   const supabase = getSupabase();
-  if (!supabase) return "not-proven";
+  if (!supabase) return "unreachable";
   try {
     const { data, error } = await supabase.rpc("mark_email_verified");
     if (error) return markErrorKind(error);

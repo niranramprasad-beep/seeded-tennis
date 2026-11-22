@@ -54,6 +54,182 @@ reproduced). Guards: `lib/empty-state-copy.test.ts`,
 `plan-trajectory-values.test.ts`, `lib/honest-zero-state.test.ts`. Row by
 row: `~/seeded-evidence/final-check/prB/SUMMARY.md`.
 
+**2026-11-21 — Parents can verify with Google (final-check PR D; branch
+`fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
+checks found production has not sent a magic-link/recovery email since
+2026-10-22 and 0 profiles have `email_verified_at`, so a parent may never
+receive 043's link (whether production has custom SMTP is not readable from
+here). 043 already accepts a second proof — a Google identity whose VERIFIED
+email equals the CURRENT auth email (`mark_email_verified()` and
+`email_is_verified()`, re-read live on production: amr methods
+`otp`/`magiclink` only, plus the Google-identity half). Production has 0
+Google identities yet, so the linking half is unproven until Niran's test.
+- Every parent verify prompt (join step, approve/consent card on Family and
+  Settings → Family, the banner) gains a secondary **"Verify with Google
+  instead"** with one line: it works when the Google account uses the same
+  email address. Flag-guarded inside `GoogleVerifyButton` (auth-card.tsx),
+  like `GoogleButton`. It remembers the return screen (and a join's code),
+  remembers WHICH account asked, and Google returns to `/auth/verified` —
+  the page the emailed link already uses — which runs the existing
+  `mark_email_verified()`. No new redirect URL.
+- If Google comes back as a DIFFERENT account (different address), the page
+  signs it out through PlayerProvider and says why in plain English; a
+  cancel says nothing changed. The database still decides; who must verify
+  is unchanged.
+- A failed "Send the link" now points to "Verify with Google instead"
+  (`sendFailureMessage`) instead of only "try again".
+- Review fixes (PR #29): the different-account path signs out with scope
+  "local" only (PlayerProvider `signOutLocal`) and checks no session is left
+  before saying so; the decision after the code exchange is the pure
+  `verifiedActionFor()` / `verifiedScreenFor()`; a stale marker is ignored
+  unless the session came from OAuth (JWT amr); a network blip on
+  `mark_email_verified()` is "unreachable" with Try again, never "not
+  confirmed"; `#error=` is read as well as `?error=`; the mismatch copy says a
+  sign-in may have been created for that Google address and that a pending
+  family code is lost. Mutation-checked (prD/mutation.txt).
+- Review round 2: both sign-outs run one tested sequence
+  (`lib/sign-out-steps.ts`: invalidate in-flight hydrate, reset, clear
+  storage, forget user, then Supabase with the scope); "still signed in"
+  offers Try again (local) instead of the menu's global sign-out; the
+  session's OAuth-ness is mapped by the tested `verifiedSessionFrom()`
+  (access-token amr, never app_metadata); an emailed link's own error
+  (`otp_expired`) shows the link copy even with a leftover Google marker;
+  `markEmailVerified()` is tested with a stubbed rpc.
+- Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
+  same/different account, error mapping, and a real render proving the
+  option is empty unless the flag is exactly "true");
+  `google-button-flag.test.ts` gains the new guard.
+- Niran's dashboard steps (SMTP, redirect URLs, a real Google test,
+  optional staging Google): `~/seeded-evidence/final-check/prD/STEPS.md`.
+
+**2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
+`fix/known-bugs-a`; no migration, no env var, no setting).**
+(A1) The Schools "Why this band" panel printed the what-if slider's value as
+"You're 8.99 today" for a 8.20 player. `explainSchoolFit()` now only ever
+gets TODAY's real rating (`useWhatIfUtr().todayUtr`, hasRealUtr-gated); the
+what-if gets its own line, "You 8.99 by summer 2027, what-if at +1.50 a
+year: …", with the year from the summer before senior year. Its "what would
+move it" read returns nothing when today's rating is already past the line
+(no "needs about -0.30 a year").
+(A2) One school showed two unlabelled gaps (Plan from today's 8.20, the
+school page and Schools list from the 8.7 summer estimate). Every gap and
+rating beside a team line now goes through `lib/fit-copy.ts`
+(`ratingBasisLabel` / `ratingWithBasis` / `teamGapSentence`) and says its
+basis: "today", "by summer {year}, estimate" or "…, what-if". Plan's target
+list now measures from the same rating its bands use (the fit report's),
+so Plan and the school page print the same gap. The range-bar tooltip
+(`youBasis`), the fit report's row captions and Plan's "Closest schools"
+(which said "your current UTR" over gaps from the estimate) use it too.
+(A3) The two chart legends gave green dashes two meanings. One vocabulary in
+`lib/chart-legend.ts` — Logged (solid), Planning estimate (dotted), Your
+plan (dashes + gold), Estimate at your own pace (grey dashes) — for both
+legends and Plan's readout; /today's and /family's estimate lines are now
+drawn dotted like /plan's so the legend is true.
+(A4) The fit report's zero state: the lead is the homepage hero's own zero
+sentence (`fitReportLead` → `nothingInRangeSentence`: catalogue count,
+closest program, its gap, "(estimate)"); the "0 Target and 0 Likely" and
+"0 today → 0" lines only render when non-zero; the tab opens on the first
+non-empty band (`defaultFitTab`, Out of range when that is all); an empty
+tab says what the band means (`emptyBandSentence`). "Today, 0 programs are
+in range." now reads "Today, no program is in range."
+(A5) Budget limits: season budget ≤ $250,000, one expense ≤ $50,000
+(`lib/budget-limits.ts`; staging's columns are numeric(9,2) and
+numeric(8,2)), enforced in both routes' zod schemas, `lib/db/family.ts` and
+both forms, with a message naming the limit. On the five S-10 write routes a
+permission refusal (a `DatabaseWriteError` with SQLSTATE 42501) is now HTTP
+403 "You don't have permission to do that." (`clientWriteErrorStatus`), our
+own validation sentence is 400, everything else stays a 500 with the
+route's fallback — still fail-closed: no Postgres text reaches the client,
+and a raw PostgrestError is not trusted. Tests: `lib/final-check-a.test.ts`,
+`lib/budget-limits.test.ts`, new cases in `lib/api-logging.test.ts`; guards
+in `lib/honest-zero-state.test.ts` and `plan-trajectory-values.test.ts`
+updated to the new call sites and words. Also folded in from the sweep:
+(B4) a blank budget total or expense cost no longer saves as $0 and closes
+(`Number("")` is 0) — "Enter a budget amount." / "Enter a cost."; (B24)
+/today's logged-only legend ("The line is the UTRs you've logged.") now
+uses the same `chartLegendSentence` as every other case.
+Verifier follow-up on PR #32: (M1) the screen wiring is now pure helpers in
+`lib/fit-copy.ts` — `judgingRatingFor`, `todayRatingFor`, `whyBandGapLines`,
+`targetRowGapSentence`, `schoolPageUtrRow`, `rangeCaption`,
+`closestSchoolsMeasuredFrom`, `rangeBarYouLine` — unit-tested for the
+what-if / estimate / today / sentinel cases; every screen's call is pinned;
+19 wiring mutations (the verifier's nine and more) all fail the suite. (M2)
+a 42501 on the five S-10 routes now reads its reason from the caller's own
+profile (`lib/db/write-refusal.ts`, the training route's lookup):
+consent-pending → "Your account can't save changes until a parent in your
+family gives consent.", Free on outreach → "Tracking coach outreach is part
+of the Player plan.", other RLS/trigger refusals → 403 "You don't have
+permission to do that."; a GRANT/config fault ("permission denied for
+function/table/schema …", matched server-side only) → the route's fallback
+and 500. (LOW) a what-if below today's rating says so; no pace text once no
+year remains; captions capitalise "Your player"; amount fields take a plain
+decimal only ("$50", "1,000", "0x10", "1e5" → "Enter a valid cost." /
+"Enter a valid budget amount."). Merged 2026-11-21 (#32).
+
+**2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
+branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
+a bad email is caught on the email field itself — on blur, and before
+step 1 of /signup or /parent-signup is left, and on the onboarding
+"Save it with a free account" form (player and parent). The message names
+the field ("Email: that address doesn't look right. Check it for a typo."),
+the input gets `aria-invalid` and points at it with `aria-describedby`, and
+focus moves to it. A server refusal of the address (`email_address_invalid`
+/ `_not_authorized`, which until now arrived as an unnamed banner on step 3
+of 3) sends the person back to step 1 with the message on the field.
+Addresses are trimmed before they are sent (a pasted trailing space was
+refused on the last step). Once a message shows, blur never clears it for
+an empty field (that moved Continue out from under the pointer). Pure checks: `lib/signup-checks.ts`; hook:
+`components/auth/email-field.ts`. (2) **A16:** /signup's name placeholders
+describe the field ("First name and last initial" / "First and last name")
+instead of reading like a person's name, and a birth year that is two or
+more years from usual for the grade picked (e.g. 2008 with 10th grade)
+gets a gentle, non-blocking hint. (3) **A7:** GA never loads on /login,
+/signup, /parent-signup, /reset-password (and /parent-login), as on
+/auth/* already — `GA_EXCLUDED_PATH_PREFIXES` in `lib/ga-privacy.ts`. A
+client navigation onto one of them after gtag.js loaded on an earlier page
+sets `ga-disable-<ID>` while the route RENDERS (`GaRuntime.guardPath`),
+before Next pushes the history entry, so GA's own history listener cannot
+count it either; `update()` re-enables only on an allowed page. Guards:
+`lib/signup-checks.test.ts` (new) and `lib/ga-privacy.test.ts`, which now
+walks `app/` and fails the build if an auth page route (login / signup /
+password / auth / verify / callback …) is not excluded, or an excluded
+prefix has no page. (4) **Found on the walk, fixed (pre-existing on main
+d3bc348, so on production too): the onboarding sign-up never worked.** The
+diagnostic's question card was a `<form>` and its save step rendered the
+sign-up form — another `<form>` — inside it; React does not prevent a
+submit from a nested form, so "Create free account" / "Create parent
+account" did a native GET of `/onboarding`: the page reloaded, every answer
+was lost, no request reached Supabase and no account was made. Reproduced on
+local builds of main and of this branch; the card is now a `<div>` on the
+save step (`QuestionShell`). Guard: `lib/onboarding-no-nested-form.test.ts`.
+The fit report's own "Save your report" form was not nested and was not
+affected. (5) **B20:** the summer before senior year now has one tense,
+from the real date (`lib/senior-summer.ts`: upcoming before June 1,
+"has started" until the Aug 1 school-year rollover, "has passed" after).
+For the class of 2027 in November 2026 the onboarding result said "We'll
+measure you at summer 2026", the report "has started", the school page
+"has begun" beside "has already passed"; all four now say "has passed"
+(result heading, report note, school page, Schools/Plan pace messages).
+Wording only — the band logic is unchanged. Guard:
+`lib/senior-summer.test.ts`; `lib/fit/__split-manifest.json`'s hash for
+`diagnosticProjection` re-recorded (its note now comes from the helper).
+**Review fixes (independent verifier on PR #33, same day; it confirmed the
+nested-form bug on production):** the /signup send-back-to-step-1 is a
+pure decision (`signupFailureSendBack`) plus an exact source pin on the
+block that acts on it (disabling it used to pass); the nested-form guard
+now walks every file in app/ and components/ that renders
+`<DiagnosticSaveForm` or `<SignupFlow`, and their hosts up the tree, and
+fails on any enclosing `<form>` or form-rendering component (wrapping the
+fit report's save host used to pass); the B20 heading drops "so we measure
+you at today's rating" when no UTR was given; punycode TLDs
+(`.xn--p1ai`) are accepted; `signUp()`'s trim has its own test
+(`lib/auth-signup-trim.test.ts`); the onboarding name hint gives no sample
+name. All mutation-checked. `SUMMER_STARTED_NOTE` stays (pinned by the fit
+split manifest and the barrel's export list).
+Onboarding walks (player 14+, under-13 on /signup and
+on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
+`~/seeded-evidence/final-check/prC/SUMMARY.md`.
+
 **2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
 `feat/monitoring`; no migration, no new service, no env var).** Built only
 from what already exists — Vercel runtime logs and GitHub Actions:
@@ -1440,10 +1616,25 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    the schools browser, `signup-flow.tsx`, the dashboard view (boundaries in
    REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
+9b. **Parent email delivery** (final-check PR D): check production SMTP and
+   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`).
+   Until then the emailed link may never arrive. "Verify with Google instead"
+   works only when `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` is exactly "true" AND the
+   Google provider is configured in that Supabase project (on for production,
+   off for staging/Preview), and only for a Google account with the SAME
+   address. Then the profile-less auth users it can leave (TODO, PR D review).
 10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
     sanitised server logs, `/api/health`, hourly uptime workflow). Still no
     alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
     then alert on `"level":"error"` lines and on the uptime workflow.
+
+Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5,
+B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows closed by PR C (#33,
+`fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
+field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
+birth-year/grade hint), B20 (one tense for the summer before senior year),
+and the onboarding sign-up's nested form found on the walk. PR D (`fix/parent-verify-google-d`) adds "Verify with Google" for
+parents. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is

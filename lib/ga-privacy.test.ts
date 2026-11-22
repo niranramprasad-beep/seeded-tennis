@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { codeOnly } from "./testing/source-text";
 import {
+  GA_EXCLUDED_PATH_PREFIXES,
   GA_INTERNAL_FLAG_KEY,
   accountAllowsGa,
   browserAllowsGa,
@@ -26,7 +28,9 @@ import { GaRuntime, type GaWindow } from "./ga-runtime";
 // the build if:
 //   - anything GA is given as a page (page_path, page_location,
 //     page_referrer) can carry a query string or hash;
-//   - GA can load or fire on /auth/*;
+//   - GA can load or fire on a sign-in / sign-up page (/auth/*, /login,
+//     /signup, /parent-signup, /reset-password), or an auth page is added
+//     under app/ without being excluded;
 //   - GA can load or fire for a signed-in account that needed a parent's
 //     consent, or before the account state is known;
 //   - the automation (navigator.webdriver) or internal-browser skip goes;
@@ -116,20 +120,92 @@ describe("GA receives a path and nothing after it", () => {
   });
 });
 
-describe("never on /auth/*", () => {
-  it.each(["/auth", "/auth/", "/auth/callback", "/auth/complete", "/auth/verified?x=1", "/AUTH/Callback"])(
-    "%s is excluded even when everything else allows it",
+describe("never on a sign-in or sign-up page (/auth/*, /login, /signup, /parent-signup, /reset-password)", () => {
+  it.each([
+    "/auth",
+    "/auth/",
+    "/auth/callback",
+    "/auth/complete",
+    "/auth/verified?x=1",
+    "/AUTH/Callback",
+    // Final-check A7: these four loaded gtag.js and sent a page_view.
+    "/login",
+    "/login/",
+    "/login?next=%2Ftoday",
+    "/LOGIN",
+    "/signup",
+    "/signup#step-2",
+    "/Signup/",
+    "/parent-signup",
+    "/parent-signup?code=ABC",
+    "/reset-password",
+    "/reset-password#access_token=x",
+    "/parent-login",
+  ])("%s is excluded even when everything else allows it", (pathname) => {
+    expect(isGaExcludedPath(pathname)).toBe(true);
+    expect(shouldLoadGa({ ...BASE, pathname })).toBe(false);
+    expect(shouldLoadGa({ ...BASE, pathname, account: { kind: "signed-in", consentStatus: "not_required", birthYearKnown: true } })).toBe(false);
+  });
+
+  it.each(["/", "/authors", "/schools", "/how-it-works", "/loginx", "/signups", "/parents", "/pricing", "/onboarding", "/privacy"])(
+    "%s is not a sign-in page",
     (pathname) => {
-      expect(isGaExcludedPath(pathname)).toBe(true);
-      expect(shouldLoadGa({ ...BASE, pathname })).toBe(false);
+      expect(isGaExcludedPath(pathname)).toBe(false);
+      expect(shouldLoadGa({ ...BASE, pathname })).toBe(true);
     }
   );
 
-  it.each(["/", "/authors", "/schools", "/login", "/how-it-works"])("%s is not /auth", (pathname) => {
-    expect(isGaExcludedPath(pathname)).toBe(false);
-    expect(shouldLoadGa({ ...BASE, pathname })).toBe(true);
+  it("every excluded prefix is a real route under app/ (no dead entries)", () => {
+    const routes = new Set(appPageRoutes().map((r) => r.route.toLowerCase()));
+    for (const prefix of GA_EXCLUDED_PATH_PREFIXES) {
+      const hit = [...routes].some((r) => r === prefix || r.startsWith(`${prefix}/`));
+      expect(hit, `${prefix} has no page under app/`).toBe(true);
+    }
+  });
+
+  // The guard: a new sign-in / sign-up / password / auth page cannot be added
+  // under app/ without GA being excluded from it. Walks every page.tsx (and
+  // route.ts) and looks at each URL segment.
+  it("covers every auth page route under app/", () => {
+    const AUTH_SEGMENT =
+      /^(auth|login|log-in|signin|sign-in|signup|sign-up|register|parent-login|parent-signup|reset-password|forgot-password|password|verify|verified|callback|logout|sign-out|signout|confirm)$/i;
+    const authRoutes = appPageRoutes().filter((r) =>
+      r.route
+        .split("/")
+        .filter(Boolean)
+        .some((seg) => AUTH_SEGMENT.test(seg) || /(login|signup|sign-in|sign-up|password)/i.test(seg))
+    );
+    // The walk itself must find the pages this test exists for.
+    const found = authRoutes.map((r) => r.route);
+    for (const expected of ["/login", "/signup", "/parent-signup", "/reset-password", "/auth/callback", "/auth/complete", "/auth/verified"]) {
+      expect(found).toContain(expected);
+    }
+    for (const r of authRoutes) {
+      expect(isGaExcludedPath(r.route), `${r.file} (${r.route}) is an auth page GA is not excluded from`).toBe(true);
+    }
   });
 });
+
+/** Every page/route file under app/, with the URL it serves. Route groups
+ * "(x)" drop out of the URL; private folders "_x" and api/ are skipped
+ * (api routes never render GA). */
+function appPageRoutes(): Array<{ file: string; route: string }> {
+  const appDir = join(ROOT, "app");
+  const out: Array<{ file: string; route: string }> = [];
+  const walk = (dir: string, segments: string[]) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith("_") || (segments.length === 0 && entry.name === "api")) continue;
+        const isGroup = /^\(.*\)$/.test(entry.name);
+        walk(join(dir, entry.name), isGroup ? segments : [...segments, entry.name]);
+      } else if (/^(page|route)\.(tsx|ts|jsx|js|mdx)$/.test(entry.name)) {
+        out.push({ file: join(dir, entry.name).slice(ROOT.length + 1), route: `/${segments.join("/")}` });
+      }
+    }
+  };
+  walk(appDir, []);
+  return out;
+}
 
 describe("never for an account that needed a parent's consent, never before we know", () => {
   const blocked: GaConsentStatus[] = ["pending", "granted", "unknown", undefined];
@@ -447,6 +523,79 @@ describe("GaRuntime: what gtag actually receives", () => {
     }
   });
 
+  it.each(["/login", "/signup", "/parent-signup", "/reset-password", "/auth/complete"])(
+    "a first visit straight to %s creates nothing and injects nothing",
+    (path) => {
+      for (const facts of [SIGNED_OUT_FACTS, SIGNED_IN_ADULT]) {
+        const h = harness(`${ORIGIN}${path}?next=%2Ftoday`);
+        h.rt.guardPath(path);
+        h.update(path, facts);
+        expect(h.win.dataLayer).toBeUndefined();
+        expect(h.win.gtag).toBeUndefined();
+        expect(h.scriptLoads()).toBe(0);
+        expect(h.disabled()).toBeUndefined();
+      }
+    }
+  );
+
+  it("client navigation public -> /login -> /signup -> public: no view for the auth pages, gtag off before the route commits", () => {
+    const h = harness(`${ORIGIN}/pricing`);
+    h.rt.guardPath("/pricing");
+    h.update("/pricing", SIGNED_OUT_FACTS);
+    expect(h.scriptLoads()).toBe(1);
+    expect(h.pageViews()).toHaveLength(1);
+    expect(h.disabled()).toBe(false);
+    const before = h.calls().length;
+
+    // The component's render-time guard runs before the effect's update():
+    // gtag is already off when the new route's history entry is pushed.
+    h.rt.guardPath("/login");
+    expect(h.disabled()).toBe(true);
+    h.go("/login?next=%2Ftoday");
+    h.update("/login", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(true);
+
+    h.rt.guardPath("/signup");
+    h.go("/signup");
+    h.update("/signup", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(true);
+    // Nothing at all was handed to gtag on either auth page.
+    expect(h.calls()).toHaveLength(before);
+
+    // guardPath never re-enables: only update() does, after every rule.
+    h.rt.guardPath("/schools");
+    expect(h.disabled()).toBe(true);
+    h.go("/schools");
+    h.update("/schools", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(false);
+    expect(h.scriptLoads()).toBe(1);
+    const views = h.pageViews().map((c) => (c[2] as { page_path: string }).page_path);
+    expect(views).toEqual(["/pricing", "/schools"]);
+    // The referrer for /schools is the last COUNTED page, never the auth page.
+    expect(JSON.stringify(h.calls())).not.toMatch(/login|signup/);
+
+    // ...and back again: still nothing for the auth page.
+    const again = h.calls().length;
+    h.rt.guardPath("/reset-password");
+    h.go("/reset-password");
+    h.update("/reset-password", SIGNED_OUT_FACTS);
+    expect(h.disabled()).toBe(true);
+    expect(h.calls()).toHaveLength(again);
+  });
+
+  it("guardPath before gtag was ever loaded does nothing (no flag, no dataLayer)", () => {
+    const h = harness(`${ORIGIN}/login`);
+    h.rt.guardPath("/login");
+    h.rt.guardPath("/schools");
+    expect(h.disabled()).toBeUndefined();
+    expect(h.win.dataLayer).toBeUndefined();
+    // and it does not stop a later allowed page from loading normally
+    h.go("/schools");
+    h.update("/schools", SIGNED_OUT_FACTS);
+    expect(h.scriptLoads()).toBe(1);
+    expect(h.pageViews()).toHaveLength(1);
+  });
+
   it("once loaded, a later no turns gtag off and sends nothing more", () => {
     const h = harness(`${ORIGIN}/`);
     h.update("/", SIGNED_OUT_FACTS);
@@ -514,6 +663,10 @@ describe("components/shared/google-analytics.tsx is wiring only", () => {
     expect(src).toMatch(/gaAccountState\(\{ hydrated, connectionError, isAuthed, userId, consent, consentError \}\)/);
     expect(src).toMatch(/useSWR\(\s*isAuthed && hydrated \? myConsentStateKey\(userId\) : null,/);
     expect(src).toMatch(/new GaRuntime\(id, window, \(\) => setScriptWanted\(true\)\)/);
+    // The render-time half of rule 2: asked on every client render, before
+    // the effect, for the path being rendered.
+    expect(src).toMatch(/if \(typeof window !== "undefined"\) \{[\s\S]*?runtime\.current\.guardPath\(pathname\);\s*\}/);
+    expect(src.indexOf("guardPath(pathname)")).toBeLessThan(src.indexOf("useEffect("));
     expect(src).toMatch(/runtime\.current\.update\(\{ pathname, account \}\);\s*\}, \[id, pathname, searchKey, account\]\);/);
     expect(src.match(/\.update\(/g)).toHaveLength(1);
   });

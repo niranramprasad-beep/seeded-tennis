@@ -30,6 +30,8 @@ import { VERIFY_COPY } from "@/lib/email-verify-flow";
 import { rememberMyPendingJoinCode } from "@/lib/db/email-verification";
 import { SIGNUP_CONSENT_NOTE } from "@/lib/legal/policy";
 import { cn } from "@/lib/utils";
+import { birthYearGradeHint, normalizeEmail, signupFailureSendBack } from "@/lib/signup-checks";
+import { useEmailField } from "./email-field";
 
 // Board 21, "Sign up" (docs/DESIGN_MOCKUP_SPEC_V2.md), restyled into the
 // shared AuthCard. The board draws ONE screen — role chips, email, password,
@@ -74,6 +76,8 @@ const STEPS = ["Account", "About you", "Family"];
  * 6 so the form does not reject a password the backend would accept. */
 const MIN_PASSWORD_LENGTH = 6;
 const ERROR_ID = "signup-error";
+const EMAIL_ID = "signup-email";
+const AGE_HINT_ID = "signup-age-hint";
 
 export function SignupFlow({
   accountType = "player",
@@ -101,7 +105,10 @@ export function SignupFlow({
   const [familyFull, setFamilyFull] = useState<string | null>(null);
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  // The email field checks itself (on blur and on Continue) and carries a
+  // server refusal of the address back to step 1 — final-check A6.
+  const emailField = useEmailField(EMAIL_ID);
+  const email = normalizeEmail(emailField.value);
   const [password, setPassword] = useState("");
   const [country, setCountry] = useState("United States");
   // Team and grade start UNANSWERED, like the birth year below. They used
@@ -130,9 +137,15 @@ export function SignupFlow({
   // Move focus to the new step's title so a screen reader announces it and
   // a keyboard user is not left on a button that has just changed meaning.
   const firstRender = useRef(true);
+  const focusEmailOnStep = useRef(false);
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
+      return;
+    }
+    if (focusEmailOnStep.current) {
+      focusEmailOnStep.current = false;
+      document.getElementById(EMAIL_ID)?.focus();
       return;
     }
     document.getElementById(AUTH_TITLE_ID)?.focus();
@@ -146,11 +159,12 @@ export function SignupFlow({
   // Data minimisation for minors: we ask a player for a first name and a
   // last initial, so a full surname is more than Seeded needs to hold about
   // a child. This NUDGES rather than blocks — a hard reject would be
-  // trivially worked around ("NiranR"), would lock out anyone whose name
-  // does not fit the pattern we imagined, and would turn a privacy
-  // preference into a failed signup. The last word counts as an initial if
-  // it is a single letter with an optional dot, so "Niran R." — the format
-  // the placeholder recommends — does not trigger its own nudge.
+  // trivially worked around (first name and surname run together), would
+  // lock out anyone whose name does not fit the pattern we imagined, and
+  // would turn a privacy preference into a failed signup. The last word
+  // counts as an initial if it is a single letter with an optional dot, so
+  // "first name, last initial" — the format the hint recommends — does not
+  // trigger its own nudge.
   const lastWord = name.trim().split(/\s+/).slice(-1)[0] ?? "";
   const looksLikeFullSurname =
     !isParentSignup && name.trim().split(/\s+/).length > 1 && !/^[A-Za-z]\.?$/.test(lastWord);
@@ -175,12 +189,18 @@ export function SignupFlow({
     if (!name.trim()) {
       return setError(isParentSignup ? "Enter your name." : "Enter the player's name.");
     }
-    if (!/\S+@\S+\.\S+/.test(email)) return setError("Enter a valid email address.");
+    // On the field itself, with focus moved there — not in the banner.
+    if (!emailField.check()) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
       return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
     }
     go(1);
   };
+
+  // A16: a gentle hint, never a block, when the birth year and the grade
+  // picked are two or more years from usual. Players only (a parent is not
+  // asked for a grade).
+  const ageHint = !isParentSignup ? birthYearGradeHint(birthYear, grade) : null;
 
   const continueFromAboutYou = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +248,19 @@ export function SignupFlow({
     );
     setSubmitting(false);
     if (!result.ok) {
+      // Supabase refused the ADDRESS: back to step 1, with the message on
+      // the email field, not a banner on step 3 that names no field.
+      // lib/signup-checks.ts decides; lib/signup-checks.test.ts pins both
+      // the decision and this block.
+      const sendBack = signupFailureSendBack(result.error);
+      if (sendBack) {
+        // The step effect below moves focus to the email field, not the
+        // title, this once.
+        focusEmailOnStep.current = true;
+        emailField.setServerError(sendBack.emailMessage, { focus: false });
+        setStep(sendBack.step);
+        return;
+      }
       // Already mapped by friendlyAuthError in lib/auth.ts.
       setError(result.error ?? AUTH_ERROR_MESSAGES.unknown);
       return;
@@ -452,7 +485,7 @@ export function SignupFlow({
                 ? undefined
                 : looksLikeFullSurname
                   ? "A last initial is enough. You can shorten it if you'd rather we didn't store the full surname."
-                  : "First name and last initial is enough, like Niran R."
+                  : "First name and last initial is enough."
             }
           >
             <input
@@ -460,7 +493,9 @@ export function SignupFlow({
               name="name"
               className={authInputClass}
               autoComplete="name"
-              placeholder={isParentSignup ? "Alex Ramprasad" : "Niran R."}
+              // A description, not a sample name: a placeholder that reads
+              // like a person's name looks filled in (final-check A16).
+              placeholder={isParentSignup ? "First and last name" : "First name and last initial"}
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-describedby={describedBy("signup-name", {
@@ -469,9 +504,9 @@ export function SignupFlow({
               })}
             />
           </AuthField>
-          <AuthField label="Email" htmlFor="signup-email">
+          <AuthField label="Email" htmlFor={EMAIL_ID} error={emailField.error}>
             <input
-              id="signup-email"
+              id={EMAIL_ID}
               name="email"
               className={authInputClass}
               type="email"
@@ -480,9 +515,14 @@ export function SignupFlow({
               autoCapitalize="none"
               spellCheck={false}
               placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-describedby={describedBy("signup-email", { extra: [error && ERROR_ID] })}
+              value={emailField.value}
+              onChange={(e) => emailField.onChange(e.target.value)}
+              onBlur={emailField.onBlur}
+              aria-invalid={emailField.error ? true : undefined}
+              aria-describedby={describedBy(EMAIL_ID, {
+                hint: Boolean(emailField.error),
+                extra: [error && ERROR_ID],
+              })}
             />
           </AuthField>
           <AuthField
@@ -578,7 +618,7 @@ export function SignupFlow({
               onChange={(e) => setBirthYear(e.target.value ? Number(e.target.value) : null)}
               aria-describedby={describedBy("signup-birth-year", {
                 hint: needsParentConsent,
-                extra: [error && ERROR_ID],
+                extra: [error && ERROR_ID, ageHint && AGE_HINT_ID],
               })}
             >
               <option value="">Select a year</option>
@@ -597,7 +637,18 @@ export function SignupFlow({
               options={[8, 9, 10, 11, 12].map((g) => ({ value: g, label: `${g}th` }))}
               value={grade}
               onChange={setGrade}
+              describedById={ageHint ? AGE_HINT_ID : undefined}
             />
+          )}
+          {/* Polite, not an alert: this is a "check this", never an error. */}
+          {!isParentSignup && (
+            <p
+              id={AGE_HINT_ID}
+              aria-live="polite"
+              className={cn("text-[13px] leading-snug text-stone", !ageHint && "sr-only")}
+            >
+              {ageHint ?? ""}
+            </p>
           )}
           <div className="flex items-center justify-between gap-3 pt-2">
             {backButton}

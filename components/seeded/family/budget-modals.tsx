@@ -8,6 +8,7 @@ import { useDialog } from "@/lib/hooks/use-dialog";
 import { Portal } from "@/components/ui/portal";
 import type { BudgetExpenseCategory } from "@/lib/db/family";
 import { localDateKey } from "@/lib/time";
+import { amountInputError, parseAmountInput } from "@/lib/budget-limits";
 import { cn } from "@/lib/utils";
 
 // Shared overlay + panel shell — same motion/shape language as
@@ -108,9 +109,13 @@ export function EditBudgetModal({
   }, [open, initialLabel, initialTotal]);
 
   const submit = async () => {
-    const totalBudget = Number(total);
     if (!label.trim()) return setError("Season label is required.");
-    if (!Number.isFinite(totalBudget) || totalBudget < 0) return setError("Enter a valid budget amount.");
+    // B4 (blank is not $0), a plain decimal only (not "$50", "1,000",
+    // "0x10", "1e5"), and A5's limit — the same limit the route's zod
+    // schema enforces — all in one pure check (lib/budget-limits.ts).
+    const amountError = amountInputError(total, "budget");
+    if (amountError) return setError(amountError);
+    const totalBudget = parseAmountInput(total) as number;
     setSaving(true);
     setError("");
     try {
@@ -154,7 +159,7 @@ export function EditBudgetModal({
           />
         </div>
       </label>
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
       <div className="mt-5 flex items-center justify-end gap-3">
         <button
           type="button"
@@ -211,9 +216,10 @@ export function AddExpenseModal({
   }, [open]);
 
   const submit = async () => {
-    const amt = Number(amount);
     if (!label.trim()) return setError("A short description is required.");
-    if (!Number.isFinite(amt) || amt < 0) return setError("Cost can't be negative.");
+    const amountError = amountInputError(amount, "expense");
+    if (amountError) return setError(amountError);
+    const amt = parseAmountInput(amount) as number;
     if (!date) return setError("Enter a date.");
     setSaving(true);
     setError("");
@@ -289,7 +295,7 @@ export function AddExpenseModal({
         </label>
       </div>
 
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
       <div className="mt-5 flex items-center justify-end gap-3">
         <button
           type="button"

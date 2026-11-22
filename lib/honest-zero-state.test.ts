@@ -248,7 +248,10 @@ describe("the screens render through these functions", () => {
   it("the fit report: headline from fitReportHeadline, zero state from nothingInRangeSentence", () => {
     const src = codeOnly("components/seeded/onboarding/seeded-pre-auth-onboarding.tsx");
     const headline = src.slice(src.indexOf("<h1"), src.indexOf("</h1>"));
-    expect(headline).toMatch(/fitReportHeadline\(report, parent \? "parent" : "player"\)/);
+    // final-check A4: the lead is fitReportHeadline, or — when nothing is in
+    // range today or by the summer — the homepage's zero sentence.
+    expect(headline).toMatch(/\blead\b/);
+    expect(src).toMatch(/fitReportLead\(report, parent \? "parent" : "player", zeroInput\)/);
     expect(src).toMatch(/nothingInRangeSentence\(\{/);
     expect(src).toMatch(/closestProgramAbove\(today, filtered\)/);
     expect(src).toMatch(/programCount: filtered\.length/);
@@ -344,9 +347,9 @@ describe("fitReportHeadline — today first (A-006), and says where the pace cam
     expect(summerBegun.utr.isProjected).toBe(false);
     expect(fitReportHeadline(summerBegun, "player")).toBe("Today, 1 program is in range.");
     const base = { todayInRange: 0, recruitingInRange: 0, utr: { isProjected: true, planningPacePerYear: 1, year: 2028, source: "typical-growth" } as RecruitingTimeUtr };
-    expect(fitReportHeadline(base, "player")).toBe("Today, 0 programs are in range.");
+    expect(fitReportHeadline(base, "player")).toBe("Today, no program is in range.");
     const falling = { ...base, recruitingInRange: 2, utr: { ...base.utr, planningPacePerYear: -0.2 } };
-    expect(fitReportHeadline(falling, "player")).toBe("Today, 0 programs are in range.");
+    expect(fitReportHeadline(falling, "player")).toBe("Today, no program is in range.");
   });
 });
 
@@ -398,20 +401,19 @@ describe("teamLineRelation — no signed gaps, and never 'at' when the chip says
     // argument at range-bar.tsx / seeded-school-detail.tsx left every test
     // green).
     const ALLOWED: Record<string, string[]> = {
-      "components/seeded/ui/range-bar.tsx": ['teamLineRelation(you!, median!, "average")'],
-      "components/seeded/schools/seeded-school-detail.tsx": [
-        'teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")',
-        'teamLineRelation(judging.value, school.avgRosterUTR, "average")',
-        'teamLineRelation(judging.value, school.minCompetitiveUTR, "floor")',
-        'teamLineRelation(judging.value, school.avgRosterUTR, "average")',
-      ],
-      "components/seeded/schools/seeded-schools-browser.tsx": [
-        'teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")',
-        'teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")',
-      ],
-      "components/seeded/roadmap/target-schools-list.tsx": [
-        'teamLineRelation(effectiveUtr, s.avgRosterUTR, "average")',
-        'teamLineRelation(effectiveUtr, s.minCompetitiveUTR, "floor")',
+      // Verifier M1: the tooltip line is lib/fit-copy.ts rangeBarYouLine now.
+      "components/seeded/ui/range-bar.tsx": [],
+      // final-check A2: these three now print every gap through
+      // teamGapSentence (lib/fit-copy.ts), which names the rating's basis
+      // ("today" / "by summer 2027, estimate") — no bare call is left.
+      "components/seeded/schools/seeded-school-detail.tsx": [],
+      "components/seeded/schools/seeded-schools-browser.tsx": [],
+      "components/seeded/roadmap/target-schools-list.tsx": [],
+      "components/seeded/roadmap/closest-schools.tsx": ['teamLineRelation(judging.utr, school.avgRosterUTR, "average")'],
+      "lib/fit-copy.ts": [
+        'teamLineRelation(rating: number, line: number, which: "average" | "floor")',
+        'teamLineRelation(value, which === "floor" ? school.minCompetitiveUTR : school.avgRosterUTR, which)',
+        'teamLineRelation(input.you, input.median, "average")',
       ],
     };
     for (const [file, calls] of Object.entries(ALLOWED)) {
