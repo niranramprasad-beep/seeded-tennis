@@ -7,6 +7,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "."),
     },
   },
+  // tsconfig says "jsx": "preserve" (Next compiles JSX itself); a *.test.tsx
+  // that renders a component with react-dom/server needs it compiled here,
+  // with the same automatic runtime Next uses (no `import React`).
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "node",
     // Agent/parallel worktrees live under .claude/worktrees with their own

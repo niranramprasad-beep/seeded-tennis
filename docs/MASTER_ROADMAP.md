@@ -20,6 +20,66 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 — Billing honesty (final-check PR E, branch `fix/billing-e`;
+no migration, no Whop/Vercel change).** (1) `/api/whop/checkout`: billing
+not configured and plan not configured are **503**, not 500, with fixed
+sentences that say nothing was charged (`lib/checkout-messages.ts`); on a
+Vercel Preview — where `WHOP_API_KEY` is a production-only variable, so
+this is the normal state — it says "Checkout is off on preview builds".
+Whop answering without a URL is 502. (2) Every 400 from a JSON route is our
+own sentence, never zod's default text ("Invalid input: expected object,
+received null"): `lib/api-body.ts` `parseRequestBody()` passes zod 4 a
+per-parse error map, so a schema-written message (`Unknown plan.`, `Type
+DELETE to confirm.`) survives and anything else gets the route's fixed
+fallback; it fails closed on zod-like wording. All 9 body-reading routes use
+it. (3) `/pricing`: a failed Choose shows its sentence under THAT card's
+button (was a banner at the top), and the client no longer surfaces a JSON
+parser error from an HTML error page. (4) A18: the entries into
+`/settings/billing` say "Plan and billing" / "Your plan and billing" instead
+of promising "Manage billing" to someone who may not be the payer; the
+not-payer state adds, as text only, where a payer's plan lives (an
+unsynced purchase looks like a non-payer). B27: on a **Free** account the
+Settings Account cards (player and parent) offer **See plans** (/pricing)
+instead of a billing link with nothing behind it (`lib/billing-links.test.ts`).
+**Review fix (same PR):** those cards keyed on the viewer's OWN tier, so a
+parent whose family is unlocked by another member's Family plan saw "Plan:
+Free · See plans", and /pricing then offered "Choose Family" — a second
+Family checkout. `lib/plan-entry.ts` now decides from the tier AND
+`my_family_has_tier('family')` (`loadFamilyPlanStatus`): that parent sees
+"Included in your family's plan" and no button; /pricing disables Family
+("Included in your family's plan") for any member of an unlocked family,
+and `choose()` re-checks before calling the API. A player on Free in an
+unlocked family keeps "See plans" (a Family plan does not raise their own
+tier — 040's cap is `has_tier` on the caller's row) with a note that the
+family tools are covered. Neither button shows until the tier (and on Free
+the family's status) is known. Also: the 502 sentences live in
+`lib/checkout-messages.ts` and say nothing was charged; Choose is
+`aria-describedby` its inline error, which clears on the Monthly/Yearly
+toggle; the body-reader guard catches `.json()` on any handler parameter
+and `JSON.parse(… .text())` (webhook allow-listed, signed payload) and the
+behaviour test's route list comes from the file walk; a test exercises the
+per-parse error map alone (removing it fails a test). **Round 2:** the
+second-Family guard is server-side too — `/api/whop/checkout` asks
+`my_family_has_tier('family')` as the caller for a Family checkout and
+answers **409** with the same sentence; an RPC error fails OPEN (logged
+`whop.checkout.family_check_failed`) so the only purchase path never
+disappears. `choose()` always re-reads the status fresh for Family; the
+cached `family-plan-status` is dropped on sign-out / account change; the
+"Included in your family's plan" button is `aria-disabled` (focusable,
+inert), not natively disabled. Tests: `lib/checkout-family-guard.test.ts`
+(409, first purchase unchanged, fail-open, Player never asks) and source
+pins for the wiring in `lib/plan-entry.test.ts`. Two LOWs left in
+`docs/TODO.md` (detector edge cases; Player offered to a Free parent).
+Guards: `lib/api-body.test.ts`
+(static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
+7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so
+Whop retries) and `lib/billing-view-render.test.tsx` (renders each
+`/settings/billing` state: free → only `/pricing`; payer → plan name +
+`TIER_PRICE_USD` price + only Whop portal links; not-payer → the sentence
+and **no** link; unreachable → Try again). The $0 production checkout test
+is written for Niran (final-check `prE/PROD_CHECKOUT_TEST.md`): production
+checkout has still never been run end to end by us.
+
 **2026-11-21 — Parents can verify with Google (final-check PR D; branch
 `fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
 checks found production has not sent a magic-link/recovery email since
@@ -1597,8 +1657,8 @@ B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows clos
 `fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
 field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
 birth-year/grade hint), B20 (one tense for the summer before senior year),
-and the onboarding sign-up's nested form found on the walk. PR D (`fix/parent-verify-google-d`) adds "Verify with Google" for
-parents. The other B/E rows are other PRs.
+and the onboarding sign-up's nested form found on the walk. PR D (#29, `fix/parent-verify-google-d`, merged 2026-11-21) adds "Verify
+with Google" for parents. PR E (`fix/billing-e`) covers the billing rows. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
@@ -1606,7 +1666,10 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Niran's own list (dashboards/keys, not code): **run the $0 production
+checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
+webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
+the only way to prove checkout → webhook → tier on production; revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);

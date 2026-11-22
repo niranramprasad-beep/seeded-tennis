@@ -7,6 +7,8 @@ import type { Player, SchoolLite, SubscriptionTier } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { useTier } from "@/lib/context/tier-context";
 import { loadMatches } from "@/lib/db/events";
+import { FAMILY_PLAN_STATUS_KEY, loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
+import { accountPlanEntry } from "@/lib/plan-entry";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { buildAccountDataCsv, downloadTextFile } from "@/lib/data/export-csv";
@@ -49,9 +51,16 @@ export function SeededSettingsView({
   fromOnboarding?: boolean;
 }) {
   const { player, updatePlayer, setPlayerLocal, signOut } = usePlayer();
-  const { tier } = useTier();
+  const { tier, hydrated: tierHydrated } = useTier();
   const router = useRouter();
   const activeTab = section;
+  // Only asked when the viewer's own tier is Free: is their family unlocked
+  // by someone else's Family plan? (lib/plan-entry.ts)
+  const { data: familyPlan } = useSWR<FamilyPlanStatus>(
+    tierHydrated && tier === "free" ? FAMILY_PLAN_STATUS_KEY : null,
+    () => loadFamilyPlanStatus()
+  );
+  const planEntry = accountPlanEntry({ tierHydrated, tier, familyPlan });
 
   const targetSchools = schools.filter((s) => player.targetSchoolSlugs.includes(s.slug));
 
@@ -174,6 +183,7 @@ export function SeededSettingsView({
         <AccountCard
           player={player}
           tierLabel={TIER_LABEL[tier]}
+          planEntry={planEntry}
           onSignOut={() => {
             signOut();
             router.push("/");
