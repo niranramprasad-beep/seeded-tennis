@@ -63,7 +63,9 @@ export function escapeIcsText(value: string): string {
     value
       .replace(/\r\n?/g, "\n")
       // Control characters other than LF and HTAB are not allowed in TEXT.
-      // eslint-disable-next-line no-control-regex
+      // (No lint suppression for no-control-regex: next/core-web-vitals does
+      // not enable it, and ESLint 9 fails --max-warnings=0 on an unused
+      // directive.)
       .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
       .replace(/\\/g, "\\\\")
       .replace(/;/g, "\\;")
@@ -160,7 +162,6 @@ function eventLines(event: IcsEvent, dtstamp: string): string[] {
   // URL is a URI value, not TEXT — no backslash escaping. Only http(s), and
   // no raw whitespace/control characters (they would break the line).
   const url = event.url?.trim();
-  // eslint-disable-next-line no-control-regex
   if (url && /^https?:\/\/[^\s\u0000-\u001F\u007F]+$/i.test(url)) lines.push(`URL:${url}`);
   lines.push("END:VEVENT");
   return lines;
