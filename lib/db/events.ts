@@ -13,6 +13,7 @@ import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
 import { narrowLiteral, narrowNullableLiteral } from "./narrow";
 import type { Json, Tables } from "./database.types";
+import { DatabaseWriteError } from "./write-error";
 
 /** Used ONLY by app/api/matches' route handler, which passes its own
  * request-scoped, RLS-respecting client + already-authenticated user id +
@@ -215,7 +216,7 @@ export async function saveMatch(
     .upsert(matchRowFromInput(match, ctx))
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapMatch(data);
 }
 
@@ -234,7 +235,7 @@ export async function deleteMatch(id: string, ctx?: EventsWriteContext): Promise
   }
 
   const { error } = await ctx.supabase.from("matches").delete().eq("id", id).eq("user_id", ctx.userId);
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
 }
 
 /* --------------------------------------------------------- tournament entries */

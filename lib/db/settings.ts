@@ -14,6 +14,7 @@ import {
   type SeededMode,
 } from "@/lib/appearance";
 import type { Json } from "./database.types";
+import { DatabaseWriteError } from "./write-error";
 import { parseBillingLookup, type BillingLookup } from "@/lib/billing-view";
 
 async function getUserId(): Promise<string | null> {
@@ -154,7 +155,7 @@ export async function deleteMyAccount(
   supabase: TypedSupabaseClient
 ): Promise<{ familyDeleted: boolean }> {
   const { data, error } = await supabase.rpc("delete_my_account");
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   const payload = (data ?? {}) as { status?: string; family_deleted?: boolean };
   if (payload.status !== "deleted") {
     throw new Error("Account deletion did not complete.");

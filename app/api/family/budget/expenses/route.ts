@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { z } from "zod";
 import {
   getProfileRoleAndFamily,
@@ -7,6 +8,10 @@ import {
   refuseUnlessFamilyPlan,
 } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
+import { clientWriteErrorMessage, clientWriteErrorStatus } from "@/lib/db/write-error";
+import { writeRefusalContext } from "@/lib/db/write-refusal";
+import { MAX_BUDGET_EXPENSE_USD, EXPENSE_AMOUNT_TOO_HIGH } from "@/lib/budget-limits";
 import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 
 // Real write path behind /family's "Add expense" — parent/family money
@@ -18,7 +23,7 @@ import { saveBudgetExpense, validateBudgetExpenseInput } from "@/lib/db/family";
 const BodySchema = z.object({
   category: z.enum(["entries", "travel", "camps"]),
   label: z.string(),
-  amount: z.number(),
+  amount: z.number().max(MAX_BUDGET_EXPENSE_USD, EXPENSE_AMOUNT_TOO_HIGH),
   expenseDate: z.string(),
 });
 
@@ -39,13 +44,8 @@ export async function POST(req: Request) {
   if (locked) return locked;
 
   const json = await req.json().catch(() => null);
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(BodySchema, json, "Enter a category, a label, an amount and a date for the expense.");
+  if (!parsed.ok) return parsed.response;
 
   const validationError = validateBudgetExpenseInput(parsed.data);
   if (validationError) {
@@ -71,9 +71,15 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ expense: saved });
   } catch (err) {
+    // S-10: the database's own text goes to the log, never to the response
+    // (lib/db/write-error.ts). Our validation sentences still reach the UI.
+    logServerError("api.family_budget_expenses.write_failed", err, { route: "/api/family/budget/expenses" });
+    // A permission refusal reads its reason from the caller's own profile
+    // (consent pending / Free plan), never from the error's text.
+    const refusal = await writeRefusalContext(ctx.supabase, ctx.user.id, err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not save the expense. Try again." },
-      { status: 500 }
+      { error: clientWriteErrorMessage(err, "Could not save the expense. Try again.", refusal) },
+      { status: clientWriteErrorStatus(err) }
     );
   }
 }

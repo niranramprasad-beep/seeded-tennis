@@ -25,6 +25,7 @@ import {
   gaPageLocation,
   gaPageViewParams,
   gaReferrer,
+  isGaExcludedPath,
   shouldLoadGa,
   stripInternalParam,
   syncInternalFlag,
@@ -104,6 +105,20 @@ export class GaRuntime {
     } catch {
       return "";
     }
+  }
+
+  /**
+   * The early half of rule 2, for a client-side navigation onto a sign-in /
+   * sign-up page when gtag.js is already loaded from an earlier page. The
+   * component calls this while it RENDERS the new path — before Next commits
+   * the route and pushes the history entry, and so before GA's own
+   * history-change listener (enhanced measurement, if it is on in the
+   * property) can send anything for it. update() then runs in the effect and
+   * says the same thing. Only ever disables: re-enabling waits for update(),
+   * which re-asks every rule. Safe to call repeatedly.
+   */
+  guardPath(pathname: string): void {
+    if (this.bootstrapped && isGaExcludedPath(pathname)) this.setDisabled(true);
   }
 
   /** Re-asks every rule. Call on every route, search-param or session change. */

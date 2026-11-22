@@ -47,6 +47,380 @@ later parents and cannot be removed by a player. Follow-ups: production
 → Family; `deny_family_join()` still lets any member decline a pending
 parent (TODO).
 
+**2026-11-21 — Google sign-in shows the signed-in app without a refresh
+(branch `fix/google-header-signin`; no migration, no setting).** Reported in
+the 2026-11-21 review call: after "Continue with Google", a returning user
+could land on /today under the public "Sign in" header until they refreshed.
+`/auth/callback` (and `/auth/complete`, for a profile that already exists)
+only navigated. The first `hydrate()` normally sees the session, but if it was
+still in flight at navigation, or ended in "can't reach" on a transient
+failure, the header stayed public — and PlayerProvider ignores a SIGNED_IN
+while the tab shows nobody (`authEventAction`, by design). Now both pages load
+the player and call `beginSession` before navigating, and `beginSession` is
+authoritative: it marks the app hydrated, clears a connection error and
+discards any in-flight `hydrate()` (`components/auth/oauth-landing.ts`, tested
+in `oauth-landing.test.ts`). Not
+verified with a real Google account by Claude (no disposable Google account
+exists, and signing in as a real person is out of bounds) — Niran's one-click
+check is in the PR.
+
+**2026-11-21 — Final-check UI polish, PR B (branch `fix/ui-polish-b`; no
+migration, no setting, no new route).** The Low items the final-check sweep
+bucketed "B". Honest empty states from one pure module
+(`lib/empty-state-copy.ts`): Today's pill is green only for a real count
+("None of your 3 targets on track yet" otherwise) and "Done this week: no
+matches logged yet"; Plan's record reads "Not tracked" until a win or loss
+exists (no "0–0"); Outreach says "4 programs · no emails marked sent yet"
+instead of three zeros, Researching cards no longer offer "Follow up in 14
+days" (it set a reminder for an email that did not exist), and below 640px
+the board's stages stack instead of scrolling off-screen. Coach email:
+`coachEmailCountry()` — no "from US", "from Other" or bare codes. Plan
+chart readout: a log's date always carries its year, and checkpoint labels
+hide while the readout box is open (it covered "Jun '27 · 9.30" at 375).
+Home: dark-mode UTR/GPA inputs get the card fill; "Example output" and the
+button's example count only while the visitor has changed nothing
+(`heroOutputNote` / `heroButtonLabel`); the zero state links to the fit
+report; hero + meta name all four bands. Fit report rows print an estimate
+with one decimal. Tournament checker: "Assumes ~3 matches at this level ·
+$95 total" under cost per match; "Share with my coach" settles within 2 s
+(`copyWithTimeout`) and the button says "Link copied". UTR dialog is a real
+`<form>` (Enter saves). Budget table headers read Item / Fit / type, no
+sideways scroll at 375; Add expense defaults to the first category shown.
+School page (parent on Free): "Locked on Free", not "No UTR yet". A
+signed-out visitor at the star cap is no longer told to upgrade "Free".
+Settings → Profile no longer repeats the Privacy + data block. Pricing
+table's feature column is wider on phones. Not done here, by design: the
+estimate-vs-rating decimals ("5.5" beside "UTR 5.00" — the house format),
+A15 (zod text in write routes PR A / PR E own), B10 (React #418, not
+reproduced). Guards: `lib/empty-state-copy.test.ts`,
+`lib/db/coach-email-country.test.ts`, `lib/star-limit.test.ts`, additions to
+`lib/home-calculator.test.ts`, `lib/tournament-fit-share.test.ts`,
+`plan-trajectory-values.test.ts`, `lib/honest-zero-state.test.ts`. Row by
+row: `~/seeded-evidence/final-check/prB/SUMMARY.md`.
+
+**2026-11-21 — Uptime schedule + the red Supabase check (final-check PR F,
+branch `fix/uptime-f`; workflow and docs only).** (1) The hourly uptime
+workflow had **never run on schedule**: merged 19:29 UTC with cron `:17`,
+and by 21:50 UTC the only run was the 19:32 manual one (GitHub API,
+`event=schedule` → 0 runs). GitHub sometimes does not register a new
+workflow's schedule until the file changes again, so the cron is now
+`23 * * * *` (still hourly); the file and TECHNICAL_ARCHITECTURE
+"Monitoring" say the notification goes to whoever lands a change to the
+cron line, and how to check that scheduled runs exist (about weekly) —
+silence proves nothing. **Not proven until a scheduled run appears after
+this merges.** (2) The red "Supabase Preview" check on every merge to
+`main` is Supabase's GitHub integration on the PRODUCTION project trying to
+deploy `supabase/migrations/` (its `main` branch entry is
+`MIGRATIONS_FAILED`); it fails only because ledger versions are timestamps
+and the files are `001_…`. Not a required check (only `verify` is).
+DEPLOYMENT_CHECKLIST now says: leave it red, never rename files to make it
+pass (that would auto-apply migrations to production on merge). Turning the
+integration's deploy off is Niran's dashboard step (final-check
+`prF/SUPABASE_CHECK.md`).
+
+**2026-11-21 — Billing honesty (final-check PR E, #30, merged 2026-11-21, branch `fix/billing-e`;
+no migration, no Whop/Vercel change).** (1) `/api/whop/checkout`: billing
+not configured and plan not configured are **503**, not 500, with fixed
+sentences that say nothing was charged (`lib/checkout-messages.ts`); on a
+Vercel Preview — where `WHOP_API_KEY` is a production-only variable, so
+this is the normal state — it says "Checkout is off on preview builds".
+Whop answering without a URL is 502. (2) Every 400 from a JSON route is our
+own sentence, never zod's default text ("Invalid input: expected object,
+received null"): `lib/api-body.ts` `parseRequestBody()` passes zod 4 a
+per-parse error map, so a schema-written message (`Unknown plan.`, `Type
+DELETE to confirm.`) survives and anything else gets the route's fixed
+fallback; it fails closed on zod-like wording. All 9 body-reading routes use
+it. (3) `/pricing`: a failed Choose shows its sentence under THAT card's
+button (was a banner at the top), and the client no longer surfaces a JSON
+parser error from an HTML error page. (4) A18: the entries into
+`/settings/billing` say "Plan and billing" / "Your plan and billing" instead
+of promising "Manage billing" to someone who may not be the payer; the
+not-payer state adds, as text only, where a payer's plan lives (an
+unsynced purchase looks like a non-payer). B27: on a **Free** account the
+Settings Account cards (player and parent) offer **See plans** (/pricing)
+instead of a billing link with nothing behind it (`lib/billing-links.test.ts`).
+**Review fix (same PR):** those cards keyed on the viewer's OWN tier, so a
+parent whose family is unlocked by another member's Family plan saw "Plan:
+Free · See plans", and /pricing then offered "Choose Family" — a second
+Family checkout. `lib/plan-entry.ts` now decides from the tier AND
+`my_family_has_tier('family')` (`loadFamilyPlanStatus`): that parent sees
+"Included in your family's plan" and no button; /pricing disables Family
+("Included in your family's plan") for any member of an unlocked family,
+and `choose()` re-checks before calling the API. A player on Free in an
+unlocked family keeps "See plans" (a Family plan does not raise their own
+tier — 040's cap is `has_tier` on the caller's row) with a note that the
+family tools are covered. Neither button shows until the tier (and on Free
+the family's status) is known. Also: the 502 sentences live in
+`lib/checkout-messages.ts` and say nothing was charged; Choose is
+`aria-describedby` its inline error, which clears on the Monthly/Yearly
+toggle; the body-reader guard catches `.json()` on any handler parameter
+and `JSON.parse(… .text())` (webhook allow-listed, signed payload) and the
+behaviour test's route list comes from the file walk; a test exercises the
+per-parse error map alone (removing it fails a test). **Round 2:** the
+second-Family guard is server-side too — `/api/whop/checkout` asks
+`my_family_has_tier('family')` as the caller for a Family checkout and
+answers **409** with the same sentence; an RPC error fails OPEN (logged
+`whop.checkout.family_check_failed`) so the only purchase path never
+disappears. `choose()` always re-reads the status fresh for Family; the
+cached `family-plan-status` is dropped on sign-out / account change; the
+"Included in your family's plan" button is `aria-disabled` (focusable,
+inert), not natively disabled. Tests: `lib/checkout-family-guard.test.ts`
+(409, first purchase unchanged, fail-open, Player never asks) and source
+pins for the wiring in `lib/plan-entry.test.ts`. Two LOWs left in
+`docs/TODO.md` (detector edge cases; Player offered to a Free parent).
+Guards: `lib/api-body.test.ts`
+(static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
+7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so
+Whop retries) and `lib/billing-view-render.test.tsx` (renders each
+`/settings/billing` state: free → only `/pricing`; payer → plan name +
+`TIER_PRICE_USD` price + only Whop portal links; not-payer → the sentence
+and **no** link; unreachable → Try again). The $0 production checkout test
+is written for Niran (final-check `prE/PROD_CHECKOUT_TEST.md`): production
+checkout has still never been run end to end by us.
+
+**2026-11-21 — Parents can verify with Google (final-check PR D; branch
+`fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
+checks found production has not sent a magic-link/recovery email since
+2026-10-22 and 0 profiles have `email_verified_at`, so a parent may never
+receive 043's link (whether production has custom SMTP is not readable from
+here). 043 already accepts a second proof — a Google identity whose VERIFIED
+email equals the CURRENT auth email (`mark_email_verified()` and
+`email_is_verified()`, re-read live on production: amr methods
+`otp`/`magiclink` only, plus the Google-identity half). Production has 0
+Google identities yet, so the linking half is unproven until Niran's test.
+- Every parent verify prompt (join step, approve/consent card on Family and
+  Settings → Family, the banner) gains a secondary **"Verify with Google
+  instead"** with one line: it works when the Google account uses the same
+  email address. Flag-guarded inside `GoogleVerifyButton` (auth-card.tsx),
+  like `GoogleButton`. It remembers the return screen (and a join's code),
+  remembers WHICH account asked, and Google returns to `/auth/verified` —
+  the page the emailed link already uses — which runs the existing
+  `mark_email_verified()`. No new redirect URL.
+- If Google comes back as a DIFFERENT account (different address), the page
+  signs it out through PlayerProvider and says why in plain English; a
+  cancel says nothing changed. The database still decides; who must verify
+  is unchanged.
+- A failed "Send the link" now points to "Verify with Google instead"
+  (`sendFailureMessage`) instead of only "try again".
+- Review fixes (PR #29): the different-account path signs out with scope
+  "local" only (PlayerProvider `signOutLocal`) and checks no session is left
+  before saying so; the decision after the code exchange is the pure
+  `verifiedActionFor()` / `verifiedScreenFor()`; a stale marker is ignored
+  unless the session came from OAuth (JWT amr); a network blip on
+  `mark_email_verified()` is "unreachable" with Try again, never "not
+  confirmed"; `#error=` is read as well as `?error=`; the mismatch copy says a
+  sign-in may have been created for that Google address and that a pending
+  family code is lost. Mutation-checked (prD/mutation.txt).
+- Review round 2: both sign-outs run one tested sequence
+  (`lib/sign-out-steps.ts`: invalidate in-flight hydrate, reset, clear
+  storage, forget user, then Supabase with the scope); "still signed in"
+  offers Try again (local) instead of the menu's global sign-out; the
+  session's OAuth-ness is mapped by the tested `verifiedSessionFrom()`
+  (access-token amr, never app_metadata); an emailed link's own error
+  (`otp_expired`) shows the link copy even with a leftover Google marker;
+  `markEmailVerified()` is tested with a stubbed rpc.
+- Tests: `lib/email-verify-google.test.ts` (return path, marker TTL,
+  same/different account, error mapping, and a real render proving the
+  option is empty unless the flag is exactly "true");
+  `google-button-flag.test.ts` gains the new guard.
+- Niran's dashboard steps (SMTP, redirect URLs, a real Google test,
+  optional staging Google): `~/seeded-evidence/final-check/prD/STEPS.md`.
+
+**2026-11-21 — Final-check PR A: known bugs A1–A5 (branch
+`fix/known-bugs-a`; no migration, no env var, no setting).**
+(A1) The Schools "Why this band" panel printed the what-if slider's value as
+"You're 8.99 today" for a 8.20 player. `explainSchoolFit()` now only ever
+gets TODAY's real rating (`useWhatIfUtr().todayUtr`, hasRealUtr-gated); the
+what-if gets its own line, "You 8.99 by summer 2027, what-if at +1.50 a
+year: …", with the year from the summer before senior year. Its "what would
+move it" read returns nothing when today's rating is already past the line
+(no "needs about -0.30 a year").
+(A2) One school showed two unlabelled gaps (Plan from today's 8.20, the
+school page and Schools list from the 8.7 summer estimate). Every gap and
+rating beside a team line now goes through `lib/fit-copy.ts`
+(`ratingBasisLabel` / `ratingWithBasis` / `teamGapSentence`) and says its
+basis: "today", "by summer {year}, estimate" or "…, what-if". Plan's target
+list now measures from the same rating its bands use (the fit report's),
+so Plan and the school page print the same gap. The range-bar tooltip
+(`youBasis`), the fit report's row captions and Plan's "Closest schools"
+(which said "your current UTR" over gaps from the estimate) use it too.
+(A3) The two chart legends gave green dashes two meanings. One vocabulary in
+`lib/chart-legend.ts` — Logged (solid), Planning estimate (dotted), Your
+plan (dashes + gold), Estimate at your own pace (grey dashes) — for both
+legends and Plan's readout; /today's and /family's estimate lines are now
+drawn dotted like /plan's so the legend is true.
+(A4) The fit report's zero state: the lead is the homepage hero's own zero
+sentence (`fitReportLead` → `nothingInRangeSentence`: catalogue count,
+closest program, its gap, "(estimate)"); the "0 Target and 0 Likely" and
+"0 today → 0" lines only render when non-zero; the tab opens on the first
+non-empty band (`defaultFitTab`, Out of range when that is all); an empty
+tab says what the band means (`emptyBandSentence`). "Today, 0 programs are
+in range." now reads "Today, no program is in range."
+(A5) Budget limits: season budget ≤ $250,000, one expense ≤ $50,000
+(`lib/budget-limits.ts`; staging's columns are numeric(9,2) and
+numeric(8,2)), enforced in both routes' zod schemas, `lib/db/family.ts` and
+both forms, with a message naming the limit. On the five S-10 write routes a
+permission refusal (a `DatabaseWriteError` with SQLSTATE 42501) is now HTTP
+403 "You don't have permission to do that." (`clientWriteErrorStatus`), our
+own validation sentence is 400, everything else stays a 500 with the
+route's fallback — still fail-closed: no Postgres text reaches the client,
+and a raw PostgrestError is not trusted. Tests: `lib/final-check-a.test.ts`,
+`lib/budget-limits.test.ts`, new cases in `lib/api-logging.test.ts`; guards
+in `lib/honest-zero-state.test.ts` and `plan-trajectory-values.test.ts`
+updated to the new call sites and words. Also folded in from the sweep:
+(B4) a blank budget total or expense cost no longer saves as $0 and closes
+(`Number("")` is 0) — "Enter a budget amount." / "Enter a cost."; (B24)
+/today's logged-only legend ("The line is the UTRs you've logged.") now
+uses the same `chartLegendSentence` as every other case.
+Verifier follow-up on PR #32: (M1) the screen wiring is now pure helpers in
+`lib/fit-copy.ts` — `judgingRatingFor`, `todayRatingFor`, `whyBandGapLines`,
+`targetRowGapSentence`, `schoolPageUtrRow`, `rangeCaption`,
+`closestSchoolsMeasuredFrom`, `rangeBarYouLine` — unit-tested for the
+what-if / estimate / today / sentinel cases; every screen's call is pinned;
+19 wiring mutations (the verifier's nine and more) all fail the suite. (M2)
+a 42501 on the five S-10 routes now reads its reason from the caller's own
+profile (`lib/db/write-refusal.ts`, the training route's lookup):
+consent-pending → "Your account can't save changes until a parent in your
+family gives consent.", Free on outreach → "Tracking coach outreach is part
+of the Player plan.", other RLS/trigger refusals → 403 "You don't have
+permission to do that."; a GRANT/config fault ("permission denied for
+function/table/schema …", matched server-side only) → the route's fallback
+and 500. (LOW) a what-if below today's rating says so; no pace text once no
+year remains; captions capitalise "Your player"; amount fields take a plain
+decimal only ("$50", "1,000", "0x10", "1e5" → "Enter a valid cost." /
+"Enter a valid budget amount."). Merged 2026-11-21 (#32).
+
+**2026-11-21 — Sign-up checks and GA off the auth pages (final-check PR C,
+branch `fix/signup-onboarding-c`; no migration, no setting).** (1) **A6:**
+a bad email is caught on the email field itself — on blur, and before
+step 1 of /signup or /parent-signup is left, and on the onboarding
+"Save it with a free account" form (player and parent). The message names
+the field ("Email: that address doesn't look right. Check it for a typo."),
+the input gets `aria-invalid` and points at it with `aria-describedby`, and
+focus moves to it. A server refusal of the address (`email_address_invalid`
+/ `_not_authorized`, which until now arrived as an unnamed banner on step 3
+of 3) sends the person back to step 1 with the message on the field.
+Addresses are trimmed before they are sent (a pasted trailing space was
+refused on the last step). Once a message shows, blur never clears it for
+an empty field (that moved Continue out from under the pointer). Pure checks: `lib/signup-checks.ts`; hook:
+`components/auth/email-field.ts`. (2) **A16:** /signup's name placeholders
+describe the field ("First name and last initial" / "First and last name")
+instead of reading like a person's name, and a birth year that is two or
+more years from usual for the grade picked (e.g. 2008 with 10th grade)
+gets a gentle, non-blocking hint. (3) **A7:** GA never loads on /login,
+/signup, /parent-signup, /reset-password (and /parent-login), as on
+/auth/* already — `GA_EXCLUDED_PATH_PREFIXES` in `lib/ga-privacy.ts`. A
+client navigation onto one of them after gtag.js loaded on an earlier page
+sets `ga-disable-<ID>` while the route RENDERS (`GaRuntime.guardPath`),
+before Next pushes the history entry, so GA's own history listener cannot
+count it either; `update()` re-enables only on an allowed page. Guards:
+`lib/signup-checks.test.ts` (new) and `lib/ga-privacy.test.ts`, which now
+walks `app/` and fails the build if an auth page route (login / signup /
+password / auth / verify / callback …) is not excluded, or an excluded
+prefix has no page. (4) **Found on the walk, fixed (pre-existing on main
+d3bc348, so on production too): the onboarding sign-up never worked.** The
+diagnostic's question card was a `<form>` and its save step rendered the
+sign-up form — another `<form>` — inside it; React does not prevent a
+submit from a nested form, so "Create free account" / "Create parent
+account" did a native GET of `/onboarding`: the page reloaded, every answer
+was lost, no request reached Supabase and no account was made. Reproduced on
+local builds of main and of this branch; the card is now a `<div>` on the
+save step (`QuestionShell`). Guard: `lib/onboarding-no-nested-form.test.ts`.
+The fit report's own "Save your report" form was not nested and was not
+affected. (5) **B20:** the summer before senior year now has one tense,
+from the real date (`lib/senior-summer.ts`: upcoming before June 1,
+"has started" until the Aug 1 school-year rollover, "has passed" after).
+For the class of 2027 in November 2026 the onboarding result said "We'll
+measure you at summer 2026", the report "has started", the school page
+"has begun" beside "has already passed"; all four now say "has passed"
+(result heading, report note, school page, Schools/Plan pace messages).
+Wording only — the band logic is unchanged. Guard:
+`lib/senior-summer.test.ts`; `lib/fit/__split-manifest.json`'s hash for
+`diagnosticProjection` re-recorded (its note now comes from the helper).
+**Review fixes (independent verifier on PR #33, same day; it confirmed the
+nested-form bug on production):** the /signup send-back-to-step-1 is a
+pure decision (`signupFailureSendBack`) plus an exact source pin on the
+block that acts on it (disabling it used to pass); the nested-form guard
+now walks every file in app/ and components/ that renders
+`<DiagnosticSaveForm` or `<SignupFlow`, and their hosts up the tree, and
+fails on any enclosing `<form>` or form-rendering component (wrapping the
+fit report's save host used to pass); the B20 heading drops "so we measure
+you at today's rating" when no UTR was given; punycode TLDs
+(`.xn--p1ai`) are accepted; `signUp()`'s trim has its own test
+(`lib/auth-signup-trim.test.ts`); the onboarding name hint gives no sample
+name. All mutation-checked. `SUMMER_STARTED_NOTE` stays (pinned by the fit
+split manifest and the barrel's export list).
+Onboarding walks (player 14+, under-13 on /signup and
+on /onboarding, parent) on the branch Preview: evidence and PASS/FAIL in
+`~/seeded-evidence/final-check/prC/SUMMARY.md`.
+
+**2026-11-21 — Monitoring, part 1 (P1-OPS-2 PARTIAL; branch
+`feat/monitoring`; no migration, no new service, no env var).** Built only
+from what already exists — Vercel runtime logs and GitHub Actions:
+(1) `lib/server-log.ts`: `logServerError` / `logServerEvent` write one
+sanitised JSON line (`level, event, route, message, code, context, ts`) —
+first line of the message only, emails / JWTs / Bearer values / provider
+keys / `api_secret=` / UUIDs / long tokens / Postgres DETAIL values
+stripped, sensitive context keys redacted by name, never a stack or body.
+Used at every `app/api` failure point (all 13 routes), the Whop webhook
+(`whop.webhook.signature_invalid`, `.event_ignored`,
+`.membership_unmatched`, `.sync_failed`, `.unhandled`, …), account
+deletion (`account.deletion.failed`) and the GA4 purchase send
+(`ga4.purchase.send_failed`). (2) `GET /api/health` → `{ ok, commit,
+checks: { app, database } }`, no-store, anonymous; `database` = Supabase
+Auth's public health endpoint (publishable key, 2 s timeout, per-instance
+cache 30 s after a success and 5 s after a failure), 503 when it does not
+answer. (3)
+`.github/workflows/uptime.yml`: hourly (:17) + manual, curls `/` and
+`/api/health`, fails unless both are 200 and health says `"ok": true`; a
+failed scheduled run is reported only by GitHub's own Actions notification
+to whoever last edited the cron line (~720 billed minutes/month once
+private). (4) **S-10 fixed:** the five write routes that still sent raw
+Postgres text now send their generic sentence (`DatabaseWriteError` +
+`clientWriteErrorMessage`, `lib/db/write-error.ts`), fail-closed: only a
+`UserFacingError` (our validation sentences) or 034's rate-limit / "Sign in
+first." sentence (by SQLSTATE + exact wording) is shown; status codes
+unchanged; the raw text goes to the log. Guards: `lib/server-log.test.ts`, `lib/health.test.ts`,
+`lib/api-logging.test.ts` (no `console.*` in `app/api`, every answering
+catch logs, no route sends `err.message`, health reads no table, workflow
+stays hourly/secret-free) — 31 mutations, all caught. **Review fixes
+(same day, independent verifier on PR #28):** three probes beat the first
+S-10 guard (`e.message` under another name, `String(err)`, a raw `throw
+error;` of a PostgrestError, which extends Error); `clientWriteErrorMessage`
+now fails closed and the guard checks every caught-value name for
+`.message`/`String()`/templates/concatenation/the object itself. Those
+three probes (four variants) and 14 more new mutations fail the build; the
+27 earlier mutations that still apply were re-run and are all caught. Also: logger input cut to 2,000 chars
+before any regex; `name`/`ip`/`tel`/`uid`/`buyer` keys redacted as whole
+words; E.164 phones stripped; health caches a failure only 5 s and the
+workflow retries 10 s apart (job limit 4 min), so one blip no longer fails
+the uptime run. **Still not done:**
+no alert on a 5xx rate, webhook failure or deletion failure (logged, nobody
+told), no error grouping, no roster-freshness check. The honest path to
+alerts is a Vercel log drain or Sentry; both need an account/plan decision
+from Niran.
+
+**2026-11-21 — `lib/fit.ts` split (branch `refactor/fit-split`; pure move,
+no behaviour change, no migration, NEXT 10 item 8's first file).** The
+1,345-line fit engine is now `lib/fit/pace.ts` (the planning pace cap,
+logged pace), `projection.ts` (`recruitingTimeUtr` and the chart paths),
+`goal.ts` (the plan goal and its pace banner), `bands.ts` (`buildFitReport`,
+what is read off the report) and `diagnostic.ts` (onboarding). `lib/fit.ts`
+only re-exports the same 56 names (39 values, 17 types), so no importer
+changed; imports run one way (pace → projection → goal/bands → diagnostic).
+Proof: before anything moved, all 62 top-level statements of the original
+were hashed with their leading comments into
+`lib/fit/__split-manifest.json`; `lib/fit-split-purity.test.ts` asserts each
+is byte-identical in exactly one new file, nothing else is declared, the
+barrel's export list (source and loaded module) is the original's, no
+cycles, and nothing imports `lib/fit/*` directly. That test is a snapshot:
+changing a fit declaration on purpose means re-recording it
+(`FIT_SPLIT_MANIFEST_FROM=engine`, see the test). The guards that read or
+allow-listed `lib/fit.ts` (fit-single-source, projection-single-source,
+pace-honesty, plan-goal) now use `FIT_ENGINE_FILES`
+(`lib/fit/engine-files.ts`), each mutation-tested against the moved code and
+against a new file outside the set.
+
 **2026-11-21 — Honest zero state and pace copy (PR fix/honest-zero-state;
 no migration, copy and zero-state logic only; audit A-001/002/005/006/007/
 008/022/035).** The homepage card no longer shows "0 / 0 / 0" or "See my —
@@ -1150,7 +1524,7 @@ settings, and the product problem — P1-DATA-1.
   add a rule for `main` → *Require a pull request before merging* + *Require
   status checks to pass* → select **`verify`**. Without that, the workflow
   reports but blocks nothing.
-- [ ] **P1-OPS-2 Error tracking + uptime** — add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
+- [~] **P1-OPS-2 Error tracking + uptime** — PARTIAL 2026-11-21 (`feat/monitoring`): structured, sanitised server logs (`lib/server-log.ts`) at every API failure point, `GET /api/health`, and an hourly GitHub Actions uptime check on `/` and `/api/health` (`.github/workflows/uptime.yml`). NOT done: alerting (5xx rate, webhook/deletion failures) and error grouping — needs a Vercel log drain or Sentry, Niran's call. Original: add Sentry (or Vercel's log drains + alerts) and an uptime check on `/` and `/api/health`.
 - [x] **P1-OPS-3 Migration history drift** — RESOLVED 2026-11-14. Both live-only migrations accounted for: one recovered as a single real statement, the other shown to need no content (`rls_auto_enable` is a Supabase platform default, and `020` already does its revokes). Also uncovered a bigger problem — the repo did not reproduce production at all; see migration 025 and DATABASE_SPEC. Original note follows. ~~ — live history uses timestamps (`20261110205721_outreach_stages`, …) while the repo uses `011_…`; two live migrations (`rls_auto_enable_revoke_direct_grants`, `set_updated_at_revoke_authenticated_direct_grant`) exist only as comments inside `020`. Add them as real files and document the mapping in DATABASE_SPEC.md.
 - [~] **P1-PRICE-1 Paywall placement** — CODE COMPLETE; MIGRATION APPLIED + TESTED ON STAGING (6/6: Free blocked from outreach, Player allowed, Free capped at 3 targets, Player unlimited, downgraded account can still prune). Not on production.
   Niran's decision (2026-11-11): **outreach belongs in Player ($19), not
@@ -1250,7 +1624,7 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 ---
 
 ## Architecture tasks
-- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [ ] Add `/api/health`.
+- [ ] P0-6 staging project. [x] P1-UX-2 delete Legacy (2026-11-20). [ ] P1-SEC-5 delete Stripe. [ ] Move the school catalog from TS files to Postgres (P1-DATA-1). [x] Add `/api/health` (2026-11-21, `feat/monitoring`).
 
 ## Database tasks
 - [ ] P0-1, P0-2, P1-SEC-2, P1-SEC-6, P1-OPS-3. [ ] Migration 012 teams/players/roster_sources. [ ] Drop dead tables (P3). [ ] RLS test suite (see QA_CHECKLIST.md).
@@ -1317,7 +1691,8 @@ Everything in POST-V1 above. "Leaving" counts and "Data/verification" columns st
 - [ ] P0-8 (REQUIRES LEGAL/ADULT REVIEW). [ ] UTR data: the product stores self-reported numbers only — keep it that way; never scrape. [ ] Roster data licensing review before import (DATA_QUALITY.md §Licensing).
 
 ## Monitoring tasks
-- [ ] P1-OPS-2. Alerts: 5xx rate on `/api/*`, Whop webhook failures, deletion job failures, data freshness > 120 days on any roster.
+- [~] P1-OPS-2. Alerts: 5xx rate on `/api/*`, Whop webhook failures, deletion job failures, data freshness > 120 days on any roster.
+  2026-11-21: the first three are now LOGGED (`api.*.write_failed`, `whop.webhook.*`, `account.deletion.failed` in Vercel runtime logs) but nothing alerts on them. Uptime of `/` and `/api/health` is checked hourly by `.github/workflows/uptime.yml` (failure = GitHub's Actions notification only). Roster freshness: nothing yet.
 
 ---
 
@@ -1357,14 +1732,35 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    2026-11-21: now, one screen per PR (DECISIONS).
 5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
    V1 ships no AI; this needs its own privacy-policy section first.
-6. **Wire the recruiting checklist into Today.**
+6. **Wire the recruiting checklist into Today.** (Final-check PR B,
+   `fix/ui-polish-b`, landed the sweep's Low "B" polish — open from it:
+   B1/B2/B9/B15/B23 are Niran's flags, A15 belongs with the write routes.)
 7. **Weekly email** — needs a real sending path (none exists; "Remind them"
    only re-sorts). Copy must not promise it before then.
-8. **File splits**: `lib/fit.ts`, `lib/auth.ts`, the schools browser,
-   `signup-flow.tsx`, the dashboard view (boundaries in REVIEWER_GUIDE §9).
+8. **File splits**: ~~`lib/fit.ts`~~ (DONE 2026-11-21, `refactor/fit-split`:
+   a pure move into `lib/fit/*.ts`, `lib/fit.ts` a barrel), `lib/auth.ts`,
+   the schools browser, `signup-flow.tsx`, the dashboard view (boundaries in
+   REVIEWER_GUIDE §9).
 9. **Public SEO school pages** once ranges are sourced.
-10. **Observability** — no error tracking or alerting exists beyond Vercel
-    runtime logs; the billing incident is what that looks like.
+9b. **Parent email delivery** (final-check PR D): check production SMTP and
+   do a real Google verify test (`~/seeded-evidence/final-check/prD/STEPS.md`).
+   Until then the emailed link may never arrive. "Verify with Google instead"
+   works only when `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` is exactly "true" AND the
+   Google provider is configured in that Supabase project (on for production,
+   off for staging/Preview), and only for a Google account with the SAME
+   address. Then the profile-less auth users it can leave (TODO, PR D review).
+10. **Observability, part 2** — part 1 is done (`feat/monitoring`:
+    sanitised server logs, `/api/health`, hourly uptime workflow). Still no
+    alerting or error grouping: decide Vercel log drain vs Sentry (Niran),
+    then alert on `"level":"error"` lines and on the uptime workflow.
+
+Final-check (2026-11-21, `~/seeded-evidence/final-check/FINDINGS.md`): A1–A5,
+B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows closed by PR C (#33,
+`fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
+field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
+birth-year/grade hint), B20 (one tense for the summer before senior year),
+and the onboarding sign-up's nested form found on the walk. PR D (#29, `fix/parent-verify-google-d`, merged 2026-11-21) adds "Verify
+with Google" for parents. PR E (#30, `fix/billing-e`, merged 2026-11-21) covers the billing rows; PR F (#31, `fix/uptime-f`, merged 2026-11-21) the uptime schedule and the Supabase check; PR B (#34, `fix/ui-polish-b`, merged 2026-11-21) the section-B polish. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
@@ -1372,7 +1768,15 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Niran's own list (dashboards/keys, not code): **turn off the Supabase GitHub
+integration's deploy to production** (Supabase → production project →
+Project Settings → Integrations → GitHub: "Deploy to production" off, or
+disconnect; final-check `prF/SUPABASE_CHECK.md`) — never by renaming
+migration files; confirm a scheduled Uptime run exists after PR F merges;
+**run the $0 production
+checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
+webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
+the only way to prove checkout → webhook → tier on production; revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);

@@ -174,7 +174,13 @@ export interface FitResult {
   costScore: number;
   travelScore: number;
   costPerMatch: number;
+  /** The matches `costPerMatch` divides by — this level's typical count. */
+  typicalMatches: number;
   totalCost: number;
+  /** False when neither entry nor travel cost was entered: cost is Not tracked. */
+  costKnown: boolean;
+  /** Only one of entry / travel cost was entered. */
+  costPartial: boolean;
   effectiveTravelHours: number;
   /** draw average − player UTR, to two decimals. */
   fieldGap: number;
@@ -371,7 +377,10 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     costScore,
     travelScore,
     costPerMatch,
+    typicalMatches: levelInfo.typicalMatches,
     totalCost,
+    costKnown,
+    costPartial,
     effectiveTravelHours,
     fieldGap: gap,
     fieldBand: band,

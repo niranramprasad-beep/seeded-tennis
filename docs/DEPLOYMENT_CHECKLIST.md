@@ -13,6 +13,20 @@
   Vercel's Git integration deploys.
 - `vercel.json`: framework, install and build command only. No crons.
   Security headers are set in `next.config.mjs`.
+- Uptime: `.github/workflows/uptime.yml` checks `/` and `/api/health` on
+  production hourly (no secrets, not a required check, not part of
+  `verify`). A failed run is reported only by GitHub's own Actions
+  notification — see TECHNICAL_ARCHITECTURE "Monitoring".
+- **The red "Supabase Preview" check on `main` merges is expected — leave it
+  red.** It is Supabase's GitHub integration on the PRODUCTION project trying
+  to deploy `supabase/migrations/` on every push to `main`; it stops at
+  "Remote migration versions not found in local migrations directory"
+  because production's ledger versions are timestamps and the repo's files
+  are `001_…`. It is not a required check (`main` requires only `verify`).
+  **Never "fix" it by renaming migration files:** once versions match, the
+  next merge would apply migrations to production automatically, skipping
+  staging, the backup and the owner's go. The fix is turning the
+  integration's deploy off in the Supabase dashboard (owner's step).
 
 ## Environments
 | Env | Supabase | Who deploys |
@@ -40,6 +54,16 @@ change.
 - [ ] Rollback target noted (previous production deployment ID) and, for a
       migration, a fresh production backup plus the written rollback
       (`docs/HANDOFF.md` §J)
+
+## After every production deploy
+- [ ] `curl -s https://seededtennis.com/api/health` answers 200 with
+      `"ok":true`, `"database":"ok"`, and `"commit"` equal to the first 7
+      characters of the merged commit. A 503 means the deployment cannot
+      reach Supabase; a `commit` that does not match means Vercel is still
+      serving the previous deployment.
+- [ ] Vercel → the deployment → Logs: no new `"level":"error"` lines in the
+      first few minutes (search `"level":"error"`).
+- [ ] Optional: Actions → Uptime → "Run workflow" for an outside check.
 
 ## Rollback
 1. Vercel → Deployments → previous production deployment → "Promote to

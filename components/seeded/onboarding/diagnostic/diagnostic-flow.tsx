@@ -3,7 +3,8 @@
 import { forwardRef, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EnrollmentTerm, PlayerGender, SchoolLite } from "@/lib/types";
 import { programGenderFor } from "@/lib/types";
-import { diagnosticProjection, projectionTargetDate, projectionTargetLabel } from "@/lib/fit";
+import { diagnosticProjection, projectionTargetDate } from "@/lib/fit";
+import { seniorSummerMeasureSentence } from "@/lib/senior-summer";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import {
   EMPTY_ANSWERS,
@@ -177,8 +178,14 @@ export function SeededDiagnosticOnboarding({
       </div>
 
       <div className="mx-auto mt-6 grid max-w-[1200px] gap-5 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <form
-          noValidate
+        {/* A <div>, not a <form>, while the save step shows: that step
+            renders DiagnosticSaveForm, which is its own <form>, and a form
+            nested in a form is not prevented by React — pressing "Create
+            free account" did a native GET of /onboarding, reloading the page
+            and losing every answer, and no account was made (final-check
+            PR C walk; lib/onboarding-no-nested-form.test.ts). */}
+        <QuestionShell
+          asForm={view !== "save"}
           onSubmit={(e) => {
             e.preventDefault();
             if (enterContinues) next();
@@ -262,7 +269,7 @@ export function SeededDiagnosticOnboarding({
               </SeededButton>
             )}
           </div>
-        </form>
+        </QuestionShell>
 
         <DiagnosticAside answers={answers} projection={projection} />
       </div>
@@ -271,6 +278,31 @@ export function SeededDiagnosticOnboarding({
 }
 
 /* ------------------------------------------------------------ pieces */
+
+/** The question card: a <form> (Enter = Continue) for the questions and the
+ * result, a plain <div> for the save step, whose sign-up form must not sit
+ * inside another form. */
+function QuestionShell({
+  asForm,
+  onSubmit,
+  onKeyDown,
+  children,
+  ...rest
+}: {
+  asForm: boolean;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLFormElement>) => void;
+  "aria-labelledby": string;
+  className: string;
+  children: ReactNode;
+}) {
+  if (!asForm) return <div {...rest}>{children}</div>;
+  return (
+    <form noValidate onSubmit={onSubmit} onKeyDown={onKeyDown} {...rest}>
+      {children}
+    </form>
+  );
+}
 
 const QuestionHeading = forwardRef<HTMLHeadingElement, { id: string; children: ReactNode }>(
   function QuestionHeading({ id, children }, ref) {
@@ -708,15 +740,20 @@ function ResultBody({
   signedIn?: boolean;
 }) {
   const parent = answers.role === "parent";
-  const summer =
+  const who = parent ? "your player" : "you";
+  // B20: the tense follows the real date (lib/senior-summer.ts) — never
+  // "We'll measure you at summer 2026" in November 2026. Never "we measure
+  // you at today's rating" for someone who gave no rating.
+  const hasRating = diagnosticValues(answers).utrToday != null;
+  const heading =
     gradYear != null
-      ? projectionTargetLabel(projectionTargetDate(gradYear).getFullYear())
-      : "the summer before senior year";
+      ? seniorSummerMeasureSentence(who, projectionTargetDate(gradYear).getFullYear(), { hasRating })
+      : `We’ll measure ${who} at the summer before senior year.`;
   return (
     <>
       <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">Your result</p>
       <QuestionHeading id={headingId} ref={headingRef}>
-        We&rsquo;ll measure {parent ? "your player" : "you"} at {summer}, the summer before senior year.
+        {heading}
       </QuestionHeading>
       <Help>
         The fit report compares that rating with {programCount}{" "}

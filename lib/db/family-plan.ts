@@ -60,3 +60,8 @@ export async function loadFamilyPlanStatus(): Promise<FamilyPlanStatus> {
   if (!supabase) return { unlocked: false, familyCode: null, reason: "no-family" };
   return familyPlanStatusFor(supabase);
 }
+
+/** The SWR key every screen caches loadFamilyPlanStatus() under. Cleared on
+ * sign-out and on an account change (lib/context/player-context.tsx), so one
+ * account's answer is never shown to the next in the same tab. */
+export const FAMILY_PLAN_STATUS_KEY = "family-plan-status";

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
 import { writeCurrentPlayerProfile } from "@/lib/auth";
 import { PlayerBodySchema, playerWriteFromBody } from "@/lib/api-schemas/profile";
 import { profileWriteFailure } from "@/lib/profile-fields";
@@ -29,13 +31,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const json = await req.json().catch(() => null);
-  const parsed = PlayerBodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(PlayerBodySchema, json, "Check your profile details, then save again.");
+  if (!parsed.ok) return parsed.response;
 
   // The caller's own row, read server-side: role and tier both come from the
   // database, never from the body (which is the client's merged Player and
@@ -69,6 +66,7 @@ export async function POST(req: Request) {
     }
     const { error } = await ctx.supabase.from("profiles").update({ name }).eq("id", ctx.user.id);
     if (error) {
+      logServerError("api.profile.parent_name_failed", error, { route: "/api/profile" });
       return NextResponse.json({ error: "Could not save your name. Try again." }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
@@ -112,6 +110,9 @@ export async function POST(req: Request) {
     // A CHECK violation (e.g. profiles_gpa_check) is a 400 with a sentence,
     // not a 500 with raw Postgres text (QA sweep H3).
     const failure = profileWriteFailure(err);
+    // 400/403 are refusals with a sentence (a CHECK, a trigger); only a 500
+    // is a failure worth a log line.
+    if (failure.status >= 500) logServerError("api.profile.write_failed", err, { route: "/api/profile" });
     return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

@@ -5,6 +5,9 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { describePaidPlan } from "@/lib/billing-plan";
 import type { BillingLookup } from "@/lib/billing-view";
 import { TIER_RANK, type SubscriptionTier } from "@/lib/types";
+import { logServerError } from "@/lib/server-log";
+
+const ROUTE = "/api/whop/membership";
 
 // Read-only companion to /settings/billing — never mutates anything.
 //
@@ -41,7 +44,10 @@ export async function GET(req: Request) {
     .select("subscription_tier, whop_membership_id")
     .eq("id", user.id)
     .maybeSingle();
-  if (error) return respond({ kind: "unreachable" });
+  if (error) {
+    logServerError("whop.membership.profile_read_failed", error, { route: ROUTE });
+    return respond({ kind: "unreachable" });
+  }
 
   const membershipId = profile?.whop_membership_id as string | null | undefined;
   if (!membershipId) return respond({ kind: "none" });
@@ -67,7 +73,8 @@ export async function GET(req: Request) {
       { profileTier }
     );
     return respond({ kind: "found", plan, manageUrl: membership.manage_url });
-  } catch {
+  } catch (err) {
+    logServerError("whop.membership.retrieve_failed", err, { route: ROUTE });
     // A Whop hiccup, a rotated key, or a membership Whop no longer returns.
     // The page says "We can't reach Whop right now. Your plan is still
     // active." and offers a retry — it never claims the plan is gone.

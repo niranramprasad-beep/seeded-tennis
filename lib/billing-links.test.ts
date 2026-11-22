@@ -26,7 +26,10 @@ function walk(dir: string, out: string[] = []): string[] {
 const FILES = DIRS.flatMap((d) => walk(join(ROOT, d)));
 const rel = (f: string) => relative(ROOT, f);
 
-const MANAGE_BILLING = /manage\s+billing/gi;
+// "Plan and billing" / "Your plan and billing" since final-check A18: the
+// entry no longer promises "manage" to someone who turns out not to be the
+// payer. Same rule, same destination.
+const MANAGE_BILLING = /manage\s+billing|plan\s+and\s+billing/gi;
 const OPEN_TAG = /<(button|a|Link|Button|SeededButton)\b/g;
 
 /** The attribute text of the nearest button-like tag opened before `index`.
@@ -84,6 +87,7 @@ describe("every Manage billing entry goes to /settings/billing", () => {
       `<Link href="/pricing" className="x">Manage billing or cancel</Link>`,
       `const manageBilling = () => {\n    window.location.href = WHOP_MEMBERSHIPS_URL;\n  };\n`,
       `<button onClick={() => go("/settings")}>Manage Billing</button>`,
+      `<Link href="/pricing">Your plan and billing</Link>`,
     ];
     for (const s of bad) expect(manageBillingProblems(s), s).not.toEqual([]);
 
@@ -91,6 +95,8 @@ describe("every Manage billing entry goes to /settings/billing", () => {
       `<button type="button" onClick={() => router.push("/settings/billing")}>\n  Manage billing\n</button>`,
       `<Link href="/settings/billing">Manage billing</Link>`,
       `<button type="button" onClick={manageBilling} disabled={busy}>Manage billing or cancel your plan</button>`,
+      `<button type="button" onClick={manageBilling} disabled={busy}>Your plan and billing</button>`,
+      `<button type="button" onClick={() => router.push("/settings/billing")}>\n  Plan and billing\n</button>`,
       `const manageBilling = () => {\n    router.push("/settings/billing");\n  };\n`,
     ];
     for (const s of good) expect(manageBillingProblems(s), s).toEqual([]);
@@ -99,7 +105,7 @@ describe("every Manage billing entry goes to /settings/billing", () => {
   it("finds the entries it is guarding", () => {
     // The Settings account card and /pricing. Was 4+ while the Legacy
     // settings and pricing pages existed (deleted 2026-11-20).
-    const withEntry = FILES.filter((f) => /manage\s+billing/i.test(codeOnly(f)));
+    const withEntry = FILES.filter((f) => /manage\s+billing|plan\s+and\s+billing/i.test(codeOnly(f)));
     expect(withEntry.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -109,6 +115,36 @@ describe("every Manage billing entry goes to /settings/billing", () => {
       for (const p of manageBillingProblems(codeOnly(f))) hits.push(`${rel(f)}: ${p}`);
     }
     expect(hits).toEqual([]);
+  });
+});
+
+describe("the Account cards render lib/plan-entry.ts's answer (final-check B27 + review)", () => {
+  // Settings → Account showed "Current plan: Free" beside "Manage billing",
+  // which led to a page with nothing to manage; and a parent whose family is
+  // unlocked by someone else's Family plan saw "Free · See plans". The
+  // decision is accountPlanEntry() (tested in lib/plan-entry.test.ts); these
+  // pin that each card wires its kinds to the right destination.
+  const block = (code: string, kindTest: RegExp) => {
+    const m = kindTest.exec(code);
+    return m ? code.slice(m.index, m.index + 600) : "";
+  };
+  for (const file of ["components/seeded/settings/account-card.tsx", "components/seeded/settings/parent-settings-view.tsx"]) {
+    it(file, () => {
+      const code = codeOnly(join(ROOT, file));
+      expect(code).toMatch(/accountPlanEntry|AccountPlanEntry/);
+      // No longer keyed on the viewer's tier alone.
+      expect(code).not.toMatch(/\bisFree\b/);
+      const seePlans = block(code, /planEntry\.kind === "see-plans"/);
+      expect(seePlans).toMatch(/router\.push\("\/pricing"\)[\s\S]{0,400}?See plans/);
+      const billing = block(code, /planEntry\.kind === "billing" &&/);
+      expect(billing).toMatch(/router\.push\("\/settings\/billing"\)[\s\S]{0,400}?Plan and billing/);
+    });
+  }
+  it("the parent card offers nothing to buy when the family is already unlocked", () => {
+    const code = codeOnly(join(ROOT, "components/seeded/settings/parent-settings-view.tsx"));
+    expect(code).toMatch(/planEntry\.kind === "family-included" \? FAMILY_INCLUDED_LABEL/);
+    // The only /pricing push is behind "see-plans".
+    expect(code).not.toMatch(/planEntry\.kind === "family-included"[^\n]*\n[\s\S]{0,120}?router\.push\("\/pricing"\)/);
   });
 });
 

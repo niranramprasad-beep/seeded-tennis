@@ -12,6 +12,8 @@ import {
   resolveMyFamilyCode,
 } from "./family-scope";
 import type { Json, Tables } from "./database.types";
+import { DatabaseWriteError, UserFacingError } from "./write-error";
+import { expenseAmountLimitError, seasonBudgetLimitError } from "@/lib/budget-limits";
 
 // text columns backed only by a Postgres CHECK constraint — see
 // lib/db/narrow.ts's header for why these need narrowing back down from
@@ -232,7 +234,7 @@ export async function saveCostCalculation(input: CostInputs, name = "College ten
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapCost(data);
 }
 
@@ -300,6 +302,8 @@ export function validateBudgetExpenseInput(input: NewBudgetExpenseInput): string
   if (!input.label || !input.label.trim()) return "A short description is required.";
   if (!BUDGET_EXPENSE_CATEGORIES.includes(input.category)) return "Choose a valid category.";
   if (!Number.isFinite(input.amount) || input.amount < 0) return "Cost can't be negative.";
+  const tooHigh = expenseAmountLimitError(input.amount);
+  if (tooHigh) return tooHigh;
   if (!isCalendarDateKey(input.expenseDate)) {
     return "Enter a valid date.";
   }
@@ -353,9 +357,13 @@ export async function saveSeasonBudget(
   ctx?: FamilyWriteContext
 ): Promise<SeasonBudget | null> {
   if (!Number.isFinite(input.totalBudget) || input.totalBudget < 0) {
-    throw new Error("Budget total can't be negative.");
+    throw new UserFacingError("Budget total can't be negative.");
   }
-  if (!input.seasonLabel.trim()) throw new Error("Season label is required.");
+  // A5: an upper limit under the column's numeric(9,2), so a huge total gets
+  // a sentence instead of a database overflow and "Try again".
+  const validationError = seasonBudgetLimitError(input.totalBudget);
+  if (validationError) throw new UserFacingError(validationError);
+  if (!input.seasonLabel.trim()) throw new UserFacingError("Season label is required.");
 
   if (!ctx) {
     const { postJson } = await import("@/lib/api-client");
@@ -376,7 +384,7 @@ export async function saveSeasonBudget(
     )
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapSeasonBudget(data);
 }
 
@@ -419,7 +427,7 @@ export async function saveBudgetExpense(
   ctx?: FamilyWriteContext
 ): Promise<BudgetExpense | null> {
   const validationError = validateBudgetExpenseInput(input);
-  if (validationError) throw new Error(validationError);
+  if (validationError) throw new UserFacingError(validationError);
 
   if (!ctx) {
     const { postJson } = await import("@/lib/api-client");
@@ -442,6 +450,6 @@ export async function saveBudgetExpense(
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new DatabaseWriteError(error);
   return mapBudgetExpense(data);
 }

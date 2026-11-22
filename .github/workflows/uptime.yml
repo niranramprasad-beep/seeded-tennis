@@ -1,0 +1,94 @@
+name: Uptime
+
+# P1-OPS-2. Once an hour, ask production two questions from outside it:
+# does the homepage answer 200, and does /api/health answer 200 with
+# "ok": true (the app is up AND it can reach its Supabase project — see
+# app/api/health/route.ts and lib/health.ts).
+#
+# WHAT A FAILURE DOES: the run fails, and GitHub's own Actions notification
+# goes to the user who last changed the `cron` line below, according to that
+# user's GitHub notification settings (Settings -> Notifications ->
+# Actions). GitHub decides "last changed" from the change as it lands on the
+# DEFAULT branch (`main`): treat it as whoever lands the cron change on
+# main. Whoever should hear about an outage should be the one who lands the
+# next change to this line (any minute edit counts), and should have Actions
+# notifications turned on for failed workflows. That is the whole of it. It is not a pager, it does not retry
+# into a second alert, and it watches nothing between runs — an outage
+# shorter than an hour can be missed entirely. docs/TECHNICAL_ARCHITECTURE.md
+# "Monitoring" says what exists and what does not.
+#
+# WHY HOURLY AND NOT MORE: the repo is going private, and a private repo's
+# Actions minutes are billed. Each run rounds up to one minute, so this is
+# about 24 x 30 = 720 minutes a month. Do not make it more frequent without
+# checking the account's included minutes first. GitHub also delays
+# scheduled runs under load, so "hourly" is approximate.
+#
+# RETRIES: 20 s per attempt, 2 retries 10 s apart (curl retries timeouts
+# and 408/429/500/502/503/504). Worst case is about 80 s per URL, hence the
+# 4-minute job limit. /api/health caches a failed database check for only
+# 5 s (lib/health.ts), so each retry asks Supabase again instead of
+# re-reading the first failure — one blip does not fail the run.
+#
+# No secrets, no third-party actions (plain curl and jq, both preinstalled on
+# ubuntu-latest), read-nothing permissions. It touches ci.yml not at all.
+
+# WHY :23 (was :17): GitHub registers a schedule from the default branch's
+# copy of this file, and a brand-new workflow's schedule sometimes does not
+# register until the file changes again. The :17 schedule merged at 19:29
+# UTC on 2026-11-21 had produced no scheduled run by 21:50 UTC (only the
+# 19:32 manual run). Changing the minute is that change. Is it running? See
+# docs/TECHNICAL_ARCHITECTURE.md "Monitoring" — check that scheduled runs
+# exist, do not assume it.
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Homepage answers 200
+        run: |
+          set -u
+          code=$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' \
+            --max-time 20 --retry 2 --retry-delay 10 --retry-connrefused \
+            https://seededtennis.com/) || code="curl-failed"
+          echo "https://seededtennis.com/ -> ${code}"
+          if [ "${code}" != "200" ]; then
+            echo "::error title=Homepage down::https://seededtennis.com/ answered ${code}, expected 200"
+            exit 1
+          fi
+
+      - name: /api/health answers 200 with ok true
+        run: |
+          set -u
+          body_file="$(mktemp)"
+          code=$(curl --silent --show-error --output "${body_file}" \
+            --write-out '%{http_code}' \
+            --max-time 20 --retry 2 --retry-delay 10 --retry-connrefused \
+            -H 'Cache-Control: no-cache' \
+            https://seededtennis.com/api/health) || code="curl-failed"
+          echo "https://seededtennis.com/api/health -> ${code}"
+          # The body is public by design (ok, commit, checks) and carries no
+          # upstream error text, so printing it is safe and useful.
+          head -c 500 "${body_file}"; echo
+          if [ "${code}" != "200" ]; then
+            echo "::error title=Health check failed::/api/health answered ${code}, expected 200"
+            exit 1
+          fi
+          if ! jq -e '.ok == true' "${body_file}" > /dev/null; then
+            echo "::error title=Health check failed::/api/health answered 200 without \"ok\": true"
+            exit 1
+          fi

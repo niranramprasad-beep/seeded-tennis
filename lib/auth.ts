@@ -7,7 +7,7 @@ import { getDefaultCommitDate, getGradYearFromGrade, resolveGraduationYear } fro
 import { validateUtrProfileLink } from "@/lib/utr-profile-link";
 import { isSeasonKey, toTournamentsPlannedOrNull } from "@/lib/tournaments-planned";
 import { joinFamily, type JoinFamilyStatus } from "@/lib/db/family-join";
-import { OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
+import { EMAIL_VERIFIED_PATH, OAUTH_CALLBACK_PATH, safeRedirectPath } from "@/lib/config/auth";
 import { VERIFY_EMAIL_REQUIRED_MESSAGE } from "@/lib/email-verify-required";
 
 export interface AccountInput {
@@ -282,7 +282,9 @@ export async function signUp(
   let data;
   try {
     const res = await supa.auth.signUp({
-      email: input.email,
+      // A pasted address often carries a trailing space, which Supabase
+      // refuses as invalid on the form's last step (final-check A6).
+      email: input.email.trim(),
       password: input.password,
       options: {
         emailRedirectTo:
@@ -323,7 +325,7 @@ export async function signUp(
   if (!userId) return { ok: false, error: AUTH_ERROR_MESSAGES.serverError };
   const profileResult = await ensureSupabaseProfile({
     userId,
-    email: input.email,
+    email: input.email.trim(),
     name: input.name,
     country: input.country,
     gender: input.gender,
@@ -342,13 +344,41 @@ export async function signUp(
   return { ok: true, familyCode, joinStatus: profileResult.joinStatus };
 }
 
+/**
+ * Where Google sends the browser back to. Pure, so it is tested.
+ *   sign-in      -> /auth/callback (?next= when safe)
+ *   verify-email -> /auth/verified, with NO query string: the return screen
+ *                   is remembered in localStorage (lib/email-verify-flow.ts),
+ *                   so the URL is exactly the one the emailed link already
+ *                   uses and the Supabase redirect allow-list needs nothing new.
+ */
+export function googleRedirectTo(
+  origin: string,
+  next: string | null | undefined,
+  purpose: "sign-in" | "verify-email"
+): string {
+  if (purpose === "verify-email") return `${origin}${EMAIL_VERIFIED_PATH}`;
+  const safeNext = safeRedirectPath(next ?? null);
+  return `${origin}${OAUTH_CALLBACK_PATH}${safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""}`;
+}
+
 // Starts Google OAuth via Supabase. This calls the real Supabase API — it's
 // not a fabricated button. Whether it actually completes depends on the
 // Google provider being enabled (with a client ID/secret) in this project's
 // Supabase dashboard under Authentication → Providers, which can't be
 // verified or configured from application code; if it isn't enabled yet,
 // Supabase returns a clear provider error here rather than silently failing.
-export async function signInWithGoogle(next?: string): Promise<AuthResult> {
+//
+// `purpose: "verify-email"` is "Verify with Google instead" (migration 043):
+// a signed-in parent proves their address with a Google account for the SAME
+// address. Supabase links that Google identity to the existing account
+// (automatic linking by verified email), and the browser comes back to
+// /auth/verified — the page the emailed link already lands on — which runs
+// mark_email_verified(). The database decides; nothing here marks anything.
+export async function signInWithGoogle(
+  next?: string,
+  opts?: { purpose?: "sign-in" | "verify-email" }
+): Promise<AuthResult> {
   const supa = getSupabase();
   if (!supa) return notConfiguredResult();
 
@@ -358,10 +388,7 @@ export async function signInWithGoogle(next?: string): Promise<AuthResult> {
   // a brand-new user goes, and a redirect URL that changed per page — so the
   // Supabase allowlist had to be wide. One path, allowlisted once.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const safeNext = safeRedirectPath(next ?? null);
-  const redirectTo = `${origin}${OAUTH_CALLBACK_PATH}${
-    safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""
-  }`;
+  const redirectTo = googleRedirectTo(origin, next, opts?.purpose ?? "sign-in");
 
   try {
     const { error } = await supa.auth.signInWithOAuth({
@@ -583,9 +610,12 @@ export async function resendConfirmationEmail(email: string): Promise<AuthResult
   }
 }
 
-export async function signOut(): Promise<void> {
+export async function signOut(opts?: { scope?: "global" | "local" }): Promise<void> {
   const supa = getSupabase();
-  if (supa) await supa.auth.signOut();
+  // "local" ends only THIS browser's session (used when Google returned a
+  // different account than the one verifying: that account's other devices
+  // are none of our business). The default stays Supabase's "global".
+  if (supa) await supa.auth.signOut(opts?.scope ? { scope: opts.scope } : undefined);
 }
 
 /** The id of the auth session in this browser, or null. Local first

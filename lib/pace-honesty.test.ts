@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { FIT_ENGINE_FILES } from "./fit/engine-files";
 
 // PR D, D1 decision 3: ONE pace number, said one way. The owner's audit found
 // the same player's pace as "+1.45 last 6 months" (/plan), "My pace … +1.5/yr"
@@ -38,7 +39,8 @@ const PACE_SCREENS = [
   ...walk("components/seeded/onboarding"),
   "components/seeded/ui/what-if-panel.tsx",
   "components/seeded/ui/projection-note.tsx",
-  "lib/fit.ts",
+  // lib/fit.ts — since the 2026-11-21 split, the barrel and lib/fit/*.ts.
+  ...FIT_ENGINE_FILES,
   "lib/school-fit.ts",
 ];
 

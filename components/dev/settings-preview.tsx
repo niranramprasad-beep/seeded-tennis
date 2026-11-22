@@ -51,6 +51,7 @@ export function SettingsPreview({ targetSchools }: { targetSchools: SchoolLite[]
         },
         setPlayerLocal: (patch) => setPlayer((prev) => ({ ...prev, ...patch })),
         signOut: () => {},
+        signOutLocal: async () => {},
         userId: "dev-preview",
       }}
     >

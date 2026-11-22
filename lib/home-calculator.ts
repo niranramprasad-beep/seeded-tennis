@@ -25,3 +25,20 @@ export function onboardingQueryFor(
   }
   return params.toString();
 }
+
+/** The card's footnote. "Example output" only while every value is still
+ *  Seeded's example; once the visitor changes one the counts are theirs
+ *  (final-check A13: the label stayed after they typed). */
+export const EXAMPLE_OUTPUT_NOTE = "Example output. Counts depend on your inputs.";
+export const OWN_OUTPUT_NOTE = "From your inputs, against our estimated team ranges.";
+export function heroOutputNote(touched: ReadonlySet<CalculatorField>): string {
+  return touched.size === 0 ? EXAMPLE_OUTPUT_NOTE : OWN_OUTPUT_NOTE;
+}
+
+/** The card's button. Untouched, its count is the EXAMPLE's — and the
+ *  example values deliberately do not travel to /onboarding (above), so
+ *  "See my 10 …" promised a number the next screen does not show. Untouched
+ *  it names no count (final-check A13). */
+export function heroButtonLabel(ctaLabel: string, touched: ReadonlySet<CalculatorField>): string {
+  return touched.size === 0 ? "Check my own fit" : ctaLabel;
+}

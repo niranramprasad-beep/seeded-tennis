@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { signInWithGoogle } from "@/lib/auth";
 import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
+import { rememberMyGoogleVerifyStart } from "@/lib/db/email-verification";
+import { VERIFY_COPY, startGoogleVerify, takeGoogleVerifyStart } from "@/lib/email-verify-flow";
 import { SeededButton } from "@/components/seeded/ui/button";
 
 // The shared shell for /login, /signup, /parent-signup, /reset-password and
@@ -75,7 +77,10 @@ export function AuthField({
       </div>
       {children}
       {error ? (
-        <p id={fieldHintId(htmlFor)} className="mt-1.5 text-sm text-error-strong">
+        // role="alert": the message is mounted when it appears (on blur, or
+        // on Continue), and a live region added with its text already in it
+        // is not reliably announced; an alert is.
+        <p id={fieldHintId(htmlFor)} role="alert" className="mt-1.5 text-sm text-error-strong">
           {error}
         </p>
       ) : help ? (
@@ -262,6 +267,81 @@ export function GoogleButton({ next, label, onStart }: GoogleButtonProps) {
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * "Verify with Google instead" — the second way a PARENT proves their email
+ * (migration 043: a Google identity whose verified email is the account's
+ * email). Lives here, beside GoogleButton, so it carries the same flag guard
+ * and stays the only other caller of signInWithGoogle
+ * (components/auth/google-button-flag.test.ts).
+ *
+ * Before leaving it runs `onBeforeStart` (the caller remembers the return
+ * screen and, for a join, the family code), then remembers WHICH account
+ * asked, so /auth/verified can tell "same account, now linked to Google"
+ * from "Google signed you into a different account". Google comes back to
+ * /auth/verified, which runs the existing mark_email_verified() path.
+ * Nothing here decides who is verified, or who must verify.
+ */
+export function GoogleVerifyButton({
+  onBeforeStart,
+  hint,
+  className,
+}: {
+  onBeforeStart?: () => void | Promise<void>;
+  /** The one-line "works when your Google account uses the same email". */
+  hint?: ReactNode;
+  className?: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hintId = useId();
+
+  if (!GOOGLE_AUTH_ENABLED) return null;
+
+  const start = async () => {
+    setError(null);
+    setLoading(true);
+    // The order (remember who asked, then leave; forget again if Google
+    // could not be started) lives in startGoogleVerify, tested.
+    const failure = await startGoogleVerify({
+      beforeStart: onBeforeStart,
+      rememberStart: rememberMyGoogleVerifyStart,
+      signIn: () => signInWithGoogle(undefined, { purpose: "verify-email" }),
+      clearStart: () => void takeGoogleVerifyStart(),
+    });
+    // On success the browser is already on its way to Google.
+    if (failure) {
+      setError(failure);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={className} data-testid="verify-with-google">
+      <SeededButton
+        type="button"
+        variant="secondary"
+        onClick={start}
+        loading={loading}
+        className="min-h-11 w-full whitespace-nowrap px-3 sm:w-auto sm:min-h-[38px] sm:px-[18px]"
+        aria-describedby={hint ? hintId : undefined}
+      >
+        {!loading && <GoogleMark />}
+        {loading ? VERIFY_COPY.googleStarting : VERIFY_COPY.google}
+      </SeededButton>
+      {hint && (
+        <p id={hintId} className="mt-1.5 text-xs text-stone">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-error-strong">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

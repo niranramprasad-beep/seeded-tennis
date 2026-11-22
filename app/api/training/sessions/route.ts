@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
 import { getRequestScopedSupabase, refuseParentPlayerDataWrite } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/server-log";
 import {
   TrainingWriteError,
   createTrainingSessions,
@@ -29,13 +31,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const json = await req.json().catch(() => null);
-  const parsed = TrainingSessionsBodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(TrainingSessionsBodySchema, json, "Check the session's date, start time and length, then save again.");
+  if (!parsed.ok) return parsed.response;
 
   const writeCtx = { supabase: ctx.supabase, userId: ctx.user.id };
   try {
@@ -53,6 +50,7 @@ export async function POST(req: Request) {
       consentPending = data?.consent_status === "pending";
     }
     const status = err instanceof TrainingWriteError && err.code === "42501" ? 403 : err instanceof TrainingWriteError && err.code === "not_found" ? 404 : 500;
+    if (status === 500) logServerError("api.training_sessions.write_failed", err, { route: "/api/training/sessions" });
     return NextResponse.json({ error: trainingSaveErrorMessage(err, consentPending) }, { status });
   }
 }

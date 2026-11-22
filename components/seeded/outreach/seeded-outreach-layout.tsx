@@ -10,8 +10,9 @@ import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
-import { cn, isValidEmailAddress, plural } from "@/lib/utils";
+import { cn, isValidEmailAddress } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
+import { outreachSummaryLine } from "@/lib/empty-state-copy";
 
 /**
  * The column a target school sits in. A saved target with no outreach row
@@ -147,6 +148,7 @@ export function SeededOutreachLayout({
 
   const emailedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "emailed").length;
   const repliedCount = targetSchools.filter((s) => statuses[s.slug]?.status === "replied").length;
+  const contactedCount = targetSchools.filter((s) => boardStageFor(s.slug, statuses) !== "researching").length;
   const dueCount = targetSchools.filter((s) => {
     const entry = statuses[s.slug];
     return entry?.status === "emailed" && daysSince(entry.updatedAt) >= FOLLOW_UP_AFTER_DAYS;
@@ -171,9 +173,16 @@ export function SeededOutreachLayout({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-seeded text-[30px] font-semibold tracking-[-0.02em] text-ink">Outreach</h1>
+          {/* No "0 emailed · 0 replied · 0 follow-ups" before a first email
+              (final-check A11). */}
           <p className="mt-1.5 text-ink/70">
-            {plural(targetSchools.length, "program", "programs")} · {emailedCount} emailed · {repliedCount} replied ·{" "}
-            {dueCount} follow-up{dueCount === 1 ? "" : "s"} due this week
+            {outreachSummaryLine({
+              programs: targetSchools.length,
+              contacted: contactedCount,
+              emailed: emailedCount,
+              replied: repliedCount,
+              due: dueCount,
+            })}
           </p>
         </div>
         <div className="relative">
@@ -223,9 +232,11 @@ export function SeededOutreachLayout({
           1112px content area beside the sidebar) and scroll sideways only
           when the screen is narrower. Fixed 220px columns overflowed by
           ~270px, so Offer and Committed sat clipped off the right edge
-          with nothing saying the board scrolled (C28). */}
+          with nothing saying the board scrolled (C28). Below 640px the
+          stages stack instead: at 375 Replied…Committed sat off-screen with
+          nothing showing the row scrolled (final-check B14). */}
       <div
-        className="grid auto-cols-[minmax(170px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2"
+        className="grid grid-cols-1 gap-3 pb-2 sm:auto-cols-[minmax(170px,1fr)] sm:grid-flow-col sm:grid-cols-none sm:overflow-x-auto"
         role="list"
         aria-label="Outreach board"
       >
@@ -307,6 +318,10 @@ export function SeededOutreachLayout({
                           </option>
                         ))}
                       </select>
+                      {/* Only once an email went out: on a Researching card
+                          it set "Reminder set for …" to follow up an email
+                          that did not exist (final-check A11/B13). */}
+                      {contacted && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -320,6 +335,7 @@ export function SeededOutreachLayout({
                             (QA sweep L1). The card flags it when due. */}
                         Follow up in {REMIND_ME_AFTER_DAYS} days
                       </button>
+                      )}
                     </div>
                   );
                 })

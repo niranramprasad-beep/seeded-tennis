@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+import { parseRequestBody } from "@/lib/api-body";
+import {
+  CHECKOUT_FAMILY_ALREADY,
+  CHECKOUT_NO_URL,
+  CHECKOUT_PLAN_UNAVAILABLE,
+  CHECKOUT_WHOP_UNREACHABLE,
+  checkoutNotConfiguredMessage,
+} from "@/lib/checkout-messages";
 import { z } from "zod";
 import { getRequestScopedSupabase } from "@/lib/api-auth";
 import { rateLimited } from "@/lib/rate-limit";
 import { getWhop, planIdFor } from "@/lib/whop";
+import { logServerError } from "@/lib/server-log";
+
+const ROUTE = "/api/whop/checkout";
 
 const BodySchema = z.object({
   tier: z.enum(["player", "family"], { message: "Unknown plan." }),
@@ -15,17 +26,18 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   const whop = getWhop();
   if (!whop) {
-    return NextResponse.json({ error: "Billing isn't configured yet." }, { status: 500 });
+    logServerError("whop.checkout.not_configured", null, { route: ROUTE });
+    // 503, not 500: nothing crashed. On a Vercel Preview this is the normal
+    // state (the Whop key is a production-only variable). lib/checkout-messages.ts.
+    return NextResponse.json(
+      { error: checkoutNotConfiguredMessage(process.env.VERCEL_ENV) },
+      { status: 503 }
+    );
   }
 
   const json = await req.json().catch(() => null);
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Unknown plan." },
-      { status: 400 }
-    );
-  }
+  const parsed = parseRequestBody(BodySchema, json, "Choose the Player or Family plan to check out.");
+  if (!parsed.ok) return parsed.response;
   const { tier, interval } = parsed.data;
 
   const planId = planIdFor(tier, interval);
@@ -33,10 +45,8 @@ export async function POST(req: Request) {
     // Deliberately NOT falling back to the other interval or to a legacy
     // plan. A missing env var means we do not know what to charge, and
     // charging the wrong price is worse than not selling.
-    return NextResponse.json(
-      { error: "That plan isn't available right now." },
-      { status: 500 }
-    );
+    logServerError("whop.checkout.plan_unavailable", null, { route: ROUTE, tier, interval });
+    return NextResponse.json({ error: CHECKOUT_PLAN_UNAVAILABLE }, { status: 503 });
   }
 
   // S-6: needs a request-scoped client (not just the decoded user) so the
@@ -50,6 +60,22 @@ export async function POST(req: Request) {
 
   const limited = await rateLimited(ctx.supabase, "whop_checkout");
   if (limited) return limited;
+
+  // Never sell a family a second Family plan (lib/plan-entry.ts). /pricing
+  // already disables the button; this is the server half, as this caller,
+  // through 045's my_family_has_tier (the payer's HOME family rule). It
+  // fails OPEN on an RPC error: this route is the only purchase path, and a
+  // database blip must not make Family unbuyable. Logged either way.
+  if (tier === "family") {
+    const { data: alreadyHasIt, error: familyError } = await ctx.supabase.rpc("my_family_has_tier", {
+      p_tier: "family",
+    });
+    if (familyError) {
+      logServerError("whop.checkout.family_check_failed", familyError, { route: ROUTE });
+    } else if (alreadyHasIt === true) {
+      return NextResponse.json({ error: CHECKOUT_FAMILY_ALREADY }, { status: 409 });
+    }
+  }
 
   // Where Whop sends the buyer back. It was built from the request's Origin
   // header (S-11): a header the caller controls, and on a local server an
@@ -72,15 +98,21 @@ export async function POST(req: Request) {
       redirect_url: `${returnBase}/dashboard?checkout=success`,
     });
   } catch (err) {
-    console.error("[whop/checkout] create failed", err instanceof Error ? err.message : String(err));
+    logServerError("whop.checkout.create_failed", err, { route: ROUTE, tier, interval });
     return NextResponse.json(
-      { error: "Couldn't reach Whop to start checkout. Try again in a minute." },
+      { error: CHECKOUT_WHOP_UNREACHABLE },
       { status: 502 }
     );
   }
 
   if (!config.purchase_url) {
-    return NextResponse.json({ error: "Could not start checkout." }, { status: 500 });
+    logServerError("whop.checkout.no_purchase_url", null, { route: ROUTE, tier, interval });
+    // Whop answered without a checkout URL: an upstream problem, so 502 like
+    // the failed call above, not a crash of ours.
+    return NextResponse.json(
+      { error: CHECKOUT_NO_URL },
+      { status: 502 }
+    );
   }
 
   const url = config.purchase_url.startsWith("http")

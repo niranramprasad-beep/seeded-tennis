@@ -578,7 +578,10 @@ it, or the family has to start over; (5) not caused by 052 but seen in its
 probe: a parent whose home is family C and who also joined family A still
 counts toward A's 2-parent cap (045's `family_member_count` counts any
 approved link), and cannot leave A (`leave_family()` acts on the home family
-C). After 052 a player of A can remove them, which frees the slot.
+C). After 052 a player of A can remove them, which frees the slot; (6) the
+second accepted edge below (a parent whose home family is elsewhere does not
+act for this one) — the "approved by" line in (2) should show each parent's
+home family.
 
 **DECIDED by Niran 2026-11-21 — build after the developer review** (DECISIONS
 2026-11-21): a player may approve only the FIRST parent of a family; once an
@@ -595,9 +598,10 @@ turning their rejoin requests away. It needs the real parent's own second
 join request, so a player cannot cause it alone (probes T1–T5,
 `~/seeded-evidence/sat-prereview/p015/round2/`). The "approved by" line
 should also show each parent's home family.
-Implementation: one migration changing `approve_family_join` (033's pattern:
-the approver's own `profiles.role` + approved membership), a guard test, and
-the roster line.
+Implementation: BUILT as migration 052 (`approve_family_join` and
+`remove_family_member`, 033's pattern: the approver's own `profiles.role` +
+approved membership) with the guard test; the roster line is still-open item
+(2) above.
 
 **MEDIUM, open on production until 052 ships.** 050 makes the budget parent-only, but "parent" is a role
 chosen at sign-up and any approved member may approve a join
@@ -768,3 +772,42 @@ hydration, or to accept it and drop the page's sitemap priority.
   lifted for that), a GitHub Support request to drop the `refs/pull/*` heads
   and cached views (a force-push cannot remove those), and re-cloning every
   local checkout and worktree.
+
+## Left open by the PR E (billing) review, 2026-11-21 — both LOW
+
+- **L3: the body-reader detector in `lib/api-body.test.ts` is a lint, not a
+  proof.** It finds `.json()` on a handler's own parameter, `JSON.parse` of
+  its `.text()`, and arrow-function handlers. It does not follow the request
+  into a helper (`readBody(req)`), an aliased parameter (`const r = req`),
+  `formData()`, or `req.body` streams. A route written that way is not
+  exercised by the garbage-body behaviour test. Today no route does.
+- **L4: a Free PARENT in a family someone else unlocked can still buy
+  Player.** /pricing withholds only a second Family plan
+  (`lib/plan-entry.ts`); "Choose Player" stays live for every Free viewer,
+  because a Family plan does not raise anyone else's own tier (040's cap is
+  `has_tier` on the caller's row), so for a player it is a real purchase.
+  For a parent, Player buys nothing they would use. Decide whether a parent
+  account should be offered Player at all.
+
+## "Verify with Google instead" can leave a profile-less auth user (PR D review, 2026-11-21, MEDIUM)
+
+When a parent picks a Google account whose address is NOT their Seeded
+address, `signInWithOAuth` signs the browser into a different Supabase user.
+If that Google address had no Seeded account, Supabase CREATES one: an
+`auth.users` row plus a Google identity (email, name, avatar from Google),
+with no `profiles` row. `/auth/verified` signs it out of this browser only
+(scope "local") and tells the person, but nothing deletes the row. The same
+already happens for anyone who abandons a Google sign-up at `/auth/complete`
+(production had 3 auth users without a profile on 2026-11-21).
+
+- **Better fix (Niran's call, a Supabase setting):** enable manual identity
+  linking (Authentication → Sign In / Providers → "Allow manual linking") and
+  switch the verify button to `supabase.auth.linkIdentity({ provider: "google" })`.
+  The Google identity then attaches to the SIGNED-IN user whatever its email,
+  no second user is ever created, and 043's check still refuses a different
+  address. Downside: a linked different-address Google account becomes a
+  sign-in method for that Seeded account, so it needs an "unlink" path too.
+- **Cleanup either way:** a scheduled, service-role job (or a documented
+  manual query) that deletes `auth.users` rows with no `profiles` row, no
+  `parent_accounts` row, older than e.g. 7 days. Count first; never by hand on
+  production without Niran's go.
