@@ -131,6 +131,26 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // An auth redirect that lands on the bare home page belongs to
+  // /auth/callback. Supabase Auth sends the browser to the project's Site
+  // URL (https://seededtennis.com/) — not to our callback — whenever the
+  // redirect_to it was given is not on its allow-list, and when the OAuth
+  // state is missing it sends the error there too. The home page ignored
+  // both: on 2026-11-21 a Google sign-in started on the vercel.app address
+  // came back as /?code=… and the person sat on the signed-out home page
+  // with no message. Forwarded here, the callback either finishes the
+  // sign-in (same address, so the PKCE verifier is in this browser) or says
+  // exactly what went wrong (components/auth/oauth-errors.ts). Next passes
+  // the query string through unchanged. Not permanent: it is a fallback for
+  // a dashboard setting, not a move.
+  async redirects() {
+    return ["code", "error", "error_description"].map((key) => ({
+      source: "/",
+      has: [{ type: "query", key }],
+      destination: "/auth/callback",
+      permanent: false,
+    }));
+  },
 };
 
 export default nextConfig;

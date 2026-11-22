@@ -17,6 +17,7 @@
 
 import { AUTH_ERROR_MESSAGES } from "@/lib/auth";
 import { getGradYearFromGrade } from "@/lib/time";
+import { birthYearRangeForGradYear } from "@/lib/grade-birth-year";
 
 /** Every email-field message starts with this, so a screen reader that
  * hears only the error still knows which field it is about. */
@@ -107,9 +108,10 @@ export function signupFailureSendBack(
  * graduating high school in June of G is normally 17 or 18 then, so born in
  * G-19 or G-18. One year either side is still left alone — early starters,
  * repeated grades, reclassification — so the hint only appears when the two
- * answers are two or more years apart from usual. */
+ * answers are two or more years apart from usual. The same range the forms
+ * filter their birth-year lists to: one rule, in lib/grade-birth-year.ts. */
 export function usualBirthYearsForGradYear(gradYear: number): { earliest: number; latest: number } {
-  return { earliest: gradYear - 20, latest: gradYear - 17 };
+  return birthYearRangeForGradYear(gradYear);
 }
 
 /**
