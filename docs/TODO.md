@@ -1,241 +1,66 @@
 # Seeded — TODO
 
-Short, ordered, and about *what happens next*. `docs/MASTER_ROADMAP.md`
-stays the full picture with acceptance criteria; this file is the queue.
+**The one list of open work.** [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md)
+orders it (status, blockers, NEXT 10); this file holds every open item with
+its reasoning. Done or overtaken items move — verbatim, never deleted — to
+[`archive/TODO_DONE.md`](archive/TODO_DONE.md).
 
-Last updated 2026-11-19.
+Reorganised 2026-11-22 (`chore/docs-organize`): grouped by area, done items
+moved out. Every item below keeps the wording and date it was written with,
+so "tonight", "Week 1" or "before launch" inside one means *as of that
+date*. A status line is a claim about a live system: check `pg_policies`,
+`list_migrations` or the code before relying on it.
+
+How to use it: add a new item under its area with the date and where it was
+found; when you close one, move it to `archive/TODO_DONE.md` (newest move
+first, with why) in the same commit as the fix.
+
+1. [Owner (Niran) — dashboards, keys and decisions](#1-owner-niran--dashboards-keys-and-decisions)
+2. [Security and database](#2-security-and-database)
+3. [Billing and checkout](#3-billing-and-checkout)
+4. [Product and UX](#4-product-and-ux)
+5. [Catalog and data](#5-catalog-and-data)
+6. [Performance and SEO](#6-performance-and-seo)
+7. [Code health, tests and dependencies](#7-code-health-tests-and-dependencies)
 
 ---
 
-## WEEK 1 — ranked (written by the 2026-11-15 overnight pass)
+## 1. Owner (Niran) — dashboards, keys and decisions
 
-**Open after PR B (2026-11-18) — Niran's calls or dashboard steps:**
+Not code. Copied from the 2026-11-21 NEXT 10 (kept in
+`archive/ROADMAP_HISTORY.md`):
 
-- ~~**One Family subscription unlocks any number of families.**~~ **Decided
-  2026-11-19: RESTRICT** — one plan unlocks the payer's home family only, and a
-  family holds at most 4 players and 2 parents. Migration 045 (HANDOFF §J
-  Step 20); copy on /pricing, the paywall and /privacy.
-- **045 follow-ups (review 2026-11-19, LOW, not fixed):** (1) the
-  confirmation-required sign-in path (`lib/auth.ts`, `ensureSupabaseProfile`
-  on first login) ignores `joinStatus`, so a `family_full` or
-  `verify_email_required` there says nothing — production auto-confirms, so it
-  is rarely reached; (2) a joiner who was already PENDING when the family
-  filled up gets no message — only the approver sees `family_full`; (3) support
-  has no way to raise one family's cap short of a migration, and an under-13
-  refused by a full family can only reach consent through support.
-- **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
-  staging, and `<site>/auth/verified` added to Supabase Auth → URL
-  Configuration → Redirect URLs on staging and production BEFORE 043 ships.
-- **Email budget:** every parent who wants to approve or consent will need one
-  verification email; production's custom SMTP allows 80/hour for the whole
-  project, shared with password resets. Supabase Auth's own rate limits are the
-  only real cap on `signInWithOtp` (the `email_verify` bucket limits Seeded's
-  own path only).
+Niran's own list (dashboards/keys, not code): **turn off the Supabase GitHub
+integration's deploy to production** (Supabase → production project →
+Project Settings → Integrations → GitHub: "Deploy to production" off, or
+disconnect; final-check `prF/SUPABASE_CHECK.md`) — never by renaming
+migration files; confirm a scheduled Uptime run exists after PR F merges;
+**run the $0 production
+checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
+webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
+the only way to prove checkout → webhook → tier on production; revoke the old Gemini and
+Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
+limits and leaked-password protection are plan settings); an adult/lawyer
+review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);
+**GA Admin → Data streams → web stream → Enhanced measurement: turn OFF
+entirely** (page changes based on browser history, outbound clicks, site
+search, form interactions, file downloads, video), then confirm in DebugView
+that a calculator → /onboarding navigation sends no query; pick a GA
+retention period. Follow-up (code): the homepage calculator still puts its
+answers in the `/onboarding?utr=…&gradYear=…&gender=…` URL — move them out
+of the URL (e.g. the sessionStorage hand-off the diagnostic already uses).
+
+Also the owner's:
+- **UTR licensing** for the imported ranges (DATA_QUALITY "Second source"),
+  and whether to purge the raw roster file from git history (§5 "Catalog
+  phase 1 follow-ups", last bullet).
+- **Observability:** Vercel log drain vs Sentry (MASTER_ROADMAP NEXT 10 #10).
 - **Production's 28 generated workout sessions** (5 training_plans, 3 users)
   are hidden by PR C, not deleted. **Decided 2026-11-19: keep them hidden; do
   not delete. Revisit on or after 2026-12-19** (30 days): if nobody has asked
   for them, propose deletion again with a backup.
 
-**Billing honesty — needs Niran's call (found 2026-11-16 rebuilding /pricing):
-the Family plan unlocks nothing the code enforces.** `FEATURE_TIER`
-(lib/types.ts) marks the parent dashboard, season budget and weekly report as
-Family-tier, and /pricing's compare table is generated from it — but no RLS
-policy calls `has_tier('family')` for them, `/family*` is not behind
-`PaidGate`, `lib/route-access.ts` checks role only, and budget writes check
-`is_parent_member()` with no tier. A parent on Free gets all three today.
-Either gate them (PaidGate on /family* + `has_tier('family')` in the budget /
-report policies — a migration, and it takes access away from today's free
-parents) or change `FEATURE_TIER` and the Family card (the table follows
-automatically). Not changed in the UI polish PR because either fix changes a
-live flow or what people are paying for.
-
-**Do these two first — both are migrations, so neither ships in the UI
-polish PR (Niran, 2026-11-16):**
-
-- **A. An under-13 whose consent is PENDING must see no family names,
-  emails or ratings.** Today `family_members()` still returns the roster
-  (names, emails, ratings) to a pending under-13 who has joined a family —
-  030/031 make their account inert for writes and most reads, but this
-  SECURITY DEFINER function is the exception. Fix: have `family_members()`
-  return zero rows (or only the caller's own row) while
-  `my_consent_state()` is `pending`; rehearse on staging with a pending
-  under-13 joiner; guard test on the roster function. See item 10 below,
-  which this replaces.
-- **B. Parents cannot insert player-data rows under their own account.**
-  Role-gate the INSERT policies on utr_entries, matches, tournament_entries,
-  coach_outreach, daily_checkins and the other player tables
-  (`profiles.role = 'player'` in WITH CHECK, mirroring 033).
-  (`is_parent_member()` became role-aware in 050, 2026-11-20.) Today the app's routes refuse it (403),
-  but PostgREST allows it. Same item as 3 below, promoted.
-
-1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the
-   hero — real results plus a dashed "Estimate" junior-year projection with
-   the slow/fast band; a KPI row (UTR change, Target+Likely by junior year,
-   coaches emailed/replied, season spend vs budget); per-category budget bars
-   that turn amber at 90% and RED with one calm sentence when over budget
-   (icon + text, never colour alone); a budget-vs-actual mini chart; the
-   last 5 expenses; parent next-actions; teaching empty states. Monarch's
-   trend-as-hero, Copilot's calm polish, YNAB's budget-vs-actual — in
-   Seeded's own design system, light and dark. **Build it on tonight's
-   plumbing:** `pickFamilyPlayer()` for the subject, `DataSubject` loaders
-   for every number, `parentScopeSentence()` for the story. **A player
-   switcher** belongs here too: a family with two players sees one of them
-   (deterministically the first to join), and Settings says "Reports show
-   one player for now".
-2. **PREMIUM DIAGNOSTIC ONBOARDING** (Niran, 2026-11-16) — one question per
-   screen, progress bar, under 90 seconds: current UTR; UTR about 6 months
-   ago (optional, "not sure"); UTR about a year ago (optional); team; grad
-   year; planned college enrollment term (gap year / reclassify); birth
-   MONTH + YEAR (not a full date of birth — data minimisation for minors);
-   GPA (optional). Use the player's real growth rate from the past ratings
-   when given, and fall back to the labelled assumption otherwise. Honest
-   "Estimate" labels throughout. (Builds on tonight's change: the
-   projection already targets the summer before senior year in one place,
-   `projectionTargetDate()` in `lib/fit.ts`.)
-3. **Role-gate the player tables' INSERT policies** (migration). A parent
-   can still log a UTR/match/event under their OWN id by calling PostgREST
-   directly; the app's routes refuse it (403) and no family screen reads a
-   parent's rows as the player's, but RLS allows it. Mirror 033: require
-   `profiles.role = 'player'` in the WITH CHECK of utr_entries, matches,
-   tournament_entries, coach_outreach, the training tables, daily_checkins.
-   Attack-test a parent refused and a player allowed, on staging first.
-4. ~~**`is_parent_member()` role-aware**~~ — DONE, migration 050 (2026-11-20).
-5. **Delete `generatePersonalizedPlan()`** (already listed below).
-6. **Onboarding's Grade and gender defaults.** Tonight made the UTR an
-   explicit choice; the same signed-in onboarding still preselects 10th
-   grade and men's. They are visible choices the player confirms, not silent
-   defaults, but they produce a graduation year and a growth curve the
-   player never chose if they click through.
-7. ~~**Delete Legacy (P1-UX-2).**~~ **DONE 2026-11-20 (PR-LEGACY,
-   `chore/delete-legacy-theme`).** Every Legacy view, palette, font and
-   switch is deleted; its four routes are server redirects;
-   `lib/no-legacy-theme.test.ts` fails the build if any of it returns. The
-   one follow-up is the optional cleanup migration under "Smaller things".
-8. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
-   `http://localhost` return URL, so the four checkout starts could only be
-   checked to the request. `/api/whop/checkout` now pins the return URL to
-   the production domain or the preview's own `https://$VERCEL_URL`.
-9. **Players' theme follows the account, not the device.** Signed in, the
-   stored theme overrides the browser's on every load (DesignPreferenceSync
-   pulls it). Tonight stopped the per-page-view WRITE; whether a phone and a
-   laptop should share a theme is a product call.
-10. **What an under-13 awaiting consent can read** (independent verifier,
-    2026-11-16). RLS keeps a pending account out of 21 tables, but
-    `family_members()` is SECURITY DEFINER and returns the family's members
-    — names, emails, ratings, targets — to any approved member, consent
-    pending or not. It is inside their own family, so not a leak, but it is
-    more than "inert". Decide whether `family_members()` should return
-    nothing (or names only) while the caller's `consent_status = 'pending'`;
-    that is a migration. The copy no longer claims "reads nothing".
-11. **The projection's ceiling is silent.** `cappedByCeiling` (lib/fit.ts)
-    is computed and never shown: a Class of 2034 player at 8.7 projects to
-    14.0, the realistic ceiling, with typical and fast growth equal. Say so
-    on the screen when it happens. Small.
-12. **In the last hours before June 1 of the target summer** the projection
-    rounds to today's rating but is still chipped "Estimate". Cosmetic; flip
-    `isProjected` when the remaining time is under a day.
-14. ~~**A parent's /schools shifts on a phone.**~~ **DONE 2026-11-16
-    (PR A, `fix/ui-polish-1`)** exactly as proposed: `seeded.role` in
-    localStorage (set by one effect in player-context on every sign-in path,
-    cleared on sign-out), `html[data-role]` from the head script, and
-    role-sized placeholders — plus the band chips and fit column held while
-    a parent's roster loads. Measured with a layout-shift probe: persona f
-    0.0001 / 0.0004 / 0.0034 and persona a 0.0001 / 0.0004 / 0.0021 at
-    320 / 375 / 1440 (were up to 0.29 for f mid-PR, 0.13–0.20 for a before).
-15. **LCP on a simulated slow-4G phone is 5.1–6.1 s** on every public
-    route (Lighthouse mobile, local production build; performance 78–81,
-    CLS 0, TBT ≈ 0). Six web-font families load on every page; start there
-    (drop unused families, subset, `preload: false` on the decorative
-    ones), then check field data in Vercel Speed Insights after launch —
-    lab LCP on localhost is an estimate, not what users see.
-13. `isConsentPendingAllowedPath` lists `/family`, but players are blocked
-    from `/family` first, so the entry does nothing. Remove it or document
-    why it is there.
-
-## Blocking the production rollout
-
-### 1. ✅ Family linking — DONE (2026-11-14), staging only
-`completeFamilySignup()` uses `join_family()` only; 023 + 026 applied and
-end-to-end tested on staging (30/30). Ships as one unit with those two.
-
-### 2. ✅ Vercel Preview + local Development on staging — DONE (Niran, 2026-11-14)
-All three Supabase vars are Production-only; Preview and Development carry
-their own, pointing at `gnlcpnsweqbtwpaqhqqg`. Verified read-only from the
-project's env config. **One caveat:** the newest `v1` preview deployment
-was built ~2 hours BEFORE that change, so it is still talking to
-production. The next push to `v1` produces the first preview that actually
-reads staging — worth confirming on that build rather than this one.
-
-Niran also found and fixed something worse while doing it: preview deploys
-were using the **production** service-role key.
-
-### 3. ✅ Branch protection on `main` — DONE (Niran, 2026-11-14)
-Ruleset "Protect main": PR required, `verify` required, force pushes
-blocked. **Work with it, never around it.**
-
-### 4. ✅ Credentials — DONE (Niran, 2026-11-14)
-`GEMINI_API_KEY` deleted from Vercel; Stripe was never used; the Whop key
-was verified never committed, so no rotation was needed.
-
-### 5. The rollout itself
-Nine migrations, in order, then the code:
-`025 → 022 → 023 → 026 → 024 → 027 → 028 → 029 → 030 → 031`, then revert
-the maintenance commit and merge `v1` → `main`. Every step has a verify
-and a rollback in `docs/HANDOFF.md` §J. **Waiting on Niran's "go".**
-
-Highest-blast-radius step is 8 (030 + 031): it adds a restrictive policy to
-21 tables. Its pre-flight check — every existing row `consent_status =
-'not_required'`, zero `'pending'` — is the one that must not be skipped.
-
----
-
-## Still open after the rollout
-
-- **An EMPTY family's code can be claimed by a new signup** (found on
-  production 2026-11-16, step 9). 032 blocks a code that any profile or
-  `parent_accounts` row holds; production has one `families` row with 0
-  holders and 0 links, and a profile INSERT with that code succeeds. It
-  exposes nothing — there is no one in it to read — so it is LOW. Fix:
-  delete member-less `families` rows (service role, by hand), or have
-  `family_code_is_taken()` also check `families`.
-
-6. **P0-8's other half — the privacy policy.** The mechanisms are built and
-   tested: real deletion, a complete JSON export, under-13 consent, and
-   nothing about a minor visible to any other user. What does not exist is
-   the document that explains all of that to a parent, lists the processors
-   (Supabase, Vercel, Whop, Google Analytics) and states retention. That
-   needs an adult or a lawyer, not Claude. The one-paragraph policy inside
-   `/terms` is what is live today.
-7. ✅ **People who asked to be deleted under the old flow — none.** Checked
-   read-only on production 2026-11-14: `select count(*) from profiles where
-   deletion_requested_at is not null` returns **0**. Nobody is owed a manual
-   deletion. §J step 7's check stays in the plan because it is cheap and the
-   answer could change before the rollout.
-8. **CAPTCHA on signup and password reset.** Decided 2026-11-14: leaked-
-   password protection is a Pro-plan feature and is deferred until there are
-   paying users; Supabase Auth's own per-IP limits are accepted for launch.
-   The gap that leaves is scripted account creation and reset-email
-   flooding, which per-IP limits alone do not stop. Supabase supports hCaptcha
-   and Turnstile natively (Authentication → Settings → Bot and Abuse
-   Protection) and the client needs a token passed to `signUp`/
-   `resetPasswordForEmail`, so this is a real change to `lib/auth.ts` and
-   the signup form, not a dashboard toggle. Revisit with leaked-password
-   protection at the first paying users.
-9. **P1-FIT-3** — projections are still nonsense on noisy data ("Projected
-   4.3" for a 5.81 player). Needs outlier rejection and a floor.
-10. **P1-DATA-1** — real roster import (migration 012, reserved). Still the
-    highest-value product task: a 5.81 player has zero schools in range and
-    every roster number reads "Unverified estimate". P1-FIT-4 made this
-    sharper, not softer — a 3.0 visitor now correctly sees 0 programs in
-    range, which is the honest answer and a bad product.
-11. ~~**P1-UX-2** — delete Legacy.~~ DONE 2026-11-20 (PR-LEGACY).
-12. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
-    a middleware.ts, which `main` no longer has (the maintenance-page
-    middleware was removed 2026-11-16), so it needs a new one (P2).
-
----
-
-## Billing — before launch
+### Billing — before launch
 
 See `docs/HANDOFF.md` §K for the full diagnosis. In short: **two real
 payments produced nothing**, because the webhook has never been delivered to.
@@ -251,74 +76,19 @@ The code side is done and on `v1`; the rest is Niran's, in the dashboard.
       new post-checkout sync are both dead on arrival.
 - [ ] Add the four new plan IDs to Vercel Production; keep the two legacy
       ones (table in §K).
-- [x] ~~Let `/api/whop/webhook` through the maintenance middleware on
-      `main`~~ — **moot, and worth knowing why.** The matcher change was
-      only ever needed because the merge plan kept the maintenance
-      middleware alive on `main`. It doesn't: `middleware.ts` is deleted on
-      `v1` (commit below this one), so after the merge there is no
-      middleware on any path and the webhook answers normally. The replay
-      therefore waits on the deploy, not on a matcher.
 - [ ] Replay the missed `membership.activated` events, or reconcile the two
       existing customers by hand.
 - [ ] Run the $0 promo-code end-to-end test (§K) on staging.
-- [x] **Soft 404 on unknown school slugs — FIXED 2026-11-15 overnight** (`dynamicParams = false`; verify on the next preview that `/schools/not-a-real-school` returns 404). `/schools/<anything>` returns
-      HTTP **200** with a page titled "School not found — Seeded" (measured on
-      the f0f2919 preview). Google indexes a 200, so junk slugs can become
-      indexable pages. Low risk today — nothing links to them and the sitemap
-      lists only real pages — but the honest status is 404. P2; `robots.txt`
-      does not disallow `/schools/`, so if this is left, consider whether it
-      should.
 - [ ] **Supabase SMTP (Resend).** Niran is wiring this 2026-11-15. A real
       signup against the preview returned `429 over_email_send_rate_limit`:
       the built-in sender allows a few messages an hour, so with "Confirm
       email" on, launch day's third signup cannot confirm. Re-test one real
       signup end to end once Resend is live.
-- [ ] **WEEK 1, ITEM #2 — delete `generatePersonalizedPlan()` itself.**
-      CLAUDE.md: "No auto-generated training plans — manual calendar only."
-      **The UI half is DONE (2026-11-15, Niran's call):** the
-      "Generate my training week" button is gone, and finishing the setup
-      questionnaire now stores the player's preferences and nothing else —
-      it used to write a whole week of invented sessions ("Serve plus
-      first-ball patterns", "Filmed set play") that the player had never
-      asked for and could not tell apart from their own.
-      What is left is deleting the ~90-line generator in
-      `components/training/training-view.tsx`, kept for now so that diff is
-      reviewable on its own. `lib/training-no-autogen.test.ts` fails the
-      build if any UI file so much as names it — mutation-tested six ways,
-      including passing it around as a value and aliasing it.
-      **Companion question for the same pass:** the setup questionnaire is
-      now a three-question gate whose answers are read in exactly one live
-      place — `buildTemplateSessions()`, which only runs if the player opens
-      the Templates drawer. Nothing beside the calendar shows the hours,
-      goal or constraints they entered. Either surface them or stop asking.
-      (A commit message in this round claimed the answers "drive the hours
-      and constraints shown beside the calendar". They do not; that was
-      measured and the claim was wrong.)
 
-      **Related question for the same pass:** `buildTemplateSessions()` also
-      writes sessions Seeded wrote, though only when a player explicitly
-      picks a template. That is a defensible reading of "manual" and it is
-      not what the rule was written about, but decide it deliberately rather
-      than by omission.
+The Whop dashboard steps, plan IDs and the $0 end-to-end test are written
+out in [`HANDOFF.md`](HANDOFF.md) §K.
 
-- [x] **DONE 2026-11-20 (migration 050, PR-SEC) — WEEK 1, ITEM #1 — make `is_parent_member()` role-aware.** Kept below for the record. Niran's
-      call on 2026-11-15: not a launch blocker, disclosed in `/privacy`
-      instead, no migration on launch day. `is_parent_member()` returns true
-      for any approved `parent_accounts` row regardless of `profiles.role`,
-      so **an approved sibling PLAYER can insert and update the season budget
-      and its expenses.** Measured twice, through the app's own supabase-js
-      client and again by an independent verification pass — not inferred.
-      The fix is a copy of 033's pattern: require `profiles.role = 'parent'`
-      AND approved membership, in the WITH CHECK on `season_budgets` and
-      `budget_expenses`. Attack-test both directions on staging first (a
-      parent must still write; a sibling must be refused `42501`), then
-      delete the disclosure sentence from `lib/legal/policy.ts` in the SAME
-      commit rather than rewording around it. Check `pg_policies`, not this
-      file. The sibling note write is already correctly refused — 033 holds.
-
----
-
-## What a lawyer has to check before launch (P0-8)
+### What a lawyer has to check before launch (P0-8)
 
 `/privacy` and `/terms` are a careful, verified description of what the
 software does, written by Claude. **They are not legal advice and no lawyer
@@ -351,220 +121,84 @@ Specifically needs a human with legal training:
    requests about their child.
 7. **Processor agreements** with Supabase, Vercel and Whop (DPAs).
 
-## Dependency debt
+6. **P0-8's other half — the privacy policy.** The mechanisms are built and
+   tested: real deletion, a complete JSON export, under-13 consent, and
+   nothing about a minor visible to any other user. What does not exist is
+   the document that explains all of that to a parent, lists the processors
+   (Supabase, Vercel, Whop, Google Analytics) and states retention. That
+   needs an adult or a lawyer, not Claude. The one-paragraph policy inside
+   `/terms` is what is live today.
 
-- ✅ **DONE 2026-11-15: `next` upgraded 14.2.35 → 15.5.29.** All 25 advisories
-  cleared; production dependencies are now at **zero** vulnerabilities (a
-  postcss override handles the copy bundled inside next). See
-  `docs/DECISIONS.md`. The entry below is kept for the record of what the
-  exposure was.
-- ~~**`next` needs a major upgrade, and it is 25 advisories, not one.**~~
-  3 critical, 9 high, 11 moderate, 2 low, bundled into a single `npm audit`
-  finding. **Top of Week 1, before the first paying customer.** Several are
-  in scope for a Vercel App Router app: cache confusion of response bodies,
-  RSC cache poisoning, unauthenticated disclosure of internal Server Function
-  endpoints, DoS via Server Actions, XSS in App Router apps using CSP. An
-  earlier version of this entry said "both unreachable" on the strength of
-  the first advisory only — see the correction in `docs/DECISIONS.md`.
-  The two checkable sub-claims remain true (no `remotePatterns`, zero
-  `next/image` imports) but they cover one advisory of 25.
-- **`postcss` high** is build-time only (no `remotePatterns`, zero `next/image`
-  imports, Vercel-hosted not self-hosted; postcss is build-time only over our
-  own CSS) — reasoning and evidence in `docs/DECISIONS.md`. `next@14.2.35` is
-  the newest 14.2.x, so there is no patch inside the major. Plan a
-  `next@16` + `eslint-config-next@16` upgrade as its own piece of work, with
-  the App Router breaking changes read first. **Week 1, not launch-blocking.**
-- **Dev-only vulnerabilities remaining: 2 critical, 2 high, 8 moderate**
-  (`vitest` → `vite` → `tinypool`, plus `brace-expansion`). Down from 3/6/8.
-  Nothing here ships — it is the test runner and the linter. vitest 5 will
-  not install without `--legacy-peer-deps` and is four majors of migration.
-  Week 2, not launch-blocking.
+## 2. Security and database
 
-## Smaller things worth not forgetting
+### Pending under-13s and parents' own player rows (both are migrations; Niran, 2026-11-16)
 
-- **Optional: a cleanup migration for stored "legacy" appearance values**
-  (PR-LEGACY, 2026-11-20). The Legacy design is deleted, but accounts that
-  had picked it still hold `user_settings.notification_preferences.design =
-  'legacy'` (and browsers hold localStorage `seeded.design = 'legacy'`). The
-  code reads both as "Match system" (`lib/appearance.ts`), never Legacy, so
-  nothing is broken. The browser key is removed on the next visit; the
-  database key is dropped the next time the account picks Light/Dark/Match
-  system (`saveDesignPreference`). A migration could drop every `design` key
-  from the bag in one go (`update user_settings set notification_preferences
-  = notification_preferences - 'design' where notification_preferences ?
-  'design'`) — staging first, then production on Niran's go. Once it has run
-  and no browser can still hold the key, `RETIRED_DESIGN_*` and
-  `choseRetiredDesign` can go, with their allow-list entries in
-  `lib/no-legacy-theme.test.ts`. Not urgent; not a blocker.
+- **A. An under-13 whose consent is PENDING must see no family names,
+  emails or ratings.** Today `family_members()` still returns the roster
+  (names, emails, ratings) to a pending under-13 who has joined a family —
+  030/031 make their account inert for writes and most reads, but this
+  SECURITY DEFINER function is the exception. Fix: have `family_members()`
+  return zero rows (or only the caller's own row) while
+  `my_consent_state()` is `pending`; rehearse on staging with a pending
+  under-13 joiner; guard test on the roster function. See item 10 below,
+  which this replaces.
+- **B. Parents cannot insert player-data rows under their own account.**
+  Role-gate the INSERT policies on utr_entries, matches, tournament_entries,
+  coach_outreach, daily_checkins and the other player tables
+  (`profiles.role = 'player'` in WITH CHECK, mirroring 033).
+  (`is_parent_member()` became role-aware in 050, 2026-11-20.) Today the app's routes refuse it (403),
+  but PostgREST allows it. Same item as 3 below, promoted.
 
-- Regenerate `lib/db/database.types.ts` against production after the
-  rollout. It is currently hand-maintained against staging: `profiles`
-  gained `birth_year` + three consent columns, `parent_accounts` four,
-  `family_members()` returns a ninth column, and `rate_limit_events` is new.
-- `/parent-signup` asks a parent for their Gender and Grade in school. They
-  are the player profile's fields on a form that is not the player's. Not
-  new, now more visible since the step gained a birth year.
-- `coach_outreach` still carries 024's superseded `..._insert` / `..._update`
-  policies requiring `has_tier('family')` alongside the `..._own` policy
-  requiring `player`. Permissive policies OR, so Player tier works — but the
-  dead pair reads as a contradiction to the next person.
-- Self-host the `next/font` Google fonts. The build intermittently fails
-  fetching them; CI retries 3× as a workaround (P2).
-- Pricing comparison table at 390px: 640px table in a 350px scroller, only
-  the Free column visible, no scroll affordance (P2).
-- Test fixtures use real school names ("Duke") against the clearly-fake
-  rule in CLAUDE.md. Low risk, pure-logic tests, but worth tidying.
-- Staging holds clearly-fake test users (`*@test.example`) and family
-  `TESTFAMILYA`, left in place deliberately as seed data. `TESTFAMILYB` and
-  three of those users were consumed by the deletion tests and are gone —
-  that was the test.
+### Family plan (045) and parent email proof (043) follow-ups
 
-## ✅ A parent cannot read a JOINED player's data — FIXED 2026-11-15 (migration 036)
+- **045 follow-ups (review 2026-11-19, LOW, not fixed):** (1) the
+  confirmation-required sign-in path (`lib/auth.ts`, `ensureSupabaseProfile`
+  on first login) ignores `joinStatus`, so a `family_full` or
+  `verify_email_required` there says nothing — production auto-confirms, so it
+  is rarely reached; (2) a joiner who was already PENDING when the family
+  filled up gets no message — only the approver sees `family_full`; (3) support
+  has no way to raise one family's cap short of a migration, and an under-13
+  refused by a full family can only reach consent through support.
+- **Live magic-link check for 043** (HANDOFF §J Step 18): needs a real inbox on
+  staging, and `<site>/auth/verified` added to Supabase Auth → URL
+  Configuration → Redirect URLs on staging and production BEFORE 043 ships.
+- **Email budget:** every parent who wants to approve or consent will need one
+  verification email; production's custom SMTP allows 80/hour for the whole
+  project, shared with password resets. Supabase Auth's own rate limits are the
+  only real cap on `signInWithOtp` (the `email_verify` bucket limits Seeded's
+  own path only).
 
-Niran's decision: a player who joins with the code and is approved has opted
-in, so approved members of that family may read that player's data, exactly
-as in the player-first flow. Nobody outside the family, no pending members.
+### Still open after the rollout
 
-Fixed by migration **036**, `lib/db/family-scope.ts`, and eight call sites in
-five files. Attack-tested on staging in both directions — stranger, pending
-member, other family, removed member — plus the two write paths. Full
-write-up in `docs/DECISIONS.md`; rollback in `docs/HANDOFF.md` §J step 13.
+- **An EMPTY family's code can be claimed by a new signup** (found on
+  production 2026-11-16, step 9). 032 blocks a code that any profile or
+  `parent_accounts` row holds; production has one `families` row with 0
+  holders and 0 links, and a profile INSERT with that code succeeds. It
+  exposes nothing — there is no one in it to read — so it is LOW. Fix:
+  delete member-less `families` rows (service role, by hand), or have
+  `family_code_is_taken()` also check `families`.
 
-**Two things this file got wrong, recorded because the next person will read
-it before the migration:**
+8. **CAPTCHA on signup and password reset.** Decided 2026-11-14: leaked-
+   password protection is a Pro-plan feature and is deferred until there are
+   paying users; Supabase Auth's own per-IP limits are accepted for launch.
+   The gap that leaves is scripted account creation and reset-email
+   flooding, which per-IP limits alone do not stop. Supabase supports hCaptcha
+   and Turnstile natively (Authentication → Settings → Bot and Abuse
+   Protection) and the client needs a token passed to `signUp`/
+   `resetPasswordForEmail`, so this is a real change to `lib/auth.ts` and
+   the signup form, not a dashboard toggle. Revisit with leaked-password
+   protection at the first paying users.
+12. **Nonce-based CSP** — drops `'unsafe-inline'` from `script-src`. Needs
+    a middleware.ts, which `main` no longer has (the maintenance-page
+    middleware was removed 2026-11-16), so it needs a new one (P2).
 
-1. It said "`matches`, `coach_outreach` and `tournament_entries` carry their
-   own `family_code` column and do not have this problem." **Wrong.** True in
-   the player-first flow (the player is the creator, so the stamp is right)
-   and false in the parent-first one, which is the ordinary flow. Those rows
-   were stamped NULL and no family member could read them.
-2. It framed this as read-only. It was not: **a parent who joined with the
-   code could not write either of the two things parents are allowed to
-   write.** `encouragement_notes` / `season_budgets` / `budget_expenses` all
-   WITH CHECK on the row's `family_code`, and `is_family_member(NULL)` is
-   false. Reproduced on staging as `42501`.
+### Who may approve a parent joiner (found by the 050 review, 2026-11-20)
 
-Suggested fix (1) in the old entry — "just set the joiner's
-`profiles.family_code` on approval" — was the right instinct and the wrong
-change: `remove_family_member()` only deletes the `parent_accounts` row, so
-a removed member would keep the column and keep their access. That is now a
-passing test rather than a worry.
+**052 is ON PRODUCTION since 2026-11-22** (HANDOFF §J Step 27; MASTER_ROADMAP
+status). How it was built, and the pre-052 MEDIUM gap it closed, are in
+`archive/TODO_DONE.md`. Still open:
 
-## Still open: `anon` holds column grants on `profiles`
-
-Harmless today and worth closing anyway. `anon` has table-level SELECT on
-`profiles` (and the other user tables). It reads nothing, because every
-policy is `to authenticated` and RLS denies by default — but that is one
-mechanism deep, and 037's whole lesson is that column grants are the layer
-RLS cannot reach.
-
-`revoke select on public.profiles from anon;` is probably safe (nothing
-pre-auth reads a profile — the pre-auth fit report is pure client-side
-computation over the school catalog), but it is an unrequested change to the
-auth surface and it belongs in its own commit with its own check that signup
-and the signed-out pages still work.
-
-## Still open: two silent-empty paths introduced 2026-11-15
-
-Recorded rather than fixed, because both fail CLOSED and an empty family page
-is the right failure for a transient RPC error — but the next person should
-know they are new.
-
-- `approvedFamilyMemberIds()` / `loadFamilyRosterRows()` return `[]` on any
-  `family_members()` RPC error, and `loadFamilyMembers()` then renders the
-  "no player has joined yet" state. Before 036/037 the roster came from a
-  direct `select`, so a failure surfaced differently.
-- `getProfileRoleAndFamily()` ignores a `my_family_code` RPC error, and the
-  budget routes turn the resulting `null` into a 403 "You're not part of a
-  family yet." That message is wrong for a transient failure.
-
-Both want the same fix: distinguish "no family" from "could not ask", and
-show an error state for the second. Small, and worth doing before the first
-support email about it.
-
-## Pending-consent accounts could write tennis data onto their own profile (R9 HIGH-1, 2026-11-20) — UPDATE half DONE 2026-11-21
-
-030's own-row carve-out on `profiles` covered every column, so an under-13
-waiting for consent could save target schools (the sweep did it through the
-UI; the database accepted it). Migration **051** (BEFORE UPDATE trigger)
-is ON PRODUCTION since 2026-11-21 03:18 UTC (GO-SEQUENCE row 26, HANDOFF §J
-Step 26). **Still open:** the sign-up INSERT is deliberately not covered —
-follow-up: have sign-up omit tennis fields for under-13s, then extend 051 to
-BEFORE INSERT.
-The UI half (no add-target controls for a pending account) ships in PR-SWEEP.
-
-## Left open by the review-ready sweep (R9, 2026-11-20) — `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`
-
-- **M1 — budget expenses cannot be edited or deleted.** `lib/db/family.ts`
-  has load + insert only. Add update/delete (RLS already allows a parent:
-  `budget_expenses_write_update/delete`) and an Undo toast like Results.
-- **M2 — a parent's /schools shows "Saved 0"** while the parent Overview
-  says the player has 3 targets: the browser reads the signed-in parent's
-  own (empty) list. Use the player's targets from `family_members()`.
-- **GPA rules disagree**: Settings accepts 0–5 (the DB CHECK, weighted GPAs);
-  onboarding's `parseGpaText` (lib/onboarding/diagnostic.ts) caps at 4.0.
-  Pick one rule (likely 0–5) and share `lib/profile-fields.ts`.
-- **The GPA field says "Unweighted GPA" but accepts up to 5.0** (the DB
-  CHECK, which exists for weighted GPAs). Pick one meaning and relabel.
-- **A blank name already stored** still loads as the login email in Settings
-  (`lib/auth.ts` fallback). It can no longer reach the coach email.
-- **Low**: mixed date formats; "11.00" vs "11.0" for the same estimate;
-  "Schedule" vs "Training calendar"; "Male" vs "Men's"; no `global-error.tsx`;
-  a contradictory Google sentence in the privacy policy (`lib/legal/policy.ts`
-  ~130); the `my-consent-state` SWR key is not per-user; `/./login` as
-  `?next=` causes one extra bounce (never a loop).
-
-## Post-checkout sync never runs (found by the PR-LEGACY review, 2026-11-20) — DECIDED 2026-11-21, build after the review
-
-**Niran's decision (2026-11-21):** turn the Whop re-check after a successful
-checkout back on, as a backup to the webhook. Requirements: idempotent
-(re-running changes nothing once the tier matches), rate-limited (028's
-Postgres limiter, like every write route), and it never downgrades (the
-anti-downgrade guard in `lib/whop-sync.ts`). Likely shape: forward
-`?checkout=success` from `/dashboard` to `/today` (or point Whop's return URL
-there) and soften the "Whop doesn't show a membership yet" banner for the
-seconds before the webhook lands. Background as found:
-
-Whop's checkout returns to `/dashboard?checkout=success`. Since the redesign,
-`/dashboard` redirected to `/today` WITHOUT the query, so `CheckoutSync`
-(mounted on every route) never saw `checkout=success` and never called
-`/api/whop/sync`. Tier changes rely on the webhook alone. PR-LEGACY keeps
-that behaviour on purpose (`app/dashboard/page.tsx`). Keeping the query would
-start a live sync call on every purchase and show "Whop doesn't show a
-membership for this account yet…" when the webhook is slower than the
-redirect. Decide: keep webhook-only, or forward the query (and soften the
-banner), or point Whop's return URL at `/today?checkout=success`.
-
-## The Legacy guard test is a lint, not a proof (PR-LEGACY review, LOW)
-
-`lib/no-legacy-theme.test.ts` misses some re-adds (a capitalised "Legacy",
-`dataset["design"]`, a renamed design value, imports of
-`choseRetiredDesign()` outside `lib/appearance.ts`) and does not scan the
-repo root, `public/` or `scripts/`. Same stance as `family-scope.test.ts`:
-it catches the realistic regressions; review catches the rest.
-
-## Who may approve a parent joiner (found by the 050 review, 2026-11-20)
-
-**BUILT ON STAGING 2026-11-21 — migration 052 (`feat/parent-approval-rule`);
-PRODUCTION PENDING Niran's go after the review** (GO-SEQUENCE row 27, HANDOFF
-§J Step 27). "A parent of the family" = `parent_acts_for_family(user, code)`:
-own role = 'parent' AND home family (`home_family_code()`, the rule
-`my_family_code()` uses) = code. `approve_family_join()`: once the family has
-such a parent (either shape), the approver must be one too (for the caller
-this equals 050's `is_parent_member(code)`) or gets 42501
-`parent_approval_requires_parent`; a family with no parent may still get its
-first from a player; player joiners unchanged. `remove_family_member()`: takes
-045's per-family lock, then removing a parent of the family needs a parent of
-the family (42501 `parents_only_remove_parent`). The first version counted a
-parent approved in ANY family, which an independent review showed locks a
-family whose only parent's home is elsewhere (that parent can never act in
-it); fixed before production. 043's email proof, 045's cap and lock, 030's
-consent and 037's account-holder rule are kept. Probe (35 cases incl. the
-multi-family one, all pass, rolled back) and a rollback rehearsal in
-`~/seeded-evidence/sat-prereview/p015/`. Guard
-`lib/db/parent-approval-rule.test.ts`. Client maps both codes to plain
-sentences (`lib/db/family-join.ts`).
-**Still open:** (1) production; (2) the "approved by" line in Settings →
+**Still open:** ~~(1) production~~ (done 2026-11-22); (2) the "approved by" line in Settings →
 Family — `parent_accounts.approved_by` is already written by
 `approve_family_join()` (since 023; rows backfilled by 023 have it NULL), so this is UI plus exposing it through
 `family_members()` (a roster column, so 038's shape test and /privacy's
@@ -603,21 +237,32 @@ Implementation: BUILT as migration 052 (`approve_family_join` and
 approved membership) with the guard test; the roster line is still-open item
 (2) above.
 
-**MEDIUM, open on production until 052 ships.** 050 makes the budget parent-only, but "parent" is a role
-chosen at sign-up and any approved member may approve a join
-(`approve_family_join`, 026/045; a player approver needs no email proof). So
-a sibling player can create a second account as a parent, request to join,
-approve it themselves, and write the budget from it. Reproduced on staging
-by the independent verifier (rolled back). Limits: the account is visible on
-the roster and counts against the 2-parent cap (045).
-Not fixed tonight because the obvious fix — only a parent may approve a
-parent — breaks families whose only approved member is a player (a player
-creates the family, then the parent joins). Options: (a) a parent joiner
-needs a parent approver when one exists, else the account holder; (b) the
-account holder must approve parents; (c) show "added by <name>" on the
-roster and the budget. Decide, then mirror 033's pattern in a migration.
+### Pending-consent accounts could write tennis data onto their own profile (R9 HIGH-1, 2026-11-20) — UPDATE half DONE 2026-11-21
 
-## TRUNCATE is granted to anon/authenticated on the budget tables (pre-existing, LOW)
+030's own-row carve-out on `profiles` covered every column, so an under-13
+waiting for consent could save target schools (the sweep did it through the
+UI; the database accepted it). Migration **051** (BEFORE UPDATE trigger)
+is ON PRODUCTION since 2026-11-21 03:18 UTC (GO-SEQUENCE row 26, HANDOFF §J
+Step 26). **Still open:** the sign-up INSERT is deliberately not covered —
+follow-up: have sign-up omit tennis fields for under-13s, then extend 051 to
+BEFORE INSERT.
+The UI half (no add-target controls for a pending account) ships in PR-SWEEP.
+
+### Still open: `anon` holds column grants on `profiles`
+
+Harmless today and worth closing anyway. `anon` has table-level SELECT on
+`profiles` (and the other user tables). It reads nothing, because every
+policy is `to authenticated` and RLS denies by default — but that is one
+mechanism deep, and 037's whole lesson is that column grants are the layer
+RLS cannot reach.
+
+`revoke select on public.profiles from anon;` is probably safe (nothing
+pre-auth reads a profile — the pre-auth fit report is pure client-side
+computation over the school catalog), but it is an unrequested change to the
+auth surface and it belongs in its own commit with its own check that signup
+and the signed-out pages still work.
+
+### TRUNCATE is granted to anon/authenticated on the budget tables (pre-existing, LOW)
 
 Found by the same review: `anon` and `authenticated` hold TRUNCATE on
 `season_budgets` and `budget_expenses` (Supabase's default grants), and
@@ -626,39 +271,293 @@ from a direct SQL session — the same caveat as S-5 (c). Revoking TRUNCATE
 (and REFERENCES/TRIGGER) from anon/authenticated on every public table is a
 cheap, low-risk migration; do it with the next one.
 
-## DONE (050, 2026-11-20): `is_parent_member()` is flatter than its name
+### Still open: two silent-empty paths introduced 2026-11-15
 
-_Fixed by `supabase/migrations/050_budget_writes_parents_only.sql`; the `/privacy` disclosure was deleted in the same commit. History below._
+Recorded rather than fixed, because both fail CLOSED and an empty family page
+is the right failure for a transient RPC error — but the next person should
+know they are new.
 
-Deliberately left out of 036 — a write-authorisation change nobody asked for
-does not belong in the launch migration.
+- `approvedFamilyMemberIds()` / `loadFamilyRosterRows()` return `[]` on any
+  `family_members()` RPC error, and `loadFamilyMembers()` then renders the
+  "no player has joined yet" state. Before 036/037 the roster came from a
+  direct `select`, so a failure surfaced differently.
+- `getProfileRoleAndFamily()` ignores a `my_family_code` RPC error, and the
+  budget routes turn the resulting `null` into a 403 "You're not part of a
+  family yet." That message is wrong for a transient failure.
 
-`is_parent_member(code)` returns true for the caller's own profile with
-`role = 'parent'` **or** for *any* approved `parent_accounts` link
-regardless of role. `season_budgets` and `budget_expenses` write policies use
-it, so **a sibling player who joined the family can write the season
-budget**, which contradicts "parents can write exactly two things" in
-CLAUDE.md and in `/privacy`.
+Both want the same fix: distinguish "no family" from "could not ask", and
+show an error state for the second. Small, and worth doing before the first
+support email about it.
 
-The fix is the one 033 already applied to `encouragement_notes`: require the
-writer's own `profiles.role = 'parent'` AND approved membership.
+### "Verify with Google instead" can leave a profile-less auth user (PR D review, 2026-11-21, MEDIUM)
 
-```sql
-create or replace function public.is_parent_member(target_family_code text)
-returns boolean language sql security definer set search_path = public stable
-as $$
-  select public.is_family_member(target_family_code)
-     and exists (select 1 from public.profiles p
-                  where p.id = auth.uid() and p.role = 'parent');
-$$;
-```
-Attack-test both ways before believing it: a joined sibling player must be
-refused, and a joined parent must still succeed. Note `/privacy` currently
-says "Only an account marked as a parent can write those notes" — that is
-true of notes (033) and **not** of the budget, so the policy text needs a
-look in the same commit.
+When a parent picks a Google account whose address is NOT their Seeded
+address, `signInWithOAuth` signs the browser into a different Supabase user.
+If that Google address had no Seeded account, Supabase CREATES one: an
+`auth.users` row plus a Google identity (email, name, avatar from Google),
+with no `profiles` row. `/auth/verified` signs it out of this browser only
+(scope "local") and tells the person, but nothing deletes the row. The same
+already happens for anyone who abandons a Google sign-up at `/auth/complete`
+(production had 3 auth users without a profile on 2026-11-21).
 
-## /sample-report reports no First Contentful Paint, so Lighthouse scores it 0
+- **Better fix (Niran's call, a Supabase setting):** enable manual identity
+  linking (Authentication → Sign In / Providers → "Allow manual linking") and
+  switch the verify button to `supabase.auth.linkIdentity({ provider: "google" })`.
+  The Google identity then attaches to the SIGNED-IN user whatever its email,
+  no second user is ever created, and 043's check still refuses a different
+  address. Downside: a linked different-address Google account becomes a
+  sign-in method for that Seeded account, so it needs an "unlink" path too.
+- **Cleanup either way:** a scheduled, service-role job (or a documented
+  manual query) that deletes `auth.users` rows with no `profiles` row, no
+  `parent_accounts` row, older than e.g. 7 days. Count first; never by hand on
+  production without Niran's go.
+
+### Database housekeeping
+
+- **Optional: a cleanup migration for stored "legacy" appearance values**
+  (PR-LEGACY, 2026-11-20). The Legacy design is deleted, but accounts that
+  had picked it still hold `user_settings.notification_preferences.design =
+  'legacy'` (and browsers hold localStorage `seeded.design = 'legacy'`). The
+  code reads both as "Match system" (`lib/appearance.ts`), never Legacy, so
+  nothing is broken. The browser key is removed on the next visit; the
+  database key is dropped the next time the account picks Light/Dark/Match
+  system (`saveDesignPreference`). A migration could drop every `design` key
+  from the bag in one go (`update user_settings set notification_preferences
+  = notification_preferences - 'design' where notification_preferences ?
+  'design'`) — staging first, then production on Niran's go. Once it has run
+  and no browser can still hold the key, `RETIRED_DESIGN_*` and
+  `choseRetiredDesign` can go, with their allow-list entries in
+  `lib/no-legacy-theme.test.ts`. Not urgent; not a blocker.
+
+- Regenerate `lib/db/database.types.ts` against production after the
+  rollout. It is currently hand-maintained against staging: `profiles`
+  gained `birth_year` + three consent columns, `parent_accounts` four,
+  `family_members()` returns a ninth column, and `rate_limit_events` is new.
+- `coach_outreach` still carries 024's superseded `..._insert` / `..._update`
+  policies requiring `has_tier('family')` alongside the `..._own` policy
+  requiring `player`. Permissive policies OR, so Player tier works — but the
+  dead pair reads as a contradiction to the next person.
+
+## 3. Billing and checkout
+
+### Post-checkout sync never runs (found by the PR-LEGACY review, 2026-11-20) — DECIDED 2026-11-21, build after the review
+
+**Niran's decision (2026-11-21):** turn the Whop re-check after a successful
+checkout back on, as a backup to the webhook. Requirements: idempotent
+(re-running changes nothing once the tier matches), rate-limited (028's
+Postgres limiter, like every write route), and it never downgrades (the
+anti-downgrade guard in `lib/whop-sync.ts`). Likely shape: forward
+`?checkout=success` from `/dashboard` to `/today` (or point Whop's return URL
+there) and soften the "Whop doesn't show a membership yet" banner for the
+seconds before the webhook lands. Background as found:
+
+Whop's checkout returns to `/dashboard?checkout=success`. Since the redesign,
+`/dashboard` redirected to `/today` WITHOUT the query, so `CheckoutSync`
+(mounted on every route) never saw `checkout=success` and never called
+`/api/whop/sync`. Tier changes rely on the webhook alone. PR-LEGACY keeps
+that behaviour on purpose (`app/dashboard/page.tsx`). Keeping the query would
+start a live sync call on every purchase and show "Whop doesn't show a
+membership for this account yet…" when the webhook is slower than the
+redirect. Decide: keep webhook-only, or forward the query (and soften the
+banner), or point Whop's return URL at `/today?checkout=success`.
+
+### Left open by the PR E (billing) review, 2026-11-21 — both LOW
+
+- **L3: the body-reader detector in `lib/api-body.test.ts` is a lint, not a
+  proof.** It finds `.json()` on a handler's own parameter, `JSON.parse` of
+  its `.text()`, and arrow-function handlers. It does not follow the request
+  into a helper (`readBody(req)`), an aliased parameter (`const r = req`),
+  `formData()`, or `req.body` streams. A route written that way is not
+  exercised by the garbage-body behaviour test. Today no route does.
+- **L4: a Free PARENT in a family someone else unlocked can still buy
+  Player.** /pricing withholds only a second Family plan
+  (`lib/plan-entry.ts`); "Choose Player" stays live for every Free viewer,
+  because a Family plan does not raise anyone else's own tier (040's cap is
+  `has_tier` on the caller's row), so for a player it is a real purchase.
+  For a parent, Player buys nothing they would use. Decide whether a parent
+  account should be offered Player at all.
+
+### Checkout on an HTTPS preview
+
+8. **Verify checkout on the HTTPS preview.** Locally Whop rejects an
+   `http://localhost` return URL, so the four checkout starts could only be
+   checked to the request. `/api/whop/checkout` now pins the return URL to
+   the production domain or the preview's own `https://$VERCEL_URL`.
+
+## 4. Product and UX
+
+### Design polish round 2 (open from round 1, 2026-11-22)
+
+Round 1 (`herdy-work`, PR #37) is merged. Open from it (DECISIONS
+2026-11-22; the Figma file named there is the reference where it differs
+from the mockups): SeededCard/Pill primitives and their migration, the copy
+cuts in [`COPY_CUTS.md`](COPY_CUTS.md), signup field order, the family page,
+the sample-report header when signed in, section motion, a visual check.
+MASTER_ROADMAP NEXT 10 #4.
+
+### Parent dashboard upgrade (Niran's #1, 2026-11-16)
+
+1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the
+   hero — real results plus a dashed "Estimate" junior-year projection with
+   the slow/fast band; a KPI row (UTR change, Target+Likely by junior year,
+   coaches emailed/replied, season spend vs budget); per-category budget bars
+   that turn amber at 90% and RED with one calm sentence when over budget
+   (icon + text, never colour alone); a budget-vs-actual mini chart; the
+   last 5 expenses; parent next-actions; teaching empty states. Monarch's
+   trend-as-hero, Copilot's calm polish, YNAB's budget-vs-actual — in
+   Seeded's own design system, light and dark. **Build it on tonight's
+   plumbing:** `pickFamilyPlayer()` for the subject, `DataSubject` loaders
+   for every number, `parentScopeSentence()` for the story. **A player
+   switcher** belongs here too: a family with two players sees one of them
+   (deterministically the first to join), and Settings says "Reports show
+   one player for now".
+
+### Fit and projection
+
+11. **The projection's ceiling is silent.** `cappedByCeiling` (lib/fit.ts)
+    is computed and never shown: a Class of 2034 player at 8.7 projects to
+    14.0, the realistic ceiling, with typical and fast growth equal. Say so
+    on the screen when it happens. Small.
+12. **In the last hours before June 1 of the target summer** the projection
+    rounds to today's rating but is still chipped "Estimate". Cosmetic; flip
+    `isProjected` when the remaining time is under a day.
+9. **P1-FIT-3** — projections are still nonsense on noisy data ("Projected
+   4.3" for a 5.81 player). Needs outlier rejection and a floor.
+
+### Left open by the review-ready sweep (R9, 2026-11-20) — `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`
+
+- **M1 — budget expenses cannot be edited or deleted.** `lib/db/family.ts`
+  has load + insert only. Add update/delete (RLS already allows a parent:
+  `budget_expenses_write_update/delete`) and an Undo toast like Results.
+- **M2 — a parent's /schools shows "Saved 0"** while the parent Overview
+  says the player has 3 targets: the browser reads the signed-in parent's
+  own (empty) list. Use the player's targets from `family_members()`.
+- **GPA rules disagree**: Settings accepts 0–5 (the DB CHECK, weighted GPAs);
+  onboarding's `parseGpaText` (lib/onboarding/diagnostic.ts) caps at 4.0.
+  Pick one rule (likely 0–5) and share `lib/profile-fields.ts`.
+- **The GPA field says "Unweighted GPA" but accepts up to 5.0** (the DB
+  CHECK, which exists for weighted GPAs). Pick one meaning and relabel.
+- **A blank name already stored** still loads as the login email in Settings
+  (`lib/auth.ts` fallback). It can no longer reach the coach email.
+- **Low**: mixed date formats; "11.00" vs "11.0" for the same estimate;
+  "Schedule" vs "Training calendar"; "Male" vs "Men's"; no `global-error.tsx`;
+  a contradictory Google sentence in the privacy policy (`lib/legal/policy.ts`
+  ~130); the `my-consent-state` SWR key is not per-user; `/./login` as
+  `?next=` causes one extra bounce (never a loop).
+
+From the 2026-11-21 NEXT 10 (`archive/ROADMAP_HISTORY.md`):
+
+Still open from the R9 QA sweep after `fix/sweep-1` (row status in
+`~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
+DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
+TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
+L9–L11.
+
+### Smaller product items
+
+9. **Players' theme follows the account, not the device.** Signed in, the
+   stored theme overrides the browser's on every load (DesignPreferenceSync
+   pulls it). Tonight stopped the per-page-view WRITE; whether a phone and a
+   laptop should share a theme is a product call.
+- `/parent-signup` asks a parent for their Gender and Grade in school. They
+  are the player profile's fields on a form that is not the player's. Not
+  new, now more visible since the step gained a birth year.
+- Pricing comparison table at 390px: 640px table in a 350px scroller, only
+  the Free column visible, no scroll affordance (P2).
+- **The homepage calculator puts its answers in the URL**
+  (`/onboarding?utr=…&gradYear=…&gender=…`) — move them out (e.g. the
+  sessionStorage hand-off the diagnostic already uses). From the owner's list
+  in §1, where it is the one code item.
+
+### From PR D (2026-11-19)
+- ~~`tournaments_goal` defaults to 12 and nobody is ever asked~~ — DONE on
+  `fix/no-invented-goal` (migration 049, 2026-11-20): nullable, no default,
+  every stored 12 cleared; asked (optional) in the diagnostic and Settings →
+  Profile; played is counted from `tournament_entries`. Still open from it:
+  drop the unused `profiles.tournaments_played` column (049 left it); decide
+  whether `family_members()` should return the planned count (a parent sees
+  "Not tracked" today because 037's enumerated list excludes it).
+- Public LCP is still 2.7–3.3 s on most routes (target 2.5): ~285 KB of JS
+  before first paint. Next steps in `docs/archive/audit-2-perf.md` (async
+  `getSupabase()`, framer-motion `LazyMotion`). Re-measure production after
+  merge with `scripts/perf-lighthouse.mjs`.
+- Family dashboard pace wording ("At the pace in X's logged ratings") has no
+  upside sentence; `utrDeltaOverMonths` / `computeMyPaceUTR` are test-only now.
+- An opponent's UTR in a coach-email result sentence is not labelled
+  "(self-reported)".
+- The Events calendar heading still says "Training" though it shows
+  tournaments too (mockup) — needs a design call.
+- A pre-033 account with no `birth_year` can pick one in the signed-in
+  diagnostic but it isn't saved (write-once column).
+- `scripts/sweep-c.mjs` depends on a staging persona password that no longer
+  exists by design; document how to set and scramble one per run.
+
+## 5. Catalog and data
+
+10. **P1-DATA-1** — real roster import (migration 012, reserved). Still the
+    highest-value product task: a 5.81 player has zero schools in range and
+    every roster number reads "Unverified estimate". P1-FIT-4 made this
+    sharper, not softer — a 3.0 visitor now correctly sees 0 programs in
+    range, which is the honest answer and a bad product.
+    *(2026-11-22: catalog phase 1 is on in production — 35 imported programs,
+    34 with sourced ranges, in migration 048's tables. The 68 legacy programs
+    are still estimates.)*
+
+- **Replace the 15 legacy estimates** that the imported programs duplicate,
+  so a school is banded from its sourced range, not from the legacy
+  estimate (2026-11-21 import; MASTER_ROADMAP NEXT 10 #2).
+
+### Catalog phase 1 follow-ups (PR E review, 2026-11-20) — before the flag goes on
+
+**The flag went on in production on 2026-11-22** (UTR database import).
+These items were written for that moment and were not re-checked when it
+happened; confirm each against the code and the database before closing it.
+
+- **Importer is not atomic** (`scripts/import-rosters.ts --upsert`): it
+  upserts a program, deletes its class counts, then inserts new ones. A
+  failure in the last step leaves `players_listed > 0` with no counts, and the
+  UI would read that as "0 seniors". Wrap each program in one transaction (or
+  an RPC) before the first production import.
+- **Admin error text is too generic**: every RLS refusal (future date in UTC,
+  inactive account) shows "Only an app admin can add a range." The form
+  compares against the browser's local date while Postgres uses UTC
+  `current_date`. Map the cases and compare in UTC.
+- **Weak source checks**: `source = '...'` and a 1900 source date are accepted
+  (shown greyed, never banded). Tighten the CHECKs in a follow-up migration.
+- **`programs.head_coach` is readable by anon** through the table grant (real
+  names as printed on roster pages; not rendered). Narrow the grant to the
+  columns the UI uses, or drop the column, before the flag goes on.
+- **`--emit-sql`'s safety check** only tests that 048's tables exist, so it
+  stops distinguishing staging from production once 048 is on production.
+  Give staging a marker row and check for it.
+- **The roster TSV in `docs/data/` named ~1,900 real college students** (and
+  hometowns). DONE 2026-11-21 (Niran's decision): removed from the current
+  tree, replaced by the per-team aggregate `docs/data/roster_counts_2026-27.tsv`;
+  the owner keeps the raw file outside the repo in `~/seeded-private/`
+  (chmod 600) and `.gitignore` blocks `official_rosters_*` and
+  `seeded-private/`. **Still open — decide whether to purge the raw roster
+  file from git history.** It was first committed in `f6b0ef1` (2026-11-20
+  07:27 ET) and is in every commit from there until the removal; it is also
+  still a current file on any branch cut before the removal
+  (`demo/reviewer-preview` until that branch is deleted after the review).
+  A purge is more than one force-push: `git filter-repo` on the file, a
+  force-push of every branch (`main` is protected, so its protection must be
+  lifted for that), a GitHub Support request to drop the `refs/pull/*` heads
+  and cached views (a force-push cannot remove those), and re-cloning every
+  local checkout and worktree.
+
+## 6. Performance and SEO
+
+### Public-page LCP
+
+15. **LCP on a simulated slow-4G phone is 5.1–6.1 s** on every public
+    route (Lighthouse mobile, local production build; performance 78–81,
+    CLS 0, TBT ≈ 0). Six web-font families load on every page; start there
+    (drop unused families, subset, `preload: false` on the decorative
+    ones), then check field data in Vercel Speed Insights after launch —
+    lab LCP on localhost is an estimate, not what users see.
+
+### /sample-report reports no First Contentful Paint, so Lighthouse scores it 0
 
 **Not a user-facing bug — the page renders correctly and fast. It is a
 measurement anomaly, and it will make PageSpeed Insights show 0 for a
@@ -695,7 +594,7 @@ pages.
 removing `UtrVsPlanChart` from the page and re-measuring. Do not "fix" it by
 adding an artificial paint; find the cause first.
 
-## /onboarding's server HTML is a spinner (found Night 2 by the review)
+### /onboarding's server HTML is a spinner (found Night 2 by the review)
 
 Low, but it is the top of the funnel and sitemap priority 0.9.
 `OnboardingPageSwitch` only renders `SeededPreAuthOnboarding` once
@@ -715,99 +614,46 @@ whether the reason still holds).
 Options are to server-render the pre-auth flow as the default and swap after
 hydration, or to accept it and drop the page's sitemap priority.
 
-## From PR D (2026-11-19)
-- ~~`tournaments_goal` defaults to 12 and nobody is ever asked~~ — DONE on
-  `fix/no-invented-goal` (migration 049, 2026-11-20): nullable, no default,
-  every stored 12 cleared; asked (optional) in the diagnostic and Settings →
-  Profile; played is counted from `tournament_entries`. Still open from it:
-  drop the unused `profiles.tournaments_played` column (049 left it); decide
-  whether `family_members()` should return the planned count (a parent sees
-  "Not tracked" today because 037's enumerated list excludes it).
-- Public LCP is still 2.7–3.3 s on most routes (target 2.5): ~285 KB of JS
-  before first paint. Next steps in `docs/archive/audit-2-perf.md` (async
-  `getSupabase()`, framer-motion `LazyMotion`). Re-measure production after
-  merge with `scripts/perf-lighthouse.mjs`.
-- Family dashboard pace wording ("At the pace in X's logged ratings") has no
-  upside sentence; `utrDeltaOverMonths` / `computeMyPaceUTR` are test-only now.
-- An opponent's UTR in a coach-email result sentence is not labelled
-  "(self-reported)".
-- The Events calendar heading still says "Training" though it shows
-  tournaments too (mockup) — needs a design call.
-- A pre-033 account with no `birth_year` can pick one in the signed-in
-  diagnostic but it isn't saved (write-once column).
-- `scripts/sweep-c.mjs` depends on a staging persona password that no longer
-  exists by design; document how to set and scramble one per run.
+### SEO (moved from SEO_CHECKLIST.md "Open", 2026-11-22)
 
-## Catalog phase 1 follow-ups (PR E review, 2026-11-20) — before the flag goes on
+- [ ] The Seeded homepage (`components/seeded/home/seeded-home-view.tsx`)
+      renders two `<h1>` (mobile and desktop copies). Keep one.
+- [ ] Structured data: none yet. `Organization` on `/`; `SportsTeam`
+      (+ `CollegeOrUniversity`) on school pages once team data is sourced.
+- [ ] Generic 404s: confirm production returns status 404 (not verified for
+      this doc).
 
-- **Importer is not atomic** (`scripts/import-rosters.ts --upsert`): it
-  upserts a program, deletes its class counts, then inserts new ones. A
-  failure in the last step leaves `players_listed > 0` with no counts, and the
-  UI would read that as "0 seniors". Wrap each program in one transaction (or
-  an RPC) before the first production import.
-- **Admin error text is too generic**: every RLS refusal (future date in UTC,
-  inactive account) shows "Only an app admin can add a range." The form
-  compares against the browser's local date while Postgres uses UTC
-  `current_date`. Map the cases and compare in UTC.
-- **Weak source checks**: `source = '...'` and a 1900 source date are accepted
-  (shown greyed, never banded). Tighten the CHECKs in a follow-up migration.
-- **`programs.head_coach` is readable by anon** through the table grant (real
-  names as printed on roster pages; not rendered). Narrow the grant to the
-  columns the UI uses, or drop the column, before the flag goes on.
-- **`--emit-sql`'s safety check** only tests that 048's tables exist, so it
-  stops distinguishing staging from production once 048 is on production.
-  Give staging a marker row and check for it.
-- **The roster TSV in `docs/data/` named ~1,900 real college students** (and
-  hometowns). DONE 2026-11-21 (Niran's decision): removed from the current
-  tree, replaced by the per-team aggregate `docs/data/roster_counts_2026-27.tsv`;
-  the owner keeps the raw file outside the repo in `~/seeded-private/`
-  (chmod 600) and `.gitignore` blocks `official_rosters_*` and
-  `seeded-private/`. **Still open — decide whether to purge the raw roster
-  file from git history.** It was first committed in `f6b0ef1` (2026-11-20
-  07:27 ET) and is in every commit from there until the removal; it is also
-  still a current file on any branch cut before the removal
-  (`demo/reviewer-preview` until that branch is deleted after the review).
-  A purge is more than one force-push: `git filter-repo` on the file, a
-  force-push of every branch (`main` is protected, so its protection must be
-  lifted for that), a GitHub Support request to drop the `refs/pull/*` heads
-  and cached views (a force-push cannot remove those), and re-cloning every
-  local checkout and worktree.
+## 7. Code health, tests and dependencies
 
-## Left open by the PR E (billing) review, 2026-11-21 — both LOW
+- **`Player.currentUTR: number | null`** — remove the in-memory `0` sentinel
+  (139 uses in 38 non-test files, re-measured 2026-11-21). CLAUDE.md "The
+  UTR placeholder" explains why; `lib/utr-sentinel.test.ts` keeps it safe
+  meanwhile. MASTER_ROADMAP NEXT 10 #3.
+- **File splits:** `lib/auth.ts`, the schools browser, `signup-flow.tsx`, the
+  Today layout. Boundaries in `REVIEWER_GUIDE.md` §9; NEXT 10 #9.
+- **Alerting:** errors are logged and uptime is checked hourly, but nothing
+  alerts (NEXT 10 #10; TECHNICAL_ARCHITECTURE "Monitoring").
 
-- **L3: the body-reader detector in `lib/api-body.test.ts` is a lint, not a
-  proof.** It finds `.json()` on a handler's own parameter, `JSON.parse` of
-  its `.text()`, and arrow-function handlers. It does not follow the request
-  into a helper (`readBody(req)`), an aliased parameter (`const r = req`),
-  `formData()`, or `req.body` streams. A route written that way is not
-  exercised by the garbage-body behaviour test. Today no route does.
-- **L4: a Free PARENT in a family someone else unlocked can still buy
-  Player.** /pricing withholds only a second Family plan
-  (`lib/plan-entry.ts`); "Choose Player" stays live for every Free viewer,
-  because a Family plan does not raise anyone else's own tier (040's cap is
-  `has_tier` on the caller's row), so for a player it is a real purchase.
-  For a parent, Player buys nothing they would use. Decide whether a parent
-  account should be offered Player at all.
+### The Legacy guard test is a lint, not a proof (PR-LEGACY review, LOW)
 
-## "Verify with Google instead" can leave a profile-less auth user (PR D review, 2026-11-21, MEDIUM)
+`lib/no-legacy-theme.test.ts` misses some re-adds (a capitalised "Legacy",
+`dataset["design"]`, a renamed design value, imports of
+`choseRetiredDesign()` outside `lib/appearance.ts`) and does not scan the
+repo root, `public/` or `scripts/`. Same stance as `family-scope.test.ts`:
+it catches the realistic regressions; review catches the rest.
 
-When a parent picks a Google account whose address is NOT their Seeded
-address, `signInWithOAuth` signs the browser into a different Supabase user.
-If that Google address had no Seeded account, Supabase CREATES one: an
-`auth.users` row plus a Google identity (email, name, avatar from Google),
-with no `profiles` row. `/auth/verified` signs it out of this browser only
-(scope "local") and tells the person, but nothing deletes the row. The same
-already happens for anyone who abandons a Google sign-up at `/auth/complete`
-(production had 3 auth users without a profile on 2026-11-21).
+The same stance applies to `lib/api-body.test.ts`'s body-reader detector
+(L3, in §3).
 
-- **Better fix (Niran's call, a Supabase setting):** enable manual identity
-  linking (Authentication → Sign In / Providers → "Allow manual linking") and
-  switch the verify button to `supabase.auth.linkIdentity({ provider: "google" })`.
-  The Google identity then attaches to the SIGNED-IN user whatever its email,
-  no second user is ever created, and 043's check still refuses a different
-  address. Downside: a linked different-address Google account becomes a
-  sign-in method for that Seeded account, so it needs an "unlink" path too.
-- **Cleanup either way:** a scheduled, service-role job (or a documented
-  manual query) that deletes `auth.users` rows with no `profiles` row, no
-  `parent_accounts` row, older than e.g. 7 days. Count first; never by hand on
-  production without Niran's go.
+### Dependency debt
+
+- **`npm audit`: 23 advisories, all dev-only; production dependencies have
+  0** (DECISIONS 2026-11-22). The non-breaking `npm audit fix` pulls a
+  Sentry/OpenTelemetry tree in under `lighthouse`; the rest need vitest
+  1 → 3+. ESLint 10 waits for Next 16 (eslint-config-next 15.5.x peers
+  `eslint ^9`).
+
+### Tests
+
+- Test fixtures use real school names ("Duke") against the clearly-fake
+  rule in CLAUDE.md. Low risk, pure-logic tests, but worth tidying.
