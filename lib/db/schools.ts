@@ -226,6 +226,28 @@ export function coachEmailName(name: string | null | undefined): string | null {
   return t;
 }
 
+// The country codes and spellings that all mean the United States. Sign-up
+// stores "United States", but rows written another way hold "US", and the
+// draft read "(class of 2027) from US." (final-check A11).
+const UNITED_STATES = new Set(["us", "usa", "u.s.", "u.s.a.", "united states", "united states of america"]);
+const COUNTRY_CODE_NAMES: Record<string, string> = { ca: "Canada", gb: "the United Kingdom", uk: "the United Kingdom" };
+
+/**
+ * The "from …" country the coach email may name, or null when it says
+ * nothing: the United States in any spelling (the default audience), a blank,
+ * the sign-up form's "Other", or a bare code we cannot spell out — a coach
+ * should never read "from US" or "from Other".
+ */
+export function coachEmailCountry(country: string | null | undefined): string | null {
+  const t = (country ?? "").trim();
+  const key = t.toLowerCase();
+  if (!t || key === "other" || UNITED_STATES.has(key)) return null;
+  if (COUNTRY_CODE_NAMES[key]) return COUNTRY_CODE_NAMES[key];
+  if (key === "united kingdom") return "the United Kingdom";
+  if (/^[a-z]{2,3}$/.test(key)) return null;
+  return t;
+}
+
 export interface CoachEmail {
   subject: string;
   body: string;
@@ -317,15 +339,16 @@ export function buildCoachEmail(
   // Grade is derived from graduation_year and today's date, never stored.
   const grade = ordinalGrade(getCurrentGrade(player.graduationYear));
   const article = /^(8|11|18)\D/.test(grade) ? "an" : "a"; // "an 11th-grade", not "a 11th-grade"
+  const fromCountry = coachEmailCountry(player.country);
   const intro: CoachEmailPart[] = [
     part(
       `I'm ${playerName ? `${playerName}, ` : ""}${article} ${grade}-grade ${programType} player (class of ${player.graduationYear})${
-        player.country && player.country !== "United States" ? ` from ${player.country}` : ""
+        fromCountry ? ` from ${fromCountry}` : ""
       }.`,
       ...(playerName ? (["player.name"] as const) : []),
       "player.graduationYear",
       "player.gender",
-      ...(player.country && player.country !== "United States" ? (["player.country"] as const) : [])
+      ...(fromCountry ? (["player.country"] as const) : [])
     ),
   ];
   // "One of my target schools" only when the player actually picked it.

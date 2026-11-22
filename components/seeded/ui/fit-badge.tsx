@@ -22,7 +22,10 @@ const BAND_CLASS: Record<FitBand, string> = {
   unverified: "bg-card text-stone border-line border-dashed",
 };
 
-export function FitBadge({ band, className }: { band: FitBand; className?: string }) {
+/** `label` overrides the band's words for one case only: a parent on Free
+ *  whose child HAS a rating that the plan hides — "No UTR yet" said the
+ *  rating was missing when it is locked (final-check B8). */
+export function FitBadge({ band, className, label }: { band: FitBand; className?: string; label?: string }) {
   return (
     <span
       className={cn(
@@ -31,7 +34,7 @@ export function FitBadge({ band, className }: { band: FitBand; className?: strin
         className
       )}
     >
-      {LABEL[band]}
+      {label ?? LABEL[band]}
     </span>
   );
 }

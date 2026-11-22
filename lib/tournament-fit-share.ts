@@ -118,3 +118,46 @@ export function decodeTournamentFitShareParams(
 
   return out;
 }
+
+/**
+ * Copies `text`, settling within `timeoutMs` either way. In a browser that
+ * holds the clipboard permission prompt open (or never answers), a bare
+ * `await navigator.clipboard.writeText()` never settled, so "Share with my
+ * coach" showed nothing at all (final-check B12). Resolves "copied" or
+ * "failed" — never hangs.
+ */
+export async function copyWithTimeout(
+  write: ((text: string) => Promise<void>) | undefined,
+  text: string,
+  timeoutMs = 2000
+): Promise<"copied" | "failed"> {
+  if (!write) return "failed";
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      write(text).then(() => "copied" as const),
+      new Promise<"failed">((resolve) => {
+        timer = setTimeout(() => resolve("failed"), timeoutMs);
+      }),
+    ]);
+  } catch {
+    return "failed";
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** The line under "Cost per match": the assumption the number rests on
+ *  (final-check A17 — "$32 / match" said nothing about ~3 matches). */
+export function costPerMatchNote(
+  typicalMatches: number,
+  totalCost: number,
+  cost: { known: boolean; partial: boolean } = { known: true, partial: false }
+): string {
+  const assumes = `Assumes ~${typicalMatches} matches at this level`;
+  // No cost entered: say so instead of a second "$0" (final-check PR B review).
+  if (!cost.known) return `${assumes} · cost not tracked`;
+  // Only one of entry / travel entered: the total is not the whole cost.
+  if (cost.partial) return `${assumes} · $${Math.round(totalCost)} entered so far`;
+  return `${assumes} · $${Math.round(totalCost)} total`;
+}

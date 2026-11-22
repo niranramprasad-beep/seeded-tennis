@@ -263,7 +263,19 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                   transform={`rotate(45 ${cx} ${cy})`}
                 />
               </g>
-              <text aria-hidden="true" x={lx} y={ly} textAnchor={fitsLeft ? "end" : "start"} fontSize="12" fill="rgb(var(--c-ink))" fontFamily={LABEL_FONT}>
+              {/* Hidden while the readout is open: at 375 its box sat over
+                  "Jun '27 · 9.30" (final-check A12). The readout's Plan row
+                  carries the same value at the crosshair. */}
+              <text
+                aria-hidden="true"
+                x={lx}
+                y={ly}
+                textAnchor={fitsLeft ? "end" : "start"}
+                fontSize="12"
+                fill="rgb(var(--c-ink))"
+                fontFamily={LABEL_FONT}
+                opacity={hoverX != null && readout ? 0 : 1}
+              >
                 {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatCheckpointUtr(c.utr, goal?.value)}</tspan>
               </text>
             </g>

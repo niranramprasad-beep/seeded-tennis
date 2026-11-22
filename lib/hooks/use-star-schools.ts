@@ -18,6 +18,7 @@ import { toggleTargetSchoolSlug } from "@/lib/db/targets";
 import { loadMyConsentState, myConsentStateKey } from "@/lib/db/family-join";
 import { targetSchoolEditRefusal, signedInTargetEditRefusal } from "@/lib/config/consent";
 import type { ToastAction, ToastVariant } from "@/components/seeded/ui/toast";
+import { starLimitToast } from "@/lib/star-limit";
 
 export interface StarToast {
   message: string;
@@ -104,10 +105,12 @@ export function useStarSchools(): UseStarSchoolsResult {
       // mirrors the same carve-out in migration 024's trigger.
       const isAdding = !wasStarred;
       if (isAdding && !canAccess("player") && next.length > FREE_TIER_TARGET_SCHOOL_LIMIT) {
+        // A visitor has no plan to upgrade (final-check B22).
+        const limitToast = starLimitToast(isAuthed, FREE_TIER_TARGET_SCHOOL_LIMIT);
         setToast({
-          message: `Free tracks ${FREE_TIER_TARGET_SCHOOL_LIMIT} schools. Upgrade to Player to track more.`,
+          message: limitToast.message,
           variant: "default",
-          action: { label: "See plans", onClick: () => router.push("/pricing") },
+          action: { label: limitToast.action.label, onClick: () => router.push(limitToast.action.href) },
         });
         return;
       }
@@ -147,7 +150,7 @@ export function useStarSchools(): UseStarSchoolsResult {
         action: { label: "Undo", onClick: undo },
       });
     },
-    [updatePlayer, canAccess, router, canStar, consentRefusal]
+    [updatePlayer, canAccess, router, canStar, consentRefusal, isAuthed]
   );
 
   const addManyToTargets = useCallback(
@@ -162,10 +165,12 @@ export function useStarSchools(): UseStarSchoolsResult {
       const added = merged.length - before.length;
       if (added === 0) return;
       if (!canAccess("player") && merged.length > FREE_TIER_TARGET_SCHOOL_LIMIT) {
+        // A visitor has no plan to upgrade (final-check B22).
+        const limitToast = starLimitToast(isAuthed, FREE_TIER_TARGET_SCHOOL_LIMIT);
         setToast({
-          message: `Free tracks ${FREE_TIER_TARGET_SCHOOL_LIMIT} schools. Upgrade to Player to track more.`,
+          message: limitToast.message,
           variant: "default",
-          action: { label: "See plans", onClick: () => router.push("/pricing") },
+          action: { label: limitToast.action.label, onClick: () => router.push(limitToast.action.href) },
         });
         return;
       }
@@ -183,7 +188,7 @@ export function useStarSchools(): UseStarSchoolsResult {
         },
       });
     },
-    [canStar, canAccess, router, updatePlayer, consentRefusal]
+    [canStar, canAccess, router, updatePlayer, consentRefusal, isAuthed]
   );
 
   return { isStarred, toggleStar, toast, dismissToast, canStar, addManyToTargets };

@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const { total } = await getCatalogCounts();
   return {
     title: "Seeded — your path to college tennis, mapped",
-    description: `Enter your UTR and grad year. Seeded compares your UTR with our estimated range for ${total} college teams, sorts them into Reach, Target and Likely, and turns the gap into season targets you plan against, with a family view your parents can follow.`,
+    description: `Enter your UTR and grad year. Seeded compares your UTR with our estimated range for ${total} college teams, sorts them into Reach, Target, Likely and Out of range, and turns the gap into season targets you plan against, with a family view your parents can follow.`,
     alternates: { canonical: "/" },
   };
 }
