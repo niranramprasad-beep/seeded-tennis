@@ -39,6 +39,7 @@ import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrOrNotTracked, hasRealU
 import { judgingRatingFor } from "@/lib/fit-copy";
 import { PlanGoalEditor } from "./plan-goal-editor";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
+import { recordTile } from "@/lib/empty-state-copy";
 
 function initialOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -292,10 +293,8 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             value={pacePerYear === null ? "Not tracked" : formatPacePerYear(pacePerYear)}
             label="your pace"
           />
-          <StatTile
-            value={record ? `${record.wins}–${record.losses}` : "—"}
-            label="logged record"
-          />
+          {/* "0–0" is not a record (final-check A10). */}
+          <StatTile {...recordTile(record)} />
         </div>
         <div className="flex gap-2">
           <Link href="/settings" className={seededLinkButtonClass("secondary")}>
@@ -398,7 +397,9 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
                 {/* The shared opponent line: the opponent's name when the
                     player gave one ("vs Alex Kim (8.20)"). This card read
                     "vs opponent 6.10" over a named opponent (C14). */}
-                <span className="truncate text-ink">
+                {/* Wraps instead of truncating: at 375 the ellipsis hid the
+                    opponent's UTR and the event (final-check B17). */}
+                <span className="min-w-0 text-ink [overflow-wrap:anywhere]">
                   {m.result === "win" ? "W" : m.result === "loss" ? "L" : "—"} {opponentLine(m) ?? "vs —"}
                   {m.tournamentName ? ` · ${m.tournamentName}` : ""}
                 </span>

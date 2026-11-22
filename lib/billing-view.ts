@@ -170,6 +170,15 @@ export function notPayerNote(payerFirstName: string | null): string {
     : "The person who pays for Seeded manages billing from their own account.";
 }
 
+/** Shown under notPayerNote, as text only — never a Whop link on this
+ * state. "Not the payer" is inferred from this account holding no
+ * membership id, and an account whose purchase never synced (no Whop
+ * webhook delivery has ever been seen — HANDOFF §K) looks exactly the
+ * same, so the page says where a payer's plan lives without sending a
+ * non-payer to a Whop page that would refuse them. */
+export const NOT_PAYER_SELF_NOTE =
+  "If you paid for it yourself, your plan is on Whop: sign in at whop.com with the email you paid with.";
+
 export const WHOP_UNREACHABLE_NOTE = "We can't reach Whop right now. Your plan is still active.";
 
 /** Parses /api/whop/membership's body without trusting its shape. Anything

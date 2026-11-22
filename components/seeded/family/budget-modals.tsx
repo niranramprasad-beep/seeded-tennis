@@ -196,7 +196,9 @@ export function AddExpenseModal({
     expenseDate: string;
   }) => Promise<void>;
 }) {
-  const [category, setCategory] = useState<BudgetExpenseCategory>("camps");
+  // The first option, as shown — it defaulted to "Camps", so an expense
+  // saved without a pick was filed as a camp (final-check B5).
+  const [category, setCategory] = useState<BudgetExpenseCategory>(CATEGORY_OPTIONS[0].value);
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(localDateKey());
@@ -205,7 +207,7 @@ export function AddExpenseModal({
 
   useEffect(() => {
     if (open) {
-      setCategory("camps");
+      setCategory(CATEGORY_OPTIONS[0].value);
       setLabel("");
       setAmount("");
       setDate(localDateKey());

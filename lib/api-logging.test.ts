@@ -454,7 +454,9 @@ describe(".github/workflows/uptime.yml", () => {
 
   it("runs hourly (not more often) and on demand", () => {
     const crons = [...code.matchAll(/cron:\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(crons).toEqual(["17 * * * *"]);
+    // :23 since 2026-11-21 (the :17 schedule never registered); one line,
+    // a fixed minute, every hour.
+    expect(crons).toEqual(["23 * * * *"]);
     expect(code).toMatch(/workflow_dispatch:/);
   });
 

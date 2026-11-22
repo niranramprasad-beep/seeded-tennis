@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
+import { heroButtonLabel, heroOutputNote, onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
 import { ChevronDown } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
@@ -61,7 +61,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-stone">
           Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
-          Target and Likely.
+          Target, Likely and Out of range.
         </p>
         <FitCalculatorCard schools={schools} mobile />
       </div>
@@ -87,7 +87,7 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
           catalogue's own length, never a typed number. */}
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
         Enter your UTR and grad year. Seeded compares your UTR with our estimated
-        range for {teamCount} college teams, sorts them into Reach, Target and Likely,
+        range for {teamCount} college teams, sorts them into Reach, Target, Likely and Out of range,
         and turns the gap into season targets you plan against, with a family view
         your parents can follow.
       </p>
@@ -202,7 +202,9 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         {/* The same disclosure as the desktop card: these starting values
             are an example, not the visitor's (and only fields they change
             are sent on — lib/home-calculator.ts). */}
-        <p className="text-xs text-stone">Example values. Change them to yours.</p>
+        <p className="text-xs text-stone">
+          {touched.size === 0 ? "Example values. Change them to yours." : "Only the values you change go to your fit report."}
+        </p>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniField label="UTR">
             <input
@@ -211,7 +213,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
                 setUtr(e.target.value);
                 touch("utr");
               }}
-              className="h-12 rounded-lg border border-input px-3 font-mono text-base tabular-nums text-ink"
+              className="h-12 rounded-lg border border-input bg-card px-3 font-mono text-base tabular-nums text-ink"
               inputMode="decimal"
             />
           </MiniField>
@@ -275,7 +277,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
               setUtr(e.target.value);
               touch("utr");
             }}
-            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input bg-card px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </MiniField>
@@ -318,7 +320,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
               setGpa(e.target.value);
               touch("gpa");
             }}
-            className="h-11 rounded-md border border-input px-3 font-mono text-base tabular-nums text-ink"
+            className="h-11 rounded-md border border-input bg-card px-3 font-mono text-base tabular-nums text-ink"
             inputMode="decimal"
           />
         </MiniField>
@@ -336,12 +338,22 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
       {cta.kind === "zero" ? (
         <div className="mt-4 text-sm text-ink">
           <p className="m-0">{cta.sentence}</p>
-          <Link
-            href={cta.link.href}
-            className="mt-2 inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6"
-          >
-            {cta.link.label}
-          </Link>
+          {/* The zero state also leads to the visitor's own report — it
+              had only "See all programs" (final-check A13). */}
+          <div className="mt-2 flex flex-wrap gap-x-5">
+            <Link
+              href={query ? `/onboarding?${query}` : "/onboarding"}
+              className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6"
+            >
+              Get my fit report
+            </Link>
+            <Link
+              href={cta.link.href}
+              className="inline-flex min-h-11 items-center font-semibold text-grass hover:text-grass-700 sm:min-h-6"
+            >
+              {cta.link.label}
+            </Link>
+          </div>
         </div>
       ) : (
         // Secondary on purpose (design system v2 rule 1): beside it, the hero
@@ -350,10 +362,10 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
           href={query ? `/onboarding?${query}` : "/onboarding"}
           className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-input bg-card font-sans text-[15px] font-semibold text-ink hover:bg-subtle-hover"
         >
-          {cta.label}
+          {heroButtonLabel(cta.label, touched)}
         </Link>
       )}
-      <p className="mt-2.5 text-xs text-stone">Example output. Counts depend on your inputs.</p>
+      <p className="mt-2.5 text-xs text-stone">{heroOutputNote(touched)}</p>
     </div>
   );
 }

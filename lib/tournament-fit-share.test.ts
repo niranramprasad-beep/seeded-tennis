@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  copyWithTimeout,
+  costPerMatchNote,
   decodeTournamentFitShareParams,
   encodeTournamentFitShareParams,
   travelHoursForPill,
@@ -104,5 +106,36 @@ describe("travelHoursForPill", () => {
     const overnight = travelHoursForPill("overnight");
     expect(local).toBeLessThan(short);
     expect(short).toBeLessThan(overnight);
+  });
+});
+
+describe("copyWithTimeout (final-check B12)", () => {
+  it("reports a successful copy", async () => {
+    await expect(copyWithTimeout(async () => {}, "x")).resolves.toBe("copied");
+  });
+  it("reports a refused copy", async () => {
+    await expect(copyWithTimeout(async () => Promise.reject(new Error("denied")), "x")).resolves.toBe("failed");
+  });
+  it("never hangs on a clipboard that does not answer", async () => {
+    await expect(copyWithTimeout(() => new Promise<void>(() => {}), "x", 20)).resolves.toBe("failed");
+  });
+  it("fails without a clipboard API", async () => {
+    await expect(copyWithTimeout(undefined, "x")).resolves.toBe("failed");
+  });
+});
+
+describe("costPerMatchNote (final-check A17)", () => {
+  it("names the match assumption and the total", () => {
+    expect(costPerMatchNote(3, 95)).toBe("Assumes ~3 matches at this level · $95 total");
+  });
+  it("never shows a $0 total when no cost was entered", () => {
+    expect(costPerMatchNote(3, 0, { known: false, partial: false })).toBe(
+      "Assumes ~3 matches at this level · cost not tracked"
+    );
+  });
+  it("does not call a partial cost the total", () => {
+    expect(costPerMatchNote(3, 95, { known: true, partial: true })).toBe(
+      "Assumes ~3 matches at this level · $95 entered so far"
+    );
   });
 });

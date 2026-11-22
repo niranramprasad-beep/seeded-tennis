@@ -169,17 +169,17 @@ describe("chartValuesAt — only what is really on the chart", () => {
 });
 
 describe("readoutAt — the words and where each dot sits", () => {
-  it("between logs: 'Logged 6.80 · Apr 12', its dot ON that entry's point", () => {
+  it("between logs: 'Logged 6.80 · Apr 12 '26', its dot ON that entry's point", () => {
     const r = readoutAt(series, t(2026, 5, 20), g);
     expect(r.date).toBe("Jun '26");
     expect(r.rows).toHaveLength(1);
     expect(r.rows[0]).toEqual({
       key: "logged",
       label: "Logged",
-      text: "6.80 · Apr 12",
+      text: "6.80 · Apr 12 '26",
       dot: { cx: g.x(t(2026, 3, 12)), cy: g.y(6.8) },
     });
-    expect(r.sentence).toBe("Jun '26: Logged 6.80 · Apr 12");
+    expect(r.sentence).toBe("Jun '26: Logged 6.80 · Apr 12 '26");
   });
   it("names the entry's year when it differs from the cursor's", () => {
     const s = buildChartSeries({ actualPoints: [{ date: d(2025, 11, 20), utr: 6 }, logs[2]], roadmap: [], estimate: [], today: TODAY })!;

@@ -37,6 +37,120 @@ verified with a real Google account by Claude (no disposable Google account
 exists, and signing in as a real person is out of bounds) — Niran's one-click
 check is in the PR.
 
+**2026-11-21 — Final-check UI polish, PR B (branch `fix/ui-polish-b`; no
+migration, no setting, no new route).** The Low items the final-check sweep
+bucketed "B". Honest empty states from one pure module
+(`lib/empty-state-copy.ts`): Today's pill is green only for a real count
+("None of your 3 targets on track yet" otherwise) and "Done this week: no
+matches logged yet"; Plan's record reads "Not tracked" until a win or loss
+exists (no "0–0"); Outreach says "4 programs · no emails marked sent yet"
+instead of three zeros, Researching cards no longer offer "Follow up in 14
+days" (it set a reminder for an email that did not exist), and below 640px
+the board's stages stack instead of scrolling off-screen. Coach email:
+`coachEmailCountry()` — no "from US", "from Other" or bare codes. Plan
+chart readout: a log's date always carries its year, and checkpoint labels
+hide while the readout box is open (it covered "Jun '27 · 9.30" at 375).
+Home: dark-mode UTR/GPA inputs get the card fill; "Example output" and the
+button's example count only while the visitor has changed nothing
+(`heroOutputNote` / `heroButtonLabel`); the zero state links to the fit
+report; hero + meta name all four bands. Fit report rows print an estimate
+with one decimal. Tournament checker: "Assumes ~3 matches at this level ·
+$95 total" under cost per match; "Share with my coach" settles within 2 s
+(`copyWithTimeout`) and the button says "Link copied". UTR dialog is a real
+`<form>` (Enter saves). Budget table headers read Item / Fit / type, no
+sideways scroll at 375; Add expense defaults to the first category shown.
+School page (parent on Free): "Locked on Free", not "No UTR yet". A
+signed-out visitor at the star cap is no longer told to upgrade "Free".
+Settings → Profile no longer repeats the Privacy + data block. Pricing
+table's feature column is wider on phones. Not done here, by design: the
+estimate-vs-rating decimals ("5.5" beside "UTR 5.00" — the house format),
+A15 (zod text in write routes PR A / PR E own), B10 (React #418, not
+reproduced). Guards: `lib/empty-state-copy.test.ts`,
+`lib/db/coach-email-country.test.ts`, `lib/star-limit.test.ts`, additions to
+`lib/home-calculator.test.ts`, `lib/tournament-fit-share.test.ts`,
+`plan-trajectory-values.test.ts`, `lib/honest-zero-state.test.ts`. Row by
+row: `~/seeded-evidence/final-check/prB/SUMMARY.md`.
+
+**2026-11-21 — Uptime schedule + the red Supabase check (final-check PR F,
+branch `fix/uptime-f`; workflow and docs only).** (1) The hourly uptime
+workflow had **never run on schedule**: merged 19:29 UTC with cron `:17`,
+and by 21:50 UTC the only run was the 19:32 manual one (GitHub API,
+`event=schedule` → 0 runs). GitHub sometimes does not register a new
+workflow's schedule until the file changes again, so the cron is now
+`23 * * * *` (still hourly); the file and TECHNICAL_ARCHITECTURE
+"Monitoring" say the notification goes to whoever lands a change to the
+cron line, and how to check that scheduled runs exist (about weekly) —
+silence proves nothing. **Not proven until a scheduled run appears after
+this merges.** (2) The red "Supabase Preview" check on every merge to
+`main` is Supabase's GitHub integration on the PRODUCTION project trying to
+deploy `supabase/migrations/` (its `main` branch entry is
+`MIGRATIONS_FAILED`); it fails only because ledger versions are timestamps
+and the files are `001_…`. Not a required check (only `verify` is).
+DEPLOYMENT_CHECKLIST now says: leave it red, never rename files to make it
+pass (that would auto-apply migrations to production on merge). Turning the
+integration's deploy off is Niran's dashboard step (final-check
+`prF/SUPABASE_CHECK.md`).
+
+**2026-11-21 — Billing honesty (final-check PR E, #30, merged 2026-11-21, branch `fix/billing-e`;
+no migration, no Whop/Vercel change).** (1) `/api/whop/checkout`: billing
+not configured and plan not configured are **503**, not 500, with fixed
+sentences that say nothing was charged (`lib/checkout-messages.ts`); on a
+Vercel Preview — where `WHOP_API_KEY` is a production-only variable, so
+this is the normal state — it says "Checkout is off on preview builds".
+Whop answering without a URL is 502. (2) Every 400 from a JSON route is our
+own sentence, never zod's default text ("Invalid input: expected object,
+received null"): `lib/api-body.ts` `parseRequestBody()` passes zod 4 a
+per-parse error map, so a schema-written message (`Unknown plan.`, `Type
+DELETE to confirm.`) survives and anything else gets the route's fixed
+fallback; it fails closed on zod-like wording. All 9 body-reading routes use
+it. (3) `/pricing`: a failed Choose shows its sentence under THAT card's
+button (was a banner at the top), and the client no longer surfaces a JSON
+parser error from an HTML error page. (4) A18: the entries into
+`/settings/billing` say "Plan and billing" / "Your plan and billing" instead
+of promising "Manage billing" to someone who may not be the payer; the
+not-payer state adds, as text only, where a payer's plan lives (an
+unsynced purchase looks like a non-payer). B27: on a **Free** account the
+Settings Account cards (player and parent) offer **See plans** (/pricing)
+instead of a billing link with nothing behind it (`lib/billing-links.test.ts`).
+**Review fix (same PR):** those cards keyed on the viewer's OWN tier, so a
+parent whose family is unlocked by another member's Family plan saw "Plan:
+Free · See plans", and /pricing then offered "Choose Family" — a second
+Family checkout. `lib/plan-entry.ts` now decides from the tier AND
+`my_family_has_tier('family')` (`loadFamilyPlanStatus`): that parent sees
+"Included in your family's plan" and no button; /pricing disables Family
+("Included in your family's plan") for any member of an unlocked family,
+and `choose()` re-checks before calling the API. A player on Free in an
+unlocked family keeps "See plans" (a Family plan does not raise their own
+tier — 040's cap is `has_tier` on the caller's row) with a note that the
+family tools are covered. Neither button shows until the tier (and on Free
+the family's status) is known. Also: the 502 sentences live in
+`lib/checkout-messages.ts` and say nothing was charged; Choose is
+`aria-describedby` its inline error, which clears on the Monthly/Yearly
+toggle; the body-reader guard catches `.json()` on any handler parameter
+and `JSON.parse(… .text())` (webhook allow-listed, signed payload) and the
+behaviour test's route list comes from the file walk; a test exercises the
+per-parse error map alone (removing it fails a test). **Round 2:** the
+second-Family guard is server-side too — `/api/whop/checkout` asks
+`my_family_has_tier('family')` as the caller for a Family checkout and
+answers **409** with the same sentence; an RPC error fails OPEN (logged
+`whop.checkout.family_check_failed`) so the only purchase path never
+disappears. `choose()` always re-reads the status fresh for Family; the
+cached `family-plan-status` is dropped on sign-out / account change; the
+"Included in your family's plan" button is `aria-disabled` (focusable,
+inert), not natively disabled. Tests: `lib/checkout-family-guard.test.ts`
+(409, first purchase unchanged, fail-open, Player never asks) and source
+pins for the wiring in `lib/plan-entry.test.ts`. Two LOWs left in
+`docs/TODO.md` (detector edge cases; Player offered to a Free parent).
+Guards: `lib/api-body.test.ts`
+(static: no `safeParse`/`.issues` in `app/`; behaviour: all 9 routes ×
+7 garbage bodies; checkout 503s; webhook not-configured stays a fixed 500 so
+Whop retries) and `lib/billing-view-render.test.tsx` (renders each
+`/settings/billing` state: free → only `/pricing`; payer → plan name +
+`TIER_PRICE_USD` price + only Whop portal links; not-payer → the sentence
+and **no** link; unreachable → Try again). The $0 production checkout test
+is written for Niran (final-check `prE/PROD_CHECKOUT_TEST.md`): production
+checkout has still never been run end to end by us.
+
 **2026-11-21 — Parents can verify with Google (final-check PR D; branch
 `fix/parent-verify-google-d`; no migration, no setting, no env var).** Read-only
 checks found production has not sent a magic-link/recovery email since
@@ -1589,7 +1703,9 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    2026-11-21: now, one screen per PR (DECISIONS).
 5. **AI goal coach** — a player's goals → year/month/week goals (Claude API).
    V1 ships no AI; this needs its own privacy-policy section first.
-6. **Wire the recruiting checklist into Today.**
+6. **Wire the recruiting checklist into Today.** (Final-check PR B,
+   `fix/ui-polish-b`, landed the sweep's Low "B" polish — open from it:
+   B1/B2/B9/B15/B23 are Niran's flags, A15 belongs with the write routes.)
 7. **Weekly email** — needs a real sending path (none exists; "Remind them"
    only re-sorts). Copy must not promise it before then.
 8. **File splits**: ~~`lib/fit.ts`~~ (DONE 2026-11-21, `refactor/fit-split`:
@@ -1614,8 +1730,8 @@ B4 and B24 fixed by PR A (#32, `fix/known-bugs-a`, merged 2026-11-21). Rows clos
 `fix/signup-onboarding-c`, merged 2026-11-21): A6 (email checked on its
 field), A7 (no GA on the sign-in / sign-up pages), A16 (name placeholder,
 birth-year/grade hint), B20 (one tense for the summer before senior year),
-and the onboarding sign-up's nested form found on the walk. PR D (`fix/parent-verify-google-d`) adds "Verify with Google" for
-parents. The other B/E rows are other PRs.
+and the onboarding sign-up's nested form found on the walk. PR D (#29, `fix/parent-verify-google-d`, merged 2026-11-21) adds "Verify
+with Google" for parents. PR E (#30, `fix/billing-e`, merged 2026-11-21) covers the billing rows; PR F (#31, `fix/uptime-f`, merged 2026-11-21) the uptime schedule and the Supabase check; PR B (#34, `fix/ui-polish-b`, merged 2026-11-21) the section-B polish. The other B/E rows are other PRs.
 
 Still open from the R9 QA sweep after `fix/sweep-1` (row status in
 `~/seeded-evidence/review-ready/r9-sweep/SWEEP.md`): H1's database half is
@@ -1623,7 +1739,15 @@ DONE (051, on production 2026-11-21; the sign-up INSERT is still uncovered —
 TODO). Still open: M1, M2, M4, M5, M8, L2, L3, L5–L7,
 L9–L11.
 
-Niran's own list (dashboards/keys, not code): revoke the old Gemini and
+Niran's own list (dashboards/keys, not code): **turn off the Supabase GitHub
+integration's deploy to production** (Supabase → production project →
+Project Settings → Integrations → GitHub: "Deploy to production" off, or
+disconnect; final-check `prF/SUPABASE_CHECK.md`) — never by renaming
+migration files; confirm a scheduled Uptime run exists after PR F merges;
+**run the $0 production
+checkout test** (a 100%-off, one-use promo on Player monthly; steps and the
+webhook API-version check in final-check `prE/PROD_CHECKOUT_TEST.md`) —
+the only way to prove checkout → webhook → tier on production; revoke the old Gemini and
 Stripe keys; Supabase and Vercel Pro before taking real money (Auth rate
 limits and leaked-password protection are plan settings); an adult/lawyer
 review of the privacy policy (with `docs/legal/proposed-policy-edits.md`);
