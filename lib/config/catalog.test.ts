@@ -18,6 +18,14 @@ describe("the catalog phase-1 flag", () => {
     );
   });
 
+  it("production is decided only by the flag: the one other trigger is a Vercel PREVIEW build", () => {
+    const src = read("lib", "config", "catalog.ts");
+    const expr = src.slice(src.indexOf("export const CATALOG_PHASE1_ENABLED"));
+    expect(expr).toContain('process.env.NEXT_PUBLIC_VERCEL_ENV === "preview"');
+    expect(expr).not.toMatch(/VERCEL_ENV\s*(===|!==|==)\s*"production"|NODE_ENV/);
+    expect((expr.match(/process\.env\./g) ?? []).length).toBe(2);
+  });
+
   it("/schools renders the imported section only behind the flag", () => {
     const page = read("app", "schools", "page.tsx");
     expect(page).toContain("{CATALOG_PHASE1_ENABLED ? <ImportedProgramsSection /> : null}");

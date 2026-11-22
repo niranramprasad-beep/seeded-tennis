@@ -35,6 +35,13 @@ with plain `node`; none is wired into `package.json` or CI.
 | `perf-h2-proxy.mjs <listen> <upstream>` | HTTP/2 + brotli in front of `next start`, so local Lighthouse numbers are comparable with production's (Vercel). | first a throwaway cert: `openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 2 -subj "/CN=localhost"`, then `H2_KEY=key.pem H2_CERT=cert.pem node scripts/perf-h2-proxy.mjs 4100 3100` · local only, proxies `localhost:<upstream>`; `*.pem` is git-ignored |
 | `perf-signed-in.mjs [routes…]` | Signed-in time until real content (no skeleton/spinner, held 300 ms) on the app routes, desktop, plus how many `/auth/v1/user` and REST calls ran first. `PERF_EMAIL` + `PERF_PASS_FILE` (a mode-600 file; never printed), `PERF_LATENCY` adds per-request latency. Staging only. | `PERF_EMAIL=… PERF_PASS_FILE=… node scripts/perf-signed-in.mjs /today` · `PERF_BASE`, default `localhost:3100`; staging persona only |
 
+## Catalog importers (staging only)
+
+| script | what it does | how to run · target |
+|---|---|---|
+| `import-rosters.ts` | Catalog phase 1: roster counts by graduating class from official roster pages (`docs/data/roster_counts_2026-27.tsv`) → `programs` + `program_class_counts`. | header of the file · `--upsert` to staging only (refuses production), or `--emit-sql` |
+| `import-utr-database.ts` | The owner's hand-checked "College Tennis UTR Database" sheet (Teams + Players tabs as CSV, kept OUTSIDE the repo — the Players tab names students) → `programs`, `program_class_counts` and one `hand_curated` `team_ranges` row per team. Range rule: floor = lower quartile of the reliable singles UTRs on the official roster (inclusive method, as Sheets' `QUARTILE`), middle = their median, top = highest; the sheet's own average must equal their mean, as a read check. Holds a team whose sheet disagrees with itself. Writes no player data. | `npx vite-node --config vitest.config.ts scripts/import-utr-database.ts -- --teams <Teams.csv> --players <Players.csv> --emit-sql out.sql`, then run `out.sql` in a STAGING SQL session (it refuses where `programs` is empty, as on production) |
+
 Scratch probes live in `scripts/_scratch/`, which is git-ignored locally.
 
 `site-audit.mjs` takes `AUDIT_OUT` (absolute folder) and `AUDIT_PERSONAS`

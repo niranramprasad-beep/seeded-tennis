@@ -20,6 +20,23 @@ open list. Open items live in NEXT 10 and `docs/TODO.md`.
 
 ## Executive status
 
+**2026-11-21 (night) — The owner's "College Tennis UTR Database" imported to
+STAGING (branch `feat/utr-database-import`; no migration; production
+untouched).** Mentor-meeting action item. `scripts/import-utr-database.ts` +
+`lib/catalog/utr-database.ts` read the sheet's Teams and Players tabs (CSV
+exports kept outside the repo) and write `programs`, class counts and the
+first `hand_curated` `team_ranges`: staging went from 179 programs / 0
+ranges to 214 / 34 (35 programs, 33 ACC + 2 SEC men; Pittsburgh women and
+California women's range held — see DATA_QUALITY "Second source"). Rows on
+staging checksum-identical to the importer's output. No player data stored
+(test). The phase-1 section now renders on Vercel PREVIEW builds (they read
+staging); production still needs `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`.
+`legacy-match` learned UNC ("… at Chapel Hill"). Range rule (owner's
+decision, same night): floor = lower quartile, middle = median, top =
+highest, inclusive quartiles as in Google Sheets — see DATA_QUALITY. Owner
+decisions still open before production: UTR licensing, and replacing the
+15 legacy estimates these duplicate.
+
 **2026-11-21 — Google sign-in shows the signed-in app without a refresh
 (branch `fix/google-header-signin`; no migration, no setting).** Reported in
 the 2026-11-21 review call: after "Continue with Google", a returning user
@@ -1695,8 +1712,13 @@ Production runs every migration through 051 (ledger 53, 2026-11-21).
    (docs/TODO.md "Who may approve a parent joiner"). Then the decided
    post-checkout Whop re-check (TODO "Post-checkout sync").
 2. **Catalog team ranges from sources** (PR E #9 is phase 1, flag off):
-   enter ranges by hand from official rosters in `/admin/team-ranges`, then
-   turn the flag on. Every band still rests on labelled estimates until then.
+   34 hand-curated ACC/SEC ranges from the owner's UTR database are on
+   STAGING (`feat/utr-database-import`, 2026-11-21; floor = lower quartile,
+   middle = median, decided). Next: the owner decides UTR licensing
+   (DATA_QUALITY "Second source"), the same
+   import runs on production on their go, rated imported programs feed the
+   bands in place of the legacy estimates they duplicate, then the flag goes
+   on. Every production band still rests on labelled estimates until then.
 3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (139
    uses in 38 non-test files, re-measured 2026-11-21); `lib/utr-sentinel.test.ts` keeps it safe meanwhile.
 4. **Full UI revamp** against the mockups (DESIGN_MOCKUP_SPEC*) — decided
