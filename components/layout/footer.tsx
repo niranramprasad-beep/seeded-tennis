@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { cn } from "@/lib/utils";
+import { SeededMark } from "@/components/seeded/icons";
 
 /**
  * Design system v2's ONE slim footer (docs/DESIGN_MOCKUP_SPEC_V2.md, shared
@@ -37,7 +38,10 @@ export function Footer({ inApp = false }: { inApp?: boolean } = {}) {
           appColumn ? "border-t border-line" : "mx-auto max-w-[1200px] px-6"
         )}
       >
-        <span className="font-seeded font-semibold text-ink sm:mr-auto">Seeded</span>
+        <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-seeded font-semibold text-ink sm:mr-auto sm:min-h-6">
+          <SeededMark size={18} className="shrink-0" />
+          Seeded
+        </Link>
         <Link href="/methodology" className={linkClass}>
           How we calculate fit
         </Link>

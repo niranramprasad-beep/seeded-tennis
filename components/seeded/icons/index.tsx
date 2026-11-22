@@ -24,7 +24,11 @@ export function SeededMark({ className, title, size = 22 }: SeededIconProps & { 
       {title ? <title>{title}</title> : null}
       <g transform="translate(1 1)">
         <circle cx="11" cy="11" r="10" fill="rgb(var(--c-lime))" />
-        <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" />
+        {/* The seams sit on the lime ball, which is light in both modes, so
+            they take the fixed on-lime ink; the ring stays --c-ink so it
+            reads against the page in light and dark. (In dark mode the seams
+            used to be light ink on lime and all but vanished.) */}
+        <path d="M3 8c5 2 11 2 16 0M3 14c5-2 11-2 16 0" stroke="rgb(var(--c-on-lime))" />
       </g>
     </svg>
   );

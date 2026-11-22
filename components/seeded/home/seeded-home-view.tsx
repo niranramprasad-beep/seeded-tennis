@@ -398,7 +398,7 @@ function TrustStrip() {
           (still text-stone) — an earlier version of this comment claimed
           text-ink-2 and was simply wrong about its own diff. Measured:
           6.24:1 light, 7.14:1 dark, both past AA. */}
-      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-3 px-6 py-5 text-[15px] leading-[1.5] text-stone sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-center lg:gap-8">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-3 px-6 py-5 text-[15px] leading-[1.5] text-stone sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-baseline lg:gap-8">
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
@@ -466,7 +466,9 @@ function WhatItDoes() {
         <figcaption className="mb-3 text-xs text-stone">Example</figcaption>
         <div className="seeded-card-row grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {CAPABILITY_CARDS.map((c, i) => (
-          <Reveal key={c.title} index={i} step={0.06}>
+          // Two columns between sm and lg left the third card alone at half
+          // width; it spans the row there instead, so the grid closes square.
+          <Reveal key={c.title} index={i} step={0.06} className={cn(i === CAPABILITY_CARDS.length - 1 && "sm:col-span-2 lg:col-span-1")}>
             <div
               className={cn(
                 "h-full rounded-card border p-6",
@@ -543,14 +545,19 @@ function ProductShot() {
             <span className="text-[13px] text-stone">seededtennis.com/today</span>
           </div>
           <div className="flex flex-wrap">
-            <div className="flex flex-0 flex-col gap-1.5 border-r border-line p-5 text-sm" style={{ flexBasis: 200 }}>
+            {/* The mock sidebar is the desktop app's; below md it wrapped
+                onto its own full-width row above the content (a phone gets
+                a bottom bar, not this), and at 768 the content (basis 560px)
+                could not fit beside it. Hidden below md; the content's basis
+                is small enough to sit beside it from md up. */}
+            <div className="hidden flex-0 flex-col gap-1.5 border-r border-line p-5 text-sm md:flex" style={{ flexBasis: 200 }}>
               <span className="rounded-md bg-grass-50 px-2.5 py-2 font-semibold text-grass">Today</span>
               <span className="px-2.5 py-2 text-ink">Plan</span>
               <span className="px-2.5 py-2 text-ink">Schools</span>
               <span className="px-2.5 py-2 text-ink">Outreach</span>
               <span className="px-2.5 py-2 text-ink">Events</span>
             </div>
-            <div className="min-w-0 flex-[999_1_560px] p-7">
+            <div className="min-w-0 flex-[999_1_420px] p-5 sm:p-7">
               {/* Mirrors what /today renders: its heading and the three real
                   action kinds in lib/today-actions.ts (email, follow-up,
                   check-in), worded as the code words them. It used to show
@@ -831,7 +838,9 @@ function Faq() {
 
   return (
     <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
-      <h2 className={cn(seededSectionHeading, "seeded-section-head m-0")}>
+      {/* mt-0, not m-0: m-0 also zeroed .seeded-section-head's 40px bottom
+          margin, so the first question sat flush under the heading. */}
+      <h2 className={cn(seededSectionHeading, "seeded-section-head mt-0")}>
         Questions parents ask
       </h2>
       <div className="border-t border-line">
@@ -846,7 +855,7 @@ function Faq() {
                   onClick={() => toggle(item.q)}
                   aria-expanded={isOpen}
                   aria-controls={panelId}
-                  className="flex min-h-11 w-full items-center justify-between gap-4 py-4.5 text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                  className="flex min-h-11 w-full items-center justify-between gap-4 py-[18px] text-left text-[17px] font-semibold text-ink transition-colors hover:text-grass focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
                 >
                   <span>{item.q}</span>
                   <ChevronDown
@@ -859,7 +868,7 @@ function Faq() {
                 </button>
               </h3>
               {isOpen && (
-                <div id={panelId} className="max-w-[820px] pb-4.5">
+                <div id={panelId} className="max-w-[820px] pb-[18px]">
                   <p className="m-0 leading-[1.6] text-stone">{item.a}</p>
                   {item.href && (
                     <Link
