@@ -85,7 +85,8 @@ export function DashboardBody({
               <span className={cn("inline-flex items-center gap-1", model.utr.direction === "up" && "font-semibold text-grass")}>
                 {model.utr.direction === "up" && <ArrowUpRight className="h-4 w-4" aria-hidden />}
                 {model.utr.direction === "down" && <ArrowDownRight className="h-4 w-4" aria-hidden />}
-                <span className="font-mono">{model.utr.deltaAmount}</span> since {model.utr.since}
+                <span className="font-mono">{model.utr.deltaAmount}</span>
+                {model.utr.deltaPercent && <span className="font-mono text-stone"> ({model.utr.deltaPercent})</span>} since {model.utr.since}
               </span>
             ) : model.utr.hasUtr ? (
               "Not enough ratings logged to show a change."

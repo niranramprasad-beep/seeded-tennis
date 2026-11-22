@@ -1,3 +1,4 @@
+import { ArrowUpRight, Check, HelpCircle, Minus, Target, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type FitBand = "reach" | "target" | "likely" | "out-of-range" | "unverified";
@@ -22,6 +23,17 @@ const BAND_CLASS: Record<FitBand, string> = {
   unverified: "bg-card text-stone border-line border-dashed",
 };
 
+// Design polish round 1 (Figma "WD — NiranRamprasad — Seeded", 04b Fit band
+// badges v2): an icon per band so the band reads at a glance without more
+// words. Same tints as before — the palette is unchanged.
+const BAND_ICON: Record<FitBand, LucideIcon> = {
+  likely: Check,
+  target: Target,
+  reach: ArrowUpRight,
+  "out-of-range": Minus,
+  unverified: HelpCircle,
+};
+
 export function FitBadge({ band, className }: { band: FitBand; className?: string }) {
   return (
     <span
@@ -31,6 +43,10 @@ export function FitBadge({ band, className }: { band: FitBand; className?: strin
         className
       )}
     >
+      {(() => {
+        const Icon = BAND_ICON[band];
+        return <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />;
+      })()}
       {LABEL[band]}
     </span>
   );

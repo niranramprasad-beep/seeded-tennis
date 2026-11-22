@@ -17,6 +17,7 @@
 // rate.
 
 import type { FitReport } from "@/lib/fit";
+import { formatUtrPercentChange } from "@/lib/utr-percent";
 import {
   projectionPath,
   projectionReachDate,
@@ -222,6 +223,9 @@ export interface UtrKpi {
   /** The two halves of deltaText, for a screen that sets the number in mono:
    *  "+0.50" / "February". */
   deltaAmount: string | null;
+  /** "+5.6%" beside deltaAmount (never instead of it); null when flat or
+   *  either rating is not a real logged one. */
+  deltaPercent?: string | null;
   since: string | null;
   direction: "up" | "down" | "flat" | null;
 }
@@ -259,7 +263,8 @@ export function utrKpi(
   const since = monthsAgo <= 11 ? MONTHS[baseline.date.getMonth()] : monthYear(baseline.date);
   const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   const deltaAmount = direction === "flat" ? "No change" : `${direction === "up" ? "+" : "−"}${Math.abs(delta).toFixed(2)}`;
-  return { hasUtr: true, value, delta, deltaText: `${deltaAmount} since ${since}`, deltaAmount, since, direction };
+  const deltaPercent = formatUtrPercentChange(baseline.utr, latest.utr);
+  return { hasUtr: true, value, delta, deltaText: `${deltaAmount} since ${since}`, deltaAmount, deltaPercent, since, direction };
 }
 
 export interface TargetSchoolsKpi {

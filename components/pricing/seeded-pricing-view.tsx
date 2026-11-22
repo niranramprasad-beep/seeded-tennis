@@ -126,6 +126,12 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
 
                   <div className="h-[92px]">
                     <p className="flex items-baseline gap-2">
+                      {price.wasAmount && (
+                        <s className="font-mono text-lg text-stone-light tabular-nums">
+                          <span className="sr-only">Was </span>
+                          {price.wasAmount}
+                        </s>
+                      )}
                       <span className="font-mono text-[40px] font-semibold leading-none tracking-tight text-ink tabular-nums">
                         {price.amount}
                       </span>
