@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { activeNavHref } from "@/lib/nav-active";
 
 type NavLink = { href: string; label: string };
 
@@ -71,7 +72,9 @@ export function SeededNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  // lib/nav-active.ts: the same "current page" rule as the app sidebar.
+  const activeHref = activeNavHref(pathname, MARKETING_LINKS.map((l) => l.href));
+  const isActive = (href: string) => href === activeHref;
   const showCta = !NO_CTA_ROUTES.includes(pathname);
 
   if (LOGO_ONLY_ROUTES.includes(pathname)) {
