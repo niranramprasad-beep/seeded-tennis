@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SeededMark } from "@/components/seeded/icons";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
@@ -106,8 +107,12 @@ export function SeededSidebar() {
             collapsed && "justify-center px-0"
           )}
         >
-          <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-accent ring-1 ring-on-lime" />
+          <Link
+            href={homeHref}
+            aria-label={collapsed ? "Seeded" : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden"
+          >
+            <SeededMark size={22} className="shrink-0" />
             {!collapsed && (
               <span className="truncate font-seeded text-lg font-semibold tracking-tight text-ink">
                 Seeded
@@ -218,7 +223,7 @@ export function SeededSidebar() {
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[rgb(var(--c-line))] bg-panel px-4 lg:hidden">
         {/* 44px tall: the phone sweep measured this link at 28px (C29). */}
         <Link href={homeHref} className="flex min-h-11 items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-lime-accent ring-1 ring-on-lime" />
+          <SeededMark size={22} className="shrink-0" />
           <span className="font-seeded text-lg font-semibold tracking-tight text-ink">Seeded</span>
         </Link>
         <SeededAvatarTrigger
@@ -251,6 +256,7 @@ export function SeededSidebar() {
             <Link
               key={l.href}
               href={l.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex min-h-[52px] flex-1 flex-col items-center justify-center gap-[3px] text-[11px]",
                 active ? "font-semibold text-grass" : "text-stone"
@@ -259,7 +265,12 @@ export function SeededSidebar() {
               {/* Pixel-exact hand-drawn icons for the player's mockup-defined
                   5 items; parent mode has no mockup, so it falls back to the
                   same lucide icon used in the desktop nav. */}
-              <span className="relative">
+              <span
+                className={cn(
+                  "relative flex items-center justify-center rounded-pill px-3 py-0.5 motion-safe:transition-colors",
+                  active && "bg-grass-50"
+                )}
+              >
                 {isParent ? <Icon className="h-[22px] w-[22px]" aria-hidden /> : <TabIcon href={l.href} />}
                 {!!l.badge && (
                   <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-lime-accent px-1 text-[10px] font-semibold text-on-lime">
@@ -296,7 +307,9 @@ function SidebarLink({
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 font-sans transition-colors",
         small ? "text-sm" : "text-[15px]",
-        active ? "bg-grass-50 font-semibold text-grass" : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
+        active
+          ? "bg-grass-50 font-semibold text-grass before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-grass motion-safe:before:transition-all"
+          : "text-ink hover:bg-[rgb(var(--c-primary)/0.06)]",
         collapsed && "justify-center px-0"
       )}
     >

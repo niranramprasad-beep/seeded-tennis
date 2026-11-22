@@ -625,6 +625,8 @@ export function SignupFlow({
               onChange={setGender}
             />
           )}
+          {/* Design polish round 1 (22 Nov consult): grade comes before the
+              birth year — the order the Google sign-up already uses. */}
           {!isParentSignup && (
             <ChipRadioGroup<number>
               label="Grade in school"

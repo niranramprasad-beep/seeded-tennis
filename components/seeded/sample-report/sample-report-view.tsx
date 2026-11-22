@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { SeededMark } from "@/components/seeded/icons";
 import type { ReactNode } from "react";
 import { DataChip } from "@/components/seeded/ui/data-chip";
 import { cn } from "@/lib/utils";
@@ -72,7 +74,7 @@ function chip(className: string, children: ReactNode) {
 
 function StatTile({ value, label }: { value: string; label: ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-card p-5">
+    <div className="rounded-card border border-line bg-card p-5">
       <p className="font-mono text-2xl font-bold text-ink">{value}</p>
       <p className="mt-1.5 text-sm text-stone">{label}</p>
     </div>
@@ -87,11 +89,22 @@ export function SampleReportView() {
           <div className="flex flex-wrap items-center gap-3">
             {/* min-h-11 (44px): a phone tap target. The CTA beside it is
                 already 44px, so the header height does not change. */}
-            <Link href="/" className="inline-flex min-h-11 items-center font-seeded text-xl font-bold text-ink">
+            <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-seeded text-xl font-bold text-ink">
+              <SeededMark size={22} />
               Seeded
             </Link>
             <DataChip status="estimated">Sample report · example family</DataChip>
           </div>
+          {/* 22 Nov consult: visitors landed here with "no header" and no way
+              back. The page keeps its own standalone header on purpose
+              (app-shell.tsx), so the way back lives here. */}
+          <Link
+            href="/"
+            className="order-last inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-grass underline-offset-4 hover:underline sm:order-none sm:ml-auto sm:mr-3"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Back to Seeded
+          </Link>
           <Link
             href="/onboarding"
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
@@ -124,7 +137,7 @@ export function SampleReportView() {
           <StatTile value="$1,840" label="spent so far · 2026–27 season" />
         </div>
 
-        <div className="mt-5 rounded-xl border border-line bg-card p-5">
+        <div className="mt-5 rounded-card border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Needs a parent decision</h2>
           <div className="mt-3 rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4">
             <p className="font-semibold text-ink">Skip L5 Bethesda Open (Nov 22)?</p>
@@ -136,7 +149,7 @@ export function SampleReportView() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-xl border border-line bg-card p-5">
+        <div className="mt-5 rounded-card border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Coach activity this week</h2>
           <ul className="mt-3 flex flex-col divide-y divide-line">
             {ACTIVITY_ROWS.map((row) => (
@@ -151,7 +164,7 @@ export function SampleReportView() {
           </ul>
         </div>
 
-        <div className="mt-5 rounded-xl border border-line bg-card p-5">
+        <div className="mt-5 rounded-card border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Season budget · 2026–27 season</h2>
           <p className="mt-1.5 text-sm text-stone">
             <span className="font-mono font-semibold text-ink">$1,840</span> spent of $3,000
@@ -192,7 +205,7 @@ export function SampleReportView() {
           </p>
         </div>
 
-        <div className="mt-5 rounded-xl border border-line bg-card p-5">
+        <div className="mt-5 rounded-card border border-line bg-card p-5">
           <h2 className="text-base font-semibold text-ink">Upcoming events</h2>
           <ul className="mt-3 flex flex-col divide-y divide-line">
             {UPCOMING_ROWS.map((row) => (

@@ -7,6 +7,63 @@ Newest first.
 
 ---
 
+## 2026-11-22 — Clean deploys: every build warning we own is gone (`fix/herdy-vercel-warnings`)
+
+Read from Vercel's build logs (production `main` 9c28391 and three previews)
+and a local `next build`. Calls made without asking:
+- **`engines.node` is `24.x`, not `>=24` (reverses the 2026-11-21 line
+  below).** That line said "CI and Vercel run 24" — Vercel did not. An
+  open-ended range overrides the project's Node setting (24.x) and Vercel was
+  building production on **Node 26** while CI ran 24, with two warnings per
+  build saying so. `24.x` matches `.nvmrc`, CI and the project setting. Cost:
+  `npm install` on a local Node that is not 24 prints `EBADENGINE` (a
+  warning, not an error) — use `.nvmrc`. Undo: set it back to `>=24`.
+- **`next lint` → the ESLint CLI.** Next 15.5 deprecates `next lint` (Next 16
+  removes it). ESLint 8 → 9 with a flat `eslint.config.mjs` (FlatCompat over
+  `next/core-web-vitals`, same rule override); `.eslintrc.json` is deleted.
+  `npm run lint` is `eslint . --max-warnings=0`, so CI's Lint step is
+  unchanged and still fails on any warning. It now lints the whole repo
+  (scripts/ and root configs too), not only app/components/lib; that found
+  one unused `eslint-disable` (lib/ga-runtime.ts), removed. ESLint 10 is not
+  possible until Next 16: eslint-config-next 15.5.x peers `eslint ^9`.
+- **`app/opengraph-image.tsx` runs on Node, not edge.** The edge runtime made
+  every build warn that it disables static generation; the image reads no
+  request data, so it is now a static PNG rendered at build (checked: 1200×630).
+- **`allowScripts` denies esbuild, fsevents and unrs-resolver install
+  scripts.** npm 11 already blocks them by default and warned on every
+  install; recording the denial keeps today's behaviour (each ships a
+  prebuilt binary; the build and tests pass without the scripts) and stops
+  the warning. Undo: `npm install-scripts approve <pkg>`.
+- **`outputFileTracingRoot` is pinned to the repo directory.** A build from a
+  nested `.claude/worktrees/…` checkout saw two lockfiles, warned, and
+  traced from the parent checkout. On Vercel it is the directory Next picks
+  anyway.
+- **Not changed:** `npm audit` (23, all dev-only — production deps have 0);
+  the non-breaking `npm audit fix` pulls a Sentry/OpenTelemetry tree in
+  under `lighthouse`, and the rest need vitest 1 → 3+. Vercel's own
+  `npm warn Unknown env config "cache-dir"` is the platform's, not ours.
+
+---
+
+## 2026-11-22 — Design polish round 1 departs from the Claude Design mockups (Niran's ask, Herdy's direction)
+
+On the 22 Nov consult Niran said the UI "looks very overwhelming" and asked
+for it to be polished. Herdy (Crimson web-dev expert) set the direction:
+fewer words and pills, icons instead of some tags, a clear active nav state,
+tinted feature cards, a pricing strikethrough, percent beside UTR changes,
+initials tiles instead of school logos — and **the colour palette stays
+exactly as it is**. The reference for this round is the Figma file
+"WD — NiranRamprasad — Seeded" (https://www.figma.com/design/A6ACANVOvQOjUvA3lBeH5d),
+not the Claude Design mockups, wherever the two differ.
+
+- Percent is shown BESIDE a UTR change ("+0.50 (+7.1%)"), never instead of
+  it, and only when both ratings are real (`lib/utr-percent.ts`). Fit bands
+  are still never a percent.
+- Schools get an initials tile (`components/seeded/ui/school-monogram.tsx`),
+  not a logo: no third-party marks, nothing that needs a source.
+- Primary nav is unchanged (5 items + Tools; phone bar exactly 5).
+- Undo: revert the `herdy-work` branch commits; no data or migration involved.
+
 ## 2026-11-21 (Saturday) — Niran's product decisions before the review (owner's calls, not Claude's)
 
 Recorded as given in Niran's Saturday pre-review run brief. The D-/A- numbers
@@ -155,6 +212,8 @@ Recorded as given, in Niran's own current-turn sign-off.
   need no env at all, which the README says.
 - **`engines.node` is `>=24`, `.nvmrc` is 24.** CI and Vercel run 24; an
   upper bound would warn on newer local Node for no benefit.
+  *Reversed 2026-11-22: Vercel was in fact building on Node 26 because of the
+  open range — `engines.node` is now `24.x` (entry above).*
 - **CI also runs `npm run test:tz`** and triggers only on `main` (`v1` is
   retired). One job, so branch protection's required check (`verify`) is
   unchanged.

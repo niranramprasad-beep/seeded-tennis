@@ -81,6 +81,9 @@ export interface PriceBlock {
   cadence: string;
   /** The one line under the price. */
   note: string;
+  /** Yearly only: twelve months at the monthly price ("$144"), shown struck
+   *  through beside the yearly price. Derived from TIER_PRICE_USD. */
+  wasAmount?: string;
 }
 
 export function priceBlockFor(tier: SubscriptionTier, interval: BillingInterval): PriceBlock {
@@ -92,6 +95,7 @@ export function priceBlockFor(tier: SubscriptionTier, interval: BillingInterval)
       amount: formatTierPrice(tier, "yearly"),
       cadence: "per year",
       note: `About ${yearlyAsMonthlyLabel(tier)} a month. Saves ${formatUsd(yearlySavingsUsd(tier))} a year.`,
+      wasAmount: formatUsd(TIER_PRICE_USD[tier].monthly * 12),
     };
   }
   return {

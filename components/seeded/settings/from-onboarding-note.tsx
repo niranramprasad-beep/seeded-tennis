@@ -7,7 +7,7 @@ export function FromOnboardingNote() {
   return (
     <p
       role="status"
-      className="rounded-xl border border-line bg-card px-5 py-3 text-[15px] text-ink"
+      className="rounded-card border border-line bg-card px-5 py-3 text-[15px] text-ink"
       data-testid="from-onboarding-note"
     >
       <span className="font-semibold">{FROM_ONBOARDING_NOTE}.</span>{" "}

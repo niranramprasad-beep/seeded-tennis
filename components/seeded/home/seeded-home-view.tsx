@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { heroButtonLabel, heroOutputNote, onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Mail, Route, Trophy } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { buildFitReport, isUsableUtr } from "@/lib/fit";
@@ -51,9 +51,6 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
 
       {/* Mobile: compact hero + calculator card, matching MobileHome.dc.html */}
       <div className="flex flex-col gap-4 lg:hidden">
-        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-grass">
-          College tennis recruiting, planned
-        </p>
         <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-ink">
           Know which teams you can make, and what to do this month.
         </h1>
@@ -64,6 +61,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
           Target, Likely and Out of range.
         </p>
         <FitCalculatorCard schools={schools} mobile />
+        <p className="text-center text-xs text-stone">Free · no card · Takes about 90 seconds.</p>
       </div>
     </section>
   );
@@ -72,12 +70,8 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
 function HeroCopy({ teamCount }: { teamCount: number }) {
   return (
     <div>
-      <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
-        College tennis recruiting, planned
-      </p>
-      <h1 className="mt-4 font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
-        Know which college teams you can make, and what to do this month to
-        get there.
+      <h1 className="font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
+        Know which teams you can make, and what to do this month.
       </h1>
       {/* P0-7: "compares you to real rosters" — the comparison is against
           team UTR estimates, not real rosters. Say "real programs": the
@@ -106,7 +100,7 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
         </Link>
       </div>
       <p className="mt-4 text-sm text-stone">
-        Free. No card. Takes about 90 seconds. Results before you make an account.
+        Free · no card · Takes about 90 seconds.
       </p>
     </div>
   );
@@ -256,7 +250,6 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
         >
           See my schools
         </Link>
-        <p className="text-center text-xs text-stone">Free · no account until you save</p>
       </div>
     );
   }
@@ -264,7 +257,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   return (
     <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-[15px]">Your fit, in about 90 seconds</strong>
+        <strong className="text-[15px]">Your fit</strong>
         {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
             verified and no verification date is stored anywhere. */}
         <EstimateChip />
@@ -405,16 +398,13 @@ function TrustStrip() {
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
         <span>
-          <strong className="text-ink">Honest about the data.</strong> Every
-          team rating is an estimate, and labelled as one.
+          <strong className="text-ink">Every team rating is an estimate.</strong>
         </span>
         <span>
-          <strong className="text-ink">Bands, not promises.</strong> Likely,
-          Target, Reach or Out of range &mdash; never a percent chance.
+          <strong className="text-ink">Bands, not promises &mdash; never a percent chance.</strong>
         </span>
         <span>
-          <strong className="text-ink">Built by a junior player</strong>{" "}
-          going through recruiting now.
+          <strong className="text-ink">Built by a junior player</strong>
         </span>
         <Link href="/methodology" className="inline-flex min-h-11 items-center text-grass hover:text-grass-700 sm:min-h-6">
           How we calculate fit
@@ -429,7 +419,7 @@ function TrustStrip() {
 const CAPABILITY_CARDS = [
   {
     title: "Plan",
-    body: "Your UTR now vs where your target teams need you by the summer before senior year, with checkpoints each season.",
+    body: "Your UTR now vs what target teams need by the summer before senior year.",
     // An example, and said so. This named a real program ("Emory range
     // 9.1–10.6") with a range no source backs — roster UTRs are unsourced
     // estimates (UTR_RANGE_SOURCE_LABEL) — as a fact (2026-11-20).
@@ -437,27 +427,55 @@ const CAPABILITY_CARDS = [
   },
   {
     title: "Compete smarter",
-    body: "Check any tournament before you pay. Seeded scores the draw against your level, cost per match, and travel.",
+    body: "Check a tournament before you pay: draw, cost per match, travel.",
   },
   {
     title: "Reach out on time",
-    body: "A pipeline for every coach: draft, sent, replied, call, visit. Seeded flags a follow-up on Today when one is due.",
+    body: "A coach pipeline, with follow-ups flagged on Today.",
+  },
+] as const;
+
+// Design polish round 1 (Figma 04a): each card gets a tinted icon tile and a
+// light tint background — palette tints only, no new colours.
+const CARD_TINT = [
+  { icon: Route, card: "border-grass-100 bg-grass-50", tile: "border-grass-100 bg-card text-grass" },
+  {
+    icon: Trophy,
+    card: "border-[rgb(var(--c-sage-tint-border))] bg-[rgb(var(--c-sage-tint-bg))]",
+    tile: "border-[rgb(var(--c-sage-tint-border))] bg-card text-[rgb(var(--c-sage-tint-text))]",
+  },
+  {
+    icon: Mail,
+    card: "border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))]",
+    tile: "border-[rgb(var(--c-gold-tint-border))] bg-card text-[rgb(var(--c-gold-tint-text))]",
   },
 ] as const;
 
 function WhatItDoes() {
   return (
     <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
-      <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-grass">
-        UTR tells you where you stand. Seeded tells you what to do next.
-      </p>
-      <h2 className={cn(seededSectionHeading, "seeded-section-head mt-3 max-w-[760px] text-balance")}>
+      <h2 className={cn(seededSectionHeading, "seeded-section-head max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
       </h2>
-      <div className="seeded-card-row grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <figure>
+        <figcaption className="mb-3 text-xs text-stone">Example</figcaption>
+        <div className="seeded-card-row grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {CAPABILITY_CARDS.map((c, i) => (
           <Reveal key={c.title} index={i} step={0.06}>
-            <div className="h-full rounded-xl border border-line bg-card p-6">
+            <div
+              className={cn(
+                "h-full rounded-card border p-6",
+                CARD_TINT[i].card
+              )}
+            >
+              {(() => {
+                const Icon = CARD_TINT[i].icon;
+                return (
+                  <span className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-[10px] border", CARD_TINT[i].tile)}>
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                );
+              })()}
               <h3 className="m-0 text-lg font-semibold text-ink">{c.title}</h3>
               <p className="mt-2 leading-[1.55] text-stone">{c.body}</p>
               {c.title === "Plan" && (
@@ -471,7 +489,6 @@ function WhatItDoes() {
               )}
               {c.title === "Compete smarter" && (
                 <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-stone">Example</span>
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
                     Good fit · L3 Richmond
                   </span>
@@ -482,7 +499,6 @@ function WhatItDoes() {
               )}
               {c.title === "Reach out on time" && (
                 <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[13px]">
-                  <span className="text-xs text-stone">Example</span>
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
                     Emailed 8
                   </span>
@@ -497,7 +513,8 @@ function WhatItDoes() {
             </div>
           </Reveal>
         ))}
-      </div>
+        </div>
+      </figure>
     </section>
   );
 }
@@ -652,9 +669,6 @@ function ParentsSection() {
               <div className="text-[13px] text-[rgb(var(--c-night-muted))]">season spend</div>
             </div>
           </div>
-          <div className="mt-4.5 border-t border-[rgb(var(--c-night-line))] pt-4 text-sm text-[rgb(var(--c-night-soft))]">
-            Skipped 2 bad-fit events this fall · saved about $620
-          </div>
         </Reveal>
       </div>
     </section>
@@ -680,8 +694,8 @@ function MethodAndFounder() {
           <li>Each team has an estimated UTR range, labelled as an estimate wherever it appears.</li>
           <li>
             We place you on that range &mdash; at your projected rating for the
-            summer before senior year, labelled as an estimate (top D1 programs
-            often decide earlier, during junior year).
+            summer before senior year, labelled as an estimate. Top D1 programs often decide
+            earlier.
           </li>
           <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
           <li>You get one of four bands. We never show a percent chance.</li>
@@ -699,9 +713,6 @@ function MethodAndFounder() {
         </p>
         <p className="mt-3 font-semibold text-ink">
           Niran — Seeded&apos;s founder
-        </p>
-        <p className="mt-1 text-[15px] leading-[1.55] text-stone">
-          Junior player at a DMV high school, building the tool my family needed.
         </p>
         {/* P0-7: was "and we fix it within 48 hours" — a one-person project
             with no on-call rotation and no ticketing. Don't promise a
@@ -761,7 +772,7 @@ const FAQ_ITEMS: { q: string; a: string; href?: string; hrefLabel?: string }[] =
   },
   {
     q: "Where does the roster data come from?",
-    a: "Each team's range is two estimates entered by hand into our catalogue — a competitive floor and an average UTR. There is no published source or check date behind either, so they are labelled unverified estimates everywhere they appear. We store no rosters and no individual player's rating.",
+    a: "Team ranges are hand-entered, unverified estimates with no published source or check date. We store no rosters or individual player ratings.",
     href: "/methodology",
     hrefLabel: "How we calculate fit",
   },

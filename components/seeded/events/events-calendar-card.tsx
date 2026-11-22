@@ -69,7 +69,7 @@ export function EventsCalendarCard({
   };
 
   return (
-    <section aria-labelledby="calendar-heading" className="rounded-xl border border-line bg-card p-4 sm:p-5">
+    <section aria-labelledby="calendar-heading" className="rounded-card border border-line bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="calendar-heading" className="text-lg font-semibold text-ink">

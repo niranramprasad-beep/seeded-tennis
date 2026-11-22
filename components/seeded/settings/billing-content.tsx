@@ -71,7 +71,7 @@ function Tile({ value, label }: { value: string; label: string }) {
 
 function CardShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-card p-6">
+    <section className="rounded-card border border-line bg-card p-6">
       <h2 className="text-lg font-semibold text-ink">{title}</h2>
       {children}
     </section>
@@ -190,7 +190,7 @@ export function BillingContent({
 }) {
   if (view.kind === "free") {
     return (
-      <section className="rounded-xl border border-line bg-card p-6">
+      <section className="rounded-card border border-line bg-card p-6">
         <h2 className="text-lg font-semibold text-ink">You&apos;re on Free</h2>
         <p className="mt-2 text-sm text-stone">
           Paid plans add the weekly tools: unlimited schools, coach outreach and a parent view.
@@ -208,7 +208,7 @@ export function BillingContent({
   if (view.kind === "loading") {
     // Same boxes as the plan card it becomes (rule 6).
     return (
-      <section className="rounded-xl border border-line bg-card p-6" aria-busy="true">
+      <section className="rounded-card border border-line bg-card p-6" aria-busy="true">
         <h2 className="text-lg font-semibold text-ink">Your plan</h2>
         <div className="mt-2 h-5 w-48 animate-pulse rounded bg-line/50 motion-reduce:animate-none" aria-hidden />
         <div className="mt-3 h-5 w-72 animate-pulse rounded bg-line/40 motion-reduce:animate-none" aria-hidden />
@@ -220,7 +220,7 @@ export function BillingContent({
   if (view.kind === "unreachable") {
     return (
       <>
-        <section className="rounded-xl border border-line bg-card p-6">
+        <section className="rounded-card border border-line bg-card p-6">
           <h2 className="text-lg font-semibold text-ink">{view.tierName} plan</h2>
           <p role="status" className="mt-2 text-sm text-stone">
             {WHOP_UNREACHABLE_NOTE}
@@ -241,7 +241,7 @@ export function BillingContent({
   if (view.kind === "not-payer") {
     return (
       <>
-        <section className="rounded-xl border border-line bg-card p-6">
+        <section className="rounded-card border border-line bg-card p-6">
           <h2 className="text-lg font-semibold text-ink">{view.tierName} plan</h2>
           <p className="mt-2 text-sm text-stone">{notPayerNote(view.payerFirstName)}</p>
           <p className="mt-1 text-sm text-stone">{NOT_PAYER_SELF_NOTE}</p>
@@ -262,7 +262,7 @@ export function BillingContent({
 
   return (
     <>
-      <section className="rounded-xl border border-line bg-card p-6">
+      <section className="rounded-card border border-line bg-card p-6">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold text-ink">{plan.tierName} plan</h2>
           <Chip tone={chip.tone}>{chip.label}</Chip>
