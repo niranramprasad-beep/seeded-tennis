@@ -37,6 +37,8 @@ import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils"
 import { formatIsoDate } from "@/lib/catalog/programs";
 import { schoolRangeNote } from "@/lib/db/schools";
 import type { SchoolDetails } from "@/lib/types";
+import type { ProgramRosterPage } from "@/lib/db/roster";
+import { SchoolRosterCard, SchoolStaffList } from "@/components/seeded/schools/school-roster";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -49,6 +51,9 @@ interface Props {
    * band"'s alternative-school suggestion (lib/school-fit.ts's
    * explainSchoolFit), only used when the gap here turns out unreachable. */
   allSchools: School[];
+  /** The official roster by name and the coaching staff (migration 054);
+   *  empty for a school with no imported roster. */
+  roster?: ProgramRosterPage;
 }
 
 // Client Component (promoted from Server Component — needs usePlayer() for
@@ -58,7 +63,7 @@ interface Props {
 // file's own earlier invention, before the real mockup existed. Removed to
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
-export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
+export function SeededSchoolDetail({ school, programType, allSchools, roster }: Props) {
   const { player, isAuthed, hydrated } = usePlayer();
   const isParent = player.role === "parent";
   const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
@@ -421,7 +426,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
               <User className="h-4 w-4 text-grass" aria-hidden />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
-            <StaffDirectoryHint school={school} className="mt-2.5" />
+            {roster && roster.staff.length > 0 ? (
+              <SchoolStaffList staff={roster.staff} />
+            ) : (
+              <StaffDirectoryHint school={school} className="mt-2.5" />
+            )}
           </div>
           {/* Outreach is the player's: a parent opening /outreach is
               bounced to /family, and Seeded never writes to a coach on a
@@ -437,6 +446,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
             </div>
           )}
         </div>
+
+        {roster ? <SchoolRosterCard page={roster} rosterUrl={school.rosterUrl} /> : null}
       </div>
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>
         {toast?.message ?? " "}

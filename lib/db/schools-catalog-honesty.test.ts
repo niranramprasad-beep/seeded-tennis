@@ -12,6 +12,13 @@ import { getSchools, staffDirectorySearchQuery } from "./schools";
 // shipping. If a future roster import (P1-DATA-1) adds real, sourced coach
 // contacts, that change has to come with a per-school source and date and a
 // deliberate edit here — not a quiet re-add.
+//
+// 2026-11-22 (deliberate edit, Niran's decision): real coaching staff and
+// published emails now exist — NOT on `School`, but in their own table,
+// program_staff (migration 054), where every row carries the official page it
+// was read from (NOT NULL) and a date, shown beside it on the school page
+// (components/seeded/schools/school-roster.tsx). These tests still hold: the
+// School objects carry no coach field and no email.
 describe("school catalog contains no invented data", () => {
   const FORBIDDEN_KEYS = [
     "coachName",

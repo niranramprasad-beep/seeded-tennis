@@ -56,6 +56,8 @@ describe("the catalog phase-1 flag", () => {
       "components/admin/team-range-admin.tsx",
       "components/schools/imported-programs-section.tsx",
       "lib/db/programs.ts",
+      // The roster pages (054): one program's id by slug, then its roster.
+      "lib/db/roster.ts",
       // The spreadsheet sync (2026-11-22): the one catalog every screen reads
       // merges the imported programs in — behind the same flag (next test).
       "lib/db/schools.ts",

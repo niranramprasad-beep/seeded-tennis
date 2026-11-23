@@ -199,6 +199,8 @@ export interface School {
   details?: SchoolDetails;
   /** The official roster page the range was read against. */
   rosterUrl?: string | null;
+  /** The imported program (048) this school is, for its roster page (054). */
+  programSlug?: string;
 }
 
 /** A sourced team range (team_ranges, migration 048). low = floor (lower
