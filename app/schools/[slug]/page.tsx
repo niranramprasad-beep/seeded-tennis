@@ -4,7 +4,7 @@ import {
   combinedScore,
   getSchool,
   getSchools,
-  UTR_RANGE_SOURCE_LABEL,
+  utrSourceShortLabel,
 } from "@/lib/db/schools";
 import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
 
@@ -24,7 +24,7 @@ export async function generateMetadata({
   const programType = school.gender === "women" ? "Women's" : "Men's";
   return {
     title: `${school.name} ${programType.toLowerCase()} tennis — Seeded`,
-    description: `${school.name} ${programType.toLowerCase()} tennis: ${school.division}, ${school.conference}, ${school.city}, ${school.state}. See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.`,
+    description: `${school.name} ${programType.toLowerCase()} tennis: ${[school.division, school.conference, school.city, school.state].filter(Boolean).join(", ")}. See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.`,
     alternates: { canonical: `/schools/${school.slug}` },
   };
 }
@@ -64,23 +64,26 @@ export default async function SchoolDetailPage({
   // Not fabricated — same formula the "Seeded score" stat tile uses.
   const peers = allSchools
     .filter((s) => s.gender === school.gender && s.division === school.division)
-    .sort((a, b) => combinedScore(b) - combinedScore(a));
+    // A school with no US News rank has no combined score; it sorts last.
+    .sort((a, b) => (combinedScore(b) ?? -1) - (combinedScore(a) ?? -1));
   const nationalRank = peers.findIndex((s) => s.slug === school.slug) + 1;
 
   // No "Conference rank" tile: that field was an invented number and was
-  // removed from the catalog (P0-3). The two UTR tiles are unverified
-  // estimates, so they say so on the tile itself.
+  // removed from the catalog (P0-3). The two UTR tiles say where their
+  // numbers come from on the tile itself: a checked roster and its date, or
+  // "unverified estimate".
+  const score = combinedScore(school);
   const stats = [
     {
-      label: `Avg roster UTR (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      label: school.utrRange ? `Team middle UTR (${utrSourceShortLabel(school)})` : `Avg roster UTR (${utrSourceShortLabel(school)})`,
       value: school.avgRosterUTR.toFixed(1),
     },
     {
-      label: `Min competitive (${UTR_RANGE_SOURCE_LABEL.toLowerCase()})`,
+      label: school.utrRange ? `Team floor UTR (${utrSourceShortLabel(school)})` : `Min competitive (${utrSourceShortLabel(school)})`,
       value: school.minCompetitiveUTR.toFixed(1),
     },
-    { label: "US News", value: `#${school.usNewsRanking}` },
-    { label: "Seeded score", value: String(combinedScore(school)) },
+    { label: "US News", value: school.usNewsRanking === null ? "Not tracked" : `#${school.usNewsRanking}` },
+    { label: "Seeded score", value: score === null ? "Not tracked" : String(score) },
   ];
 
   return (

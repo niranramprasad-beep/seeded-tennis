@@ -50,7 +50,7 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   {
     label: "Rosters",
     body:
-      "Individual roster rows aren't stored. What a team page shows is a single estimated UTR range for the squad, not a list of players — so there is no per-roster check date to show either.",
+      "Individual players aren't stored. For a hand-checked team, Seeded keeps the range worked out from its official roster (floor, middle, top), how many players are in each graduating class, the roster link and the date it was read. Every other team has a single estimated range and no check date.",
   },
   {
     label: "Coaches",
@@ -67,8 +67,8 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   // them. The page was contradicting itself, and a visitor reads this row
   // as a statement of fact rather than of intent. Caught by widening
   // lib/copy-honesty.test.ts to scan for check-date claims.
-  { label: "Ratings", body: "Not stored. No individual player's rating is held — only the two team-level estimates described above." },
-  { label: "Academics", body: "A U.S. News academic rank per school, as entered in our catalogue with no edition year recorded. It is a filter and a sort on the Schools list; it is not part of your fit band." },
+  { label: "Ratings", body: "No individual player's rating is held — only each team's range: worked out from a hand-checked roster's reliable singles UTRs, or estimated." },
+  { label: "Academics", body: "A U.S. News academic rank for the schools first entered in our catalogue (no edition year recorded; “Not tracked” for the rest), and, for hand-checked programs, cost of attendance, acceptance rate and undergraduate enrollment, each with its College Scorecard or school source and read date. None of it is part of your fit band." },
 ];
 
 // The legend's words are the pill's tooltip words (FIT_BAND_RULE in
@@ -92,11 +92,11 @@ export function SeededMethodologyView() {
           How Seeded decides which teams are realistic for you.
         </h1>
         <p className="mt-4 max-w-[720px] text-lg leading-[1.55] text-stone">
-          Short version: we compare your UTR to an estimated range for each team and put every program in one of
+          Short version: we compare your UTR to each team&apos;s range and put every program in one of
           four bands. Until the summer before senior year we judge you at your projected rating for that summer,
           labelled as an estimate &mdash; and top D1 programs often decide earlier, during junior year.
-          The team ranges themselves are unverified estimates, and they&apos;re labelled that way everywhere. We
-          never show a percent chance, because nobody can know that.
+          Some team ranges come from a hand check of the official roster, with the date; the rest are our
+          estimates, and every range says which it is. We never show a percent chance, because nobody can know that.
         </p>
 
         <div className="mt-10 flex flex-wrap items-start gap-10 lg:flex-nowrap">
@@ -115,10 +115,13 @@ export function SeededMethodologyView() {
           <div className="min-w-0 max-w-[760px] flex-1">
             <Section id="data-source" number={1} title="Where the data comes from">
               <p className="text-stone">
-                Each team has two numbers in Seeded&apos;s catalogue: an estimated competitive floor and an estimated
-                average UTR, entered by hand. There is no published source or check date behind either. We do not
-                store rosters, individual player ratings or coach records &mdash; so no team page can show you one.
-                Every range is labelled an unverified estimate wherever it appears.
+                Each team has two numbers that decide its band: a floor and a middle. They come from one of two places.
+                For a hand-checked team, a person read the program&apos;s official roster page and each listed
+                player&apos;s public UTR profile, kept only reliable singles ratings, and recorded the date; the floor is
+                the lower quartile of those ratings, the middle their median and the top the highest. Those schools
+                say &ldquo;Roster checked&rdquo; with the date. Every other team has an estimated floor and average,
+                entered by hand with no published source or check date, and labelled an estimate wherever it appears.
+                We do not store individual players or coach records.
               </p>
               <div className="mt-4 rounded-card border border-line bg-card">
                 {DATA_SOURCE_ROWS.map((row, i) => (
@@ -178,9 +181,10 @@ export function SeededMethodologyView() {
 
             <Section id="team-ranges" number={3} title="Team ranges">
               <p className="text-stone">
-                The bar starts at the team&apos;s estimated floor, and the tick is its estimated average. The top of
-                the bar is not a number we have: it is drawn as far above the average as the floor is below it, so
-                there is somewhere to show you landing. Your yellow dot is your rating.
+                The bar starts at the team&apos;s floor, and the tick is its middle. For a hand-checked team the top of
+                the bar is its highest reliable rating. For an estimated team the top is not a number we have: it is
+                drawn as far above the average as the floor is below it, so there is somewhere to show you landing.
+                Your yellow dot is your rating.
               </p>
               <div className="mt-4 rounded-card border border-line bg-card p-[22px]">
                 <RangeBar
@@ -240,15 +244,15 @@ export function SeededMethodologyView() {
                   the model as if it were running overstated the data. State
                   where we actually are. */}
               <p className="text-stone">
-                Right now, every team UTR range in Seeded is an{" "}
-                <strong className="text-ink">unverified estimate</strong> — there is no published
-                source or check date behind any of them, and they are labelled that way wherever
-                they appear. Treat them as a starting point for a conversation with a coach, not
-                as a roster you can plan around.
+                A hand-checked range carries its source and the date the roster was read; a range more
+                than a year old stops deciding bands and says so. Every other team UTR range is an{" "}
+                <strong className="text-ink">unverified estimate</strong>, with no published source or check
+                date, labelled that way wherever it appears. Treat any range as a starting point for a
+                conversation with a coach, not as a roster you can plan around.
               </p>
               <p className="mt-3 text-stone">
-                When sourced rosters land, each range will carry its own source and date, and
-                schools with thin or stale data will be labelled rather than hidden.
+                Rosters change through the year. A checked range is a snapshot of the roster on its date, and
+                schools are added as they are checked.
               </p>
             </Section>
 

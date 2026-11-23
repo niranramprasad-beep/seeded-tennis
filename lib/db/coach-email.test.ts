@@ -265,7 +265,7 @@ describe("no untraceable sentence can appear", () => {
     for (const c of cases) {
       const e = build(c);
       const whole = `${e.subject}\n${e.body}`;
-      for (const v of [school.city, school.state, String(school.usNewsRanking)]) {
+      for (const v of [school.city, school.state, String(school.usNewsRanking)].filter((x): x is string => x !== null)) {
         expect(whole.includes(v), `${c.label}: ${v}`).toBe(false);
       }
       for (const v of [school.avgRosterUTR, school.minCompetitiveUTR]) {

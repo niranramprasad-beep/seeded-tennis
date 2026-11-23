@@ -1,5 +1,6 @@
 "use client";
 
+import { teamRangeNote } from "@/lib/db/schools";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Gender, SchoolLite } from "@/lib/types";
@@ -151,7 +152,7 @@ export function DiagnosticFitReport({
             </p>
           )}
           <p className="mt-2 text-base text-stone">
-            Bands compare {parent ? "the" : "your"} rating with each team&rsquo;s estimated range.
+            Bands compare {parent ? "the" : "your"} rating with each team&rsquo;s range.
             They change when the UTR does.
           </p>
 
@@ -332,7 +333,7 @@ export function DiagnosticFitReport({
                         <RangeBar
                           rangeStartPct={utrToPct(range.min)}
                           rangeEndPct={utrToPct(range.max)}
-                          medianPct={utrToPct((range.min + range.max) / 2)}
+                          medianPct={utrToPct(s.avgRosterUTR)}
                           youPct={utrToPct(judging)}
                           caption={
                             projectedView
@@ -340,7 +341,7 @@ export function DiagnosticFitReport({
                               : `${ratingWithBasis(judging, basis, whoLabel)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
                           }
                           low={range.min}
-                          median={(range.min + range.max) / 2}
+                          median={s.avgRosterUTR}
                           high={range.max}
                           you={judging}
                           youLabel={whoLabel}
@@ -353,7 +354,7 @@ export function DiagnosticFitReport({
                     );
                   })
                 )}
-                <DataNote className="px-5 py-3">Team UTR ranges are our estimates, not published rosters.</DataNote>
+                <DataNote className="px-5 py-3">{teamRangeNote(tabRows)}</DataNote>
               </div>
             </>
           )}

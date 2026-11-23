@@ -258,14 +258,16 @@ describe("the screens render through these functions", () => {
     expect(src).toMatch(/programLabel: GENDER_LABEL\[gender\]\.toLowerCase\(\)/);
   });
 
-  it("the home subhead and meta description name our estimated range and a counted N", () => {
+  it("the home subhead and meta description say what the range is and give a counted N", () => {
+    // Since the spreadsheet sync (2026-11-22) a range is a hand-checked roster
+    // for some teams and our estimate for the rest; the copy must say both.
     const home = readableSource("components/seeded/home/seeded-home-view.tsx");
-    expect(home).toMatch(/compares your UTR with our estimated range for \{teamCount\} college teams/);
-    expect(home).toMatch(/our estimated range for \{schools\.length\} college teams/);
+    expect(home).toMatch(/compares your UTR with the range for \{teamCount\} college\s+teams \(a hand-checked roster where we have one, our estimate where we don.t\)/);
+    expect(home).toMatch(/the range for \{schools\.length\} college teams . a hand-checked roster where we\s+have one, our estimate where we don.t/);
     expect(home).toMatch(/Takes about 90 seconds\./);
     const page = readFileSync("app/page.tsx", "utf8");
     expect(page).toMatch(/getCatalogCounts\(\)/);
-    expect(page).toContain("compares your UTR with our estimated range for ${total} college teams");
+    expect(page).toContain("compares your UTR with the range for ${total} college teams (a hand-checked roster where we have one, our estimate elsewhere)");
     expect(page).not.toMatch(/compares you to real programs/);
   });
 });

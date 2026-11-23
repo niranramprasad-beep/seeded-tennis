@@ -203,8 +203,10 @@ export function countSchoolFits(
  * team maximum — every caller captions it as a plain numeric range, never
  * as a verified high. */
 export function schoolUtrRange(
-  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR" | "utrRange">
 ): { min: number; max: number } {
+  // A checked roster has a real top rating; use it rather than drawing one.
+  if (school.utrRange) return { min: school.utrRange.low, max: school.utrRange.high };
   const spread = school.avgRosterUTR - school.minCompetitiveUTR;
   return { min: school.minCompetitiveUTR, max: school.avgRosterUTR + spread };
 }
@@ -476,10 +478,15 @@ export function findAlternativeSchools(
       return band === "likely" || band === "target";
     })
     .map((s) => {
-      const sameTier = academicTier(s.usNewsRanking) === targetTier;
+      // Two schools with no rank are not "similar academics".
+      const sameTier = targetTier !== "notTracked" && academicTier(s.usNewsRanking) === targetTier;
       const sameRegion = targetRegion != null && regionForState(s.state) === targetRegion;
       const score = (sameTier ? 2 : 0) + (sameRegion ? 1 : 0);
-      return { school: s, score, rankDiff: Math.abs(s.usNewsRanking - school.usNewsRanking) };
+      const rankDiff =
+        s.usNewsRanking === null || school.usNewsRanking === null
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(s.usNewsRanking - school.usNewsRanking);
+      return { school: s, score, rankDiff };
     })
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || a.rankDiff - b.rankDiff || a.school.name.localeCompare(b.school.name))

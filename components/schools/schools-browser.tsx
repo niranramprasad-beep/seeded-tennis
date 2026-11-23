@@ -28,11 +28,14 @@ export function SchoolsBrowser({ schools, divisions }: Props) {
       if (division !== "all" && s.division !== division) return false;
       if (query && !s.name.toLowerCase().includes(query.toLowerCase()))
         return false;
-      if (s.usNewsRanking > maxRank) return false;
+      // An unranked school is hidden only once the rank filter is narrowed.
+      if (s.usNewsRanking === null ? maxRank < RANK_MAX : s.usNewsRanking > maxRank) return false;
       return true;
     });
 
-    return filtered.sort((a, b) => combinedScore(b) - combinedScore(a));
+    // No combined score (no US News rank) sorts after every scored school.
+    const score = (s: (typeof filtered)[number]) => combinedScore(s) ?? Number.NEGATIVE_INFINITY;
+    return filtered.sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
   }, [schools, gender, division, query, maxRank]);
 
   const reset = () => {

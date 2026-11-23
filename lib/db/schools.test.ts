@@ -47,12 +47,12 @@ describe("combinedScore", () => {
 
   it("rewards a stronger academic ranking with a higher score, all else equal", () => {
     const strongerAcademics = { ...school, usNewsRanking: 1 };
-    expect(combinedScore(strongerAcademics)).toBeGreaterThan(combinedScore(school));
+    expect(combinedScore(strongerAcademics)!).toBeGreaterThan(combinedScore(school)!);
   });
 
   it("rewards a stronger roster UTR with a higher score, all else equal", () => {
     const strongerRoster = { ...school, avgRosterUTR: 14 };
-    expect(combinedScore(strongerRoster)).toBeGreaterThan(combinedScore(school));
+    expect(combinedScore(strongerRoster)!).toBeGreaterThan(combinedScore(school)!);
   });
 });
 

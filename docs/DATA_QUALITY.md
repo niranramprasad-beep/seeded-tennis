@@ -73,6 +73,25 @@ legacy catalog with unverified estimates, and phase 1 shows the legacy row
 and hides the imported one, so the real numbers replace the estimates only
 when rated imported programs feed `/schools`' bands (the next phase).
 
+## The sync: the sheet feeds the catalog (2026-11-22, staging)
+Since `feat/sheet-sync`, a rated program from the sheet is part of the one
+catalog (`lib/catalog/merge.ts`): a legacy school that is the same team keeps
+its slug, location and US News rank and takes the sheet's floor/middle (with
+`School.utrRange` carrying the source and date); any other rated program is
+added with no US News rank ("Not tracked") and the location from Program Info
+or "Not tracked". Every list note and tile says which numbers are checked and
+which are estimates (`teamRangeNote`, `schoolRangeNote`, `utrSourceLabel` in
+`lib/db/schools.ts`). The flag `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED` is the
+off switch: off = the legacy list exactly.
+**Program Info** (migration 053, `program_details`): city, state, cost of
+attendance (school or Scorecard, with COA year), acceptance rate and
+undergraduate enrollment (College Scorecard), coaches page and questionnaire
+links. A number without its source is dropped by the importer, refused by a
+CHECK and dropped again by the loader. Coach names and published emails are
+in the sheet but are NOT imported (owner's open decision). Some Scorecard
+rates in the sheet are rounded to whole percent (e.g. 0.06); the page shows
+them as "6%", never "6.0%".
+
 ## Reliability classes
 
 | Class | Meaning | Allowed in fit math? | UI treatment |

@@ -317,8 +317,13 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "reads as a reminder Seeded will send; it sends none — the button only sets a follow-up date",
   },
   {
-    pattern: /lowest reliable (?:player|rating)|highest reliable rating/i,
-    why: "describes per-player roster ratings Seeded does not store; it is an estimated floor",
+    // 2026-11-22: "highest reliable rating" became true for hand-checked teams
+    // (team_ranges.high, the top of a checked roster's reliable singles
+    // ratings) and left this pattern in the same commit. "Lowest reliable"
+    // stays: the floor is the LOWER QUARTILE (RANGE_RULE), never the lowest
+    // player, and an estimated team has neither.
+    pattern: /lowest reliable (?:player|rating)/i,
+    why: "the floor is a lower quartile (checked teams) or an estimate, never the lowest player",
   },
   {
     pattern: /usually covers a year|pays for itself/i,

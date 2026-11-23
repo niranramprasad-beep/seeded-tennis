@@ -16,6 +16,15 @@ import { codeOnly, decodeSourceText, readableSource } from "./testing/source-tex
 //
 // When a sourced field arrives (P1-DATA-1), delete its entry here in the
 // same commit — do not reword around it.
+//
+// 2026-11-22: acceptance rate arrived, sourced. The owner's sheet's
+// "Program Info" tab carries College Scorecard's admission rate with its
+// URL and read date (migration 053, program_details; a value without its
+// source is refused by a CHECK and dropped by the importer and the loader).
+// So `acceptanceRate` left GUESSED_FIELDS and "acceptance|admit rate" left
+// the rate pattern, in the same commit. Cost of attendance is sourced the
+// same way but is carried as `costOfAttendanceUsd`, which the cost entries
+// below never matched; they stay, so an invented price elsewhere still fails.
 
 const ROOT = join(__dirname, "..");
 function walk(dir: string, out: string[] = []): string[] {
@@ -32,7 +41,7 @@ const FILES = ["app", "components", "lib"].flatMap((d) => walk(join(ROOT, d)));
 /** Per-school quantities Seeded has no source for. As code identifiers they
  * mean someone is computing or carrying one. */
 const GUESSED_FIELDS =
-  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|acceptanceRate|admitRate|avgScholarship|tuition\w*|rosterCount|aidPercent\w*|athleticAid\w*|scholarshipAmount)\b/;
+  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|admitRate|avgScholarship|tuition\w*|rosterCount|aidPercent\w*|athleticAid\w*|scholarshipAmount)\b/;
 
 /** The same quantities as words on a screen. Patterns are written against
  * readable text: entities, \u escapes and JSX joins are decoded first, and
@@ -43,7 +52,7 @@ const GUESSED_COPY: { pattern: RegExp; why: string }[] = [
   { pattern: /cost of attendance[^.]{0,20}\$\s?\d|\$\s?\d[\d,]*\s*(?:per year |a year |\/yr )?(?:tuition|to attend)/i, why: "a cost-of-attendance figure" },
   { pattern: /\b\d+\s+(?:open\s+)?(?:roster\s+)?spots?\s+(?:open|available|left)\b|\bopen spots?\b/i, why: "open spots (CLAUDE.md: 'leaving' counts only, never open spots)" },
   { pattern: /\b\d+\s+seniors?\s+(?:graduating|leaving)\b|\bseniors? (?:graduating|leaving):\s*\d/i, why: "a seniors-leaving count we do not have" },
-  { pattern: /\b(?:acceptance|admit|response|reply) rate\b/i, why: "a rate Seeded has no data for" },
+  { pattern: /\b(?:response|reply) rate\b/i, why: "a rate Seeded has no data for" },
   { pattern: /coach(?:es)? (?:usually |typically )?(?:reply|respond|answer)s? within\b/i, why: "a response-time claim" },
   { pattern: /(?:cost|aid|enrollment)[^.]{0,40}coming soon/i, why: "a promise of data nobody is collecting" },
   { pattern: /\btuition\b[^.]{0,30}\$\s?\d|\$\s?\d[\d,.]*\s?k?\s*(?:\/\s?yr\b|a year\b|per year\b)/i, why: "a tuition or per-year price for a program" },

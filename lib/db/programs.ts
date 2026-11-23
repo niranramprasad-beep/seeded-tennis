@@ -10,7 +10,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 import { narrowOptionalLiteral } from "./narrow";
-import type { ImportedProgram, RangeSourceType, TeamRange } from "@/lib/catalog/programs";
+import type { ImportedProgram, ProgramDetails, RangeSourceType, TeamRange } from "@/lib/catalog/programs";
 import { RANGE_SOURCE_TYPES } from "@/lib/catalog/programs";
 
 const GENDERS = ["men", "women"] as const;
@@ -58,6 +58,50 @@ type ProgramRow = Pick<
 type RangeRow = Omit<Database["public"]["Tables"]["team_ranges"]["Row"], "id" | "entered_by">;
 type CountRow = Database["public"]["Tables"]["program_class_counts"]["Row"];
 
+/** program_details (migration 053). Typed by hand rather than from
+ * database.types so a database without 053 still type-checks the read. */
+export interface DetailRow {
+  program_id: string;
+  city: string | null;
+  state: string | null;
+  cost_of_attendance_usd: number | null;
+  coa_year: string | null;
+  coa_source_url: string | null;
+  acceptance_rate: number | string | null;
+  undergrad_enrollment: number | null;
+  scorecard_source_url: string | null;
+  coaches_page_url: string | null;
+  questionnaire_url: string | null;
+  read_date: string;
+}
+
+const DETAIL_COLUMNS =
+  "program_id, city, state, cost_of_attendance_usd, coa_year, coa_source_url, acceptance_rate, undergrad_enrollment, scorecard_source_url, coaches_page_url, questionnaire_url, read_date";
+
+const httpUrl = (v: string | null): string | null => (v && /^https?:\/\//i.test(v) ? v : null);
+
+/** One details row in the UI shape. A number without its source is dropped
+ * here too (053's CHECKs already refuse it; this is the second wall). */
+export function toProgramDetails(row: DetailRow): ProgramDetails {
+  const coaSource = httpUrl(row.coa_source_url);
+  const cost = row.cost_of_attendance_usd !== null && row.coa_year && coaSource ? Number(row.cost_of_attendance_usd) : null;
+  const scorecard = httpUrl(row.scorecard_source_url);
+  const rate = row.acceptance_rate === null ? null : Number(row.acceptance_rate);
+  return {
+    city: row.city,
+    state: row.state,
+    costOfAttendanceUsd: cost,
+    coaYear: cost !== null ? row.coa_year : null,
+    coaSourceUrl: cost !== null ? coaSource : null,
+    acceptanceRate: scorecard && rate !== null && rate > 0 && rate <= 1 ? rate : null,
+    undergradEnrollment: scorecard && row.undergrad_enrollment ? Number(row.undergrad_enrollment) : null,
+    scorecardSourceUrl: scorecard,
+    coachesPageUrl: httpUrl(row.coaches_page_url),
+    questionnaireUrl: httpUrl(row.questionnaire_url),
+    readDate: row.read_date,
+  };
+}
+
 export function toTeamRange(row: RangeRow): TeamRange | null {
   const sourceType = narrowOptionalLiteral(row.source_type, RANGE_SOURCE_TYPES);
   if (!sourceType) return null;
@@ -75,7 +119,13 @@ export function toTeamRange(row: RangeRow): TeamRange | null {
 
 /** Joins the three tables into the UI shape. Exported for tests. Rows with
  * a value outside the schema's enums are dropped, not coerced. */
-export function assemblePrograms(programs: ProgramRow[], counts: CountRow[], ranges: RangeRow[]): ImportedProgram[] {
+export function assemblePrograms(
+  programs: ProgramRow[],
+  counts: CountRow[],
+  ranges: RangeRow[],
+  details: DetailRow[] = []
+): ImportedProgram[] {
+  const detailsBy = new Map(details.map((d) => [d.program_id, d]));
   const out: ImportedProgram[] = [];
   for (const p of programs) {
     const gender = narrowOptionalLiteral(p.gender, GENDERS);
@@ -102,6 +152,7 @@ export function assemblePrograms(programs: ProgramRow[], counts: CountRow[], ran
         .filter((r) => r.program_id === p.id)
         .map(toTeamRange)
         .filter((r): r is TeamRange => r !== null),
+      details: detailsBy.has(p.id) ? toProgramDetails(detailsBy.get(p.id)!) : null,
     });
   }
   return out;
@@ -115,16 +166,20 @@ export function assemblePrograms(programs: ProgramRow[], counts: CountRow[], ran
  */
 export async function loadImportedPrograms(client: Client | null = publicClient()): Promise<ImportedProgram[]> {
   if (!client) return [];
-  const [programs, counts, ranges] = await Promise.all([
+  const [programs, counts, ranges, details] = await Promise.all([
     client.from("programs").select(PROGRAM_COLUMNS).order("school"),
     client.from("program_class_counts").select("program_id, class_year, players"),
     client.from("team_ranges").select(TEAM_RANGE_COLUMNS),
+    // 053. Not in database.types until it is on production; a failed read
+    // (no table yet) means "no details", never "no programs".
+    (client as unknown as SupabaseClient).from("program_details").select(DETAIL_COLUMNS),
   ]);
   if (programs.error || counts.error || ranges.error) return [];
   return assemblePrograms(
     (programs.data ?? []) as ProgramRow[],
     (counts.data ?? []) as CountRow[],
-    (ranges.data ?? []) as RangeRow[]
+    (ranges.data ?? []) as RangeRow[],
+    details.error ? [] : ((details.data ?? []) as DetailRow[])
   );
 }
 

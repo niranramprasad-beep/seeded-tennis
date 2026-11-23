@@ -118,20 +118,20 @@ describe("the pill's words match the rule the code applies", () => {
   });
   const basis = (utr: number, h = history(utr, utr, utr)) => fitBasis(utr, projection(h));
 
-  it("Likely starts AT the estimated average; Target starts AT the estimated floor", () => {
+  it("Likely starts AT the team's middle; Target starts AT its floor", () => {
     expect(classifySchoolFit(basis(10), school)).toBe("likely");
     expect(classifySchoolFit(basis(9.99), school)).toBe("target");
     expect(classifySchoolFit(basis(9), school)).toBe("target");
-    // avgRosterUTR / minCompetitiveUTR are hand-entered estimates today
-    // (/methodology section 1), so the words say so.
-    expect(FIT_BAND_RULE.likely).toMatch(/at or above the team's estimated average/);
-    expect(FIT_BAND_RULE.target).toMatch(/at or above the team's estimated floor/);
-    expect(FIT_BAND_RULE.target).toMatch(/below its estimated average/);
+    // avgRosterUTR / minCompetitiveUTR are the middle and floor, from a
+    // checked roster or an estimate; FIT_RANGE_RULE says which is which.
+    expect(FIT_BAND_RULE.likely).toMatch(/at or above the middle of the team's range/);
+    expect(FIT_BAND_RULE.target).toMatch(/at or above the floor of the team's range/);
+    expect(FIT_BAND_RULE.target).toMatch(/below its middle/);
   });
 
   it("Reach / Out of range name the projection, its cap and its date", () => {
     for (const band of ["reach", "out-of-range"] as const) {
-      expect(FIT_BAND_RULE[band]).toMatch(/below the team's estimated floor/);
+      expect(FIT_BAND_RULE[band]).toMatch(/below the floor of the team's range/);
       expect(FIT_BAND_RULE[band]).toContain(String(PLANNING_PACE_CAP_PER_YEAR));
       expect(FIT_BAND_RULE[band]).toMatch(/summer before senior year/);
     }
@@ -144,16 +144,21 @@ describe("the pill's words match the rule the code applies", () => {
     expect(classifySchoolFit(basis(8.6, history(7.6, 8.1, 8.6)), school)).toBe("reach");
   });
 
-  it("the range is described as what feeds a band TODAY: hand-entered estimates", () => {
-    // No checked-roster range reaches classifySchoolFit yet (bandableRange in
-    // lib/catalog/programs.ts is not wired to /schools; the catalog flag is
-    // off and production has no imported rows). /methodology section 1 says
-    // the floor and average are estimates with no source; the legend must
-    // not claim a quartile/median/highest it does not use.
-    expect(FIT_RANGE_RULE).toMatch(/estimated/);
+  it("the range rule names BOTH sources that feed a band since the sheet sync", () => {
+    // 2026-11-22: checked-roster ranges reach classifySchoolFit through
+    // lib/catalog/merge.ts (floor = lower quartile, middle = median of the
+    // reliable singles ratings, RANGE_RULE in lib/catalog/utr-database.ts);
+    // every other team still uses the hand-entered estimate. The legend must
+    // say both, and must not call the estimate a quartile or a median.
+    expect(FIT_RANGE_RULE).toMatch(/lower quartile/);
+    expect(FIT_RANGE_RULE).toMatch(/median/);
+    expect(FIT_RANGE_RULE).toMatch(/Roster checked/);
+    expect(FIT_RANGE_RULE).toMatch(/Every other team's floor and middle are our estimates/);
     expect(FIT_RANGE_RULE).toMatch(/no published source or check date/);
-    for (const s of [FIT_RANGE_RULE, ...Object.values(FIT_BAND_RULE)]) {
-      expect(s).not.toMatch(/quartile|median|highest|checked roster|middle/i);
+    // The per-band rules say floor/middle only: which number that is depends
+    // on the team, and FIT_RANGE_RULE is where that is said.
+    for (const s of Object.values(FIT_BAND_RULE)) {
+      expect(s).not.toMatch(/quartile|median|estimated/i);
     }
   });
 

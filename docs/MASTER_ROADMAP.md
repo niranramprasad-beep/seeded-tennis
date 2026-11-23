@@ -39,6 +39,16 @@ docs reorganisation).
   Imported programs reach fit math only through `bandableRange()`
   (`lib/catalog/programs.ts`); the 68 legacy catalog programs still carry
   labelled, unsourced estimates. Rules: [`DATA_QUALITY.md`](DATA_QUALITY.md).
+- **The spreadsheet sync (Herdy's 21 Nov action item) is built, on STAGING,
+  not production** (branch `feat/sheet-sync`). The sheet now has 63 rated
+  teams (ACC + all of the SEC) and a "Program Info" tab; staging holds all of
+  it (checksums in HANDOFF §J Step 28). The code merges it into the ONE
+  catalog every screen reads (`lib/catalog/merge.ts`): the 22 teams also in
+  the legacy list take the sheet's floor (lower quartile) and middle (median)
+  instead of the estimate, and the other 41 join the list with their own
+  pages. Program Info (cost of attendance, acceptance rate, enrollment,
+  coaches page, questionnaire) shows on school pages with its source.
+  Production needs migration 053 + the re-import, on Niran's go.
 - **Design polish round 1 is merged** (PR #37, `herdy-work`, from the
   2026-11-22 consult with Herdy): band icons on fit badges, a clear active
   nav state, the yearly-price strikethrough derived from `TIER_PRICE_USD`,
@@ -108,9 +118,12 @@ database import and the catalog flag (production 2026-11-22), the
    never downgrades. TODO "Who may approve a parent joiner", "Post-checkout
    sync never runs".
 2. **Catalog: sourced ranges everywhere.** Phase 1 is on with 34 sourced
-   ranges. Left: the owner decides UTR licensing (DATA_QUALITY "Second
-   source"); replace the 15 legacy estimates the imported programs
-   duplicate; close the phase-1 follow-ups the flag went on with (importer
+   ranges. **The sheet sync (`feat/sheet-sync`) replaces the duplicated
+   legacy estimates (22 teams) and adds the other 41 rated teams; it needs
+   053 + the re-import on production (HANDOFF §J Step 28), on Niran's go.**
+   Left after it: the owner decides UTR licensing (DATA_QUALITY "Second
+   source") and whether published coach names/emails from the sheet may be
+   shown; close the phase-1 follow-ups the flag went on with (importer
    atomicity, `programs.head_coach` readable by anon, weak source CHECKs —
    TODO "Catalog phase 1 follow-ups"). Then public SEO school pages, once
    their ranges are sourced.

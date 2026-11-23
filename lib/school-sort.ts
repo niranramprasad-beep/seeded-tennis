@@ -71,7 +71,12 @@ export function sortSchoolsForSeeded<T extends SchoolLite>(
       (a, b) => FIT_BAND_ORDER[a.band] - FIT_BAND_ORDER[b.band] || a.gap - b.gap
     );
   } else {
-    withMeta.sort((a, b) => a.school.usNewsRanking - b.school.usNewsRanking);
+    // No rank sorts last (the sheet's programs have none; none is invented).
+    const rank = (r: number | null) => r ?? Number.POSITIVE_INFINITY;
+    withMeta.sort(
+      (a, b) =>
+        rank(a.school.usNewsRanking) - rank(b.school.usNewsRanking) || a.school.name.localeCompare(b.school.name)
+    );
   }
 
   return withMeta.map((row) => row.school);
