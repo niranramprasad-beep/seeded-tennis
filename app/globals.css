@@ -48,6 +48,13 @@
     --c-night-text: 238 241 236;
     --c-night-soft: 185 194 188;
     --c-night-muted: 154 165 158;
+    /* The landing page's hard court (design polish round 2, 22 Nov): fixed in
+       both modes like the night panel above. It is light mode's own primary
+       green, pinned, because dark mode's primary is a LIGHT green with dark
+       text and white court lines/copy on it would fail contrast. White on
+       31 107 74 measures 6.4:1. */
+    --c-court: 31 107 74;
+    --c-court-text: 255 255 255;
     --c-stone: 75 85 99;
     --c-stone-light: 109 114 122;
     --c-line: 229 231 235;
@@ -556,4 +563,86 @@ html[data-session][data-schools-shape="prompt"] .pre-session-block {
 html[data-session][data-role="parent"][data-schools-shape="nofit"] .pre-session-parent-nofit-only,
 html[data-session][data-schools-shape="prompt"] .pre-session-hide {
   display: block;
+}
+
+/* Design polish round 1 (Figma 03 Motion): sections fade up 8px as they
+   scroll into view. CSS only — no JavaScript, so nothing is hidden waiting
+   for hydration (the reason the old framer-motion Reveal was removed,
+   2026-11-20). Browsers without scroll-driven animations, and anyone who
+   asks for reduced motion, simply see the content with no animation. */
+@keyframes seeded-reveal-up {
+  from { opacity: 0.001; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .seeded-reveal {
+      animation: seeded-reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
+
+/* Landing page bouncing ball (design polish round 2, Figma 06 motion spec).
+   Decorative only. The OUTER element runs the one-time entrance (three
+   bounces, each lower, squash on contact); the INNER element runs the small
+   idle hop every 4 s; the shadow sits on the court under the ball. Transform
+   and opacity only. Off entirely under reduced motion — the ball simply rests
+   where it lands. `[data-paused]` (set while the hero is off-screen) stops
+   the idle loop. */
+@keyframes seeded-ball-enter {
+  0%   { transform: translate(-700px, -70px); opacity: 0; animation-timing-function: cubic-bezier(.45,0,.9,.4); }
+  6%   { opacity: 1; }
+  30%  { transform: translate(-470px, 0) scale(1.18, .8); animation-timing-function: cubic-bezier(.1,.6,.55,1); }
+  45%  { transform: translate(-330px, -45px); animation-timing-function: cubic-bezier(.45,0,.9,.4); }
+  60%  { transform: translate(-200px, 0) scale(1.12, .86); animation-timing-function: cubic-bezier(.1,.6,.55,1); }
+  72%  { transform: translate(-120px, -22px); animation-timing-function: cubic-bezier(.45,0,.9,.4); }
+  84%  { transform: translate(-50px, 0) scale(1.06, .93); animation-timing-function: cubic-bezier(.1,.6,.55,1); }
+  92%  { transform: translate(-20px, -8px); animation-timing-function: cubic-bezier(.45,0,.9,.4); }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes seeded-ball-idle {
+  0%, 72%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(.1,.6,.55,1); }
+  86% { transform: translateY(-12px); animation-timing-function: cubic-bezier(.45,0,.9,.4); }
+  93% { transform: translateY(0) scale(1.06, .94); }
+}
+@keyframes seeded-ball-shadow {
+  0%, 72%, 100% { transform: scale(1); opacity: .35; }
+  86% { transform: scale(.7); opacity: .2; }
+}
+@keyframes seeded-net-arc {
+  0%   { transform: translate(-140px, 30px); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translate(-60px, -46px); }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .seeded-ball-enter { animation: seeded-ball-enter 1.6s both; }
+  .seeded-ball-idle { animation: seeded-ball-idle 4s 2s infinite; }
+  .seeded-ball-shadow { animation: seeded-ball-shadow 4s 2s infinite; }
+  [data-paused] .seeded-ball-idle,
+  [data-paused] .seeded-ball-shadow { animation-play-state: paused; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .seeded-net-ball {
+      animation: seeded-net-arc linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 45%;
+    }
+  }
+}
+
+/* "How fit works" steps as scoreboard games (Figma 06): a dark tile with a
+   lime mono number. CSS counters keep it a real <ol> for screen readers. */
+.seeded-scoreboard-list { counter-reset: seeded-step; list-style: none; padding-left: 0; }
+.seeded-scoreboard-list > li { counter-increment: seeded-step; position: relative; padding-left: 2.5rem; }
+.seeded-scoreboard-list > li::before {
+  content: counter(seeded-step);
+  position: absolute; left: 0; top: 0.1rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
+  background: rgb(var(--c-night)); color: rgb(var(--c-lime));
+  font-family: var(--font-mono-active), ui-monospace, monospace; font-weight: 700; font-size: 0.875rem;
 }

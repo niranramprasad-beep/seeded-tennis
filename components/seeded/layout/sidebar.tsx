@@ -174,12 +174,9 @@ export function SeededSidebar() {
           >
             <Search className="h-4 w-4 shrink-0" />
             {!collapsed && (
-              <>
-                <span className="flex-1 text-left">Jump to…</span>
-                <kbd className="rounded border border-[rgb(var(--c-line))] px-1.5 py-0.5 font-mono text-[10px]">
+                <kbd className="ml-auto rounded border border-[rgb(var(--c-line))] px-1.5 py-0.5 font-mono text-[10px]">
                   ⌘K
                 </kbd>
-              </>
             )}
           </button>
         </div>
@@ -195,12 +192,7 @@ export function SeededSidebar() {
           {/* The five above are the primary nav (CLAUDE.md). Tools is a small
               secondary group: Results and the tournament checker. */}
           <div className={cn("mt-5 border-t border-[rgb(var(--c-line))] pt-3", collapsed && "mt-3")}>
-            {!collapsed && (
-              <p id="sidebar-tools" className="px-3 pb-1 font-sans text-xs font-semibold uppercase tracking-wide text-stone">
-                Tools
-              </p>
-            )}
-            <ul className="space-y-0.5" aria-labelledby={collapsed ? undefined : "sidebar-tools"} aria-label={collapsed ? "Tools" : undefined}>
+            <ul className="space-y-0.5" aria-label="Tools">
               {toolLinks.map((l) => (
                 <li key={l.href}>
                   <SidebarLink link={l} active={isActive(l.href)} collapsed={collapsed} small />
@@ -474,17 +466,6 @@ function SeededAvatarMenu({
               <span className="block truncate font-sans text-sm font-medium text-ink">
                 {player.name || "Your account"}
               </span>
-              {/* Pixel-exact to "18 Parent view + budget.png"'s footer: a
-                  parent sees "Parent · Billing" (a real link straight to
-                  /settings/billing — parents are typically the ones
-                  actually billed, same "Billed to" framing billing-
-                  content.tsx already uses) instead of a static role
-                  label. Rendered just below, outside this <button> — an
-                  <a> can't nest inside a <button> (invalid HTML) — so the
-                  plain "Player" label is all this row shows for a player. */}
-              {!isParent && (
-                <span className="block truncate font-sans text-xs text-stone-light">Player</span>
-              )}
             </span>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-stone-light transition-transform", open && "rotate-180")} />
           </>
@@ -495,7 +476,6 @@ function SeededAvatarMenu({
           href="/settings/billing"
           className="flex min-h-6 items-center px-1.5 pb-1 font-sans text-xs text-stone-light"
         >
-          Parent ·{" "}
           <span className="font-semibold text-grass underline underline-offset-2">Billing</span>
         </Link>
       )}

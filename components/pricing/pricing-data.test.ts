@@ -125,13 +125,13 @@ describe("prices are derived from TIER_PRICE_USD", () => {
     expect(priceBlockFor("player", "yearly")).toEqual({
       amount: "$99",
       cadence: "per year",
-      note: "About $8.25 a month. Saves $45 a year.",
+      note: "About $8.25 a month.",
       wasAmount: "$144",
     });
     expect(priceBlockFor("family", "yearly")).toEqual({
       amount: "$159",
       cadence: "per year",
-      note: "About $13.25 a month. Saves $69 a year.",
+      note: "About $13.25 a month.",
       wasAmount: "$228",
     });
   });
@@ -147,7 +147,8 @@ describe("prices are derived from TIER_PRICE_USD", () => {
       const { monthly, yearly } = TIER_PRICE_USD[t];
       expect(priceBlockFor(t, "yearly").amount).toBe(`$${yearly}`);
       expect(priceBlockFor(t, "monthly").amount).toBe(`$${monthly}`);
-      expect(priceBlockFor(t, "yearly").note).toContain(`Saves $${monthly * 12 - yearly} a year.`);
+      expect(priceBlockFor(t, "yearly").wasAmount).toBe(`$${monthly * 12}`);
+      expect(priceBlockFor(t, "yearly").note).not.toMatch(/Saves/);
     }
   });
 

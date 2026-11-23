@@ -34,6 +34,7 @@ import {
 import { plural } from "@/lib/utils";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { ConfirmDialog } from "@/components/seeded/ui/dialog";
+import { Pill } from "@/components/seeded/ui/pill";
 import { VerifyEmailToApprove } from "@/components/auth/verify-email-prompt";
 
 // Settings → Family (/settings/family), for both roles.
@@ -211,9 +212,7 @@ export function SettingsFamilySection() {
                     {[joinedLabel(m.joinedAt), m.isCreator ? "Account holder" : null].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <span className="whitespace-nowrap rounded-pill border border-line px-2.5 py-1 text-xs font-semibold text-stone">
-                  {m.role === "parent" ? "Parent" : "Player"}
-                </span>
+                <Pill>{m.role === "parent" ? "Parent" : "Player"}</Pill>
               </li>
             ))}
           </ul>

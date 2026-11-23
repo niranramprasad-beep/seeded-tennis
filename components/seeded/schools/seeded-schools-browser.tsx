@@ -1,6 +1,5 @@
 "use client";
 
-import { ParentScopeLine } from "@/components/seeded/family/parent-scope-line";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
@@ -39,6 +38,7 @@ import { FIT_BAND_LABEL, FIT_BAND_TONE, FitBandIcon, FitBadge, type FitBand } fr
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
+import { Pill } from "@/components/seeded/ui/pill";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
@@ -602,7 +602,7 @@ export function SeededSchoolsBrowser({
           </p>
         </div>
         <label className="flex w-full max-w-[360px] flex-col gap-1.5 text-xs font-medium text-stone">
-          Search
+          <span className="sr-only">Search</span>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-light" />
             <input
@@ -651,7 +651,6 @@ export function SeededSchoolsBrowser({
           // them. The prompt below is addressed to a player, so showing it
           // here asked the wrong person for the wrong thing.
           <div className="space-y-2">
-            <ParentScopeLine />
             <p className="px-1 text-sm text-stone">
               {playerFacts.currentUtr != null ? (
                 <>Fit below uses the rating on {subjectName}&rsquo;s profile.</>
@@ -730,7 +729,7 @@ export function SeededSchoolsBrowser({
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <ChipButton active={chip === "all" || (!hasFit && chip !== "saved")} onClick={() => setChip("all")} variant="dark">
-            All {ranked.length}
+            All
           </ChipButton>
           {/* Before the session check, a browser with a saved session holds
               the band chips' space (globals.css shows .pre-session-only
@@ -745,16 +744,17 @@ export function SeededSchoolsBrowser({
               never arrive was then the shift (CLS 0.08 at 375, pb1/pb4). */}
           {(!sessionChecked || (awaitingShape === "fit" && !counts)) &&
             FILTER_BANDS.map((band) => `${FIT_BAND_LABEL[band]} 00`).map((label) => (
-              <span
-                key={label}
-                aria-hidden
-                className={cn(
-                  "invisible min-h-11 items-center whitespace-nowrap rounded-pill border px-3 text-sm font-semibold sm:min-h-6 sm:py-1.5",
-                  sessionChecked ? "inline-flex" : "pre-session-only pre-session-bands"
-                )}
-              >
-                <span className="inline-block h-3.5 w-3.5" />
-                {label}
+              <span key={label} aria-hidden className="contents">
+                <Pill
+                  tone="neutral"
+                  icon={<span className="inline-block h-3.5 w-3.5" />}
+                  className={cn(
+                    "invisible min-h-11 px-3 text-sm sm:min-h-6 sm:py-1.5",
+                    !sessionChecked && "pre-session-only pre-session-bands"
+                  )}
+                >
+                  {label}
+                </Pill>
               </span>
             ))}
           {counts && (
@@ -809,12 +809,11 @@ export function SeededSchoolsBrowser({
         className="mt-5 flex flex-wrap items-end gap-4 rounded-card border border-line bg-card p-[18px]"
         aria-label="Filters"
       >
-        <div className="flex flex-col gap-1.5 text-xs font-medium text-stone">
-          Gender
+        <div role="group" aria-label="Gender" className="flex flex-col gap-1.5 text-xs font-medium text-stone">
           <GenderToggle value={gender} onChange={setGender} />
         </div>
         <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
-          Division
+          <span className="sr-only">Division</span>
           <select value={division} onChange={(e) => setDivision(e.target.value as "all" | Division)} className={selectClass}>
             <option value="all">All divisions</option>
             {divisions.map((d) => (
@@ -823,7 +822,7 @@ export function SeededSchoolsBrowser({
           </select>
         </label>
         <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
-          Region
+          <span className="sr-only">Region</span>
           <select value={region} onChange={(e) => setRegion(e.target.value as "all" | SchoolRegion)} className={selectClass}>
             <option value="all">All regions</option>
             {ALL_REGIONS.map((r) => (
@@ -832,7 +831,7 @@ export function SeededSchoolsBrowser({
           </select>
         </label>
         <label className="flex w-full flex-col gap-1.5 text-xs font-medium text-stone sm:w-auto sm:min-w-[200px] sm:flex-1">
-          Academics
+          <span className="sr-only">Academics</span>
           <select
             value={academicValue}
             onChange={(e) => {
@@ -877,12 +876,15 @@ export function SeededSchoolsBrowser({
                   only under a 37-row table (independent review, 2026-11-16). */}
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 {viewingAsParent ? `${subjectName} vs team UTR` : "You vs team UTR"}
+                {judging && (
+                  <span className="normal-case tracking-normal">{ratingBasisLabel(judging.basis)}</span>
+                )}
                 {/* Worded for the rows on screen: checked rosters say so in the
                     Data column with their date; the rest are estimates. */}
                 {visible.some((s) => !s.utrRange) ? (
                   <EstimateChip
                     className="normal-case tracking-normal"
-                    label={visible.some((s) => s.utrRange) ? "Team range: estimate unless roster checked" : "Team range: estimate"}
+                    label={visible.some((s) => s.utrRange) ? "Estimate unless roster checked" : "Estimate"}
                   />
                 ) : null}
               </span>
@@ -977,7 +979,7 @@ export function SeededSchoolsBrowser({
                         <span className="flex min-w-0 flex-col justify-center">
                           <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
                           <span className="truncate text-xs text-stone-light">
-                            {s.conference} · {s.division} · {s.state ?? "Location not tracked"}
+                            {s.division} · {s.state ?? "Location not tracked"}
                           </span>
                         </span>
                       </Link>
@@ -1020,7 +1022,7 @@ export function SeededSchoolsBrowser({
                   {expanded && !hasUtr && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-stone last:border-b-0">
                       <p className="m-0">
-                        Add your UTR to see where you sit against this team&apos;s range.{" "}
+                        Add your UTR to compare.{" "}
                         <Link href={sessionChecked && player.onboarded ? TODAY_UTR_HREF : "/onboarding"} className="font-semibold text-grass underline underline-offset-4 hover:text-grass-700">
                           Enter my UTR
                         </Link>
@@ -1049,16 +1051,14 @@ export function SeededSchoolsBrowser({
                       {explanation.unreachable && explanation.alternatives.length > 0 && (
                         <p className="mt-1.5 text-stone">
                           <strong className="text-ink">Consider instead: </strong>
-                          {explanation.alternatives.map((a) => a.shortName).join(", ")} — similar academics or
-                          region, and realistically in reach today.
+                          {explanation.alternatives.map((a) => a.shortName).join(", ")}
                         </p>
                       )}
                       {/* One sentence (C16). This printed both of
                           explainSchoolFit()'s "…aren't tracked yet — this
                           isn't factored into your band." notes back to back. */}
                       <p className="mt-1.5 text-xs text-stone-light">
-                        Roster openings and academic admit ranges aren&apos;t tracked yet, so neither
-                        changes this band.
+                        Openings and admit ranges: Not tracked; neither changes this band.
                       </p>
                     </div>
                   )}

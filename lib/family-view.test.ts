@@ -136,11 +136,9 @@ describe("how a parent's screens name people", () => {
     expect(parentScopeSentence("Drew", null)).toMatch(/No player has joined/);
   });
 
-  it("the sidebar note names the child and the two things a parent can write (Board 22)", () => {
-    expect(parentSidebarNote("Bailey")).toBe(
-      "You're viewing Bailey's account. You can edit the budget and send notes. Everything else is Bailey's."
-    );
-    expect(parentSidebarNote(null)).toMatch(/No player has joined/);
+  it("the sidebar note names only the two things a parent can write", () => {
+    expect(parentSidebarNote("Bailey")).toBe("You can edit: budget, notes.");
+    expect(parentSidebarNote(null)).toBe("No player has joined your family yet. You can edit: budget, notes.");
   });
 
   it("a two-player family is told which child the page shows", () => {

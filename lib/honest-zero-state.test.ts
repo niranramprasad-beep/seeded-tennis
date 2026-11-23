@@ -262,7 +262,10 @@ describe("the screens render through these functions", () => {
     // Since the spreadsheet sync (2026-11-22) a range is a hand-checked roster
     // for some teams and our estimate for the rest; the copy must say both.
     const home = readableSource("components/seeded/home/seeded-home-view.tsx");
-    expect(home).toMatch(/compares your UTR with the range for \{teamCount\} college\s+teams \(a hand-checked roster where we have one, our estimate where we don.t\)/);
+    // Landing overhaul (2026-11-22): the desktop subhead uses the mobile
+    // wording, so both lines carry the roster qualifier and a counted N —
+    // never "real rosters" or a typed number.
+    expect(home).toMatch(/Your UTR against the range for \{teamCount\} college teams . a hand-checked roster where we\s+have one, our estimate where we don.t/);
     expect(home).toMatch(/the range for \{schools\.length\} college teams . a hand-checked roster where we\s+have one, our estimate where we don.t/);
     expect(home).toMatch(/Takes about 90 seconds\./);
     const page = readFileSync("app/page.tsx", "utf8");

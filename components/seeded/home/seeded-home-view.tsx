@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { heroButtonLabel, heroOutputNote, onboardingQueryFor, type CalculatorField } from "@/lib/home-calculator";
-import { ChevronDown, Mail, Route, Trophy } from "lucide-react";
+import { Check, ChevronDown, Mail, Route, Trophy } from "lucide-react";
 import { FREE_TIER_TARGET_SCHOOL_LIMIT, type Gender, type SchoolLite } from "@/lib/types";
 import { getCurrentSchoolYear } from "@/lib/time";
 import { buildFitReport, isUsableUtr } from "@/lib/fit";
@@ -14,8 +14,11 @@ import { ChangeFigure } from "@/components/seeded/ui/change-figure";
 import { FIT_BAND_LABEL, FIT_BAND_RULE, FIT_BAND_TONE, FitBandIcon } from "@/components/seeded/ui/fit-badge";
 import { utrChange } from "@/lib/utr-percent";
 import { cn } from "@/lib/utils";
+import { Pill } from "@/components/seeded/ui/pill";
 import { Reveal } from "@/components/shared/reveal";
 import { seededCardHeading, seededSectionHeading } from "@/components/seeded/ui/heading";
+import { CourtBackdrop, CourtCorner, CourtDivider, TennisBall } from "@/components/seeded/court";
+import { HeroBall } from "./hero-ball";
 
 // Pixel-exact to Main.dc.html (desktop) / MobileHome.dc.html (<lg). No
 // JS viewport detection exists anywhere in this codebase — every other
@@ -41,9 +44,25 @@ export function SeededHomeView({ schools }: { schools: SchoolLite[] }) {
 
 /* --------------------------------------------------------------- HERO */
 
+// Design polish round 2 (Figma 06): the hero sits on a hard court — fixed
+// court green (--c-court, the same in light and dark) with Codex's to-scale
+// court lines, white copy, and a bouncing ball in the empty band under the
+// calculator card.
+const COURT_PRIMARY_CTA =
+  "inline-flex min-h-[52px] items-center justify-center rounded-lg bg-[rgb(var(--c-court-text))] px-6 font-sans text-base font-semibold text-[rgb(var(--c-court))] hover:bg-[rgb(var(--c-court-text)/0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--c-court-text))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--c-court))]";
+const COURT_SECONDARY_CTA =
+  "inline-flex min-h-[52px] items-center justify-center rounded-lg border-[1.5px] border-[rgb(var(--c-court-text)/0.6)] px-6 font-sans text-base font-semibold text-[rgb(var(--c-court-text))] hover:bg-[rgb(var(--c-court-text)/0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--c-court-text))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--c-court))]";
+
 function Hero({ schools }: { schools: SchoolLite[] }) {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 pb-8 pt-10 md:pb-12 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pt-18">
+    <section className="relative isolate overflow-hidden bg-[rgb(var(--c-court))] text-[rgb(var(--c-court-text))]">
+      {/* Desktop: the court fills the hero. On phones a full-bleed court is
+          cropped to its centre and the centre/service lines ran through the
+          headline (Herdy, 22 Nov), so there the court sits only behind the
+          calculator card — see the mobile branch below. */}
+      <CourtBackdrop className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-[rgb(var(--c-court-text)/0.28)] lg:block" />
+      <HeroBall className="pointer-events-none absolute bottom-10 right-[12%] hidden lg:block" />
+    <div className="mx-auto max-w-[1200px] px-6 pb-10 pt-10 md:pb-14 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pb-40 lg:pt-18">
       {/* Desktop: two-column, left copy / right live calculator */}
       <div className="hidden min-w-0 flex-[1.05_1_480px] lg:block">
         <HeroCopy teamCount={schools.length} />
@@ -54,18 +73,28 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
 
       {/* Mobile: compact hero + calculator card, matching MobileHome.dc.html */}
       <div className="flex flex-col gap-4 lg:hidden">
-        <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-ink">
+        <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-[rgb(var(--c-court-text))]">
           Know which teams you can make, and what to do this month.
         </h1>
         {/* A-035: says what the comparison is against — our estimated
             range — and how many teams, counted from the catalogue. */}
-        <p className="text-base leading-[1.5] text-stone">
+        <p className="text-base leading-[1.5] text-[rgb(var(--c-court-text)/0.85)]">
           Your UTR against the range for {schools.length} college teams &mdash; a hand-checked roster where we
           have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
         </p>
-        <FitCalculatorCard schools={schools} mobile />
-        <p className="text-center text-xs text-stone">Free · no card · Takes about 90 seconds.</p>
+        {/* The card sits ON the court: the lines start just above it and
+            spill out around its edges, so the copy above stays on plain
+            court green. */}
+        <div className="relative mt-2">
+          <CourtBackdrop className="pointer-events-none absolute -inset-x-6 -bottom-4 -top-10 -z-10 h-[calc(100%+3.5rem)] w-[calc(100%+3rem)] text-[rgb(var(--c-court-text)/0.28)]" />
+          <FitCalculatorCard schools={schools} mobile />
+        </div>
+        <p className="mt-2 flex items-center justify-center gap-2 text-center text-xs text-[rgb(var(--c-court-text)/0.9)]">
+          <TennisBall size={16} className="h-4 w-4 shrink-0" />
+          Free · no card · Takes about 90 seconds.
+        </p>
       </div>
+    </div>
     </section>
   );
 }
@@ -73,7 +102,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
 function HeroCopy({ teamCount }: { teamCount: number }) {
   return (
     <div>
-      <h1 className="font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
+      <h1 className="font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-[rgb(var(--c-court-text))]">
         Know which teams you can make, and what to do this month.
       </h1>
       {/* P0-7: "compares you to real rosters" — the comparison is against
@@ -82,28 +111,22 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
       {/* A-035 (2026-11-21): "compares you to real programs" did not say the
           comparison is against our ESTIMATED team ranges. The count is the
           catalogue's own length, never a typed number. */}
-      <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
-        Enter your UTR and grad year. Seeded compares your UTR with the range for {teamCount} college
-        teams (a hand-checked roster where we have one, our estimate where we don&apos;t), sorts them
-        into Reach, Target, Likely and Out of range,
-        and turns the gap into season targets you plan against, with a family view
-        your parents can follow.
+      {/* Shortened to the mobile line (COPY_CUTS, Figma 06). The roster
+          qualifier from the spreadsheet sync (2026-11-22) and the
+          catalogue-derived count stay (A-035). */}
+      <p className="mt-5 max-w-[520px] text-lg leading-[1.55] text-[rgb(var(--c-court-text)/0.85)]">
+        Your UTR against the range for {teamCount} college teams &mdash; a hand-checked roster where we
+        have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
-        <Link
-          href="/onboarding"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-grass px-6 font-sans text-base font-semibold text-on-primary hover:bg-grass-600"
-        >
+        <Link href="/onboarding" className={COURT_PRIMARY_CTA}>
           Get my free fit report
         </Link>
-        <Link
-          href="/tournament-fit"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-input bg-card px-6 font-sans text-base font-semibold text-ink hover:bg-subtle-hover"
-        >
+        <Link href="/tournament-fit" className={COURT_SECONDARY_CTA}>
           Check a tournament
         </Link>
       </div>
-      <p className="mt-4 text-sm text-stone">
+      <p className="mt-4 text-sm text-[rgb(var(--c-court-text)/0.9)]">
         Free · no card · Takes about 90 seconds.
       </p>
     </div>
@@ -196,7 +219,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
 
   if (mobile) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
+      <div className="flex flex-col gap-3 rounded-card border border-line bg-card p-4 text-ink shadow-card-lg">
         {/* The same disclosure as the desktop card: these starting values
             are an example, not the visitor's (and only fields they change
             are sent on — lib/home-calculator.ts). */}
@@ -259,7 +282,7 @@ function FitCalculatorCard({ schools, mobile = false }: { schools: SchoolLite[];
   }
 
   return (
-    <div className="mx-auto max-w-none rounded-xl border border-line bg-card p-6 shadow-card">
+    <div className="mx-auto max-w-none rounded-card border border-line bg-card p-6 text-ink shadow-card-lg">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <strong className="text-[15px]">Your fit</strong>
         {/* P0-7: this said "Rosters verified Oct 2026". No roster has ever been
@@ -403,13 +426,16 @@ function TrustStrip() {
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
             unverified estimates and now say so wherever they render. */}
-        <span>
+        <span className="flex items-start gap-2">
+          <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
           <strong className="text-ink">Every team rating is an estimate.</strong>
         </span>
-        <span>
+        <span className="flex items-start gap-2">
+          <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
           <strong className="text-ink">Bands, not promises &mdash; never a percent chance.</strong>
         </span>
-        <span>
+        <span className="flex items-start gap-2">
+          <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
           <strong className="text-ink">Built by a junior player</strong>
         </span>
         <Link href="/methodology" className="inline-flex min-h-11 items-center text-grass hover:text-grass-700 sm:min-h-6">
@@ -459,7 +485,9 @@ const CARD_TINT = [
 
 function WhatItDoes() {
   return (
-    <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
+    <section className="relative isolate overflow-hidden">
+      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-line lg:block" />
+    <div className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <h2 className={cn(seededSectionHeading, "seeded-section-head max-w-[760px] text-balance")}>
         One plan for the three things that decide recruiting.
       </h2>
@@ -497,25 +525,15 @@ function WhatItDoes() {
               )}
               {c.title === "Compete smarter" && (
                 <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-grass-100 bg-grass-50 px-2.5 py-1 text-xs font-semibold text-grass">
-                    Good fit · L3 Richmond
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-clay-tint-text))]">
-                    Skip · L5 Bethesda
-                  </span>
+                  <Pill tone="green">Good fit · L3 Richmond</Pill>
+                  <Pill tone="clay">Skip · L5 Bethesda</Pill>
                 </div>
               )}
               {c.title === "Reach out on time" && (
                 <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[13px]">
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-                    Emailed 8
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-card px-2.5 py-1 text-xs font-semibold text-stone">
-                    Replied 3
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--c-gold-tint-text))]">
-                    2 follow-ups due
-                  </span>
+                  <Pill tone="neutral">Emailed 8</Pill>
+                  <Pill tone="neutral">Replied 3</Pill>
+                  <Pill tone="gold">2 follow-ups due</Pill>
                 </div>
               )}
             </div>
@@ -523,6 +541,7 @@ function WhatItDoes() {
         ))}
         </div>
       </figure>
+    </div>
     </section>
   );
 }
@@ -531,7 +550,9 @@ function WhatItDoes() {
 
 function ProductShot() {
   return (
-    <section className="seeded-section-y mx-auto max-w-[1200px] px-6">
+    <section className="relative isolate overflow-hidden bg-grass-50">
+      <CourtBackdrop className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-grass-100" />
+    <div className="seeded-section-y mx-auto max-w-[1200px] px-6">
       <Reveal>
         {/* The shot draws Today's buttons ("Open draft", "Follow up"), which
             look clickable. They used to do nothing; the whole frame is now
@@ -592,6 +613,7 @@ function ProductShot() {
         </Link>
         <p className="mt-3 text-center text-[13px] text-stone">What Today shows, for an example player.</p>
       </Reveal>
+    </div>
     </section>
   );
 }
@@ -642,6 +664,15 @@ function ParentsSection() {
     // which would otherwise flip bright once the site is in dark mode and
     // break every hardcoded light-on-dark color below it.
     <section className="bg-[rgb(var(--c-night))] text-[rgb(var(--c-night-text))]">
+      {/* The net between the day sections and the "night court" (Figma 06).
+          A ball arcs over it once as it scrolls in — CSS scroll-driven, off
+          under reduced motion and where unsupported (it then just rests). */}
+      <div className="relative h-12 overflow-x-clip" aria-hidden="true">
+        <CourtDivider variant="net" className="absolute inset-0 h-12 w-full text-[rgb(var(--c-night-text)/0.2)]" />
+        <span className="seeded-net-ball absolute right-[18%] top-1 block">
+          <TennisBall size={28} className="h-7 w-7" />
+        </span>
+      </div>
       <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-6">
         <Reveal className="min-w-0 flex-[1_1_420px]">
           <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-lime-accent">
@@ -717,7 +748,7 @@ function MethodAndFounder() {
     <section id="how-fit-works" className="seeded-section-y seeded-card-row mx-auto max-w-[1200px] grid-cols-1 px-6 lg:grid-cols-2">
       <Reveal className="flex h-full flex-col rounded-xl border border-line bg-card p-7">
         <h2 className={cn(seededCardHeading, "m-0")}>How fit works</h2>
-        <ol className="mt-4 list-decimal space-y-1 pl-5 leading-[1.7] text-stone">
+        <ol className="seeded-scoreboard-list mt-5 space-y-3 leading-[1.6] text-stone">
           {/* Was: "from public profiles", "count seniors who graduate
               before you arrive", "we add academics and your preferences",
               "a confidence level". None of the four is what the code does
@@ -736,7 +767,10 @@ function MethodAndFounder() {
         </Link>
       </Reveal>
       <Reveal index={1} step={0.08} className="flex h-full flex-col rounded-xl border border-line bg-card p-7">
-        <h2 className={cn(seededCardHeading, "m-0")}>Who built this</h2>
+        <h2 className={cn(seededCardHeading, "m-0 flex items-center gap-3")}>
+          <TennisBall size={32} className="h-8 w-8 shrink-0" />
+          Who built this
+        </h2>
         <p className="mt-4 leading-[1.6] text-stone">
           I&apos;m a junior tennis player going through recruiting right now.
           I built Seeded because my family was tracking schools, tournaments
@@ -901,15 +935,16 @@ function FinalCta() {
   // primary: the same pairing, and the same contrast, as every other green
   // button on the site, in both modes.
   return (
-    <section className="border-t border-line bg-card">
-      <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6">
-        <h2 className={cn(seededSectionHeading, "m-0 max-w-[640px] text-balance")}>
+    // Design polish round 2 (Figma 06): the page closes on the same fixed
+    // court as the hero. White on --c-court is 6.4:1 in both modes; the
+    // button is the court's white-with-green pair, not a green-on-green one.
+    <section className="relative isolate overflow-hidden bg-[rgb(var(--c-court))] text-[rgb(var(--c-court-text))]">
+      <CourtCorner className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-[rgb(var(--c-court-text)/0.28)] lg:block" />
+      <div className="seeded-section-y mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-6 text-center">
+        <h2 className={cn(seededSectionHeading, "m-0 max-w-[700px] text-balance text-[rgb(var(--c-court-text))]")}>
           Find out where you fit before your next tournament.
         </h2>
-        <Link
-          href="/onboarding"
-          className="inline-flex min-h-[52px] items-center justify-center rounded-lg bg-grass px-6 font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
-        >
+        <Link href="/onboarding" className={COURT_PRIMARY_CTA}>
           Get my free fit report
         </Link>
       </div>

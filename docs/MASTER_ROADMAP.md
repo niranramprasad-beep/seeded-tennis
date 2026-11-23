@@ -69,6 +69,30 @@ docs reorganisation).
   no fake clickable affordances, percent-first comparisons, one fit-band
   pill component, landing layout and logo fixes. Still needs a real Google
   sign-in test by Niran (TODO).
+- **Design polish round 2** (branch `herdy-work`, 2026-11-22 evening; no
+  migration, palette unchanged): the remaining `COPY_CUTS.md` cuts on the
+  sidebar, pricing, Schools and the school page (honesty labels shortened,
+  never cut; pinned tests updated deliberately); static status pills use the
+  shared `Pill`; the family page gets icon KPI tiles, one read-only pill, the
+  computed season as its eyebrow, the over-budget state said twice not three
+  times, shorter empty states, and a skeleton the same height as the cards;
+  sections fade up as they scroll in, CSS only (`.seeded-reveal`, nothing
+  hidden waiting for JavaScript, off under reduced motion); the sample
+  report offers a signed-in visitor "Back to Today/Family" instead of a
+  sign-up. Still open: the parent dashboard upgrade (TODO §4), a real
+  signed-in visual check on staging.
+- **Landing overhaul, hard-court theme** (branch `herdy-work`, 2026-11-22
+  night; Figma "WD — NiranRamprasad — Seeded" page 06; no migration): the
+  hero and the closing band sit on a fixed court green (`--c-court`, light
+  mode's own primary pinned for both modes) with to-scale court lines
+  (`components/seeded/court`, Codex); white copy and a white/green CTA; a
+  CSS-only bouncing ball in the hero (idle hop paused off-screen) and one
+  arcing over a net divider into the parents band; court-corner lines behind
+  the features; the product shot on a light court band; scoreboard-numbered
+  "How fit works". All motion is off under reduced motion; the ball is
+  measured to stay clear of the copy and the calculator card. The desktop
+  subhead now uses the mobile wording (still "our estimated range" and a
+  counted N; `honest-zero-state.test.ts` updated deliberately).
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly

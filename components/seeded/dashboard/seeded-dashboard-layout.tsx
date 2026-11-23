@@ -28,6 +28,7 @@ import { currentSeason, formatDate, getCurrentGrade, parseLocalDate } from "@/li
 import { gradeStandingName } from "@/lib/utr-projection";
 import { cn, formatCheckpointUtr, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 import { DataNote } from "@/components/seeded/ui/data-note";
+import { Pill } from "@/components/seeded/ui/pill";
 import { doneThisWeekLine, onTrackPill } from "@/lib/empty-state-copy";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
 import { chartLegendSentence } from "@/lib/chart-legend";
@@ -180,14 +181,7 @@ export function SeededDashboardLayout({
           {/* Green only for a real count: "On track for 0 of 3" in green sat
               beside "3 of your 3 targets are a Reach" (final-check A9). */}
           {trackPill && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-pill border px-2.5 py-1 text-xs font-semibold",
-                trackPill.tone === "good" ? "border-grass-100 bg-grass-50 text-grass" : "border-line bg-card text-stone"
-              )}
-            >
-              {trackPill.text}
-            </span>
+            <Pill tone={trackPill.tone === "good" ? "green" : "neutral"}>{trackPill.text}</Pill>
           )}
         </div>
 

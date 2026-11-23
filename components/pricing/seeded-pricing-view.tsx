@@ -11,6 +11,7 @@ import {
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import type { CatalogCounts } from "@/lib/db/schools";
 import { SeededButton } from "@/components/seeded/ui/button";
+import { Pill } from "@/components/seeded/ui/pill";
 import { cn } from "@/lib/utils";
 import { usePlanCheckout } from "./use-plan-checkout";
 import { planCards, priceBlockFor, yearlyToggleLabel } from "./pricing-data";
@@ -44,7 +45,7 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               <span className="block">Pay when you want a plan.</span>
             </h1>
             <p className="mx-auto mt-4 max-w-[600px] text-pretty text-lg leading-relaxed text-stone">
-              Paid plans add unlimited schools, coach outreach and a parent view.
+              Unlimited schools, coach outreach and a parent view.
             </p>
             {tier !== "free" && (
               <button
@@ -110,9 +111,9 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                   )}
                 >
                   {plan.recommended && !btn.disabled && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-pill bg-grass px-3 py-1 text-xs font-semibold text-on-primary">
+                    <Pill tone="green" className="absolute -top-3 left-1/2 -translate-x-1/2 px-3">
                       Recommended
-                    </span>
+                    </Pill>
                   )}
 
                   <div className="pb-5">
@@ -191,37 +192,13 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 an adult in its family consents. Nothing checks who PAYS, so
                 "billed to a parent" stays banned too. */}
           <div className="mt-8 space-y-1 text-center text-sm text-stone">
-            <p>Checkout is handled by Whop. Cancel any time from your Whop account.</p>
-            <p>Players under 13 need a parent or guardian to approve the account.</p>
-          </div>
-        </section>
-
-        {/* ------------------------------------------ what stays free, always */}
-        <section aria-labelledby="free-always">
-          <h2 id="free-always" className={sectionTitle}>
-            What stays free, always
-          </h2>
-          <div className="seeded-card-row md:grid-cols-3">
-            <FreeCard title="Every school page">
-              Open any of the {counts.total} programs and see where it sits. No account needed.
-            </FreeCard>
-            <FreeCard title="Your fit report">
-              Answer a few questions and see which schools are Likely, Target, Reach or Out of
-              range. No card needed.
-            </FreeCard>
-            <FreeCard
-              title="How we calculate fit"
-              action={
-                <Link
-                  href="/methodology"
-                  className="inline-flex min-h-11 items-center text-[15px] font-semibold text-grass underline-offset-4 hover:underline"
-                >
-                  Read it
-                </Link>
-              }
+            <p>Checkout and cancellation through Whop; players under 13 need a parent or guardian to approve the account.</p>
+            <Link
+              href="/methodology"
+              className="inline-flex min-h-11 items-center font-semibold text-grass underline-offset-4 hover:underline"
             >
-              The same math runs on every plan, and we show how it works.
-            </FreeCard>
+              How we calculate fit
+            </Link>
           </div>
         </section>
 
@@ -255,11 +232,10 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 024 + 040: a Free account over the limit keeps its list and
                 can prune; it can never grow past the limit. */}
             <Faq question="What happens if I cancel?">
-              Cancel from your Whop account. Whop keeps your plan running to the end of the period
-              you already paid for, then your account moves back to Free. Nothing you saved is
-              deleted. You keep every school you track, even past {FREE_TIER_TARGET_SCHOOL_LIMIT}, but
-              on Free the list can&apos;t grow past {FREE_TIER_TARGET_SCHOOL_LIMIT}. Outreach and your
-              roadmap stay saved and come back if you pick a paid plan again.
+              Cancel from your Whop account; your plan runs to the end of the paid period, then
+              moves back to Free. Nothing you saved is deleted: you keep every school, but the Free
+              list can&apos;t grow past {FREE_TIER_TARGET_SCHOOL_LIMIT}. Outreach and your roadmap
+              come back with a paid plan.
             </Faq>
             {/* Mechanics from lib/route-access.ts (only a parent account
                 opens /family), migration 026 (joiners land pending until
@@ -268,21 +244,19 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
                 Family paywall unless my_family_has_tier('family') — a plan
                 held by a member whose HOME family it is (045; lib/db/family-plan.ts). */}
             <Faq question="Does a parent need the Family plan?">
-              Yes, for the parent tools. The parent dashboard, the season budget and the weekly family
-              report need the Family plan, and the player or a parent can buy it, from an account
-              whose own family this is. A parent uses their own parent account and joins with the family code, and a
-              family member approves them. The parent can edit the budget and send notes; everything
-              else is read-only.
+              The parent dashboard, budget and weekly family report need the Family plan, bought
+              by a player or parent whose own family this is. Parents join with the family code
+              and a family member approves them. Parents can edit the budget and send notes;
+              everything else is read-only.
             </Faq>
             {/* Migration 045 (docs/DECISIONS.md, 2026-11-19): the plan unlocks
                 the family the paying account belongs to (home_family_code),
                 and join_family / approve_family_join refuse past the caps. */}
             <Faq question="How many people does one Family plan cover?">
-              {FAMILY_PLAN_SCOPE_LABEL}. The plan unlocks the paying account&apos;s own family, and
-              only that one, even if the account also belongs to another family. If the paying
-              account is removed from the family, the family goes back to Free unless someone else in
-              it pays; nothing is deleted. A family that&apos;s full can&apos;t take another player or
-              parent. Contact {SUPPORT_EMAIL} if you need more.
+              {FAMILY_PLAN_SCOPE_LABEL}. The plan unlocks only the paying account&apos;s own family;
+              if they&apos;re removed, it goes back to Free unless someone else pays, and nothing is
+              deleted. A full family can&apos;t take another player or parent; contact {SUPPORT_EMAIL}
+              if you need more.
             </Faq>
             <Faq question="Where do the numbers come from?">
               Your UTR is the number you enter. Team levels come from a hand check of the official roster
@@ -299,24 +273,6 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
           </div>
         </section>
       </div>
-    </div>
-  );
-}
-
-function FreeCard({
-  title,
-  children,
-  action,
-}: {
-  title: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex h-full flex-col rounded-card border border-line bg-card p-6">
-      <h3 className="font-seeded text-lg font-semibold text-ink">{title}</h3>
-      <p className="mt-2 text-[15px] leading-relaxed text-stone">{children}</p>
-      {action && <div className="mt-auto pt-2">{action}</div>}
     </div>
   );
 }

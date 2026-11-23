@@ -10,6 +10,7 @@ import { daysSince, FOLLOW_UP_AFTER_DAYS } from "@/lib/today-actions";
 import { StaffDirectoryHint } from "@/components/seeded/ui/staff-directory-hint";
 import { SeededButton } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
+import { Pill } from "@/components/seeded/ui/pill";
 import { cn, isValidEmailAddress } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 import { outreachSummaryLine } from "@/lib/empty-state-copy";
@@ -315,10 +316,10 @@ export function SeededOutreachLayout({
                       {followUpBy && (
                         <span className="text-xs text-ink/60">Follow up by {formatShortDate(followUpBy)}</span>
                       )}
-                      {due && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Follow up due")}
+                      {due && <Pill tone="gold" className="w-fit">Follow up due</Pill>}
                       {stage.key === "replied" &&
-                        chip("border-grass-100 bg-grass-50 text-grass", "Replied")}
-                      {reminderDue && chip("border-[rgb(var(--c-gold-tint-border))] bg-[rgb(var(--c-gold-tint-bg))] text-[rgb(var(--c-gold-tint-text))]", "Reminder due")}
+                        <Pill tone="green" className="w-fit">Replied</Pill>}
+                      {reminderDue && <Pill tone="gold" className="w-fit">Reminder due</Pill>}
                       {!reminderDue && remindAt && (
                         <span className="text-xs text-ink/50">
                           Reminder set for {formatShortDate(remindAt)}
@@ -507,7 +508,7 @@ export function SeededOutreachLayout({
                     </SeededButton>
                   ) : null}
                   {currentStatus === "replied" ? (
-                    chip("border-grass-100 bg-grass-50 text-grass", <><Check className="mr-1 inline h-3 w-3" aria-hidden />Coach replied</>)
+                    <Pill tone="green" className="w-fit" icon={<Check className="h-3 w-3" aria-hidden />}>Coach replied</Pill>
                   ) : (
                     <SeededButton variant="secondary" onClick={() => setStatus(selectedSchool.slug, "replied")}>
                       Mark replied

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="480" viewBox="0 0 1440 480" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#E4E2DA" stroke-width="1.5" aria-hidden="true" focusable="false" pointer-events="none">
+  <line x1="432" y1="432" x2="1008" y2="432" vector-effect="non-scaling-stroke" />
+  <line x1="720" y1="424" x2="720" y2="432" vector-effect="non-scaling-stroke" />
+  <path d="M720 144H936V24" vector-effect="non-scaling-stroke" />
+</svg>
