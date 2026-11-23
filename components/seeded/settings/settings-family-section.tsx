@@ -237,7 +237,7 @@ export function SettingsFamilySection() {
             {pending.map((m) => {
               const full = familyRoleIsFull(counts, m.role);
               return (
-                <li key={m.userId} className="rounded-[14px] border border-line bg-subtle p-4">
+                <li key={m.userId} className="rounded-[14px] border border-line bg-panel p-4">
                   <p className="font-semibold text-ink">
                     {m.name} wants to join as {m.role === "parent" ? "a parent" : "a player"}
                   </p>

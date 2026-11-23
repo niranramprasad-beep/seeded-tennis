@@ -2,9 +2,10 @@ import { cn } from "@/lib/utils";
 import type { Division } from "@/lib/types";
 
 // Design polish round 1 (Figma "WD — NiranRamprasad — Seeded", 03/04b): a
-// small initials tile so a school row isn't all text. Deliberately NOT a
-// logo — no third-party marks, nothing that needs a source. Initials come
-// from the school's own short name; the tint says the division.
+// small initials tile so a school row isn't all text. Initials come from the
+// school's own short name; the tint says the division. Nothing here needs a
+// source, so it is what a school shows when it has no logo we may use, and
+// what stays if a logo does not load (school-mark.tsx).
 
 const SKIP = new Set(["of", "the", "at", "and", "university", "college", "u"]);
 

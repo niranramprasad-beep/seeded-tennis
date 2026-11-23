@@ -21,7 +21,9 @@ export const SESSION_TYPES: SessionType[] = [
   { id: "conditioning", label: "Conditioning", color: "rgb(var(--c-gold))" },
   { id: "mobility", label: "Mobility", color: "rgb(var(--c-leaf) / 0.55)" },
   { id: "recovery", label: "Recovery", color: "rgb(var(--c-stone-light))" },
-  { id: "mental", label: "Mental work", color: "rgb(var(--c-stone))" },
+  // Not --c-stone: beside Recovery's --c-stone-light the two greys could not
+  // be told apart as month dots.
+  { id: "mental", label: "Mental work", color: "rgb(var(--c-sage-tint-text))" },
 ];
 
 export const SESSION_TYPE_IDS = SESSION_TYPES.map((t) => t.id) as [string, ...string[]];

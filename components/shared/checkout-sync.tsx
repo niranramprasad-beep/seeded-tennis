@@ -122,7 +122,7 @@ function Banner({
       ? "border-grass/40 bg-grass-50 text-ink"
       : tone === "bad"
         ? "border-error/40 bg-error-bg text-error"
-        : "border-line bg-subtle text-stone";
+        : "border-line bg-panel text-stone";
   return (
     <div className="mx-auto max-w-content container-px pt-4">
       <p className={`rounded-xl border px-4 py-3 text-sm ${toneClass}`} role="status">

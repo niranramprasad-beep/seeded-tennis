@@ -133,7 +133,7 @@ export function JoinRequestsCard({ compact = false }: { compact?: boolean }) {
             className={
               i === 0
                 ? "rounded-[14px] border border-[rgb(var(--c-clay-tint-border))] bg-[rgb(var(--c-clay-tint-bg))] p-4"
-                : "rounded-[14px] border border-line bg-subtle p-4"
+                : "rounded-[14px] border border-line bg-panel p-4"
             }
           >
             <p className="font-semibold text-ink">

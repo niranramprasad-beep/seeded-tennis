@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./palettes.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/app-shell";
+import { PalettePreviewScript } from "@/components/dev/palette-preview";
 import { ScrollProgress } from "@/components/shared/scroll-progress";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -143,6 +145,7 @@ export default function RootLayout({
             __html: `(function(){try{var syncRaw=localStorage.getItem('seeded.mode.system');var sync=localStorage.getItem('seeded.design')==='legacy'||syncRaw===null||syncRaw==='1';var m=sync?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):localStorage.getItem('seeded.mode');if(m){document.documentElement.setAttribute('data-seeded-mode',m);}var s=0;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.+-auth-token$/.test(k)){s=1;document.documentElement.setAttribute('data-session','1');var r=localStorage.getItem('seeded.role');if(r==='parent'||r==='player'){document.documentElement.setAttribute('data-role',r);}var sh=localStorage.getItem('seeded.schools.shape');if(sh==='fit'||sh==='nofit'||sh==='prompt'){document.documentElement.setAttribute('data-schools-shape',sh);}break;}}if(localStorage.getItem('seeded.sidebar.collapsed')==='1'){document.documentElement.setAttribute('data-sidebar-collapsed','1');}if(!s){var p=location.pathname,a=${SIGNED_IN_ONLY_JSON};for(var j=0;j<a.length;j++){if(p===a[j]||p.indexOf(a[j]+'/')===0){location.replace('/login?next='+encodeURIComponent(p+(location.search||'')));break;}}}}catch(e){}})();`,
           }}
         />
+        <PalettePreviewScript />
       </head>
       <body className="min-h-screen bg-cream">
         <Providers>

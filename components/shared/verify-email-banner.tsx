@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
@@ -27,6 +27,10 @@ import { GOOGLE_AUTH_ENABLED } from "@/lib/config/auth";
 // only after mount, because whether it was dismissed lives in localStorage,
 // which the server render cannot see. On phones it sits above the bottom
 // tab bar; on desktop it is a small card at the bottom right.
+//
+// While it shows, its height is published as --verify-banner-clearance, so a
+// bar pinned to the bottom of a page (the schools compare bar) can sit above
+// it instead of under it.
 
 export function VerifyEmailBanner() {
   const { player, isAuthed, hydrated } = usePlayer();
@@ -52,6 +56,22 @@ export function VerifyEmailBanner() {
       pathname,
       dismissed,
     });
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!visible || !card) return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty("--verify-banner-clearance", `${Math.ceil(card.getBoundingClientRect().height) + 12}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(card);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--verify-banner-clearance");
+    };
+  }, [visible]);
+
   if (!visible) return null;
 
   const send = async () => {
@@ -75,6 +95,7 @@ export function VerifyEmailBanner() {
 
   return (
     <div
+      ref={cardRef}
       role="region"
       aria-label="Confirm your email"
       data-testid="verify-email-banner"

@@ -114,6 +114,24 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
 
+// School logos (docs/SCHOOL_LOGOS.md) are for the page they sit on. Opening
+// one's address, framing it, fetching it from a script or loading it from
+// another site gets the 404 page; only an image load on our own pages gets
+// the picture. Vary keeps a cached copy from answering a direct visit. This
+// makes copying awkward, not impossible: a screenshot or the developer tools
+// still work, and so does any client that does not send these headers.
+const SCHOOL_LOGOS = "/school-logos/:file*";
+const schoolLogoHeaders = [
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "X-Robots-Tag", value: "noindex, noimageindex" },
+  { key: "Cache-Control", value: "public, max-age=604800" },
+  { key: "Vary", value: "Sec-Fetch-Dest, Sec-Fetch-Site" },
+];
+const schoolLogoRefusals = [
+  ...["document", "iframe", "frame", "embed", "object", "empty"].map((value) => ["sec-fetch-dest", value]),
+  ["sec-fetch-site", "cross-site"],
+];
+
 const nextConfig = {
   reactStrictMode: true,
   // Next 15 streams metadata into the <body> for dynamic routes unless the
@@ -129,7 +147,23 @@ const nextConfig = {
   // checkout. On Vercel this is the same directory Next would pick anyway.
   outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: SCHOOL_LOGOS, headers: schoolLogoHeaders },
+    ];
+  },
+  async rewrites() {
+    return {
+      // Before the public folder is looked at. The destination does not exist
+      // on purpose: it is answered by the 404 page.
+      beforeFiles: schoolLogoRefusals.map(([key, value]) => ({
+        source: SCHOOL_LOGOS,
+        has: [{ type: "header", key, value }],
+        destination: "/school-logo-not-here",
+      })),
+      afterFiles: [],
+      fallback: [],
+    };
   },
   // An auth redirect that lands on the bare home page belongs to
   // /auth/callback. Supabase Auth sends the browser to the project's Site

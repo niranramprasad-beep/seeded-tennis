@@ -5,9 +5,9 @@ import useSWR from "swr";
 import { Calculator, DollarSign, Save } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
 import { AuthGate } from "@/components/shared/auth-gate";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/seeded/ui/pill";
 import { Reveal } from "@/components/shared/reveal";
 import {
   calculateCost,
@@ -117,18 +117,20 @@ function CostCalculatorInner({
             Add up what training, tournaments, travel and equipment will cost your family, from your own numbers.
           </p>
         </div>
-        <Badge
-          size="md"
-          style={{ background: "var(--s-accent-gradient)", color: "white" }}
-        >
-          <DollarSign className="h-4 w-4" />
-          {results.total > 0 ? Math.round(results.total).toLocaleString() : "Enter your costs"}
-        </Badge>
+        {results.total > 0 ? (
+          <Pill tone="green" icon={<DollarSign className="h-3.5 w-3.5" aria-hidden />} className="w-fit font-mono tabular-nums">
+            {Math.round(results.total).toLocaleString()}
+          </Pill>
+        ) : (
+          <Pill tone="neutral" icon={<DollarSign className="h-3.5 w-3.5" aria-hidden />} className="w-fit">
+            Enter your costs
+          </Pill>
+        )}
       </Reveal>
 
       <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
         <Reveal index={1}>
-        <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
+        <Card className="p-6">
           <h2 className={cn("font-medium text-ink", "font-seeded")}>Inputs</h2>
           <div className="mt-4 space-y-3">
             <NumberInput label="Years remaining" value={inputs.yearsRemaining} onChange={(v) => updateNumber("yearsRemaining", v)} />
@@ -159,7 +161,7 @@ function CostCalculatorInner({
             ))}
           </div>
           <Reveal index={3}>
-          <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
+          <Card className="p-6">
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-grass" aria-hidden />
               <h2 className={cn("font-medium text-ink", "font-seeded")}>Scholarships and cost of attendance</h2>
@@ -175,7 +177,7 @@ function CostCalculatorInner({
           </Card>
           </Reveal>
           <Reveal index={4}>
-          <Card className={cn("p-6", "seeded-glass border-0 shadow-seeded-1")}>
+          <Card className="p-6">
             <h2 className={cn("font-medium text-ink", "font-seeded")}>Saved projections</h2>
             <div className="mt-4 space-y-2">
               {saved.slice(0, 4).map((row) => (
@@ -247,7 +249,7 @@ function NumberInput({ label, value, onChange }: { label: string; value: number;
 function CostCard({ label, value }: { label: string; value: number }) {
   return (
     // A stat tile, not a link: no hover lift (lib/clickable-affordance.test.ts).
-    <Card className={cn("h-full p-5", "seeded-glass border-0 shadow-seeded-1")}>
+    <Card className="h-full p-5">
       <p className="text-xs text-stone-light">{label}</p>
       <p className={cn("mt-2 text-2xl text-ink", "font-mono")}>
         ${Math.round(value).toLocaleString()}

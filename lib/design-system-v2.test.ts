@@ -12,7 +12,8 @@ import { codeOnly, readableSource } from "./testing/source-text";
  *   tokens  colours come from CSS variables, never raw hex
  *
  * Scope: the Seeded design (components/seeded, components/layout,
- * components/auth, components/pricing, components/shared, app/). The Legacy
+ * components/auth, components/pricing, components/shared, components/cost,
+ * app/). The Legacy
  * design (components/home, components/training, components/tournaments …)
  * is slated for deletion (docs/archive/TODO_DONE.md) and is not held to v2.
  */
@@ -35,6 +36,9 @@ const V2_DIRS = [
   "components/auth",
   "components/pricing",
   "components/shared",
+  // On /family/budget, so a Seeded screen: it kept a gradient and glass cards
+  // because nothing here looked at it (2026-11-23).
+  "components/cost",
   "app",
 ];
 const V2_FILES = V2_DIRS.flatMap((d) => walk(join(ROOT, d))).filter(
@@ -277,6 +281,46 @@ describe("rule 8: the focus ring is court green on light, lime only on dark", ()
   it("no component hard-codes a lime focus ring", () => {
     const hits = V2_FILES.filter((f) => /focus(?:-visible|-within)?:(?:outline|ring)-lime-accent/.test(codeOnly(f))).map(rel);
     expect(hits).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------ scrims */
+
+// `ink` is the text colour: in dark mode it is a light grey, so a scrim made
+// of it bleaches the page instead of dimming it. ui/dialog.tsx was fixed and
+// said so; Delete account and the budget modals kept it until 2026-11-23.
+export const INK_SCRIM = /\bfixed inset-0\b[^"'`]*\bbg-ink\b|\bbg-ink\/\d+[^"'`]*\bfixed inset-0\b/;
+
+describe("a dialog dims the page in both modes", () => {
+  it("the detector catches an ink scrim and allows a black one (self-test)", () => {
+    expect(INK_SCRIM.test('className="fixed inset-0 z-[100] bg-ink/50"')).toBe(true);
+    expect(INK_SCRIM.test('className="bg-ink/40 fixed inset-0"')).toBe(true);
+    expect(INK_SCRIM.test('className="fixed inset-0 z-[100] bg-black/50"')).toBe(false);
+    expect(INK_SCRIM.test('className="bg-ink text-cream"')).toBe(false);
+  });
+
+  it("no full-screen layer is tinted with ink", () => {
+    const files = [...V2_FILES, ...walk(join(ROOT, "components/ui"))];
+    expect(files.filter((f) => INK_SCRIM.test(codeOnly(f))).map(rel)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------- tokens that do not exist */
+
+// Tailwind drops a colour class it does not know without a word. `bg-subtle`
+// was never a token (`subtle-hover` and `panel` are), so five boxes had no
+// background until 2026-11-23.
+export const NOT_A_TOKEN = /\b(?:bg|text|border)-subtle(?![-\w])/;
+
+describe("a colour class names a real token", () => {
+  it("the detector tells subtle from subtle-hover (self-test)", () => {
+    expect(NOT_A_TOKEN.test('className="border border-line bg-subtle p-4"')).toBe(true);
+    expect(NOT_A_TOKEN.test('className="hover:bg-subtle-hover"')).toBe(false);
+  });
+
+  it("nothing uses bg-subtle", () => {
+    const files = [...V2_FILES, ...walk(join(ROOT, "components/ui")), ...walk(join(ROOT, "lib"))];
+    expect(files.filter((f) => NOT_A_TOKEN.test(codeOnly(f))).map(rel)).toEqual([]);
   });
 });
 

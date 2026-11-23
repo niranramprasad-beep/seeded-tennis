@@ -57,6 +57,21 @@ function rendersPublicNavBeforeSession(pathname: string): boolean {
   return !isSignedInOnlyPath(pathname);
 }
 
+// The page, behind a component of its own, so it is never the direct child of
+// a DOM element. `children` can reach this client component as a lazy chunk of
+// the server payload that has not landed yet. Directly inside the <div> below,
+// React paused ON that <div> while hydrating and then replayed it without
+// stepping back out of it: it looked for the <div> among the <div>'s own
+// children, reported a hydration mismatch (#418) and redrew the whole document
+// on the client. Measured 2026-11-23 on a production build: every one of 16
+// captured mismatches was here, on 1 to 15% of loads depending on how busy the
+// machine was; under the same load, 72 of 560 before this and 0 of 560 with it.
+// A component pauses and replays without claiming any DOM.
+// lib/app-shell-hydration.test.ts keeps it.
+function PageSlot({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthed, hydrated } = usePlayer();
   const { collapsed, hydrated: sidebarHydrated } = useSidebar();
@@ -187,7 +202,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             and was pushed down as the page filled in — measured CLS 0.7 to
             1.5 on 311 page loads in the first after-pass. A shift below the
             viewport does not count toward CLS. */}
-        <div key={pathname} className="min-h-[100svh]">{children}</div>
+        <div key={pathname} className="min-h-[100svh]">
+          <PageSlot>{children}</PageSlot>
+        </div>
         {/* The ONE footer, on every route (design system v2). Outside the
             keyed fade so it never remounts or flashes between pages, and
             inside <main> so app routes give it the sidebar margin. */}

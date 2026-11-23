@@ -71,6 +71,7 @@ finished lives in `archive/`.
 |---|---|---|
 | [DESIGN_MOCKUP_SPEC_V2.md](DESIGN_MOCKUP_SPEC_V2.md) | The UI spec (mockup boards 19–23, the eight design-system rules); polish round 1 follows a Figma file where they differ (DECISIONS 2026-11-22) | Before a UI change |
 | [COPY_CUTS.md](COPY_CUTS.md) | Round-1 copy cuts, screen by screen (honesty labels are shortened, never cut) | Before changing page copy |
+| [SCHOOL_LOGOS.md](SCHOOL_LOGOS.md) | Where each school logo came from, the rules for using one, and what copying it does and does not stop; `lib/school-logos.test.ts` reads it | Before adding, changing or showing a school logo |
 
 ## History (`archive/`)
 

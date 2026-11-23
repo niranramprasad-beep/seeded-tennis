@@ -80,6 +80,8 @@ describe("court art contract", () => {
     const ball = TennisBall({ size: 96 });
     expect(ball.props).toMatchObject({ width: 96, height: 96, viewBox: "0 0 64 64", stroke: "rgb(var(--c-ink))" });
     expect(elements(ball).find((element) => element.type === "circle")?.props.fill).toBe("rgb(var(--c-lime))");
+    // On lime, which is light in both modes: --c-ink would vanish in dark.
+    expect(elements(ball).find((element) => element.type === "path")?.props.stroke).toBe("rgb(var(--c-on-lime))");
     expect(TennisBall({}).props.width).toBe(64);
   });
 

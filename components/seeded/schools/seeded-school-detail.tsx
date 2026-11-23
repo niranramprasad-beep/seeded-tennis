@@ -29,7 +29,7 @@ import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
-import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
+import { SchoolMark } from "@/components/seeded/ui/school-mark";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
@@ -359,7 +359,7 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
           <div>
             <div className="flex items-center gap-1.5">
               {/* Keep the tile off narrow phones, like the /schools rows. */}
-              <SchoolMonogram name={school.shortName} division={school.division} size="lg" className="mr-1.5 hidden sm:inline-flex" />
+              <SchoolMark slug={school.slug} name={school.shortName} division={school.division} size="lg" className="mr-1.5 hidden sm:inline-flex" />
               <h1 className="font-seeded text-[34px] font-semibold tracking-tight text-ink">
                 {school.name} · {programType} tennis
               </h1>
