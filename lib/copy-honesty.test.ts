@@ -77,7 +77,8 @@ function strippedSource(file: string): string {
   );
 }
 
-const BANNED: { pattern: RegExp; why: string }[] = [
+/** `allow`: repo-relative files where the claim is true (each says why). */
+const BANNED: { pattern: RegExp; why: string; allow?: string[] }[] = [
   {
     // Design polish round 1 struck "$144" through beside the yearly price
     // with a screen-reader "Was ". No plan was ever $144 a year: it is twelve
@@ -317,8 +318,21 @@ const BANNED: { pattern: RegExp; why: string }[] = [
     why: "reads as a reminder Seeded will send; it sends none — the button only sets a follow-up date",
   },
   {
-    pattern: /lowest reliable (?:player|rating)|highest reliable rating/i,
-    why: "describes per-player roster ratings Seeded does not store; it is an estimated floor",
+    // 2026-11-22: "highest reliable rating" became true for hand-checked teams
+    // (team_ranges.high, the top of a checked roster's reliable singles
+    // ratings) and left this pattern in the same commit. "Lowest reliable"
+    // stays: the floor is the LOWER QUARTILE (RANGE_RULE), never the lowest
+    // player, and an estimated team has neither.
+    pattern: /lowest reliable (?:player|rating)/i,
+    why: "the floor is a lower quartile (checked teams) or an estimate, never the lowest player",
+  },
+  {
+    // "Highest reliable rating" is true only where a checked roster is
+    // described: /methodology. Anywhere else it still fails (narrowed after
+    // the independent review, 2026-11-22).
+    pattern: /highest reliable rating/i,
+    why: "a checked roster's top; allowed only on /methodology, which says which teams are checked",
+    allow: ["components/seeded/methodology/seeded-methodology-view.tsx"],
   },
   {
     pattern: /usually covers a year|pays for itself/i,
@@ -410,10 +424,11 @@ describe("no user-facing copy promises something the code can't do", () => {
     expect(files.length).toBeGreaterThan(50);
   });
 
-  for (const { pattern, why } of BANNED) {
+  for (const { pattern, why, allow = [] } of BANNED) {
     it(`never says ${pattern.source} — ${why}`, () => {
       const offenders = files
         .filter((f) => pattern.test(strippedSource(f)))
+        .filter((f) => !allow.some((a) => f.endsWith(a)))
         .map((f) => f);
       expect(offenders).toEqual([]);
     });

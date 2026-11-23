@@ -15,7 +15,7 @@
 //    the date the roster was read. A 2025-26 roster says so plainly — its
 //    final-year players have already finished.
 
-import type { SchoolLite } from "@/lib/types";
+import type { SchoolDetails, SchoolLite } from "@/lib/types";
 import { currentSeasonStartYear, finalYearClass } from "./class-year";
 import type { CatalogDivision, CatalogGender } from "./roster-import";
 
@@ -65,6 +65,14 @@ export interface ImportedProgram {
   classCounts: { classYear: number; players: number }[];
   /** Every range on record, any order. currentRange() picks. */
   ranges: TeamRange[];
+  /** program_details (migration 053), or null when there is no row (or 053
+   * is not on this database yet). */
+  details?: ProgramDetails | null;
+}
+
+export interface ProgramDetails extends SchoolDetails {
+  city: string | null;
+  state: string | null;
 }
 
 /* ---------------------------------------------------------------- dates */
@@ -131,9 +139,16 @@ export function bandableRange(
   program: Pick<ImportedProgram, "ranges">,
   now: Date
 ): Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR"> | null {
+  const range = bandableTeamRange(program, now);
+  return range ? { minCompetitiveUTR: range.low, avgRosterUTR: range.middle } : null;
+}
+
+/** The same gate as bandableRange(), returning the whole range (with its
+ * source and date) for the catalog merge (lib/catalog/merge.ts). */
+export function bandableTeamRange(program: Pick<ImportedProgram, "ranges">, now: Date): TeamRange | null {
   const range = currentRange(program);
   if (!range || !validRange(range) || rangeIsStale(range, now)) return null;
-  return { minCompetitiveUTR: range.low, avgRosterUTR: range.middle };
+  return range;
 }
 
 function utr(v: number): string {

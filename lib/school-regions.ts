@@ -29,7 +29,8 @@ const STATE_REGION: Record<string, SchoolRegion> = {
   WA: "West",
 };
 
-export function regionForState(state: string): SchoolRegion | null {
+export function regionForState(state: string | null): SchoolRegion | null {
+  if (!state) return null;
   return STATE_REGION[state.toUpperCase()] ?? null;
 }
 

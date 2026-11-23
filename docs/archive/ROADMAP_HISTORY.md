@@ -1174,6 +1174,19 @@ passing, and **seven** defects found and fixed in the ROLLBACK half of the plan 
 meant the highest-risk step's rollback had never been able to run at all,
 and one broke every profile write in the app *while rolling back*. See `docs/HANDOFF.md` §J.
 
+### 2026-11-22 — The spreadsheet sync (Herdy's 21 Nov action item), on staging
+Herdy's notes asked for the school spreadsheet and the site to be synced; the
+overnight run had imported the sheet's 35 ACC teams but left them in a
+separate preview with no bands, and the 15+ teams also in the legacy catalog
+still showed the old estimate (e.g. UNC women 10.9/12.1 vs the sheet's
+9.77/10.43). The sheet had since grown to 63 rated teams plus a Program Info
+tab. `feat/sheet-sync`: migration 053 (`program_details`), the importer reads
+Program Info, staging re-imported (three checksums equal the importer's
+output), and `lib/catalog/merge.ts` makes the sheet feed the one catalog —
+real ranges replace estimates for 22 teams, 41 teams added, the legend and
+every "our estimates" note reworded for the mix. Production waits for 053 +
+the re-import on Niran's go (HANDOFF §J Step 28).
+
 ### Found Night 2, open, and not Claude's to close alone
 
 - ✅ **A parent cannot read a JOINED player's data — CLOSED 2026-11-15 by

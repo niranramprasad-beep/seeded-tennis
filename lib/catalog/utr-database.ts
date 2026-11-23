@@ -57,9 +57,14 @@ export function quantileInclusive(values: readonly number[], p: number): number 
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
 
+/** Every range this importer writes starts with this. The catalog merge
+ * (lib/catalog/merge.ts) accepts only such ranges, because its wording
+ * ("Roster checked", lower quartile / median) describes THIS method. */
+export const UTR_DATABASE_SOURCE_PREFIX = "College Tennis UTR Database";
+
 /** The source line shown beside every range from this import. */
 export function rangeSource(seasonShown: string): string {
-  return `College Tennis UTR Database (official ${seasonShown} roster checked against each player's UTR profile; reliable singles ratings only)`;
+  return `${UTR_DATABASE_SOURCE_PREFIX} (official ${seasonShown} roster checked against each player's UTR profile; reliable singles ratings only)`;
 }
 
 export const MIN_RATED_PLAYERS = 5;
@@ -372,7 +377,10 @@ export type UtrSqlTarget = "staging" | "production";
 
 export function buildUtrDatabaseSql(
   data: Pick<UtrDatabaseImport, "programs" | "ranges">,
-  target: UtrSqlTarget = "staging"
+  target: UtrSqlTarget = "staging",
+  /** More statements for the same transaction, run after the programs and
+   * ranges (lib/catalog/program-info.ts buildProgramDetailsSql). */
+  extraStatements: readonly string[] = []
 ): string {
   if (data.programs.length === 0) throw new Error("no programs to import");
   const out: string[] =
@@ -469,6 +477,7 @@ export function buildUtrDatabaseSql(
         "and t.middle = v.middle and t.high = v.high and t.source_date = v.d::date);"
     );
   }
+  out.push(...extraStatements);
   out.push("commit;");
   return out.join("\n") + "\n";
 }

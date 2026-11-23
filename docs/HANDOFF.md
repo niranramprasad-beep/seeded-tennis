@@ -3053,6 +3053,49 @@ else references it once both bodies are restored). **Rehearsed on staging
 matched, the helper was gone, anon had no EXECUTE, and the same 35 cases gave
 the pre-052 answers (the gap reopens). Staging was left on the final 052.
 
+### Step 28 — migration 053 (program_details) + the spreadsheet sync (branch `feat/sheet-sync`)
+
+**NOT RUN ON PRODUCTION.** Applied to staging 2026-11-22 (`053_program_details`)
+and the sheet re-imported there; waits for Niran's current-turn go.
+
+What it changes. One new table, `program_details` (one row per `programs`
+row): city, state, cost of attendance (+ COA year + source URL), College
+Scorecard acceptance rate and undergraduate enrollment (+ Scorecard URL),
+coaches page and questionnaire links, read date. A CHECK refuses a cost with
+no COA year/source and a rate or enrollment with no Scorecard URL. Public
+read (`anon`, `authenticated`), no client write grant or policy — like 048's
+`programs`. No coach names or emails (owner's open decision). Nothing
+references it but the app's read (`lib/db/programs.ts`, which treats a
+failed read as "no details", so code deployed before 053 still works).
+
+Order. **053 first, then the data, then the code** (code before 053 is also
+safe: the details read fails soft). For production:
+1. `pg_dump` backup to `~/seeded-evidence/backups/prod-<stamp>-pre053.dump`.
+2. Apply `supabase/migrations/053_program_details.sql` in one transaction and
+   add the ledger row.
+3. Re-export the sheet (all four tabs; `Program Info` included) and run
+   `scripts/import-utr-database.ts ... --program-info "<Program Info.csv>"
+   --target production --emit-sql prod.sql`; read the file (no player names),
+   run it in one transaction. Programs upsert by slug, ranges are insert-only
+   (identical rows skipped), details upsert by program.
+4. Verify with the three checksums used on staging 2026-11-22 (current range
+   per imported program, class counts, details — `order by slug collate "C"`)
+   against the importer's `--summary` JSON. Staging matched all three.
+5. Merge `feat/sheet-sync`; check `/schools`, a merged page
+   (`/schools/vanderbilt-m`) and an added page
+   (`/schools/university-of-alabama-men`).
+
+Verify (staging, 2026-11-22): 63 programs with a current UTR-database range,
+every class count, 43 details rows — md5s `76f4275c…` (ranges),
+`587aa548…` (counts), `03ac17fc…` (details), each equal to the same string
+built from the importer's summary.
+
+Rollback. Code: revert the merge, or set `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED`
+off on Vercel Production and redeploy — the catalog is then exactly the
+legacy list. Data: ranges are history (048), so the new rows are left; to
+undo the bands only, the flag is the lever. Table:
+`drop table public.program_details;` (nothing references it).
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

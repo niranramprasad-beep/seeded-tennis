@@ -60,8 +60,8 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
         {/* A-035: says what the comparison is against — our estimated
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-stone">
-          Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
-          Target, Likely and Out of range.
+          Your UTR against the range for {schools.length} college teams &mdash; a hand-checked roster where we
+          have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
         </p>
         <FitCalculatorCard schools={schools} mobile />
         <p className="text-center text-xs text-stone">Free · no card · Takes about 90 seconds.</p>
@@ -83,8 +83,9 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
           comparison is against our ESTIMATED team ranges. The count is the
           catalogue's own length, never a typed number. */}
       <p className="mt-5 max-w-[540px] text-lg leading-[1.55] text-stone">
-        Enter your UTR and grad year. Seeded compares your UTR with our estimated
-        range for {teamCount} college teams, sorts them into Reach, Target, Likely and Out of range,
+        Enter your UTR and grad year. Seeded compares your UTR with the range for {teamCount} college
+        teams (a hand-checked roster where we have one, our estimate where we don&apos;t), sorts them
+        into Reach, Target, Likely and Out of range,
         and turns the gap into season targets you plan against, with a family view
         your parents can follow.
       </p>

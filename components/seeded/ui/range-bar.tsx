@@ -45,6 +45,9 @@ interface RangeBarProps {
    *  (lib/fit.ts) rather than a logged rating: it prints with one decimal,
    *  a logged rating with two (lib/utils.ts formatPlayerUtr — C10). */
   youIsEstimate?: boolean;
+  /** The team range is a checked roster's (lib/catalog/merge.ts): the
+   *  tooltip says floor / middle / top, not "average". */
+  checked?: boolean;
   /** Which rating the dot is, in lib/fit-copy.ts ratingBasisLabel's words —
    *  "today", "by summer 2027, estimate", "by summer 2027, what-if". Printed
    *  after the number in the tooltip so a gap is never read as the wrong
@@ -75,6 +78,7 @@ export function RangeBar({
   today,
   youIsEstimate = false,
   youBasis = null,
+  checked = false,
 }: RangeBarProps) {
   const reduceMotion = useReducedMotion();
   const [tapOpen, setTapOpen] = useState(false);
@@ -175,13 +179,13 @@ export function RangeBar({
             )}
           >
             <p className="font-mono tabular-nums">
-              Floor {formatUtrEstimate(low!)} · Average {formatUtrEstimate(median!)} · Top of range {formatUtrEstimate(high!)}
+              Floor {formatUtrEstimate(low!)} · {checked ? "Middle" : "Average"} {formatUtrEstimate(median!)} · Top of range {formatUtrEstimate(high!)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
               {/* "0.3 below the team average", never a signed "gap" a
                   family has to decode (A-007). The helper takes (rating,
                   line) and decides the side itself. */}
-              {rangeBarYouLine({ youLabel, you: you!, youIsEstimate, youBasis, median: median! })}
+              {rangeBarYouLine({ youLabel, you: you!, youIsEstimate, youBasis, median: median!, checked })}
             </p>
             {today != null && today > 0 && Math.abs(today - you!) > 0.05 && (
               <p className="mt-0.5 font-mono tabular-nums text-stone">

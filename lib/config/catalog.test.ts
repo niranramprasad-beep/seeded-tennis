@@ -56,7 +56,22 @@ describe("the catalog phase-1 flag", () => {
       "components/admin/team-range-admin.tsx",
       "components/schools/imported-programs-section.tsx",
       "lib/db/programs.ts",
+      // The spreadsheet sync (2026-11-22): the one catalog every screen reads
+      // merges the imported programs in — behind the same flag (next test).
+      "lib/db/schools.ts",
     ]);
+  });
+
+  it("the merged catalog queries the imported tables only while the flag is on", () => {
+    const src = read("lib", "db", "schools.ts");
+    const build = src.slice(src.indexOf("async function buildCatalog"), src.indexOf("function catalog()"));
+    // The flag check comes first, and returns the legacy list untouched.
+    expect(build).toMatch(/if \(!CATALOG_PHASE1_ENABLED\) return \{ schools: legacySchools, failed: false \};/);
+    expect(build.indexOf("CATALOG_PHASE1_ENABLED")).toBeLessThan(build.indexOf("loadImportedPrograms"));
+    // A failed read fails the BUILD, and at runtime serves the legacy list
+    // uncached — never an empty catalog.
+    expect(build).toMatch(/if \(isNextBuild\(\)\) throw new Error/);
+    expect(build).toMatch(/return \{ schools: legacySchools, failed: true \}/);
   });
 
   it("the section never decides a fit band itself", () => {

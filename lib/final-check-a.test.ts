@@ -154,7 +154,7 @@ describe("A1: 'today' is only ever the real rating", () => {
     expect(detail).toMatch(/const judgingBasis = judgingRating\?\.basis \?\? null;/);
 
     const bar = codeOnly("components/seeded/ui/range-bar.tsx");
-    expect(bar).toMatch(/rangeBarYouLine\(\{ youLabel, you: you!, youIsEstimate, youBasis, median: median! \}\)/);
+    expect(bar).toMatch(/rangeBarYouLine\(\{ youLabel, you: you!, youIsEstimate, youBasis, median: median!, checked \}\)/);
 
     for (const file of [
       "components/seeded/schools/seeded-schools-browser.tsx",

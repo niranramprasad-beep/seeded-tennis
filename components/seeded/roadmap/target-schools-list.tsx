@@ -1,5 +1,6 @@
 "use client";
 
+import { teamRangeNote } from "@/lib/db/schools";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GripVertical, Search } from "lucide-react";
@@ -129,7 +130,7 @@ export function TargetSchoolsList({
       {targetSchools.length > 0 && (
         // The team UTR band in every row below is an unverified estimate with
         // no source or date (P0-3). Stated once here rather than on each row.
-        <DataNote className="mt-3.5">Team UTR ranges are our estimates, not published rosters.</DataNote>
+        <DataNote className="mt-3.5">{teamRangeNote(targetSchools)}</DataNote>
       )}
 
       <ul className="mt-3.5 flex flex-col gap-3 text-sm">
@@ -185,6 +186,7 @@ export function TargetSchoolsList({
                 <FitBadge band={band} />
               </div>
               <RangeBar
+ checked={Boolean(s.utrRange)}
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(s.avgRosterUTR)}
