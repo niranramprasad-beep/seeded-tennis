@@ -16,6 +16,24 @@ import { codeOnly, decodeSourceText, readableSource } from "./testing/source-tex
 //
 // When a sourced field arrives (P1-DATA-1), delete its entry here in the
 // same commit — do not reword around it.
+//
+// 2026-11-22: acceptance rate arrived, sourced. The owner's sheet's
+// "Program Info" tab carries College Scorecard's admission rate with its
+// URL and read date (migration 053, program_details; a value without its
+// source is refused by a CHECK and dropped by the importer and the loader).
+// So `acceptanceRate` and "acceptance rate" are allowed — ONLY in the files
+// that carry the sourced value (SOURCED_ACCEPTANCE_RATE_FILES); anywhere else
+// they still fail (narrowed after the independent review, 2026-11-22). Cost
+// of attendance is sourced the same way but is carried as
+// `costOfAttendanceUsd`, which the cost entries below never matched; they
+// stay, so an invented price elsewhere still fails.
+const SOURCED_ACCEPTANCE_RATE_FILES = new Set([
+  "lib/types.ts",
+  "lib/catalog/program-info.ts",
+  "lib/db/programs.ts",
+  "components/seeded/schools/seeded-school-detail.tsx",
+  "components/seeded/methodology/seeded-methodology-view.tsx",
+]);
 
 const ROOT = join(__dirname, "..");
 function walk(dir: string, out: string[] = []): string[] {
@@ -53,7 +71,9 @@ const GUESSED_COPY: { pattern: RegExp; why: string }[] = [
 
 describe("no guessed per-school number reaches a user", () => {
   it("no code carries a per-school field Seeded has no source for", () => {
-    const hits = FILES.filter((f) => GUESSED_FIELDS.test(codeOnly(f))).map((f) => {
+    const hits = FILES.filter(
+      (f) => GUESSED_FIELDS.test(codeOnly(f)) && !(SOURCED_ACCEPTANCE_RATE_FILES.has(relative(ROOT, f)) && codeOnly(f).match(GUESSED_FIELDS)?.[0] === "acceptanceRate")
+    ).map((f) => {
       const m = codeOnly(f).match(GUESSED_FIELDS);
       return `${relative(ROOT, f)}: ${m?.[0]}`;
     });
@@ -62,7 +82,15 @@ describe("no guessed per-school number reaches a user", () => {
 
   for (const { pattern, why } of GUESSED_COPY) {
     it(`no copy shows ${why}`, () => {
-      const hits = FILES.filter((f) => pattern.test(readableSource(f))).map((f) => relative(ROOT, f));
+      const hits = FILES.filter((f) => {
+        const text = readableSource(f);
+        if (!pattern.test(text)) return false;
+        // The sourced acceptance rate, only where it is carried.
+        if (why === "a rate Seeded has no data for" && SOURCED_ACCEPTANCE_RATE_FILES.has(relative(ROOT, f))) {
+          return /\b(?:admit|response|reply) rate\b/i.test(text);
+        }
+        return true;
+      }).map((f) => relative(ROOT, f));
       expect(hits).toEqual([]);
     });
   }

@@ -7,6 +7,18 @@ Newest first.
 
 ---
 
+## 2026-11-22 — School pages show the full roster by name and the coaching staff (Niran)
+Niran chose, when asked, to show each school's official roster BY NAME
+(class, singles UTR with its reliability, UTR profile link, hometown) and the
+coaching staff with the emails the school publishes, from the owner's sheet
+"College Tennis UTR Database". This reverses 048's "no player names". Rules
+kept: official-roster players only; every rating links to the profile it was
+read from; every staff row links to the official page it came from; emails
+only where that page prints them; rosters are dated snapshots. Tables:
+migration 054 (program_roster, program_staff). Still open: UTR licensing
+(DATA_QUALITY), the privacy policy's mention of third-party names, and a
+takedown path ("Report an error" mails support).
+
 ## 2026-11-22 (night) — The landing page sits on a hard court (Herdy's direction, Figma page 06)
 
 Herdy asked for a tennis-themed landing page; the court-lines direction and a

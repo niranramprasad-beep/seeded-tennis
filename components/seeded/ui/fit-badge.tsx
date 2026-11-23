@@ -15,11 +15,12 @@ import { SCHOOL_FIT_BAND_LABEL } from "@/lib/school-fit";
 // below that floor but the planning projection (at most
 // PLANNING_PACE_CAP_PER_YEAR = 1.5 a year) reaches it by the summer before
 // senior year, or fewer than three ratings are logged; Out of range = the
-// projection does not reach it. Today every team's two numbers are hand-entered
-// ESTIMATES (/methodology section 1): no checked-roster range feeds a band
-// yet (lib/catalog/programs.ts bandableRange is not wired to /schools), so
-// the words say "estimated floor" / "estimated average", never "median" or
-// "quartile". A band is never a percent.
+// projection does not reach it. Since 2026-11-22 (the spreadsheet sync,
+// lib/catalog/merge.ts) a team's floor and middle come from one of two
+// places: for a hand-checked official roster, the lower quartile and median
+// of its reliable singles UTRs; for every other team, our hand-entered
+// estimates. The rules below say "floor" and "middle", and FIT_RANGE_RULE
+// says which is which. A band is never a percent.
 
 export type FitBand = "reach" | "target" | "likely" | "out-of-range" | "unverified";
 /** What a pill can show: a band, or "locked" — the player HAS a rating the
@@ -37,22 +38,22 @@ export const FIT_BAND_LABEL: Record<FitPillState, string> = {
 /** The rule behind each state, in one sentence: the pill's tooltip and the
  *  methodology legend both read it. Worded to classifySchoolFit. */
 export const FIT_BAND_RULE: Record<FitPillState, string> = {
-  likely: "Rating at or above the team's estimated average.",
-  target: "Rating at or above the team's estimated floor, but below its estimated average.",
+  likely: "Rating at or above the middle of the team's range.",
+  target: "Rating at or above the floor of the team's range, but below its middle.",
   reach:
-    "Rating below the team's estimated floor, but projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year — or fewer than three ratings are logged, so the gap can't be shown to be too big.",
+    "Rating below the floor of the team's range, but projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year — or fewer than three ratings are logged, so the gap can't be shown to be too big.",
   "out-of-range":
-    "Rating below the team's estimated floor, and not projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year.",
+    "Rating below the floor of the team's range, and not projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year.",
   unverified: "No rating logged yet, so there is nothing to compare with the team's range.",
   locked: "The player has a rating; this plan hides it. The Family plan shows the band.",
 };
 
-/** What "floor" and "average" are TODAY (methodology section 1): hand-entered
- *  estimates. When checked-roster ranges (docs/DATA_QUALITY.md, "Second
- *  source") start feeding bands, this sentence and FIT_BAND_RULE change in
- *  the same commit — not before. */
+/** What "floor" and "middle" are (methodology section 1). Two sources since
+ *  2026-11-22: hand-checked official rosters, and our estimates for every
+ *  other team. Changed in the same commit as FIT_BAND_RULE, when checked
+ *  ranges started feeding bands (lib/catalog/merge.ts). */
 export const FIT_RANGE_RULE =
-  "The floor and the average are the team's two estimated numbers from section 1: entered by hand, with no published source or check date, and labelled an unverified estimate wherever they appear.";
+  "Where a team's official roster has been hand-checked against each player's UTR profile (the school says “Roster checked” and the date), the floor is the lower quartile and the middle the median of the reliable singles ratings. Every other team's floor and middle are our estimates from section 1: entered by hand, with no published source or check date, and labelled an estimate wherever they appear.";
 
 // Pixel-exact to DesignSystem.dc.html's ".chip" base + fit-band colors.
 export const FIT_BAND_TONE: Record<FitPillState, string> = {

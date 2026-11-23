@@ -2,7 +2,18 @@
 //
 //   npx vite-node --config vitest.config.ts scripts/import-utr-database.ts -- \
 //     --teams ~/seeded-data/utr-db/Teams.csv --players ~/seeded-data/utr-db/Players.csv \
+//     [--program-info "~/seeded-data/utr-db/Program Info.csv"] \
 //     [--season 2026-27] [--emit-sql out.sql] [--summary out.json] [--target staging|production]
+//
+// --program-info (optional) is the sheet's "Program Info" tab: city/state,
+// cost of attendance, acceptance rate, enrollment, coaches page and
+// questionnaire link, each with its source (migration 053, program_details;
+// lib/catalog/program-info.ts). A value with no source is left out.
+//
+// --roster (optional) also writes the roster pages (migration 054): every
+// official-roster player BY NAME and the coaching staff with published emails
+// (Niran's decision, 2026-11-22; lib/catalog/roster-pages.ts). With --roster
+// the SQL file DOES contain real names: keep it outside the repo.
 //
 // The two CSVs are the sheet's "Teams" and "Players" tabs (File → Download →
 // CSV). The Players tab names real students, so both files stay OUTSIDE the
@@ -22,10 +33,14 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseSeason } from "../lib/catalog/class-year";
 import { buildUtrDatabaseSql, parseUtrDatabase, RANGE_RULE, UtrDatabaseError } from "../lib/catalog/utr-database";
+import { buildProgramDetailsSql, parseProgramInfo, type ProgramInfoImport } from "../lib/catalog/program-info";
+import { buildRosterPagesSql, parseRosterPages } from "../lib/catalog/roster-pages";
 
 interface Args {
   teams: string | null;
   players: string | null;
+  programInfo: string | null;
+  roster: boolean;
   season: string;
   emitSql: string | null;
   summary: string | null;
@@ -38,13 +53,15 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { teams: null, players: null, season: "2026-27", emitSql: null, summary: null, target: "staging" };
+  const args: Args = { teams: null, players: null, programInfo: null, roster: false, season: "2026-27", emitSql: null, summary: null, target: "staging" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i] ?? fail(`${a} needs a value.`);
     if (a === "--") continue;
     else if (a === "--teams") args.teams = next();
     else if (a === "--players") args.players = next();
+    else if (a === "--program-info") args.programInfo = next();
+    else if (a === "--roster") args.roster = true;
     else if (a === "--season") args.season = next();
     else if (a === "--emit-sql") args.emitSql = next();
     else if (a === "--summary") args.summary = next();
@@ -84,6 +101,21 @@ function main() {
     throw err;
   }
 
+  let info: ProgramInfoImport | null = null;
+  if (args.programInfo) {
+    try {
+      info = parseProgramInfo(readCsv(args.programInfo, "--program-info"));
+    } catch (err) {
+      if (err instanceof UtrDatabaseError) fail(err.message);
+      throw err;
+    }
+    // Details only for programs this run imports; the rest have no row to hang on.
+    const imported = new Set(data.programs.map((p) => p.slug));
+    const orphans = info.details.filter((d) => !imported.has(d.slug));
+    info = { details: info.details.filter((d) => imported.has(d.slug)), dropped: info.dropped };
+    for (const o of orphans) info.dropped.push(`${o.slug}: no imported program (team held or not on Teams) — details left out`);
+  }
+
   const men = data.programs.filter((p) => p.gender === "men").length;
   console.log(`import-utr-database: season ${season.label}; range rule: ${RANGE_RULE}`);
   console.log(
@@ -93,6 +125,15 @@ function main() {
   );
   for (const h of data.held) console.log(`  HELD (${h.scope}): ${h.school} (${h.gender}) — ${h.reason}`);
   for (const w of data.warnings) console.log(`  note: ${w}`);
+  if (info) {
+    const n = (f: (d: ProgramInfoImport["details"][number]) => unknown) => info!.details.filter((d) => f(d) !== null).length;
+    console.log(
+      `  program info: ${info.details.length} programs; cost of attendance ${n((d) => d.costOfAttendanceUsd)}, ` +
+        `acceptance rate ${n((d) => d.acceptanceRate)}, enrollment ${n((d) => d.undergradEnrollment)}, ` +
+        `city/state ${n((d) => d.state)}, questionnaire ${n((d) => d.questionnaireUrl)}`
+    );
+    for (const d of info.dropped) console.log(`  program info, left out: ${d}`);
+  }
 
   if (args.summary) {
     const summary = {
@@ -107,6 +148,7 @@ function main() {
         sourceDate: p.sourceDate,
       })),
       ranges: data.ranges,
+      programDetails: info?.details ?? [],
       held: data.held,
       warnings: data.warnings,
     };
@@ -114,8 +156,27 @@ function main() {
     console.log(`import-utr-database: wrote ${args.summary}`);
   }
 
+  const extra = info ? buildProgramDetailsSql(info.details) : [];
+  if (args.roster) {
+    const slugs = data.programs.map((p) => p.slug);
+    const pages = parseRosterPages({
+      teamsCsv: readCsv(args.teams, "--teams"),
+      playersCsv: readCsv(args.players, "--players"),
+      programInfoCsv: args.programInfo ? readCsv(args.programInfo, "--program-info") : null,
+      importedSlugs: new Set(slugs),
+    });
+    const withStaff = new Set(pages.staff.map((s) => s.slug)).size;
+    const emails = pages.staff.filter((s) => s.email).length;
+    console.log(
+      `  roster pages: ${pages.players.length} players on ${new Set(pages.players.map((p) => p.slug)).size} rosters; ` +
+        `${pages.staff.length} staff on ${withStaff} programs (${emails} with a published email)`
+    );
+    for (const d of pages.dropped) console.log(`  roster pages, left out: ${d}`);
+    extra.push(...buildRosterPagesSql(pages, slugs));
+  }
+
   if (args.emitSql) {
-    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target));
+    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target, extra));
     console.log(`import-utr-database: wrote ${args.emitSql} (target: ${args.target})`);
   }
 }

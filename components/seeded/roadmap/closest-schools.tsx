@@ -32,7 +32,8 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar, judging }
     <div className="mt-5 rounded-card border border-line bg-card p-5">
       <h2 className="text-base font-semibold text-ink">Closest schools to you</h2>
       <p className="mt-1 text-[15px] text-stone">
-        The schools in our catalog whose estimated team average is nearest {measuredFrom} —
+        The schools in our catalog whose team middle (a checked roster&apos;s median, or our estimated average)
+        is nearest {measuredFrom} —
         whether or not they&apos;re on your target list yet.
       </p>
       <ul className="mt-3.5 flex flex-col gap-2.5 text-sm">
@@ -53,7 +54,7 @@ export function ClosestSchoolsCard({ results, isStarred, onToggleStar, judging }
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="font-mono text-xs text-stone">
-                {teamLineRelation(judging.utr, school.avgRosterUTR, "average")}
+                {teamLineRelation(judging.utr, school.avgRosterUTR, school.utrRange ? "middle" : "average")}
               </span>
               <FitBadge band={band} />
             </div>

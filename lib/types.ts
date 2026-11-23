@@ -169,17 +169,20 @@ export type TournamentLevel =
 // real college coaches). Coach contact is now typed by the user per message;
 // see buildCoachEmail in lib/db/schools.ts.
 //
-// `avgRosterUTR` and `minCompetitiveUTR` are the two exceptions still in
-// flight: they are unverified estimates, so anything that renders them must
-// also render UTR_RANGE_SOURCE_LABEL. P1-DATA-1 replaces them with sourced,
-// dated roster data.
+// `avgRosterUTR` and `minCompetitiveUTR`: for a school with `utrRange` they
+// are the owner's sheet's floor (lower quartile) and middle (median), with
+// the source and date in `utrRange` (lib/catalog/merge.ts, 2026-11-22). For a
+// school WITHOUT `utrRange` they are still the legacy unverified estimates,
+// and anything that renders them must render utrSourceLabel(school)
+// (lib/db/schools.ts), which says so.
 export interface School {
   id: string;
   slug: string;
   name: string;
   shortName: string;
-  city: string;
-  state: string;
+  /** Null = not tracked (a program from the sheet with no Program Info row). */
+  city: string | null;
+  state: string | null;
   conference: string;
   division: Division;
   gender: Gender;
@@ -188,7 +191,45 @@ export interface School {
   textColor: string;
   avgRosterUTR: number;
   minCompetitiveUTR: number;
-  usNewsRanking: number;
+  /** Null = not tracked. Only the legacy catalog carries a US News rank. */
+  usNewsRanking: number | null;
+  /** Present when the UTR numbers come from a sourced team range. */
+  utrRange?: SchoolUtrRange;
+  /** The sheet's Program Info (migration 053), when there is a row. */
+  details?: SchoolDetails;
+  /** The official roster page the range was read against. */
+  rosterUrl?: string | null;
+  /** The imported program (048) this school is, for its roster page (054). */
+  programSlug?: string;
+}
+
+/** A sourced team range (team_ranges, migration 048). low = floor (lower
+ * quartile), middle = median, high = top rating. */
+export interface SchoolUtrRange {
+  low: number;
+  middle: number;
+  high: number;
+  /** "Hand-curated from public sources: College Tennis UTR Database (…)" */
+  source: string;
+  sourceUrl: string | null;
+  /** yyyy-mm-dd */
+  sourceDate: string;
+}
+
+/** Program Info (program_details, migration 053). Every number travels with
+ * the page it was read from; a null is "Not tracked". */
+export interface SchoolDetails {
+  costOfAttendanceUsd: number | null;
+  coaYear: string | null;
+  coaSourceUrl: string | null;
+  /** Fraction, 0.242 = 24.2% */
+  acceptanceRate: number | null;
+  undergradEnrollment: number | null;
+  scorecardSourceUrl: string | null;
+  coachesPageUrl: string | null;
+  questionnaireUrl: string | null;
+  /** yyyy-mm-dd */
+  readDate: string;
 }
 
 // Kept as a distinct name because ~30 components and lib/school-fit.ts type

@@ -33,6 +33,11 @@ import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { formatIsoDate } from "@/lib/catalog/programs";
+import { schoolRangeNote } from "@/lib/db/schools";
+import type { SchoolDetails } from "@/lib/types";
+import type { ProgramRosterPage } from "@/lib/db/roster";
+import { SchoolRosterCard, SchoolStaffList } from "@/components/seeded/schools/school-roster";
 import { academicRankSentence } from "@/lib/school-academics";
 
 interface Props {
@@ -45,6 +50,9 @@ interface Props {
    * band"'s alternative-school suggestion (lib/school-fit.ts's
    * explainSchoolFit), only used when the gap here turns out unreachable. */
   allSchools: School[];
+  /** The official roster by name and the coaching staff (migration 054);
+   *  empty for a school with no imported roster. */
+  roster?: ProgramRosterPage;
 }
 
 // Client Component (promoted from Server Component — needs usePlayer() for
@@ -54,7 +62,7 @@ interface Props {
 // file's own earlier invention, before the real mockup existed. Removed to
 // match; the real ranking data they showed (US News, conference rank) now
 // lives inside the "Academics" card below instead of a dedicated tile row.
-export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
+export function SeededSchoolDetail({ school, programType, allSchools, roster }: Props) {
   const { player, isAuthed, hydrated } = usePlayer();
   const isParent = player.role === "parent";
   const { data: outreach } = useSWR(isParent ? null : "coach-outreach", () => loadCoachOutreach());
@@ -250,10 +258,15 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
         <h2 className="text-lg font-semibold text-ink">
           {subjectFirst ? `${subjectFirst} vs team range` : "You vs team range"}
         </h2>
-        <EstimateChip />
+        {school.utrRange ? (
+          <span className="text-xs text-stone">Roster checked {formatIsoDate(school.utrRange.sourceDate)}</span>
+        ) : (
+          <EstimateChip />
+        )}
       </div>
       <div className="mt-4">
         <RangeBar
+ checked={Boolean(school.utrRange)}
           rangeStartPct={utrToPct(range.min)}
           rangeEndPct={utrToPct(range.max)}
           medianPct={utrToPct(school.avgRosterUTR)}
@@ -276,6 +289,25 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           youBasis={judgingBasis ? ratingBasisLabel(judgingBasis) : null}
         />
       </div>
+      <DataNote className="mt-4">
+        {schoolRangeNote(school)}
+        {school.utrRange?.sourceUrl && school.utrRange.sourceUrl !== school.rosterUrl ? (
+          <>
+            {" "}
+            <a href={school.utrRange.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              {/utrsports\.net/i.test(school.utrRange.sourceUrl) ? "Team UTR page" : "Source"}
+            </a>
+          </>
+        ) : null}
+        {school.rosterUrl ? (
+          <>
+            {" · "}
+            <a href={school.rosterUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              Official roster
+            </a>
+          </>
+        ) : null}
+      </DataNote>
 
       {/* "Academics and cost" was its own card in the row below, two
           sentences in a box sized to its taller neighbour, while this card
@@ -293,8 +325,10 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
           {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
               was jargon about a Seeded-only ranking. The rank a family can
               check is the U.S. News one. */}
-          {academicRankSentence(school.usNewsRanking)} Cost and aid: Not tracked; ask the aid office.
+          {academicRankSentence(school.usNewsRanking)}
+          {school.details ? null : " Cost and aid: Not tracked; ask the aid office."}
         </p>
+        {school.details ? <ProgramFacts details={school.details} /> : null}
       </div>
     </div>
   </div>
@@ -331,7 +365,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
               </h1>
             </div>
             <p className="mt-1.5 text-stone">
-              {school.division} · {school.conference} · {school.city}, {school.state}
+              {school.division} · {school.conference} ·{" "}
+              {school.city && school.state ? `${school.city}, ${school.state}` : (school.state ?? "Location not tracked")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -368,7 +403,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
               <User className="h-4 w-4 text-grass" aria-hidden />
               <h2 className="text-base font-semibold text-ink">Coaching staff</h2>
             </div>
-            <StaffDirectoryHint school={school} className="mt-2.5" />
+            {roster && roster.staff.length > 0 ? (
+              <SchoolStaffList staff={roster.staff} />
+            ) : (
+              <StaffDirectoryHint school={school} className="mt-2.5" />
+            )}
           </div>
           {/* Outreach is the player's: a parent opening /outreach is
               bounced to /family, and Seeded never writes to a coach on a
@@ -384,6 +423,8 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
             </div>
           )}
         </div>
+
+        {roster ? <SchoolRosterCard page={roster} rosterUrl={school.rosterUrl} /> : null}
         <a
           href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
             `Wrong data on ${school.name}`
@@ -411,6 +452,54 @@ function FitDriverRow({
     <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 border-t border-line py-3 text-sm sm:grid-cols-[100px_minmax(0,1fr)]">
       <span className="font-semibold text-ink">{label}</span>
       <span className="min-w-0 text-stone">{description}</span>
+    </div>
+  );
+}
+
+/** The sheet's Program Info (migration 053). Each number shows its source
+ * link; a missing one reads "Not tracked", never a guess. */
+function ProgramFacts({ details }: { details: SchoolDetails }) {
+  // As precise as the source: 0.06 -> "6%", 0.7665 -> "76.7%".
+  const pctNum = details.acceptanceRate !== null ? Math.round(details.acceptanceRate * 1000) / 10 : null;
+  const pct = pctNum === null ? null : `${Number.isInteger(pctNum) ? pctNum.toFixed(0) : pctNum.toFixed(1)}%`;
+  const link = (href: string | null, text: string) =>
+    href ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="underline">
+        {text}
+      </a>
+    ) : null;
+  return (
+    <div className="mt-3 text-sm text-stone">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+        <dt>Cost of attendance</dt>
+        <dd className="text-ink">
+          {details.costOfAttendanceUsd !== null ? (
+            <>
+              ${details.costOfAttendanceUsd.toLocaleString("en-US")} a year ({details.coaYear}) ·{" "}
+              {link(details.coaSourceUrl, "source")}
+            </>
+          ) : (
+            "Not tracked"
+          )}
+        </dd>
+        <dt>Acceptance rate</dt>
+        <dd className="text-ink">{pct ?? "Not tracked"}</dd>
+        <dt>Undergraduates</dt>
+        <dd className="text-ink">
+          {details.undergradEnrollment !== null ? details.undergradEnrollment.toLocaleString("en-US") : "Not tracked"}
+        </dd>
+      </dl>
+      <p className="mt-2 text-xs">
+        {details.scorecardSourceUrl ? <>Acceptance rate and enrollment: {link(details.scorecardSourceUrl, "College Scorecard")}. </> : null}
+        Read {formatIsoDate(details.readDate)}. Cost of attendance is the figure on the linked source page, before
+        any aid; for a public school it may be the in-state figure.
+      </p>
+      {details.coachesPageUrl || details.questionnaireUrl ? (
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {link(details.coachesPageUrl, "Coaches page")}
+          {link(details.questionnaireUrl, "Recruiting questionnaire")}
+        </p>
+      ) : null}
     </div>
   );
 }

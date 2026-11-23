@@ -161,7 +161,9 @@ export function DashboardBody({
         <div className={L.CHART_FOOT}>
           {model.chart && <p className="text-[15px] text-ink">{model.chartCaption}</p>}
           {model.chart?.targetFloor != null && (
-            <DataNote className="mt-2">Target-school line: our estimate, not a published roster.</DataNote>
+            <DataNote className="mt-2">
+              Target-school line: a hand-checked roster for some programs, our estimate for the rest.
+            </DataNote>
           )}
         </div>
       </section>

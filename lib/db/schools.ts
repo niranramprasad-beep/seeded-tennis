@@ -14,15 +14,70 @@ import type { Division, Player, School, SchoolLite } from "@/lib/types";
 import { formatDate, getCurrentGrade, ordinalGrade } from "@/lib/time";
 import { formatPlayerUtr } from "@/lib/utils";
 
+import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
+import { mergeCatalog } from "@/lib/catalog/merge";
+import { formatIsoDate } from "@/lib/catalog/programs";
+import { loadImportedProgramsResult } from "./programs";
 import { mensD1Schools } from "./schools-data-mens";
 import { womensD1Schools } from "./schools-data-womens";
 import { extraSchools } from "./schools-data-extra";
 
-// The full catalog. Swapping to Supabase means replacing this with a query.
-const schoolsData: School[] = [...mensD1Schools, ...womensD1Schools, ...extraSchools];
+// The legacy catalog: 68 programs typed in by hand, UTR numbers unverified.
+const legacySchools: School[] = [...mensD1Schools, ...womensD1Schools, ...extraSchools];
 
-function resolve<T>(value: T): Promise<T> {
-  return Promise.resolve(value);
+/* --------------------------------------------- the synced catalog (sheet) */
+
+// The catalog every getter below returns: the legacy list with the owner's
+// sheet merged in (lib/catalog/merge.ts) — real ranges replace estimates and
+// rated programs from the sheet join it. Only while catalog phase 1 is on
+// (lib/config/catalog.ts); off = the legacy list exactly, and the imported
+// tables are never queried.
+//
+// Read once per CATALOG_TTL_MS per process (server) or page load (browser),
+// with the public key and no session: it is public catalog data.
+//
+// A failed read:
+//   * during `next build` THROWS. Static school pages are generated from
+//     this list (dynamicParams = false), so building on a failed read would
+//     ship every sheet-only school as a 404 and every merged school back on
+//     its estimate for the life of the deploy, with CI green. Fail the build
+//     instead (independent review, 2026-11-22).
+//   * at runtime is LOGGED and gives the legacy list for that call; the
+//     cache is dropped so the next request tries again.
+const CATALOG_TTL_MS = 10 * 60 * 1000;
+let catalogCache: { at: number; value: Promise<School[]> } | null = null;
+
+const isNextBuild = () => process.env.NEXT_PHASE === "phase-production-build";
+
+async function buildCatalog(): Promise<{ schools: School[]; failed: boolean }> {
+  if (!CATALOG_PHASE1_ENABLED) return { schools: legacySchools, failed: false };
+  const { programs, error } = await loadImportedProgramsResult();
+  if (error) {
+    if (isNextBuild()) throw new Error(`catalog: imported programs could not be read during the build: ${error}`);
+    console.error("[catalog] imported programs could not be read; serving the legacy list:", error);
+    return { schools: legacySchools, failed: true };
+  }
+  if (programs.length === 0) return { schools: legacySchools, failed: false };
+  return { schools: mergeCatalog(legacySchools, programs, new Date()).schools, failed: false };
+}
+
+function catalog(): Promise<School[]> {
+  const now = Date.now();
+  if (!catalogCache || now - catalogCache.at > CATALOG_TTL_MS) {
+    const entry = {
+      at: now,
+      value: buildCatalog().then((r) => {
+        // A failed read is served once, never cached.
+        if (r.failed && catalogCache === entry) catalogCache = null;
+        return r.schools;
+      }),
+    };
+    catalogCache = entry;
+    entry.value.catch(() => {
+      if (catalogCache === entry) catalogCache = null;
+    });
+  }
+  return catalogCache.value;
 }
 
 /* ----------------------------------------------------- catalog size facts */
@@ -53,7 +108,7 @@ export interface CatalogCounts {
   divisionLabel: string;
 }
 
-function countCatalog(): CatalogCounts {
+function countCatalog(schoolsData: readonly School[]): CatalogCounts {
   const byDivision = (d: Division) => schoolsData.filter((s) => s.division === d).length;
   const d1 = byDivision("D1");
   const d2 = byDivision("D2");
@@ -77,47 +132,47 @@ function countCatalog(): CatalogCounts {
   };
 }
 
-// Computed once at module load from the same array every other query here
-// reads. Exported through an async getter so server components keep the
-// catalogue out of the client bundle.
-const catalogCounts: CatalogCounts = countCatalog();
-
+// Counted from the same catalog every other getter here returns, so a count
+// on a marketing page can never disagree with the list it describes.
 export async function getCatalogCounts(): Promise<CatalogCounts> {
-  return resolve(catalogCounts);
+  return countCatalog(await catalog());
 }
 
 /* ----------------------------------------------------------------- schools */
 
 export async function getSchools(): Promise<School[]> {
-  return resolve(schoolsData);
+  return catalog();
 }
 
 // Lighter catalog for pages that list/compare/filter schools. Identical to
 // getSchools() since P0-3 removed the heavy per-school fields — see the
 // SchoolLite comment in lib/types.ts for why the seam is kept.
 export async function getSchoolsLite(): Promise<SchoolLite[]> {
-  return resolve(schoolsData);
+  return catalog();
 }
 
 export async function getSchool(slug: string): Promise<School | undefined> {
-  return resolve(schoolsData.find((s) => s.slug === slug));
+  return (await catalog()).find((s) => s.slug === slug);
 }
 
 export async function getSchoolsBySlugs(slugs: string[]): Promise<School[]> {
   const set = new Set(slugs);
-  return resolve(schoolsData.filter((s) => set.has(s.slug)));
+  return (await catalog()).filter((s) => set.has(s.slug));
 }
 
 export async function getDivisions(): Promise<Division[]> {
   const order: Division[] = ["D1", "D2", "D3"];
-  const present = new Set(schoolsData.map((s) => s.division));
-  return resolve(order.filter((d) => present.has(d)));
+  const present = new Set((await catalog()).map((s) => s.division));
+  return order.filter((d) => present.has(d));
 }
 
 // Blend of academics (US News) and tennis level (avg roster UTR), 0-100.
 // Exported for the leaderboard's "combined score" sort. 14.5 ≈ the strongest
 // college roster average on the real UTR scale, so it anchors the tennis axis.
-export function combinedScore(school: School): number {
+// Null when the school has no US News rank: a blend with a missing half is
+// not a score, and no rank is invented to fill it.
+export function combinedScore(school: School): number | null {
+  if (school.usNewsRanking === null) return null;
   const academic = Math.max(0, 100 - school.usNewsRanking * 0.62);
   const tennis = Math.min(100, (school.avgRosterUTR / 14.5) * 100);
   return Math.round(academic * 0.5 + tennis * 0.5);
@@ -132,6 +187,42 @@ export function combinedScore(school: School): number {
 // school detail page, the Schools browser and the Plan chart — and so it is
 // a single edit to swap in real source+date strings when P1-DATA-1 lands.
 export const UTR_RANGE_SOURCE_LABEL = "Unverified estimate";
+
+/** The label to render beside a school's UTR numbers: its range's source
+ * and date when it has one, else UTR_RANGE_SOURCE_LABEL. */
+export function utrSourceLabel(school: Pick<School, "utrRange">): string {
+  return school.utrRange
+    ? `${school.utrRange.source}, ${formatIsoDate(school.utrRange.sourceDate)}`
+    : UTR_RANGE_SOURCE_LABEL;
+}
+
+/** The note under any list of team ranges. Worded for the mix actually on
+ * screen: all checked, some checked, or none (the old sentence). */
+export function teamRangeNote(
+  schools: readonly Pick<School, "utrRange">[],
+  opts: { rowsMarked?: boolean } = {}
+): string {
+  const checked = schools.filter((s) => s.utrRange).length;
+  if (checked === 0) return "Team UTR ranges are our estimates, not published rosters.";
+  if (checked === schools.length) {
+    return "Team UTR ranges come from a hand check of each official roster against players' UTR profiles (College Tennis UTR Database); each school's page shows the date.";
+  }
+  // Only a list that marks each row may point at the mark (review #6).
+  return opts.rowsMarked
+    ? "Team UTR ranges marked “Checked” come from a hand check of the official roster against players' UTR profiles; the rest are our estimates, not published rosters."
+    : "Some of these team UTR ranges come from a hand check of the official roster against players' UTR profiles — each school's page says which, with the date; the rest are our estimates, not published rosters.";
+}
+
+/** One school's range, in a sentence. */
+export function schoolRangeNote(school: Pick<School, "utrRange">): string {
+  if (!school.utrRange) return "The team range is our estimate, not a published roster.";
+  return `${school.utrRange.source}, ${formatIsoDate(school.utrRange.sourceDate)}. Floor = lower quartile, middle = median, top = highest.`;
+}
+
+/** Short form for tight spaces (a tile label, a chart legend). */
+export function utrSourceShortLabel(school: Pick<School, "utrRange">): string {
+  return school.utrRange ? `from roster check, ${formatIsoDate(school.utrRange.sourceDate)}` : UTR_RANGE_SOURCE_LABEL.toLowerCase();
+}
 
 // A web search, not a guessed athletics URL. We do not store per-school
 // recruiting or staff-directory links: inventing one that 404s (or worse,

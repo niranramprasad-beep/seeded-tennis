@@ -513,9 +513,34 @@ L9–L11.
     34 with sourced ranges, in migration 048's tables. The 68 legacy programs
     are still estimates.)*
 
-- **Replace the 15 legacy estimates** that the imported programs duplicate,
-  so a school is banded from its sourced range, not from the legacy
-  estimate (2026-11-21 import; MASTER_ROADMAP NEXT 10 #2).
+- **Replace the legacy estimates** that the imported programs duplicate —
+  DONE in code on `feat/sheet-sync` (2026-11-22; `lib/catalog/merge.ts`, 22
+  teams), on staging. Production: migration 053 + the sheet re-import on
+  Niran's go (HANDOFF §J Step 28).
+- **Coach names and published staff emails** (sheet's Program Info tab, read
+  from official staff pages). Not imported: Niran decides whether to show
+  them. Showing them means a new migration, lifting the coach-field guard in
+  `lib/db/schools-catalog-honesty.test.ts` in the same commit, and the source
+  URL beside every address.
+- **A saved program can leave the catalog** (independent review #4,
+  2026-11-22, MEDIUM — not reachable for about a year). A sheet-only program
+  drops out of `getSchools()` if its range goes stale (365 days), a newer
+  invalid range is entered, or the flag goes off; a Free player's saved slug
+  then still uses a target slot (use-star-schools counts raw slugs) but
+  cannot be seen or removed. Fix before the first range turns a year old
+  (Nov 2027): keep once-added programs as "not rated" rows, or list
+  unresolved slugs with a Remove button and count only resolvable ones.
+- **Show a stale checked range as stale** (review #5, LOW): today a range over
+  a year old silently falls back to the legacy estimate (or out of the
+  catalog). DATA_QUALITY says "stale: show, don't compute" — carry it as
+  display-only with "Last checked {date}".
+- **Data column date drops the year** ("Checked Nov 2") to fit the column;
+  the school page has the full date. Revisit if the column widens (review #6).
+- **Re-run the sync when the sheet changes** (Big Ten is next per
+  `docs/data/LAUNCH_DATA_SPEC.md`): export the four tabs, run
+  `scripts/import-utr-database.ts --program-info …`, staging first, then
+  production on Niran's go. The catalog re-reads within 10 minutes; school
+  pages for NEW programs exist only after a redeploy (`dynamicParams = false`).
 
 ### Catalog phase 1 follow-ups (PR E review, 2026-11-20) — before the flag goes on
 

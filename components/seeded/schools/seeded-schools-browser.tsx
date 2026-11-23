@@ -14,6 +14,8 @@ import {
   type SchoolFitBand,
 } from "@/lib/school-fit";
 import { loadUtrEntries } from "@/lib/db/plan";
+import { teamRangeNote } from "@/lib/db/schools";
+import { formatIsoDate } from "@/lib/catalog/programs";
 import { parseLocalDate } from "@/lib/time";
 import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-regions";
 import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
@@ -72,8 +74,21 @@ const NOT_TRACKED: ColumnChip = { status: "missing", label: "Not tracked" };
 function openingsChip(_s: School): ColumnChip {
   return NOT_TRACKED;
 }
-function dataVerificationChip(_s: School): ColumnChip {
-  return NOT_TRACKED;
+// The Data column: a school whose range comes from a hand-checked official
+// roster says so, with the date. Never "Verified" (DATA_QUALITY.md: the
+// number + its source and date, not a stamp).
+function dataVerificationChip(s: School): ColumnChip {
+  return s.utrRange
+    ? // "Checked Nov 2": the column is sized for "Not tracked"; the full
+      // date and source are on the school page.
+      { status: "updated", label: `Checked ${formatIsoDate(s.utrRange.sourceDate).split(",")[0]}` }
+    : NOT_TRACKED;
+}
+
+/** "Tuscaloosa, AL", "AL", or "Location not tracked". */
+function placeLine(s: Pick<School, "city" | "state">): string {
+  if (s.city && s.state) return `${s.city}, ${s.state}`;
+  return s.state ?? "Location not tracked";
 }
 
 // The parent block's height while there is nothing to put in it yet, in
@@ -864,7 +879,14 @@ export function SeededSchoolsBrowser({
                 {judging && (
                   <span className="normal-case tracking-normal">{ratingBasisLabel(judging.basis)}</span>
                 )}
-                <EstimateChip className="normal-case tracking-normal" label="Estimate" />
+                {/* Worded for the rows on screen: checked rosters say so in the
+                    Data column with their date; the rest are estimates. */}
+                {visible.some((s) => !s.utrRange) ? (
+                  <EstimateChip
+                    className="normal-case tracking-normal"
+                    label={visible.some((s) => s.utrRange) ? "Estimate unless roster checked" : "Estimate"}
+                  />
+                ) : null}
               </span>
               {showOpenings && <span>Openings</span>}
               <span title={ACADEMIC_RANK_SOURCE_LABEL}>Academics</span>
@@ -957,13 +979,14 @@ export function SeededSchoolsBrowser({
                         <span className="flex min-w-0 flex-col justify-center">
                           <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
                           <span className="truncate text-xs text-stone-light">
-                            {s.division} · {s.state}
+                            {s.division} · {s.state ?? "Location not tracked"}
                           </span>
                         </span>
                       </Link>
                     </div>
                     {showFitCol && (fit ? <FitBadge band={fit} /> : <span aria-hidden />)}
                     <RangeBar
+ checked={Boolean(s.utrRange)}
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
@@ -1067,10 +1090,10 @@ export function SeededSchoolsBrowser({
             who={viewingAsParent ? subjectName : null}
             className="mt-3"
             withEarlyDecisionNote
-            after="Team UTR ranges are our estimates, not published rosters."
+            after={teamRangeNote(visible, { rowsMarked: true })}
           />
         ) : (
-          <DataNote className="mt-3">Team UTR ranges are our estimates, not published rosters.</DataNote>
+          <DataNote className="mt-3">{teamRangeNote(visible, { rowsMarked: true })}</DataNote>
         )}
       </div>
 
@@ -1116,20 +1139,25 @@ export function SeededSchoolsBrowser({
                   {fit ? <FitBadge band={fit} /> : null}
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
-                  {s.conference} · {s.division} · {s.city}, {s.state}
+                  {s.conference} · {s.division} · {placeLine(s)}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-stone-light">Avg roster UTR (est.)</dt>
+                  <dt className="text-stone-light">{s.utrRange ? "Team middle UTR (median)" : "Avg roster UTR (est.)"}</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.avgRosterUTR)}</dd>
-                  <dt className="text-stone-light">Min competitive UTR (est.)</dt>
+                  <dt className="text-stone-light">{s.utrRange ? "Team floor UTR (lower quartile)" : "Min competitive UTR (est.)"}</dt>
                   <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.minCompetitiveUTR)}</dd>
                   <dt className="text-stone-light">U.S. News academic rank</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">
+                    {s.usNewsRanking === null ? "Not tracked" : `#${s.usNewsRanking}`}
+                  </dd>
                 </dl>
               </div>
             );
           })}
           {compareSchools.length === 0 && <p className="text-sm text-stone">Select up to 3 schools to compare.</p>}
+          {compareSchools.length > 0 && (
+            <DataNote>{teamRangeNote(compareSchools)}</DataNote>
+          )}
         </div>
       </Drawer>
 

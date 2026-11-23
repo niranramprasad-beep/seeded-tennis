@@ -15,7 +15,7 @@ const steps = [
   {
     icon: School,
     title: "Match schools honestly",
-    body: "Each program is banded by your UTR against its estimated range — Likely, Target, Reach or Out of range. Academics, division and region are filters you choose; they don't change the band.",
+    body: "Each program is banded by your UTR against its range (a hand-checked roster where we have one, our estimate elsewhere) — Likely, Target, Reach or Out of range. Academics, division and region are filters you choose; they don't change the band.",
   },
   {
     icon: Route,

@@ -30,7 +30,7 @@ export function onboardingQueryFor(
  *  Seeded's example; once the visitor changes one the counts are theirs
  *  (final-check A13: the label stayed after they typed). */
 export const EXAMPLE_OUTPUT_NOTE = "Example output. Counts depend on your inputs.";
-export const OWN_OUTPUT_NOTE = "From your inputs, against our estimated team ranges.";
+export const OWN_OUTPUT_NOTE = "From your inputs, against each team's range: a hand-checked roster where we have one, our estimate elsewhere.";
 export function heroOutputNote(touched: ReadonlySet<CalculatorField>): string {
   return touched.size === 0 ? EXAMPLE_OUTPUT_NOTE : OWN_OUTPUT_NOTE;
 }

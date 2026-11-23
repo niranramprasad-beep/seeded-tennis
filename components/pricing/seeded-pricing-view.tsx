@@ -259,7 +259,9 @@ export function SeededPricingView({ counts }: { counts: CatalogCounts }) {
               if you need more.
             </Faq>
             <Faq question="Where do the numbers come from?">
-              Your UTR is the number you enter. Team levels are our estimates, not official numbers.{" "}
+              Your UTR is the number you enter. Team levels come from a hand check of the official roster
+              for some programs (each says &ldquo;Roster checked&rdquo; and the date) and are our estimates for
+              the rest; none are official numbers.{" "}
               <Link
                 href="/methodology"
                 className="font-semibold text-grass underline-offset-4 hover:underline"

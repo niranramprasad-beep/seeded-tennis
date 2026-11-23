@@ -79,8 +79,8 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
         {/* A-035: says what the comparison is against — our estimated
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-[rgb(var(--c-court-text)/0.85)]">
-          Your UTR against our estimated range for {schools.length} college teams, sorted into Reach,
-          Target, Likely and Out of range.
+          Your UTR against the range for {schools.length} college teams &mdash; a hand-checked roster where we
+          have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
         </p>
         {/* The card sits ON the court: the lines start just above it and
             spill out around its edges, so the copy above stays on plain
@@ -111,11 +111,12 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
       {/* A-035 (2026-11-21): "compares you to real programs" did not say the
           comparison is against our ESTIMATED team ranges. The count is the
           catalogue's own length, never a typed number. */}
-      {/* Shortened to the mobile line (COPY_CUTS, Figma 06); "estimated" and
-          the catalogue-derived count stay (A-035). */}
+      {/* Shortened to the mobile line (COPY_CUTS, Figma 06). The roster
+          qualifier from the spreadsheet sync (2026-11-22) and the
+          catalogue-derived count stay (A-035). */}
       <p className="mt-5 max-w-[520px] text-lg leading-[1.55] text-[rgb(var(--c-court-text)/0.85)]">
-        Your UTR against our estimated range for {teamCount} college teams, sorted into Reach,
-        Target, Likely and Out of range.
+        Your UTR against the range for {teamCount} college teams &mdash; a hand-checked roster where we
+        have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
         <Link href="/onboarding" className={COURT_PRIMARY_CTA}>
