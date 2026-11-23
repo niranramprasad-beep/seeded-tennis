@@ -21,7 +21,8 @@ before relying on it.
 
 **Production** is seededtennis.com, deployed from `main` (after the
 2026-11-22 overnight merges, PRs #36–#45 plus the dead-code sweep and this
-docs reorganisation).
+docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
+#50 Herdy's landing overhaul, merged 2026-11-23 UTC).
 `main` auto-deploys with no staging gate; it is protected (PR + green
 `verify`).
 
@@ -82,7 +83,7 @@ docs reorganisation).
   sign-up. Still open: the parent dashboard upgrade (TODO §4), a real
   signed-in visual check on staging.
 - **Landing overhaul, hard-court theme** (branch `herdy-work`, 2026-11-22
-  night; Figma "WD — NiranRamprasad — Seeded" page 06; no migration): the
+  night, merged in PR #50 on 2026-11-23; Figma "WD — NiranRamprasad — Seeded" page 06; no migration): the
   hero and the closing band sit on a fixed court green (`--c-court`, light
   mode's own primary pinned for both modes) with to-scale court lines
   (`components/seeded/court`, Codex); white copy and a white/green CTA; a
@@ -91,8 +92,21 @@ docs reorganisation).
   the features; the product shot on a light court band; scoreboard-numbered
   "How fit works". All motion is off under reduced motion; the ball is
   measured to stay clear of the copy and the calculator card. The desktop
-  subhead now uses the mobile wording (still "our estimated range" and a
-  counted N; `honest-zero-state.test.ts` updated deliberately).
+  subhead now uses the mobile wording; since the merge with #48 both lines
+  carry its roster qualifier ("a hand-checked roster where we have one, our
+  estimate where we don't") and a counted N (`honest-zero-state.test.ts`
+  updated deliberately).
+- **23 Nov consult follow-ups** (Herdy + Niran; branch `herdy-work`, not
+  merged; UI only, no migration): the header's "Get my free fit report"
+  button is gone ("Fit report" in the links goes to the same page) and Sign
+  in is the green button, a plain link on /onboarding beside the
+  diagnostic's Continue (rule 1; DECISIONS 2026-11-23); on phones the menu
+  is the shared right-hand Drawer (closes on any route change, Esc, tap
+  outside, and at desktop width); the footer prints "© <year> Seeded";
+  /sample-report ("For parents") sits under the shared header like every
+  other public page, its own header now a "Sample report · example family"
+  bar. The fit report's projected-UTR card stays text (Niran's call). Open
+  consult items: TODO §4 "Consult follow-ups".
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly

@@ -695,9 +695,9 @@ export function SeededSchoolsBrowser({
                 </strong>
               )}
             </p>
-            {/* Secondary: the header's green "Get my free fit report" goes to
-                the same place, and the compare bar's "Compare side by side"
-                is this page's one green button (design system v2 rule 1). */}
+            {/* Secondary: the header's "Fit report" link goes to the same
+                place, and the compare bar's "Compare side by side" is this
+                page's one green button (design system v2 rule 1). */}
             {!sessionChecked ? (
               <>
                 <span className="pre-session-player-text"><Link

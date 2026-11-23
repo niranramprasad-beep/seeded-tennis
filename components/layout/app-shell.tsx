@@ -80,10 +80,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 1440). Both now get the shared SeededNav like every other public page,
   // and their bespoke headers have been removed so nothing stacks.
   //
-  // /sample-report keeps its own header on purpose: it is a standalone
-  // artefact of what the weekly parent report looks like, and must never
-  // read as part of the authenticated app chrome.
-  const hideSeededNav = pathname === "/sample-report";
+  // /sample-report kept a standalone header of its own until the 23 Nov
+  // consult, so a parent who clicked "For parents" landed on a page with
+  // none of the site's navigation. It now gets the shared SeededNav like
+  // every other public page, and labels itself an example right under it.
   useScrollToTopOnRouteChange(pathname);
 
   return (
@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <CommandPalette />
             </>
           )
-          : hideSeededNav ? null : <SeededNav />
+          : <SeededNav />
         : // Before the session check resolves, a PUBLIC page renders the
           // public nav straight away. It used to render nothing, so the
           // server HTML had no <header> at all: on hydration a 73px nav
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           // and gives <main> the sidebar margin. Without that, a signed-in
           // player opening /schools at desktop width watched the page slide
           // 248px sideways when the sidebar arrived (measured CLS 0.21).
-          rendersPublicNavBeforeSession(pathname) && !hideSeededNav
+          rendersPublicNavBeforeSession(pathname)
           ? (
             <>
               <div className="pre-session-public-nav"><SeededNav /></div>

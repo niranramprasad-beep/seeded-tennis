@@ -203,7 +203,7 @@ describe("rule 1: one green button per screen", () => {
   const CAPS: Record<string, { max: number; why: string }> = {
     "components/seeded/schools/seeded-school-detail.tsx": { max: 1, why: "Save to targets" },
     "components/seeded/schools/seeded-schools-browser.tsx": { max: 1, why: "Compare side by side, in the bar that appears once schools are ticked" },
-    "components/seeded/layout/nav.tsx": { max: 2, why: "the header CTA, desktop + the mobile menu copy of it" },
+    "components/seeded/layout/nav.tsx": { max: 2, why: "the green Sign in, desktop + the phone menu copy of it (23 Nov consult)" },
     "components/seeded/onboarding/diagnostic/diagnostic-flow.tsx": {
       max: 2,
       why: "Continue on a question; 'See my fit report' on the result, where Continue is not rendered",

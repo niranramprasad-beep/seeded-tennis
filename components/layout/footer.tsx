@@ -54,6 +54,12 @@ export function Footer({ inApp = false }: { inApp?: boolean } = {}) {
         <a href={`mailto:${SUPPORT_EMAIL}`} className={cn(linkClass, "break-all")}>
           {SUPPORT_EMAIL}
         </a>
+        {/* 23 Nov consult: a copyright line with the year. A page built in
+            one year and opened in the next would otherwise warn about the
+            year on hydration. */}
+        <p className="m-0 inline-flex min-h-11 items-center text-stone sm:min-h-6" suppressHydrationWarning>
+          © {new Date().getFullYear()} Seeded
+        </p>
       </div>
     </footer>
   );
