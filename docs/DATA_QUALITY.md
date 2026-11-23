@@ -92,6 +92,14 @@ in the sheet but are NOT imported (owner's open decision). Some Scorecard
 rates in the sheet are rounded to whole percent (e.g. 0.06); the page shows
 them as "6%", never "6.0%".
 
+## Roster pages (2026-11-22, Niran's decision — DECISIONS.md)
+Migration 054: `program_roster` (official-roster players by name: class,
+grad year, singles UTR + reliable flag + the UTR profile link it was read
+from, hometown, read date) and `program_staff` (head coach and assistants
+with titles; an email only where the official page prints it; every row with
+its source page and date). Written by `scripts/import-utr-database.ts
+--roster`; that SQL file contains real names — keep it outside the repo.
+
 ## Reliability classes
 
 | Class | Meaning | Allowed in fit math? | UI treatment |

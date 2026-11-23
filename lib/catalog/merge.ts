@@ -104,6 +104,7 @@ export function mergeCatalog(legacy: readonly School[], imported: readonly Impor
       row.utrRange = utrRangeOf(range);
       row.details = detailsOf(p) ?? row.details;
       row.rosterUrl = p.rosterUrl;
+      row.programSlug = p.slug;
       merged.add(p.slug);
       continue;
     }
@@ -130,6 +131,7 @@ export function mergeCatalog(legacy: readonly School[], imported: readonly Impor
       utrRange: utrRangeOf(range),
       details: detailsOf(p),
       rosterUrl: p.rosterUrl,
+      programSlug: p.slug,
     });
     merged.add(p.slug);
   }

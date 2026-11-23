@@ -10,6 +10,11 @@
 // questionnaire link, each with its source (migration 053, program_details;
 // lib/catalog/program-info.ts). A value with no source is left out.
 //
+// --roster (optional) also writes the roster pages (migration 054): every
+// official-roster player BY NAME and the coaching staff with published emails
+// (Niran's decision, 2026-11-22; lib/catalog/roster-pages.ts). With --roster
+// the SQL file DOES contain real names: keep it outside the repo.
+//
 // The two CSVs are the sheet's "Teams" and "Players" tabs (File → Download →
 // CSV). The Players tab names real students, so both files stay OUTSIDE the
 // repo; nothing this script writes contains a player's name, profile link or
@@ -29,11 +34,13 @@ import { resolve } from "node:path";
 import { parseSeason } from "../lib/catalog/class-year";
 import { buildUtrDatabaseSql, parseUtrDatabase, RANGE_RULE, UtrDatabaseError } from "../lib/catalog/utr-database";
 import { buildProgramDetailsSql, parseProgramInfo, type ProgramInfoImport } from "../lib/catalog/program-info";
+import { buildRosterPagesSql, parseRosterPages } from "../lib/catalog/roster-pages";
 
 interface Args {
   teams: string | null;
   players: string | null;
   programInfo: string | null;
+  roster: boolean;
   season: string;
   emitSql: string | null;
   summary: string | null;
@@ -46,7 +53,7 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { teams: null, players: null, programInfo: null, season: "2026-27", emitSql: null, summary: null, target: "staging" };
+  const args: Args = { teams: null, players: null, programInfo: null, roster: false, season: "2026-27", emitSql: null, summary: null, target: "staging" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i] ?? fail(`${a} needs a value.`);
@@ -54,6 +61,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--teams") args.teams = next();
     else if (a === "--players") args.players = next();
     else if (a === "--program-info") args.programInfo = next();
+    else if (a === "--roster") args.roster = true;
     else if (a === "--season") args.season = next();
     else if (a === "--emit-sql") args.emitSql = next();
     else if (a === "--summary") args.summary = next();
@@ -148,8 +156,27 @@ function main() {
     console.log(`import-utr-database: wrote ${args.summary}`);
   }
 
+  const extra = info ? buildProgramDetailsSql(info.details) : [];
+  if (args.roster) {
+    const slugs = data.programs.map((p) => p.slug);
+    const pages = parseRosterPages({
+      teamsCsv: readCsv(args.teams, "--teams"),
+      playersCsv: readCsv(args.players, "--players"),
+      programInfoCsv: args.programInfo ? readCsv(args.programInfo, "--program-info") : null,
+      importedSlugs: new Set(slugs),
+    });
+    const withStaff = new Set(pages.staff.map((s) => s.slug)).size;
+    const emails = pages.staff.filter((s) => s.email).length;
+    console.log(
+      `  roster pages: ${pages.players.length} players on ${new Set(pages.players.map((p) => p.slug)).size} rosters; ` +
+        `${pages.staff.length} staff on ${withStaff} programs (${emails} with a published email)`
+    );
+    for (const d of pages.dropped) console.log(`  roster pages, left out: ${d}`);
+    extra.push(...buildRosterPagesSql(pages, slugs));
+  }
+
   if (args.emitSql) {
-    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target, info ? buildProgramDetailsSql(info.details) : []));
+    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target, extra));
     console.log(`import-utr-database: wrote ${args.emitSql} (target: ${args.target})`);
   }
 }

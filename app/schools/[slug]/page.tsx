@@ -7,6 +7,7 @@ import {
   utrSourceShortLabel,
 } from "@/lib/db/schools";
 import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
+import { loadProgramRosterPage } from "@/lib/db/roster";
 
 // Every school page shared the site-wide default title and had no
 // canonical, so 37 programs competed as one page in search. Named from the
@@ -60,6 +61,9 @@ export default async function SchoolDetailPage({
     getSchools(),
   ]);
   if (!school) notFound();
+  // The roster by name and the staff (054), when this school is an imported
+  // program. Empty otherwise; never throws.
+  const roster = await loadProgramRosterPage(school.programSlug);
 
   const inState = school.state === "MD";
   const programType = school.gender === "women" ? "Women's" : "Men's";
@@ -99,6 +103,7 @@ export default async function SchoolDetailPage({
       programType={programType}
       inState={inState}
       allSchools={allSchools}
+      roster={roster}
     />
   );
 }
