@@ -35,6 +35,11 @@ export async function generateMetadata({
 // not found" page — a soft 404 a crawler can index. Now a real 404.
 export const dynamicParams = false;
 
+// See app/schools/page.tsx: a re-imported range reaches an EXISTING school
+// page within the hour. A program new to the catalog gets its page only on
+// the next deploy (dynamicParams = false) — HANDOFF §J Step 28.
+export const revalidate = 3600;
+
 export async function generateStaticParams() {
   const schools = await getSchools();
   return schools.map((s) => ({ slug: s.slug }));

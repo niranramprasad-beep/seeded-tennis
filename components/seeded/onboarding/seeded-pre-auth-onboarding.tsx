@@ -318,7 +318,7 @@ export function DiagnosticFitReport({
                         <div>
                           <strong className="text-[15px] text-ink">{s.shortName}</strong>
                           <div className="text-[13px] text-stone">
-                            {s.division} · {s.conference} · {s.state}
+                            {s.division} · {s.conference} · {s.state ?? "Location not tracked"}
                           </div>
                           {row?.differs && (
                             <div className="mt-1 text-[13px] text-stone">
@@ -331,6 +331,7 @@ export function DiagnosticFitReport({
                           )}
                         </div>
                         <RangeBar
+ checked={Boolean(s.utrRange)}
                           rangeStartPct={utrToPct(range.min)}
                           rangeEndPct={utrToPct(range.max)}
                           medianPct={utrToPct(s.avgRosterUTR)}

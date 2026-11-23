@@ -131,6 +131,11 @@ describe("mergeCatalog — the spreadsheet sync", () => {
       [range({ low: 14, middle: 13 })], // low above middle
       [range({ sourceDate: "2025-01-01" })], // over a year old
       [range({ source: "x" })], // no real source
+      // A real, sourced range — but not the sheet's method. The UI's
+      // "Roster checked … lower quartile" wording would be false for it
+      // (independent review, 2026-11-22, HIGH).
+      [range({ sourceType: "coach_submitted", source: "Submitted by the head coach by email" })],
+      [range({ sourceType: "hand_curated", source: "Entered by an admin from a news article" })],
     ]) {
       const { schools, mergedProgramSlugs } = mergeCatalog([legacy], [program({ ranges }), program({ slug: "new-men", school: "New University", ranges })], NOW);
       expect(schools).toEqual([legacy]);
@@ -158,6 +163,16 @@ describe("mergeCatalog — the spreadsheet sync", () => {
     expect(classifySchoolFit(basis(13.0), s)).toBe("target");
   });
 
+  it("one team, one row: two programs for one legacy school, or two added copies of one team, collapse", () => {
+    const again = program({ id: "p9", slug: "vanderbilt-men-2" });
+    const merged = mergeCatalog([legacy], [program(), again], NOW);
+    expect(merged.schools).toHaveLength(1);
+    expect(merged.mergedProgramSlugs.has("vanderbilt-men-2")).toBe(false);
+    const a = program({ id: "a1", slug: "example-state-university-men", school: "Example State University", conference: "Big Ten" });
+    const b = program({ id: "a2", slug: "example-state-men", school: "Example State", conference: "Big Ten" });
+    expect(mergeCatalog([legacy], [a, b], NOW).schools).toHaveLength(2);
+  });
+
   it("never adds a program outside D1/D2/D3 or one whose slug would shadow a legacy page", () => {
     const naia = program({ slug: "x-men", school: "X College", division: "NAIA" });
     const clash = program({ slug: "vanderbilt-m", school: "Some Other School", conference: "Big Ten" });
@@ -174,6 +189,7 @@ describe("shortSchoolName", () => {
     ["Texas A&M University", "Texas A&M"],
     ["Georgia Tech", "Georgia Tech"],
     ["Boston College", "Boston College"],
+    ["Miami University (Ohio)", "Miami"],
   ])("%s -> %s", (name, short) => expect(shortSchoolName(name)).toBe(short));
 });
 
@@ -190,6 +206,9 @@ describe("source labels follow each school", () => {
   it("the list note is worded for the mix on screen", () => {
     expect(teamRangeNote([legacy])).toBe("Team UTR ranges are our estimates, not published rosters.");
     expect(teamRangeNote([checked])).toMatch(/^Team UTR ranges come from a hand check/);
-    expect(teamRangeNote([checked, legacy])).toMatch(/marked “Checked”.*the rest are our estimates/);
+    // Only a list that marks each row may point at the mark.
+    expect(teamRangeNote([checked, legacy], { rowsMarked: true })).toMatch(/marked “Checked”.*the rest are our estimates/);
+    expect(teamRangeNote([checked, legacy])).not.toMatch(/marked/);
+    expect(teamRangeNote([checked, legacy])).toMatch(/each school's page says which, with the date/);
   });
 });

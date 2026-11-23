@@ -984,6 +984,7 @@ export function SeededSchoolsBrowser({
                     </div>
                     {showFitCol && (fit ? <FitBadge band={fit} /> : <span aria-hidden />)}
                     <RangeBar
+ checked={Boolean(s.utrRange)}
                       rangeStartPct={utrToPct(range.min)}
                       rangeEndPct={utrToPct(range.max)}
                       medianPct={utrToPct(s.avgRosterUTR)}
@@ -1089,10 +1090,10 @@ export function SeededSchoolsBrowser({
             who={viewingAsParent ? subjectName : null}
             className="mt-3"
             withEarlyDecisionNote
-            after={teamRangeNote(visible)}
+            after={teamRangeNote(visible, { rowsMarked: true })}
           />
         ) : (
-          <DataNote className="mt-3">{teamRangeNote(visible)}</DataNote>
+          <DataNote className="mt-3">{teamRangeNote(visible, { rowsMarked: true })}</DataNote>
         )}
       </div>
 

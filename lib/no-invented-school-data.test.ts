@@ -21,10 +21,19 @@ import { codeOnly, decodeSourceText, readableSource } from "./testing/source-tex
 // "Program Info" tab carries College Scorecard's admission rate with its
 // URL and read date (migration 053, program_details; a value without its
 // source is refused by a CHECK and dropped by the importer and the loader).
-// So `acceptanceRate` left GUESSED_FIELDS and "acceptance|admit rate" left
-// the rate pattern, in the same commit. Cost of attendance is sourced the
-// same way but is carried as `costOfAttendanceUsd`, which the cost entries
-// below never matched; they stay, so an invented price elsewhere still fails.
+// So `acceptanceRate` and "acceptance rate" are allowed — ONLY in the files
+// that carry the sourced value (SOURCED_ACCEPTANCE_RATE_FILES); anywhere else
+// they still fail (narrowed after the independent review, 2026-11-22). Cost
+// of attendance is sourced the same way but is carried as
+// `costOfAttendanceUsd`, which the cost entries below never matched; they
+// stay, so an invented price elsewhere still fails.
+const SOURCED_ACCEPTANCE_RATE_FILES = new Set([
+  "lib/types.ts",
+  "lib/catalog/program-info.ts",
+  "lib/db/programs.ts",
+  "components/seeded/schools/seeded-school-detail.tsx",
+  "components/seeded/methodology/seeded-methodology-view.tsx",
+]);
 
 const ROOT = join(__dirname, "..");
 function walk(dir: string, out: string[] = []): string[] {
@@ -41,7 +50,7 @@ const FILES = ["app", "components", "lib"].flatMap((d) => walk(join(ROOT, d)));
 /** Per-school quantities Seeded has no source for. As code identifiers they
  * mean someone is computing or carrying one. */
 const GUESSED_FIELDS =
-  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|admitRate|avgScholarship|tuition\w*|rosterCount|aidPercent\w*|athleticAid\w*|scholarshipAmount)\b/;
+  /\b(annualCost|scholarshipPercent|scholarshipValue|netCost|costOfAttendance|tuitionCost|rosterSize|rosterSpots|openSpots|spotsOpen|openingsCount|seniorsGraduating|seniorsLeaving|responseRate|replyRate|coachResponseRate|acceptanceRate|admitRate|avgScholarship|tuition\w*|rosterCount|aidPercent\w*|athleticAid\w*|scholarshipAmount)\b/;
 
 /** The same quantities as words on a screen. Patterns are written against
  * readable text: entities, \u escapes and JSX joins are decoded first, and
@@ -52,7 +61,7 @@ const GUESSED_COPY: { pattern: RegExp; why: string }[] = [
   { pattern: /cost of attendance[^.]{0,20}\$\s?\d|\$\s?\d[\d,]*\s*(?:per year |a year |\/yr )?(?:tuition|to attend)/i, why: "a cost-of-attendance figure" },
   { pattern: /\b\d+\s+(?:open\s+)?(?:roster\s+)?spots?\s+(?:open|available|left)\b|\bopen spots?\b/i, why: "open spots (CLAUDE.md: 'leaving' counts only, never open spots)" },
   { pattern: /\b\d+\s+seniors?\s+(?:graduating|leaving)\b|\bseniors? (?:graduating|leaving):\s*\d/i, why: "a seniors-leaving count we do not have" },
-  { pattern: /\b(?:response|reply) rate\b/i, why: "a rate Seeded has no data for" },
+  { pattern: /\b(?:acceptance|admit|response|reply) rate\b/i, why: "a rate Seeded has no data for" },
   { pattern: /coach(?:es)? (?:usually |typically )?(?:reply|respond|answer)s? within\b/i, why: "a response-time claim" },
   { pattern: /(?:cost|aid|enrollment)[^.]{0,40}coming soon/i, why: "a promise of data nobody is collecting" },
   { pattern: /\btuition\b[^.]{0,30}\$\s?\d|\$\s?\d[\d,.]*\s?k?\s*(?:\/\s?yr\b|a year\b|per year\b)/i, why: "a tuition or per-year price for a program" },
@@ -62,7 +71,9 @@ const GUESSED_COPY: { pattern: RegExp; why: string }[] = [
 
 describe("no guessed per-school number reaches a user", () => {
   it("no code carries a per-school field Seeded has no source for", () => {
-    const hits = FILES.filter((f) => GUESSED_FIELDS.test(codeOnly(f))).map((f) => {
+    const hits = FILES.filter(
+      (f) => GUESSED_FIELDS.test(codeOnly(f)) && !(SOURCED_ACCEPTANCE_RATE_FILES.has(relative(ROOT, f)) && codeOnly(f).match(GUESSED_FIELDS)?.[0] === "acceptanceRate")
+    ).map((f) => {
       const m = codeOnly(f).match(GUESSED_FIELDS);
       return `${relative(ROOT, f)}: ${m?.[0]}`;
     });
@@ -71,7 +82,15 @@ describe("no guessed per-school number reaches a user", () => {
 
   for (const { pattern, why } of GUESSED_COPY) {
     it(`no copy shows ${why}`, () => {
-      const hits = FILES.filter((f) => pattern.test(readableSource(f))).map((f) => relative(ROOT, f));
+      const hits = FILES.filter((f) => {
+        const text = readableSource(f);
+        if (!pattern.test(text)) return false;
+        // The sourced acceptance rate, only where it is carried.
+        if (why === "a rate Seeded has no data for" && SOURCED_ACCEPTANCE_RATE_FILES.has(relative(ROOT, f))) {
+          return /\b(?:admit|response|reply) rate\b/i.test(text);
+        }
+        return true;
+      }).map((f) => relative(ROOT, f));
       expect(hits).toEqual([]);
     });
   }

@@ -66,10 +66,12 @@ describe("the catalog phase-1 flag", () => {
     const src = read("lib", "db", "schools.ts");
     const build = src.slice(src.indexOf("async function buildCatalog"), src.indexOf("function catalog()"));
     // The flag check comes first, and returns the legacy list untouched.
-    expect(build).toMatch(/if \(!CATALOG_PHASE1_ENABLED\) return legacySchools;/);
+    expect(build).toMatch(/if \(!CATALOG_PHASE1_ENABLED\) return \{ schools: legacySchools, failed: false \};/);
     expect(build.indexOf("CATALOG_PHASE1_ENABLED")).toBeLessThan(build.indexOf("loadImportedPrograms"));
-    // A failed read is the legacy list, never an empty catalog.
-    expect(build).toMatch(/catch \{\s*return legacySchools;/);
+    // A failed read fails the BUILD, and at runtime serves the legacy list
+    // uncached — never an empty catalog.
+    expect(build).toMatch(/if \(isNextBuild\(\)\) throw new Error/);
+    expect(build).toMatch(/return \{ schools: legacySchools, failed: true \}/);
   });
 
   it("the section never decides a fit band itself", () => {

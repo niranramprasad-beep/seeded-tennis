@@ -10,7 +10,9 @@
 //
 // Deliberately NOT read: Head Coach, Head Coach Title, Assistant Coaches,
 // Published Staff Emails, Staff Email Source URL (owner's open decision —
-// see 053), ITA columns (none published yet), and Notes (free text).
+// see 053), ITA columns (none published yet), and Notes (free text). (The
+// Teams tab's head coach is stored by the 048 importer in
+// programs.head_coach, never rendered — a pre-existing TODO.)
 
 import { parseCsv, UtrDatabaseError } from "./utr-database";
 import { programSlug, type CatalogGender } from "./roster-import";

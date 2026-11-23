@@ -1,7 +1,8 @@
 # Seeded — notes for Claude
 
 ## Current state (2026-11-22)
-- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate. After the 2026-11-22 overnight run `main` is the only branch; old branches live on as `archive/<name>` tags.
+- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate. Old branches live on as `archive/<name>` tags.
+- **`herdy-work` is Herdy's branch. Never touch it** — no delete, merge, rebase, push, PR close or conflict resolution, and never in a "clean up branches" sweep (Niran, 2026-11-22). If your work conflicts with his, adapt your branch or tell Niran.
 - Production database: every migration through **052** (ledger 54; 052 applied 2026-11-22 06:14 UTC on Niran's go, after a backup in `~/seeded-evidence/backups/`, probe 35/35). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Catalog phase 1 is ON in production: the owner's College Tennis UTR Database (35 programs, 34 ranges) is on production, `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` on Vercel Production. The phase-1 roster import (179 programs) is still staging-only. Staging `gnlcpnsweqbtwpaqhqqg` has the same schema; `.env.local` and Vercel Preview point at it.
 - The spreadsheet sync (`feat/sheet-sync`, 2026-11-22): staging has migration 053 (`program_details`) and the sheet's current 63 teams + Program Info. With it merged, the sheet FEEDS the one catalog (`lib/catalog/merge.ts`): real Q1/median replace the estimates for matching legacy schools and the other rated programs join the list. `School.city/state/usNewsRanking` can be null ("Not tracked"); render UTR numbers with `utrSourceLabel()` / `teamRangeNote()`, never the bare estimate label. Production needs 053 + the re-import on Niran's go (HANDOFF §J Step 28).

@@ -11,8 +11,13 @@
 //
 // Rules, each tested in merge.test.ts:
 //   1. Only a program bandableTeamRange() accepts (current, sourced, valid,
-//      not stale) changes anything. An unrated program stays out of the
-//      catalog and out of every band; the preview section still lists it.
+//      not stale) AND whose current range came from the sheet's importer
+//      (hand_curated, source starting UTR_DATABASE_SOURCE_PREFIX) changes
+//      anything: every sentence the UI says about a merged range ("Roster
+//      checked", floor = lower quartile, middle = median) describes that
+//      method. A coach-submitted or admin-entered range does not merge
+//      (independent review, 2026-11-22, HIGH). Anything else stays out of
+//      the catalog and out of every band; the preview section lists it.
 //   2. A legacy school that is the same team (legacyMatchFor) keeps its slug,
 //      name, location and US News rank — saved targets keep working — and
 //      takes the sheet's floor and middle, with `utrRange` carrying the source.
@@ -24,8 +29,9 @@
 //      classifySchoolFit — one fit-band path.
 
 import type { Division, School } from "@/lib/types";
-import { legacyMatchFor } from "./legacy-match";
+import { legacyMatchFor, schoolNameKey } from "./legacy-match";
 import { bandableTeamRange, RANGE_SOURCE_TYPE_LABEL, type ImportedProgram, type TeamRange } from "./programs";
+import { UTR_DATABASE_SOURCE_PREFIX } from "./utr-database";
 
 /** Presentation only, never shown as a fact about a school: no component
  * reads these today (2026-11-22), and they keep the School shape whole. */
@@ -35,15 +41,20 @@ const CATALOG_DIVISIONS: readonly Division[] = ["D1", "D2", "D3"];
 
 /** "University of Alabama" -> "Alabama", "Auburn University" -> "Auburn",
  * "University of Texas (Austin)" -> "Texas". A shortening of the school's
- * own name, never a nickname. */
+ * own name, never a nickname. The parenthetical goes first and the result
+ * is trimmed before the prefix/suffix strip ("Miami University (Ohio)" ->
+ * "Miami"). */
 export function shortSchoolName(name: string): string {
-  const s = name
-    .replace(/\s*\([^)]*\)\s*/g, " ")
-    .replace(/^University of\s+/i, "")
-    .replace(/\s+University$/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const base = name.replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+  const s = base.replace(/^University of\s+/i, "").replace(/\s+University$/i, "").trim();
   return s || name;
+}
+
+/** The sheet importer's range, and only that (rule 1). */
+function sheetRange(p: ImportedProgram, now: Date): TeamRange | null {
+  const range = bandableTeamRange(p, now);
+  if (!range || range.sourceType !== "hand_curated" || !range.source.startsWith(UTR_DATABASE_SOURCE_PREFIX)) return null;
+  return range;
 }
 
 function utrRangeOf(range: TeamRange): NonNullable<School["utrRange"]> {
@@ -73,12 +84,19 @@ export function mergeCatalog(legacy: readonly School[], imported: readonly Impor
   const bySlug = new Map(legacy.map((s) => [s.slug, { ...s }]));
   const added: School[] = [];
   const merged = new Set<string>();
+  // One team, one row: a legacy row takes at most one program, and two
+  // imported programs for the same school + gender add only one row (the
+  // first; programs arrive ordered by school name).
+  const legacyTaken = new Set<string>();
+  const addedKeys = new Set<string>();
 
   for (const p of imported) {
-    const range = bandableTeamRange(p, now);
+    const range = sheetRange(p, now);
     if (!range) continue; // rule 1
     const match = legacyMatchFor(p, legacy);
     if (match) {
+      if (legacyTaken.has(match.slug)) continue;
+      legacyTaken.add(match.slug);
       // rule 2
       const row = bySlug.get(match.slug)!;
       row.minCompetitiveUTR = range.low;
@@ -91,6 +109,9 @@ export function mergeCatalog(legacy: readonly School[], imported: readonly Impor
     }
     if (!CATALOG_DIVISIONS.includes(p.division as Division)) continue;
     if (bySlug.has(p.slug)) continue; // a slug clash would shadow a legacy page; never expected
+    const key = `${schoolNameKey(p.school)}|${p.gender}`;
+    if (addedKeys.has(key)) continue;
+    addedKeys.add(key);
     // rule 3
     added.push({
       id: p.slug,

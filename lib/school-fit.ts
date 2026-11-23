@@ -612,7 +612,9 @@ export function explainSchoolFit(
       ? `${youAre} ${mine} today, already above ${school.shortName}'s competitive floor of ${formatUtrEstimate(school.minCompetitiveUTR)}.`
       : gapToFloor === 0
         ? `${youAre} ${mine} today, exactly at ${school.shortName}'s competitive floor.`
-        : `${school.shortName}'s estimated competitive floor is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`;
+        : school.utrRange
+          ? `${school.shortName}'s floor (the lower quartile of its checked roster) is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`
+          : `${school.shortName}'s estimated competitive floor is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
   // ONE projection: the fit report's (see SchoolFitPace). Nothing here

@@ -186,6 +186,7 @@ export function TargetSchoolsList({
                 <FitBadge band={band} />
               </div>
               <RangeBar
+ checked={Boolean(s.utrRange)}
                 rangeStartPct={utrToPct(range.min)}
                 rangeEndPct={utrToPct(range.max)}
                 medianPct={utrToPct(s.avgRosterUTR)}

@@ -165,7 +165,16 @@ export function assemblePrograms(
  * nothing rather than breaking /schools.
  */
 export async function loadImportedPrograms(client: Client | null = publicClient()): Promise<ImportedProgram[]> {
-  if (!client) return [];
+  return (await loadImportedProgramsResult(client)).programs;
+}
+
+/** The same read, saying whether it failed — so the catalog merge can refuse
+ * to BUILD on a failed read instead of quietly shipping the legacy list
+ * (independent review, 2026-11-22). */
+export async function loadImportedProgramsResult(
+  client: Client | null = publicClient()
+): Promise<{ programs: ImportedProgram[]; error: string | null }> {
+  if (!client) return { programs: [], error: "Supabase is not configured (no public URL or key)" };
   const [programs, counts, ranges, details] = await Promise.all([
     client.from("programs").select(PROGRAM_COLUMNS).order("school"),
     client.from("program_class_counts").select("program_id, class_year, players"),
@@ -174,13 +183,17 @@ export async function loadImportedPrograms(client: Client | null = publicClient(
     // (no table yet) means "no details", never "no programs".
     (client as unknown as SupabaseClient).from("program_details").select(DETAIL_COLUMNS),
   ]);
-  if (programs.error || counts.error || ranges.error) return [];
-  return assemblePrograms(
-    (programs.data ?? []) as ProgramRow[],
-    (counts.data ?? []) as CountRow[],
-    (ranges.data ?? []) as RangeRow[],
-    details.error ? [] : ((details.data ?? []) as DetailRow[])
-  );
+  const failed = programs.error ?? counts.error ?? ranges.error;
+  if (failed) return { programs: [], error: failed.message };
+  return {
+    programs: assemblePrograms(
+      (programs.data ?? []) as ProgramRow[],
+      (counts.data ?? []) as CountRow[],
+      (ranges.data ?? []) as RangeRow[],
+      details.error ? [] : ((details.data ?? []) as DetailRow[])
+    ),
+    error: null,
+  };
 }
 
 export interface NewTeamRange {

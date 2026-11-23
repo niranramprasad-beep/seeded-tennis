@@ -274,13 +274,13 @@ export function defaultFitTab(counts: Pick<BandCounts, "reach" | "target" | "lik
 export function emptyBandSentence(band: FitTabBand): string {
   switch (band) {
     case "target":
-      return "No program has this rating between its estimated floor and its estimated average.";
+      return "No program has this rating between its floor and its middle.";
     case "likely":
-      return "No program has this rating at or above its estimated average.";
+      return "No program has this rating at or above its middle.";
     case "reach":
-      return "No program is a Reach: none has an estimated floor above this rating that the pace we plan with reaches by the summer before senior year.";
+      return "No program is a Reach: none has a floor above this rating that the pace we plan with reaches by the summer before senior year.";
     case "out-of-range":
-      return "No program is Out of range: every estimated floor above this rating is one the pace we plan with reaches by the summer before senior year.";
+      return "No program is Out of range: every floor above this rating is one the pace we plan with reaches by the summer before senior year.";
   }
 }
 
@@ -296,7 +296,9 @@ export function emptyBandSentence(band: FitTabBand): string {
  * rating < line ⇔ "below". (Equality allows 1e-9 of floating-point noise, far
  * under any rating's precision — a drawn average is (min + max) / 2.)
  */
-export function teamLineRelation(rating: number, line: number, which: "average" | "floor"): string {
+/** "middle" is a checked roster's median (lib/catalog/merge.ts); "average"
+ *  the legacy estimate's. */
+export function teamLineRelation(rating: number, line: number, which: "average" | "floor" | "middle"): string {
   const diff = line - rating;
   if (Math.abs(diff) < 1e-9) return `at the team ${which}`;
   return `${formatUtrDistance(diff)} ${diff > 0 ? "below" : "above"} the team ${which}`;
@@ -376,14 +378,16 @@ function capitalizeFirst(text: string): string {
 export function teamGapSentence(
   value: number | null | undefined,
   basis: RatingBasis,
-  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
+  school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR" | "utrRange">,
   opts: { who?: string; lines?: readonly ("floor" | "average")[] } = {}
 ): string | null {
   const head = ratingWithBasis(value, basis, opts.who ?? "You");
   if (head == null || !hasRealUtr(value)) return null;
   const lines = opts.lines ?? (["floor", "average"] as const);
   const parts = lines.map((which) =>
-    teamLineRelation(value, which === "floor" ? school.minCompetitiveUTR : school.avgRosterUTR, which)
+    which === "floor"
+      ? teamLineRelation(value, school.minCompetitiveUTR, "floor")
+      : teamLineRelation(value, school.avgRosterUTR, school.utrRange ? "middle" : "average")
   );
   return `${head}: ${parts.join(" · ")}`;
 }
@@ -535,7 +539,9 @@ export function rangeBarYouLine(input: {
   youIsEstimate: boolean;
   youBasis: string | null | undefined;
   median: number;
+  /** A checked roster's middle is a median, not an average. */
+  checked?: boolean;
 }): string {
   const basis = input.youBasis ? ` ${input.youBasis}` : "";
-  return `${input.youLabel} ${formatUtrFor(input.you, input.youIsEstimate)}${basis} · ${teamLineRelation(input.you, input.median, "average")}`;
+  return `${input.youLabel} ${formatUtrFor(input.you, input.youIsEstimate)}${basis} · ${teamLineRelation(input.you, input.median, input.checked ? "middle" : "average")}`;
 }

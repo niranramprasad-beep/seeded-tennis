@@ -17,7 +17,7 @@ import { formatPlayerUtr } from "@/lib/utils";
 import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
 import { mergeCatalog } from "@/lib/catalog/merge";
 import { formatIsoDate } from "@/lib/catalog/programs";
-import { loadImportedPrograms } from "./programs";
+import { loadImportedProgramsResult } from "./programs";
 import { mensD1Schools } from "./schools-data-mens";
 import { womensD1Schools } from "./schools-data-womens";
 import { extraSchools } from "./schools-data-extra";
@@ -34,33 +34,50 @@ const legacySchools: School[] = [...mensD1Schools, ...womensD1Schools, ...extraS
 // tables are never queried.
 //
 // Read once per CATALOG_TTL_MS per process (server) or page load (browser),
-// with the public key and no session: it is public catalog data. Any read
-// failure gives the legacy list — /schools never breaks on a database hiccup.
+// with the public key and no session: it is public catalog data.
+//
+// A failed read:
+//   * during `next build` THROWS. Static school pages are generated from
+//     this list (dynamicParams = false), so building on a failed read would
+//     ship every sheet-only school as a 404 and every merged school back on
+//     its estimate for the life of the deploy, with CI green. Fail the build
+//     instead (independent review, 2026-11-22).
+//   * at runtime is LOGGED and gives the legacy list for that call; the
+//     cache is dropped so the next request tries again.
 const CATALOG_TTL_MS = 10 * 60 * 1000;
 let catalogCache: { at: number; value: Promise<School[]> } | null = null;
 
-async function buildCatalog(): Promise<School[]> {
-  if (!CATALOG_PHASE1_ENABLED) return legacySchools;
-  try {
-    const imported = await loadImportedPrograms();
-    if (imported.length === 0) return legacySchools;
-    return mergeCatalog(legacySchools, imported, new Date()).schools;
-  } catch {
-    return legacySchools;
+const isNextBuild = () => process.env.NEXT_PHASE === "phase-production-build";
+
+async function buildCatalog(): Promise<{ schools: School[]; failed: boolean }> {
+  if (!CATALOG_PHASE1_ENABLED) return { schools: legacySchools, failed: false };
+  const { programs, error } = await loadImportedProgramsResult();
+  if (error) {
+    if (isNextBuild()) throw new Error(`catalog: imported programs could not be read during the build: ${error}`);
+    console.error("[catalog] imported programs could not be read; serving the legacy list:", error);
+    return { schools: legacySchools, failed: true };
   }
+  if (programs.length === 0) return { schools: legacySchools, failed: false };
+  return { schools: mergeCatalog(legacySchools, programs, new Date()).schools, failed: false };
 }
 
 function catalog(): Promise<School[]> {
   const now = Date.now();
   if (!catalogCache || now - catalogCache.at > CATALOG_TTL_MS) {
-    catalogCache = { at: now, value: buildCatalog() };
+    const entry = {
+      at: now,
+      value: buildCatalog().then((r) => {
+        // A failed read is served once, never cached.
+        if (r.failed && catalogCache === entry) catalogCache = null;
+        return r.schools;
+      }),
+    };
+    catalogCache = entry;
+    entry.value.catch(() => {
+      if (catalogCache === entry) catalogCache = null;
+    });
   }
   return catalogCache.value;
-}
-
-/** Tests only: forget the cached catalog. */
-export function resetCatalogCacheForTests(): void {
-  catalogCache = null;
 }
 
 /* ----------------------------------------------------- catalog size facts */
@@ -134,12 +151,6 @@ export async function getSchoolsLite(): Promise<SchoolLite[]> {
   return catalog();
 }
 
-/** The legacy list alone, unmerged — for code that must compare against
- * it (the imported-programs preview section's duplicate check). */
-export async function getLegacySchools(): Promise<SchoolLite[]> {
-  return legacySchools;
-}
-
 export async function getSchool(slug: string): Promise<School | undefined> {
   return (await catalog()).find((s) => s.slug === slug);
 }
@@ -187,19 +198,25 @@ export function utrSourceLabel(school: Pick<School, "utrRange">): string {
 
 /** The note under any list of team ranges. Worded for the mix actually on
  * screen: all checked, some checked, or none (the old sentence). */
-export function teamRangeNote(schools: readonly Pick<School, "utrRange">[]): string {
+export function teamRangeNote(
+  schools: readonly Pick<School, "utrRange">[],
+  opts: { rowsMarked?: boolean } = {}
+): string {
   const checked = schools.filter((s) => s.utrRange).length;
   if (checked === 0) return "Team UTR ranges are our estimates, not published rosters.";
   if (checked === schools.length) {
-    return "Team UTR ranges come from a hand check of each official roster against players' UTR profiles, dated on each school.";
+    return "Team UTR ranges come from a hand check of each official roster against players' UTR profiles (College Tennis UTR Database); each school's page shows the date.";
   }
-  return "Team UTR ranges marked “Checked” come from a hand check of the official roster against players' UTR profiles; the rest are our estimates, not published rosters.";
+  // Only a list that marks each row may point at the mark (review #6).
+  return opts.rowsMarked
+    ? "Team UTR ranges marked “Checked” come from a hand check of the official roster against players' UTR profiles; the rest are our estimates, not published rosters."
+    : "Some of these team UTR ranges come from a hand check of the official roster against players' UTR profiles — each school's page says which, with the date; the rest are our estimates, not published rosters.";
 }
 
 /** One school's range, in a sentence. */
 export function schoolRangeNote(school: Pick<School, "utrRange">): string {
   if (!school.utrRange) return "The team range is our estimate, not a published roster.";
-  return `The team range is from a hand check of the official roster against each player's UTR profile (reliable singles ratings only), ${formatIsoDate(school.utrRange.sourceDate)}: floor = lower quartile, middle = median, top = highest.`;
+  return `${school.utrRange.source}, ${formatIsoDate(school.utrRange.sourceDate)}. Floor = lower quartile, middle = median, top = highest.`;
 }
 
 /** Short form for tight spaces (a tile label, a chart legend). */

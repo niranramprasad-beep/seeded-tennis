@@ -19,11 +19,13 @@
 -- ===========================================================================
 -- What is deliberately NOT stored
 -- ===========================================================================
--- * No coach names and no coach emails, although the sheet has published
---   ones. Whether to show them is the owner's open decision (P0-3 deleted
---   invented ones; lib/db/schools-catalog-honesty.test.ts still blocks coach
---   fields on School). Adding them later is a new migration, not a column
---   left waiting here.
+-- * No assistant coaches and no coach emails, although the sheet has
+--   published ones. Whether to show them is the owner's open decision (P0-3
+--   deleted invented ones; lib/db/schools-catalog-honesty.test.ts still blocks
+--   coach fields on School). Adding them later is a new migration, not a
+--   column left waiting here. (The HEAD coach's name is already stored by
+--   048 in programs.head_coach, readable by anon and never rendered — an
+--   open TODO from PR E, "Catalog phase 1 follow-ups".)
 -- * No free-text notes, and no ITA rank (none published for 2026-27 when the
 --   sheet was read; a column with no data is not added).
 -- * Nothing without its source: every value has a CHECK tying it to the URL

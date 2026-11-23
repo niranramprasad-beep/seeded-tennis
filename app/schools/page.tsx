@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/schools" },
 };
 
+// The catalog merges the owner's sheet from the database (lib/db/schools.ts).
+// Its in-process cache hides the fetch from Next, so the refresh is declared
+// here: a re-imported range reaches this page within the hour, no redeploy.
+export const revalidate = 3600;
+
 export default async function SchoolsPage() {
   const [schools, divisions] = await Promise.all([getSchools(), getDivisions()]);
 

@@ -411,11 +411,13 @@ describe("teamLineRelation — no signed gaps, and never 'at' when the chip says
       "components/seeded/schools/seeded-school-detail.tsx": [],
       "components/seeded/schools/seeded-schools-browser.tsx": [],
       "components/seeded/roadmap/target-schools-list.tsx": [],
-      "components/seeded/roadmap/closest-schools.tsx": ['teamLineRelation(judging.utr, school.avgRosterUTR, "average")'],
+      // "middle" for a checked roster's median (the spreadsheet sync, 2026-11-22).
+      "components/seeded/roadmap/closest-schools.tsx": ['teamLineRelation(judging.utr, school.avgRosterUTR, school.utrRange ? "middle" : "average")'],
       "lib/fit-copy.ts": [
-        'teamLineRelation(rating: number, line: number, which: "average" | "floor")',
-        'teamLineRelation(value, which === "floor" ? school.minCompetitiveUTR : school.avgRosterUTR, which)',
-        'teamLineRelation(input.you, input.median, "average")',
+        'teamLineRelation(rating: number, line: number, which: "average" | "floor" | "middle")',
+        'teamLineRelation(value, school.minCompetitiveUTR, "floor")',
+        'teamLineRelation(value, school.avgRosterUTR, school.utrRange ? "middle" : "average")',
+        'teamLineRelation(input.you, input.median, input.checked ? "middle" : "average")',
       ],
     };
     for (const [file, calls] of Object.entries(ALLOWED)) {

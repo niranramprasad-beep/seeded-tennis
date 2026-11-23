@@ -267,6 +267,7 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       </div>
       <div className="mt-4">
         <RangeBar
+ checked={Boolean(school.utrRange)}
           rangeStartPct={utrToPct(range.min)}
           rangeEndPct={utrToPct(range.max)}
           medianPct={utrToPct(school.avgRosterUTR)}
@@ -291,11 +292,11 @@ export function SeededSchoolDetail({ school, programType, allSchools }: Props) {
       </div>
       <DataNote className="mt-4">
         {schoolRangeNote(school)}
-        {school.utrRange?.sourceUrl ? (
+        {school.utrRange?.sourceUrl && school.utrRange.sourceUrl !== school.rosterUrl ? (
           <>
             {" "}
             <a href={school.utrRange.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Team UTR page
+              {/utrsports\.net/i.test(school.utrRange.sourceUrl) ? "Team UTR page" : "Source"}
             </a>
           </>
         ) : null}
@@ -507,7 +508,8 @@ function ProgramFacts({ details }: { details: SchoolDetails }) {
       </dl>
       <p className="mt-2 text-xs">
         {details.scorecardSourceUrl ? <>Acceptance rate and enrollment: {link(details.scorecardSourceUrl, "College Scorecard")}. </> : null}
-        Read {formatIsoDate(details.readDate)}. Cost of attendance is the school&apos;s published sticker price before aid.
+        Read {formatIsoDate(details.readDate)}. Cost of attendance is the figure on the linked source page, before
+        any aid; for a public school it may be the in-state figure.
       </p>
       {details.coachesPageUrl || details.questionnaireUrl ? (
         <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">

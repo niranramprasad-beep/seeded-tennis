@@ -512,6 +512,20 @@ L9–L11.
   them. Showing them means a new migration, lifting the coach-field guard in
   `lib/db/schools-catalog-honesty.test.ts` in the same commit, and the source
   URL beside every address.
+- **A saved program can leave the catalog** (independent review #4,
+  2026-11-22, MEDIUM — not reachable for about a year). A sheet-only program
+  drops out of `getSchools()` if its range goes stale (365 days), a newer
+  invalid range is entered, or the flag goes off; a Free player's saved slug
+  then still uses a target slot (use-star-schools counts raw slugs) but
+  cannot be seen or removed. Fix before the first range turns a year old
+  (Nov 2027): keep once-added programs as "not rated" rows, or list
+  unresolved slugs with a Remove button and count only resolvable ones.
+- **Show a stale checked range as stale** (review #5, LOW): today a range over
+  a year old silently falls back to the legacy estimate (or out of the
+  catalog). DATA_QUALITY says "stale: show, don't compute" — carry it as
+  display-only with "Last checked {date}".
+- **Data column date drops the year** ("Checked Nov 2") to fit the column;
+  the school page has the full date. Revisit if the column widens (review #6).
 - **Re-run the sync when the sheet changes** (Big Ten is next per
   `docs/data/LAUNCH_DATA_SPEC.md`): export the four tabs, run
   `scripts/import-utr-database.ts --program-info …`, staging first, then
