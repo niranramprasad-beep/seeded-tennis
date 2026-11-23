@@ -2,8 +2,8 @@
 
 The small tile beside a school's name on /schools and on the school page shows
 the school's logo when there is one we may use, over the initials tile it
-replaces. Asked for by Herdy on 2026-11-23; **not live, and it needs Niran's
-OK first** (see "Before this goes live").
+replaces. Asked for by Herdy on 2026-11-23; **live since PR #52 the same day,
+on Niran's go** (see "Still open").
 
 ## Rules
 
@@ -31,10 +31,10 @@ Not stopped, because nothing in a browser can: a screenshot, "Save page as",
 the developer tools, or a program that pretends to be a page. **While this
 repository is public, anyone can also download the files from GitHub.**
 
-## Before this goes live
+## Still open
 
-- Niran's OK, and an adult or lawyer on the trademark question (the product
-  is sold). Removing one school's logo is deleting its line and its file.
+- An adult or lawyer on the trademark question (the product is sold).
+  Removing one school's logo is deleting its line and its file.
 - The repository private, or the files kept out of it.
 - A line of copy, for Niran to word, for example beside the one on
   /methodology: "Seeded is not affiliated with any college. Logos belong to
