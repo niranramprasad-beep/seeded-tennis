@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SeededMark } from "@/components/seeded/icons";
+import { Drawer } from "@/components/ui/drawer";
 import { activeNavHref } from "@/lib/nav-active";
 
 type NavLink = { href: string; label: string };
@@ -39,27 +39,27 @@ const MARKETING_LINKS: NavLink[] = [
 //
 // So: the spacer is gone, `flex-wrap` is gone, every link is
 // `whitespace-nowrap`, and the end group is `shrink-0` so the links shrink
-// before the sign-in/CTA pair ever does. There is a measured regression test
+// before Sign in ever does. There is a measured regression test
 // for this — scripts/ui-audit.mjs records `distinctTops` and header height
 // per width, and docs/screenshots/polish/after.json is the record.
 // Board 21: the sign-in / sign-up / reset screens get a slim header with the
-// logo only — the marketing links and the green CTA would compete with the
-// one primary button on the card.
+// logo only — the marketing links and the green Sign in would compete with
+// the one primary button on the card.
 const LOGO_ONLY_ROUTES = ["/login", "/signup", "/reset-password", "/parent-login", "/parent-signup", "/auth/complete", "/auth/callback"];
 
-// The green "Get my free fit report" CTA links to /onboarding. ON /onboarding
-// it is a second green button beside the diagnostic's Continue (rule 1) that
-// goes nowhere new, so it is left out there; "Fit report" stays in the links
-// with aria-current.
-const NO_CTA_ROUTES = ["/onboarding"];
+// 23 Nov consult (Herdy + Niran): "Fit report" in the links and the green
+// "Get my free fit report" button went to the same page, so the button is
+// gone and Sign in is the header's green button. On /onboarding a green Sign
+// in would be a second green button beside the diagnostic's Continue (rule
+// 1), so it stays a plain link there; "Fit report" keeps aria-current.
+const PLAIN_SIGN_IN_ROUTES = ["/onboarding"];
 
-function SeededLogo({ onClick }: { onClick?: () => void }) {
+// Where the links move into the header (Tailwind `lg`).
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function SeededLogo() {
   return (
-    <Link
-      href="/"
-      className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink"
-      onClick={onClick}
-    >
+    <Link href="/" className="flex min-h-11 shrink-0 items-center gap-2 font-seeded text-xl font-bold text-ink">
       {/* The one mark (components/seeded/icons), same as the sidebar and footer. */}
       <SeededMark size={22} className="shrink-0" />
       Seeded
@@ -69,12 +69,28 @@ function SeededLogo({ onClick }: { onClick?: () => void }) {
 
 export function SeededNav() {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // The phone menu remembers the page it was opened on, so ANY route change
+  // closes it: one of its own links, back/forward, or a link on the page.
+  const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null);
+  const menuOpen = menuOpenOn !== null && menuOpenOn === pathname;
+  const closeMenu = () => setMenuOpenOn(null);
+
+  // It also closes when the window widens to desktop, where the button that
+  // opened it is hidden and the links are back in the header.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => {
+      if (desktop.matches) setMenuOpenOn(null);
+    };
+    desktop.addEventListener("change", onChange);
+    return () => desktop.removeEventListener("change", onChange);
+  }, [menuOpen]);
 
   // lib/nav-active.ts: the same "current page" rule as the app sidebar.
   const activeHref = activeNavHref(pathname, MARKETING_LINKS.map((l) => l.href));
   const isActive = (href: string) => href === activeHref;
-  const showCta = !NO_CTA_ROUTES.includes(pathname);
+  const greenSignIn = !PLAIN_SIGN_IN_ROUTES.includes(pathname);
 
   if (LOGO_ONLY_ROUTES.includes(pathname)) {
     return (
@@ -92,7 +108,7 @@ export function SeededNav() {
         aria-label="Main"
         className="mx-auto flex max-w-[1200px] flex-nowrap items-center gap-5 px-6 py-3.5 xl:gap-6"
       >
-        <SeededLogo onClick={() => setOpen(false)} />
+        <SeededLogo />
 
         <div className="hidden min-w-0 flex-1 items-center gap-4 text-[15px] lg:flex xl:gap-5">
           {MARKETING_LINKS.map((l) => (
@@ -110,78 +126,72 @@ export function SeededNav() {
           ))}
         </div>
 
-        <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-5">
-          <Link href="/login" className="inline-flex min-h-6 items-center whitespace-nowrap text-[15px] text-ink hover:text-grass">
+        <div className="hidden shrink-0 items-center lg:flex">
+          <Link
+            href="/login"
+            className={cn(
+              "inline-flex items-center justify-center whitespace-nowrap text-[15px]",
+              greenSignIn
+                ? "min-h-11 rounded-lg bg-grass px-[18px] font-semibold text-on-primary hover:bg-grass-600"
+                : "min-h-6 text-ink hover:text-grass"
+            )}
+          >
             Sign in
           </Link>
-          {showCta && (
-            <Link
-              href="/onboarding"
-              className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-grass px-[18px] font-sans text-[15px] font-semibold text-on-primary hover:bg-grass-600"
-            >
-              Get my free fit report
-            </Link>
-          )}
         </div>
 
         <button
+          type="button"
           className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink hover:border-line lg:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          aria-controls="seeded-mobile-menu"
+          onClick={() => setMenuOpenOn(pathname)}
+          aria-label="Open menu"
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <Menu className="h-5 w-5" aria-hidden />
         </button>
       </nav>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            id="seeded-mobile-menu"
-            className="overflow-hidden border-t border-line lg:hidden"
+      {/* 23 Nov consult: on phones the menu slides in from the right as its
+          own panel instead of opening under the header and pushing the page
+          down. The shared Drawer brings Esc, tap outside, focus kept inside
+          and handed back to the menu button, and no scrolling behind it. */}
+      <Drawer
+        open={menuOpen}
+        onClose={closeMenu}
+        title="Menu"
+        widthClass="max-w-sm"
+        footer={
+          <Link
+            href="/login"
+            onClick={closeMenu}
+            className={cn(
+              "flex min-h-11 w-full items-center justify-center rounded-lg py-3 text-[15px] font-semibold",
+              greenSignIn ? "bg-grass text-on-primary hover:bg-grass-600" : "border border-input text-ink"
+            )}
           >
-            <div className="flex flex-col gap-1 px-6 py-4">
-              {MARKETING_LINKS.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  aria-current={isActive(l.href) ? "page" : undefined}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    "rounded-lg px-3 py-3 text-[15px]",
-                    isActive(l.href) ? "bg-grass-50 font-semibold text-grass" : "text-ink"
-                  )}
-                >
-                  {l.label}
-                </Link>
-              ))}
-              <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg border border-input py-3 text-center text-[15px] font-semibold text-ink"
-                >
-                  Sign in
-                </Link>
-                {showCta && (
-                  <Link
-                    href="/onboarding"
-                    onClick={() => setOpen(false)}
-                    className="rounded-lg bg-grass py-3 text-center text-[15px] font-semibold text-on-primary"
-                  >
-                    Get my free fit report
-                  </Link>
+            Sign in
+          </Link>
+        }
+      >
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {MARKETING_LINKS.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href}
+                aria-current={isActive(l.href) ? "page" : undefined}
+                onClick={closeMenu}
+                className={cn(
+                  "flex min-h-11 items-center rounded-lg px-3 py-3 text-[15px]",
+                  isActive(l.href) ? "bg-grass-50 font-semibold text-grass" : "text-ink"
                 )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Drawer>
     </header>
   );
 }

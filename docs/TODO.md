@@ -405,6 +405,25 @@ Still open:
 - Sidebar footer now reads "Billing" (was "Parent · Billing", mockup 18).
   Niran to confirm.
 
+### Consult follow-ups (Herdy + Niran, 2026-11-23)
+
+Niran: the UI is the only thing left, and anything may change, colours
+included. Herdy designs on a branch and merges when it is ready; Niran keeps
+the logic. Done on `herdy-work` the same day (MASTER_ROADMAP status): the
+header's duplicate fit-report button, a green Sign in, the right-hand phone
+menu, the footer's copyright line, the sample report under the shared
+header. Still open:
+- **A colour exploration** (Herdy): a few palettes to show Niran. The court
+  green is one token (`--c-court`); everything else comes from the design
+  system's tokens.
+- **The same design on the signed-in pages**, once the public pages are final.
+- **School logos** in place of the initials monogram (Herdy's note): they are
+  the schools' trademarks, so this needs a source the site may use; the
+  monogram stays until then.
+- **A background picture** for the court hero, if Niran sends one.
+- Niran reports the Google sign-in redirect is fixed (the redirect URL in
+  Supabase, 23 Nov). A real Google sign-in test is still open.
+
 ### Parent dashboard upgrade (Niran's #1, 2026-11-16)
 
 1. **Parent dashboard upgrade** (Niran's #1). The player's UTR trend as the

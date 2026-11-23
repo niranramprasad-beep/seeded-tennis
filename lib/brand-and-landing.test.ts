@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { codeOnly } from "@/lib/testing/source-text";
 
 // Landing polish + the Seeded mark everywhere (Herdy's review, 2026-11-22).
 
@@ -17,13 +18,34 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+describe("the public header and footer (23 Nov consult)", () => {
+  it("drops the header's 'Get my free fit report' button: the links' 'Fit report' goes to the same page", () => {
+    const nav = codeOnly("components/seeded/layout/nav.tsx");
+    expect(nav).not.toMatch(/Get my free fit report/);
+    expect(nav).toMatch(/\{ href: "\/onboarding", label: "Fit report" \}/);
+  });
+
+  it("opens the phone menu as the shared right-hand Drawer", () => {
+    expect(codeOnly("components/seeded/layout/nav.tsx")).toMatch(/<Drawer\b/);
+  });
+
+  it("puts the sample report ('For parents') under the same header as every other public page", () => {
+    expect(codeOnly("components/layout/app-shell.tsx")).not.toMatch(/"\/sample-report"/);
+  });
+
+  it("prints a copyright line with the current year", () => {
+    expect(codeOnly("components/layout/footer.tsx")).toMatch(/©\s*\{new Date\(\)\.getFullYear\(\)\}\s*Seeded/);
+  });
+});
+
 describe("the Seeded mark", () => {
-  it("is the one SeededMark in the public header, the sidebar, the footer and the sample report", () => {
+  // The sample report used to draw its own mark in a standalone header; since
+  // the 23 Nov consult it sits under the public header, which draws it.
+  it("is the one SeededMark in the public header, the sidebar and the footer", () => {
     for (const f of [
       "components/seeded/layout/nav.tsx",
       "components/seeded/layout/sidebar.tsx",
       "components/layout/footer.tsx",
-      "components/seeded/sample-report/sample-report-view.tsx",
     ]) {
       expect(read(f), f).toMatch(/<SeededMark\b/);
     }

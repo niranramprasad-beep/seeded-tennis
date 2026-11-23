@@ -7,6 +7,16 @@ Newest first.
 
 ---
 
+## 2026-11-23 — Sign in stays a plain link on /onboarding (23 Nov consult build)
+
+At the 23 Nov consult Herdy and Niran dropped the header's "Get my free fit
+report" button ("Fit report" in the links goes to the same page) and made
+Sign in the header's green button. One call made while building it: on
+/onboarding a green Sign in would sit beside the diagnostic's Continue, two
+green buttons on one screen (design system v2 rule 1), so Sign in stays a
+plain link there, the same place the old button was left out.
+- Undo: empty `PLAIN_SIGN_IN_ROUTES` in `components/seeded/layout/nav.tsx`.
+
 ## 2026-11-22 — School pages show the full roster by name and the coaching staff (Niran)
 Niran chose, when asked, to show each school's official roster BY NAME
 (class, singles UTR with its reliability, UTR profile link, hometown) and the

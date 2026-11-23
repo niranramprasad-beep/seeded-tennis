@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { utrChange } from "@/lib/utr-percent";
 import { ChangeFigure } from "@/components/seeded/ui/change-figure";
-import { ArrowLeft } from "lucide-react";
-import { SeededMark } from "@/components/seeded/icons";
 import type { ReactNode } from "react";
 import { DataChip } from "@/components/seeded/ui/data-chip";
 import { SampleReportCta } from "./sample-report-cta";
@@ -37,10 +35,11 @@ import { cn } from "@/lib/utils";
 //
 // Must stay reachable ONLY from the public marketing homepage's "See a
 // sample parent report" link and the nav's "For parents" link — never
-// from inside the authenticated app shell (see app-shell.tsx's
-// hideSeededNav, which this route is added to, same as /onboarding and
-// /methodology) — so a signed-in parent can never mistake this for their
-// own data.
+// from inside the authenticated app shell — so a signed-in parent can never
+// mistake this for their own data. Since the 23 Nov consult it sits under
+// the shared public header like every other public page (it had a
+// standalone header of its own, with no site navigation); the "Sample
+// report · example family" bar right under that header says what it is.
 
 const SEGMENT_COLOR = {
   entries: "rgb(var(--c-primary))",
@@ -91,30 +90,16 @@ function StatTile({ value, label }: { value: string; label: ReactNode }) {
 export function SampleReportView() {
   return (
     <div className="text-ink">
-      <header className="border-b border-line bg-cream">
+      {/* 23 Nov consult: the shared site header now sits above this page
+          (app-shell.tsx), so the logo and the "Back to Seeded" link this bar
+          used to carry are the header's job. What is left says what the
+          page is and offers the fit report. */}
+      <div className="border-b border-line bg-cream">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-3.5">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* min-h-11 (44px): a phone tap target. The CTA beside it is
-                already 44px, so the header height does not change. */}
-            <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-seeded text-xl font-bold text-ink">
-              <SeededMark size={22} />
-              Seeded
-            </Link>
-            <DataChip status="estimated">Sample report · example family</DataChip>
-          </div>
-          {/* 22 Nov consult: visitors landed here with "no header" and no way
-              back. The page keeps its own standalone header on purpose
-              (app-shell.tsx), so the way back lives here. */}
-          <Link
-            href="/"
-            className="order-last inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-grass underline-offset-4 hover:underline sm:order-none sm:ml-auto sm:mr-3"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Back to Seeded
-          </Link>
+          <DataChip status="estimated">Sample report · example family</DataChip>
           <SampleReportCta />
         </div>
-      </header>
+      </div>
 
       <div className="mx-auto max-w-[760px] px-6 py-10">
         <p className="text-sm text-stone">Weekly parent report · example</p>
