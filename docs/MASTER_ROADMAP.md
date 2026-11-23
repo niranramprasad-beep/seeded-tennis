@@ -21,8 +21,9 @@ before relying on it.
 
 **Production** is seededtennis.com, deployed from `main` (after the
 2026-11-22 overnight merges, PRs #36–#45 plus the dead-code sweep and this
-docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
-#50 Herdy's landing overhaul, merged 2026-11-23 UTC).
+docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages,
+#50 Herdy's landing overhaul, #51 the consult follow-ups and #52 the UI
+fixes, colour directions and school logos, merged 2026-11-23 UTC).
 `main` auto-deploys with no staging gate; it is protected (PR + green
 `verify`).
 
@@ -96,8 +97,8 @@ docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
   carry its roster qualifier ("a hand-checked roster where we have one, our
   estimate where we don't") and a counted N (`honest-zero-state.test.ts`
   updated deliberately).
-- **23 Nov consult follow-ups** (Herdy + Niran; branch `herdy-work`, not
-  merged; UI only, no migration): the header's "Get my free fit report"
+- **23 Nov consult follow-ups** (Herdy + Niran; merged in PR #51 on
+  2026-11-23; UI only, no migration): the header's "Get my free fit report"
   button is gone ("Fit report" in the links goes to the same page) and Sign
   in is the green button, a plain link on /onboarding beside the
   diagnostic's Continue (rule 1; DECISIONS 2026-11-23); on phones the menu
@@ -107,8 +108,8 @@ docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
   other public page, its own header now a "Sample report · example family"
   bar. The fit report's projected-UTR card stays text (Niran's call). Open
   consult items: TODO §4 "Consult follow-ups".
-- **Eight older UI issues fixed** (Herdy, 23 Nov; its own commit, not merged;
-  UI only, no migration; all were on the live theme). On a phone, "Compare
+- **Eight older UI issues fixed** (Herdy; merged in PR #52 on 2026-11-23; UI
+  only, no migration; all were on the live theme). On a phone, "Compare
   side by side" on /schools was under the tab bar and could not be tapped,
   and a parent's confirm-email card covered it. React redrew the whole page
   on 72 of 560 loads on a busy machine (error 418), now 0 of 560. Four
@@ -119,14 +120,16 @@ docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
   `phone-tab-bar-clearance`, `session-colours`, plus new rules in
   `design-system-v2` (`components/cost` is now inside it) and `court-art`.
   Structural calls: DECISIONS 2026-11-23.
-- **Colour directions** (Herdy; branch `herdy-colours`, not merged; UI only, no
-  migration, nothing live): three palettes behind a preview-only switch, Blue
-  Court picked to show Niran on 27 Nov, measured AA on the public and
-  signed-in pages (DECISIONS 2026-11-23). Waits for Niran's OK.
-- **School logos** (Herdy; branch `herdy-logos`, not merged; no migration,
-  nothing live): the school tile shows a logo where a public-domain file
+- **Colour directions** (Herdy; merged in PR #52 on 2026-11-23; UI only, no
+  migration, the live theme is unchanged): three palettes behind a
+  preview-only switch, Blue Court picked to show Niran on 27 Nov, measured AA
+  on the public and signed-in pages (DECISIONS 2026-11-23). Making it the
+  default waits for Niran's OK.
+- **School logos** (Herdy; live since PR #52 on 2026-11-23, on Niran's go; no
+  migration): the school tile shows a logo where a public-domain file
   exists, 11 of 37 schools so far (`SCHOOL_LOGOS.md`, DECISIONS 2026-11-23).
-  Waits for Niran's OK, a trademark check and the repository being private.
+  Still open: a trademark check, and the repository is public, so the files
+  can be downloaded from GitHub.
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly

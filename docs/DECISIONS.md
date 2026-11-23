@@ -11,7 +11,8 @@ Newest first.
 
 Herdy asked for every university's logo, in high quality and not
 downloadable. This reverses the 2026-11-22 "no third-party marks" line for
-the school tile only, and is not live. Calls made while building it:
+the school tile only. Live since PR #52 (2026-11-23) on Niran's go; the
+trademark check is still open. Calls made while building it:
 
 - **Only files Wikimedia Commons marks "Public domain"** (copyright). They
   stay the schools' trademarks, so they name the school a row is about and

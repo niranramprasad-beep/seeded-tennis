@@ -14,6 +14,19 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-23 — PR #52 merged and live: eight UI fixes, colour directions, school
+logos (Herdy; on Niran's go; no migration).** One commit carried the three
+pieces described in the next three entries, which were written before the
+merge. `verify` passed on the PR and on `main`. Checked on seededtennis.com the
+same day. Signed out and read-only, 19 of 19 in Edge and in Safari's engine: 28
+page loads without an error, no full-page redraw in 30, the 11 logos load on
+/schools, and opening, framing, fetching or embedding a logo's address is
+refused on Vercel too. The eight fixes on the live pages with a made-up session
+and every data call answered locally, nothing sent to the backend: 44 of 44 in
+Edge. Still open: the trademark check, the public repository (the logo files
+can be downloaded from GitHub) and the "not affiliated" line
+(`SCHOOL_LOGOS.md`).
+
 **2026-11-23 — School logos (Herdy; `herdy-logos`, not merged; no
 migration).** The school tile shows a logo where Wikimedia Commons has a
 public-domain vector, with the initials underneath (`SCHOOL_LOGOS.md`): 11 of
