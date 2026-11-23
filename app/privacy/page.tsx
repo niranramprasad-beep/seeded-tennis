@@ -34,7 +34,7 @@ export default function PrivacyPage() {
         </Link>
       </p>
 
-      <nav aria-label="On this page" className="mt-8 rounded-xl border border-line bg-subtle p-5">
+      <nav aria-label="On this page" className="mt-8 rounded-xl border border-line bg-panel p-5">
         <p className="text-[13px] font-semibold uppercase tracking-wider text-stone">
           On this page
         </p>

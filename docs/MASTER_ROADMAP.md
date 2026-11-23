@@ -107,6 +107,26 @@ docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages and
   other public page, its own header now a "Sample report · example family"
   bar. The fit report's projected-UTR card stays text (Niran's call). Open
   consult items: TODO §4 "Consult follow-ups".
+- **Eight older UI issues fixed** (Herdy, 23 Nov; its own commit, not merged;
+  UI only, no migration; all were on the live theme). On a phone, "Compare
+  side by side" on /schools was under the tab bar and could not be tapped,
+  and a parent's confirm-email card covered it. React redrew the whole page
+  on 72 of 560 loads on a busy machine (error 418), now 0 of 560. Four
+  dialogs bleached the page in dark mode. The cost calculator had a gradient
+  pill and glass cards. "Recovery" and "Mental work" were one grey. Five
+  boxes used `bg-subtle`, which is not a token, so they had no background.
+  The hero ball lost its seams in dark mode. Tests: `app-shell-hydration`,
+  `phone-tab-bar-clearance`, `session-colours`, plus new rules in
+  `design-system-v2` (`components/cost` is now inside it) and `court-art`.
+  Structural calls: DECISIONS 2026-11-23.
+- **Colour directions** (Herdy; branch `herdy-colours`, not merged; UI only, no
+  migration, nothing live): three palettes behind a preview-only switch, Blue
+  Court picked to show Niran on 27 Nov, measured AA on the public and
+  signed-in pages (DECISIONS 2026-11-23). Waits for Niran's OK.
+- **School logos** (Herdy; branch `herdy-logos`, not merged; no migration,
+  nothing live): the school tile shows a logo where a public-domain file
+  exists, 11 of 37 schools so far (`SCHOOL_LOGOS.md`, DECISIONS 2026-11-23).
+  Waits for Niran's OK, a trademark check and the repository being private.
 - **Staging** `gnlcpnsweqbtwpaqhqqg` has the same schema plus rehearsal
   re-runs in its ledger. Local dev (`.env.local`) and Vercel Preview read it.
 - **Monitoring, part 1 only:** sanitised server logs, `/api/health`, an hourly

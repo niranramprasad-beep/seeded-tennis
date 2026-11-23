@@ -7,6 +7,65 @@ Newest first.
 
 ---
 
+## 2026-11-23 — School logos: public-domain files only, unaltered, initials underneath (Herdy's ask)
+
+Herdy asked for every university's logo, in high quality and not
+downloadable. This reverses the 2026-11-22 "no third-party marks" line for
+the school tile only, and is not live. Calls made while building it:
+
+- **Only files Wikimedia Commons marks "Public domain"** (copyright). They
+  stay the schools' trademarks, so they name the school a row is about and
+  appear nowhere else (`lib/school-logos.test.ts`). A school without such a
+  file keeps its initials.
+- **Quality comes from the vector, not from redrawing.** A mark is trimmed,
+  centred and scaled; its shapes and colours are never touched. Only 144 px
+  tiles ship.
+- **"Not downloadable" means awkward.** No image menu, no drag, no direct
+  address, no embedding, no image search. A screenshot or the developer tools
+  always work, and so does GitHub while the repository is public.
+- Why not wait: the tile falls back to the initials, so one line and one file
+  remove any school's logo.
+- Undo: point the two schools screens back at `SchoolMonogram`, then delete
+  `school-mark.tsx`, `lib/school-logos.ts`, its test, `public/school-logos`,
+  `docs/SCHOOL_LOGOS.md` and the logo lines in `next.config.mjs`.
+
+## 2026-11-23 — Palettes are tried in their own stylesheet (Herdy)
+
+The colour exploration lives in `app/palettes.css`, scoped to
+`html[data-palette]`, which only a build made with
+`NEXT_PUBLIC_PALETTE_PREVIEW=1` ever sets. `globals.css` is untouched, so the
+two-mode rules its tests pin still hold and the shipped theme cannot change
+by accident. Good states (Win, Worth it, Replied, Active) follow the primary
+colour and so turn blue in Blue Court; left that way on purpose, because blue
+against orange stays apart for red-green colour blindness and green against
+orange does not (Reach and Likely chip text: 16 apart for protanopia, Reach
+and Target: 78).
+- Undo: delete `app/palettes.css`, `components/dev/palette-preview.tsx`,
+  `lib/palettes-contrast.test.ts` and their two lines in `app/layout.tsx`.
+
+## 2026-11-23 — Calls inside the eight-issue fix round (Herdy)
+
+Herdy chose which issues to fix; these are the calls made while fixing them.
+
+- **The page never sits directly inside a DOM element in AppShell.** It goes
+  through `PageSlot`, a component that returns its children and nothing else.
+  It looks pointless and is not: without it React can redraw the whole page
+  on load (error 418, measured; the comment above it says why).
+  `lib/app-shell-hydration.test.ts` keeps it. Undo: put `{children}` back
+  inside the keyed `<div>`.
+- **The confirm-email card moves the compare bar, not the other way round.**
+  The card is a notice a parent may need to act on, so it keeps its place and
+  publishes its height (`--verify-banner-clearance` on `<html>`) while it
+  shows; a bar pinned to the bottom of a page adds that to its own offset.
+  Undo: remove the effect in `verify-email-banner.tsx`; the variable falls
+  back to 0.
+- **A scrim is black in both modes.** `bg-ink/50` turns near-white in dark
+  mode. `lib/design-system-v2.test.ts` rejects it.
+- **The cost total is a status pill:** neutral "Enter your costs", green once
+  there is a total.
+- **"Mental work" took the sage text tone**, which stays apart from the other
+  six session colours in both modes (`lib/training/session-colours.test.ts`).
+
 ## 2026-11-23 — Sign in stays a plain link on /onboarding (23 Nov consult build)
 
 At the 23 Nov consult Herdy and Niran dropped the header's "Get my free fit

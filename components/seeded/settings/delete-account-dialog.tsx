@@ -70,7 +70,7 @@ export function DeleteAccountDialog({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={close}
-            className="fixed inset-0 z-[100] bg-ink/50"
+            className="fixed inset-0 z-[100] bg-black/50"
           />
           {/* Centred by flexbox, not left-1/2 + -translate-x-1/2: Framer
               writes its own inline transform for the y/scale animation and

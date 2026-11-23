@@ -413,13 +413,26 @@ the logic. Done on `herdy-work` the same day (MASTER_ROADMAP status): the
 header's duplicate fit-report button, a green Sign in, the right-hand phone
 menu, the footer's copyright line, the sample report under the shared
 header. Still open:
-- **A colour exploration** (Herdy): a few palettes to show Niran. The court
-  green is one token (`--c-court`); everything else comes from the design
-  system's tokens.
+- **A colour exploration** (Herdy): three palettes are on `herdy-colours`
+  (`app/palettes.css`, preview builds only; the default theme is unchanged).
+  Herdy picked **Blue Court** on 23 Nov to show on Fri 27 Nov; checked on the
+  public and the signed-in pages. Niran's OK is next. Then: make it the
+  default tokens, recolour the fixed-hex icons and share images (`app/icon`,
+  `apple-icon`, `opengraph-image`, `twitter-image`, `manifest`), and update
+  the token list in DESIGN_MOCKUP_SPEC_V2.
 - **The same design on the signed-in pages**, once the public pages are final.
-- **School logos** in place of the initials monogram (Herdy's note): they are
-  the schools' trademarks, so this needs a source the site may use; the
-  monogram stays until then.
+- **School logos** (Herdy, 23 Nov): the tile is built on `herdy-logos` from
+  public-domain files only (`docs/SCHOOL_LOGOS.md`): 11 of 37 schools have
+  one, 22 have a file we may use but Wikimedia's server was refusing
+  downloads that day, 4 have none. Before that branch is pushed: the
+  repository private, or the files kept out of it. Before it goes live: also
+  Niran's OK, and an adult or lawyer on the trademarks. Schools without a
+  logo keep their initials.
+- **Two green buttons on one desktop screen** (rule 1; Herdy and Niran to
+  choose): with Sign in green, /sample-report ("Get my free fit report", right
+  under it), /pricing ("Choose Player") and /contact ("Email us") each show
+  two. /onboarding already keeps Sign in plain (`PLAIN_SIGN_IN_ROUTES`,
+  `components/seeded/layout/nav.tsx`).
 - **A background picture** for the court hero, if Niran sends one.
 - Niran reports the Google sign-in redirect is fixed (the redirect URL in
   Supabase, 23 Nov). A real Google sign-in test is still open.

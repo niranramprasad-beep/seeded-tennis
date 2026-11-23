@@ -113,7 +113,14 @@ export function TennisBall({
       style={{ pointerEvents: "none" }}
     >
       <circle cx="32" cy="32" r="28" fill="rgb(var(--c-lime))" vectorEffect="non-scaling-stroke" />
-      <path d="M10 24C24 29 40 29 54 24M10 40C24 35 40 35 54 40" vectorEffect="non-scaling-stroke" />
+      {/* The seams sit on the lime ball, light in both modes, so they take the
+          fixed on-lime ink (as SeededMark's do); in dark mode they were light
+          ink on lime and vanished. The ring stays --c-ink. */}
+      <path
+        d="M10 24C24 29 40 29 54 24M10 40C24 35 40 35 54 40"
+        stroke="rgb(var(--c-on-lime))"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }

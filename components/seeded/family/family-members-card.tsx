@@ -108,7 +108,7 @@ export function FamilyMembersCard({ familyCode }: { familyCode: string | undefin
       {familyCode && (
         /* Spec: dashed #D6D3C8 border, #FBFAF7 (muted panel) background,
            the code in mono bold. */
-        <div className="mt-4 rounded-[12px] border border-dashed border-input bg-subtle p-3.5 text-sm">
+        <div className="mt-4 rounded-[12px] border border-dashed border-input bg-panel p-3.5 text-sm">
           <span className="text-stone">Invite another parent with code</span>
           <p className="mt-1 select-all font-mono text-base font-bold tracking-wider text-ink">
             {familyCode}

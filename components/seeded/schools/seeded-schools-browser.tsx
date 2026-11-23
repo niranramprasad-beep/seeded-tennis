@@ -37,7 +37,7 @@ import { GenderToggle } from "@/components/shared/gender-toggle";
 import { FIT_BAND_LABEL, FIT_BAND_TONE, FitBandIcon, FitBadge, type FitBand } from "@/components/seeded/ui/fit-badge";
 import { DataChip, type DataChipStatus } from "@/components/seeded/ui/data-chip";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { SchoolMonogram } from "@/components/seeded/ui/school-monogram";
+import { SchoolMark } from "@/components/seeded/ui/school-mark";
 import { Pill } from "@/components/seeded/ui/pill";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
@@ -975,7 +975,7 @@ export function SeededSchoolsBrowser({
                         onClick={(e) => e.stopPropagation()}
                         className="flex min-h-11 min-w-0 items-center gap-3 text-ink sm:min-h-6"
                       >
-                        <SchoolMonogram name={s.shortName} division={s.division} className="hidden sm:inline-flex" />
+                        <SchoolMark slug={s.slug} name={s.shortName} division={s.division} className="hidden sm:inline-flex" />
                         <span className="flex min-w-0 flex-col justify-center">
                           <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
                           <span className="truncate text-xs text-stone-light">
@@ -1098,7 +1098,18 @@ export function SeededSchoolsBrowser({
       </div>
 
       {compareSlugs.length > 0 && (
-        <div className="sticky bottom-4 mt-5 flex flex-wrap items-center gap-3 rounded-card border border-line bg-card px-[18px] py-3 shadow-card">
+        // Signed in on a phone, the fixed tab bar covered this bar's second
+        // row, so "Compare side by side" could not be tapped: it sits above
+        // the tab bar there (the verify-email banner's own formula), and above
+        // that banner while a parent still has it open.
+        <div
+          className={cn(
+            "sticky mt-5 flex flex-wrap items-center gap-3 rounded-card border border-line bg-card px-[18px] py-3 shadow-card",
+            isAuthed
+              ? "bottom-[calc(max(18px,env(safe-area-inset-bottom))+68px+var(--verify-banner-clearance,0px))] lg:bottom-[calc(1rem+var(--verify-banner-clearance,0px))]"
+              : "bottom-4"
+          )}
+        >
           <span className="text-sm text-ink">
             <strong>{compareSlugs.length} selected</strong> · {compareSchools.map((s) => s.shortName).join(", ")}
           </span>

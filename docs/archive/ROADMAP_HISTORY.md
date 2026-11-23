@@ -14,6 +14,43 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-23 — School logos (Herdy; `herdy-logos`, not merged; no
+migration).** The school tile shows a logo where Wikimedia Commons has a
+public-domain vector, with the initials underneath (`SCHOOL_LOGOS.md`): 11 of
+37 schools. 22 more have such a file, but the file server kept answering "too
+many requests" to a slow, obedient script that day, so they were left; 4 have
+none. Copying is made awkward, not blocked; checked in Edge and in Safari's
+engine.
+
+**2026-11-23 — Colour directions (Herdy; `herdy-colours`, not merged; no
+migration).** Three palettes (Blue Court, Red Clay, Club Lawn) as token sets
+in `app/palettes.css`, applied only by a preview build; Blue Court picked to
+show Niran. Every signed-in screen was rendered in it with a stubbed network
+and a made-up player and parent, no account: 73 screens in light and dark at
+375 and 1440, 0 contrast failures; 11 of the pages again in Safari's engine,
+0 there too. Fixed in the palette: a leftover green gradient, a range bar
+under 3:1 and a blue-tinted grey in dark mode.
+
+**2026-11-23 — Eight older UI issues fixed (Herdy; its own commit, not merged;
+no migration).** Found while rendering every signed-in screen with a stubbed
+network and a made-up player and parent, no account. (1) The /schools compare
+bar sat under the phone tab bar, so "Compare side by side" could not be
+tapped; (2) a parent's confirm-email card covered the same button, so the card
+now publishes its height and the bar sits above it. (3) React error 418
+redrew the page: 61 of 400 signed-in and 11 of 160 signed-out loads on a busy
+machine. Cause: the page reached AppShell as a payload chunk that had not
+landed, directly inside a `<div>`, and React replayed that `<div>` while
+hydrating without stepping back out of it. The page now sits behind a
+component (`PageSlot`): 0 of 560. (4) Delete account, Send a note, Edit budget
+and Add expense used `bg-ink/50`, which is near-white in dark mode. (5) The
+cost calculator's pill was white on a gradient (2.1:1 to 2.5:1 in dark mode)
+and its cards were glass; the folder was outside the design-system guard and
+is now inside. (6) "Recovery" and "Mental work" were nearly the same grey.
+(7) `bg-subtle` is not a token: five boxes had no background. (8) The hero
+ball's seams were light ink on lime in dark mode. Each was checked in Edge
+on a production build, all but (3) also in Safari's engine, and each guard was
+proved by putting the old bug back (13 of 13 caught).
+
 **2026-11-22 — Overnight run: every open branch merged, Herdy's action items
 done (PRs #36–#45, `chore/dead-code`, `chore/docs-organize`; migration 052 on
 production).** #36 UTR database import (also run against production after a

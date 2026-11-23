@@ -42,7 +42,7 @@ export function ModalShell({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 z-[100] bg-ink/50"
+            className="fixed inset-0 z-[100] bg-black/50"
           />
           {/* Centers via flexbox, not a `left-1/2 -translate-x-1/2` transform
               trick — Framer Motion writes its own `transform` inline style
