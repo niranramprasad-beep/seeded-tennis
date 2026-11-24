@@ -273,6 +273,14 @@ describe("the screens render through these functions", () => {
     expect(page).toContain("compares your UTR with the range for ${total} college teams (a hand-checked roster where we have one, our estimate elsewhere)");
     expect(page).not.toMatch(/compares you to real programs/);
   });
+
+  it("'How fit works' does not call every range an estimate", () => {
+    // Said "Each team has an estimated UTR range" until 2026-11-24, two days
+    // after 63 teams got a range from their checked official roster.
+    const home = readableSource("components/seeded/home/seeded-home-view.tsx");
+    expect(home).not.toMatch(/Each team has an estimated UTR range/);
+    expect(home).toMatch(/from its official roster where we.ve checked one \(shown with the\s+date\), otherwise our estimate, labelled as one\./);
+  });
 });
 
 describe("fitReportHeadline — today first (A-006), and says where the pace came from", () => {
