@@ -754,8 +754,8 @@ function MethodAndFounder() {
               "a confidence level". None of the four is what the code does
               — see the note at the top of seeded-methodology-view.tsx. */}
           <li>
-            Each team has a UTR range: from its official roster where we&apos;ve checked one (shown with the
-            date), otherwise our estimate, labelled as one.
+            Each team has a UTR range: from a hand check of its official roster against players&apos; UTR
+            profiles where we&apos;ve done one (shown with the date), otherwise our estimate, labelled as one.
           </li>
           <li>
             We place you on that range &mdash; at your projected rating for the

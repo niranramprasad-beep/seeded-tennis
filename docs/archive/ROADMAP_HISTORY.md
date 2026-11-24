@@ -14,6 +14,21 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — Week tidy-up after the Cursor overnight run (`fix/week-polish`).**
+Merged #59 (every production vercel.app name → seededtennis.com; checked first
+that the Whop webhook and every external caller use seededtennis.com and that
+there are no Vercel crons). An independent review of #54–#60 found no blocking
+defect and 8 LOW ones; fixed: the coach email now says "an opponent I logged
+at UTR 10.05" (a coach read "(self-reported)" as the opponent's own claim);
+`/api/matches` bounds the opponent UTR to 1–16.5 (a direct POST got 500); the
+Tournament checker refuses a cost over $50,000 at the field instead of in the
+"Add to my events" drawer; the landing says a range is a hand check of the
+roster against UTR profiles; the redirect covers the two other production
+vercel.app names with escaped dots. Checked and left: no production
+tournament entry exceeds the new limits (0 rows), so no saved row became
+uneditable. The stray nested clone in the repo root was moved out (it doubled
+every test run). Gate: 170 files / 2,744 tests, both time zones, clean build.
+
 **2026-11-24 — The vercel.app alias moves to seededtennis.com
 (`cursor-night/vercel-app-host-redirect`; config only, no migration; left
 for Niran to merge because it touches the sign-in path).** `www` and `http`

@@ -279,7 +279,9 @@ describe("the screens render through these functions", () => {
     // after 63 teams got a range from their checked official roster.
     const home = readableSource("components/seeded/home/seeded-home-view.tsx");
     expect(home).not.toMatch(/Each team has an estimated UTR range/);
-    expect(home).toMatch(/from its official roster where we.ve checked one \(shown with the\s+date\), otherwise our estimate, labelled as one\./);
+    // Rosters don't publish UTRs: the range comes from a hand check of the
+    // roster against each player's UTR profile (review, 2026-11-24).
+    expect(home).toMatch(/from a hand check of its official roster against players.\s+UTR\s+profiles where we.ve done one \(shown with the date\), otherwise our estimate, labelled as one\./);
   });
 });
 
