@@ -14,6 +14,15 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — Landing "How fit works" no longer calls every range an
+estimate (`cursor-night/landing-fit-copy`; copy only, no migration).** Its
+first line still read "Each team has an estimated UTR range, labelled as an
+estimate wherever it appears", two days after 63 teams got a range from
+their checked official roster. It now reads "Each team has a UTR range: from
+its official roster where we've checked one (shown with the date), otherwise
+our estimate, labelled as one." — the hero's rule. `honest-zero-state.test.ts`
+pins it.
+
 **2026-11-24 — Tournament entries: upper limits on cost, travel and distance
 (`cursor-night/tournament-cost-limits`; no migration).** The family-budget
 overflow fixed on 2026-11-21 (A5) had a twin: `tournament_entries.entry_cost`
