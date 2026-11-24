@@ -27,6 +27,10 @@ fixes, colour directions and school logos, merged 2026-11-23 UTC).
 `main` auto-deploys with no staging gate; it is protected (PR + green
 `verify`). Return point before the 2026-11-24 overnight changes: tag
 `pre-cursor-2026-11-24` (= `83da8b2`).
+Small fixes merged that night, one PR each (details in
+`archive/ROADMAP_HISTORY.md`): the importer's SQL header says when it carries
+player names (#55); the coach email labels an opponent's UTR
+"(self-reported)".
 
 - **Database: every repo migration through 054 is on production** (ledger
   56). 053 (`program_details`) and 054 (`program_roster`, `program_staff`)

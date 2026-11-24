@@ -9,6 +9,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import {
   buildCoachEmail,
   coachEmailActionState,
+  coachEmailWinPhrase,
   type CoachEmailResult,
 } from "@/lib/db/schools";
 import {
@@ -26,7 +27,7 @@ import { AuthGate } from "@/components/shared/auth-gate";
 import { PaidGate } from "@/components/shared/paid-gate";
 import { buttonVariants } from "@/components/ui/button";
 import { SeededOutreachLayout } from "@/components/seeded/outreach/seeded-outreach-layout";
-import { cn, formatPlayerUtr, hasRealUtr } from "@/lib/utils";
+import { cn, hasRealUtr } from "@/lib/utils";
 
 // Legacy key from before outreach status was synced to Supabase — still read
 // once on load so no one's existing tracking silently disappears when this
@@ -91,15 +92,7 @@ function CoachesInner({ schools }: { schools: School[] }) {
           name: m.tournamentName,
           level: "",
           date: m.matchDate || undefined,
-          result:
-            // Without a real UTR, `>= 0` made EVERY opponent "above your
-            // level", which is a claim about the player's standing drawn
-            // from the not-tracked sentinel.
-            m.opponentUtr && hasRealUtr(player.currentUTR) && m.opponentUtr >= player.currentUTR
-              ? `beat a UTR ${formatPlayerUtr(m.opponentUtr)} opponent`
-              : // One logged win is one win; this said "picked up wins"
-                // for a single match row.
-                "picked up a win",
+          result: coachEmailWinPhrase(m.opponentUtr, player.currentUTR),
         })),
     [matches, player.currentUTR]
   );
