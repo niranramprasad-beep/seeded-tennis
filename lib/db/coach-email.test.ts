@@ -5,6 +5,7 @@ import {
   buildCoachEmail,
   coachEmailActionState,
   coachEmailCountry,
+  coachEmailWinPhrase,
   COACH_EMAIL_COURTESY_SENTENCES,
   COACH_EMAIL_PLACEHOLDERS,
   COACH_EMAIL_SOURCES,
@@ -61,7 +62,7 @@ const base: Player = {
 
 const results: CoachEmailResult[] = [
   { name: "Fake Winter Open", level: "L4", result: "Champion", date: "2026-01-04" },
-  { name: "Fake Spring Classic", level: "", result: "beat a UTR 10.05 opponent", date: "2026-03-29" },
+  { name: "Fake Spring Classic", level: "", result: coachEmailWinPhrase(10.05, 9.42), date: "2026-03-29" },
 ];
 
 interface Case {
@@ -308,7 +309,7 @@ describe("what the draft says, concretely", () => {
   it("dates each logged result instead of saying 'this season'", () => {
     const e = buildCoachEmail(base, school, results);
     expect(e.body).toContain("At the L4 Fake Winter Open on Jan 4, 2026, I won the title.");
-    expect(e.body).toContain("At the Fake Spring Classic on Mar 29, 2026, I beat a UTR 10.05 opponent.");
+    expect(e.body).toContain("At the Fake Spring Classic on Mar 29, 2026, I beat an opponent rated UTR 10.05 (self-reported).");
     expect(e.body).not.toContain(COACH_EMAIL_PLACEHOLDERS.result);
   });
 
@@ -461,5 +462,16 @@ describe("coach email: never an email address (or nothing) where the name goes",
     expect(e.subject).toContain("Sam R.");
     expect(e.body).toContain("I'm Sam R., ");
     expect(e.body).not.toContain(COACH_EMAIL_PLACEHOLDERS.name);
+  });
+});
+
+describe("coachEmailWinPhrase (an opponent's UTR is the player's own entry)", () => {
+  it("labels the opponent's rating self-reported, like the player's own", () => {
+    expect(coachEmailWinPhrase(10.05, 9.42)).toBe("beat an opponent rated UTR 10.05 (self-reported)");
+  });
+  it("claims nothing about level without a real current UTR or a higher-rated opponent", () => {
+    expect(coachEmailWinPhrase(10.05, 0)).toBe("picked up a win");
+    expect(coachEmailWinPhrase(8.1, 9.42)).toBe("picked up a win");
+    expect(coachEmailWinPhrase(null, 9.42)).toBe("picked up a win");
   });
 });

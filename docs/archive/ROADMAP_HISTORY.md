@@ -14,6 +14,16 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — Coach email: an opponent's UTR is labelled self-reported
+(`cursor-night/coach-email-opponent-utr`; no migration).** A logged win over
+a higher-rated opponent went into the draft as "I beat a UTR 10.05
+opponent" — a number the player typed into the match form, stated to a coach
+with no label, while the player's own rating two sentences later carries
+"(self-reported)". The phrase now comes from one tested helper,
+`coachEmailWinPhrase` (lib/db/schools.ts): "beat an opponent rated UTR 10.05
+(self-reported)", and still "picked up a win" without a real current UTR or
+a higher-rated opponent. TODO §4 item moved to `archive/TODO_DONE.md`.
+
 **2026-11-24 — The importer's SQL header says when it carries names
 (`cursor-night/importer-header`; script only, no migration).** With
 `--roster`, `scripts/import-utr-database.ts --emit-sql` writes every
