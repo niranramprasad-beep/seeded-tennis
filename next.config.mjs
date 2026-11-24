@@ -184,12 +184,12 @@ const nextConfig = {
   // Preview hosts (seeded-tennis-git-…) are different names and unaffected.
   async redirects() {
     return [
-      {
+      ...PRODUCTION_VERCEL_HOSTS.map((host) => ({
         source: "/:path*",
-        has: [{ type: "host", value: PRODUCTION_VERCEL_HOST }],
+        has: [{ type: "host", value: host.replace(/\./g, "\\.") }],
         destination: "https://seededtennis.com/:path*",
         permanent: false,
-      },
+      })),
       ...["code", "error", "error_description"].map((key) => ({
         source: "/",
         has: [{ type: "query", key }],
@@ -201,5 +201,14 @@ const nextConfig = {
 };
 
 export const PRODUCTION_VERCEL_HOST = "seeded-tennis.vercel.app";
+
+// Every vercel.app name Vercel gives the PRODUCTION deployment (read from the
+// deployment's aliases, 2026-11-24). Per-deployment URLs
+// (seeded-tennis-<hash>-…) and Previews are other names and are not touched.
+export const PRODUCTION_VERCEL_HOSTS = [
+  PRODUCTION_VERCEL_HOST,
+  "seeded-tennis-niranramprasad-3534s-projects.vercel.app",
+  "seeded-tennis-git-main-niranramprasad-3534s-projects.vercel.app",
+];
 
 export default nextConfig;

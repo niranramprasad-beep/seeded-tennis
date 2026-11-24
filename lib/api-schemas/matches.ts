@@ -30,7 +30,14 @@ export const MatchesBodySchema = z.discriminatedUnion("kind", [
     id: z.string().optional(),
     matchDate: z.string().min(1, "A match date is required."),
     opponent: z.string().optional(),
-    opponentUtr: z.number().nullable().optional(),
+    // The form checks 1–16.5; the column is numeric(4,2) with a 1–16.5 CHECK.
+    // A direct POST outside that range used to answer 500 "Try again".
+    opponentUtr: z
+      .number()
+      .min(1, "Opponent UTR must be between 1.00 and 16.50.")
+      .max(16.5, "Opponent UTR must be between 1.00 and 16.50.")
+      .nullable()
+      .optional(),
     tournamentName: z.string().optional(),
     surface: z.enum(["hard", "clay", "grass", "indoor"]),
     prepPlan: PrepPlanSchema.optional(),

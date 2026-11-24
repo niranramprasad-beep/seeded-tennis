@@ -226,22 +226,35 @@ describe("an auth redirect that falls back to the Site URL", () => {
       );
       expect(rule, key).toMatchObject({ source: "/", destination: "/auth/callback", permanent: false });
     }
-    // Only the bare home page, plus the vercel.app host rule below.
+    // Only the bare home page, plus the vercel.app host rules below.
     const hostRules = redirects.filter((r: { has?: { type: string }[] }) => r.has?.some((h) => h.type === "host"));
-    expect(hostRules).toHaveLength(1);
+    expect(hostRules).toHaveLength(3);
     expect(redirects.filter((r: { source: string }) => r.source !== "/")).toEqual(hostRules);
   });
 
-  it("moves every page on the production vercel.app alias to seededtennis.com, and nothing else", async () => {
+  it("moves every page on each production vercel.app name to seededtennis.com, and nothing else", async () => {
     const mod = await import("../../next.config.mjs?host=" + Date.now());
-    const [first] = await mod.default.redirects();
+    const rules = (await mod.default.redirects()).slice(0, 3);
     expect(mod.PRODUCTION_VERCEL_HOST).toBe("seeded-tennis.vercel.app");
-    expect(first).toEqual({
+    expect(mod.PRODUCTION_VERCEL_HOSTS).toEqual([
+      "seeded-tennis.vercel.app",
+      "seeded-tennis-niranramprasad-3534s-projects.vercel.app",
+      "seeded-tennis-git-main-niranramprasad-3534s-projects.vercel.app",
+    ]);
+    expect(rules[0]).toEqual({
       source: "/:path*",
-      has: [{ type: "host", value: "seeded-tennis.vercel.app" }],
+      // Dots escaped: Next matches the value as an anchored pattern.
+      has: [{ type: "host", value: "seeded-tennis\\.vercel\\.app" }],
       destination: "https://seededtennis.com/:path*",
       permanent: false,
     });
+    // Never seededtennis.com itself (that would loop) and never a Preview.
+    for (const r of rules) {
+      const value = r.has[0].value as string;
+      expect(new RegExp(`^${value}$`).test("seededtennis.com")).toBe(false);
+      expect(new RegExp(`^${value}$`).test("seeded-tennis-git-fix-x-niranramprasad-3534s-projects.vercel.app")).toBe(false);
+      expect(new RegExp(`^${value}$`).test("seeded-tennis-a1b2c3d4e-niranramprasad-3534s-projects.vercel.app")).toBe(false);
+    }
   });
 });
 

@@ -569,12 +569,14 @@ export function coachEmailActionState(input: {
 }
 
 /** The result phrase for one of the player's logged wins. The opponent's UTR
- * is what the player typed into the match form, so it carries the same
- * "(self-reported)" label as their own rating. Without a real current UTR
- * there is no "above your level" to claim, so it stays a plain win. */
+ * is what the player typed into the match form, so the sentence says the
+ * player logged it ("an opponent I logged at UTR 10.05"). "(self-reported)"
+ * read to a coach as the OPPONENT reporting their own rating (review,
+ * 2026-11-24). Without a real current UTR there is no "above your level" to
+ * claim, so it stays a plain win. */
 export function coachEmailWinPhrase(opponentUtr: number | null | undefined, currentUTR: number): string {
   if (opponentUtr && hasRealUtr(currentUTR) && opponentUtr >= currentUTR) {
-    return `beat an opponent rated UTR ${formatPlayerUtr(opponentUtr)} (self-reported)`;
+    return `beat an opponent I logged at UTR ${formatPlayerUtr(opponentUtr)}`;
   }
   return "picked up a win";
 }

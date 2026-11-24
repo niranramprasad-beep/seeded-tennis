@@ -40,6 +40,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { formatShortDate, parseLocalDate } from "@/lib/time";
 import { toolBackLink } from "@/lib/tool-back-link";
 import { cn, formatPlayerUtr } from "@/lib/utils";
+import { MAX_BUDGET_EXPENSE_USD } from "@/lib/budget-limits";
 
 const inputClass =
   "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
@@ -164,8 +165,13 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const travelHours = travelHoursForPill(travel);
   const entryCostRaw = entryCost !== "" ? Number(entryCost) : null;
   const travelCostRaw = travelCost !== "" ? Number(travelCost) : null;
-  const entryCostNum = entryCostRaw != null && Number.isFinite(entryCostRaw) && entryCostRaw >= 0 ? entryCostRaw : null;
-  const travelCostNum = travelCostRaw != null && Number.isFinite(travelCostRaw) && travelCostRaw >= 0 ? travelCostRaw : null;
+  // Same ceiling as an event's cost (lib/db/events.ts): a bigger number can't
+  // be saved, so it isn't used for a verdict either, and the fields say why
+  // instead of "Add to my events" refusing in a drawer with no cost field.
+  const costOk = (v: number | null): v is number => v != null && Number.isFinite(v) && v >= 0 && v <= MAX_BUDGET_EXPENSE_USD;
+  const entryCostNum = costOk(entryCostRaw) ? entryCostRaw : null;
+  const travelCostNum = costOk(travelCostRaw) ? travelCostRaw : null;
+  const costTooHigh = [entryCostRaw, travelCostRaw].some((v) => v != null && v > MAX_BUDGET_EXPENSE_USD);
   const drawRaw = drawUtrText.trim() !== "" ? Number(drawUtrText) : null;
   const drawUtrNum = drawRaw != null && Number.isFinite(drawRaw) && drawRaw >= UTR_MIN && drawRaw <= UTR_MAX ? drawRaw : null;
   const tournamentName = name.trim() || "This tournament";
@@ -434,6 +440,11 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               </div>
             </label>
           </div>
+          {costTooHigh ? (
+            <p role="alert" className="mt-2 text-sm text-stone">
+              Each cost can be at most ${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.
+            </p>
+          ) : null}
         </div>
 
         {/* ------------------------------------------------- live verdict */}

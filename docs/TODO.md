@@ -597,6 +597,10 @@ L9–L11.
   display-only with "Last checked {date}".
 - **Data column date drops the year** ("Checked Nov 2") to fit the column;
   the school page has the full date. Revisit if the column widens (review #6).
+- **Sign-up and reset links requested on the old vercel.app address**
+  (before #59, 2026-11-24) fail once: they now open on seededtennis.com,
+  where that browser has no PKCE verifier. Anyone affected requests the link
+  again. No code change needed.
 - **Re-run the sync when the sheet changes** (Big Ten is next per
   `docs/data/LAUNCH_DATA_SPEC.md`): export the four tabs, run
   `scripts/import-utr-database.ts --program-info …`, staging first, then

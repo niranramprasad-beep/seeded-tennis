@@ -19,6 +19,15 @@ before relying on it.
 
 ## Status (2026-11-24)
 
+**Week of 2026-11-24 — hand-off to Herdy.** Everything is in `main` and live
+(through #60, #59 and `fix/week-polish`); GitHub holds only `main` + Herdy's
+branches; the gate is green (170 files / 2,744 tests, both time zones, clean
+build). Good next picks, in order: the ranked ideas and mockups in
+`~/seeded-mockups/index.html` (ask Niran which first); load the full rosters
+on staging so Previews match production (prepared SQL:
+`~/seeded-evidence/sheet-sync-2026-11-22/staging-roster-only-2026-11-24.sql`);
+then TODO §5. Nothing here needs a production migration.
+
 **Production** is seededtennis.com, deployed from `main` (after the
 2026-11-22 overnight merges, PRs #36–#45 plus the dead-code sweep and this
 docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages,

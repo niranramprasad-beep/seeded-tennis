@@ -309,7 +309,7 @@ describe("what the draft says, concretely", () => {
   it("dates each logged result instead of saying 'this season'", () => {
     const e = buildCoachEmail(base, school, results);
     expect(e.body).toContain("At the L4 Fake Winter Open on Jan 4, 2026, I won the title.");
-    expect(e.body).toContain("At the Fake Spring Classic on Mar 29, 2026, I beat an opponent rated UTR 10.05 (self-reported).");
+    expect(e.body).toContain("At the Fake Spring Classic on Mar 29, 2026, I beat an opponent I logged at UTR 10.05.");
     expect(e.body).not.toContain(COACH_EMAIL_PLACEHOLDERS.result);
   });
 
@@ -466,8 +466,8 @@ describe("coach email: never an email address (or nothing) where the name goes",
 });
 
 describe("coachEmailWinPhrase (an opponent's UTR is the player's own entry)", () => {
-  it("labels the opponent's rating self-reported, like the player's own", () => {
-    expect(coachEmailWinPhrase(10.05, 9.42)).toBe("beat an opponent rated UTR 10.05 (self-reported)");
+  it("says the player logged the opponent's rating (not that the opponent reported it)", () => {
+    expect(coachEmailWinPhrase(10.05, 9.42)).toBe("beat an opponent I logged at UTR 10.05");
   });
   it("claims nothing about level without a real current UTR or a higher-rated opponent", () => {
     expect(coachEmailWinPhrase(10.05, 0)).toBe("picked up a win");
