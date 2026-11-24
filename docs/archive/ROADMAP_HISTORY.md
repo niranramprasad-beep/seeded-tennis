@@ -25,6 +25,13 @@ on that host to the same path on seededtennis.com (temporary redirect);
 Preview hosts are different names and unaffected.
 `google-signin-paths.test.ts` pins the rule.
 
+**2026-11-24 — Overnight findings recorded in TODO
+(`cursor-night/todo-findings`; docs only).** The vercel.app alias serves the
+whole site, so a Google sign-in can start on a host that may not be on
+Supabase's allow-list (PR #59, left for Niran). 14 ACC ranges were corrected
+by the 2026-11-23 re-import under the same "Roster checked" date. The full
+staging roster load is extracted and ready to paste (outside the repo).
+
 **2026-11-24 — Landing "How fit works" no longer calls every range an
 estimate (`cursor-night/landing-fit-copy`; copy only, no migration).** Its
 first line still read "Each team has an estimated UTR range, labelled as an
