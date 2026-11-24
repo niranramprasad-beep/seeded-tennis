@@ -32,7 +32,9 @@ Small fixes merged that night, one PR each (details in
 player names (#55); the coach email labels an opponent's UTR
 "(self-reported)" (#56); tournament entries refuse a cost, travel time or
 distance their database column cannot hold (#57); the landing page's "How
-fit works" no longer calls every team range an estimate.
+fit works" no longer calls every team range an estimate (#58). Left open
+for Niran: #59 (the vercel.app alias → seededtennis.com, sign-in path).
+New TODO findings: a corrected range keeps its old "Roster checked" date.
 
 - **Database: every repo migration through 054 is on production** (ledger
   56). 053 (`program_details`) and 054 (`program_roster`, `program_staff`)

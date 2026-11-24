@@ -436,6 +436,12 @@ header. Still open:
 - **A background picture** for the court hero, if Niran sends one.
 - Niran reports the Google sign-in redirect is fixed (the redirect URL in
   Supabase, 23 Nov). A real Google sign-in test is still open.
+  *(2026-11-24: `www` and `http` redirect to `https://seededtennis.com`, but
+  `https://seeded-tennis.vercel.app` serves the whole site (200), and
+  `signInWithGoogle` builds its return URL from the page's own origin — so a
+  sign-in started there depends on that host being on Supabase's allow-list.
+  PR #59 (left for Niran) redirects the alias to seededtennis.com; the
+  no-code alternative is Vercel → Domains → redirect it.)*
 
 ### Parent dashboard upgrade (Niran's #1, 2026-11-16)
 
@@ -565,6 +571,18 @@ L9–L11.
   (27 players, 9 staff) against production's 63 (587, 141), so Preview school
   pages mostly show no roster. Re-run the importer with `--roster` against
   staging from `~/seeded-data/utr-db-2026-11-22/` (never commit the output).
+  *(2026-11-24: the roster + staff statements are extracted, one
+  transaction, outside the repo — `staging-roster-only-2026-11-24.sql` in
+  the 2026-11-22 sheet-sync evidence folder. Paste into staging's SQL editor.)*
+- **A corrected range keeps its old "Roster checked" date** (found
+  2026-11-24, LOW). 14 ACC programs have two `team_ranges` rows with the same
+  `source_date` (Nov 2/3): the first import's and the 2026-11-23 re-import's,
+  with slightly different numbers (the sheet was corrected; the rosters were
+  not re-read). `currentRange()` orders by entry time, so pages show the
+  newer numbers — but under the old date. Show "Range updated {created_at}"
+  when it is newer than the read date, or have the importer require a new
+  `source_date` when values change. Ad-hoc SQL must tie-break on
+  `created_at desc`, or it reads the older row.
 - **A saved program can leave the catalog** (independent review #4,
   2026-11-22, MEDIUM — not reachable for about a year). A sheet-only program
   drops out of `getSchools()` if its range goes stale (365 days), a newer
