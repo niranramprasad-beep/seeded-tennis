@@ -31,7 +31,8 @@ Small fixes merged that night, one PR each (details in
 `archive/ROADMAP_HISTORY.md`): the importer's SQL header says when it carries
 player names (#55); the coach email labels an opponent's UTR
 "(self-reported)" (#56); tournament entries refuse a cost, travel time or
-distance their database column cannot hold.
+distance their database column cannot hold (#57); the landing page's "How
+fit works" no longer calls every team range an estimate.
 
 - **Database: every repo migration through 054 is on production** (ledger
   56). 053 (`program_details`) and 054 (`program_roster`, `program_staff`)
