@@ -176,7 +176,7 @@ function main() {
   }
 
   if (args.emitSql) {
-    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target, extra));
+    writeFileSync(resolve(args.emitSql), buildUtrDatabaseSql(data, args.target, extra, { containsPlayerNames: args.roster }));
     console.log(`import-utr-database: wrote ${args.emitSql} (target: ${args.target})`);
   }
 }
