@@ -242,4 +242,13 @@ describe("buildUtrDatabaseSql", () => {
     expect(sql).toContain("'test-university-men'");
     expect(sql).toContain("'2026-11-02')");
   });
+
+  it("says so in the header when --roster adds players by name", () => {
+    expect(sql.split("\n")[0]).toContain("No player names.");
+    for (const target of ["staging", "production"] as const) {
+      const first = buildUtrDatabaseSql(data, target, [], { containsPlayerNames: true }).split("\n")[0];
+      expect(first).toContain("CONTAINS REAL PLAYER NAMES");
+      expect(first).not.toContain("No player names");
+    }
+  });
 });
