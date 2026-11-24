@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { emptyPrepPlan, validateTournamentEntryInput, type NewTournamentEntryInput } from "./events";
+import {
+  emptyPrepPlan,
+  MAX_TOURNAMENT_DISTANCE_MILES,
+  MAX_TOURNAMENT_TRAVEL_HOURS,
+  validateTournamentEntryInput,
+  type NewTournamentEntryInput,
+} from "./events";
+import { MAX_BUDGET_EXPENSE_USD } from "@/lib/budget-limits";
 import { createUuid } from "./training";
 
 const base: NewTournamentEntryInput = {
@@ -66,6 +73,32 @@ describe("validateTournamentEntryInput", () => {
     expect(validateTournamentEntryInput({ ...base, distanceMiles: -5 })).toMatch(/distance/i);
     expect(validateTournamentEntryInput({ ...base, entryCost: -10 })).toMatch(/entry cost/i);
     expect(validateTournamentEntryInput({ ...base, travelCost: -10 })).toMatch(/travel cost/i);
+  });
+
+  // Each column's capacity, from production (2026-11-24). A limit at or over
+  // it would let the database be the first to refuse (22003, "Try again").
+  const COLUMN_MAX = { travelHours: 999.99, distanceMiles: 99_999.9, entryCost: 999_999.99, travelCost: 999_999.99 };
+
+  it("keeps every upper limit under the column it is saved to", () => {
+    expect(MAX_TOURNAMENT_TRAVEL_HOURS).toBeLessThan(COLUMN_MAX.travelHours);
+    expect(MAX_TOURNAMENT_DISTANCE_MILES).toBeLessThan(COLUMN_MAX.distanceMiles);
+    expect(MAX_BUDGET_EXPENSE_USD).toBeLessThan(COLUMN_MAX.entryCost);
+  });
+
+  it("refuses a number over the limit with a sentence naming it, and accepts the limit itself", () => {
+    expect(validateTournamentEntryInput({ ...base, travelHours: 1000 })).toBe("Travel hours can be at most 200.");
+    expect(validateTournamentEntryInput({ ...base, distanceMiles: 100_000 })).toBe("Distance can be at most 25,000 miles.");
+    expect(validateTournamentEntryInput({ ...base, entryCost: 1_000_000 })).toBe("Entry cost can be at most $50,000.");
+    expect(validateTournamentEntryInput({ ...base, travelCost: 50_000.01 })).toBe("Travel cost can be at most $50,000.");
+    expect(
+      validateTournamentEntryInput({
+        ...base,
+        travelHours: MAX_TOURNAMENT_TRAVEL_HOURS,
+        distanceMiles: MAX_TOURNAMENT_DISTANCE_MILES,
+        entryCost: MAX_BUDGET_EXPENSE_USD,
+        travelCost: MAX_BUDGET_EXPENSE_USD,
+      })
+    ).toBeNull();
   });
 
   it("allows null/undefined optional fields", () => {
