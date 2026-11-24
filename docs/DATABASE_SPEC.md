@@ -66,8 +66,10 @@ verified no-op on production. Apply it when building a fresh database.
 ### Ordering
 Production applied `019` before `018`. Follow production's order when
 rebuilding. There is no `012` (once reserved for a roster import). `048`
-(PR E's catalog tables) is on production since 2026-11-20 23:55 UTC, with no
-rows.
+(PR E's catalog tables) is on production since 2026-11-20 23:55 UTC (empty
+until the 2026-11-22 UTR database import). `053` (`program_details`) and `054`
+(`program_roster`, `program_staff`) followed on 2026-11-23 UTC; all four hold
+the owner's sheet, public read only, written by the importer.
 
 ### Live-only migrations
 Production's ledger has two names with no repo file

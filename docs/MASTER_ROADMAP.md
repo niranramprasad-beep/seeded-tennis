@@ -17,40 +17,45 @@ before relying on it.
 
 ---
 
-## Status (2026-11-22)
+## Status (2026-11-24)
 
 **Production** is seededtennis.com, deployed from `main` (after the
 2026-11-22 overnight merges, PRs #36–#45 plus the dead-code sweep and this
 docs reorganisation; then #48 the spreadsheet sync, #49 the roster pages,
-#50 Herdy's landing overhaul, #51 the consult follow-ups and #52 the UI
+#50 Herdy's landing overhaul, #51 the consult follow-ups and #52/#53 the UI
 fixes, colour directions and school logos, merged 2026-11-23 UTC).
 `main` auto-deploys with no staging gate; it is protected (PR + green
-`verify`).
+`verify`). Return point before the 2026-11-24 overnight changes: tag
+`pre-cursor-2026-11-24` (= `83da8b2`).
 
-- **Database: every repo migration through 052 is on production.** 052 (only
-  a parent of the family approves or removes another parent) was applied
-  2026-11-22 on Niran's go, after a fresh backup, and its 35-case probe was
-  re-run there in a rolled-back transaction. The ledger is the source of
-  truth: `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
-  Runbook and rollbacks: [`HANDOFF.md`](HANDOFF.md) §J (Step 27 is 052).
-- **Catalog phase 1 is ON in production.** The owner's "College Tennis UTR
-  Database" was imported to production on 2026-11-22 (35 programs, 135
-  class-count rows, 34 hand-curated ACC/SEC team ranges; floor = lower
-  quartile, middle = median), checksum-identical to staging, and
-  `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` is set on Vercel Production.
-  Imported programs reach fit math only through `bandableRange()`
-  (`lib/catalog/programs.ts`); the 68 legacy catalog programs still carry
+- **Database: every repo migration through 054 is on production** (ledger
+  56). 053 (`program_details`) and 054 (`program_roster`, `program_staff`)
+  were applied 2026-11-23 00:16 and 00:24 UTC on Niran's go, each after a
+  fresh backup (`prod-20261123-0005-pre053.dump`,
+  `prod-20261123-0023-pre054.dump`). The ledger is the source of truth:
+  `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line. Runbook and
+  rollbacks: [`HANDOFF.md`](HANDOFF.md) §J (Step 28 is 053, Step 29 is 054).
+- **Catalog phase 1 is ON in production, fed by the owner's sheet.**
+  `NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` on Vercel Production. The
+  "College Tennis UTR Database" sheet (63 rated teams: ACC + all of the SEC,
+  plus a "Program Info" tab) is on production since 2026-11-23 UTC: 63
+  programs with a current range (floor = lower quartile, middle = median of
+  reliable singles UTRs on the official roster), 43 Program Info rows, 587
+  official-roster players by name and 141 staff (counted 2026-11-24). The
+  code merges it into the ONE catalog every screen reads
+  (`lib/catalog/merge.ts`): the 22 teams also in the legacy list take the
+  sheet's range instead of the estimate, and the other 41 join with their own
+  pages. Imported programs reach fit math only through `bandableRange()`
+  (`lib/catalog/programs.ts`); the remaining legacy programs still carry
   labelled, unsourced estimates. Rules: [`DATA_QUALITY.md`](DATA_QUALITY.md).
-- **The spreadsheet sync (Herdy's 21 Nov action item) is built, on STAGING,
-  not production** (branch `feat/sheet-sync`). The sheet now has 63 rated
-  teams (ACC + all of the SEC) and a "Program Info" tab; staging holds all of
-  it (checksums in HANDOFF §J Step 28). The code merges it into the ONE
-  catalog every screen reads (`lib/catalog/merge.ts`): the 22 teams also in
-  the legacy list take the sheet's floor (lower quartile) and middle (median)
-  instead of the estimate, and the other 41 join the list with their own
-  pages. Program Info (cost of attendance, acceptance rate, enrollment,
-  coaches page, questionnaire) shows on school pages with its source.
-  Production needs migration 053 + the re-import, on Niran's go.
+- **Roster pages are live** (PR #49; Niran's decision, DECISIONS
+  2026-11-22): each school page lists the official roster by name (class,
+  singles UTR linked to the profile it was read from, hometown) and the
+  coaching staff with the emails the school publishes. Still open: the
+  privacy policy's mention of these names and a takedown path (TODO §5).
+- **Staging** has 053 + 054 but only 3 official rosters (27 players, 9
+  staff); the full roster import was run on production only, so Preview
+  school pages mostly show no roster.
 - **Design polish round 1 is merged** (PR #37, `herdy-work`, from the
   2026-11-22 consult with Herdy): band icons on fit badges, a clear active
   nav state, the yearly-price strikethrough derived from `TIER_PRICE_USD`,
@@ -164,11 +169,13 @@ uses an in-memory `0` sentinel, guarded by `lib/utr-sentinel.test.ts`
 
 # NEXT 10 TASKS
 
-Updated 2026-11-22 from the 2026-11-20 list (kept in
+Updated 2026-11-24 (#2 rewritten: the sheet sync and roster pages are on
+production). Updated 2026-11-22 from the 2026-11-20 list (kept in
 `archive/ROADMAP_HISTORY.md`). Done since then and dropped: migration 051
 (on production 2026-11-21), migration 052 (production 2026-11-22), the UTR
 database import and the catalog flag (production 2026-11-22), the
-`lib/fit.ts` split (2026-11-21).
+`lib/fit.ts` split (2026-11-21), migrations 053 + 054 and the sheet re-import
+(production 2026-11-23).
 
 1. **Family follow-ups after 052.** Settings → Family shows who approved
    whom and each parent's home family (`parent_accounts.approved_by` is
@@ -178,16 +185,15 @@ database import and the catalog flag (production 2026-11-22), the
    Then the decided post-checkout Whop re-check — idempotent, rate-limited,
    never downgrades. TODO "Who may approve a parent joiner", "Post-checkout
    sync never runs".
-2. **Catalog: sourced ranges everywhere.** Phase 1 is on with 34 sourced
-   ranges. **The sheet sync (`feat/sheet-sync`) replaces the duplicated
-   legacy estimates (22 teams) and adds the other 41 rated teams; it needs
-   053 + the re-import on production (HANDOFF §J Step 28), on Niran's go.**
-   Left after it: the owner decides UTR licensing (DATA_QUALITY "Second
-   source") and whether published coach names/emails from the sheet may be
-   shown; close the phase-1 follow-ups the flag went on with (importer
-   atomicity, `programs.head_coach` readable by anon, weak source CHECKs —
-   TODO "Catalog phase 1 follow-ups"). Then public SEO school pages, once
-   their ranges are sourced.
+2. **Catalog: sourced ranges everywhere.** The sheet sync and roster pages
+   are live (63 sourced ranges, 053 + 054 on production since 2026-11-23).
+   Next: the privacy policy's wording for published roster names plus a
+   takedown path (TODO §5 "Roster names: privacy wording and takedown");
+   the Big Ten re-import when the sheet has it; full rosters on staging so
+   Previews match production; a stale range shown as stale; the owner
+   decides UTR licensing (DATA_QUALITY "Second source"); close the phase-1
+   follow-ups (importer atomicity, weak source CHECKs — TODO "Catalog phase 1
+   follow-ups"). Then structured data on the public school pages.
 3. **`Player.currentUTR: number | null`** — remove the `0` sentinel (139
    uses in 38 non-test files, re-measured 2026-11-21);
    `lib/utr-sentinel.test.ts` keeps it safe meanwhile.

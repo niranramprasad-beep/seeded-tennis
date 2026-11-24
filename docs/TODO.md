@@ -547,13 +547,26 @@ L9–L11.
 
 - **Replace the legacy estimates** that the imported programs duplicate —
   DONE in code on `feat/sheet-sync` (2026-11-22; `lib/catalog/merge.ts`, 22
-  teams), on staging. Production: migration 053 + the sheet re-import on
-  Niran's go (HANDOFF §J Step 28).
+  teams). *(2026-11-24: on production since 2026-11-23 — migration 053 + the
+  re-import, HANDOFF §J Step 28, PR #48.)*
 - **Coach names and published staff emails** (sheet's Program Info tab, read
-  from official staff pages). Not imported: Niran decides whether to show
-  them. Showing them means a new migration, lifting the coach-field guard in
-  `lib/db/schools-catalog-honesty.test.ts` in the same commit, and the source
-  URL beside every address.
+  from official staff pages). *(2026-11-24: decided and DONE — Niran chose to
+  show them (DECISIONS 2026-11-22); migration 054 `program_staff`, PR #49,
+  on production since 2026-11-23, each row with its source page.)*
+- **Roster names: privacy wording and takedown** (2026-11-24, from the
+  2026-11-23 master prompt; DECISIONS 2026-11-22 left it open). School pages
+  now publish real college players' names, singles UTRs and hometowns, and
+  staff emails. `/privacy` (`lib/legal/policy.ts`) describes only Seeded's
+  own users. Needs: a section saying what public third-party data the school
+  pages show, where it comes from (official roster and staff pages, public
+  UTR profiles) and how a person asks for a correction or removal ("Report
+  an error" → support). Draft only; the final policy needs the adult/lawyer
+  review (§1, P0-8). Not shipped by an agent: the live privacy page is the
+  owner's.
+- **Full rosters on staging** (2026-11-24): staging holds 3 official rosters
+  (27 players, 9 staff) against production's 63 (587, 141), so Preview school
+  pages mostly show no roster. Re-run the importer with `--roster` against
+  staging from `~/seeded-data/utr-db-2026-11-22/` (never commit the output).
 - **A saved program can leave the catalog** (independent review #4,
   2026-11-22, MEDIUM — not reachable for about a year). A sheet-only program
   drops out of `getSchools()` if its range goes stale (365 days), a newer

@@ -88,7 +88,9 @@ attendance (school or Scorecard, with COA year), acceptance rate and
 undergraduate enrollment (College Scorecard), coaches page and questionnaire
 links. A number without its source is dropped by the importer, refused by a
 CHECK and dropped again by the loader. Coach names and published emails are
-in the sheet but are NOT imported (owner's open decision). Some Scorecard
+not in `program_details`; since 2026-11-22 (Niran's decision) they are
+imported into `program_staff` (migration 054, below), each with its official
+source page. Some Scorecard
 rates in the sheet are rounded to whole percent (e.g. 0.06); the page shows
 them as "6%", never "6.0%".
 

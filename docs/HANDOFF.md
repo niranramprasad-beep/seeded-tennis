@@ -3055,7 +3055,14 @@ the pre-052 answers (the gap reopens). Staging was left on the final 052.
 
 ### Step 28 — migration 053 (program_details) + the spreadsheet sync (branch `feat/sheet-sync`)
 
-**NOT RUN ON PRODUCTION.** Applied to staging 2026-11-22 (`053_program_details`)
+**RUN ON PRODUCTION 2026-11-23 00:16 UTC** on Niran's go (ledger
+`20261123001649 053_program_details`), after the backup
+`~/seeded-evidence/backups/prod-20261123-0005-pre053.dump`; then the sheet
+re-import (`~/seeded-evidence/sheet-sync-2026-11-22/prod-import.sql`,
+`summary-prod.json`), and PR #48 merged. Re-counted read-only 2026-11-24:
+63 programs, 63 with a range, 43 `program_details` rows; grants `anon` +
+`authenticated` SELECT only, RLS on. *As written before that:* **NOT RUN ON
+PRODUCTION.** Applied to staging 2026-11-22 (`053_program_details`)
 and the sheet re-imported there; waits for Niran's current-turn go.
 
 What it changes. One new table, `program_details` (one row per `programs`
@@ -3095,6 +3102,33 @@ off on Vercel Production and redeploy — the catalog is then exactly the
 legacy list. Data: ranges are history (048), so the new rows are left; to
 undo the bands only, the flag is the lever. Table:
 `drop table public.program_details;` (nothing references it).
+
+### Step 29 — migration 054 (program_roster + program_staff) + the roster import (branch `feat/roster-pages`, PR #49)
+
+**RUN ON PRODUCTION 2026-11-23 00:24 UTC** on Niran's go (ledger
+`20261123002428 054_program_roster_and_staff`), after the backup
+`~/seeded-evidence/backups/prod-20261123-0023-pre054.dump`; then the roster
+import (`~/seeded-evidence/sheet-sync-2026-11-22/prod-roster-import.sql` —
+it contains real names, so it stays outside the repo), and PR #49 merged.
+Re-counted read-only 2026-11-24: 587 `program_roster` rows across 63
+programs, 141 `program_staff` rows. Staging has 054 but only a 3-roster
+subset (`staging-roster-subset.sql`: 27 players, 9 staff).
+
+What it changes. Two public-read tables (048's pattern: RLS on, one
+`for select to anon, authenticated using (true)` policy each, no client
+write grant): `program_roster` (official-roster players by name, class,
+grad year, singles UTR + reliable flag + the profile link it was read from,
+hometown, read date; a rating needs its profile link) and `program_staff`
+(name, title, an email only where the official page prints it, head flag,
+source page NOT NULL, read date). Why: DECISIONS 2026-11-22.
+
+Order. 054, then the data (`scripts/import-utr-database.ts ... --roster
+--emit-sql <out.sql> --target production`, one transaction; the importer
+replaces a program's rows on each import), then the code.
+
+Rollback. Code: revert #49's merge (the school page then shows no roster).
+Tables: `drop table public.program_staff; drop table public.program_roster;`
+(nothing references them). Data only: `truncate` both, as the service role.
 
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 

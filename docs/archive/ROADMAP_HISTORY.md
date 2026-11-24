@@ -14,6 +14,19 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — Docs catch-up: 053 + 054 and the sheet sync are on production
+(`cursor-night/docs-catchup`; docs only, no migration).** CLAUDE.md "Current
+state", MASTER_ROADMAP status and NEXT 10 #2, HANDOFF §J Step 28 (053, now
+marked run) and a new Step 29 (054), TODO §5, DATA_QUALITY (coach names and
+published emails ARE imported, into `program_staff`), TECHNICAL_ARCHITECTURE
+and DATABASE_SPEC still said 052/051 was the latest and the sync was
+staging-only. Re-checked read-only before writing: production's ledger ends
+at `054_program_roster_and_staff` (56 rows); 63 programs, 63 with a range,
+43 details rows, 587 roster rows across 63 programs, 141 staff; all three
+new tables RLS on with one public SELECT policy and `anon`/`authenticated`
+SELECT only. Staging: 242 programs, 3 official rosters (27 players, 9 staff).
+Return point for the night's changes: tag `pre-cursor-2026-11-24` (`83da8b2`).
+
 **2026-11-23 — PR #52 merged and live: eight UI fixes, colour directions, school
 logos (Herdy; on Niran's go; no migration).** One commit carried the three
 pieces described in the next three entries, which were written before the
