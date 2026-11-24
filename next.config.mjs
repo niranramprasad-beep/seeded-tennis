@@ -177,14 +177,29 @@ const nextConfig = {
   // exactly what went wrong (components/auth/oauth-errors.ts). Next passes
   // the query string through unchanged. Not permanent: it is a fallback for
   // a dashboard setting, not a move.
+  //
+  // The production vercel.app alias served the whole site, so a sign-in could
+  // START there and ask Supabase to return to a callback that is not on its
+  // allow-list. Every page on that host now moves to seededtennis.com first.
+  // Preview hosts (seeded-tennis-git-…) are different names and unaffected.
   async redirects() {
-    return ["code", "error", "error_description"].map((key) => ({
-      source: "/",
-      has: [{ type: "query", key }],
-      destination: "/auth/callback",
-      permanent: false,
-    }));
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: PRODUCTION_VERCEL_HOST }],
+        destination: "https://seededtennis.com/:path*",
+        permanent: false,
+      },
+      ...["code", "error", "error_description"].map((key) => ({
+        source: "/",
+        has: [{ type: "query", key }],
+        destination: "/auth/callback",
+        permanent: false,
+      })),
+    ];
   },
 };
+
+export const PRODUCTION_VERCEL_HOST = "seeded-tennis.vercel.app";
 
 export default nextConfig;

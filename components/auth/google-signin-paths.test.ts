@@ -226,8 +226,22 @@ describe("an auth redirect that falls back to the Site URL", () => {
       );
       expect(rule, key).toMatchObject({ source: "/", destination: "/auth/callback", permanent: false });
     }
-    // Only the bare home page: nothing else is redirected.
-    expect(redirects.every((r: { source: string }) => r.source === "/")).toBe(true);
+    // Only the bare home page, plus the vercel.app host rule below.
+    const hostRules = redirects.filter((r: { has?: { type: string }[] }) => r.has?.some((h) => h.type === "host"));
+    expect(hostRules).toHaveLength(1);
+    expect(redirects.filter((r: { source: string }) => r.source !== "/")).toEqual(hostRules);
+  });
+
+  it("moves every page on the production vercel.app alias to seededtennis.com, and nothing else", async () => {
+    const mod = await import("../../next.config.mjs?host=" + Date.now());
+    const [first] = await mod.default.redirects();
+    expect(mod.PRODUCTION_VERCEL_HOST).toBe("seeded-tennis.vercel.app");
+    expect(first).toEqual({
+      source: "/:path*",
+      has: [{ type: "host", value: "seeded-tennis.vercel.app" }],
+      destination: "https://seededtennis.com/:path*",
+      permanent: false,
+    });
   });
 });
 
