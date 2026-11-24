@@ -7,6 +7,15 @@ inside an item means as of the day it was written. Each block says why it
 moved. Newest move first; add a new `## Moved YYYY-MM-DD` section at the
 top when you close something. For what is open now, read `TODO.md`.
 
+## Moved 2026-11-24 (`cursor-night/coach-email-opponent-utr`)
+
+Done: the opponent's UTR now reads "beat an opponent rated UTR 10.05
+(self-reported)" (`coachEmailWinPhrase`, lib/db/schools.ts; pinned in
+`lib/db/coach-email.test.ts`). From TODO §4 "From PR D (2026-11-19)":
+
+- An opponent's UTR in a coach-email result sentence is not labelled
+  "(self-reported)".
+
 ## Moved 2026-11-22 (`chore/docs-organize`, from `main` @ `00ba20f`)
 
 ### The old header of `TODO.md`

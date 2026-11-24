@@ -12,7 +12,7 @@
 
 import type { Division, Player, School, SchoolLite } from "@/lib/types";
 import { formatDate, getCurrentGrade, ordinalGrade } from "@/lib/time";
-import { formatPlayerUtr } from "@/lib/utils";
+import { formatPlayerUtr, hasRealUtr } from "@/lib/utils";
 
 import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
 import { mergeCatalog } from "@/lib/catalog/merge";
@@ -566,6 +566,17 @@ export function coachEmailActionState(input: {
     gmail: { enabled: gmailReason === null, reason: gmailReason },
     unresolved,
   };
+}
+
+/** The result phrase for one of the player's logged wins. The opponent's UTR
+ * is what the player typed into the match form, so it carries the same
+ * "(self-reported)" label as their own rating. Without a real current UTR
+ * there is no "above your level" to claim, so it stays a plain win. */
+export function coachEmailWinPhrase(opponentUtr: number | null | undefined, currentUTR: number): string {
+  if (opponentUtr && hasRealUtr(currentUTR) && opponentUtr >= currentUTR) {
+    return `beat an opponent rated UTR ${formatPlayerUtr(opponentUtr)} (self-reported)`;
+  }
+  return "picked up a win";
 }
 
 function describeResult(result: string): string {

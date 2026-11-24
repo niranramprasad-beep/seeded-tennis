@@ -525,8 +525,6 @@ L9–L11.
   merge with `scripts/perf-lighthouse.mjs`.
 - Family dashboard pace wording ("At the pace in X's logged ratings") has no
   upside sentence; `utrDeltaOverMonths` / `computeMyPaceUTR` are test-only now.
-- An opponent's UTR in a coach-email result sentence is not labelled
-  "(self-reported)".
 - The Events calendar heading still says "Training" though it shows
   tournaments too (mockup) — needs a design call.
 - A pre-033 account with no `birth_year` can pick one in the signed-in
