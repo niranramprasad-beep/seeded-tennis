@@ -753,7 +753,10 @@ function MethodAndFounder() {
               before you arrive", "we add academics and your preferences",
               "a confidence level". None of the four is what the code does
               — see the note at the top of seeded-methodology-view.tsx. */}
-          <li>Each team has an estimated UTR range, labelled as an estimate wherever it appears.</li>
+          <li>
+            Each team has a UTR range: from its official roster where we&apos;ve checked one (shown with the
+            date), otherwise our estimate, labelled as one.
+          </li>
           <li>
             We place you on that range &mdash; at your projected rating for the
             summer before senior year, labelled as an estimate. Top D1 programs often decide
