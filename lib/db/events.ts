@@ -8,6 +8,7 @@
 import { isCalendarDateKey } from "@/lib/time";
 import { TOURNAMENT_STATUS_VALUES, type TournamentEntryStatus } from "@/lib/tournament-status";
 import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "@/lib/tournament-fit";
+import { MAX_BUDGET_EXPENSE_USD } from "@/lib/budget-limits";
 import { getAuthedUser, getSupabase } from "@/lib/supabase/client";
 import { resolveMyFamilyCode, subjectUserIds, type DataSubject } from "./family-scope";
 import type { TypedSupabaseClient } from "@/lib/supabase/client";
@@ -359,6 +360,16 @@ export function tournamentSaveErrorMessage(error: { code?: string | null; messag
   }
 }
 
+// Upper limits under each column's capacity (tournament_entries.travel_hours
+// numeric(5,2), distance_miles numeric(6,1), entry_cost/travel_cost
+// numeric(8,2) — read from production 2026-11-24). Without them a huge number
+// passed every check here and the database refused it with 22003, the same
+// "Try again" for ever that lib/budget-limits.ts fixed for the budget.
+// A cost uses the single-expense limit so a tournament can always be logged
+// as one budget expense.
+export const MAX_TOURNAMENT_TRAVEL_HOURS = 200;
+export const MAX_TOURNAMENT_DISTANCE_MILES = 25_000;
+
 /**
  * Validates a tournament-entry save before it ever reaches Supabase. Pure —
  * no network, no auth — so both /events and the (separately rebuilt)
@@ -394,6 +405,16 @@ export function validateTournamentEntryInput(input: NewTournamentEntryInput): st
     if (value != null && (!Number.isFinite(value) || value < 0)) {
       return `${label} can't be negative.`;
     }
+  }
+
+  const upperLimits: [number | null | undefined, number, string][] = [
+    [input.travelHours, MAX_TOURNAMENT_TRAVEL_HOURS, `Travel hours can be at most ${MAX_TOURNAMENT_TRAVEL_HOURS}.`],
+    [input.distanceMiles, MAX_TOURNAMENT_DISTANCE_MILES, `Distance can be at most ${MAX_TOURNAMENT_DISTANCE_MILES.toLocaleString("en-US")} miles.`],
+    [input.entryCost, MAX_BUDGET_EXPENSE_USD, `Entry cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
+    [input.travelCost, MAX_BUDGET_EXPENSE_USD, `Travel cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
+  ];
+  for (const [value, max, message] of upperLimits) {
+    if (value != null && value > max) return message;
   }
 
   return null;

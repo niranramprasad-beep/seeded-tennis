@@ -14,6 +14,18 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — Tournament entries: upper limits on cost, travel and distance
+(`cursor-night/tournament-cost-limits`; no migration).** The family-budget
+overflow fixed on 2026-11-21 (A5) had a twin: `tournament_entries.entry_cost`
+and `travel_cost` are numeric(8,2), `travel_hours` numeric(5,2) and
+`distance_miles` numeric(6,1) (read from production), but
+`validateTournamentEntryInput` only refused negatives, so a huge number
+passed and the database answered 22003 ("Try again" for ever). It now
+refuses travel hours over 200, distance over 25,000 miles and either cost
+over the $50,000 single-expense limit (`MAX_BUDGET_EXPENSE_USD`), with a
+sentence naming the limit. `lib/db/events.test.ts` pins each limit under its
+column.
+
 **2026-11-24 — Coach email: an opponent's UTR is labelled self-reported
 (`cursor-night/coach-email-opponent-utr`; no migration).** A logged win over
 a higher-rated opponent went into the draft as "I beat a UTR 10.05
