@@ -14,6 +14,17 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — The vercel.app alias moves to seededtennis.com
+(`cursor-night/vercel-app-host-redirect`; config only, no migration; left
+for Niran to merge because it touches the sign-in path).** `www` and `http`
+already redirect to `https://seededtennis.com`, but
+`seeded-tennis.vercel.app` served the whole site (200), so a Google sign-in
+could start there and ask Supabase to come back to a callback not on its
+allow-list — the 2026-11-21 failure. `next.config.mjs` now sends every page
+on that host to the same path on seededtennis.com (temporary redirect);
+Preview hosts are different names and unaffected.
+`google-signin-paths.test.ts` pins the rule.
+
 **2026-11-24 — Tournament entries: upper limits on cost, travel and distance
 (`cursor-night/tournament-cost-limits`; no migration).** The family-budget
 overflow fixed on 2026-11-21 (A5) had a twin: `tournament_entries.entry_cost`
