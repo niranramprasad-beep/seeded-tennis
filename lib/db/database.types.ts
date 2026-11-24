@@ -706,7 +706,8 @@ export type Database = {
         ]
       }
       // 048 — catalog. Public read; written only by the service role
-      // (scripts/import-rosters.ts). No player names are stored anywhere.
+      // (scripts/import-rosters.ts). No player names in 048's tables; 054's
+      // program_roster holds them (Niran's decision, DECISIONS 2026-11-22).
       program_class_counts: {
         Row: {
           class_year: number

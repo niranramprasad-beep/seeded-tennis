@@ -14,6 +14,17 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-24 — The importer's SQL header says when it carries names
+(`cursor-night/importer-header`; script only, no migration).** With
+`--roster`, `scripts/import-utr-database.ts --emit-sql` writes every
+official-roster player by name, but the file's first line still read "No
+player names." (production's 2026-11-22 roster file says it). That line is
+what a person checks before deciding where a file may go. It now reads
+"CONTAINS REAL PLAYER NAMES (--roster): keep this file outside the repo."
+whenever `--roster` is on, for both targets; `utr-database.test.ts` pins
+both headers. The generated-types comment that said "No player names are
+stored anywhere" now names 054's `program_roster`.
+
 **2026-11-24 — Docs catch-up: 053 + 054 and the sheet sync are on production
 (`cursor-night/docs-catchup`; docs only, no migration).** CLAUDE.md "Current
 state", MASTER_ROADMAP status and NEXT 10 #2, HANDOFF §J Step 28 (053, now
