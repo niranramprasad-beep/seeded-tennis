@@ -45,7 +45,7 @@ lib/                 business logic — components render, lib/ decides
   legal/             /privacy and /terms text, each claim tied to code
   seo/, onboarding/, training/, config/, hooks/, context/, …
   *.test.ts          tests live next to the code
-supabase/migrations/ numbered SQL migrations (0001_init … 052)
+supabase/migrations/ numbered SQL migrations (0001_init … 054)
 scripts/             audit, persona and import scripts — see scripts/README.md
 docs/                the docs; docs/README.md is the index
 public/              static brand assets and images

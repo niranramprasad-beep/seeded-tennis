@@ -8,6 +8,7 @@ and the next ten tasks in order. Read [`/CLAUDE.md`](../CLAUDE.md) first.
   2026-11-10 audit's P0–P3 lists, the previous NEXT 10):
   [`archive/ROADMAP_HISTORY.md`](archive/ROADMAP_HISTORY.md).
 - **Why a call was made:** [`DECISIONS.md`](DECISIONS.md).
+- **Ideas for after the launch gates:** [`GROWTH.md`](GROWTH.md).
 
 Rule: when you finish, find or change something, update this file in the
 same commit — the status lines below, the blockers, NEXT 10 — and add a

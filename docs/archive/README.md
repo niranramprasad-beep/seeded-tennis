@@ -13,6 +13,7 @@ for each change you ship) and `TODO_DONE.md` (each TODO item you close).
 | File | Date | What it is | Why it is kept |
 |---|---|---|---|
 | [ROADMAP_HISTORY.md](ROADMAP_HISTORY.md) | 2026-11-10 → | The dated status log, newest first, and the 2026-11-10 audit's P0–P3 task lists; `MASTER_ROADMAP.md` as it stood on 2026-11-22, verbatim | Append-only record of how V1 was made safe; new dated entries go at its top |
+| [CLAUDE_INVARIANT_HISTORY.md](CLAUDE_INVARIANT_HISTORY.md) | 2026-11-26 | The long incident history that used to sit in `CLAUDE.md` (parents' writes, the UTR placeholder, every enforced invariant), moved verbatim | CLAUDE.md now carries the short rules; tests and migration headers still cite the reasons |
 | [TODO_DONE.md](TODO_DONE.md) | 2026-11-22 → | Done and obsolete `TODO.md` items, verbatim, each with why it moved | Append-only; nothing leaves `TODO.md` without landing here |
 | [GO-SEQUENCE.md](GO-SEQUENCE.md) | 2026-11-16 → 11-22 | The launch-day production order, one row per migration 022–052 | Migration headers and HANDOFF §J cite its rows; the procedure is now HANDOFF §J |
 | [CHANGELOG.md](CHANGELOG.md) | 2026-11-10 → 11-14 | Notable incidents and fixes of the first audit week | The billing incident and launch-blocker write-ups; later entries are in `ROADMAP_HISTORY.md` |
