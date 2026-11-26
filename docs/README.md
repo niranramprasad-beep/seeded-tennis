@@ -18,9 +18,10 @@ finished lives in `archive/`.
 | Doc | What it is for | Read it when |
 |---|---|---|
 | [../README.md](../README.md) | What Seeded is, stack, folders, setup, environments, the rules that bite | First |
-| [../CLAUDE.md](../CLAUDE.md) | The rulebook (Always / Never / Non-negotiable) plus the incident history behind each rule | Before changing code |
+| [../CLAUDE.md](../CLAUDE.md) | The rulebook (Always / Never / Non-negotiable) and the short list of enforced invariants; the long history is in `archive/` | Before changing code |
 | [../AGENTS.md](../AGENTS.md) | The few things an AI agent most often gets wrong here | If you are an agent, after CLAUDE.md |
 | [MASTER_ROADMAP.md](MASTER_ROADMAP.md) | Current status, open blockers, NEXT 10 tasks | To see what is live and what is next |
+| [GROWTH.md](GROWTH.md) | Ideas for growing Seeded after the launch gates, each with what must exist first | When the P0/P1 list is clear and you are choosing what to build next |
 | [TODO.md](TODO.md) | Every open item with its reasoning, grouped by area (owner steps first) | Before starting work in an area |
 | [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) | Ten-minute tour: architecture, security model, fit engine, tests, ranked debt | Your first day |
 | [DECISIONS.md](DECISIONS.md) | Every call made, newest first, with why and how to undo it | When something looks deliberate and odd |
@@ -85,4 +86,5 @@ Not kept current — read each as "what was true on that date". Full list:
 | [archive/TODO_DONE.md](archive/TODO_DONE.md) | Done and obsolete TODO items, verbatim, with why each moved | When a TODO item seems to have vanished |
 | [archive/GO-SEQUENCE.md](archive/GO-SEQUENCE.md) | The launch-day production order, one row per migration 022–052 | When a migration header cites a "GO-SEQUENCE row" |
 | [archive/HANDOFF_HISTORY.md](archive/HANDOFF_HISTORY.md) | HANDOFF's old sections A–I (2026-11-10 snapshot) | Rarely |
+| [archive/CLAUDE_INVARIANT_HISTORY.md](archive/CLAUDE_INVARIANT_HISTORY.md) | The long incident history behind CLAUDE.md's short rules (parents' writes, the UTR placeholder, every enforced invariant), moved verbatim 2026-11-26 | When a rule in CLAUDE.md needs its reason |
 | Everything else in `archive/` | One-session reports, audits, prompts and the old mockup spec and changelog | When a doc cites one |
