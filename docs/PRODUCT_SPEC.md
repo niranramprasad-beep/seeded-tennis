@@ -1,6 +1,6 @@
 # Seeded — Product Spec (V1)
 
-Current as of 2026-11-20. Rules and status live in `CLAUDE.md`; the task
+Current as of 2026-11-26. Rules and status live in `CLAUDE.md`; the task
 list is `docs/MASTER_ROADMAP.md`.
 
 ## One sentence
@@ -30,7 +30,7 @@ avatar menu.
 |---|---|---|
 | Signup / login / reset (email + Google) | Works | Auth rate limits and leaked-password protection are Supabase project settings, not app code |
 | Onboarding + under-13 consent | Enforced in the database (030) | No adulthood verification exists or is claimed |
-| School catalog | 68 programs, mostly upper D1; UTR ranges labelled "Unverified estimate" | Sourced ranges + wider coverage: PR E (migration 048, staging only) |
+| School catalog | 63 ACC and SEC teams with sourced ranges and roster pages (live); other legacy programs carry labelled estimates | More conferences; see `docs/MASTER_ROADMAP.md` |
 | Fit bands (Likely / Target / Reach / Out of range) | One code path; plans with `min(own pace, 1.5/yr)` | Only as good as the catalog ranges |
 | Plan (UTR history, trajectory) | Works | No outlier flag on self-reported entries |
 | Schools browse + detail, targets | Works; Free capped at 3 targets | — |

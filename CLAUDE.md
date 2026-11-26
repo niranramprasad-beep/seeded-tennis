@@ -1,17 +1,18 @@
 # Seeded — notes for Claude
 
-## Current state (2026-11-24)
-- Production (seededtennis.com) is healthy; `main` auto-deploys to it with no staging gate. Old branches live on as `archive/<name>` tags.
-- **Herdy's branches (`herdy-work`, `herdy-colours`, any he creates) are his. Never touch them** — no delete, merge, rebase, push, PR close or conflict resolution, and never in a "clean up branches" sweep (Niran, 2026-11-22). If your work conflicts with his, adapt your branch or tell Niran.
-- Production database: every migration through **054** (ledger 56). 053 (`program_details`) was applied 2026-11-23 00:16 UTC and 054 (`program_roster`, `program_staff`) at 00:24 UTC, on Niran's go, each after a backup (`~/seeded-evidence/backups/prod-20261123-0005-pre053.dump`, `prod-20261123-0023-pre054.dump`). Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
-- Catalog phase 1 is ON in production (`NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true` on Vercel Production). The spreadsheet sync (#48) and roster pages (#49) are live: production holds the owner's College Tennis UTR Database — 63 ACC + SEC programs with a sourced range (floor = lower quartile, middle = median), 43 Program Info rows, 587 official-roster players by name and 141 staff (counted 2026-11-24). The sheet FEEDS the one catalog (`lib/catalog/merge.ts`): 22 legacy schools take the real range, 41 join with their own pages. `School.city/state/usNewsRanking` can be null ("Not tracked"); render UTR numbers with `utrSourceLabel()` / `teamRangeNote()`, never the bare estimate label.
-- Staging `gnlcpnsweqbtwpaqhqqg` has the same schema through 054; `.env.local` and Vercel Preview point at it. It holds the 179-program phase-1 roster import (staging-only) but only 3 official rosters (so roster sections on Previews are mostly empty).
-- **Week of 2026-11-24: Herdy is the main developer; Niran is away.** GitHub holds only `main` + Herdy's branches. A stray nested clone that sat in the repo root (and doubled every test run: 340 files/5,475 tests instead of 170/2,744) was moved out to `~/seeded-tennis-stray-copy-2026-11-23`.
-- Open: a real Google sign-in test and Supabase/Google OAuth settings (Niran); post-checkout sync; the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review — see `docs/TODO.md`.
-- Branch flow: short-lived branch from `main` → PR → CI `verify` → Vercel Preview → merge. `v1` is retired.
-- What merged when (PR by PR) lives in `docs/archive/ROADMAP_HISTORY.md`; the incident history behind each rule lives in `docs/archive/CLAUDE_INVARIANT_HISTORY.md`. Both are cited by tests and migration headers.
-- New here? `README.md`, then `docs/README.md` (the index), then `docs/REVIEWER_GUIDE.md`.
-- The GitHub repo is **public** for the 2026-11-21 review and goes **private** after it (Niran's call). Write every commit, doc and test as if it is public — names only, never a secret or a real person's data.
+## Current state (2026-11-26)
+- Production is seededtennis.com. `main` auto-deploys to it with no staging gate. Old branches live on as `archive/<name>` tags.
+- **Herdy's branches (`herdy-work`, `herdy-colours`, any he creates) are his. Never touch them.** No delete, merge, rebase, push, PR close or conflict fix, and never in a "clean up branches" sweep (Niran, 2026-11-22). If your work conflicts with his, adapt your branch or tell Niran.
+- Production database: every migration through **054**. Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Catalog phase 1 is ON in production (`NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true`). Fed by the owner's College Tennis UTR Database sheet: 63 ACC + SEC programs with a sourced range (floor = lower quartile, middle = median), 43 Program Info rows, 587 roster players, 141 staff (counted 2026-11-24). The sheet feeds the one catalog (`lib/catalog/merge.ts`).
+- `School.city/state/usNewsRanking` can be null ("Not tracked"). Render UTR numbers with `utrSourceLabel()` / `teamRangeNote()`, never the bare estimate label.
+- Staging `gnlcpnsweqbtwpaqhqqg` has the same schema. `.env.local` and Vercel Preview point at it. It has only 3 official rosters, so Preview roster sections are mostly empty.
+- Week of 2026-11-24: Herdy is the main developer. Niran is away.
+- Open: a real Google sign-in test and Supabase/Google OAuth settings (Niran); post-checkout sync; the `Player.currentUTR` number|null refactor; the privacy policy's adult/lawyer review. See `docs/TODO.md`.
+- Branch flow: short-lived branch from `main`, then PR, CI `verify`, Vercel Preview, merge. `v1` is retired.
+- History: `docs/archive/ROADMAP_HISTORY.md` (what merged when) and `docs/archive/CLAUDE_INVARIANT_HISTORY.md` (why each rule exists). Tests and migration headers cite both.
+- New here? `README.md`, then `docs/README.md`, then `docs/REVIEWER_GUIDE.md`.
+- The GitHub repo is **public** for the 2026-11-21 review and goes **private** after it (Niran's call). Write every commit, doc and test as if it is public: names only, never a secret or a real person's data.
 
 ## Branches
 **Branch from `main`, open a PR into `main`.** `main` = production and is
