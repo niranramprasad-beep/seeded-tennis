@@ -3130,6 +3130,102 @@ Rollback. Code: revert #49's merge (the school page then shows no roster).
 Tables: `drop table public.program_staff; drop table public.program_roster;`
 (nothing references them). Data only: `truncate` both, as the service role.
 
+### Step 30 — migration 055 (program_roster: no public `utr` or `hometown`) + the roster loader (branch `claude/roster-utr-lockdown`)
+
+**NOT RUN ON PRODUCTION.** Staging only (2026-11-27; ledger
+`055_program_roster_private_ratings`, then a rollback rehearsal and
+`055_program_roster_private_ratings_reapply`). Waits for Niran's go.
+Evidence: `~/seeded-evidence/roster-utr-lockdown/` (probes.sql, output.md,
+fingerprint.sql).
+
+What it changes. 054 granted `anon`/`authenticated` SELECT on every column of
+`program_roster`, so `GET /rest/v1/program_roster?select=player_name,utr,hometown`
+with the publishable key returned every college player's exact rating and
+(before PR #64) hometown. 055: (1) revokes the table-wide SELECT and grants
+back `program_id, player_name, class_label, grad_year, utr_reliable,
+utr_profile_url, read_date` — so selecting, filtering (`utr=gt.12`) or
+ordering by `utr` or `hometown` is `42501 permission denied`; (2) `update
+program_roster set hometown = null` (not restorable by the rollback; nothing
+reads it); (3) adds `program_roster_page(p_slug text)`, SECURITY DEFINER,
+`search_path = ''`, returning `floor(utr)::int as utr_whole` and never the
+exact number, EXECUTE revoked from PUBLIC and granted to anon, authenticated,
+service_role. Why: Niran's rule, DECISIONS 2026-11-27.
+
+Who else reads `program_roster.utr`, and why they still work:
+- `lib/db/roster.ts` (the school page) now calls the function. Its old
+  `.from("program_roster").select("…utr…")` would fail after 055 — and the
+  NEW code fails before 055 (no function: the roster section goes empty, it
+  never throws). Hence the order below.
+- The importer (`scripts/import-utr-database.ts --roster`,
+  `lib/catalog/roster-pages.ts`) only WRITES, as SQL the owner runs in the
+  SQL editor (`postgres`), which keeps every privilege. Unaffected. This
+  branch also fixes its insert, broken by PR #64 (9 selected columns into 8:
+  `table "v" has 8 columns available but 9 columns specified`, reproduced on
+  staging).
+- Team ranges (`lib/catalog/utr-database.ts`, `merge.ts`) never read
+  `program_roster`: the importer computes them from the sheet's CSV into
+  `team_ranges`. Unaffected. (Their exact numbers in the page source are a
+  separate open item, TODO §2.)
+- `scripts/import-rosters.ts` reads `programs`/`team_ranges` with the service
+  role, never `program_roster`. Unaffected.
+
+Order (production). **Migration first, then code:**
+(Between step 4 and the deploy in step 6, today's production code — which
+still selects `utr` from the table — gets 42501 and shows an empty roster
+section, never an error. Keep that window short: have the PR green and
+ready before step 4.)
+1. Niran's go in the current turn.
+2. Backup (§J "How to ship a migration", step 4) to
+   `~/seeded-backups/prod-<stamp>-pre055.dump`; stop unless it lists table
+   data, `program_roster` included.
+3. Pre-flight, read-only: `list_migrations` on `tfpjssmhiptbwigarxpx` ends at
+   `054_program_roster_and_staff` (anything newer: stop), and
+   `select count(*), count(hometown), count(utr) from public.program_roster;`
+   — write the numbers down (2026-11-24: 587 rows).
+4. Apply `supabase/migrations/055_program_roster_private_ratings.sql` (no
+   begin/commit in the file; one transaction) and add the ledger row.
+5. Verify, each in a transaction you ROLL BACK:
+
+   ```sql
+   -- expect 42501 for each (as anon, then again as authenticated)
+   begin; set local role anon; set local request.jwt.claims = '{"role":"anon"}';
+   select utr from public.program_roster limit 1; rollback;
+   begin; set local role anon; set local request.jwt.claims = '{"role":"anon"}';
+   select hometown from public.program_roster limit 1; rollback;
+   -- expect: 63 programs, every utr_whole an integer, rated > 0
+   begin; set local role anon; set local request.jwt.claims = '{"role":"anon"}';
+   select count(distinct p.slug) programs, count(f.utr_whole) rated,
+          bool_and(f.utr_whole is null or f.utr_whole = trunc(f.utr_whole)) all_whole
+     from public.programs p
+     cross join lateral public.program_roster_page(p.slug) f; rollback;
+   -- as postgres: expect hometown 0, utr unchanged from the pre-flight,
+   -- fn ACL exactly anon/authenticated/postgres/service_role (no "=X/" PUBLIC)
+   select count(hometown), count(utr) from public.program_roster;
+   select proacl from pg_proc where oid = 'public.program_roster_page(text)'::regprocedure;
+   ```
+
+   **STOP and roll back** if any `select utr`/`hometown` as anon succeeds, or
+   `program_roster_page` returns 0 rows for every program.
+6. Then merge the PR; check a production school page with a roster
+   (`/schools/vanderbilt-m`): the roster shows "12.xx" numbers as before.
+7. Record it here, in ROADMAP_HISTORY and MASTER_ROADMAP; CLAUDE.md's
+   "every migration through 054" becomes 055.
+
+Rollback (rehearsed on staging 2026-11-27: the fingerprint returned to its
+pre-055 value byte for byte). Code first (revert the PR's merge), then:
+
+```sql
+begin;
+drop function if exists public.program_roster_page(text);
+revoke select on table public.program_roster from anon, authenticated;
+grant select on table public.program_roster to anon, authenticated;
+commit;
+```
+
+The nulled hometowns are not restored (by design: the importer no longer
+writes them). Rolling back re-opens the exact-UTR leak, so do it only to
+recover a broken school page.
+
 ### Step 4b — the family-linking code (RESOLVED 2026-11-14)
 
 The blocker recorded here on 2026-11-14 ("`lib/auth.ts` is incompatible with

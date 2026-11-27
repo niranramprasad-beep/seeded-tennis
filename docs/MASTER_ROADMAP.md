@@ -36,8 +36,9 @@ Status lines are claims about live systems. Re-check the source each one names.
   merged yet): a college player's UTR shows only as its whole number
   ("12.xx") with a link-out button to their UTR profile, the exact rating is
   cut on the server, and Hometown is gone. The exact ratings are still
-  readable through the public database API until a follow-up migration
-  closes `program_roster.utr` (TODO §2). Team floors, middles and tops are
+  readable through the public database API **on production** until migration
+  055 lands there (`claude/roster-utr-lockdown`: on STAGING since 2026-11-27,
+  production waits for Niran's go, HANDOFF §J Step 30). Team floors, middles and tops are
   whole numbers on screen too, but exact in the page source (TODO §2). Still open: the privacy policy's
   wording for these names, and a takedown path (TODO §5).
 - **Plan UTR and fit wording (branch `feat/plan-utr-fit-reframe`, not merged
@@ -89,12 +90,14 @@ Known and accepted, not blockers:
 
 Updated 2026-11-27. Previous lists are in `archive/ROADMAP_HISTORY.md`.
 
-1. **Ship `feat/plan-utr-fit-reframe`, then close the roster read.** Merge on
-   Niran's go after CI and the Preview check. Then a migration that stops
-   `anon`/`authenticated` reading `program_roster.utr` (the page already only
-   receives the whole number; the server reader needs a definer function or
-   server-only key first). Parents still see fit on the estimate: the Plan
-   UTR lives in the player's own `user_settings` (TODO §4).
+1. **Close the roster read on production: migration 055.** Branch
+   `claude/roster-utr-lockdown`: column grants on `program_roster` without
+   `utr`/`hometown`, hometowns nulled, and `program_roster_page()` returning
+   whole numbers only. On staging and verified as anon/authenticated
+   2026-11-27. Production order (HANDOFF §J Step 30): backup, 055, verify,
+   THEN merge the code. It also fixes the roster import's SQL, broken since
+   PR #64. Parents still see fit on the estimate: the Plan UTR lives in the
+   player's own `user_settings` (TODO §4).
 2. **Family follow-ups.**
    - Settings → Family shows who approved whom and each parent's home family.
      This needs a new `family_members()` column, so 038's shape test and

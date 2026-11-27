@@ -101,6 +101,10 @@ from, hometown, read date) and `program_staff` (head coach and assistants
 with titles; an email only where the official page prints it; every row with
 its source page and date). Written by `scripts/import-utr-database.ts
 --roster`; that SQL file contains real names — keep it outside the repo.
+Since migration 055 (staging 2026-11-27; production on Niran's go) a visitor
+cannot read `program_roster.utr` or `hometown` at all; the school page reads
+`program_roster_page()`, which returns the whole number only, and `hometown`
+is null. Niran's rule, DECISIONS 2026-11-27.
 
 ## Reliability classes
 

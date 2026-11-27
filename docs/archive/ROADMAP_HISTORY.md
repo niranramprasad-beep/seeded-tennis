@@ -14,6 +14,22 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-27 — Roster ratings locked in the database (`claude/roster-utr-lockdown`; migration 055, staging only).**
+054 granted `anon`/`authenticated` SELECT on every column of `program_roster`,
+so the exact `utr` and old hometowns were readable through the REST API
+(staging: 27 of 27 rows, as anon). 055 revokes the table grant, grants seven
+columns back (no `utr`, no `hometown`), nulls `hometown`, and adds the SECURITY
+DEFINER `program_roster_page(p_slug)` that returns `floor(utr)::int` only;
+`lib/db/roster.ts` reads through it. Verified on staging as anon and
+authenticated in rolled-back transactions and through PostgREST: `select=utr`,
+`hometown`, `*`, `utr=gt.12` and `order=utr.desc` all 42501; the function
+returns integers only. Fingerprint: only functions, function grants and table
+grants moved. Also fixed: PR #64 left the roster importer's insert selecting 9
+columns into 8 (`table "v" has 8 columns available but 9 columns specified` on
+staging), so a roster import would have failed. Guard:
+`lib/db/roster-private-ratings.test.ts`. Production NOT migrated; Niran's go,
+HANDOFF §J Step 30. Evidence: `~/seeded-evidence/roster-utr-lockdown/`.
+
 **2026-11-24 — Week tidy-up after the Cursor overnight run (`fix/week-polish`).**
 Merged #59 (every production vercel.app name → seededtennis.com; checked first
 that the Whop webhook and every external caller use seededtennis.com and that
