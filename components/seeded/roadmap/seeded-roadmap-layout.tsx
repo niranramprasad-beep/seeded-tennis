@@ -288,7 +288,7 @@ export function SeededRoadmapLayout({ player, targetSchools, pickerSchools, plan
         />
         {/* A plan saved earlier that today's rating has since reached: say
             so, rather than plotting checkpoints behind the player. */}
-        {goal && realUtr != null && realUtr >= goal.value && (
+        {goal && realUtr != null && realUtr >= goal.value && new Date() < goalDate && (
           <p role="status" className="mt-3 text-sm text-stone">
             You&apos;ve reached your {formatPlayerUtr(goal.value)} plan UTR. Set a higher one.
           </p>

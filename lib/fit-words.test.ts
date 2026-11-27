@@ -52,7 +52,7 @@ describe("no 'band' on any screen", () => {
       if (NOT_COPY.has(f)) continue;
       for (const t of textsOf(f)) {
         if (t.className) continue;
-        if (/\bbands?\b/i.test(t.text.replace(/\bpre-session-bands\b/g, ""))) hits.push(`${f}:${t.line} ${t.text.trim().slice(0, 80)}`);
+        if (/\bband(s|ed|ing)?\b/i.test(t.text.replace(/\bpre-session-bands\b/g, ""))) hits.push(`${f}:${t.line} ${t.text.trim().slice(0, 80)}`);
       }
     }
     expect(hits).toEqual([]);
@@ -61,13 +61,16 @@ describe("no 'band' on any screen", () => {
   it("no screen names a fit tier the old way (Likely / Target / Reach / Out of range)", () => {
     // "Target schools" is the saved list, "Reach out" a verb, and the
     // tournament checker's "Out of range" a draw, not a school.
-    const ALLOWED = /Target schools|Target-school|Targets start|Reach out/;
+    // Allowed phrases are removed match by match, so "a Reach. Target
+    // schools need work." still fails on its "Reach".
+    const ALLOWED = /Target schools|Target-school|Targets start|Reach out/g;
     const hits: string[] = [];
     for (const f of FILES) {
       if (f.startsWith("components/seeded/methodology/tournament-checker-section")) continue;
       for (const t of textsOf(f)) {
-        if (t.className || ALLOWED.test(t.text)) continue;
-        if (/\b(Likely|Reach|Out of range)\b|\bTarget\b(?! schools)/.test(t.text) && /\b(Likely|Reach|Out of range|Target)\b/.test(t.text)) {
+        if (t.className) continue;
+        const rest = t.text.replace(ALLOWED, "");
+        if (/\b(Likely|Reach|Target)\b/.test(rest) || /\bout of range\b/i.test(rest)) {
           hits.push(`${f}:${t.line} ${t.text.trim().slice(0, 80)}`);
         }
       }
@@ -109,7 +112,16 @@ describe("fitComparisonSentence — the real comparison, said plainly", () => {
   });
 
   it("Stretch promises no pace: it is also the tier when fewer than three ratings are logged (verifier HIGH 2)", () => {
-    expect(fitComparisonSentence(est, checked, "reach")).not.toMatch(/could get you|gets you there|your pace/);
+    for (const j of [est, plan, { utr: 9, basis: { kind: "today" } } as JudgingRating]) {
+      expect(fitComparisonSentence(j, checked, "reach")).not.toMatch(/\bpace\b|gets? (you|them) (there|to)/);
+    }
+  });
+
+  it("judged on today's rating (the date has passed), the sentence names no date", () => {
+    const today: JudgingRating = { utr: 9, basis: { kind: "today" } };
+    for (const band of ["reach", "out-of-range"] as const) {
+      expect(fitComparisonSentence(today, checked, band)).not.toMatch(/summer before senior year/);
+    }
   });
 
   it("an unchecked team: the estimated floor and middle, never a drawn top (verifier MEDIUM)", () => {
@@ -126,6 +138,13 @@ describe("fitComparisonSentence — the real comparison, said plainly", () => {
 });
 
 describe("the school page: college players as whole numbers, nothing 'Not tracked'", () => {
+  it("the U.S. News line is printed only when there is a rank (its null text says 'not tracked')", () => {
+    const src = readFileSync("components/seeded/schools/seeded-school-detail.tsx", "utf8");
+    const calls = [...src.matchAll(/academicRankSentence\(/g)];
+    expect(calls).toHaveLength(1);
+    expect(src).toMatch(/school\.usNewsRanking !== null \? \(\s*<p[^>]*>\{academicRankSentence\(school\.usNewsRanking\)\}/);
+  });
+
   it("the roster loader hands the page only toRosterPlayer's output", () => {
     const src = readFileSync("lib/db/roster.ts", "utf8");
     expect(src).toMatch(/return \{ players: sortRoster\(players\)\.map\(toRosterPlayer\), staff: members \};/);

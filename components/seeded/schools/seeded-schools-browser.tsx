@@ -97,7 +97,7 @@ function placeLine(s: Pick<School, "city" | "state">): string | null {
 // measured steps (persona f: 174px at 320, 134 at 375, 94 from 640 to 1024,
 // 74 at 1440). Between those widths it is close, not exact. The no-rating
 // sentence ("X's rating shows with the Family plan, so programs below
-// aren't banded for fit.") is longer, so a parent whose last /schools had no
+// don't show a fit.") is longer, so a parent whose last /schools had no
 // fit gets its own steps (persona pb1: 194 at 320, 174 at 375, 74 at 1440).
 const PARENT_BLOCK_FIT_H = "min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]";
 const PARENT_BLOCK_NOFIT_H =
@@ -645,7 +645,7 @@ export function SeededSchoolsBrowser({
               ) : (
                 <>
                   {missingPlayerUtrPhrase(subjectName ?? "Your player", statsLocked)}, so programs
-                  below aren&rsquo;t banded for fit.
+                  below don&rsquo;t show a fit.
                   {statsLocked ? (
                     <>
                       {" "}

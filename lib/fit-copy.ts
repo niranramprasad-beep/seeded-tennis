@@ -550,9 +550,15 @@ export function fitComparisonSentence(
       return `${subject} is at or above the middle of ${rangeText}. ${SCHOOL_FIT_LABELS.likely}: a realistic shot.`;
     case "target":
       return `${subject} is inside ${rangeText}. ${SCHOOL_FIT_LABELS.target}: a realistic shot.`;
+    // Judged on today's rating once the summer before senior year has begun:
+    // that date is gone, so the sentence doesn't name it (verifier round 2).
     case "reach":
-      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor by the summer before senior year.`;
+      return judging.basis.kind === "today"
+        ? `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor.`
+        : `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor by the summer before senior year.`;
     case "out-of-range":
-      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot by the summer before senior year at the pace we plan with.`;
+      return judging.basis.kind === "today"
+        ? `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot at the pace we plan with.`
+        : `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot by the summer before senior year at the pace we plan with.`;
   }
 }

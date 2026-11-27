@@ -174,7 +174,18 @@ describe("one stored value, read by every fit screen", () => {
     const src = readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8");
     expect(src).toMatch(/type="range"[\s\S]*?onChange=\{\(e\) => edit\(/);
     expect(src).toMatch(/type="number"[\s\S]*?onChange=\{\(e\) => edit\(e\.target\.value\)\}/);
-    expect(src.match(/void save\(/g)?.length).toBe(3); // Save, Use my estimate, Clear
+    expect(src.match(/void save\(/g)?.length).toBe(4); // Save, Use my estimate, Clear (twice: form and no-plan message)
+  });
+  it("Today's pill says 'in range at your plan UTR' when the tiers came from the plan", () => {
+    expect(readFileSync("components/seeded/dashboard/seeded-dashboard-layout.tsx", "utf8")).toMatch(
+      /onTrackPill\(onTrackCount, targetSchools\.length, fitReport\?\.utr\.source === "plan"\)/
+    );
+  });
+  it("the control asks for a rating first and goes quiet once the date has passed", () => {
+    const src = readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8");
+    expect(src).toMatch(/const datePassed = new Date\(\) >= new Date\(seniorSummerYear, 5, 1\);/);
+    expect(src).toMatch(/if \(currentUtr == null \|\| datePassed\) \{\s*return \(/);
+    expect(src).toMatch(/Log your UTR first\./);
   });
   it("a parent never gets the control on /schools", () => {
     expect(readFileSync("components/seeded/schools/seeded-schools-browser.tsx", "utf8")).toMatch(

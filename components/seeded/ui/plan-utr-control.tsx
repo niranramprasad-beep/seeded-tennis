@@ -103,6 +103,17 @@ export function PlanUtrControl({
             ? "The summer before senior year has started, so fit uses your UTR today. There's no plan date left to aim for."
             : "Log your UTR first. Your plan UTR is the rating you're aiming for from there."}
         </p>
+        {/* A plan saved earlier stays clearable, though it no longer judges fit. */}
+        {saved != null ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-stone">
+            <span>
+              Saved: <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(saved)}</span> (not in use)
+            </span>
+            <SeededButton variant="secondary" onClick={() => void save(null)} disabled={saving}>
+              Clear
+            </SeededButton>
+          </div>
+        ) : null}
       </div>
     );
   }
