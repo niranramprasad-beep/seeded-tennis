@@ -72,12 +72,12 @@ describe("A2: every rating beside a team line says which rating it is", () => {
   it("the finding's example: Plan and the school page print the same gap, each labelled", () => {
     const s = school("x", 9.5, 10.5);
     // Plan used today's 8.20 unlabelled; the school page the 8.7 estimate.
-    expect(teamGapSentence(8.2, today, s, { lines: ["average"] })).toBe("You 8.20 today: 2.3 below the team average");
+    expect(teamGapSentence(8.2, today, s, { lines: ["average"] })).toBe("You 8.20 today: below the team average (10.xx)");
     expect(teamGapSentence(8.7, estimate, s, { lines: ["average"] })).toBe(
-      "You 8.7 by summer 2027, estimate: 1.8 below the team average"
+      "You 8.7 by summer 2027, estimate: below the team average (10.xx)"
     );
     expect(teamGapSentence(8.7, estimate, s, { who: "Bailey" })).toBe(
-      "Bailey 8.7 by summer 2027, estimate: 0.8 below the team floor · 1.8 below the team average"
+      "Bailey 8.7 by summer 2027, estimate: below the team floor (9.xx) · below the team average (10.xx)"
     );
   });
 
@@ -174,15 +174,15 @@ describe("verifier M1: the pure helpers every fit screen consumes", () => {
   it("whyBandGapLines: the judging gap, then TODAY's from today's rating — never the judging value as today", () => {
     const judging = { utr: 8.99, basis: { kind: "plan", year: 2027 } as RatingBasis };
     expect(whyBandGapLines(judging, 8.2, s)).toEqual([
-      "You 8.99 by summer 2027, your plan: 0.1 below the team floor · 1.3 below the team average",
-      "You 8.20 today: 0.9 below the team floor · 2.1 below the team average",
+      "You 8.99 by summer 2027, your plan: below the team floor (9.xx) · below the team average (10.xx)",
+      "You 8.20 today: below the team floor (9.xx) · below the team average (10.xx)",
     ]);
     expect(whyBandGapLines({ utr: 8.5, basis: estimate }, 8.2, s)).toEqual([
-      "You 8.5 by summer 2027, estimate: 0.6 below the team floor · 1.8 below the team average",
-      "You 8.20 today: 0.9 below the team floor · 2.1 below the team average",
+      "You 8.5 by summer 2027, estimate: below the team floor (9.xx) · below the team average (10.xx)",
+      "You 8.20 today: below the team floor (9.xx) · below the team average (10.xx)",
     ]);
     // Judged on today: one line, not two.
-    expect(whyBandGapLines({ utr: 8.2, basis: today }, 8.2, s)).toEqual(["You 8.20 today: 0.9 below the team floor · 2.1 below the team average"]);
+    expect(whyBandGapLines({ utr: 8.2, basis: today }, 8.2, s)).toEqual(["You 8.20 today: below the team floor (9.xx) · below the team average (10.xx)"]);
     // No real rating today: no today line.
     expect(whyBandGapLines({ utr: 8.5, basis: estimate }, null, s)).toHaveLength(1);
     expect(whyBandGapLines(null, null, s)).toEqual([]);
@@ -191,29 +191,29 @@ describe("verifier M1: the pure helpers every fit screen consumes", () => {
   it("verifier LOW: a parent's caption starts with a capital", () => {
     expect(ratingWithBasis(8.7, estimate, "your player")).toBe("Your player 8.7 by summer 2027, estimate");
     expect(rangeCaption({ utr: 8.7, basis: estimate }, "your player", { min: 9.1, max: 11.5 })).toBe(
-      "Your player 8.7 by summer 2027, estimate · team 9.1–11.5"
+      "Your player 8.7 by summer 2027, estimate · team 9.xx–11.xx"
     );
   });
 
   it("targetRowGapSentence: the band's line, from the judging rating, labelled", () => {
     expect(targetRowGapSentence({ utr: 8.5, basis: estimate }, s, "out-of-range")).toBe(
-      "You 8.5 by summer 2027, estimate: 0.6 below the team floor."
+      "You 8.5 by summer 2027, estimate: below the team floor (9.xx)."
     );
     expect(targetRowGapSentence({ utr: 9.5, basis: estimate }, s, "target")).toBe(
-      "You 9.5 by summer 2027, estimate: 0.8 below the team average."
+      "You 9.5 by summer 2027, estimate: below the team average (10.xx)."
     );
-    expect(targetRowGapSentence({ utr: 8.2, basis: today }, s, "reach")).toBe("You 8.20 today: 0.9 below the team floor.");
+    expect(targetRowGapSentence({ utr: 8.2, basis: today }, s, "reach")).toBe("You 8.20 today: below the team floor (9.xx).");
     expect(targetRowGapSentence(null, s, "reach")).toBe("Log a UTR to see your gap.");
     expect(targetRowGapSentence({ utr: 8.5, basis: estimate }, s, "unverified")).toBe("Log a UTR to see your gap.");
   });
 
   it("schoolPageUtrRow: judging gap + today's rating + chip suffix; no today line when judged on today", () => {
     expect(schoolPageUtrRow({ utr: 8.5, basis: estimate }, 8.2, s)).toEqual({
-      description: "You 8.5 by summer 2027, estimate: 0.6 below the team floor · 1.8 below the team average. You 8.20 today.",
+      description: "You 8.5 by summer 2027, estimate: below the team floor (9.xx) · below the team average (10.xx). You 8.20 today.",
       chipSuffix: " by summer 2027, estimate",
     });
     expect(schoolPageUtrRow({ utr: 8.2, basis: today }, 8.2, s, "Bailey")).toEqual({
-      description: "Bailey 8.20 today: 0.9 below the team floor · 2.1 below the team average.",
+      description: "Bailey 8.20 today: below the team floor (9.xx) · below the team average (10.xx).",
       chipSuffix: "",
     });
     expect(schoolPageUtrRow({ utr: 8.5, basis: estimate }, null, s).description).not.toMatch(/today/);
@@ -224,10 +224,10 @@ describe("verifier M1: the pure helpers every fit screen consumes", () => {
     expect(closestSchoolsMeasuredFrom({ utr: 8.2, basis: today })).toBe("your 8.20 today");
     expect(closestSchoolsMeasuredFrom(null)).toBeNull();
     expect(rangeBarYouLine({ youLabel: "You", you: 8.5, youIsEstimate: true, youBasis: "by summer 2027, estimate", median: 10.3 })).toBe(
-      "You 8.5 by summer 2027, estimate · 1.8 below the team average"
+      "You 8.5 by summer 2027, estimate · below the team average (10.xx)"
     );
     expect(rangeBarYouLine({ youLabel: "You", you: 8.2, youIsEstimate: false, youBasis: null, median: 10.3 })).toBe(
-      "You 8.20 · 2.1 below the team average"
+      "You 8.20 · below the team average (10.xx)"
     );
   });
 });
@@ -282,7 +282,7 @@ describe("A4: the fit report's zero state", () => {
   it("leads with the homepage's zero sentence (closest program, gap, estimate) when nothing is in range now or by the summer", () => {
     const lead = fitReportLead({ todayInRange: 0, recruitingInRange: 0, utr }, "player", zero);
     expect(lead).toBe(nothingInRangeSentence(zero));
-    expect(lead).toBe("None of our 37 men's programs are in range at 5.00 yet. Closest: Middlebury, about +3.1 away (estimate).");
+    expect(lead).toBe("None of our 37 men's programs are in range at 5.00 yet. Closest: Middlebury, floor 8.xx.");
     expect(lead).not.toMatch(/\b0 programs\b/);
   });
 

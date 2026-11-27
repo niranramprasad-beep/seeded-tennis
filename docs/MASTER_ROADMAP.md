@@ -37,7 +37,8 @@ Status lines are claims about live systems. Re-check the source each one names.
   ("12.xx") with a link-out button to their UTR profile, the exact rating is
   cut on the server, and Hometown is gone. The exact ratings are still
   readable through the public database API until a follow-up migration
-  closes `program_roster.utr` (TODO §2). Still open: the privacy policy's
+  closes `program_roster.utr` (TODO §2). Team floors, middles and tops are
+  whole numbers on screen too, but exact in the page source (TODO §2). Still open: the privacy policy's
   wording for these names, and a takedown path (TODO §5).
 - **Plan UTR and fit wording (branch `feat/plan-utr-fit-reframe`, not merged
   yet):** one stored Plan UTR (`planGoalUtr`, no migration) judges fit on

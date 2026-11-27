@@ -9,6 +9,7 @@ import ts from "typescript";
 import { SCHOOL_FIT_BAND_LABEL } from "./school-fit";
 import { fitComparisonSentence, type JudgingRating } from "./fit-copy";
 import type { SchoolLite } from "./types";
+import { formatTeamUtr } from "./utils";
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
@@ -98,16 +99,16 @@ describe("fitComparisonSentence — the real comparison, said plainly", () => {
 
   it("one sentence per tier, naming the rating, the range and whether it is a realistic shot", () => {
     expect(fitComparisonSentence(plan, checked, "likely")).toBe(
-      "Your plan UTR (11.50 by summer 2027) is at or above the middle of Fake U's UTR range (10.4–12.1). Safe bet: a realistic shot."
+      "Your plan UTR (11.50 by summer 2027) is at or above the middle of Fake U's UTR range (10.xx–12.xx). Safe bet: a realistic shot."
     );
     expect(fitComparisonSentence({ ...plan, utr: 10.6 }, checked, "target")).toBe(
-      "Your plan UTR (10.60 by summer 2027) is inside Fake U's UTR range (10.4–12.1). Good match: a realistic shot."
+      "Your plan UTR (10.60 by summer 2027) is inside Fake U's UTR range (10.xx–12.xx). Good match: a realistic shot."
     );
     expect(fitComparisonSentence(est, checked, "reach")).toBe(
-      "Your estimated UTR (8.7 by summer 2027) is below Fake U's UTR range (10.4–12.1). Stretch: not a realistic shot yet. It would take a climb to the floor by the summer before senior year."
+      "Your estimated UTR (8.7 by summer 2027) is below Fake U's UTR range (10.xx–12.xx). Stretch: not a realistic shot yet. It would take a climb to the floor by the summer before senior year."
     );
     expect(fitComparisonSentence(est, checked, "out-of-range", "Avery")).toBe(
-      "Avery's estimated UTR (8.7 by summer 2027) is below Fake U's UTR range (10.4–12.1). Long shot: not a realistic shot by the summer before senior year at the pace we plan with."
+      "Avery's estimated UTR (8.7 by summer 2027) is below Fake U's UTR range (10.xx–12.xx). Long shot: not a realistic shot by the summer before senior year at the pace we plan with."
     );
   });
 
@@ -126,8 +127,8 @@ describe("fitComparisonSentence — the real comparison, said plainly", () => {
 
   it("an unchecked team: the estimated floor and middle, never a drawn top (verifier MEDIUM)", () => {
     const s = fitComparisonSentence(est, estimated, "target")!;
-    expect(s).toContain("Est U's estimated range (floor 9.0, middle 10.2)");
-    expect(s).not.toMatch(/11\.4/); // the drawn top, avg + (avg − floor)
+    expect(s).toContain("Est U's estimated range (floor 9.xx, middle 10.xx)");
+    expect(s).not.toMatch(/11\.(4|xx)/); // the drawn top, avg + (avg − floor)
   });
 
   it("no rating or no tier → null (the caller shows its own prompt)", () => {
@@ -173,5 +174,48 @@ describe("the school page: college players as whole numbers, nothing 'Not tracke
     }
     const detail = textsOf("components/seeded/schools/seeded-school-detail.tsx").filter((t) => /^Not tracked$/.test(t.text.trim()));
     expect(detail).toEqual([]);
+  });
+});
+
+describe("team numbers print as whole numbers only (Niran, 2026-11-27)", () => {
+  it("formatTeamUtr: 12.37 → '12.xx'", () => {
+    expect(formatTeamUtr(12.37)).toBe("12.xx");
+    expect(formatTeamUtr(12)).toBe("12.xx");
+    expect(formatTeamUtr(9.999)).toBe("9.xx");
+  });
+
+  it("no file formats a team's floor, middle, top or a gap to one any other way", () => {
+    const TEAM_ARG = /(range\.(min|max)|minCompetitiveUTR|avgRosterUTR|utrRange|targetFloor|\b(low|high|median)!|utrNeeded|\bfloor\b)/;
+    const hits: string[] = [];
+    // The owner-only admin page and the catalog import tooling work with the
+    // exact figures on purpose; no visitor reads them.
+    for (const f of FILES.filter((x) => !x.startsWith("components/admin/") && !x.startsWith("lib/catalog/"))) {
+      const src = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+      for (const m of src.matchAll(/(formatUtrEstimate|formatPlayerUtr|formatTargetUtr)\(([^()]*)\)/g)) {
+        if (TEAM_ARG.test(m[2])) hits.push(`${f}: ${m[0]}`);
+      }
+      for (const m of src.matchAll(/(minCompetitiveUTR|avgRosterUTR|range\.(min|max)|utrRange\??\.(low|middle|high)|\b(low|high|median)!?|targetFloor)\)?\.toFixed\(/g)) hits.push(`${f}: ${m[0]}`);
+      // A raw team value dropped straight into text.
+      // (`low={range.min}` is a prop for the range bar, which bands it itself.)
+      for (const m of src.matchAll(/(?<![=])\$?\{\s*(range\.(min|max)|(school|s)\.(minCompetitiveUTR|avgRosterUTR)|(school|s)\.utrRange\??\.(low|middle|high)|(low|high|median)!?)\s*\}/g)) {
+        hits.push(`${f}: ${m[0]}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("the team-number screens use formatTeamUtr", () => {
+    for (const f of [
+      "lib/fit-copy.ts",
+      "lib/school-fit.ts",
+      "lib/parent-dashboard.ts",
+      "components/seeded/ui/range-bar.tsx",
+      "components/seeded/schools/seeded-schools-browser.tsx",
+      "components/seeded/schools/seeded-school-detail.tsx",
+      "components/seeded/onboarding/seeded-pre-auth-onboarding.tsx",
+      "app/schools/[slug]/page.tsx",
+    ]) {
+      expect(readFileSync(f, "utf8"), f).toMatch(/formatTeamUtr\(/);
+    }
   });
 });

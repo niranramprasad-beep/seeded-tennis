@@ -63,9 +63,11 @@ pre-redesign commits that never landed — don't merge it.
   to a player. Fit is judged on the player's stored Plan UTR
   (`planGoalUtr`) while it applies, else the estimate. Stretch-vs-Long-shot
   uses a real UTR-trajectory projection, never a static snapshot.
-- **College players' UTRs show as whole numbers only ("12.xx")**, cut on the
-  server (`lib/db/roster.ts`). Team ranges and the player's own numbers stay
-  exact (Niran, 2026-11-27).
+- **College players' UTRs and every team number (floor, middle, top) show as
+  whole numbers only ("12.xx")**: roster ratings are cut on the server
+  (`lib/db/roster.ts`), team numbers print through `formatTeamUtr`, and no
+  screen prints an exact distance to a team line. The player's own numbers
+  stay exact (Niran, 2026-11-27; `lib/fit-words.test.ts`).
 - **"Leaving" counts, never "open spots."** Real grad-year math only.
 - **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
   nav, unchanged. Below it, a small secondary **"Tools"** group (Results,

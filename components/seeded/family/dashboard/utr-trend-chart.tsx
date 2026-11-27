@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { UtrChartModel } from "@/lib/parent-dashboard";
-import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPlayerUtr, formatTeamUtr, formatUtrEstimate } from "@/lib/utils";
 import { CHART_LINE_NAMES } from "@/lib/chart-legend";
 
 // Board 22's hero chart. Draws a model lib/parent-dashboard.ts built — it
@@ -126,7 +126,7 @@ export function UtrTrendChart({ model, ariaLabel }: { model: UtrChartModel; aria
               fill="rgb(var(--c-clay-tint-text))"
             >
               {narrow ? "Targets start" : "Target schools start at"}{" "}
-              <tspan fontFamily={NUMBER_FONT}>{formatUtrEstimate(model.targetFloor as number)}</tspan>
+              <tspan fontFamily={NUMBER_FONT}>{formatTeamUtr(model.targetFloor as number)}</tspan>
             </text>
           </g>
         )}

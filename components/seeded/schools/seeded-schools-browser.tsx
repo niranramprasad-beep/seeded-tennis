@@ -44,7 +44,7 @@ import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
 import { PlanUtrControl } from "@/components/seeded/ui/plan-utr-control";
 import { Drawer } from "@/components/ui/drawer";
-import { cn, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
+import { cn, formatTeamUtr, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
 import { fitComparisonSentence, judgingRatingFor, rangeCaption, ratingBasisLabel, todayRatingFor, whyBandGapLines } from "@/lib/fit-copy";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
@@ -981,10 +981,10 @@ export function SeededSchoolsBrowser({
                       // The team range is real data and shows either way.
                       caption={
                         judgingUtr === null
-                          ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                          ? `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
                           : judging
                             ? rangeCaption(judging, judgingWho, range)
-                            : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                            : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
@@ -1143,9 +1143,9 @@ export function SeededSchoolsBrowser({
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <dt className="text-stone-light">{s.utrRange ? "Team middle UTR (median)" : "Avg roster UTR (est.)"}</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.avgRosterUTR)}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatTeamUtr(s.avgRosterUTR)}</dd>
                   <dt className="text-stone-light">{s.utrRange ? "Team floor UTR (lower quartile)" : "Min competitive UTR (est.)"}</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.minCompetitiveUTR)}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatTeamUtr(s.minCompetitiveUTR)}</dd>
                   {/* A rank this school has no figure for is left out, not
                       printed as "Not tracked" (Niran, 2026-11-27). */}
                   {s.usNewsRanking !== null && (

@@ -3,7 +3,7 @@ import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { seededButtonVariants } from "@/components/seeded/ui/button";
 import { utrToPct } from "@/lib/school-fit";
 import { SUPPORT_EMAIL } from "@/lib/config/contact";
-import { cn } from "@/lib/utils";
+import { cn, formatTeamUtr } from "@/lib/utils";
 import { TOURNAMENT_CHECKER_TOC, TournamentCheckerMethod } from "./tournament-checker-section";
 
 // Illustrative example for the Team ranges section — not a live school, just
@@ -185,7 +185,9 @@ export function SeededMethodologyView() {
                 The bar starts at the team&apos;s floor, and the tick is its middle. For a hand-checked team the top of
                 the bar is its highest reliable rating. For an estimated team the top is not a number we have: it is
                 drawn as far above the average as the floor is below it, so there is somewhere to show you landing.
-                Your yellow dot is your rating.
+                Your yellow dot is your rating. Every team number is printed as its whole number, like
+                &ldquo;10.xx&rdquo;: a checked team&apos;s top is its best player&apos;s rating, and its middle can be
+                one player&apos;s, so the exact figure would give a college player&apos;s rating away.
               </p>
               <div className="mt-4 rounded-card border border-line bg-card p-[22px]">
                 <RangeBar
@@ -199,9 +201,9 @@ export function SeededMethodologyView() {
                   you={RANGE_EXAMPLE.you}
                 />
                 <div className="mt-2 flex items-center justify-between font-mono text-[13px] tabular-nums text-stone">
-                  <span>low {RANGE_EXAMPLE.low.toFixed(1)}</span>
-                  <span>average {RANGE_EXAMPLE.median.toFixed(1)}</span>
-                  <span>high {RANGE_EXAMPLE.high.toFixed(1)}</span>
+                  <span>low {formatTeamUtr(RANGE_EXAMPLE.low)}</span>
+                  <span>average {formatTeamUtr(RANGE_EXAMPLE.median)}</span>
+                  <span>high {formatTeamUtr(RANGE_EXAMPLE.high)}</span>
                 </div>
               </div>
             </Section>

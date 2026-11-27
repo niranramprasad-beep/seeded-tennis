@@ -358,7 +358,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     );
     const far = { ...logged, targetFloor: 11 };
     expect(utrChartCaption(buildUtrChart(far), { ...far, childFirst: "Maya" })).toBe(
-      "At the pace in Maya's logged ratings, Maya is about 2.5 short of where their target schools start by summer 2028."
+      "At the pace in Maya's logged ratings, Maya is still short of where their target schools start (11.xx) by summer 2028."
     );
   });
 
@@ -368,7 +368,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(model.projection!.held).toBe(true);
     expect(model.projection!.value).toBe(7.5);
     expect(utrChartCaption(model, { ...falling, childFirst: "Maya" })).toBe(
-      "Held at today's rating (Maya's has gone down lately), Maya is about 1.0 short of where their target schools start by summer 2028."
+      "Held at today's rating (Maya's has gone down lately), Maya is still short of where their target schools start (8.xx) by summer 2028."
     );
   });
 
@@ -376,7 +376,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     const far = { ...input, targetFloor: 11 };
     const model = buildUtrChart(far)!;
     expect(utrChartCaption(model, { ...far, childFirst: "Maya" })).toMatch(
-      /^At our default assumption of 1\.0 UTR a year, Maya is about \d+\.\d short of where their target schools start by summer 2028\.$/
+      /^At our default assumption of 1\.0 UTR a year, Maya is still short of where their target schools start \(11\.xx\) by summer 2028\.$/
     );
   });
 
@@ -400,12 +400,12 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(utrChartAriaLabel(model, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Sep 2025 to Nov 2026. Today: 7.50. ` +
         `Estimate for summer 2028, the summer before senior year: about ${rtu.value.toFixed(1)}, ` +
-        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.5.`
+        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.xx.`
     );
     // A logged pace has no range, so the label claims none.
     expect(utrChartAriaLabel(buildUtrChart(logged)!, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Feb 2026 to Nov 2026. Today: 7.50. ` +
-        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.5.`
+        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.xx.`
     );
   });
 });

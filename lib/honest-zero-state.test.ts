@@ -12,7 +12,6 @@ import {
   UTR_RANGE_NOTE,
   closestProgramAbove,
   fitReportHeadline,
-  formatUtrDistance,
   headlinePaceSource,
   heroFitCta,
   inRangeButtonLabel,
@@ -93,24 +92,24 @@ describe("closestProgramAbove — the nearest estimated range above the rating",
 });
 
 describe("nothingInRangeSentence", () => {
-  it("states the catalogue count, today's UTR at two decimals and the closest gap as an estimate", () => {
+  it("states the catalogue count, today's UTR at two decimals and the closest floor as a whole number", () => {
     expect(
       nothingInRangeSentence({ programCount: 24, utr: 9.4, closest: { slug: "f", name: "Florida", gap: 1.15 } })
-    ).toBe("None of our 24 programs are in range at 9.40 yet. Closest: Florida, about +1.1 away (estimate).");
+    ).toBe("None of our 24 programs are in range at 9.40 yet. Closest: Florida, floor 10.xx.");
   });
 
   it("names the gender when the list is one gender's programs", () => {
     expect(
       nothingInRangeSentence({ programCount: 31, programLabel: "women's", utr: 5, closest: { slug: "m", name: "Middlebury", gap: 3.1 } })
-    ).toBe("None of our 31 women's programs are in range at 5.00 yet. Closest: Middlebury, about +3.1 away (estimate).");
+    ).toBe("None of our 31 women's programs are in range at 5.00 yet. Closest: Middlebury, floor 8.xx.");
     expect(nothingInRangeSentence({ programCount: 37, programLabel: "men's", utr: 5, closest: null })).toBe(
       "None of our 37 men's programs are in range at 5.00 yet."
     );
   });
 
-  it("a small gap keeps two decimals — never '+0.0'", () => {
+  it("never an exact gap: it plus the reader's own UTR would give the team's floor back (2026-11-27)", () => {
     expect(nothingInRangeSentence({ programCount: 24, utr: 9.97, closest: { slug: "f", name: "Florida", gap: 0.03 } })).toBe(
-      "None of our 24 programs are in range at 9.97 yet. Closest: Florida, about +0.03 away (estimate)."
+      "None of our 24 programs are in range at 9.97 yet. Closest: Florida, floor 10.xx."
     );
   });
 
@@ -161,7 +160,7 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
     expect(heroFitCta({ counts: counts(0, 0, 0, 2), utr: 9.4, schools: catalog, programLabel: "women's" })).toEqual({
       kind: "zero",
       showCounts: false,
-      sentence: "None of our 2 women's programs are in range at 9.40 yet. Closest: Florida, about +0.8 away (estimate).",
+      sentence: "None of our 2 women's programs are in range at 9.40 yet. Closest: Florida, floor 10.xx.",
       link: { label: "See all programs", href: "/schools" },
       projectedNote: null,
     });
@@ -378,27 +377,30 @@ describe("fitReportHeadline — today first (A-006), and says where the pace cam
   });
 });
 
-describe("teamLineRelation — no signed gaps, and never 'at' when the chip says otherwise (A-007)", () => {
-  it("takes (rating, line): below / above / at", () => {
-    expect(teamLineRelation(9.7, 10.0, "average")).toBe("0.3 below the team average");
-    expect(teamLineRelation(10.3, 10.0, "average")).toBe("0.3 above the team average");
-    expect(teamLineRelation(6.86, 8.1, "floor")).toBe("1.2 below the team floor");
-    expect(teamLineRelation(10, 10, "average")).toBe("at the team average");
+describe("teamLineRelation — which side, the team line as a whole number, never an exact gap (A-007, 2026-11-27)", () => {
+  it("takes (rating, line): below / at or above, with the line banded", () => {
+    expect(teamLineRelation(9.7, 10.0, "average")).toBe("below the team average (10.xx)");
+    expect(teamLineRelation(10.3, 10.0, "average")).toBe("at or above the team average (10.xx)");
+    expect(teamLineRelation(6.86, 8.1, "floor")).toBe("below the team floor (8.xx)");
+    expect(teamLineRelation(10, 10, "average")).toBe("at or above the team average (10.xx)");
   });
 
-  it("the verifier's cases: 8.06 vs a floor of 8.1 and 9.96 vs an average of 10.0 are below, to two decimals", () => {
-    expect(teamLineRelation(8.06, 8.1, "floor")).toBe("0.04 below the team floor");
-    expect(teamLineRelation(9.96, 10.0, "average")).toBe("0.04 below the team average");
-    expect(teamLineRelation(8.14, 8.1, "floor")).toBe("0.04 above the team floor");
-    expect(formatUtrDistance(0.004)).toBe("less than 0.01");
-    expect(formatUtrDistance(0.094)).toBe("0.09");
-    expect(formatUtrDistance(0.15)).toBe("0.1");
+  it("the verifier's cases: 8.06 vs a floor of 8.1 and 9.96 vs an average of 10.0 are below", () => {
+    expect(teamLineRelation(8.06, 8.1, "floor")).toBe("below the team floor (8.xx)");
+    expect(teamLineRelation(9.96, 10.0, "average")).toBe("below the team average (10.xx)");
+    expect(teamLineRelation(8.14, 8.1, "floor")).toBe("at or above the team floor (8.xx)");
   });
 
-  it("a drawn average with floating-point noise ((min + max) / 2) is still 'at'", () => {
+  it("no digits beyond the whole number of the team line ever print", () => {
+    for (const [r, l] of [[8.06, 8.1], [12.37, 11.55], [9.999, 10.0]] as const) {
+      expect(teamLineRelation(r, l, "floor")).not.toMatch(/\d\.\d/);
+    }
+  });
+
+  it("a drawn average with floating-point noise ((min + max) / 2) still reads 'at or above'", () => {
     const min = 8.1;
     const max = 10.0 + (10.0 - 8.1);
-    expect(teamLineRelation(10.0, (min + max) / 2, "average")).toBe("at the team average");
+    expect(teamLineRelation(10.0, (min + max) / 2, "average")).toBe("at or above the team average (10.xx)");
   });
 
   it("agrees with the band chip by construction, across every rating 7.90–10.20", () => {
@@ -412,10 +414,10 @@ describe("teamLineRelation — no signed gaps, and never 'at' when the chip says
       const chip = bandPositionLabel(band);
       const floorText = teamLineRelation(utr, s.minCompetitiveUTR, "floor");
       const avgText = teamLineRelation(utr, s.avgRosterUTR, "average");
-      if (chip === "Below the floor") expect(floorText, `${utr}`).toMatch(/below the team floor$/);
+      if (chip === "Below the floor") expect(floorText, `${utr}`).toMatch(/^below the team floor \(8\.xx\)$/);
       else expect(floorText, `${utr}`).not.toMatch(/below/);
       if (chip === "At or above team average") expect(avgText, `${utr}`).not.toMatch(/below/);
-      else expect(avgText, `${utr}`).toMatch(/below the team average$/);
+      else expect(avgText, `${utr}`).toMatch(/^below the team average \(10\.xx\)$/);
       expect(`${floorText} ${avgText}`).not.toMatch(/\b0\.00?\b/);
     }
   });
@@ -482,7 +484,10 @@ describe("the planning rule replaces the growth claim (A-008)", () => {
     // 1.52 a year: floor 10.0, player 8.48, one year (June 2025 → June 2026).
     const ex = explainSchoolFit(8.48, school("s", 10.0, 11.0), { graduationYear: 2027, now: new Date(2025, 5, 1, 12) });
     expect(ex.nextBand!.requiredPaceUtrPerYear).toBe(1.52);
-    expect(ex.nextBand!.message).toContain(`That needs about 1.52 a year, ${PACE_STRETCH_PHRASE}. ${PLANNING_RULE_SENTENCE}`);
+    expect(ex.nextBand!.message).toContain(`The pace that takes is ${PACE_STRETCH_PHRASE}. ${PLANNING_RULE_SENTENCE}`);
+    // No exact pace: times the years left plus the player's UTR, it would give the floor back.
+    expect(ex.nextBand!.message).not.toMatch(/1\.52|10\.0\b/);
+    expect(ex.nextBand!.message).toMatch(/^Reaching 10\.xx by /);
     expect(ex.nextBand!.message).not.toMatch(/more than our planning limit/);
     // …and the same card does not also call it out of reach (round-2
     // verifier): no "won't realistically close", no "Consider instead".

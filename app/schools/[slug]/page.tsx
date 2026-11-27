@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatTeamUtr } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import {
   combinedScore,
@@ -93,11 +94,11 @@ export default async function SchoolDetailPage({
   const stats = [
     {
       label: school.utrRange ? `Team middle UTR (${utrSourceShortLabel(school)})` : `Avg roster UTR (${utrSourceShortLabel(school)})`,
-      value: school.avgRosterUTR.toFixed(1),
+      value: formatTeamUtr(school.avgRosterUTR),
     },
     {
       label: school.utrRange ? `Team floor UTR (${utrSourceShortLabel(school)})` : `Min competitive (${utrSourceShortLabel(school)})`,
-      value: school.minCompetitiveUTR.toFixed(1),
+      value: formatTeamUtr(school.minCompetitiveUTR),
     },
     { label: "US News", value: school.usNewsRanking === null ? "Not tracked" : `#${school.usNewsRanking}` },
     { label: "Seeded score", value: score === null ? "Not tracked" : String(score) },

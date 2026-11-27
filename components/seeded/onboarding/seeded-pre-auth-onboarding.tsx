@@ -21,7 +21,7 @@ import {
 } from "@/lib/fit-copy";
 import { diagnosticValues, type DiagnosticAnswers } from "@/lib/onboarding/diagnostic";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn, formatPlayerUtr, formatUtrEstimate, plural } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatTeamUtr, formatUtrEstimate, plural } from "@/lib/utils";
 import { RECRUITING_TIMING_NOTE, GROWTH_ESTIMATE_CAPTION, DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
 import { FIT_BAND_LABEL, FitBandIcon } from "@/components/seeded/ui/fit-badge";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
@@ -338,8 +338,8 @@ export function DiagnosticFitReport({
                           youPct={utrToPct(judging)}
                           caption={
                             projectedView
-                              ? `${ratingWithBasis(judging, basis, whoLabel)}${today != null ? ` · ${formatPlayerUtr(today)} today` : ""} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
-                              : `${ratingWithBasis(judging, basis, whoLabel)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                              ? `${ratingWithBasis(judging, basis, whoLabel)}${today != null ? ` · ${formatPlayerUtr(today)} today` : ""} · team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
+                              : `${ratingWithBasis(judging, basis, whoLabel)} · team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
                           }
                           low={range.min}
                           median={s.avgRosterUTR}

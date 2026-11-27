@@ -62,7 +62,6 @@ describe("one pace phrasing", () => {
       "components/seeded/roadmap/seeded-roadmap-layout.tsx",
       "lib/fit/goal.ts",
       "components/seeded/schools/seeded-school-detail.tsx",
-      "lib/school-fit.ts",
     ]) {
       expect(code(f), f).toMatch(/formatPacePerYear\(/);
     }

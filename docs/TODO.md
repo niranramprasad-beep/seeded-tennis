@@ -131,6 +131,18 @@ Specifically needs a human with legal training:
 
 ## 2. Security and database
 
+### Exact team numbers are still in the page source (2026-11-27)
+
+Team floors, middles and tops print only as whole numbers since 2026-11-27,
+but the exact values still ship to the browser: the school catalog is passed
+to client components for the fit math (`School.minCompetitiveUTR`,
+`avgRosterUTR`, `utrRange`), the range bar positions are exact, and
+`team_ranges` / `programs` are publicly readable. A checked team's top is
+its best player's exact rating, so a reader of the page source can still get
+it. Fixing it means judging fit on the server (an API that returns tiers and
+banded copy) and closing the public reads — bigger than PR #64; needs a plan
+and Niran's call.
+
 ### College players' exact UTRs are still readable through the public API (2026-11-27)
 
 Niran's rule (2026-11-27): a college roster player's exact UTR never reaches
@@ -149,9 +161,9 @@ migration should null `program_roster.hometown`: the importer stopped
 writing it on 2026-11-27, but rows already imported (production included)
 still hold real hometowns that anyone with the publishable key can read.
 Note too: a checked team's range top is its highest reliable rating and its
-middle a median, so those team numbers can equal one player's rating —
-Niran chose to keep team numbers exact (the roster now sorts by whole
-number, then name, so rows can't be matched to them by order).
+middle a median, so those team numbers can equal one player's rating — on
+screen they are now whole numbers too (Niran, 2026-11-27); see "Exact team
+numbers are still in the page source" above.
 
 
 ### Pending under-13s and parents' own player rows (both are migrations; Niran, 2026-11-16)

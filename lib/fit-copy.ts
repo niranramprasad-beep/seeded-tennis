@@ -2,7 +2,7 @@ import type { SchoolLite } from "@/lib/types";
 import type { BandCounts, FitReport, RecruitingTimeUtr } from "@/lib/fit";
 import { PLANNING_PACE_CAP_PER_YEAR, formatPacePerYear, isUsableUtr, projectionTargetLabel } from "@/lib/fit";
 import { SCHOOL_FIT_BAND_LABEL as SCHOOL_FIT_LABELS, schoolUtrRange } from "@/lib/school-fit";
-import { formatPlayerUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
+import { formatPlayerUtr, formatTeamUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
 
 // The words that sit next to the fit counts — the homepage calculator's
 // button, the zero state when nothing is in range, the fit report's headline
@@ -61,18 +61,6 @@ export function closestProgramAbove(
   return best;
 }
 
-/**
- * A distance between a rating and a team line, printed precisely enough that
- * a non-zero distance never prints as zero: one decimal from 0.1 up (the team
- * numbers are estimates), two decimals below 0.1 ("0.04"), and "less than
- * 0.01" below that. Callers decide "at" separately, by exact comparison.
- */
-export function formatUtrDistance(distance: number): string {
-  const d = Math.abs(distance);
-  if (d < 0.005) return "less than 0.01";
-  if (Math.round(d * 100) < 10) return d.toFixed(2);
-  return formatUtrEstimate(d);
-}
 
 /**
  * "None of our 24 women's programs are in range at 9.40 yet. Closest:
@@ -94,9 +82,9 @@ export function nothingInRangeSentence(input: {
   const noun = programLabel ? `${programLabel} ${pluralNoun(programCount, "program", "programs")}` : pluralNoun(programCount, "program", "programs");
   const none = `None of our ${programCount} ${noun} ${programCount === 1 ? "is" : "are"} in range at ${formatPlayerUtr(utr)} yet.`;
   if (!closest) return none;
-  const gap = formatUtrDistance(closest.gap);
-  const away = gap === "less than 0.01" ? "less than 0.01 away" : `about +${gap} away`;
-  return `${none} Closest: ${closest.name}, ${away} (estimate).`;
+  // The team's floor as a whole number, never the exact distance to it: that
+  // plus the reader's own UTR gives the floor back (2026-11-27).
+  return `${none} Closest: ${closest.name}, floor ${formatTeamUtr(utr + closest.gap)}.`;
 }
 
 /** "See my 3 schools in range" / "See my 1 school in range" — in range =
@@ -297,9 +285,11 @@ export function emptyBandSentence(band: FitTabBand): string {
 /** "middle" is a checked roster's median (lib/catalog/merge.ts); "average"
  *  the legacy estimate's. */
 export function teamLineRelation(rating: number, line: number, which: "average" | "floor" | "middle"): string {
-  const diff = line - rating;
-  if (Math.abs(diff) < 1e-9) return `at the team ${which}`;
-  return `${formatUtrDistance(diff)} ${diff > 0 ? "below" : "above"} the team ${which}`;
+  // The side of the line, and the line as a whole number — never the exact
+  // distance, which plus the reader's own UTR gives the team number back
+  // (Niran, 2026-11-27: team numbers are whole numbers on screen). `>=`
+  // is classifySchoolFit's own comparison, so the tier chip always agrees.
+  return `${rating >= line - 1e-9 ? "at or above" : "below"} the team ${which} (${formatTeamUtr(line)})`;
 }
 
 // ---------------------------------------------------------------------
@@ -474,7 +464,7 @@ export function schoolPageUtrRow(
 /** "You 8.7 by summer 2027, estimate · team 9.1–11.5" — a range bar's
  *  caption. */
 export function rangeCaption(judging: JudgingRating, who: string, range: { min: number; max: number }): string {
-  return `${ratingWithBasis(judging.utr, judging.basis, who)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`;
+  return `${ratingWithBasis(judging.utr, judging.basis, who)} · team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`;
 }
 
 /** "your 8.5 by summer 2027, estimate" — the rating /plan's Closest schools
@@ -542,8 +532,8 @@ export function fitComparisonSentence(
   if (!judging || !band || band === "unverified") return null;
   const range = schoolUtrRange(school);
   const rangeText = school.utrRange
-    ? `${school.shortName}'s UTR range (${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)})`
-    : `${school.shortName}'s estimated range (floor ${formatUtrEstimate(school.minCompetitiveUTR)}, middle ${formatUtrEstimate(school.avgRosterUTR)})`;
+    ? `${school.shortName}'s UTR range (${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)})`
+    : `${school.shortName}'s estimated range (floor ${formatTeamUtr(school.minCompetitiveUTR)}, middle ${formatTeamUtr(school.avgRosterUTR)})`;
   const subject = judgingSubject(judging, who);
   switch (band) {
     case "likely":

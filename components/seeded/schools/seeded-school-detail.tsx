@@ -32,7 +32,7 @@ import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { SchoolMark } from "@/components/seeded/ui/school-mark";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatTeamUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatIsoDate } from "@/lib/catalog/programs";
 import { schoolRangeNote } from "@/lib/db/schools";
 import type { SchoolDetails } from "@/lib/types";
@@ -286,10 +286,10 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
             judgingValue != null
               ? judgingRating
                 ? rangeCaption(judgingRating, subjectWho, range)
-                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
               : subjectFirst
-                ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
-                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`
+                ? `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
+                : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)} · add your UTR to compare`
           }
           low={range.min}
           median={school.avgRosterUTR}

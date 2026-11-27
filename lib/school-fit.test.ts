@@ -205,14 +205,14 @@ describe("explainSchoolFit — summary sentence, real numbers only", () => {
     const explanation = explainSchoolFit(5.8, school, { graduationYear: 2028 });
     // "today": the band may be judged at a projected estimate (the fit
     // report's choice), so the sentence says which rating it is quoting.
-    expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.3. You're 5.80 today.");
+    expect(explanation.summary).toBe("Stanford's estimated competitive floor is 12.xx. You're 5.80 today.");
     expect(explanation.gapToFloor).toBeCloseTo(6.5, 2);
     expect(explanation.gapToMedian).toBeCloseTo(7.8, 2);
   });
 
   it("switches to an 'already above' sentence once the player clears the floor", () => {
     const explanation = explainSchoolFit(14, school, { graduationYear: 2028 });
-    expect(explanation.summary).toBe("You're 14.00 today, already above Stanford's competitive floor of 12.3.");
+    expect(explanation.summary).toBe("You're 14.00 today, at or above Stanford's competitive floor (12.xx).");
     expect(explanation.gapToFloor).toBeCloseTo(-1.7, 2);
   });
 });

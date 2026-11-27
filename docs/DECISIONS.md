@@ -53,11 +53,16 @@ display rule himself (2026-11-27). Calls made while building it:
   "Your chances here", and every fit explanation leads with
   `fitComparisonSentence`: the rating fit used against the team's actual
   range, then "a realistic shot" or not.
-- **Display rule:** only college roster players' UTRs are banded, as
-  "12.xx" (`Math.floor`), cut on the server before the page gets them. Team
-  ranges, the player's own UTR, Plan UTR, checkpoints and chart tooltips stay
-  exact (Niran's answer). The public API read is a follow-up migration (TODO
-  §2), on Niran's call.
+- **Display rule:** college roster players' UTRs are banded as "12.xx"
+  (`Math.floor`), cut on the server before the page gets them. **Team
+  numbers too** (Niran, 2026-11-27, after the verifier showed an exact range
+  top gives the best player's rating away): every floor, middle and top
+  prints through `formatTeamUtr`, and nothing prints an exact distance to one
+  ("below the team floor (10.xx)", not "0.3 below"), nor the exact pace a
+  gap needs (pace × years + your UTR = the floor). The player's own UTR,
+  Plan UTR, checkpoints and chart tooltips stay exact. Fit math keeps the
+  exact numbers. The public API read is a follow-up migration (TODO §2), on
+  Niran's call.
 - **"Not tracked" is left out on school pages**: rank, cost and aid,
   enrollment, acceptance rate, location, class and roster rating cells. With
   no rank and no Program Info the Academics block goes. The roster table
