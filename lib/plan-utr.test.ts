@@ -3,30 +3,49 @@
 // tournament checker — with a quarterly checkpoint line and one realism
 // note on /plan. Clearly-fake numbers only.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { activePlanUtr, buildFitReport, planCheckpoints, planRealismNote } from "./fit";
 import { judgingRatingFor, ratingBasisLabel } from "./fit-copy";
 import { summerBeforeSeniorYear } from "./school-fit";
 import type { SchoolLite } from "./types";
 
 const NOW = new Date(2026, 10, 27, 12); // 27 Nov 2026
+
+function walk(dir: string, acc: string[] = []): string[] {
+  for (const e of readdirSync(dir)) {
+    if (e === "node_modules" || e.startsWith(".")) continue;
+    const full = join(dir, e);
+    if (statSync(full).isDirectory()) walk(full, acc);
+    else if (/\.tsx?$/.test(e) && !e.includes(".test.")) acc.push(full);
+  }
+  return acc;
+}
+const UI_FILES = [...walk("components"), ...walk("app")];
 const GOAL_DATE = new Date(2028, 5, 1); // summer before senior year, class of 2029
 
 describe("activePlanUtr — when the plan judges fit", () => {
-  it("a saved plan above today's rating applies", () => {
-    expect(activePlanUtr(10.5, 9)).toBe(10.5);
+  const at = (planUtr: number | null | undefined, currentUtr: number | null, now = NOW) =>
+    activePlanUtr({ planUtr, currentUtr, goalDate: GOAL_DATE, now });
+  it("a saved plan above today's rating, before the date, applies", () => {
+    expect(at(10.5, 9)).toBe(10.5);
   });
   it("no plan, or a junk value, → none", () => {
-    for (const v of [null, undefined, 0, -1, Number.NaN]) expect(activePlanUtr(v, 9)).toBeNull();
+    for (const v of [null, undefined, 0, -1, Number.NaN]) expect(at(v, 9)).toBeNull();
   });
   it("a plan today's rating has reached is spent (fit falls back to the estimate)", () => {
-    expect(activePlanUtr(9, 9)).toBeNull();
-    expect(activePlanUtr(8.5, 9)).toBeNull();
-    expect(activePlanUtr(9.01, 9)).toBe(9.01);
+    expect(at(9, 9)).toBeNull();
+    expect(at(8.5, 9)).toBeNull();
+    expect(at(9.01, 9)).toBe(9.01);
   });
-  it("with no real rating (null or the 0 sentinel) any saved plan applies", () => {
-    expect(activePlanUtr(7, null)).toBe(7);
-    expect(activePlanUtr(7, 0)).toBe(7);
+  it("no real rating (null or the 0 sentinel) → no plan: tiers need a real UTR (verifier HIGH 3)", () => {
+    expect(at(7, null)).toBeNull();
+    expect(at(7, 0)).toBeNull();
+  });
+  it("once the summer before senior year has begun → no plan: a senior is judged today (verifier HIGH 1)", () => {
+    expect(at(12, 9, new Date(2028, 5, 1))).toBeNull();
+    expect(at(12, 9, new Date(2028, 10, 1))).toBeNull();
+    expect(at(12, 9, new Date(2028, 4, 31))).toBe(12);
   });
 });
 
@@ -68,6 +87,13 @@ describe("planCheckpoints — the quarterly line to the plan", () => {
     const mar = line[0];
     expect(mar.utr).toBe(Math.round((9 + (2 * (mar.date.getTime() - NOW.getTime())) / span) * 100) / 100);
   });
+  it("a goal date that is not a quarter date still ends the line at the plan", () => {
+    const g = new Date(2027, 6, 15); // Jul 15 2027
+    const l = planCheckpoints({ currentUtr: 9, planUtr: 10, goalDate: g, now: NOW });
+    expect(l[l.length - 1]).toMatchObject({ label: "Jul 2027", utr: 10, isPlan: true });
+    expect(l[l.length - 1].date.getTime()).toBe(g.getTime());
+    expect(l.slice(0, -1).every((c) => !c.isPlan && c.date < g)).toBe(true);
+  });
   it("nothing without a rating, without an active plan, or once the date has passed", () => {
     expect(planCheckpoints({ currentUtr: null, planUtr: 11, goalDate: GOAL_DATE, now: NOW })).toEqual([]);
     expect(planCheckpoints({ currentUtr: 0, planUtr: 11, goalDate: GOAL_DATE, now: NOW })).toEqual([]);
@@ -108,14 +134,8 @@ describe("planRealismNote — one plain sentence, from the player's own pace", (
     expect(planRealismNote({ ...base, planUtr: null, ownPacePerYear: 1 })).toBeNull();
     expect(planRealismNote({ ...base, goalDate: new Date(2026, 0, 1), ownPacePerYear: 1 })).toBeNull();
   });
-  it("is shown once: on /plan only", () => {
-    const files = [
-      "components/seeded/roadmap/seeded-roadmap-layout.tsx",
-      "components/seeded/dashboard/seeded-dashboard-layout.tsx",
-      "components/seeded/schools/seeded-schools-browser.tsx",
-      "components/seeded/schools/seeded-school-detail.tsx",
-    ];
-    const using = files.filter((f) => /planRealismNote\(/.test(readFileSync(f, "utf8")));
+  it("is shown once: on /plan only, across every screen", () => {
+    const using = UI_FILES.filter((f) => /planRealismNote\(/.test(readFileSync(f, "utf8")));
     expect(using).toEqual(["components/seeded/roadmap/seeded-roadmap-layout.tsx"]);
   });
 });
@@ -124,8 +144,17 @@ describe("one stored value, read by every fit screen", () => {
   it("useFitReport reads the stored plan by default; only a parent's view and usePlanGoal's estimate skip it", () => {
     const src = readFileSync("lib/hooks/use-fit-report.ts", "utf8");
     expect(src).toMatch(/judgeOn = "plan"/);
-    expect(src).toMatch(/activePlanUtr\(storedPlan, player\.currentUTR\)/);
+    // Exactly this gate: the plan, unless it is a parent's view (historyUserId) or a pre-auth screen.
+    expect(src).toMatch(/const usesPlan = judgeOn === "plan" && !historyUserId && withHistory;/);
+    expect(src).toMatch(/useStoredPlanUtr\(usesPlan\)/);
+    expect(src).toMatch(/activePlanUtr\(\{\s*planUtr: storedPlan,\s*currentUtr: player\.currentUTR,\s*goalDate: summerBeforeSeniorYear\(player\.graduationYear\),?\s*\}\)/);
+    // ...and the plan really reaches the report.
+    expect(src).toMatch(/buildFitReport\(\{[\s\S]*?\bplanUtr,[\s\S]*?\}\)/);
+    expect(src).not.toMatch(/usesPlan = false|planUtr: null,/);
     expect(readFileSync("lib/hooks/use-plan-goal.ts", "utf8")).toMatch(/judgeOn: "estimate"/);
+  });
+  it("sign-out forgets the Plan UTR, so the next account is never judged on it", () => {
+    expect(readFileSync("lib/context/player-context.tsx", "utf8")).toMatch(/mutate\(PLAN_UTR_KEY, undefined, \{ revalidate: false \}\)/);
   });
   it("the what-if slider is gone; Schools and Plan show the same control", () => {
     for (const f of ["components/seeded/schools/seeded-schools-browser.tsx", "components/seeded/roadmap/seeded-roadmap-layout.tsx"]) {
@@ -135,7 +164,21 @@ describe("one stored value, read by every fit screen", () => {
     }
     expect(readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8")).toMatch(/Set your plan UTR/);
   });
-  it("the tournament checker passes the plan as its goal", () => {
-    expect(readFileSync("components/seeded/tournament-fit/seeded-tournament-fit-view.tsx", "utf8")).toMatch(/goalUtr: planUtr \?\? null/);
+  it("the tournament checker passes the plan, through the same rule, as its goal — never to a parent", () => {
+    const src = readFileSync("components/seeded/tournament-fit/seeded-tournament-fit-view.tsx", "utf8");
+    expect(src).toMatch(/goalUtr: planUtr \?\? null/);
+    expect(src).toMatch(/const planUtr = isParent\s*\? null\s*: activePlanUtr\(\{ planUtr: storedPlan,/);
+    expect(src).toMatch(/useStoredPlanUtr\(!isParent\)/);
+  });
+  it("the control saves only on Save: dragging or typing changes the draft", () => {
+    const src = readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8");
+    expect(src).toMatch(/type="range"[\s\S]*?onChange=\{\(e\) => edit\(/);
+    expect(src).toMatch(/type="number"[\s\S]*?onChange=\{\(e\) => edit\(e\.target\.value\)\}/);
+    expect(src.match(/void save\(/g)?.length).toBe(3); // Save, Use my estimate, Clear
+  });
+  it("a parent never gets the control on /schools", () => {
+    expect(readFileSync("components/seeded/schools/seeded-schools-browser.tsx", "utf8")).toMatch(
+      /hasUtr && !viewingAsParent \? \(\s*<PlanUtrControl/
+    );
   });
 });

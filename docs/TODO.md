@@ -144,10 +144,14 @@ the publishable key can still read `utr` through the REST API. Fix, as its
 own migration on Niran's go: revoke the table grant, grant every column but
 `utr` (and `hometown`, now unused), and give the server reader a SECURITY
 DEFINER function that returns `floor(utr)` (or read with a server-only key).
-Staging first, then production before the code that needs it. Note too: a
-checked team's range top is its highest reliable rating and its middle a
-median, so those team numbers can equal one player's rating — Niran chose to
-keep team numbers exact.
+Staging first, then production before the code that needs it. The same
+migration should null `program_roster.hometown`: the importer stopped
+writing it on 2026-11-27, but rows already imported (production included)
+still hold real hometowns that anyone with the publishable key can read.
+Note too: a checked team's range top is its highest reliable rating and its
+middle a median, so those team numbers can equal one player's rating —
+Niran chose to keep team numbers exact (the roster now sorts by whole
+number, then name, so rows can't be matched to them by order).
 
 
 ### Pending under-13s and parents' own player rows (both are migrations; Niran, 2026-11-16)
@@ -481,8 +485,11 @@ header. Still open:
 
 ### Fit and projection
 
+- **Tiers can flash on first load (LOW).** useFitReport judges on the
+  estimate until the stored Plan UTR arrives, then re-judges. Holding the
+  report until it loads would trade the flash for a longer skeleton.
 - **Parents see fit on the estimate, not the player's Plan UTR
-  (2026-11-27).** The Plan UTR lives in the player's own
+  (2026-11-27).** The methodology and the plan control now say so. The Plan UTR lives in the player's own
   `user_settings.notification_preferences.planGoalUtr`, which RLS keeps
   own-row only, so a parent's Schools, school page and family screens fall
   back to the estimate. Sharing it needs a family-scoped read (a new

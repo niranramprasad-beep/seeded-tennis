@@ -19,10 +19,20 @@ display rule himself (2026-11-27). Calls made while building it:
   `usePlanGoal` asks for the estimate, to offer it. buildFitReport's what-if
   `overrideUtr` became `planUtr`, and its rating says `source: "plan"`, so
   labels read "by summer 2028, your plan" without any screen assembling them.
-- **A spent plan stops judging.** Once today's rating reaches the Plan UTR,
-  fit falls back to the estimate and /plan says "Set a higher one"
-  (`activePlanUtr`). Judging on a number below the player's own would
-  understate them.
+- **When the plan judges fit (`activePlanUtr`).** Only with a real logged
+  rating, only while the plan is above it, and only before the summer before
+  senior year. Otherwise fit falls back to the estimate (or, for a senior,
+  today's rating), and the control says why. A typed plan with no rating
+  gave tiers to a player who had never logged a UTR, and a senior was judged
+  on a plan whose date had passed (verifier round 1, both HIGH).
+- **Stretch promises no pace.** classifySchoolFit also returns it when fewer
+  than three ratings are logged, so its sentence says only that it would
+  take a climb to the floor. An unchecked team's sentence names its
+  estimated floor and middle, never the drawn top.
+- **Roster order is by whole number, then name**, so the top "13.xx" row
+  can't be matched to the exact range top on the same page. A checked
+  team's median can still equal one player's rating: Niran chose exact team
+  numbers. The importer no longer copies hometowns.
 - **Fit uses the Plan UTR as typed, uncapped.** The briefing said checkpoints
   are capped at min(own pace, 1.5); Niran's brief said to drop the cap banner
   and show what the player needs to reach their plan on time, so the

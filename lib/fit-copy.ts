@@ -526,6 +526,12 @@ function judgingSubject(judging: JudgingRating, who = "You"): string {
  * Null without a judging rating or a tier (no rating logged): the caller
  * shows its own honest prompt. `band` must be the report's tier for this
  * school, so the sentence can never disagree with the pill beside it.
+ *
+ * Only a hand-checked team has a real range top; for every other team the
+ * sentence names the estimated floor and middle it has, never the drawn top
+ * (verifier MEDIUM 6). Stretch makes no promise about pace: classifySchoolFit
+ * also returns it when fewer than three ratings are logged, with no
+ * projection at all (verifier HIGH 2).
  */
 export function fitComparisonSentence(
   judging: JudgingRating | null,
@@ -535,17 +541,18 @@ export function fitComparisonSentence(
 ): string | null {
   if (!judging || !band || band === "unverified") return null;
   const range = schoolUtrRange(school);
-  const rangeText = `${school.shortName}'s UTR range (${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)})`;
+  const rangeText = school.utrRange
+    ? `${school.shortName}'s UTR range (${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)})`
+    : `${school.shortName}'s estimated range (floor ${formatUtrEstimate(school.minCompetitiveUTR)}, middle ${formatUtrEstimate(school.avgRosterUTR)})`;
   const subject = judgingSubject(judging, who);
-  const pronoun = who === "You" ? "you" : who;
   switch (band) {
     case "likely":
       return `${subject} is at or above the middle of ${rangeText}. ${SCHOOL_FIT_LABELS.likely}: a realistic shot.`;
     case "target":
       return `${subject} is inside ${rangeText}. ${SCHOOL_FIT_LABELS.target}: a realistic shot.`;
     case "reach":
-      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet, but the pace we plan with could get ${pronoun} to the floor by the summer before senior year.`;
+      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor by the summer before senior year.`;
     case "out-of-range":
-      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot by the summer before senior year.`;
+      return `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot by the summer before senior year at the pace we plan with.`;
   }
 }

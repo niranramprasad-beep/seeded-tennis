@@ -244,7 +244,7 @@ describe("A3: one chart vocabulary", () => {
     ]);
     expect(chartLegendItems({ estimate: true, planUtr: null })).toEqual([
       { key: "logged", label: "Your UTR (logged)" },
-      { key: "estimate", label: "Estimate (no plan UTR set)" },
+      { key: "estimate", label: "Estimate" },
     ]);
     expect(chartLegendItems({ estimate: false, planUtr: null })).toEqual([{ key: "logged", label: "Your UTR (logged)" }]);
   });

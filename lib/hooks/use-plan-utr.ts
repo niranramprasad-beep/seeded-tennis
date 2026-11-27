@@ -7,7 +7,7 @@ import { loadPlanGoalUtr, savePlanGoalUtr } from "@/lib/db/settings";
 /** The one SWR key for the stored Plan UTR — /schools, /plan, /today, a
  *  school page and the tournament checker all read it, so saving it on one
  *  screen updates every other one without a reload. */
-const PLAN_UTR_KEY = "plan-goal";
+export const PLAN_UTR_KEY = "plan-goal";
 
 export interface UseStoredPlanUtrResult {
   /** The Plan UTR the player saved, or null (none set). Undefined while it

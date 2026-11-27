@@ -33,7 +33,7 @@ const TOC: { id: string; label: string }[] = [
   { id: "ratings-count", label: "Your rating" },
   { id: "team-ranges", label: "Team ranges" },
   { id: "players-leaving", label: "Players leaving" },
-  { id: "fit-bands", label: "How fit is judged" },
+  { id: "how-fit-is-judged", label: "How fit is judged" },
   { id: "confidence", label: "Confidence" },
   { id: "what-we-cant-know", label: "What we can't know" },
   TOURNAMENT_CHECKER_TOC,
@@ -67,7 +67,7 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   // them. The page was contradicting itself, and a visitor reads this row
   // as a statement of fact rather than of intent. Caught by widening
   // lib/copy-honesty.test.ts to scan for check-date claims.
-  { label: "Ratings", body: "No individual player's rating is held — only each team's range: worked out from a hand-checked roster's reliable singles UTRs, or estimated." },
+  { label: "Ratings", body: "For a hand-checked team, each listed player's singles UTR is held to work out the team's range, and a school page shows it only as its whole number (12.xx), with a link to the player's own UTR profile. Every other team has only an estimated range." },
   { label: "Academics", body: "A U.S. News academic rank for the schools first entered in our catalogue (no edition year recorded; school pages leave it out where there is none), and, for hand-checked programs, cost of attendance, acceptance rate and undergraduate enrollment, each with its College Scorecard or school source and read date. None of it is part of your fit." },
 ];
 
@@ -152,8 +152,10 @@ export function SeededMethodologyView() {
                 for by the summer before senior year. Schools, Plan, Today and the tournament checker all use it, and
                 changing it on one of them changes it on all of them. Seeded never sets it for you. Your plan shows the
                 UTR you&apos;d need on the 1st of each quarter to get there on time, on a straight line from today, and
-                one note comparing the pace that needs with your own pace so far. Once today&apos;s rating reaches
-                your plan UTR, fit goes back to the estimate below until you set a higher one.
+                one note comparing the pace that needs with your own pace so far. It needs a logged UTR to plan
+                from. Once today&apos;s rating reaches your plan UTR, or the summer before senior year begins, fit
+                goes back to the estimate below (or your rating today) until you set a higher one. The plan UTR is
+                your own setting, so a parent&apos;s screens judge fit on the estimate instead.
               </p>
               <p className="text-stone">
                 With no plan UTR set, and until the summer before senior year, the rating that decides your fit is a
@@ -214,7 +216,7 @@ export function SeededMethodologyView() {
               </p>
             </Section>
 
-            <Section id="fit-bands" number={5} title="How fit is judged">
+            <Section id="how-fit-is-judged" number={5} title="How fit is judged">
               <div className="rounded-card border border-line bg-card">
                 {FIT_BAND_ROWS.map((band, i) => (
                   <div

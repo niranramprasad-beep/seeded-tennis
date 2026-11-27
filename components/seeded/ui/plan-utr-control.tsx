@@ -90,6 +90,25 @@ export function PlanUtrControl({
     setJustSaved(false);
   };
 
+  // A plan needs a real rating to plan from (activePlanUtr ignores one
+  // without), and nothing to plan for once the summer before senior year
+  // has begun — fit then uses today's rating (verifier HIGH 1 and 3).
+  const datePassed = new Date() >= new Date(seniorSummerYear, 5, 1);
+  if (currentUtr == null || datePassed) {
+    return (
+      <div className={cn("rounded-card border border-line bg-card p-[18px]", !loaded && "invisible", className)}>
+        <p className="text-[15px] font-semibold text-ink">Set your plan UTR</p>
+        <p className="mt-1 text-sm text-stone">
+          {datePassed
+            ? "The summer before senior year has started, so fit uses your UTR today. There's no plan date left to aim for."
+            : "Log your UTR first. Your plan UTR is the rating you're aiming for from there."}
+        </p>
+      </div>
+    );
+  }
+  // A saved plan today's rating has reached no longer judges fit.
+  const reached = saved != null && Math.round(saved * 100) <= Math.round(currentUtr * 100);
+
   const canOfferEstimate =
     estimate != null && (saved == null || Math.round(estimate * 100) !== Math.round(saved * 100)) && planGoalInputError(estimate, currentUtr) == null;
 
@@ -102,7 +121,8 @@ export function PlanUtrControl({
         <span className="text-[13px] text-stone" aria-live="polite">
           {saved != null ? (
             <>
-              Saved: <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(saved)}</span> {when}
+              Saved: <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(saved)}</span>{" "}
+              {reached ? "· reached, so fit uses the estimate. Set a higher one." : when}
             </>
           ) : (
             "No plan UTR set"
@@ -110,8 +130,8 @@ export function PlanUtrControl({
         </span>
       </div>
       <p id={`${id}-help`} className="mt-1 text-sm text-stone">
-        The UTR you&apos;re aiming for {when}, the summer before senior year. Schools, Plan, Today and the
-        tournament checker all use it.
+        The UTR you&apos;re aiming for {when}, the summer before senior year. Your Schools, Plan, Today and
+        tournament checker screens all use it. A parent&apos;s screens use your estimate.
       </p>
 
       {/* One track: the native slider's own, tinted with accent-color. 44px
@@ -166,7 +186,7 @@ export function PlanUtrControl({
         </p>
       ) : justSaved ? (
         <p role="status" className="mt-2 text-sm text-stone">
-          Saved. Every screen now uses it.
+          Saved. Your screens now use it.
         </p>
       ) : null}
     </div>

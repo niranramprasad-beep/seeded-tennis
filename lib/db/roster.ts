@@ -75,12 +75,17 @@ export interface ProgramRosterPage {
 
 const httpUrl = (v: unknown): string | null => (typeof v === "string" && /^https?:\/\//i.test(v) ? v : null);
 
-/** Highest reliable rating first, then unreliable, then unrated; ties by name. */
+/**
+ * Reliable ratings first, then unreliable, then unrated; within each, by
+ * WHOLE number (highest first), then by name — never by the exact rating.
+ * Ordering by the exact rating would let a reader match the top "13.xx" row
+ * to the team range's exact top printed on the same page, which is that
+ * player's exact rating (verifier MEDIUM, 2026-11-27).
+ */
 export function sortRoster(players: RosterRow[]): RosterRow[] {
   const rank = (p: RosterRow) => (p.utr === null ? 2 : p.utrReliable ? 0 : 1);
-  return [...players].sort(
-    (a, b) => rank(a) - rank(b) || (b.utr ?? 0) - (a.utr ?? 0) || a.name.localeCompare(b.name)
-  );
+  const whole = (p: RosterRow) => rosterUtrWhole(p.utr) ?? 0;
+  return [...players].sort((a, b) => rank(a) - rank(b) || whole(b) - whole(a) || a.name.localeCompare(b.name));
 }
 
 export async function loadProgramRosterPage(programSlug: string | undefined): Promise<ProgramRosterPage> {

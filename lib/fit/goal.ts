@@ -53,16 +53,32 @@ export function resolvePlanGoal(input: {
 
 /**
  * THE rule for when the Plan UTR judges fit (2026-11-27): the value the
- * player saved, while it is still ahead of them. With no real rating any
- * saved plan applies. A plan today's rating has already reached is spent:
- * fit then falls back to the estimate, and /plan says "Set a higher one" —
- * judging a player on a number below the one they hold would understate
- * them. Every screen gets this through useFitReport, so Schools, Plan,
- * Today and a school page cannot disagree about which number they used.
+ * player saved, while it is still ahead of them and its date is still
+ * ahead. Null — fit then uses the estimate, or today's rating — when:
+ *  - there is no real rating (null or the 0 sentinel): a typed plan is not
+ *    a UTR, and every tier derived from one needs a real rating first
+ *    (CLAUDE.md, hasRealUtr; verifier HIGH 3);
+ *  - today's rating has reached it: the plan is spent, and judging a player
+ *    on a number below the one they hold would understate them; /plan says
+ *    "Set a higher one";
+ *  - the summer before senior year (`goalDate`) has begun: a plan "by June
+ *    2026" says nothing in November 2026, and a senior must be judged on
+ *    their rating today (verifier HIGH 1).
+ * Every screen gets this through useFitReport, so Schools, Plan, Today and a
+ * school page cannot disagree about which number they used.
  */
-export function activePlanUtr(planUtr: number | null | undefined, currentUtr: number | null | undefined): number | null {
+export function activePlanUtr(input: {
+  planUtr: number | null | undefined;
+  currentUtr: number | null | undefined;
+  /** June 1 of the summer before senior year (summerBeforeSeniorYear). */
+  goalDate: Date;
+  now?: Date;
+}): number | null {
+  const { planUtr, currentUtr } = input;
   if (planUtr == null || !Number.isFinite(planUtr) || planUtr <= 0) return null;
-  if (currentUtr != null && currentUtr > 0 && Math.round(planUtr * 100) <= Math.round(currentUtr * 100)) return null;
+  if (currentUtr == null || !(currentUtr > 0)) return null;
+  if (Math.round(planUtr * 100) <= Math.round(currentUtr * 100)) return null;
+  if ((input.now ?? new Date()).getTime() >= input.goalDate.getTime()) return null;
   return planUtr;
 }
 
@@ -98,7 +114,7 @@ export function planCheckpoints(input: {
 }): PlanCheckpoint[] {
   const now = input.now ?? new Date();
   const current = input.currentUtr;
-  const plan = activePlanUtr(input.planUtr, current);
+  const plan = activePlanUtr({ planUtr: input.planUtr, currentUtr: current, goalDate: input.goalDate, now });
   if (plan == null || current == null || !(current > 0)) return [];
   const end = input.goalDate.getTime();
   const start = now.getTime();
@@ -142,7 +158,7 @@ export function planRealismNote(input: {
 }): string | null {
   const now = input.now ?? new Date();
   const current = input.currentUtr;
-  const plan = activePlanUtr(input.planUtr, current);
+  const plan = activePlanUtr({ planUtr: input.planUtr, currentUtr: current, goalDate: input.goalDate, now });
   if (plan == null || current == null || !(current > 0)) return null;
   const years = (input.goalDate.getTime() - now.getTime()) / (365.25 * 86_400_000);
   if (years <= 0) return null;

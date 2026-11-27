@@ -94,7 +94,7 @@ export function SeededDashboardLayout({
       }).length,
     [targetSchools, fitReport]
   );
-  const trackPill = onTrackPill(onTrackCount, targetSchools.length);
+  const trackPill = onTrackPill(onTrackCount, targetSchools.length, fitReport?.utr.source === "plan");
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
     const weekAgo = now.getTime() - 7 * 86_400_000;
@@ -254,7 +254,7 @@ export function SeededDashboardLayout({
               <ChartLegend
                 items={chartLegendItems({
                   estimate: estimatePath.length > 1,
-                  planUtr: nextCheckpoint && planGoal ? formatPlayerUtr(planGoal.value) : null,
+                  planUtr: nextCheckpoint ? "next-checkpoint" : null,
                 })}
               />
               {nextCheckpoint && (

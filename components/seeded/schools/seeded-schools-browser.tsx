@@ -85,7 +85,7 @@ function dataVerificationChip(s: School): ColumnChip {
     : NOT_TRACKED;
 }
 
-/** "Tuscaloosa, AL", "AL", or "Location not tracked". */
+/** "Tuscaloosa, AL", "AL", or null. */
 /** "Durham, NC", the state alone, or null — an untracked location is left
  *  out, not printed as "Not tracked" (Niran, 2026-11-27). */
 function placeLine(s: Pick<School, "city" | "state">): string | null {
@@ -966,7 +966,7 @@ export function SeededSchoolsBrowser({
                         <span className="flex min-w-0 flex-col justify-center">
                           <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
                           <span className="truncate text-xs text-stone-light">
-                            {s.division} · {s.state ?? "Location not tracked"}
+                            {[s.division, s.state].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                       </Link>

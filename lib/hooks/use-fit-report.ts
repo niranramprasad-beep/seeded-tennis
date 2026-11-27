@@ -6,6 +6,7 @@ import type { Player, SchoolLite } from "@/lib/types";
 import { activePlanUtr, buildFitReport, utrHistoryFromEntries, type FitReport, type FitView } from "@/lib/fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { useStoredPlanUtr } from "@/lib/hooks/use-plan-utr";
+import { summerBeforeSeniorYear } from "@/lib/school-fit";
 
 /**
  * The one way an app screen gets fit bands.
@@ -46,7 +47,13 @@ export function useFitReport(input: {
   const { player, schools, view, judgeOn = "plan", historyUserId, withHistory = true } = input;
   const usesPlan = judgeOn === "plan" && !historyUserId && withHistory;
   const { planUtr: storedPlan } = useStoredPlanUtr(usesPlan);
-  const planUtr = usesPlan ? activePlanUtr(storedPlan, player.currentUTR) : null;
+  const planUtr = usesPlan
+    ? activePlanUtr({
+        planUtr: storedPlan,
+        currentUtr: player.currentUTR,
+        goalDate: summerBeforeSeniorYear(player.graduationYear),
+      })
+    : null;
 
   // Shares SWR's "utr-entries" cache key with every other screen, so this
   // costs nothing extra on a page that already loaded the player's history.

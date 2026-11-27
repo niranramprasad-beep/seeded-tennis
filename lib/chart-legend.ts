@@ -21,8 +21,9 @@ export const CHART_LINE_NAMES = {
 export interface ChartLegendInput {
   /** The dotted estimate line is drawn (only when no plan UTR is set). */
   estimate: boolean;
-  /** The dashed plan line is drawn, to this Plan UTR (as printed). */
-  planUtr: string | null;
+  /** The dashed plan line is drawn: to this Plan UTR (as printed) on /plan,
+   *  or "next-checkpoint" on /today, where it stops at the next one. */
+  planUtr: string | "next-checkpoint" | null;
 }
 
 export interface ChartLegendItem {
@@ -33,7 +34,8 @@ export interface ChartLegendItem {
 /** The legend under both UTR charts — only lines that are drawn. */
 export function chartLegendItems(input: ChartLegendInput): ChartLegendItem[] {
   const items: ChartLegendItem[] = [{ key: "logged", label: `${CHART_LINE_NAMES.logged} (logged)` }];
-  if (input.planUtr) items.push({ key: "plan", label: `${CHART_LINE_NAMES.plan} to ${input.planUtr}` });
-  if (input.estimate) items.push({ key: "estimate", label: `${CHART_LINE_NAMES.estimate} (no plan UTR set)` });
+  if (input.planUtr === "next-checkpoint") items.push({ key: "plan", label: `${CHART_LINE_NAMES.plan}, to its next checkpoint` });
+  else if (input.planUtr) items.push({ key: "plan", label: `${CHART_LINE_NAMES.plan} to ${input.planUtr}` });
+  if (input.estimate) items.push({ key: "estimate", label: CHART_LINE_NAMES.estimate });
   return items;
 }

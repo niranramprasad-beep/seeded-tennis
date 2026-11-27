@@ -36,7 +36,7 @@ import { usePlayer } from "@/lib/context/player-context";
 import { winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
 import { cn, formatPlayerUtr, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
-import { judgingRatingFor } from "@/lib/fit-copy";
+import { closestSchoolsMeasuredFrom, judgingRatingFor } from "@/lib/fit-copy";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 import { recordTile } from "@/lib/empty-state-copy";
 
@@ -395,8 +395,7 @@ export function SeededRoadmapLayout({ player, targetSchools, pickerSchools, plan
           ) : filtering && visibleTargetSchools.length === 0 ? (
             <p className="text-sm text-stone">
               None of your targets is a Good match or Safe bet at{" "}
-              {judging ? <span className="font-mono">{formatPlayerUtr(judging.utr)}</span> : "your rating"} by the summer
-              before senior year.{" "}
+              {closestSchoolsMeasuredFrom(judging) ?? "your rating"}.{" "}
               <Link href="/schools" className="font-semibold text-grass">
                 Find schools in range
               </Link>

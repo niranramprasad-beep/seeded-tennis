@@ -318,7 +318,7 @@ export function DiagnosticFitReport({
                         <div>
                           <strong className="text-[15px] text-ink">{s.shortName}</strong>
                           <div className="text-[13px] text-stone">
-                            {s.division} · {s.conference} · {s.state ?? "Location not tracked"}
+                            {[s.division, s.conference, s.state].filter(Boolean).join(" · ")}
                           </div>
                           {row?.differs && (
                             <div className="mt-1 text-[13px] text-stone">

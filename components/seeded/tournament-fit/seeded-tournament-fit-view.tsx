@@ -8,6 +8,7 @@ import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
 import { useStoredPlanUtr } from "@/lib/hooks/use-plan-utr";
 import { activePlanUtr } from "@/lib/fit";
+import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
@@ -109,7 +110,9 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || null : null;
   const subjectUtr = isParent ? (subjectFacts.currentUtr ?? 0) : player.currentUTR;
   const { planUtr: storedPlan } = useStoredPlanUtr(!isParent);
-  const planUtr = isParent ? null : activePlanUtr(storedPlan, player.currentUTR);
+  const planUtr = isParent
+    ? null
+    : activePlanUtr({ planUtr: storedPlan, currentUtr: player.currentUTR, goalDate: summerBeforeSeniorYear(player.graduationYear) });
   const whoseUtr = isParent ? `${subjectFirst ?? "Your player"}'s UTR` : "Your UTR";
   const { data: utrEntries } = useSWR(
     isParent ? (familyPlayer?.id ? ["utr-entries", familyPlayer.id] : null) : "utr-entries",
