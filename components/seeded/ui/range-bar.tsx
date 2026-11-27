@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatTeamUtr, formatUtrEstimate, formatUtrFor } from "@/lib/utils";
 import { rangeBarYouLine } from "@/lib/fit-copy";
 
 interface RangeBarProps {
@@ -179,7 +179,7 @@ export function RangeBar({
             )}
           >
             <p className="font-mono tabular-nums">
-              Floor {formatUtrEstimate(low!)} · {checked ? "Middle" : "Average"} {formatUtrEstimate(median!)} · Top of range {formatUtrEstimate(high!)}
+              Floor {formatTeamUtr(low!)} · {checked ? "Middle" : "Average"} {formatTeamUtr(median!)} · Top of range {formatTeamUtr(high!)}
             </p>
             <p className="mt-0.5 font-mono tabular-nums">
               {/* "0.3 below the team average", never a signed "gap" a

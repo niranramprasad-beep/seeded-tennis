@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import useSWR from "swr";
+import { useMemo } from "react";
 import type { Player, RoadmapYear } from "@/lib/types";
 import { resolvePlanGoal, type PlanGoal } from "@/lib/fit";
 import { computeGoalPace, type GoalPace } from "@/lib/school-fit";
 import { buildRoadmap } from "@/lib/db/plan";
-import { loadPlanGoalUtr, savePlanGoalUtr } from "@/lib/db/settings";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
+import { useStoredPlanUtr } from "@/lib/hooks/use-plan-utr";
 import { hasRealUtr } from "@/lib/utils";
 
 const NO_SCHOOLS: never[] = [];
@@ -38,14 +37,14 @@ export interface UsePlanGoalResult {
 export function usePlanGoal(
   player: Pick<Player, "currentUTR" | "graduationYear" | "gender">
 ): UsePlanGoalResult {
-  const { data: chosen, mutate } = useSWR<number | null>("plan-goal", () => loadPlanGoalUtr());
+  const { planUtr: chosen, setPlanUtr: setGoal } = useStoredPlanUtr();
 
   // The goal is the one the player saved, or none. The fit report's
   // estimate (report.utr) rides along only so a screen can OFFER it ("Use
   // 8.10 instead") — resolvePlanGoal never defaults to it (PR D, D1).
   // No schools: only the rating is needed, and the history fetch is the
   // same shared SWR key every screen already loaded.
-  const report = useFitReport({ player, schools: NO_SCHOOLS });
+  const report = useFitReport({ player, schools: NO_SCHOOLS, judgeOn: "estimate" });
   const estimate = report?.utr.isProjected ? report.utr.value : null;
   const goal = useMemo(
     () => resolvePlanGoal({ chosenGoalUtr: chosen ?? null, estimate: report?.utr ?? null }),
@@ -63,19 +62,6 @@ export function usePlanGoal(
         ? computeGoalPace(player.currentUTR, goal.value, player.graduationYear)
         : null,
     [goal, player.currentUTR, player.graduationYear]
-  );
-
-  const setGoal = useCallback(
-    async (value: number | null) => {
-      await mutate(
-        async () => {
-          await savePlanGoalUtr(value);
-          return value;
-        },
-        { optimisticData: value, rollbackOnError: true, revalidate: false }
-      );
-    },
-    [mutate]
   );
 
   return { goal, roadmap, goalPace, loaded: chosen !== undefined, estimate, setGoal };

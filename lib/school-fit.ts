@@ -53,7 +53,7 @@ import { getSummerBeforeGradeYear, formatDate, localDateKey } from "@/lib/time";
 import { REALISTIC_UTR_CEILING } from "@/lib/config/recruiting";
 import { academicTier } from "@/lib/school-academics";
 import { regionForState } from "@/lib/school-regions";
-import { formatPacePerYear, formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
+import { formatPlayerUtr, formatTeamUtr } from "@/lib/utils";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 
 export type SchoolFitBand = Exclude<FitBand, "unverified">;
@@ -256,7 +256,7 @@ export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPR
  * banner (lib/fit.ts planGoalPaceSeverity) and the next-band message both use
  * paceIsStretch, so the two say the same thing about the same pace.
  */
-export const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
+const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
 
 /** "a stretch: right at our 1.5-a-year planning limit" */
 export const PACE_STRETCH_PHRASE = `a stretch: right at our ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}-a-year planning limit`;
@@ -285,13 +285,16 @@ function paceReadFor(requiredPaceUtrPerYear: number): Exclude<PaceRead, "no-time
   return "within-realistic-range";
 }
 
-/** The four band words. The one copy: the fit pill
- *  (components/seeded/ui/fit-badge.tsx) spreads these into its own labels. */
+/** The four tier names a player reads (Niran, 2026-11-27 — they replaced
+ *  Likely / Target / Reach / Out of range, and the word "band" left every
+ *  screen). The one copy: the fit pill (components/seeded/ui/fit-badge.tsx)
+ *  spreads these into its own labels. The internal keys keep their old
+ *  names; only what a person reads changed. */
 export const SCHOOL_FIT_BAND_LABEL: Record<SchoolFitBand, string> = {
-  reach: "Reach",
-  target: "Target",
-  likely: "Likely",
-  "out-of-range": "Out of range",
+  likely: "Safe bet",
+  target: "Good match",
+  reach: "Stretch",
+  "out-of-range": "Long shot",
 };
 
 // Honest statements for the two factors this app has never tracked real
@@ -299,9 +302,9 @@ export const SCHOOL_FIT_BAND_LABEL: Record<SchoolFitBand, string> = {
 // verbatim rather than built from a template per-school, since there is
 // nothing school-specific to plug in.
 const PLAYERS_LEAVING_NOTE =
-  "Roster openings and seniors leaving aren't tracked yet — this isn't factored into your band.";
+  "Roster openings and seniors leaving aren't tracked yet — this isn't part of your fit.";
 const ACADEMICS_NOTE =
-  "There's no real per-player academic admit range tracked yet — this isn't factored into your band.";
+  "There's no real per-player academic admit range tracked yet — this isn't part of your fit.";
 
 /** The same evergreen, non-personalized timing guidance /schools/[slug]'s
  * existing Timing driver row already shows — general recruiting-calendar
@@ -423,7 +426,7 @@ function computeNextBandChange(
       byDate,
       requiredPaceUtrPerYear: null,
       paceRead: "no-time-left",
-      message: `The summer before senior year ${seniorSummerVerb(seniorSummerPhase(milestone.getFullYear(), now))}, so there's no runway left to close the remaining +${formatPlayerUtr(gap)} UTR gap to ${SCHOOL_FIT_BAND_LABEL[targetBand]}.`,
+      message: `The summer before senior year ${seniorSummerVerb(seniorSummerPhase(milestone.getFullYear(), now))}, so there's no runway left to close the gap to ${SCHOOL_FIT_BAND_LABEL[targetBand]}.`,
     };
   }
 
@@ -447,9 +450,11 @@ function computeNextBandChange(
     byDate,
     requiredPaceUtrPerYear,
     paceRead,
-    // The pace through formatPacePerYear, the one pace formatter ("needs
-    // about 2.25 a year"); it read "about 2.3/year … 0.5–1.5/yr" (D1).
-    message: `Reaching ${formatUtrEstimate(utrNeeded)} by ${formatDate(milestone)} would move ${who ?? "you"} into ${SCHOOL_FIT_BAND_LABEL[targetBand]}. That needs about ${formatPacePerYear(requiredPaceUtrPerYear, { signed: false })}, ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
+    // The team line as a whole number, and the pace in words only: the
+    // exact pace needed, times the years left, plus the reader's own UTR
+    // would give the team's exact number back (Niran, 2026-11-27).
+    // `requiredPaceUtrPerYear` stays on the object for the logic.
+    message: `Reaching ${formatTeamUtr(utrNeeded)} by ${formatDate(milestone)} would make this a ${SCHOOL_FIT_BAND_LABEL[targetBand]} for ${who ?? "you"}. The pace that takes is ${readPhrase}. ${PLANNING_RULE_SENTENCE}`,
   };
 }
 
@@ -608,13 +613,13 @@ export function explainSchoolFit(
   // "You're 6.0 today" here.
   const mine = formatPlayerUtr(playerUtr);
   const summary =
-    gapToFloor < 0
-      ? `${youAre} ${mine} today, already above ${school.shortName}'s competitive floor of ${formatUtrEstimate(school.minCompetitiveUTR)}.`
-      : gapToFloor === 0
-        ? `${youAre} ${mine} today, exactly at ${school.shortName}'s competitive floor.`
-        : school.utrRange
-          ? `${school.shortName}'s floor (the lower quartile of its checked roster) is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`
-          : `${school.shortName}'s estimated competitive floor is ${formatUtrEstimate(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`;
+    // Team numbers as whole numbers (2026-11-27). "Exactly at the floor"
+    // would give the floor away to a reader who knows their own UTR.
+    gapToFloor <= 0
+      ? `${youAre} ${mine} today, at or above ${school.shortName}'s competitive floor (${formatTeamUtr(school.minCompetitiveUTR)}).`
+      : school.utrRange
+        ? `${school.shortName}'s floor (the lower quartile of its checked roster) is ${formatTeamUtr(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`
+        : `${school.shortName}'s estimated competitive floor is ${formatTeamUtr(school.minCompetitiveUTR)}. ${youAre} ${mine} today.`;
 
   const milestone = summerBeforeSeniorYear(input.graduationYear);
   // ONE projection: the fit report's (see SchoolFitPace). Nothing here

@@ -35,6 +35,7 @@ import { rememberRole, rememberSchoolsShape } from "@/lib/layout-hints";
 import { mutate } from "swr";
 import { isMyConsentStateKey } from "@/lib/db/family-join";
 import { FAMILY_PLAN_STATUS_KEY } from "@/lib/db/family-plan";
+import { PLAN_UTR_KEY } from "@/lib/hooks/use-plan-utr";
 import { getSupabase } from "@/lib/supabase/client";
 import { clearSeededBrowserStorage } from "@/lib/local-storage-cleanup";
 import { runSignOut, type SignOutEffects } from "@/lib/sign-out-steps";
@@ -311,6 +312,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         // Same for the family's plan: /pricing and Settings must never show
         // account A's "your family already has it" to account B.
         void mutate(FAMILY_PLAN_STATUS_KEY, undefined, { revalidate: false });
+        // And the Plan UTR: account B must never be judged on A's plan
+        // (lib/hooks/use-plan-utr.ts; verifier LOW, 2026-11-27).
+        void mutate(PLAN_UTR_KEY, undefined, { revalidate: false });
       },
       signOutOfSupabase: (scope) => signOutOfSupabase(scope === "local" ? { scope: "local" } : undefined),
     }),

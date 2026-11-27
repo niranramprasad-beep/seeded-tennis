@@ -30,14 +30,14 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-// /plan, /schools, /today, the school page, onboarding, the what-if panel,
-// and the two lib modules that build pace sentences.
+// /plan, /schools, /today, the school page, onboarding, the plan UTR
+// control, and the two lib modules that build pace sentences.
 const PACE_SCREENS = [
   ...walk("components/seeded/roadmap"),
   ...walk("components/seeded/schools"),
   ...walk("components/seeded/dashboard"),
   ...walk("components/seeded/onboarding"),
-  "components/seeded/ui/what-if-panel.tsx",
+  "components/seeded/ui/plan-utr-control.tsx",
   "components/seeded/ui/projection-note.tsx",
   // lib/fit.ts — since the 2026-11-21 split, the barrel and lib/fit/*.ts.
   ...FIT_ENGINE_FILES,
@@ -57,13 +57,11 @@ describe("one pace phrasing", () => {
     expect(hits).toEqual([]);
   });
 
-  it("the plan tile, the what-if panel, the goal warning and the school page use the formatter", () => {
+  it("the plan tile, the realism note and the school page use the formatter", () => {
     for (const f of [
       "components/seeded/roadmap/seeded-roadmap-layout.tsx",
-      "components/seeded/ui/what-if-panel.tsx",
-      "components/seeded/roadmap/goal-pace-warning.tsx",
+      "lib/fit/goal.ts",
       "components/seeded/schools/seeded-school-detail.tsx",
-      "lib/school-fit.ts",
     ]) {
       expect(code(f), f).toMatch(/formatPacePerYear\(/);
     }
@@ -77,7 +75,7 @@ describe("one pace phrasing", () => {
 
   it("/plan's closest schools come from the report, never a classification of their own", () => {
     const src = code("components/seeded/roadmap/seeded-roadmap-layout.tsx");
-    expect(src).toMatch(/closestSchoolsFromReport\(realReport/);
+    expect(src).toMatch(/closestSchoolsFromReport\(fitReport/);
     expect(src).not.toMatch(/closestSchoolsByUtrGap/);
   });
 
@@ -87,14 +85,15 @@ describe("one pace phrasing", () => {
     );
   });
 
-  it("the upside is said by the one sentence helper on /plan and /today, and charted as 'Estimate'", () => {
-    for (const f of ["components/seeded/roadmap/seeded-roadmap-layout.tsx", "components/seeded/dashboard/seeded-dashboard-layout.tsx"]) {
+  it("/plan and /today no longer draw or say the 1.5-a-year upside (2026-11-27)", () => {
+    for (const f of [
+      "components/seeded/roadmap/seeded-roadmap-layout.tsx",
+      "components/seeded/dashboard/seeded-dashboard-layout.tsx",
+      "components/seeded/roadmap/plan-trajectory-chart.tsx",
+      "components/seeded/dashboard/utr-vs-plan-chart.tsx",
+    ]) {
       const src = code(f);
-      expect(src, f).toMatch(/<PaceUpsideNote utr=\{(realReport|fitReport)\?\.utr\}/);
-      expect(src, f).toMatch(/upsideProjectionPath\(\{\s*estimate: (realReport|fitReport)\?\.utr/);
-    }
-    for (const f of ["components/seeded/roadmap/plan-trajectory-chart.tsx", "components/seeded/dashboard/utr-vs-plan-chart.tsx"]) {
-      expect(code(f), f).toMatch(/chartEndLabels\(estimate, upside\)/);
+      expect(src, f).not.toMatch(/<PaceUpsideNote|upsideProjectionPath\(/);
     }
   });
 

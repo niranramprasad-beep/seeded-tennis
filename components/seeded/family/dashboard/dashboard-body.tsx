@@ -273,7 +273,7 @@ export function DashboardBody({
                   <ProjectionNote utr={model.targets.judging} who={child} />
                 ) : model.targets.judging ? (
                   <DataNote>
-                    Bands use {child}&rsquo;s UTR today:{" "}
+                    Fit uses {child}&rsquo;s UTR today:{" "}
                     <span className="font-mono text-ink">{formatPlayerUtr(model.targets.judging.value)}</span>.
                   </DataNote>
                 ) : null}

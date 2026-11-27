@@ -294,7 +294,7 @@ describe("one rating on one date gets one band (verifier H1, 2026-11-16)", () =>
     // estimate itself — the player's own ~0.8/yr, not typical growth — and
     // the two views must still agree at that number.
     expect(projected.utr.source).toBe("logged-pace");
-    const chosen = buildFitReport({ ...base, overrideUtr: projected.utr.value })!;
+    const chosen = buildFitReport({ ...base, planUtr: projected.utr.value })!;
     for (const s of schools) {
       expect(chosen.bandBySlug.get(s.slug)).toBe(projected.bandBySlug.get(s.slug));
     }

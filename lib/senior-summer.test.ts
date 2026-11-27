@@ -110,7 +110,6 @@ describe("one tense across the report, the school page and the pace message (Nov
   it("no screen hardcodes 'has begun' / 'already passed' for that summer any more", () => {
     for (const f of [
       "components/seeded/schools/seeded-school-detail.tsx",
-      "components/seeded/roadmap/goal-pace-warning.tsx",
       "lib/school-fit.ts",
     ]) {
       const src = codeOnly(join(ROOT, f));

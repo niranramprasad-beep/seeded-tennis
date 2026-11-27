@@ -37,7 +37,7 @@ import { isCommittedStatus } from "@/lib/tournament-status";
 import type { PlayerGender, SchoolLite } from "@/lib/types";
 import { encodeTournamentFitShareParams, type TravelPill } from "@/lib/tournament-fit-share";
 import { formatShortDate, localDateKey, parseLocalDate, startOfLocalDay } from "@/lib/time";
-import { formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { formatPlayerUtr, formatTeamUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { DEFAULT_GROWTH_LABEL } from "@/lib/config/growth";
 
 const MS_PER_DAY = 86_400_000;
@@ -284,26 +284,26 @@ export interface TargetSchoolsKpi {
 export function targetSchoolsKpi(report: Pick<FitReport, "inRange"> | null, targetCount: number): TargetSchoolsKpi {
   const value = String(targetCount);
   if (targetCount === 0) return { value, sentence: "No target schools saved yet." };
-  if (!report) return { value, sentence: "No UTR yet, so no bands." };
+  if (!report) return { value, sentence: "No UTR yet, so no fit." };
   const n = report.inRange;
   if (n === targetCount) {
     return {
       value,
       sentence:
         targetCount === 1
-          ? "It's a Target or Likely."
+          ? "It's in range: a Good match or Safe bet."
           : targetCount === 2
-            ? "Both are Target or Likely."
-            : `All ${targetCount} are Target or Likely.`,
+            ? "Both are in range."
+            : `All ${targetCount} are in range.`,
     };
   }
   if (n === 0) {
     return {
       value,
-      sentence: targetCount === 1 ? "It's not a Target or Likely yet." : `None of the ${targetCount} are Target or Likely yet.`,
+      sentence: targetCount === 1 ? "It's not in range yet." : `None of the ${targetCount} are in range yet.`,
     };
   }
-  return { value, sentence: `${n} of ${targetCount} ${n === 1 ? "is" : "are"} Target or Likely.` };
+  return { value, sentence: `${n} of ${targetCount} ${n === 1 ? "is" : "are"} in range.` };
 }
 
 export interface SeasonSpendKpi {
@@ -648,12 +648,14 @@ export function utrChartCaption(model: UtrChartModel | null, input: ChartInput &
     if (gap <= 0) {
       return `${at}, ${child} reaches the start of their target range around ${monthYear(proj.end)}.`;
     }
-    return `${at}, ${child} is about ${formatUtrEstimate(gap)} short of where their target schools start by ${projectionTargetLabel(proj.year)}.`;
+    // The team number as a whole number and no exact gap: the gap plus the
+    // child's own rating would give a team's exact floor back (2026-11-27).
+    return `${at}, ${child} is still short of where their target schools start (${formatTeamUtr(floor)}) by ${projectionTargetLabel(proj.year)}.`;
   }
   if (input.graduationYear == null) {
-    return `${child} is ${formatUtrEstimate(floor - current)} below where their target schools start. With no class year set, there is no estimate.`;
+    return `${child} is below where their target schools start (${formatTeamUtr(floor)}). With no class year set, there is no estimate.`;
   }
-  return `${child} is ${formatUtrEstimate(floor - current)} below where their target schools start.`;
+  return `${child} is below where their target schools start (${formatTeamUtr(floor)}).`;
 }
 
 const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -677,7 +679,7 @@ export function utrChartAriaLabel(model: UtrChartModel, childFirst: string): str
         : `Estimate for ${projectionTargetLabel(p.year)}, the summer before senior year: about ${formatUtrEstimate(p.value)}, between ${formatUtrEstimate(p.low)} and ${formatUtrEstimate(p.high)}.`
     );
   }
-  if (model.targetFloor != null) parts.push(`Target schools start at ${formatUtrEstimate(model.targetFloor)}.`);
+  if (model.targetFloor != null) parts.push(`Target schools start at ${formatTeamUtr(model.targetFloor)}.`);
   return parts.join(" ");
 }
 

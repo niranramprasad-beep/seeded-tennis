@@ -10,7 +10,7 @@ export const META_DESCRIPTION_MAX = 155;
 
 /** The sentence that follows the place line. */
 export const SCHOOL_PAGE_PITCH =
-  "See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.";
+  "See how your UTR compares to the team's range and whether the program is a realistic shot for your plan.";
 /** Its first clause, word for word, for the schools whose place line leaves no room for the rest. */
 export const SCHOOL_PAGE_PITCH_SHORT = "See how your UTR compares to the team's range.";
 

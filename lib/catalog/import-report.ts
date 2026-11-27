@@ -416,13 +416,13 @@ export function renderImportReport(s: ImportSummary): string {
   out.push("\n### Team ranges\n");
   out.push(
     `${s.ranges.withRange} of ${s.totals.programs} imported programs have a current, sourced team range; ` +
-      `${s.ranges.withoutRange} show "Level not rated yet" and are excluded from every band.`
+      `${s.ranges.withoutRange} show "Level not rated yet" and are left out of every fit.`
   );
 
   out.push("\n### Coverage for sample players (today's rating, no projection)\n");
   out.push(
     table(
-      ["Player", "Imported programs rated", "Imported not rated", "Target (imported)", "Likely (imported)", "Target (legacy catalog, unverified)", "Likely (legacy catalog, unverified)"],
+      ["Player", "Imported programs rated", "Imported not rated", "Good match (imported)", "Safe bet (imported)", "Good match (legacy catalog, unverified)", "Safe bet (legacy catalog, unverified)"],
       s.coverage.map((c) => {
         const legacy = s.legacyCoverage.find((l) => l.utr === c.utr && l.gender === c.gender)!;
         return [

@@ -11,8 +11,20 @@ import { plural } from "@/lib/utils";
 
 /** The Today pill beside the UTR chip. Green only when at least one target
  *  really is on track; with none it is a neutral, plain statement. */
-export function onTrackPill(onTrack: number, targets: number): { text: string; tone: "good" | "neutral" } | null {
+export function onTrackPill(
+  onTrack: number,
+  targets: number,
+  /** True when the tiers were judged on the player's Plan UTR: then the pill
+   *  says so, because "on track" would read as a claim about their real
+   *  progress (verifier MEDIUM, 2026-11-27). */
+  onPlan = false
+): { text: string; tone: "good" | "neutral" } | null {
   if (targets <= 0) return null;
+  if (onPlan) {
+    return onTrack <= 0
+      ? { text: targets === 1 ? "Your target isn't in range at your plan UTR" : `None of your ${targets} targets in range at your plan UTR`, tone: "neutral" }
+      : { text: `${onTrack} of ${plural(targets, "target", "targets")} in range at your plan UTR`, tone: "good" };
+  }
   if (onTrack <= 0) {
     return {
       text: targets === 1 ? "Your target isn't on track yet" : `None of your ${targets} targets on track yet`,

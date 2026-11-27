@@ -21,7 +21,7 @@ import { regionForState, ALL_REGIONS, type SchoolRegion } from "@/lib/school-reg
 import { ACADEMIC_RANK_SOURCE_LABEL, academicTier, ACADEMIC_TIER_LABEL, type AcademicTier } from "@/lib/school-academics";
 import { sortSchoolsForSeeded, SEEDED_SORT_LABEL, type SeededSchoolSort } from "@/lib/school-sort";
 import { isEditableTarget } from "@/lib/keyboard-shortcuts";
-import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
+import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
 import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import {
@@ -42,10 +42,10 @@ import { Pill } from "@/components/seeded/ui/pill";
 import { RangeBar } from "@/components/seeded/ui/range-bar";
 import { StarButton } from "@/components/seeded/ui/star-button";
 import { Toast } from "@/components/seeded/ui/toast";
-import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
+import { PlanUtrControl } from "@/components/seeded/ui/plan-utr-control";
 import { Drawer } from "@/components/ui/drawer";
-import { cn, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
-import { judgingRatingFor, rangeCaption, ratingBasisLabel, whyBandGapLines } from "@/lib/fit-copy";
+import { cn, formatTeamUtr, formatUtrEstimate, hasRealUtr, plural } from "@/lib/utils";
+import { fitComparisonSentence, judgingRatingFor, rangeCaption, ratingBasisLabel, todayRatingFor, whyBandGapLines } from "@/lib/fit-copy";
 import { readSchoolsShape, rememberSchoolsShape, schoolsShapeFor } from "@/lib/layout-hints";
 
 const selectClass =
@@ -85,17 +85,19 @@ function dataVerificationChip(s: School): ColumnChip {
     : NOT_TRACKED;
 }
 
-/** "Tuscaloosa, AL", "AL", or "Location not tracked". */
-function placeLine(s: Pick<School, "city" | "state">): string {
+/** "Tuscaloosa, AL", "AL", or null. */
+/** "Durham, NC", the state alone, or null — an untracked location is left
+ *  out, not printed as "Not tracked" (Niran, 2026-11-27). */
+function placeLine(s: Pick<School, "city" | "state">): string | null {
   if (s.city && s.state) return `${s.city}, ${s.state}`;
-  return s.state ?? "Location not tracked";
+  return s.state ?? null;
 }
 
 // The parent block's height while there is nothing to put in it yet, in
 // measured steps (persona f: 174px at 320, 134 at 375, 94 from 640 to 1024,
 // 74 at 1440). Between those widths it is close, not exact. The no-rating
 // sentence ("X's rating shows with the Family plan, so programs below
-// aren't banded for fit.") is longer, so a parent whose last /schools had no
+// don't show a fit.") is longer, so a parent whose last /schools had no
 // fit gets its own steps (persona pb1: 194 at 320, 174 at 375, 74 at 1440).
 const PARENT_BLOCK_FIT_H = "min-h-[174px] min-[360px]:min-h-[134px] sm:min-h-[94px] xl:min-h-[74px]";
 const PARENT_BLOCK_NOFIT_H =
@@ -179,18 +181,13 @@ export function SeededSchoolsBrowser({
     [utrEntries]
   );
 
-  // The "what if my UTR is ___ by June {year}?" slider — defaults to the
-  // player's real current UTR (identical to today's page until actually
-  // touched), and from then on drives every band/count/dot below in place
-  // of the real currentUTR. See lib/what-if-utr.ts for why only "My pace"
-  // mode re-passes real history into the 4-band classifier.
-  const whatIf = useWhatIfUtr({
-    currentUTR: player.currentUTR,
-    graduationYear: player.graduationYear,
-    gender: player.gender,
-    utrHistory: realUtrHistory,
-  });
-  const effectiveUtr = whatIf.hypotheticalUTR;
+  // "Set your plan UTR" (2026-11-27) replaced the "what if my UTR is ___
+  // by June {year}?" slider: the ONE stored number every fit screen judges
+  // on (lib/hooks/use-plan-utr.ts). useFitReport reads it itself, so this
+  // page only shows the control; the report below is already judged on it.
+  // usePlanGoal: the saved plan, and the estimate the control offers.
+  const planGoal = usePlanGoal(player);
+  const effectiveUtr = player.currentUTR;
 
   // A signed-out visitor, or anyone who has never logged a rating, carries
   // the `currentUTR <= 0` sentinel. `hasRealUtr` is the ONLY thing that may
@@ -297,18 +294,6 @@ export function SeededSchoolsBrowser({
     ? pickFamilyPlayer(familyMembers)?.name?.split(" ")[0] ?? "your player"
     : null;
 
-  // `overrideUtr` is for an EXPLICIT what-if choice only.
-  //
-  // It used to be `viewingAsParent ? null : youUtr`, and `youUtr` is the
-  // slider's value, which `resolveWhatIfDisplay` returns as the player's
-  // own rating when the slider has never been touched. buildFitReport
-  // treats any non-null override as a deliberate choice — basis "current",
-  // no projection — so EVERY signed-in player was judged on today's rating
-  // here while /today, /outreach and /family projected to junior year.
-  // That is Workstream A's bug, reintroduced one line below a comment
-  // claiming the opposite. `isAtRealCurrent` is the hook's own signal that
-  // nobody has moved the slider.
-  const explicitWhatIf = whatIf.isAtRealCurrent ? null : youUtr;
   const playerUserId = viewingAsParent
     ? (pickFamilyPlayer(familyMembers)?.id ?? null)
     : null;
@@ -322,7 +307,6 @@ export function SeededSchoolsBrowser({
         }
       : player,
     schools: ranked,
-    overrideUtr: viewingAsParent ? null : explicitWhatIf,
     // A parent's Reach/Out-of-range split must come from the CHILD's
     // logged history, not their own.
     historyUserId: playerUserId,
@@ -331,14 +315,14 @@ export function SeededSchoolsBrowser({
   const judgingUtr: number | null = report?.utr.value ?? null;
   // Which rating `judgingUtr` is — printed beside every number that came
   // from it (final-check A2) — from the ONE pure helper every fit screen
-  // uses (lib/fit-copy.ts judgingRatingFor; verifier M1). A parent has no
-  // slider, so no what-if.
-  const judging = judgingRatingFor({ report, whatIf: viewingAsParent ? null : whatIf, graduationYear: player.graduationYear });
+  // uses (lib/fit-copy.ts judgingRatingFor; verifier M1). The report says
+  // itself whether it was judged on the plan, the estimate or today.
+  const judging = judgingRatingFor({ report });
   const judgingWho = viewingAsParent ? (subjectName ?? "Player") : "You";
-  // TODAY's real rating — the only number "today" may ever describe. The
-  // "Why this band" summary printed the what-if value as "You're 8.99
-  // today" for a 8.20 player (final-check A1).
-  const todayUtr: number | null = whatIf.todayUtr;
+  // TODAY's real rating — the only number "today" may ever describe (the
+  // old what-if summary printed a what-if value as "You're 8.99 today" for
+  // a 8.20 player, final-check A1).
+  const todayUtr: number | null = todayRatingFor(effectiveUtr);
   const hasFit = report != null;
 
   const bandFor = useCallback(
@@ -346,21 +330,18 @@ export function SeededSchoolsBrowser({
     [report]
   );
 
-  // Same real grad-year context as the what-if hook, plus the full catalog
-  // — explainSchoolFit only needs the catalog for its point-7 alternative-
-  // school suggestion. Uses the SAME history choice as the what-if pass
-  // (real history only for "My pace"), so the expanded row's "why this
-  // band" never disagrees with the band chip right above it.
+  // The real logged history — the same history the report's Stretch /
+  // Long shot split used — plus the full catalog (explainSchoolFit only
+  // needs it for its alternative-school suggestion), so the expanded row
+  // never disagrees with the tier chip right above it.
   const explanationInput = useMemo(
     () => ({
-      // Always defined since P1-FIT-1 — see the same note in
-      // seeded-roadmap-layout.tsx.
-      utrHistory: whatIf.whatIfProjection.utrHistory,
+      utrHistory: realUtrHistory,
       graduationYear: player.graduationYear,
       gender: player.gender,
       catalog: allSchools,
     }),
-    [whatIf.whatIfProjection, player.graduationYear, player.gender, allSchools]
+    [realUtrHistory, player.graduationYear, player.gender, allSchools]
   );
 
   // A school's profile page links here with ?compare={slug}&gender={gender}
@@ -645,10 +626,17 @@ export function SeededSchoolsBrowser({
           // linked player yet) falls through to the banner instead.
           <div aria-hidden className={awaitingShape === "fit" ? PARENT_BLOCK_FIT_H : PARENT_BLOCK_NOFIT_H} />
         ) : hasUtr && !viewingAsParent ? (
-          <WhatIfPanel {...whatIf} seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()} bandUtr={report?.utr.value ?? null} historyLoaded={utrEntries !== undefined} />
+          <PlanUtrControl
+            planUtr={planGoal.goal?.value ?? (planGoal.loaded ? null : undefined)}
+            loaded={planGoal.loaded}
+            currentUtr={todayUtr}
+            estimate={planGoal.estimate}
+            seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
+            onSave={planGoal.setGoal}
+          />
         ) : viewingAsParent ? (
-          // A parent has no rating of their own and the slider is not for
-          // them. The prompt below is addressed to a player, so showing it
+          // A parent has no rating of their own and the plan UTR is the
+          // player's to set (their settings are theirs alone, RLS). The prompt below is addressed to a player, so showing it
           // here asked the wrong person for the wrong thing.
           <div className="space-y-2">
             <p className="px-1 text-sm text-stone">
@@ -657,7 +645,7 @@ export function SeededSchoolsBrowser({
               ) : (
                 <>
                   {missingPlayerUtrPhrase(subjectName ?? "Your player", statsLocked)}, so programs
-                  below aren&rsquo;t banded for fit.
+                  below don&rsquo;t show a fit.
                   {statsLocked ? (
                     <>
                       {" "}
@@ -671,9 +659,8 @@ export function SeededSchoolsBrowser({
             </p>
           </div>
         ) : (
-          // The what-if slider is "what if my rating were X by June" — it
-          // has nothing to move from without a rating, and rendering it
-          // anyway is what put a 0.0 on the screen.
+          // The plan UTR control needs a rating to plan from (a plan must be
+          // above today's), so without one the page asks for it first.
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line bg-cream/60 px-[18px] py-4">
             {/* A parent has no rating of their own: before their player has
                 joined the family, "Enter your UTR" asked the wrong person for
@@ -979,7 +966,7 @@ export function SeededSchoolsBrowser({
                         <span className="flex min-w-0 flex-col justify-center">
                           <span className="truncate text-[15px] font-semibold">{s.shortName}</span>
                           <span className="truncate text-xs text-stone-light">
-                            {s.division} · {s.state ?? "Location not tracked"}
+                            {[s.division, s.state].filter(Boolean).join(" · ")}
                           </span>
                         </span>
                       </Link>
@@ -994,10 +981,10 @@ export function SeededSchoolsBrowser({
                       // The team range is real data and shows either way.
                       caption={
                         judgingUtr === null
-                          ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                          ? `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
                           : judging
                             ? rangeCaption(judging, judgingWho, range)
-                            : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                            : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
                       }
                       low={range.min}
                       median={s.avgRosterUTR}
@@ -1031,12 +1018,14 @@ export function SeededSchoolsBrowser({
                   )}
                   {expanded && explanation && (
                     <div className="border-b border-line bg-cream/40 px-[18px] py-4 text-sm text-ink last:border-b-0">
-                      <p>{explanation.summary}</p>
+                      {/* The real comparison first, said plainly as a
+                          realistic shot or not (2026-11-27) — the rating fit
+                          was judged on against this team's range. */}
+                      <p>{fitComparisonSentence(judging, s, fit, judgingWho) ?? explanation.summary}</p>
                       {/* "1.2 below the team floor · 0.3 above the team
-                          average" (A-007), not a signed gap — and now
-                          saying WHICH rating: the band's own (estimate or
-                          what-if), then today's when that differs
-                          (final-check A1/A2). */}
+                          average" (A-007), not a signed gap — saying WHICH
+                          rating: the one fit used (plan or estimate), then
+                          today's when that differs (final-check A1/A2). */}
                       {whyBandGapLines(judging, todayUtr, s, judgingWho).map((line, i) => (
                         <p key={i} className={i === 0 ? "mt-1.5 text-stone" : "mt-1 text-stone"}>
                           {line}
@@ -1058,7 +1047,7 @@ export function SeededSchoolsBrowser({
                           explainSchoolFit()'s "…aren't tracked yet — this
                           isn't factored into your band." notes back to back. */}
                       <p className="mt-1.5 text-xs text-stone-light">
-                        Openings and admit ranges: Not tracked; neither changes this band.
+                        Roster openings and admit ranges aren&apos;t part of this fit.
                       </p>
                     </div>
                   )}
@@ -1082,9 +1071,9 @@ export function SeededSchoolsBrowser({
             page title: it arrives when the fit report does, and up there it
             pushed the search box, what-if panel, chips and filters down
             ~100px (CLS 0.13 at 375 for a signed-in player). Below the table
-            it moves nothing on screen. The what-if panel at the top already
-            names the projected rating and date. */}
-        {report?.utr.isProjected ? (
+            it moves nothing on screen. The plan UTR control at the top
+            already names the plan and its date. */}
+        {report?.utr.isProjected || report?.utr.source === "plan" ? (
           <ProjectionNote
             utr={report.utr}
             who={viewingAsParent ? subjectName : null}
@@ -1150,17 +1139,21 @@ export function SeededSchoolsBrowser({
                   {fit ? <FitBadge band={fit} /> : null}
                 </div>
                 <p className="mt-1 text-xs text-stone-light">
-                  {s.conference} · {s.division} · {placeLine(s)}
+                  {[s.conference, s.division, placeLine(s)].filter(Boolean).join(" · ")}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <dt className="text-stone-light">{s.utrRange ? "Team middle UTR (median)" : "Avg roster UTR (est.)"}</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.avgRosterUTR)}</dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatTeamUtr(s.avgRosterUTR)}</dd>
                   <dt className="text-stone-light">{s.utrRange ? "Team floor UTR (lower quartile)" : "Min competitive UTR (est.)"}</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">{formatUtrEstimate(s.minCompetitiveUTR)}</dd>
-                  <dt className="text-stone-light">U.S. News academic rank</dt>
-                  <dd className="text-right font-mono tabular-nums text-ink">
-                    {s.usNewsRanking === null ? "Not tracked" : `#${s.usNewsRanking}`}
-                  </dd>
+                  <dd className="text-right font-mono tabular-nums text-ink">{formatTeamUtr(s.minCompetitiveUTR)}</dd>
+                  {/* A rank this school has no figure for is left out, not
+                      printed as "Not tracked" (Niran, 2026-11-27). */}
+                  {s.usNewsRanking !== null && (
+                    <>
+                      <dt className="text-stone-light">U.S. News academic rank</dt>
+                      <dd className="text-right font-mono tabular-nums text-ink">#{s.usNewsRanking}</dd>
+                    </>
+                  )}
                 </dl>
               </div>
             );

@@ -127,8 +127,6 @@ export function TodayPreview({ targetSchools }: { targetSchools: SchoolLite[] })
         sundayCheckinDue
         setSundayCheckinOpen={setSundayCheckinOpen}
         planGoal={{ value: 11.2, estimate: null }}
-        goalPace={null}
-        onUseEstimateGoal={() => {}}
       />
       <SundayCheckinDrawer
         open={sundayCheckinOpen}

@@ -1,9 +1,8 @@
 import type { SchoolLite } from "@/lib/types";
 import type { BandCounts, FitReport, RecruitingTimeUtr } from "@/lib/fit";
 import { PLANNING_PACE_CAP_PER_YEAR, formatPacePerYear, isUsableUtr, projectionTargetLabel } from "@/lib/fit";
-import { schoolUtrRange, summerBeforeSeniorYear } from "@/lib/school-fit";
-import { WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR } from "@/lib/what-if-utr";
-import { formatPlayerUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
+import { SCHOOL_FIT_BAND_LABEL as SCHOOL_FIT_LABELS, schoolUtrRange } from "@/lib/school-fit";
+import { formatPlayerUtr, formatTeamUtr, formatUtrEstimate, formatUtrFor, hasRealUtr, plural, pluralNoun } from "@/lib/utils";
 
 // The words that sit next to the fit counts — the homepage calculator's
 // button, the zero state when nothing is in range, the fit report's headline
@@ -62,18 +61,6 @@ export function closestProgramAbove(
   return best;
 }
 
-/**
- * A distance between a rating and a team line, printed precisely enough that
- * a non-zero distance never prints as zero: one decimal from 0.1 up (the team
- * numbers are estimates), two decimals below 0.1 ("0.04"), and "less than
- * 0.01" below that. Callers decide "at" separately, by exact comparison.
- */
-export function formatUtrDistance(distance: number): string {
-  const d = Math.abs(distance);
-  if (d < 0.005) return "less than 0.01";
-  if (Math.round(d * 100) < 10) return d.toFixed(2);
-  return formatUtrEstimate(d);
-}
 
 /**
  * "None of our 24 women's programs are in range at 9.40 yet. Closest:
@@ -95,17 +82,16 @@ export function nothingInRangeSentence(input: {
   const noun = programLabel ? `${programLabel} ${pluralNoun(programCount, "program", "programs")}` : pluralNoun(programCount, "program", "programs");
   const none = `None of our ${programCount} ${noun} ${programCount === 1 ? "is" : "are"} in range at ${formatPlayerUtr(utr)} yet.`;
   if (!closest) return none;
-  const gap = formatUtrDistance(closest.gap);
-  const away = gap === "less than 0.01" ? "less than 0.01 away" : `about +${gap} away`;
-  return `${none} Closest: ${closest.name}, ${away} (estimate).`;
+  // The team's floor as a whole number, never the exact distance to it: that
+  // plus the reader's own UTR gives the floor back (2026-11-27).
+  return `${none} Closest: ${closest.name}, floor ${formatTeamUtr(utr + closest.gap)}.`;
 }
 
-/** "See my 3 Target and Likely schools" / "See my 1 Target or Likely school".
- * Only for a count of at least one — zero gets the zero state instead. */
+/** "See my 3 schools in range" / "See my 1 school in range" — in range =
+ * Good match + Safe bet. Only for a count of at least one — zero gets the
+ * zero state instead. */
 export function inRangeButtonLabel(inRange: number): string {
-  return inRange === 1
-    ? "See my 1 Target or Likely school"
-    : `See my ${inRange} Target and Likely schools`;
+  return inRange === 1 ? "See my 1 school in range" : `See my ${inRange} schools in range`;
 }
 
 export const SEE_ALL_PROGRAMS = { label: "See all programs", href: "/schools" } as const;
@@ -154,7 +140,7 @@ export function heroFitCta(input: {
   const inRange = inRangeCount(counts);
   const projectedNote =
     projected && projected.inRange > inRange
-      ? `By ${projectionTargetLabel(projected.year)}, est.: ${projected.inRange} Target and Likely.`
+      ? `By ${projectionTargetLabel(projected.year)}, est.: ${projected.inRange} in range.`
       : null;
   if (inRange > 0) return { kind: "button", showCounts: true, label: inRangeButtonLabel(inRange), projectedNote };
   const sentence = nothingInRangeSentence({
@@ -278,9 +264,9 @@ export function emptyBandSentence(band: FitTabBand): string {
     case "likely":
       return "No program has this rating at or above its middle.";
     case "reach":
-      return "No program is a Reach: none has a floor above this rating that the pace we plan with reaches by the summer before senior year.";
+      return "No program is a Stretch: none has a floor above this rating that the pace we plan with reaches by the summer before senior year.";
     case "out-of-range":
-      return "No program is Out of range: every floor above this rating is one the pace we plan with reaches by the summer before senior year.";
+      return "No program is a Long shot: every floor above this rating is one the pace we plan with reaches by the summer before senior year.";
   }
 }
 
@@ -299,9 +285,11 @@ export function emptyBandSentence(band: FitTabBand): string {
 /** "middle" is a checked roster's median (lib/catalog/merge.ts); "average"
  *  the legacy estimate's. */
 export function teamLineRelation(rating: number, line: number, which: "average" | "floor" | "middle"): string {
-  const diff = line - rating;
-  if (Math.abs(diff) < 1e-9) return `at the team ${which}`;
-  return `${formatUtrDistance(diff)} ${diff > 0 ? "below" : "above"} the team ${which}`;
+  // The side of the line, and the line as a whole number — never the exact
+  // distance, which plus the reader's own UTR gives the team number back
+  // (Niran, 2026-11-27: team numbers are whole numbers on screen). `>=`
+  // is classifySchoolFit's own comparison, so the tier chip always agrees.
+  return `${rating >= line - 1e-9 ? "at or above" : "below"} the team ${which} (${formatTeamUtr(line)})`;
 }
 
 // ---------------------------------------------------------------------
@@ -309,50 +297,39 @@ export function teamLineRelation(rating: number, line: number, which: "average" 
 //
 // The same school showed "You 8.20 · 2.3 below the team average" on Plan and
 // "8.7 · 1.8 below average" on its own page and on the Schools list: one was
-// today's rating, the other the summer estimate, and neither said so. And the
-// Schools "Why this band" panel printed a what-if value as "You're 8.99
-// today". Every rating printed next to a team line now carries its basis,
-// in one vocabulary, from here:
-//   - "today"                                  — the rating the player logged
-//   - "by summer 2027, estimate"               — the fit report's projection
-//   - "by summer 2027, what-if at +1.50 a year" — the what-if slider's choice
-// The year is always the projection's own (report.utr.year, or the summer
-// before senior year for a what-if) — never a hardcoded one.
+// today's rating, the other the summer estimate, and neither said so. Every
+// rating printed next to a team line now carries its basis, in one
+// vocabulary, from here:
+//   - "today"                        — the rating the player logged
+//   - "by summer 2027, estimate"     — the fit report's projection
+//   - "by summer 2027, your plan"    — the Plan UTR the player set
+//     (2026-11-27; it replaced the "what if" slider's "what-if" basis)
+// The year is always the report's own (report.utr.year) — never a
+// hardcoded one.
 // ---------------------------------------------------------------------
-
-export type WhatIfBasisPace = "mine" | "plus1.5" | "custom";
 
 export type RatingBasis =
   | { kind: "today" }
   | { kind: "estimate"; year: number }
-  /** `year` null once the summer before senior year has begun (the what-if
-   *  is then about now, as the what-if panel says). */
-  | { kind: "what-if"; year: number | null; pace: WhatIfBasisPace | null; pacePerYear?: number | null };
+  /** The Plan UTR the player set, for the summer before senior year. */
+  | { kind: "plan"; year: number };
 
-/** The basis of a fit report's rating: the estimate when it is projected,
- *  today's rating otherwise. */
-export function basisOfReportUtr(utr: Pick<RecruitingTimeUtr, "isProjected" | "year">): RatingBasis {
+/** The basis of a fit report's rating: the player's plan when the report
+ *  was judged on it (utr.source "plan"), the estimate when it is
+ *  projected, today's rating otherwise. */
+export function basisOfReportUtr(utr: Pick<RecruitingTimeUtr, "isProjected" | "year" | "source">): RatingBasis {
+  if (utr.source === "plan") return { kind: "plan", year: utr.year };
   return utr.isProjected ? { kind: "estimate", year: utr.year } : { kind: "today" };
 }
 
-/** "today" · "by summer 2027, estimate" · "by summer 2027, what-if at +1.50 a year". */
+/** "today" · "by summer 2027, estimate" · "by summer 2027, your plan". */
 export function ratingBasisLabel(basis: RatingBasis): string {
   if (basis.kind === "today") return "today";
   if (basis.kind === "estimate") return `by ${projectionTargetLabel(basis.year)}, estimate`;
-  // No year left (the summer before senior year has begun): the what-if is
-  // about now, and a pace "a year" has nothing to run over (verifier LOW).
-  if (basis.year == null) return "now, what-if";
-  const when = `by ${projectionTargetLabel(basis.year)}`;
-  const how =
-    basis.pace === "plus1.5" && basis.pacePerYear != null
-      ? ` at ${formatPacePerYear(basis.pacePerYear)}`
-      : basis.pace === "mine"
-        ? " at your pace"
-        : "";
-  return `${when}, what-if${how}`;
+  return `by ${projectionTargetLabel(basis.year)}, your plan`;
 }
 
-/** A rating printed the way its basis is: a logged or what-if rating at two
+/** A rating printed the way its basis is: a logged rating or a plan at two
  *  decimals, an estimate at one (lib/utils.ts, C10). */
 function formatRatingForBasis(value: number, basis: RatingBasis): string {
   return basis.kind === "estimate" ? formatUtrEstimate(value) : formatPlayerUtr(value);
@@ -392,27 +369,6 @@ export function teamGapSentence(
   return `${head}: ${parts.join(" · ")}`;
 }
 
-/**
- * The basis of the what-if slider's value, or null while the slider is
- * untouched (the page then shows the report's own rating, basisOfReportUtr).
- * The year is the summer before senior year — the date the what-if panel's
- * own question names ("What if my UTR is 8.99 by June 2027?").
- */
-export function whatIfBasis(
-  whatIf: { isAtRealCurrent: boolean; activePaceMode: WhatIfBasisPace | null },
-  graduationYear: number,
-  now: Date = new Date()
-): RatingBasis | null {
-  if (whatIf.isAtRealCurrent) return null;
-  const milestone = summerBeforeSeniorYear(graduationYear);
-  return {
-    kind: "what-if",
-    year: now.getTime() >= milestone.getTime() ? null : milestone.getFullYear(),
-    pace: whatIf.activePaceMode,
-    pacePerYear: whatIf.activePaceMode === "plus1.5" ? WHAT_IF_HYPOTHETICAL_PACE_PER_YEAR : null,
-  };
-}
-
 // ---------------------------------------------------------------------
 // THE RATING EACH FIT SCREEN JUDGES AND PRINTS (verifier MEDIUM 1)
 //
@@ -431,23 +387,17 @@ export interface JudgingRating {
 }
 
 /**
- * THE judging rating for a fit screen: the fit report's value, labelled as
- * the what-if when the slider was moved (the report then holds the slider's
- * value as an override and would otherwise call it today's), else as the
- * estimate or today. Null without a report or a real rating.
- *
- * `whatIf` is null where there is no slider for this reader (a parent).
+ * THE judging rating for a fit screen: the fit report's value, labelled
+ * with its basis — the player's plan, the estimate, or today. The report
+ * says which itself (utr.source), so no screen assembles the label. Null
+ * without a report or a real rating.
  */
 export function judgingRatingFor(input: {
-  report: { utr: Pick<RecruitingTimeUtr, "value" | "isProjected" | "year"> } | null | undefined;
-  whatIf: { isAtRealCurrent: boolean; activePaceMode: WhatIfBasisPace | null } | null;
-  graduationYear: number;
-  now?: Date;
+  report: { utr: Pick<RecruitingTimeUtr, "value" | "isProjected" | "year" | "source"> } | null | undefined;
 }): JudgingRating | null {
   const utr = input.report?.utr;
   if (!utr || !hasRealUtr(utr.value)) return null;
-  const fromWhatIf = input.whatIf ? whatIfBasis(input.whatIf, input.graduationYear, input.now) : null;
-  return { utr: utr.value, basis: fromWhatIf ?? basisOfReportUtr(utr) };
+  return { utr: utr.value, basis: basisOfReportUtr(utr) };
 }
 
 /** Today's real rating or null — the ONLY number "today" may print. */
@@ -456,11 +406,9 @@ export function todayRatingFor(currentUtr: number | null | undefined): number | 
 }
 
 /**
- * The gap lines under a "Why this band" summary (/schools' expanded row):
- * the judging rating's gap, then today's gap when the judging rating is not
- * today's — and, when a what-if was dragged BELOW today's rating, one
- * sentence saying so, so the band and "You're 8.20 today" do not read as a
- * contradiction (verifier LOW).
+ * The gap lines under "Your chances here" (/schools' expanded row): the
+ * judging rating's gap, then today's gap when the judging rating is not
+ * today's.
  */
 export function whyBandGapLines(
   judging: JudgingRating | null,
@@ -477,16 +425,11 @@ export function whyBandGapLines(
     const today = teamGapSentence(todayUtr, { kind: "today" }, school, { who });
     if (today) lines.push(today);
   }
-  if (judging?.basis.kind === "what-if" && todayUtr != null && hasRealUtr(todayUtr) && judging.utr < todayUtr) {
-    lines.push(
-      `This what-if (${formatPlayerUtr(judging.utr)}) is below today's ${formatPlayerUtr(todayUtr)}, so the band above is for a lower rating than you have now.`
-    );
-  }
   return lines;
 }
 
-/** One target row's gap on /plan: the line the band turns on, measured from
- *  the judging rating and labelled with it. */
+/** One target row's gap on /plan: the team line the tier turns on,
+ *  measured from the judging rating and labelled with it. */
 export function targetRowGapSentence(
   judging: JudgingRating | null,
   school: Pick<SchoolLite, "minCompetitiveUTR" | "avgRosterUTR">,
@@ -521,7 +464,7 @@ export function schoolPageUtrRow(
 /** "You 8.7 by summer 2027, estimate · team 9.1–11.5" — a range bar's
  *  caption. */
 export function rangeCaption(judging: JudgingRating, who: string, range: { min: number; max: number }): string {
-  return `${ratingWithBasis(judging.utr, judging.basis, who)} · team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`;
+  return `${ratingWithBasis(judging.utr, judging.basis, who)} · team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`;
 }
 
 /** "your 8.5 by summer 2027, estimate" — the rating /plan's Closest schools
@@ -544,4 +487,68 @@ export function rangeBarYouLine(input: {
 }): string {
   const basis = input.youBasis ? ` ${input.youBasis}` : "";
   return `${input.youLabel} ${formatUtrFor(input.you, input.youIsEstimate)}${basis} · ${teamLineRelation(input.you, input.median, input.checked ? "middle" : "average")}`;
+}
+
+// ---------------------------------------------------------------------
+// THE FIT, SAID AS THE COMPARISON IT IS (2026-11-27)
+//
+// Every fit explanation leads with the real comparison — the rating fit
+// was judged on against that team's actual UTR range — and says plainly
+// whether that is a realistic shot. It replaced "Why this band" and the
+// word "band" on every screen (Niran, 2026-11-27). The tier name in the
+// sentence is the pill's own (SCHOOL_FIT_BAND_LABEL), so they never differ.
+// ---------------------------------------------------------------------
+
+/** "Your plan UTR (11.50 by summer 2027)" · "Your estimated UTR (9.4 by
+ *  summer 2027)" · "Your UTR (9.40)" — and "Avery's …" for a parent. */
+function judgingSubject(judging: JudgingRating, who = "You"): string {
+  const whose = who === "You" ? "Your" : `${who}'s`;
+  const value = formatRatingForBasis(judging.utr, judging.basis);
+  if (judging.basis.kind === "plan") return `${whose} plan UTR (${value} by ${projectionTargetLabel(judging.basis.year)})`;
+  if (judging.basis.kind === "estimate") return `${whose} estimated UTR (${value} by ${projectionTargetLabel(judging.basis.year)})`;
+  return `${whose} UTR (${value})`;
+}
+
+/**
+ * "Your plan UTR (11.50 by summer 2027) is inside Duke's UTR range
+ * (10.4–12.1). Good match: a realistic shot."
+ *
+ * Null without a judging rating or a tier (no rating logged): the caller
+ * shows its own honest prompt. `band` must be the report's tier for this
+ * school, so the sentence can never disagree with the pill beside it.
+ *
+ * Only a hand-checked team has a real range top; for every other team the
+ * sentence names the estimated floor and middle it has, never the drawn top
+ * (verifier MEDIUM 6). Stretch makes no promise about pace: classifySchoolFit
+ * also returns it when fewer than three ratings are logged, with no
+ * projection at all (verifier HIGH 2).
+ */
+export function fitComparisonSentence(
+  judging: JudgingRating | null,
+  school: Pick<SchoolLite, "shortName" | "minCompetitiveUTR" | "avgRosterUTR" | "utrRange">,
+  band: "likely" | "target" | "reach" | "out-of-range" | "unverified" | null | undefined,
+  who = "You"
+): string | null {
+  if (!judging || !band || band === "unverified") return null;
+  const range = schoolUtrRange(school);
+  const rangeText = school.utrRange
+    ? `${school.shortName}'s UTR range (${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)})`
+    : `${school.shortName}'s estimated range (floor ${formatTeamUtr(school.minCompetitiveUTR)}, middle ${formatTeamUtr(school.avgRosterUTR)})`;
+  const subject = judgingSubject(judging, who);
+  switch (band) {
+    case "likely":
+      return `${subject} is at or above the middle of ${rangeText}. ${SCHOOL_FIT_LABELS.likely}: a realistic shot.`;
+    case "target":
+      return `${subject} is inside ${rangeText}. ${SCHOOL_FIT_LABELS.target}: a realistic shot.`;
+    // Judged on today's rating once the summer before senior year has begun:
+    // that date is gone, so the sentence doesn't name it (verifier round 2).
+    case "reach":
+      return judging.basis.kind === "today"
+        ? `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor.`
+        : `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS.reach}: not a realistic shot yet. It would take a climb to the floor by the summer before senior year.`;
+    case "out-of-range":
+      return judging.basis.kind === "today"
+        ? `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot at the pace we plan with.`
+        : `${subject} is below ${rangeText}. ${SCHOOL_FIT_LABELS["out-of-range"]}: not a realistic shot by the summer before senior year at the pace we plan with.`;
+  }
 }

@@ -144,7 +144,7 @@ export function buildNextSteps(input: NextStepsInput): NextStep[] {
     steps.push({
       id: "log-utr",
       title: "Log your UTR",
-      description: "Your bands, plan and checkpoints all start from it.",
+      description: "Your fit, plan and checkpoints all start from it.",
       cta: "Log UTR",
     });
   }
@@ -161,7 +161,7 @@ export function buildNextSteps(input: NextStepsInput): NextStep[] {
     steps.push({
       id: "targets-in-range",
       title: "Add targets you're on track for",
-      description: `${behind} of your ${plural(input.targetCount, "target", "targets")} ${behind === 1 ? "is" : "are"} a Reach or out of range. Add a few that fit where you're headed.`,
+      description: `${behind} of your ${plural(input.targetCount, "target", "targets")} ${behind === 1 ? "is" : "are"} a Stretch or a Long shot. Add a few that fit where you're headed.`,
       cta: "Find schools",
       href: "/schools",
     });

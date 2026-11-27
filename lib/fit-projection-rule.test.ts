@@ -192,15 +192,17 @@ describe("buildFitReport hands its logged history to the rule", () => {
     expect(recruitingTimeUtr({ ...base })!.value).toBe(10.5); // typical growth
   });
 
-  it("an explicit what-if choice is still used exactly as given", () => {
+  it("the player's Plan UTR is used exactly as given, labelled as the plan", () => {
     const report = buildFitReport({
       ...base,
       schools: [],
-      overrideUtr: 9.4,
+      planUtr: 9.4,
       projectionInput: { utrHistory: [pt(2025, 11, 18, 7)], graduationYear: 2030, gender: "male" },
     })!;
     expect(report.utr.value).toBe(9.4);
-    expect(report.utr.source).toBe("current");
+    expect(report.utr.source).toBe("plan");
+    // For the summer before senior year (class of 2030 → summer 2029).
+    expect(report.utr.year).toBe(2029);
   });
 });
 

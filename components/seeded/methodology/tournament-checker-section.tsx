@@ -26,7 +26,7 @@ export function TournamentCheckerMethod() {
       <ul className="flex list-disc flex-col gap-1.5 pl-5 text-stone">
         <li>
           <span className="font-semibold text-ink">In range</span> &mdash; the draw averages from {n(inRange.below)}{" "}
-          below to {n(inRange.above)} above your UTR. Wins here move a rating most. This is the only band that can
+          below to {n(inRange.above)} above your UTR. Wins here move a rating most. This is the only range that can
           be &ldquo;Worth it&rdquo;.
         </li>
         <li>

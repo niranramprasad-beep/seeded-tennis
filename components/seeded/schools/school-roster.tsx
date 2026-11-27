@@ -3,7 +3,7 @@
 // Every number and every address shows where it came from and when.
 // No hooks: renders inside the client school page and on the server alike.
 
-import { Mail, Users } from "lucide-react";
+import { ExternalLink, Mail, Users } from "lucide-react";
 import { formatIsoDate } from "@/lib/catalog/programs";
 import type { ProgramRosterPage, RosterPlayer, StaffMember } from "@/lib/db/roster";
 import { cn, plural } from "@/lib/utils";
@@ -12,20 +12,34 @@ function newestDate(dates: string[]): string | null {
   return dates.length ? [...dates].sort().at(-1)! : null;
 }
 
+// A college player's rating shows as its whole-number band only — "12.xx",
+// never the exact number (Niran, 2026-11-27). The band arrives already cut
+// on the server (lib/db/roster.ts toRosterPlayer), so the exact rating is
+// not in the page source either. The icon button beside it opens the
+// player's own UTR profile in a new tab. No rating → the cell is empty: a
+// "Not tracked" placeholder is no longer printed per row.
 function UtrCell({ p }: { p: RosterPlayer }) {
-  if (p.utr === null) return <span className="text-stone">Not tracked</span>;
-  const value = p.utr.toFixed(2);
+  if (p.utrWhole === null || !p.utrProfileUrl) return null;
   return (
-    <a
-      href={p.utrProfileUrl!}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn("font-mono tabular-nums underline-offset-2 hover:underline", p.utrReliable ? "text-ink" : "text-stone")}
-      title={p.utrReliable ? "Reliable singles UTR, from the player's UTR profile" : "Rating UTR marks as not yet reliable"}
-    >
-      {value}
-      {p.utrReliable ? null : <span className="ml-1 font-sans text-xs">(not reliable)</span>}
-    </a>
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cn("font-mono tabular-nums", p.utrReliable ? "text-ink" : "text-stone")}
+        title={p.utrReliable ? "Reliable singles UTR, shown as its whole number" : "A rating UTR marks as not yet reliable, shown as its whole number"}
+      >
+        {p.utrWhole}.xx
+        {p.utrReliable ? null : <span className="ml-1 font-sans text-xs">(not reliable)</span>}
+      </span>
+      <a
+        href={p.utrProfileUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open ${p.name}'s UTR profile (opens in a new tab)`}
+        title="Open UTR profile"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone hover:bg-subtle-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:h-7 sm:w-7"
+      >
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      </a>
+    </span>
   );
 }
 
@@ -55,27 +69,26 @@ export function SchoolRosterCard({
         </p>
       </div>
 
-      <div className="mt-4 hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)] gap-3 border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-stone sm:grid">
+      <div className="mt-4 hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-b border-line pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-stone sm:grid">
         <span>Player</span>
         <span>Class</span>
         <span>Singles UTR</span>
-        <span>Hometown</span>
       </div>
       <ul>
         {page.players.map((p) => (
           <li
             key={p.name}
-            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 border-b border-line py-2.5 text-sm last:border-b-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)] sm:items-center"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b border-line py-2.5 text-sm last:border-b-0 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
           >
             <span className="min-w-0 truncate font-medium text-ink">{p.name}</span>
+            {/* An untracked class is left out, not printed as "Not tracked". */}
             <span className="text-right text-stone sm:order-none sm:text-left">
-              {p.classLabel ?? "Not tracked"}
-              {p.gradYear ? <span className="text-xs"> · {p.gradYear}</span> : null}
+              {p.classLabel}
+              {p.gradYear ? <span className="text-xs">{p.classLabel ? " · " : ""}{p.gradYear}</span> : null}
             </span>
-            <span className="sm:order-none">
+            <span className="col-span-2 sm:order-none sm:col-span-1">
               <UtrCell p={p} />
             </span>
-            <span className="min-w-0 truncate text-right text-stone sm:text-left">{p.hometown ?? "Not tracked"}</span>
           </li>
         ))}
       </ul>
@@ -91,9 +104,10 @@ export function SchoolRosterCard({
             {")"}
           </>
         ) : null}
-        , each rating read from the player&apos;s UTR profile (click a rating to open it)
-        {read ? `, ${formatIsoDate(read)}` : ""}. Ratings UTR marks as not yet reliable are shown but don&apos;t count
-        toward the team range. Rosters change; this is a snapshot.
+        , each rating read from the player&apos;s UTR profile
+        {read ? ` on ${formatIsoDate(read)}` : ""} and shown as its whole number (12.xx). The icon opens a player&apos;s
+        profile. Ratings UTR marks as not yet reliable are shown but don&apos;t count toward the team range. Rosters
+        change; this is a snapshot.
       </p>
     </section>
   );

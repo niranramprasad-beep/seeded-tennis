@@ -36,6 +36,19 @@ export function formatUtrEstimate(value: number): string {
 }
 
 /**
+ * THE formatter for a TEAM's number — its floor, middle or top (Niran,
+ * 2026-11-27): the whole number only, "10.xx", like every college player's
+ * rating on a roster. A checked team's top is its best player's exact
+ * rating and its middle can be one player's (a median), so an exact team
+ * number would undo the roster banding. Fit math keeps the exact numbers;
+ * only what is printed is banded. Never print a team number any other way,
+ * nor a distance to one (lib/fit-copy.ts teamLineRelation).
+ */
+export function formatTeamUtr(value: number): string {
+  return `${Math.floor(value)}.xx`;
+}
+
+/**
  * THE formatter for a UTR Seeded COMPUTED as a target — a plan checkpoint on
  * the line to the goal, the "Estimate" at the player's own pace, the planning
  * value a "We plan with …" sentence names. Rounded to the nearest 0.05 and

@@ -16,10 +16,10 @@ import {
   type NextStep,
   type TodayAction,
 } from "@/lib/today-actions";
-import { projectionPath, upsideProjectionPath } from "@/lib/fit";
-import { GoalPaceWarning } from "@/components/seeded/roadmap/goal-pace-warning";
+import { projectionPath } from "@/lib/fit";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { PaceUpsideNote, ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { ChartLegend } from "@/components/seeded/ui/chart-legend";
 import { JoinRequestsCard } from "@/components/seeded/family/join-requests-card";
 import { loadFamilyRoster, type FamilyRosterMember } from "@/lib/db/family-join";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
@@ -31,7 +31,7 @@ import { DataNote } from "@/components/seeded/ui/data-note";
 import { Pill } from "@/components/seeded/ui/pill";
 import { doneThisWeekLine, onTrackPill } from "@/lib/empty-state-copy";
 import type { DashboardLayoutProps } from "@/components/dashboard/dashboard-view";
-import { chartLegendSentence } from "@/lib/chart-legend";
+import { chartLegendItems } from "@/lib/chart-legend";
 
 function seasonLabel(graduationYear: number, now: Date): string {
   const standing = gradeStandingName(getCurrentGrade(graduationYear, now));
@@ -53,8 +53,6 @@ export function SeededDashboardLayout({
   sundayCheckinDue,
   setSundayCheckinOpen,
   planGoal,
-  goalPace,
-  onUseEstimateGoal,
 }: DashboardLayoutProps) {
   const now = useMemo(() => new Date(), []);
 
@@ -96,7 +94,7 @@ export function SeededDashboardLayout({
       }).length,
     [targetSchools, fitReport]
   );
-  const trackPill = onTrackPill(onTrackCount, targetSchools.length);
+  const trackPill = onTrackPill(onTrackCount, targetSchools.length, fitReport?.utr.source === "plan");
   const matchesThisWeek = useMemo(() => {
     if (!matches) return 0;
     const weekAgo = now.getTime() - 7 * 86_400_000;
@@ -124,19 +122,17 @@ export function SeededDashboardLayout({
     [player.currentUTR, targetSchools.length, onTrackCount, matchesThisWeek, actions.length]
   );
 
-  // The fit report's estimate (report.utr) drawn as the chart's shaded band —
-  // the same number the ProjectionNote under "Your targets" prints.
+  // The fit report's estimate (report.utr) drawn dotted — the same number
+  // the ProjectionNote under "Your targets" prints. Only while there is no
+  // plan line: with one, the chart shows the plan instead (2026-11-27), and
+  // the legend never names both.
+  const hasPlanLine = targetPoints.length > 1;
   const estimatePath = useMemo(
     () =>
-      projectionPath({ estimate: fitReport?.utr, currentUtr: player.currentUTR, graduationYear: player.graduationYear }),
-    [fitReport, player.currentUTR, player.graduationYear]
-  );
-  // The upside — the player's own pace when it is faster than the planning
-  // cap. Drawn and said beside the chart; it never moves a band (lib/fit.ts).
-  const upsidePath = useMemo(
-    () =>
-      upsideProjectionPath({ estimate: fitReport?.utr, currentUtr: player.currentUTR, graduationYear: player.graduationYear }),
-    [fitReport, player.currentUTR, player.graduationYear]
+      hasPlanLine
+        ? []
+        : projectionPath({ estimate: fitReport?.utr, currentUtr: player.currentUTR, graduationYear: player.graduationYear }),
+    [hasPlanLine, fitReport, player.currentUTR, player.graduationYear]
   );
 
   const hasLoggedUtr = actualPoints.some((p) => hasRealUtr(p.utr));
@@ -185,14 +181,8 @@ export function SeededDashboardLayout({
           )}
         </div>
 
-        {/* The same warning, rule and action /plan shows under its goal. */}
-        <GoalPaceWarning
-          goalPace={goalPace}
-          goal={planGoal}
-          currentUtr={player.currentUTR}
-          onUseEstimate={onUseEstimateGoal}
-          className="mt-3.5"
-        />
+        {/* The "a stretch" / "1.5 UTR a year" warning that sat here is gone
+            (2026-11-27): the plan's one realism note lives on /plan. */}
 
       </div>
 
@@ -255,37 +245,30 @@ export function SeededDashboardLayout({
               nextCheckpoint={nextCheckpoint}
               goalValue={planGoal?.value}
               estimate={estimatePath}
-              upside={upsidePath}
             />
           </div>
           {hasLoggedUtr ? (
-            <DataNote className="mt-3">
-              {/* A legend for exactly what is drawn (independent review of
-                  PR #16): the chart may end at the next checkpoint rather
-                  than the summer before senior year, and the grey line only
-                  exists when the player's own pace beats the planning cap. */}
+            <>
               {/* One vocabulary with /plan's chart (lib/chart-legend.ts,
-                  final-check A3). The estimate is drawn dotted here too,
-                  so "dotted" means the same line on both screens. */}
-              {/* B24: the logged-only case says it in the same words too. */}
-              {chartLegendSentence({
-                estimate: estimatePath.length > 1,
-                plan: nextCheckpoint ? "next-checkpoint" : null,
-                upside: upsidePath.length > 1,
-              })}
-              {/* The header's "Next checkpoint" chip moved here in the
-                  design polish (herdy-work), so its value and date are said
-                  beside the gold line they name. */}
+                  final-check A3): swatches for exactly what is drawn. */}
+              <ChartLegend
+                items={chartLegendItems({
+                  estimate: estimatePath.length > 1,
+                  planUtr: nextCheckpoint ? "next-checkpoint" : null,
+                })}
+              />
               {nextCheckpoint && (
-                <>
-                  {" "}Next checkpoint:{" "}
+                <DataNote className="mt-2">
+                  Next checkpoint:{" "}
                   <span className="font-mono tabular-nums">{formatCheckpointUtr(nextCheckpoint.utr, planGoal?.value)}</span> by{" "}
-                  {formatDate(nextCheckpoint.date)}.
-                </>
+                  {formatDate(nextCheckpoint.date)}.{" "}
+                  <Link href="/plan" className="font-semibold text-grass underline-offset-2 hover:underline">
+                    See every checkpoint
+                  </Link>
+                </DataNote>
               )}
-            </DataNote>
+            </>
           ) : null}
-          {fitReport?.utr?.upside ? <PaceUpsideNote utr={fitReport?.utr} withLink className="mt-2" /> : null}
         </div>
       </section>
 

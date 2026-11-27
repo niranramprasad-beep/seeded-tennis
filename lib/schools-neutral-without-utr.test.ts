@@ -197,17 +197,16 @@ describe("the schools browser gates every derived output on hasRealUtr", () => {
     expect(source).toMatch(/const judgingUtr:\s*number \| null = report\?\.utr\.value \?\? null/);
     expect(source).toMatch(/const bandFor\s*=/);
     expect(source).toMatch(/const hasFit = report != null/);
-    // `player.currentUTR` belongs to the what-if hook's input and nowhere
-    // else; every defeat so far has reached for it as a fallback.
+    // `player.currentUTR` is read exactly once, into `effectiveUtr` (it fed
+    // the what-if hook until 2026-11-27); every defeat so far has reached
+    // for it as a fallback.
     const uses = [...source.matchAll(/player\.currentUTR/g)];
     expect(
       uses.length,
-      "player.currentUTR is the sentinel — read it only to seed useWhatIfUtr"
+      "player.currentUTR is the sentinel — read it only into effectiveUtr"
     ).toBe(1);
     const before = source.slice(Math.max(0, uses[0].index! - 120), uses[0].index!);
-    expect(before, "the one player.currentUTR read is not the what-if input").toMatch(
-      /useWhatIfUtr\(\{[\s\S]*$/
-    );
+    expect(before, "the one player.currentUTR read is not effectiveUtr's").toMatch(/const effectiveUtr = $/);
   });
 
   it("every FitBadge is fed from a nullable band, never from a raw classify", () => {

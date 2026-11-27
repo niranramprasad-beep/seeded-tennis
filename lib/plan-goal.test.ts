@@ -2,16 +2,11 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  PACE_STRETCH_NOTE,
-  PLANNING_PACE_CAP_PER_YEAR,
   buildFitReport,
   isRealisticTarget,
-  planGoalNeedsPaceWarning,
-  planGoalPaceSeverity,
   recruitingTimeUtr,
   resolvePlanGoal,
 } from "./fit";
-import { computeGoalPace } from "./school-fit";
 import { buildRoadmap } from "./db/plan";
 import { parsePlanGoalUtr } from "./db/settings";
 import { buildNextSteps, todayHeadline } from "./today-actions";
@@ -56,51 +51,13 @@ describe("D1 (was C11) — the plan goal is the player's, or there is none", () 
     expect(src).not.toMatch(/minCompetitiveUTR/);
   });
 
-  it("no goal → no warning, on /plan or /today, whatever the estimate's pace", () => {
-    expect(planGoalNeedsPaceWarning(null, computeGoalPace(P.currentUtr, 12, P.graduationYear, NOW))).toBe(false);
-  });
-
-  it("a goal within the cap does not warn; the estimate offered as a goal never needs more than the cap", () => {
-    const realistic = resolvePlanGoal({ chosenGoalUtr: EST!.value, estimate: EST })!;
-    const pace = computeGoalPace(P.currentUtr, realistic.value, P.graduationYear, NOW);
-    expect(planGoalNeedsPaceWarning(realistic, pace)).toBe(false);
-    expect(pace.requiredPaceUtrPerYear!).toBeLessThanOrEqual(PLANNING_PACE_CAP_PER_YEAR);
-  });
-
-  it("a chosen goal needing more than the cap warns — one rule for /plan and /today", () => {
-    const goal = resolvePlanGoal({ chosenGoalUtr: 12, estimate: EST })!;
-    expect(goal).toEqual({ value: 12, estimate: recruitingTimeUtr({ ...P, now: NOW })!.value });
-    expect(planGoalNeedsPaceWarning(goal, computeGoalPace(P.currentUtr, 12, P.graduationYear, NOW))).toBe(true);
+  it("the 'a stretch' / '1.5 a year' banners are gone from /plan and /today (2026-11-27)", () => {
     for (const f of ["components/seeded/dashboard/seeded-dashboard-layout.tsx", "components/seeded/roadmap/seeded-roadmap-layout.tsx"]) {
-      expect(readFileSync(f, "utf8"), f).toMatch(/<GoalPaceWarning/);
+      const src = readFileSync(f, "utf8");
+      expect(src, f).not.toMatch(/<GoalPaceWarning/);
+      expect(src, f).not.toMatch(/<PaceUpsideNote/);
     }
-    expect(readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8")).toMatch(/planGoalNeedsPaceWarning\(goal, goalPace\)/);
-  });
-
-  it("the red warning starts above the cap plus the 0.05 stretch margin; at or near the cap is amber (A-022)", () => {
-    const goal = { value: 9, estimate: null };
-    const at = { gap: 1, byDate: "2028-06-01", requiredPaceUtrPerYear: PLANNING_PACE_CAP_PER_YEAR, paceRead: "within-realistic-range" as const };
-    const faster = (r: number) => ({ ...at, requiredPaceUtrPerYear: r, paceRead: "faster-than-realistic" as const });
-    expect(planGoalNeedsPaceWarning(goal, at)).toBe(false);
-    expect(planGoalPaceSeverity(goal, at)).toBe("stretch");
-    // 1.51 and 1.55 were red; they are right at the limit, a stretch.
-    expect(planGoalNeedsPaceWarning(goal, faster(1.51))).toBe(false);
-    expect(planGoalPaceSeverity(goal, faster(1.51))).toBe("stretch");
-    expect(planGoalPaceSeverity(goal, faster(1.55))).toBe("stretch");
-    expect(planGoalPaceSeverity(goal, faster(1.56))).toBe("warning");
-    expect(planGoalNeedsPaceWarning(goal, faster(1.56))).toBe(true);
-    // Within 0.05 below the cap is a stretch too; further below, nothing.
-    expect(planGoalPaceSeverity(goal, { ...at, requiredPaceUtrPerYear: 1.45 })).toBe("stretch");
-    expect(planGoalPaceSeverity(goal, { ...at, requiredPaceUtrPerYear: 1.44 })).toBeNull();
-    expect(planGoalNeedsPaceWarning(goal, { ...at, requiredPaceUtrPerYear: null, paceRead: "no-time-left" })).toBe(true);
-    expect(planGoalPaceSeverity(null, faster(3))).toBeNull();
-    expect(PACE_STRETCH_NOTE).toBe("That's a stretch: right at our 1.5-a-year planning limit.");
-    // The banner uses the amber (gold) tokens for the stretch, never clay.
-    const src = readFileSync("components/seeded/roadmap/goal-pace-warning.tsx", "utf8");
-    const stretch = src.slice(src.indexOf('severity === "stretch"'), src.indexOf("planGoalNeedsPaceWarning(goal, goalPace)"));
-    expect(stretch).toMatch(/--c-gold-tint-bg/);
-    expect(stretch).not.toMatch(/clay-tint/);
-    expect(stretch).toMatch(/PACE_STRETCH_NOTE/);
+    expect(existsSync("components/seeded/roadmap/goal-pace-warning.tsx")).toBe(false);
   });
 
   it("usePlanGoal hands the estimate over only as an offer, never as the goal", () => {
@@ -108,10 +65,10 @@ describe("D1 (was C11) — the plan goal is the player's, or there is none", () 
     expect(src).toMatch(/resolvePlanGoal\(\{ chosenGoalUtr: chosen \?\? null, estimate: report\?\.utr \?\? null \}\)/);
   });
 
-  it("/plan says 'Set a goal' when there is none, and never labels the estimate a goal", () => {
-    const src = readFileSync("components/seeded/roadmap/seeded-roadmap-layout.tsx", "utf8");
-    expect(src).toMatch(/"Set a goal"/);
-    expect(src).toMatch(/"No goal set"/);
+  it("the plan UTR control says 'No plan UTR set' when there is none, and offers the estimate only as a button", () => {
+    const src = readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8");
+    expect(src).toMatch(/"No plan UTR set"/);
+    expect(src).toMatch(/Use my estimate \(/);
     expect(src).not.toMatch(/\(your estimate\)/);
   });
 
@@ -241,7 +198,7 @@ describe("a chosen goal must be above today's rating (decision 2026-11-18)", () 
   it("planGoalInputError", async () => {
     const { planGoalInputError } = await import("./fit");
     expect(planGoalInputError(6.6, 5.95)).toBeNull();
-    expect(planGoalInputError(5.95, 5.95)).toBe("Your goal needs to be above your current UTR, 5.95.");
+    expect(planGoalInputError(5.95, 5.95)).toBe("Your plan UTR needs to be above your current UTR, 5.95.");
     expect(planGoalInputError(5.5, 5.95)).toMatch(/above your current UTR/);
     expect(planGoalInputError(0.5, 5.95)).toBe("Enter a UTR between 1.00 and 16.50.");
     expect(planGoalInputError(17, null)).toBe("Enter a UTR between 1.00 and 16.50.");
@@ -250,8 +207,8 @@ describe("a chosen goal must be above today's rating (decision 2026-11-18)", () 
     expect(planGoalInputError(3, 0)).toBeNull();
   });
 
-  it("the /plan editor uses it, and a passed goal is said out loud", () => {
-    expect(readFileSync("components/seeded/roadmap/plan-goal-editor.tsx", "utf8")).toMatch(/planGoalInputError\(v, currentUtr\)/);
+  it("the plan UTR control uses it, and a passed plan is said out loud", () => {
+    expect(readFileSync("components/seeded/ui/plan-utr-control.tsx", "utf8")).toMatch(/planGoalInputError\(draftNum, currentUtr\)/);
     expect(readFileSync("components/seeded/roadmap/seeded-roadmap-layout.tsx", "utf8")).toMatch(/You&apos;ve reached your/);
   });
 });

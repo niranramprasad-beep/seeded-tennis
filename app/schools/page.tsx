@@ -7,7 +7,7 @@ import { CATALOG_PHASE1_ENABLED } from "@/lib/config/catalog";
 export const metadata: Metadata = {
   title: "College tennis programs by UTR fit — Seeded",
   description:
-    "Browse college tennis programs sorted by how your UTR compares to each team's range — Likely, Target, Reach or Out of range — with division, conference and location filters.",
+    "Browse college tennis programs sorted by how your UTR compares to each team's range — Safe bet, Good match, Stretch or Long shot — with division, conference and location filters.",
   alternates: { canonical: "/schools" },
 };
 

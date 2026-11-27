@@ -9,7 +9,7 @@ const items = [
   {
     icon: ShieldCheck,
     title: "Know what is realistic",
-    body: "See which programs fit the player's UTR and timeline — Likely, Target, Reach or Out of range — and filter by academics, division and region before spending another weekend chasing the wrong event.",
+    body: "See which programs fit the player's UTR and timeline — Safe bet, Good match, Stretch or Long shot — and filter by academics, division and region before spending another weekend chasing the wrong event.",
   },
   {
     icon: CalendarCheck,

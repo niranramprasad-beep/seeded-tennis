@@ -216,7 +216,7 @@ export function teamRangeNote(
 /** One school's range, in a sentence. */
 export function schoolRangeNote(school: Pick<School, "utrRange">): string {
   if (!school.utrRange) return "The team range is our estimate, not a published roster.";
-  return `${school.utrRange.source}, ${formatIsoDate(school.utrRange.sourceDate)}. Floor = lower quartile, middle = median, top = highest.`;
+  return `${school.utrRange.source}, ${formatIsoDate(school.utrRange.sourceDate)}. Floor = lower quartile, middle = median, top = highest, each shown as a whole number.`;
 }
 
 /** Short form for tight spaces (a tile label, a chart legend). */

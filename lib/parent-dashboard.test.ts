@@ -122,13 +122,13 @@ describe("KPI sentences", () => {
   });
 
   it("target schools: a true sentence from the report's own in-range count", () => {
-    expect(targetSchoolsKpi({ inRange: 3 }, 3).sentence).toBe("All 3 are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 2 }, 2).sentence).toBe("Both are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 1 }, 1).sentence).toBe("It's a Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 2 }, 5).sentence).toBe("2 of 5 are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 1 }, 5).sentence).toBe("1 of 5 is Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 0 }, 4).sentence).toBe("None of the 4 are Target or Likely yet.");
-    expect(targetSchoolsKpi(null, 4).sentence).toBe("No UTR yet, so no bands.");
+    expect(targetSchoolsKpi({ inRange: 3 }, 3).sentence).toBe("All 3 are in range.");
+    expect(targetSchoolsKpi({ inRange: 2 }, 2).sentence).toBe("Both are in range.");
+    expect(targetSchoolsKpi({ inRange: 1 }, 1).sentence).toBe("It's in range: a Good match or Safe bet.");
+    expect(targetSchoolsKpi({ inRange: 2 }, 5).sentence).toBe("2 of 5 are in range.");
+    expect(targetSchoolsKpi({ inRange: 1 }, 5).sentence).toBe("1 of 5 is in range.");
+    expect(targetSchoolsKpi({ inRange: 0 }, 4).sentence).toBe("None of the 4 are in range yet.");
+    expect(targetSchoolsKpi(null, 4).sentence).toBe("No UTR yet, so no fit.");
     expect(targetSchoolsKpi({ inRange: 0 }, 0).sentence).toBe("No target schools saved yet.");
   });
 
@@ -139,7 +139,7 @@ describe("KPI sentences", () => {
       { slug: "c", minCompetitiveUTR: 13, avgRosterUTR: 14 },
     ] as SchoolLite[];
     const report = buildFitReport({ currentUtr: 9.2, graduationYear: 2027, gender: "male", schools, now: NOW })!;
-    expect(targetSchoolsKpi(report, 3).sentence).toBe(`${report.inRange} of 3 are Target or Likely.`);
+    expect(targetSchoolsKpi(report, 3).sentence).toBe(`${report.inRange} of 3 are in range.`);
   });
 
   it("UTR: two decimals, a real delta with its month, and never a number nobody logged", () => {
@@ -358,7 +358,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     );
     const far = { ...logged, targetFloor: 11 };
     expect(utrChartCaption(buildUtrChart(far), { ...far, childFirst: "Maya" })).toBe(
-      "At the pace in Maya's logged ratings, Maya is about 2.5 short of where their target schools start by summer 2028."
+      "At the pace in Maya's logged ratings, Maya is still short of where their target schools start (11.xx) by summer 2028."
     );
   });
 
@@ -368,7 +368,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(model.projection!.held).toBe(true);
     expect(model.projection!.value).toBe(7.5);
     expect(utrChartCaption(model, { ...falling, childFirst: "Maya" })).toBe(
-      "Held at today's rating (Maya's has gone down lately), Maya is about 1.0 short of where their target schools start by summer 2028."
+      "Held at today's rating (Maya's has gone down lately), Maya is still short of where their target schools start (8.xx) by summer 2028."
     );
   });
 
@@ -376,7 +376,7 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     const far = { ...input, targetFloor: 11 };
     const model = buildUtrChart(far)!;
     expect(utrChartCaption(model, { ...far, childFirst: "Maya" })).toMatch(
-      /^At our default assumption of 1\.0 UTR a year, Maya is about \d+\.\d short of where their target schools start by summer 2028\.$/
+      /^At our default assumption of 1\.0 UTR a year, Maya is still short of where their target schools start \(11\.xx\) by summer 2028\.$/
     );
   });
 
@@ -400,12 +400,12 @@ describe("the UTR chart: every number from lib/fit.ts, every sentence true", () 
     expect(utrChartAriaLabel(model, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Sep 2025 to Nov 2026. Today: 7.50. ` +
         `Estimate for summer 2028, the summer before senior year: about ${rtu.value.toFixed(1)}, ` +
-        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.5.`
+        `between ${rtu.low.toFixed(1)} and ${rtu.high.toFixed(1)}. Target schools start at 8.xx.`
     );
     // A logged pace has no range, so the label claims none.
     expect(utrChartAriaLabel(buildUtrChart(logged)!, "Maya")).toBe(
       `Maya's UTR trend. 2 ratings logged from Feb 2026 to Nov 2026. Today: 7.50. ` +
-        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.5.`
+        `Estimate for summer 2028, the summer before senior year: about 8.5. Target schools start at 8.xx.`
     );
   });
 });
@@ -431,7 +431,7 @@ describe("the whole page model", () => {
     expect(m.chart).toBeNull();
     expect(m.chartAriaLabel).toBeNull();
     expect(m.targets.rows).toEqual([{ slug: "a", name: "School A", band: "unverified" }]);
-    expect(m.targets.sentence).toBe("No UTR yet, so no bands.");
+    expect(m.targets.sentence).toBe("No UTR yet, so no fit.");
     expect(m.actions).toEqual([]);
   });
 });

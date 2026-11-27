@@ -23,7 +23,7 @@ export function RoadmapView({ schools }: { schools: SchoolLite[] }) {
         blurb="Your plan to the summer before senior year: UTR checkpoints, your target schools in order, and your results beside them."
         perks={[
           "Year-by-year UTR checkpoints toward your target schools",
-          "Your targets in order, with why each sits in its band",
+          "Your targets in order, with how you fit each one",
           "Recent results beside the plan",
           "The NCAA contact-date checklist, as general guidance",
         ]}

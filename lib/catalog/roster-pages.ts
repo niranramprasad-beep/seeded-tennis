@@ -27,7 +27,6 @@ export interface RosterPlayerDraft {
   utr: number | null;
   utrReliable: boolean;
   utrProfileUrl: string | null;
-  hometown: string | null;
   readDate: string;
 }
 
@@ -155,7 +154,8 @@ export function parseRosterPages(input: {
       utr: value,
       utrReliable: value !== null && (p["Reliable? (Y/N)"] ?? "").toUpperCase() === "Y",
       utrProfileUrl: profile,
-      hometown: p["Hometown"] || null,
+      // Hometown is not read (Niran, 2026-11-27): no page shows it, so the
+      // import no longer copies it into a publicly readable table.
       readDate,
     });
   }
@@ -234,12 +234,12 @@ export function buildRosterPagesSql(
   ];
   if (data.players.length) {
     out.push(
-      "insert into public.program_roster (program_id, player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, hometown, read_date)\n" +
+      "insert into public.program_roster (program_id, player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, read_date)\n" +
         "select p.id, v.n, v.c, v.g, v.u, v.r, v.l, v.h, v.d::date from (values\n" +
         data.players
           .map(
             (x) =>
-              `(${lit(x.slug)},${lit(x.playerName)},${lit(x.classLabel)}::text,${lit(x.gradYear)}::int,${lit(x.utr)}::numeric,${lit(x.utrReliable)},${lit(x.utrProfileUrl)}::text,${lit(x.hometown)}::text,${lit(x.readDate)})`
+              `(${lit(x.slug)},${lit(x.playerName)},${lit(x.classLabel)}::text,${lit(x.gradYear)}::int,${lit(x.utr)}::numeric,${lit(x.utrReliable)},${lit(x.utrProfileUrl)}::text,${lit(x.readDate)})`
           )
           .join(",\n") +
         "\n) as v(slug, n, c, g, u, r, l, h, d) join public.programs p on p.slug = v.slug;"

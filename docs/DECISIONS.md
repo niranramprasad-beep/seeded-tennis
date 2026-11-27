@@ -7,6 +7,75 @@ Newest first.
 
 ---
 
+## 2026-11-27 — One stored Plan UTR; plain fit words; college players' UTRs as whole numbers (Niran's brief)
+
+Niran asked for four things in one PR and picked the tier names and the
+display rule himself (2026-11-27). Calls made while building it:
+
+- **The Plan UTR is the existing `planGoalUtr` setting**, not a new column:
+  it was already the player's own stored goal for the summer before senior
+  year (C11), so no migration. `useFitReport` reads it itself (default
+  `judgeOn: "plan"`), so every fit screen agrees by construction; only
+  `usePlanGoal` asks for the estimate, to offer it. buildFitReport's what-if
+  `overrideUtr` became `planUtr`, and its rating says `source: "plan"`, so
+  labels read "by summer 2028, your plan" without any screen assembling them.
+- **When the plan judges fit (`activePlanUtr`).** Only with a real logged
+  rating, only while the plan is above it, and only before the summer before
+  senior year. Otherwise fit falls back to the estimate (or, for a senior,
+  today's rating), and the control says why. A typed plan with no rating
+  gave tiers to a player who had never logged a UTR, and a senior was judged
+  on a plan whose date had passed (verifier round 1, both HIGH).
+- **Stretch promises no pace.** classifySchoolFit also returns it when fewer
+  than three ratings are logged, so its sentence says only that it would
+  take a climb to the floor. An unchecked team's sentence names its
+  estimated floor and middle, never the drawn top.
+- **Roster order is by whole number, then name**, so the top "13.xx" row
+  can't be matched to the exact range top on the same page. A checked
+  team's median can still equal one player's rating: Niran chose exact team
+  numbers. The importer no longer copies hometowns.
+- **Fit uses the Plan UTR as typed, uncapped.** The briefing said checkpoints
+  are capped at min(own pace, 1.5); Niran's brief said to drop the cap banner
+  and show what the player needs to reach their plan on time, so the
+  checkpoint line is straight to the plan. The 1.5 cap still decides the
+  estimate (no plan set) and Stretch vs Long shot. Undo: run the plan
+  through `PLANNING_PACE_CAP_PER_YEAR` in `activePlanUtr`.
+- **Checkpoints are quarterly** (the 1st of Mar/Jun/Sep/Dec, skipping one
+  under a month away), on the same straight line in time as the per-grade
+  roadmap, so Today's "Next checkpoint" is /plan's first box.
+- **The realism note compares with the player's own pace**, not the 1.5
+  rule: it is the one real number about how fast this player improves, and
+  the brief removed the 1.5 banner. It shows on /plan only. The "a stretch"
+  and pace-upside sentences are gone from /plan, /today and the school page;
+  /methodology still explains the 1.5 rule.
+- **Tier names: Safe bet / Good match / Stretch / Long shot** (Niran picked
+  them). Internal keys stay likely / target / reach / out-of-range.
+  "In range" still means Good match + Safe bet. The school page heading is
+  "Your chances here", and every fit explanation leads with
+  `fitComparisonSentence`: the rating fit used against the team's actual
+  range, then "a realistic shot" or not.
+- **Display rule:** college roster players' UTRs are banded as "12.xx"
+  (`Math.floor`), cut on the server before the page gets them. **Team
+  numbers too** (Niran, 2026-11-27, after the verifier showed an exact range
+  top gives the best player's rating away): every floor, middle and top
+  prints through `formatTeamUtr`, and nothing prints an exact distance to one
+  ("below the team floor (10.xx)", not "0.3 below"), nor the exact pace a
+  gap needs (pace × years + your UTR = the floor). The player's own UTR,
+  Plan UTR, checkpoints and chart tooltips stay exact. Fit math keeps the
+  exact numbers. The public API read is a follow-up migration (TODO §2), on
+  Niran's call.
+- **"Not tracked" is left out on school pages**: rank, cost and aid,
+  enrollment, acceptance rate, location, class and roster rating cells. With
+  no rank and no Program Info the Academics block goes. The roster table
+  stays. Hometown is gone from the table and from the read.
+- **Charts:** a dot per logged rating with an exact-UTR-and-date tooltip on
+  /today (hover, tap or Tab); /plan keeps its crosshair readout. Legends are
+  swatches. The grey "own pace" line is gone. The estimate is drawn only
+  while no plan line is.
+- Undo: revert the PR. `planGoalUtr` values saved meanwhile stay valid: they
+  are the same goal /plan always stored.
+
+---
+
 ## 2026-11-23 — School logos: public-domain files only, unaltered, initials underneath (Herdy's ask)
 
 Herdy asked for every university's logo, in high quality and not

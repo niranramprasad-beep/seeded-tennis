@@ -16,6 +16,7 @@ import {
   type ClosestSchoolResult,
   type SchoolFitBand,
   type SchoolFitProjectionInput,
+  summerBeforeSeniorYear,
 } from "@/lib/school-fit";
 import { PLANNING_PACE_CAP_PER_YEAR } from "@/lib/fit/pace";
 import {
@@ -198,13 +199,15 @@ export function buildFitReport(input: {
   /** Logged history: the Reach / Out-of-range split, and the pace rule. */
   projectionInput?: SchoolFitProjectionInput;
   /**
-   * A rating the player has explicitly chosen — the what-if slider's "what
-   * if I were X by senior summer". It is ALREADY a future number, so it is
-   * used exactly as given with no projection applied: running it through
-   * recruitingTimeUtr would add growth to a figure that already contains
-   * growth, and the slider would quietly overshoot.
+   * The player's Plan UTR — the one rating they set for the summer before
+   * senior year (lib/db/settings.ts planGoalUtr; lib/fit/goal.ts
+   * activePlanUtr decides when it applies). It is ALREADY a future number,
+   * so it is used exactly as given with no projection applied: running it
+   * through recruitingTimeUtr would add growth to a figure that already
+   * contains growth. The report's `utr.source` is then "plan", which is how
+   * every screen knows to say "your plan UTR" rather than "estimate".
    */
-  overrideUtr?: number | null;
+  planUtr?: number | null;
   /**
    * The recruiting-time rating, already decided by recruitingTimeUtr() —
    * only ever `diagnosticProjection(...).recruiting`. The diagnostic needs
@@ -217,8 +220,8 @@ export function buildFitReport(input: {
   now?: Date;
 }): FitReport | null {
   const override =
-    input.overrideUtr != null && Number.isFinite(input.overrideUtr) && input.overrideUtr > 0
-      ? input.overrideUtr
+    input.planUtr != null && Number.isFinite(input.planUtr) && input.planUtr > 0
+      ? input.planUtr
       : null;
 
   const utr: RecruitingTimeUtr | null = override
@@ -228,9 +231,9 @@ export function buildFitReport(input: {
         low: override,
         high: override,
         assumption: null,
-        year: input.graduationYear - 2,
+        year: summerBeforeSeniorYear(input.graduationYear).getFullYear(),
         isProjected: false,
-        source: "current",
+        source: "plan",
         pace: null,
         planningPacePerYear: null,
         upside: null,

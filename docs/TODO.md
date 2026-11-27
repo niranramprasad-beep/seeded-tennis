@@ -131,6 +131,41 @@ Specifically needs a human with legal training:
 
 ## 2. Security and database
 
+### Exact team numbers are still in the page source (2026-11-27)
+
+Team floors, middles and tops print only as whole numbers since 2026-11-27,
+but the exact values still ship to the browser: the school catalog is passed
+to client components for the fit math (`School.minCompetitiveUTR`,
+`avgRosterUTR`, `utrRange`), the range bar positions are exact, and
+`team_ranges` / `programs` are publicly readable. A checked team's top is
+its best player's exact rating, so a reader of the page source can still get
+it. Fixing it means judging fit on the server (an API that returns tiers and
+banded copy) and closing the public reads — bigger than PR #64; needs a plan
+and Niran's call.
+
+### College players' exact UTRs are still readable through the public API (2026-11-27)
+
+Niran's rule (2026-11-27): a college roster player's exact UTR never reaches
+a screen, page source or API response a visitor can read; only the whole
+number ("12.xx"). Team ranges, the player's own UTR and their Plan UTR stay
+exact. `feat/plan-utr-fit-reframe` cuts the rating on the server
+(`lib/db/roster.ts` `toRosterPlayer`), so the page and its source carry only
+the whole number. **Not done:** migration 054 grants `select` on
+`program_roster` (all columns) to `anon` and `authenticated`, so anyone with
+the publishable key can still read `utr` through the REST API. Fix, as its
+own migration on Niran's go: revoke the table grant, grant every column but
+`utr` (and `hometown`, now unused), and give the server reader a SECURITY
+DEFINER function that returns `floor(utr)` (or read with a server-only key).
+Staging first, then production before the code that needs it. The same
+migration should null `program_roster.hometown`: the importer stopped
+writing it on 2026-11-27, but rows already imported (production included)
+still hold real hometowns that anyone with the publishable key can read.
+Note too: a checked team's range top is its highest reliable rating and its
+middle a median, so those team numbers can equal one player's rating — on
+screen they are now whole numbers too (Niran, 2026-11-27); see "Exact team
+numbers are still in the page source" above.
+
+
 ### Pending under-13s and parents' own player rows (both are migrations; Niran, 2026-11-16)
 
 - **A. An under-13 whose consent is PENDING must see no family names,
@@ -461,6 +496,25 @@ header. Still open:
    one player for now".
 
 ### Fit and projection
+
+- **Tiers can flash on first load (LOW).** useFitReport judges on the
+  estimate until the stored Plan UTR arrives, then re-judges. Holding the
+  report until it loads would trade the flash for a longer skeleton.
+- **Parents see fit on the estimate, not the player's Plan UTR
+  (2026-11-27).** The methodology and the plan control now say so. The Plan UTR lives in the player's own
+  `user_settings.notification_preferences.planGoalUtr`, which RLS keeps
+  own-row only, so a parent's Schools, school page and family screens fall
+  back to the estimate. Sharing it needs a family-scoped read (a new
+  SECURITY DEFINER field or a column), so it waits for a decision.
+- **The tournament checker's field labels ("In range", "A bit easy", "Out of
+  range") are about a draw, not a school.** They don't say "band" any more on
+  screen, but "Out of range" now sits beside the school tiers' "Long shot".
+  Rename it if families mix the two up.
+- **The /schools list still prints "Not tracked" chips** in the optional
+  Openings and Data columns (shown only when some row has data). The
+  2026-11-27 omit-don't-print rule was applied to the school page and the
+  compare drawer.
+
 
 11. **The projection's ceiling is silent.** `cappedByCeiling` (lib/fit.ts)
     is computed and never shown: a Class of 2034 player at 8.7 projects to

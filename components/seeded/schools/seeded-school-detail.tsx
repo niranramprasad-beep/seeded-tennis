@@ -19,8 +19,8 @@ import {
 } from "@/lib/family-view";
 import { loadFamilyPlanStatus, type FamilyPlanStatus } from "@/lib/db/family-plan";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { formatPacePerYear, paceUpsideSentence } from "@/lib/fit";
-import { judgingRatingFor, rangeCaption, ratingBasisLabel, schoolPageUtrRow, todayRatingFor } from "@/lib/fit-copy";
+import { formatPacePerYear, projectionTargetLabel } from "@/lib/fit";
+import { fitComparisonSentence, judgingRatingFor, rangeCaption, ratingBasisLabel, schoolPageUtrRow, todayRatingFor } from "@/lib/fit-copy";
 import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
 import { formatDate, parseLocalDate } from "@/lib/time";
@@ -32,7 +32,7 @@ import { SUPPORT_EMAIL } from "@/lib/config/contact";
 import { SchoolMark } from "@/components/seeded/ui/school-mark";
 import { seniorSummerPhase, seniorSummerVerb } from "@/lib/senior-summer";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
-import { cn, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatTeamUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatIsoDate } from "@/lib/catalog/programs";
 import { schoolRangeNote } from "@/lib/db/schools";
 import type { SchoolDetails } from "@/lib/types";
@@ -140,9 +140,9 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
   const judgingValue = judging?.value ?? null;
   // Which rating that is, said beside every number from it (final-check A2):
   // "by summer 2027, estimate" or "today", in lib/fit-copy.ts's words.
-  // One pure helper for every fit screen (lib/fit-copy.ts, verifier M1).
-  // The school page has no what-if slider.
-  const judgingRating = judgingRatingFor({ report, whatIf: null, graduationYear: subject.graduationYear });
+  // One pure helper for every fit screen (lib/fit-copy.ts, verifier M1):
+  // the report says whether it judged on the plan, the estimate or today.
+  const judgingRating = judgingRatingFor({ report });
   const judgingBasis = judgingRating?.basis ?? null;
   const subjectWho = subjectFirst ?? "You";
   const utrRow = judgingRating ? schoolPageUtrRow(judgingRating, todayRatingFor(subjectUtr), school, subjectWho) : null;
@@ -172,13 +172,21 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
   const Whose = subjectFirst ? `${subjectFirst}'s` : "Your";
   const pace = explanation.pace;
   // THE pace number (the report's logged pace, lib/fit.ts) through the one
-  // pace formatter, and — when it is faster than the planning cap — the
-  // upside sentence. Both from the report; nothing is computed here.
+  // pace formatter. The "we plan with at most 1.5 a year" upside sentence
+  // no longer repeats here: the plan's one realism note lives on /plan
+  // (2026-11-27).
   const ownPace = judging?.source === "logged-pace" && judging.pace ? judging.pace.perYear : null;
-  const upside = paceUpsideSentence(judging, subjectFirst);
-  const paceSentence = (ownPace != null ? ` ${Whose} pace: ${formatPacePerYear(ownPace)}.` : "") + (upside ? ` ${upside}` : "");
+  const paceSentence = ownPace != null ? ` ${Whose} pace: ${formatPacePerYear(ownPace)}.` : "";
   const paceDescription =
-    pace.status !== "ready"
+    judging?.source === "plan"
+      ? `Judged on ${whose} plan UTR: ${formatPlayerUtr(judging.value)} by ${projectionTargetLabel(judging.year)}.` +
+        (pace.status === "ready" && pace.loggedPaceReachesFloor === true
+          ? ` At the pace we plan with, ${whose} logged ratings reach this team's floor.`
+          : pace.status === "ready" && pace.loggedPaceReachesFloor === false
+            ? ` At the pace we plan with, ${whose} logged ratings don't reach this team's floor.`
+            : "") +
+        paceSentence
+      : pace.status !== "ready"
       ? subjectFirst
         ? `${missingPlayerUtrPhrase(subjectFirst, statsLocked)}.`
         : "Log a UTR to see your pace."
@@ -210,14 +218,17 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
   <div key="fit-cards" className="mt-6 grid gap-5 lg:grid-cols-2">
     <div className="min-w-0 rounded-card border border-line bg-card p-[22px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-ink">Why this band</h2>
+        <h2 className="text-lg font-semibold text-ink">{subjectFirst ? `${subjectFirst}'s chances here` : "Your chances here"}</h2>
         <FitBadge
           band={explanationInput.ratingHidden && explanation.band === "unverified" ? "locked" : explanation.band}
           className="text-sm"
         />
       </div>
+      {/* The real comparison, said plainly as a realistic shot or not
+          (2026-11-27): the rating fit was judged on against this team's
+          actual range. The no-rating sentence otherwise. */}
       <p className="mt-2 text-sm text-stone">
-        {explanation.summary}
+        {fitComparisonSentence(judgingRating, school, explanation.band, subjectWho) ?? explanation.summary}
       </p>
 
       {gaps && judging && explanation.band !== "unverified" && (
@@ -246,10 +257,10 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
       {/* Design system v2 rule 2: one calm data note per card. It used to
           carry a projection paragraph, three driver chips ("Needs data",
           "Projected", "General") and a closing two-caveat line. */}
-      {judging?.isProjected ? (
+      {judging?.isProjected || judging?.source === "plan" ? (
         <ProjectionNote utr={judging} who={subjectFirst} className="mt-4" />
       ) : (
-        <DataNote className="mt-4">Roster openings and academics don&apos;t change the band.</DataNote>
+        <DataNote className="mt-4">Roster openings and academics aren&apos;t part of this fit.</DataNote>
       )}
     </div>
 
@@ -275,10 +286,10 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
             judgingValue != null
               ? judgingRating
                 ? rangeCaption(judgingRating, subjectWho, range)
-                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)}`
+                : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)}`
               : subjectFirst
-                ? `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
-                : `Team ${formatUtrEstimate(range.min)}–${formatUtrEstimate(range.max)} · add your UTR to compare`
+                ? `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)} · ${missingPlayerUtrPhrase(subjectFirst, statsLocked)}`
+                : `Team ${formatTeamUtr(range.min)}–${formatTeamUtr(range.max)} · add your UTR to compare`
           }
           low={range.min}
           median={school.avgRosterUTR}
@@ -316,20 +327,23 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
       {/* Takes up the extra height of the equal-height column, so the
           academics block sits at the foot of the card. */}
       <div className="hidden flex-1 lg:block" aria-hidden />
-      <div className="mt-6 border-t border-line pt-5">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-grass" aria-hidden />
-          <h3 className="text-base font-semibold text-ink">Academics and cost</h3>
-        </div>
-        <p className="mt-2.5 text-sm text-stone">
+      {/* Untracked rank, cost and aid lines are left out, not printed as
+          "Not tracked" (Niran, 2026-11-27); with none of them the block goes. */}
+      {school.usNewsRanking !== null || school.details ? (
+        <div className="mt-6 border-t border-line pt-5">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-grass" aria-hidden />
+            <h3 className="text-base font-semibold text-ink">Academics and cost</h3>
+          </div>
           {/* C24: "#1 of the D1 men's programs in Seeded on our combined score"
               was jargon about a Seeded-only ranking. The rank a family can
               check is the U.S. News one. */}
-          {academicRankSentence(school.usNewsRanking)}
-          {school.details ? null : " Cost and aid: Not tracked; ask the aid office."}
-        </p>
-        {school.details ? <ProgramFacts details={school.details} /> : null}
-      </div>
+          {school.usNewsRanking !== null ? (
+            <p className="mt-2.5 text-sm text-stone">{academicRankSentence(school.usNewsRanking)}</p>
+          ) : null}
+          {school.details ? <ProgramFacts details={school.details} /> : null}
+        </div>
+      ) : null}
     </div>
   </div>
   );
@@ -364,9 +378,12 @@ export function SeededSchoolDetail({ school, programType, allSchools, roster }: 
                 {school.name} · {programType} tennis
               </h1>
             </div>
+            {/* An untracked location is left out, not printed as "Not
+                tracked" (Niran, 2026-11-27). */}
             <p className="mt-1.5 text-stone">
-              {school.division} · {school.conference} ·{" "}
-              {school.city && school.state ? `${school.city}, ${school.state}` : (school.state ?? "Location not tracked")}
+              {[school.division, school.conference, school.city && school.state ? `${school.city}, ${school.state}` : school.state]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -457,7 +474,7 @@ function FitDriverRow({
 }
 
 /** The sheet's Program Info (migration 053). Each number shows its source
- * link; a missing one reads "Not tracked", never a guess. */
+ * link; a missing one is left out (2026-11-27), never a guess. */
 function ProgramFacts({ details }: { details: SchoolDetails }) {
   // As precise as the source: 0.06 -> "6%", 0.7665 -> "76.7%".
   const pctNum = details.acceptanceRate !== null ? Math.round(details.acceptanceRate * 1000) / 10 : null;
@@ -470,24 +487,30 @@ function ProgramFacts({ details }: { details: SchoolDetails }) {
     ) : null;
   return (
     <div className="mt-3 text-sm text-stone">
+      {/* A figure the sheet has no value for is left out, not printed as
+          "Not tracked" (Niran, 2026-11-27). */}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-        <dt>Cost of attendance</dt>
-        <dd className="text-ink">
-          {details.costOfAttendanceUsd !== null ? (
-            <>
+        {details.costOfAttendanceUsd !== null ? (
+          <>
+            <dt>Cost of attendance</dt>
+            <dd className="text-ink">
               ${details.costOfAttendanceUsd.toLocaleString("en-US")} a year ({details.coaYear}) ·{" "}
               {link(details.coaSourceUrl, "source")}
-            </>
-          ) : (
-            "Not tracked"
-          )}
-        </dd>
-        <dt>Acceptance rate</dt>
-        <dd className="text-ink">{pct ?? "Not tracked"}</dd>
-        <dt>Undergraduates</dt>
-        <dd className="text-ink">
-          {details.undergradEnrollment !== null ? details.undergradEnrollment.toLocaleString("en-US") : "Not tracked"}
-        </dd>
+            </dd>
+          </>
+        ) : null}
+        {pct !== null ? (
+          <>
+            <dt>Acceptance rate</dt>
+            <dd className="text-ink">{pct}</dd>
+          </>
+        ) : null}
+        {details.undergradEnrollment !== null ? (
+          <>
+            <dt>Undergraduates</dt>
+            <dd className="text-ink">{details.undergradEnrollment.toLocaleString("en-US")}</dd>
+          </>
+        ) : null}
       </dl>
       <p className="mt-2 text-xs">
         {details.scorecardSourceUrl ? <>Acceptance rate and enrollment: {link(details.scorecardSourceUrl, "College Scorecard")}. </> : null}

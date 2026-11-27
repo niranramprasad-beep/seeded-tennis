@@ -6,6 +6,9 @@ import { useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { usePlayer } from "@/lib/context/player-context";
+import { useStoredPlanUtr } from "@/lib/hooks/use-plan-utr";
+import { activePlanUtr } from "@/lib/fit";
+import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
 import { loadFamilyMembers, type FamilyMember } from "@/lib/db/family";
 import { pickFamilyPlayer, resolveFamilyPlayerFacts } from "@/lib/family-view";
@@ -106,6 +109,10 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   const subjectFacts = resolveFamilyPlayerFacts(familyPlayer, player);
   const subjectFirst = isParent ? (familyPlayer?.name ?? "").trim().split(/\s+/)[0] || null : null;
   const subjectUtr = isParent ? (subjectFacts.currentUtr ?? 0) : player.currentUTR;
+  const { planUtr: storedPlan } = useStoredPlanUtr(!isParent);
+  const planUtr = isParent
+    ? null
+    : activePlanUtr({ planUtr: storedPlan, currentUtr: player.currentUTR, goalDate: summerBeforeSeniorYear(player.graduationYear) });
   const whoseUtr = isParent ? `${subjectFirst ?? "Your player"}'s UTR` : "Your UTR";
   const { data: utrEntries } = useSWR(
     isParent ? (familyPlayer?.id ? ["utr-entries", familyPlayer.id] : null) : "utr-entries",
@@ -205,14 +212,19 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
             name: tournamentName,
             level,
             playerUtr,
-            goalUtr: null,
+            // The player's stored Plan UTR (2026-11-27) — the same number
+            // Schools, Plan and Today judge fit on. The verdict itself is
+            // still the draw against TODAY's rating; the plan only adds
+            // whether this field helps the climb. A parent reads none (the
+            // player's settings are theirs alone).
+            goalUtr: planUtr ?? null,
             drawUtr: drawUtrNum,
             travelHours,
             distanceMiles: null,
             entryCost: entryCostNum,
             travelCost: travelCostNum,
           }),
-    [blockers, tournamentName, level, playerUtr, travelHours, entryCostNum, travelCostNum, drawUtrNum]
+    [blockers, tournamentName, level, playerUtr, planUtr, travelHours, entryCostNum, travelCostNum, drawUtrNum]
   );
 
   const meta = result ? VERDICT_META[result.verdict] : null;

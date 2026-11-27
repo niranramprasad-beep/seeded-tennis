@@ -138,7 +138,7 @@ export function TeamRangeAdmin() {
         <fieldset>
           <legend className={label}>Team UTR range</legend>
           <p className="mt-1 text-xs text-stone">
-            Low is the competitive floor (the Target line), middle the team median (the Likely line).
+            Low is the competitive floor (the Good match line), middle the team median (the Safe bet line).
           </p>
           <div className="mt-2 grid grid-cols-3 gap-3">
             <NumberField id="tr-low" text="Low" value={low} onChange={setLow} />
@@ -224,7 +224,7 @@ export function TeamRangeAdmin() {
       <h1 className="text-2xl font-light tracking-tight text-ink">Team ranges</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone">
         Add a sourced team UTR range to an imported program. Until a program has one it reads
-        &ldquo;Level not rated yet&rdquo; and gets no fit band. Ranges are never fetched or estimated
+        &ldquo;Level not rated yet&rdquo; and gets no fit. Ranges are never fetched or estimated
         by the app.
       </p>
       {body}
