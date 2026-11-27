@@ -16,6 +16,7 @@ import {
   type CostCalculation,
   type CostInputs,
 } from "@/lib/db/family";
+import { clampCostInput } from "@/lib/budget-limits";
 import { usePlayer } from "@/lib/context/player-context";
 import { formatDate, getCurrentGrade } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -76,7 +77,7 @@ function CostCalculatorInner({
   const graduationYear =
     playerGraduationYear !== undefined ? playerGraduationYear : player.role === "player" ? player.graduationYear : null;
   const [inputs, setInputs] = useState<CostInputs>({
-    yearsRemaining: yearsRemainingFor(graduationYear),
+    yearsRemaining: clampCostInput("yearsRemaining", yearsRemainingFor(graduationYear)),
     tournamentsPerYear: 0,
     coachingHoursPerWeek: 0,
     lessonRate: 0,
@@ -87,9 +88,12 @@ function CostCalculatorInner({
   const results = useMemo(() => calculateCost(inputs), [inputs]);
   // None of these quantities (years, tournaments, rates, budgets) can be
   // negative — clamp here rather than let a stray "-" produce a negative
-  // multiplier that would flip costs negative downstream.
+  // multiplier that would flip costs negative downstream. Nor can they be
+  // past what a person means (lib/budget-limits.ts COST_INPUT_LIMITS): nine
+  // digits in each field made totals that ran off the page (BUG-007). The
+  // field shows the number it was held to, as it does for a negative.
   const updateNumber = (key: keyof CostInputs, value: string) =>
-    setInputs((prev) => ({ ...prev, [key]: Math.max(0, Number(value) || 0) }));
+    setInputs((prev) => ({ ...prev, [key]: clampCostInput(key, Number(value) || 0) }));
 
   const save = async () => {
     try {
@@ -118,7 +122,7 @@ function CostCalculatorInner({
           </p>
         </div>
         {results.total > 0 ? (
-          <Pill tone="green" icon={<DollarSign className="h-3.5 w-3.5" aria-hidden />} className="w-fit font-mono tabular-nums">
+          <Pill tone="green" icon={<DollarSign className="h-3.5 w-3.5" aria-hidden />} className="w-fit max-w-full whitespace-normal font-mono tabular-nums [overflow-wrap:anywhere]">
             {Math.round(results.total).toLocaleString()}
           </Pill>
         ) : (
@@ -183,7 +187,7 @@ function CostCalculatorInner({
               {saved.slice(0, 4).map((row) => (
                 <div key={row.id} className="flex items-center justify-between rounded-xl bg-cream px-4 py-3 text-sm">
                   <span className="text-stone">{formatDate(row.createdAt)}</span>
-                  <span className="font-medium text-ink">{money(row.results.total)}</span>
+                  <span className="min-w-0 text-right font-medium text-ink [overflow-wrap:anywhere]">{money(row.results.total)}</span>
                 </div>
               ))}
               {!saved.length && <p className="text-sm text-stone">No saved projections yet.</p>}
@@ -251,7 +255,7 @@ function CostCard({ label, value }: { label: string; value: number }) {
     // A stat tile, not a link: no hover lift (lib/clickable-affordance.test.ts).
     <Card className="h-full p-5">
       <p className="text-xs text-stone-light">{label}</p>
-      <p className={cn("mt-2 text-2xl text-ink", "font-mono")}>
+      <p className={cn("mt-2 min-w-0 text-2xl text-ink [overflow-wrap:anywhere]", "font-mono")}>
         ${Math.round(value).toLocaleString()}
       </p>
     </Card>

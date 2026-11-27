@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, Sparkles } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { formatTierPrice, type SubscriptionTier } from "@/lib/types";
@@ -81,7 +81,7 @@ export function PaidGate({
           <ul className="mt-3 space-y-2.5">
             {perks.map((p) => (
               <li key={p} className="flex items-start gap-2.5 text-sm text-ink">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-leaf-accent" />
+                <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-leaf-accent" strokeWidth={2.5} />
                 {p}
               </li>
             ))}

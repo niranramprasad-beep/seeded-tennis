@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { useMemo } from "react";
-import { Sparkles } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 import { FitBadge } from "@/components/seeded/ui/fit-badge";
 import { SeededButton, seededButtonVariants } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
@@ -227,12 +227,12 @@ export function SeededDashboardLayout({
           </div>
           {sundayCheckinDue && (
             <SeededButton className="min-h-11 sm:min-h-[38px]" onClick={() => setSundayCheckinOpen(true)}>
-              <Sparkles className="h-3.5 w-3.5" />
+              <CalendarCheck aria-hidden className="h-3.5 w-3.5" />
               Start check-in
             </SeededButton>
           )}
           <button type="button" onClick={() => setCheckinDrawerOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-grass sm:min-h-6">
-            <Sparkles className="h-3.5 w-3.5" />
+            <CalendarCheck aria-hidden className="h-3.5 w-3.5" />
             Log check-in
           </button>
           {/* Was "History" → /events, which shows no check-ins. */}

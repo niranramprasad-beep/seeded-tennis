@@ -16,12 +16,15 @@ import {
   type TournamentEntry,
 } from "@/lib/db/events";
 import {
+  COST_LIMIT_SENTENCE,
   evaluateTournamentFit,
+  formatDollars,
   LEVELS,
   UTR_MAX,
   UTR_MIN,
   verdictBlockers,
   verdictBlockerSentence,
+  withCostLimitBlocker,
   type FitLevel,
   type Verdict,
 } from "@/lib/tournament-fit";
@@ -44,6 +47,9 @@ import { MAX_BUDGET_EXPENSE_USD } from "@/lib/budget-limits";
 
 const inputClass =
   "h-11 w-full rounded-md border border-input bg-card px-3 text-base text-ink placeholder:text-stone-light focus:outline-none focus:ring-2 focus:ring-focus";
+
+// The cost fields' limit message, which the over-limit field points at.
+const COST_LIMIT_ID = "tf-cost-limit";
 
 const VERDICT_META: Record<
   Verdict,
@@ -168,10 +174,14 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   // Same ceiling as an event's cost (lib/db/events.ts): a bigger number can't
   // be saved, so it isn't used for a verdict either, and the fields say why
   // instead of "Add to my events" refusing in a drawer with no cost field.
+  // An over-limit cost blocks the verdict (withCostLimitBlocker below), so a
+  // travel cost over the limit can no longer be dropped from a saved event.
   const costOk = (v: number | null): v is number => v != null && Number.isFinite(v) && v >= 0 && v <= MAX_BUDGET_EXPENSE_USD;
   const entryCostNum = costOk(entryCostRaw) ? entryCostRaw : null;
   const travelCostNum = costOk(travelCostRaw) ? travelCostRaw : null;
-  const costTooHigh = [entryCostRaw, travelCostRaw].some((v) => v != null && v > MAX_BUDGET_EXPENSE_USD);
+  const entryTooHigh = entryCostRaw != null && entryCostRaw > MAX_BUDGET_EXPENSE_USD;
+  const travelTooHigh = travelCostRaw != null && travelCostRaw > MAX_BUDGET_EXPENSE_USD;
+  const costTooHigh = entryTooHigh || travelTooHigh;
   const drawRaw = drawUtrText.trim() !== "" ? Number(drawUtrText) : null;
   const drawUtrNum = drawRaw != null && Number.isFinite(drawRaw) && drawRaw >= UTR_MIN && drawRaw <= UTR_MAX ? drawRaw : null;
   const tournamentName = name.trim() || "This tournament";
@@ -179,8 +189,12 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
   // No verdict until the level, a rating, the entry fee and the draw's
   // average UTR are all in.
   const blockers = useMemo(
-    () => verdictBlockers({ level, playerUtr, entryCost: entryCostNum, drawUtr: drawUtrNum }),
-    [level, playerUtr, entryCostNum, drawUtrNum]
+    () =>
+      withCostLimitBlocker(
+        verdictBlockers({ level, playerUtr, entryCost: entryCostNum, drawUtr: drawUtrNum }),
+        { entryCost: entryCostRaw, travelCost: travelCostRaw }
+      ),
+    [level, playerUtr, entryCostNum, drawUtrNum, entryCostRaw, travelCostRaw]
   );
 
   const result = useMemo(
@@ -415,12 +429,14 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               <div className="flex items-center gap-1.5">
                 <span className="text-base text-stone">$</span>
                 <input
-                  className={inputClass}
+                  className={cn(inputClass, entryTooHigh && "border-error")}
                   type="number"
                   min={0}
                   inputMode="decimal"
                   value={entryCost}
                   onChange={(e) => setEntryCost(e.target.value)}
+                  aria-invalid={entryTooHigh || undefined}
+                  aria-describedby={entryTooHigh ? COST_LIMIT_ID : undefined}
                 />
               </div>
             </label>
@@ -429,20 +445,22 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
               <div className="flex items-center gap-1.5">
                 <span className="text-base text-stone">$</span>
                 <input
-                  className={inputClass}
+                  className={cn(inputClass, travelTooHigh && "border-error")}
                   type="number"
                   min={0}
                   inputMode="decimal"
                   value={travelCost}
                   onChange={(e) => setTravelCost(e.target.value)}
                   placeholder="Optional"
+                  aria-invalid={travelTooHigh || undefined}
+                  aria-describedby={travelTooHigh ? COST_LIMIT_ID : undefined}
                 />
               </div>
             </label>
           </div>
           {costTooHigh ? (
-            <p role="alert" className="mt-2 text-sm text-stone">
-              Each cost can be at most ${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.
+            <p id={COST_LIMIT_ID} role="alert" className="mt-2 text-sm text-error">
+              {COST_LIMIT_SENTENCE}
             </p>
           ) : null}
         </div>
@@ -470,7 +488,7 @@ function TournamentFitView({ searchParams }: { searchParams: URLSearchParams }) 
                 />
                 <Meter
                   label="Cost per match"
-                  value={result.costKnown ? `$${Math.round(result.costPerMatch)} / match` : "Not tracked"}
+                  value={result.costKnown ? `${formatDollars(result.costPerMatch)} / match` : "Not tracked"}
                   pct={result.costScore}
                   note={costPerMatchNote(result.typicalMatches, result.totalCost, {
                     known: result.costKnown,

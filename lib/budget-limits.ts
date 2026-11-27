@@ -64,3 +64,27 @@ export function amountInputError(text: string, kind: "budget" | "expense"): stri
   if (n == null) return kind === "budget" ? BUDGET_AMOUNT_INVALID : EXPENSE_AMOUNT_INVALID;
   return kind === "budget" ? seasonBudgetLimitError(n) : expenseAmountLimitError(n);
 }
+
+// The parent's "Longer-range projection" (components/cost/cost-calculator-view
+// .tsx) took any number: nine digits in each field made totals like
+// "$51,999,999,844,000,000,000,00…" that ran off the cards and the pill and
+// pushed the page 624 px wide at 390 (bug hunt 2026-11-26, BUG-007). Each
+// field now has the ceiling a person can mean — the years of school left, the
+// weeks in a year, the hours in a week — and the money fields the same
+// single-expense limit as above. The projection is saved as jsonb, so no
+// column limit applies; these exist so the page stays readable.
+export const COST_INPUT_LIMITS = {
+  yearsRemaining: 12,
+  tournamentsPerYear: 52,
+  coachingHoursPerWeek: 168,
+  lessonRate: MAX_BUDGET_EXPENSE_USD,
+  equipmentBudgetPerYear: MAX_BUDGET_EXPENSE_USD,
+  travelCostPerTournament: MAX_BUDGET_EXPENSE_USD,
+} as const;
+
+/** A typed number held inside 0 and the field's limit. NaN is 0, and so is a
+ *  negative number, as before; anything over the limit is the limit. */
+export function clampCostInput(key: keyof typeof COST_INPUT_LIMITS, value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(COST_INPUT_LIMITS[key], Math.max(0, value));
+}

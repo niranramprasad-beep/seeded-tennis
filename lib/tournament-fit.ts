@@ -14,6 +14,7 @@
 //
 // /methodology ("Tournament checker") states this rule in plain words.
 
+import { MAX_BUDGET_EXPENSE_USD } from "@/lib/budget-limits";
 import { formatPlayerUtr } from "@/lib/utils";
 
 export const UTR_MIN = 1;
@@ -94,7 +95,17 @@ export function fieldBand(drawUtr: number, playerUtr: number): FieldBand {
  *  average UTR is the only thing missing. */
 export const NOT_ENOUGH_INFO = "Not enough info. Add the draw's average UTR for a real verdict.";
 
-export type VerdictBlocker = "level" | "utr" | "entry fee" | "draw";
+export type VerdictBlocker = "level" | "utr" | "entry fee" | "draw" | "cost limit";
+
+/** Whole dollars with thousands separators: "$1,840", "$16,667". */
+export function formatDollars(amount: number): string {
+  return `$${Math.round(Math.max(0, amount)).toLocaleString("en-US")}`;
+}
+
+/** What the checker says under the cost fields and where a verdict would be
+ *  when a cost is over the limit an event can be saved with (the same limit as
+ *  a single budget expense, lib/budget-limits.ts). */
+export const COST_LIMIT_SENTENCE = `Each cost can be at most ${formatDollars(MAX_BUDGET_EXPENSE_USD)}.`;
 
 /**
  * What the checker still needs before it may say "Worth it" or "Skip it".
@@ -127,22 +138,50 @@ function isUtr(v: number | null): v is number {
   return v != null && Number.isFinite(v) && v >= UTR_MIN && v <= UTR_MAX;
 }
 
-const BLOCKER_PHRASE: Record<VerdictBlocker, string> = {
+type MissingBlocker = Exclude<VerdictBlocker, "cost limit">;
+
+const BLOCKER_PHRASE: Record<MissingBlocker, string> = {
   level: "choose the level",
   utr: "enter a UTR",
   "entry fee": "add the entry fee",
   draw: "add the draw's average UTR",
 };
 
+const isCostOverLimit = (v: number | null): boolean => v != null && Number.isFinite(v) && v > MAX_BUDGET_EXPENSE_USD;
+
+/**
+ * Adds "cost limit" when the entry fee or the travel cost typed in is over
+ * the limit. verdictBlockers() is given only the usable costs (an over-limit
+ * one is passed as missing), so on its own a travel cost over the limit
+ * blocked nothing — the verdict, and "Add to my events", went ahead and the
+ * cost was saved as blank (bug hunt BUG-006) — and an entry fee over the limit
+ * was reported as "add the entry fee" although one had been typed (BUG-008).
+ * Pass the costs as typed (null = blank).
+ */
+export function withCostLimitBlocker(
+  blockers: VerdictBlocker[],
+  costs: { entryCost: number | null; travelCost: number | null }
+): VerdictBlocker[] {
+  const entryOver = isCostOverLimit(costs.entryCost);
+  if (!entryOver && !isCostOverLimit(costs.travelCost)) return blockers;
+  return [...blockers.filter((b) => b !== "cost limit" && !(entryOver && b === "entry fee")), "cost limit"];
+}
+
 /** "To see a verdict, choose the level and add the entry fee." — or, when
- *  only the draw is missing, NOT_ENOUGH_INFO. */
+ *  only the draw is missing, NOT_ENOUGH_INFO. A cost over the limit adds
+ *  COST_LIMIT_SENTENCE after whatever is missing. */
 export function verdictBlockerSentence(blockers: VerdictBlocker[]): string {
-  if (blockers.length === 0) return "";
-  if (blockers.length === 1 && blockers[0] === "draw") return NOT_ENOUGH_INFO;
-  const parts = blockers.map((b) => BLOCKER_PHRASE[b]);
+  const overLimit = blockers.includes("cost limit");
+  const missing = blockers.filter((b): b is MissingBlocker => b !== "cost limit");
+  if (!overLimit) {
+    if (missing.length === 0) return "";
+    if (missing.length === 1 && missing[0] === "draw") return NOT_ENOUGH_INFO;
+  }
+  const parts = missing.map((b) => BLOCKER_PHRASE[b]);
   const joined =
-    parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-  return `To see a verdict, ${joined}.`;
+    parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  const asking = joined ? `To see a verdict, ${joined}.` : "";
+  return overLimit ? [asking, COST_LIMIT_SENTENCE].filter(Boolean).join(" ") : asking;
 }
 
 export type Verdict = "good" | "decent" | "bad";
@@ -296,17 +335,17 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
   } else if (costScore >= 85) {
     reasons.push({
       tone: "positive",
-      text: `Roughly $${Math.round(costPerMatch)} per expected match (~${levelInfo.typicalMatches} matches for this format)${partialNote} — efficient development spend.`,
+      text: `Roughly ${formatDollars(costPerMatch)} per expected match (~${levelInfo.typicalMatches} matches for this format)${partialNote} — efficient development spend.`,
     });
   } else if (costScore >= 50) {
     reasons.push({
       tone: "neutral",
-      text: `About $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total)${partialNote}. Reasonable if the draw is right, but worth comparing to closer options.`,
+      text: `About ${formatDollars(costPerMatch)} per expected match (${formatDollars(totalCost)} total)${partialNote}. Reasonable if the draw is right, but worth comparing to closer options.`,
     });
   } else {
     reasons.push({
       tone: "negative",
-      text: `Around $${Math.round(costPerMatch)} per expected match ($${Math.round(totalCost)} total)${partialNote} is expensive for what this event likely returns.`,
+      text: `Around ${formatDollars(costPerMatch)} per expected match (${formatDollars(totalCost)} total)${partialNote} is expensive for what this event likely returns.`,
     });
     suggestions.push("Compare cost per match across 2-3 candidate events — the same budget often buys twice the matches closer to home.");
   }

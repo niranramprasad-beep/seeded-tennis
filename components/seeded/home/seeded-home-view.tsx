@@ -63,19 +63,23 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
       <CourtBackdrop className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-[rgb(var(--c-court-text)/0.28)] lg:block" />
       <HeroBall className="pointer-events-none absolute bottom-10 right-[12%] hidden lg:block" />
     <div className="mx-auto max-w-[1200px] px-6 pb-10 pt-10 md:pb-14 lg:flex lg:flex-wrap lg:items-center lg:gap-12 lg:pb-40 lg:pt-18">
-      {/* Desktop: two-column, left copy / right live calculator */}
-      <div className="hidden min-w-0 flex-[1.05_1_480px] lg:block">
+      {/* Desktop: two-column, left copy / right live calculator. The left
+          column is on screen at every width because it holds the page's ONE
+          <h1> (34px on phones, 56px from lg): the phone and desktop heroes
+          each used to carry their own, so the page had two (BUG-012).
+          Below lg only the heading shows here; the phone's subhead and card
+          follow in the block below. */}
+      <div className="min-w-0 lg:flex-[1.05_1_480px]">
         <HeroCopy teamCount={schools.length} />
       </div>
       <div className="hidden min-w-0 flex-[0.95_1_440px] lg:block">
         <FitCalculatorCard schools={schools} />
       </div>
 
-      {/* Mobile: compact hero + calculator card, matching MobileHome.dc.html */}
-      <div className="flex flex-col gap-4 lg:hidden">
-        <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-[rgb(var(--c-court-text))]">
-          Know which teams you can make, and what to do this month.
-        </h1>
+      {/* Mobile: compact hero + calculator card, matching MobileHome.dc.html.
+          Its heading is the shared one above; mt-4 is the 16px the two used
+          to have between them (gap-4). */}
+      <div className="mt-4 flex flex-col gap-4 lg:hidden">
         {/* A-035: says what the comparison is against — our estimated
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-[rgb(var(--c-court-text)/0.85)]">
@@ -102,7 +106,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
 function HeroCopy({ teamCount }: { teamCount: number }) {
   return (
     <div>
-      <h1 className="font-seeded text-[56px] font-bold leading-[1.05] tracking-[-0.03em] text-[rgb(var(--c-court-text))]">
+      <h1 className="font-seeded text-[34px] font-bold leading-[1.08] tracking-[-0.025em] text-[rgb(var(--c-court-text))] lg:text-[56px] lg:leading-[1.05] lg:tracking-[-0.03em]">
         Know which teams you can make, and what to do this month.
       </h1>
       {/* P0-7: "compares you to real rosters" — the comparison is against
@@ -114,11 +118,11 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
       {/* Shortened to the mobile line (COPY_CUTS, Figma 06). The roster
           qualifier from the spreadsheet sync (2026-11-22) and the
           catalogue-derived count stay (A-035). */}
-      <p className="mt-5 max-w-[520px] text-lg leading-[1.55] text-[rgb(var(--c-court-text)/0.85)]">
+      <p className="mt-5 hidden max-w-[520px] text-lg leading-[1.55] text-[rgb(var(--c-court-text)/0.85)] lg:block">
         Your UTR against the range for {teamCount} college teams &mdash; a hand-checked roster where we
         have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
       </p>
-      <div className="mt-7 flex flex-wrap gap-3">
+      <div className="mt-7 hidden flex-wrap gap-3 lg:flex">
         <Link href="/onboarding" className={COURT_PRIMARY_CTA}>
           Get my free fit report
         </Link>
@@ -126,7 +130,7 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
           Check a tournament
         </Link>
       </div>
-      <p className="mt-4 text-sm text-[rgb(var(--c-court-text)/0.9)]">
+      <p className="mt-4 hidden text-sm text-[rgb(var(--c-court-text)/0.9)] lg:block">
         Free · no card · Takes about 90 seconds.
       </p>
     </div>
@@ -425,10 +429,15 @@ function TrustStrip() {
       <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-3 px-6 py-5 text-[15px] leading-[1.5] text-stone sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-baseline lg:gap-8">
         {/* P0-7: was "Real rosters. Every team rating shows its source and
             date." There is no source or date field; the team ranges are
-            unverified estimates and now say so wherever they render. */}
+            unverified estimates and now say so wherever they render.
+            2026-11-26: "Every team rating is an estimate." was untrue once
+            63 teams' ranges came from a checked roster (bug hunt BUG-003);
+            this is the site's own rule, in the words the hero's meta
+            description, /how-it-works and the calculator note already use, so
+            they cannot disagree. lib/honest-zero-state.test.ts pins it. */}
         <span className="flex items-start gap-2">
           <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
-          <strong className="text-ink">Every team rating is an estimate.</strong>
+          <strong className="text-pretty text-ink">A hand-checked roster where we have one, our estimate elsewhere.</strong>
         </span>
         <span className="flex items-start gap-2">
           <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />

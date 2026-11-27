@@ -283,6 +283,17 @@ describe("the screens render through these functions", () => {
     // roster against each player's UTR profile (review, 2026-11-24).
     expect(home).toMatch(/from a hand check of its official roster against players.\s+UTR\s+profiles where we.ve done one \(shown with the date\), otherwise our estimate, labelled as one\./);
   });
+
+  it("the trust strip under the hero does not call every rating an estimate", () => {
+    // Said "Every team rating is an estimate." until 2026-11-26, directly
+    // under a hero that says 63 teams' ranges come from a checked roster
+    // (bug hunt BUG-003: the 11-24 fix corrected 'How fit works' and missed
+    // this line). The strip now states the same rule, in the words the home
+    // meta description, /how-it-works and the calculator note already use.
+    const home = readableSource("components/seeded/home/seeded-home-view.tsx");
+    expect(home).not.toMatch(/Every team rating is an estimate/);
+    expect(home).toMatch(/A hand-checked roster where we have one, our estimate elsewhere\./);
+  });
 });
 
 describe("fitReportHeadline — today first (A-006), and says where the pace came from", () => {

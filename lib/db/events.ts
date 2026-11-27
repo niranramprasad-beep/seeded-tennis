@@ -370,54 +370,80 @@ export function tournamentSaveErrorMessage(error: { code?: string | null; messag
 export const MAX_TOURNAMENT_TRAVEL_HOURS = 200;
 export const MAX_TOURNAMENT_DISTANCE_MILES = 25_000;
 
+/** The input a tournament-entry problem is about, so a form can mark that
+ *  field, put the message beside it and move focus to it (bug hunt BUG-010:
+ *  the message used to land in a box above the buttons with focus left on
+ *  Save, and nothing said which of three number fields it meant). */
+export type TournamentEntryField =
+  | "name"
+  | "level"
+  | "eventDate"
+  | "drawUtr"
+  | "goalUtr"
+  | "travelHours"
+  | "distanceMiles"
+  | "entryCost"
+  | "travelCost";
+
+export interface TournamentEntryProblem {
+  field: TournamentEntryField;
+  message: string;
+}
+
 /**
  * Validates a tournament-entry save before it ever reaches Supabase. Pure —
  * no network, no auth — so both /events and the (separately rebuilt)
  * Tournament Fit screen's "Add to my events" button can check an entry
  * client-side before calling saveTournamentEntry, and so this logic is
- * unit-testable without a live database. Returns a user-facing error
- * string, or null when the input is valid.
+ * unit-testable without a live database. Returns the first problem, with the
+ * field it is about and a user-facing sentence, or null when the input is valid.
  */
-export function validateTournamentEntryInput(input: NewTournamentEntryInput): string | null {
-  if (!input.name || !input.name.trim()) return "Tournament name is required.";
-  if (!LEVELS.some((l) => l.value === input.level)) return "Choose a valid tournament level.";
-  if (!isCalendarDateKey(input.eventDate)) return "Enter a valid tournament date.";
+export function tournamentEntryProblem(input: NewTournamentEntryInput): TournamentEntryProblem | null {
+  if (!input.name || !input.name.trim()) return { field: "name", message: "Tournament name is required." };
+  if (!LEVELS.some((l) => l.value === input.level)) return { field: "level", message: "Choose a valid tournament level." };
+  if (!isCalendarDateKey(input.eventDate)) return { field: "eventDate", message: "Enter a valid tournament date." };
   // City and state are optional (PR D, D4): nothing in Seeded computes from
   // the place, and asking for them blocked "Add to my events" for no reason.
 
-  const utrFields: [string, number | null | undefined][] = [
-    ["Draw UTR", input.drawUtr],
-    ["Goal UTR", input.goalUtr],
+  const utrFields: [TournamentEntryField, string, number | null | undefined][] = [
+    ["drawUtr", "Draw UTR", input.drawUtr],
+    ["goalUtr", "Goal UTR", input.goalUtr],
   ];
-  for (const [label, value] of utrFields) {
+  for (const [field, label, value] of utrFields) {
     if (value != null && (!Number.isFinite(value) || value < UTR_MIN || value > UTR_MAX)) {
-      return `${label} must be between ${UTR_MIN} and ${UTR_MAX}.`;
+      return { field, message: `${label} must be between ${UTR_MIN} and ${UTR_MAX}.` };
     }
   }
 
-  const nonNegativeFields: [string, number | null | undefined][] = [
-    ["Travel hours", input.travelHours],
-    ["Distance", input.distanceMiles],
-    ["Entry cost", input.entryCost],
-    ["Travel cost", input.travelCost],
+  const nonNegativeFields: [TournamentEntryField, string, number | null | undefined][] = [
+    ["travelHours", "Travel hours", input.travelHours],
+    ["distanceMiles", "Distance", input.distanceMiles],
+    ["entryCost", "Entry cost", input.entryCost],
+    ["travelCost", "Travel cost", input.travelCost],
   ];
-  for (const [label, value] of nonNegativeFields) {
+  for (const [field, label, value] of nonNegativeFields) {
     if (value != null && (!Number.isFinite(value) || value < 0)) {
-      return `${label} can't be negative.`;
+      return { field, message: `${label} can't be negative.` };
     }
   }
 
-  const upperLimits: [number | null | undefined, number, string][] = [
-    [input.travelHours, MAX_TOURNAMENT_TRAVEL_HOURS, `Travel hours can be at most ${MAX_TOURNAMENT_TRAVEL_HOURS}.`],
-    [input.distanceMiles, MAX_TOURNAMENT_DISTANCE_MILES, `Distance can be at most ${MAX_TOURNAMENT_DISTANCE_MILES.toLocaleString("en-US")} miles.`],
-    [input.entryCost, MAX_BUDGET_EXPENSE_USD, `Entry cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
-    [input.travelCost, MAX_BUDGET_EXPENSE_USD, `Travel cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
+  const upperLimits: [TournamentEntryField, number | null | undefined, number, string][] = [
+    ["travelHours", input.travelHours, MAX_TOURNAMENT_TRAVEL_HOURS, `Travel hours can be at most ${MAX_TOURNAMENT_TRAVEL_HOURS}.`],
+    ["distanceMiles", input.distanceMiles, MAX_TOURNAMENT_DISTANCE_MILES, `Distance can be at most ${MAX_TOURNAMENT_DISTANCE_MILES.toLocaleString("en-US")} miles.`],
+    ["entryCost", input.entryCost, MAX_BUDGET_EXPENSE_USD, `Entry cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
+    ["travelCost", input.travelCost, MAX_BUDGET_EXPENSE_USD, `Travel cost can be at most $${MAX_BUDGET_EXPENSE_USD.toLocaleString("en-US")}.`],
   ];
-  for (const [value, max, message] of upperLimits) {
-    if (value != null && value > max) return message;
+  for (const [field, value, max, message] of upperLimits) {
+    if (value != null && value > max) return { field, message };
   }
 
   return null;
+}
+
+/** tournamentEntryProblem()'s sentence alone — a user-facing error string, or
+ *  null when the input is valid. */
+export function validateTournamentEntryInput(input: NewTournamentEntryInput): string | null {
+  return tournamentEntryProblem(input)?.message ?? null;
 }
 
 function mapTournamentEntry(row: Tables<"tournament_entries">): TournamentEntry {
