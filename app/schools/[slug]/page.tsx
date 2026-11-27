@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/schools";
 import { SeededSchoolDetail } from "@/components/seeded/schools/seeded-school-detail";
 import { loadProgramRosterPage } from "@/lib/db/roster";
+import { schoolPageDescription, schoolPageTitle } from "@/lib/seo/school-meta";
 
 // Every school page shared the site-wide default title and had no
 // canonical, so 37 programs competed as one page in search. Named from the
@@ -24,8 +25,15 @@ export async function generateMetadata({
   if (!school) return { title: "School not found — Seeded" };
   const programType = school.gender === "women" ? "Women's" : "Men's";
   return {
-    title: `${school.name} ${programType.toLowerCase()} tennis — Seeded`,
-    description: `${school.name} ${programType.toLowerCase()} tennis: ${[school.division, school.conference, school.city, school.state].filter(Boolean).join(", ")}. See how your UTR compares to the team's range and whether the program is a Likely, Target or Reach fit.`,
+    // Search results cut a title at about 60 characters and a description at
+    // about 155: lib/seo/school-meta.ts drops the brand, then the closing
+    // sentence's second half, from the ones that would be cut (BUG-011).
+    title: schoolPageTitle(school.name, programType),
+    description: schoolPageDescription({
+      name: school.name,
+      programType,
+      place: [school.division, school.conference, school.city, school.state].filter(Boolean) as string[],
+    }),
     alternates: { canonical: `/schools/${school.slug}` },
   };
 }

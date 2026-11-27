@@ -161,7 +161,12 @@ const nextConfig = {
         has: [{ type: "header", key, value }],
         destination: "/school-logo-not-here",
       })),
-      afterFiles: [],
+      // Browsers, bookmark tools and feed readers ask for /favicon.ico
+      // directly, though the page links /icon (app/icon.tsx, generated): it
+      // answered 404 (bug hunt BUG-013). Answered with the same icon, so
+      // there is no second file to keep in step. After the public folder, so
+      // a real public/favicon.ico would still win.
+      afterFiles: [{ source: "/favicon.ico", destination: "/icon" }],
       fallback: [],
     };
   },

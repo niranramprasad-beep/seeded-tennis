@@ -7,7 +7,7 @@
 //
 // Kept framework-free (no useSearchParams/window here) so it's unit-testable
 // without a DOM, and reusable from both the live view and its tests.
-import { LEVELS, UTR_MAX, UTR_MIN, type FitLevel } from "./tournament-fit";
+import { LEVELS, UTR_MAX, UTR_MIN, formatDollars, type FitLevel } from "./tournament-fit";
 
 // The mockup's Travel control is three discrete pills, not a free-form
 // number — "Local"/"1-3 hrs"/"Overnight" map to a representative travelHours
@@ -158,6 +158,6 @@ export function costPerMatchNote(
   // No cost entered: say so instead of a second "$0" (final-check PR B review).
   if (!cost.known) return `${assumes} · cost not tracked`;
   // Only one of entry / travel entered: the total is not the whole cost.
-  if (cost.partial) return `${assumes} · $${Math.round(totalCost)} entered so far`;
-  return `${assumes} · $${Math.round(totalCost)} total`;
+  if (cost.partial) return `${assumes} · ${formatDollars(totalCost)} entered so far`;
+  return `${assumes} · ${formatDollars(totalCost)} total`;
 }
