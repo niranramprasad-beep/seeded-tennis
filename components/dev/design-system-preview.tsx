@@ -93,7 +93,7 @@ export function DesignSystemPreview() {
               </div>
             </Card>
 
-            <Card title="Fit bands and data chips">
+            <Card title="Fit tiers and data chips">
               <div className="flex flex-wrap gap-2">
                 <FitBadge band="reach" />
                 <FitBadge band="target" />

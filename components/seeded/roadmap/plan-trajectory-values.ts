@@ -1,5 +1,4 @@
 import type { UtrEstimatePoint } from "@/lib/fit";
-import type { RoadmapYear } from "@/lib/types";
 import { formatCheckpointUtr, formatPlayerUtr, formatUtrEstimate, hasRealUtr } from "@/lib/utils";
 import { formatShortDate } from "@/lib/time";
 import { monthYearLabel } from "@/components/seeded/ui/chart-axis";
@@ -54,7 +53,8 @@ export interface ChartSeries {
  *  empty state). `today` defaults to the current date. */
 export function buildChartSeries(input: {
   actualPoints: readonly ChartPoint[];
-  roadmap: readonly RoadmapYear[];
+  /** lib/fit planCheckpoints — the quarterly line to the Plan UTR. */
+  checkpoints: readonly { date: Date; utr: number; label: string }[];
   estimate: readonly UtrEstimatePoint[];
   today?: Date;
 }): ChartSeries | null {
@@ -64,8 +64,8 @@ export function buildChartSeries(input: {
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   if (logged.length === 0) return null;
   const now = logged[logged.length - 1];
-  const checkpoints: Checkpoint[] = input.roadmap
-    .map((yr) => ({ date: new Date(yr.calendarYear, 5, 1), utr: yr.utrTarget, label: yr.gradeLabel }))
+  const checkpoints: Checkpoint[] = input.checkpoints
+    .map((c) => ({ date: c.date, utr: c.utr, label: c.label }))
     .filter((c) => c.date.getTime() > now.date.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   return {

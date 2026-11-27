@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { Player, SchoolLite } from "@/lib/types";
-import { buildFitReport, utrHistoryFromEntries, type FitReport, type FitView } from "@/lib/fit";
+import { activePlanUtr, buildFitReport, utrHistoryFromEntries, type FitReport, type FitView } from "@/lib/fit";
 import { loadUtrEntries, loadUtrEntriesFor } from "@/lib/db/plan";
+import { useStoredPlanUtr } from "@/lib/hooks/use-plan-utr";
 
 /**
  * The one way an app screen gets fit bands.
@@ -24,8 +25,14 @@ export function useFitReport(input: {
   player: Pick<Player, "currentUTR" | "graduationYear" | "gender">;
   schools: Pick<SchoolLite, "slug" | "minCompetitiveUTR" | "avgRosterUTR">[];
   view?: FitView;
-  /** The what-if slider's explicit choice, when one has been made. */
-  overrideUtr?: number | null;
+  /**
+   * "plan" (the default): judge fit on the player's stored Plan UTR while
+   * it applies (lib/fit activePlanUtr), else on the estimate. "estimate":
+   * never the plan — for the one reader that needs the estimate itself
+   * (usePlanGoal offers it as a plan). A parent's view (`historyUserId`)
+   * is always "estimate": the player's settings are theirs alone (RLS).
+   */
+  judgeOn?: "plan" | "estimate";
   /**
    * Whose history backs the Reach / Out-of-range split. Defaults to the
    * signed-in user. A parent viewing their child's fit must pass the
@@ -36,7 +43,10 @@ export function useFitReport(input: {
   /** Skip the history fetch on pre-auth surfaces that have none. */
   withHistory?: boolean;
 }): FitReport | null {
-  const { player, schools, view, overrideUtr, historyUserId, withHistory = true } = input;
+  const { player, schools, view, judgeOn = "plan", historyUserId, withHistory = true } = input;
+  const usesPlan = judgeOn === "plan" && !historyUserId && withHistory;
+  const { planUtr: storedPlan } = useStoredPlanUtr(usesPlan);
+  const planUtr = usesPlan ? activePlanUtr(storedPlan, player.currentUTR) : null;
 
   // Shares SWR's "utr-entries" cache key with every other screen, so this
   // costs nothing extra on a page that already loaded the player's history.
@@ -70,9 +80,9 @@ export function useFitReport(input: {
         gender: player.gender,
         schools,
         view,
-        overrideUtr,
+        planUtr,
         projectionInput,
       }),
-    [player.currentUTR, player.graduationYear, player.gender, schools, view, overrideUtr, projectionInput]
+    [player.currentUTR, player.graduationYear, player.gender, schools, view, planUtr, projectionInput]
   );
 }

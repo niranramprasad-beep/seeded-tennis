@@ -381,12 +381,12 @@ export function evaluateTournamentFit(input: FitInput): FitResult {
     if (goalGap > 0 && drawUtr >= playerUtr - 0.5) {
       reasons.push({
         tone: "positive",
-        text: `This field points toward your goal of UTR ${formatPlayerUtr(input.goalUtr)} — these are exactly the opponents you need results against to get there.`,
+        text: `This field points toward your plan UTR of ${formatPlayerUtr(input.goalUtr)} — these are exactly the opponents you need results against to get there.`,
       });
     } else if (goalGap > 0 && drawUtr < playerUtr - 1.5) {
       reasons.push({
         tone: "negative",
-        text: `You're chasing UTR ${formatPlayerUtr(input.goalUtr)}, and this field can't give you the results that climb requires.`,
+        text: `Your plan UTR is ${formatPlayerUtr(input.goalUtr)}, and this field can't give you the results that climb requires.`,
       });
     }
   }

@@ -39,7 +39,7 @@ pre-redesign commits that never landed — don't merge it.
 - Before modifying auth/authorization, read the live policies (`pg_policies`) and the 022 trigger. Never replace RLS with a client-side check — `AuthGate`/`PaidGate` are cosmetic.
 - Run `rm -rf .next && npx tsc --noEmit && npm run lint && npx vitest run` before saying something works.
 - Use one fit-band path: `classifySchoolFit` must always get a projection that can return "out-of-range".
-- Show "Not tracked" for missing data. Show the source and date next to any roster number.
+- Show "Not tracked" for missing data — except on school pages, where an untracked field is left out instead (Niran, 2026-11-27). Show the source and date next to any roster number.
 - Keep secrets out of code, docs, logs, screenshots, and commits. Names only.
 
 ## Never
@@ -57,9 +57,15 @@ pre-redesign commits that never landed — don't merge it.
   the player's own real logged results. (The catalog's invented coach
   names/emails were deleted in P0-3; `lib/db/schools-catalog-honesty.test.ts`
   fails the build if they return.)
-- **4-band fit model**: Likely / Target / Reach / Out of range, per
-  `/methodology`, in `lib/school-fit.ts`. Reach-vs-Out-of-range uses a
-  real UTR-trajectory projection, never a static snapshot.
+- **4-tier fit model**: Safe bet / Good match / Stretch / Long shot on
+  screen (internal keys likely / target / reach / out-of-range; Niran,
+  2026-11-27), per `/methodology`, in `lib/school-fit.ts`. Never say "band"
+  to a player. Fit is judged on the player's stored Plan UTR
+  (`planGoalUtr`) while it applies, else the estimate. Stretch-vs-Long-shot
+  uses a real UTR-trajectory projection, never a static snapshot.
+- **College players' UTRs show as whole numbers only ("12.xx")**, cut on the
+  server (`lib/db/roster.ts`). Team ranges and the player's own numbers stay
+  exact (Niran, 2026-11-27).
 - **"Leaving" counts, never "open spots."** Real grad-year math only.
 - **5-item nav**: Today, Plan, Schools, Outreach, Events — the PRIMARY
   nav, unchanged. Below it, a small secondary **"Tools"** group (Results,
@@ -181,8 +187,9 @@ this list in sync with `docs/MASTER_ROADMAP.md`.
   "reach" for every school below the floor). Use `whatIfProjectionFor()`,
   `syntheticUtrHistoryFor()` or `realisticPaceProjectionFor()`
   (`lib/fit-band-consistency.test.ts`).
-- Bands plan with min(own pace, `PLANNING_PACE_CAP_PER_YEAR` = 1.5/yr), in
-  `lib/fit/pace.ts`. The faster line is shown as an "Estimate", never banded.
+- With no Plan UTR set, the estimate plans with min(own pace,
+  `PLANNING_PACE_CAP_PER_YEAR` = 1.5/yr), in `lib/fit/pace.ts`. A set Plan
+  UTR judges fit as typed (`activePlanUtr`, DECISIONS 2026-11-27).
 
 **Environments and migrations**
 - Local dev and Vercel Preview read staging; production has its own three

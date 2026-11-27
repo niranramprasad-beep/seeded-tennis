@@ -2,13 +2,12 @@
 
 import { useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type { UtrDataPoint } from "@/lib/utr-projection";
-import { chartEndLabels, type PlanGoal, type UtrEstimatePoint } from "@/lib/fit";
-import type { RoadmapYear } from "@/lib/types";
+import { chartEndLabels, type PlanCheckpoint, type UtrEstimatePoint } from "@/lib/fit";
 import { formatCheckpointUtr, formatPlayerUtr } from "@/lib/utils";
-import { formatDate } from "@/lib/time";
 import { useMeasuredWidth } from "@/components/seeded/ui/use-measured-width";
 import { approxTextWidth, monthTicks, monthYearLabel, utrTicks } from "@/components/seeded/ui/chart-axis";
-import { chartLegendSentence } from "@/lib/chart-legend";
+import { chartLegendItems } from "@/lib/chart-legend";
+import { ChartLegend } from "@/components/seeded/ui/chart-legend";
 import {
   buildChartSeries,
   clientXToViewBoxX,
@@ -27,18 +26,15 @@ const NUMBER_FONT = "var(--font-mono-active)";
 
 interface PlanTrajectoryChartProps {
   actualPoints: UtrDataPoint[];
-  /** lib/hooks/use-plan-goal.ts — checkpoints on the line to the goal. */
-  roadmap: RoadmapYear[];
-  goal: PlanGoal | null;
-  /** lib/fit.ts projectionPath — THE estimate, the same one every screen
-   *  prints. Empty once the summer before senior year has begun. */
+  /** lib/fit planCheckpoints — the quarterly checkpoint line to the Plan
+   *  UTR. Empty without a plan. */
+  checkpoints: PlanCheckpoint[];
+  /** The Plan UTR the line ends at, or null. */
+  planUtr: number | null;
+  /** lib/fit.ts projectionPath — THE estimate. Pass it only while no Plan
+   *  UTR is set (the chart then shows where Seeded expects the player to
+   *  be); empty otherwise. */
   estimate: UtrEstimatePoint[];
-  /** lib/fit.ts upsideProjectionPath — the player's own pace when it is
-   *  faster than the planning cap. A dashed "Estimate" line; empty otherwise.
-   *  Never what the bands or the goal read. */
-  upside?: UtrEstimatePoint[];
-  /** Opens the goal editor above the chart. */
-  onChangeGoal?: () => void;
   /** Where "logged" ends for the readout. Defaults to the current date. */
   today?: Date;
 }
@@ -49,18 +45,17 @@ const PAD_R = 16;
 const PAD_TOP = 24;
 const BASELINE = H - 30;
 
-// "Your plan to senior summer". Solid line: the player's logged ratings.
-// Dashed: the plan's checkpoints to the goal (buildRoadmap). Shaded: the
-// planning estimate from lib/fit.ts — the same projection the
-// ProjectionNote and the school pages print, labelled at its end. Grey
-// dashed, labelled "Estimate": the upside at the player's own pace, drawn
-// only when that pace is faster than the planning cap (PR D, D1). It used to shade a regression
-// through the logged ratings instead, a second projection for the same
-// date (C8).
+// "Your plan to senior summer". Solid line with a dot per entry: the
+// player's logged ratings. Dashed with gold diamonds: the quarterly
+// checkpoints to the Plan UTR (lib/fit planCheckpoints, 2026-11-27).
+// Dotted: the estimate from lib/fit.ts, drawn only while no Plan UTR is set.
+// Hovering, tapping or arrow-keying the chart reads every line at that date:
+// a logged rating's exact UTR and date, and the plan's value there.
 //
 // Drawn in a viewBox as wide as the column (useMeasuredWidth), so labels
 // stay legible at 320px and never run off the edge (C21).
-export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, upside = [], onChangeGoal, today }: PlanTrajectoryChartProps) {
+export function PlanTrajectoryChart({ actualPoints, checkpoints: planLine, planUtr, estimate, today }: PlanTrajectoryChartProps) {
+  const goal = planUtr != null ? { value: planUtr } : null;
   const { ref, width } = useMeasuredWidth<HTMLDivElement>(900);
   // The cursor is a DATE (an anchor plus keyboard month steps), so it
   // survives a resize and the arrow keys never drift the day; its x is
@@ -73,7 +68,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
 
   // Every line, diamond and readout dot comes from this one series
   // (plan-trajectory-values.ts) — the chart builds no series of its own.
-  const series = buildChartSeries({ actualPoints, roadmap, estimate, today });
+  const series = buildChartSeries({ actualPoints, checkpoints: planLine, estimate, today });
   if (!series) {
     return (
       <div ref={ref} className="flex h-[120px] items-center rounded-lg border border-dashed border-line px-4 text-sm text-stone">
@@ -84,8 +79,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
   const { logged: sortedActual, now, checkpoints } = series;
 
   const estimateEnd = estimate[estimate.length - 1];
-  const upsideEnd = upside[upside.length - 1];
-  const endLabels = chartEndLabels(estimate, upside);
+  const endLabels = chartEndLabels(estimate, []);
   // The last checkpoint sits on the same date as the estimate's end, with
   // its label above-left of its diamond: the estimate's label then goes
   // below the band end so the two never print on top of each other.
@@ -103,7 +97,6 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
     ...sortedActual.map((p) => p.utr),
     ...checkpoints.map((c) => c.utr),
     ...estimate.flatMap((p) => [p.low, p.high]),
-    ...upside.map((p) => p.value),
   ];
   const utrMin = Math.floor((Math.min(...utrValues) - 0.3) * 2) / 2;
   const utrMax = Math.ceil((Math.max(...utrValues) + 0.3) * 2) / 2;
@@ -119,7 +112,6 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
     anchor === "start" ? Math.min(cx, W - PAD_R - textW) : Math.max(cx, PAD_L + textW);
 
   const paths = seriesPaths(series, geometry);
-  const upsideLine = upside.length > 1 ? upside.map((p) => `${x(p.date.getTime())},${y(p.value)}`).join(" ") : null;
 
   const yTicks = utrTicks(utrMin, utrMax);
   const xTicks = monthTicks(dateMin, dateMax, plotW);
@@ -216,15 +208,35 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {paths.estimate && (
           <polyline points={paths.estimate} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="2.5" strokeDasharray="0.5 6" strokeLinecap="round" />
         )}
-        {upsideLine && (
-          <polyline points={upsideLine} fill="none" stroke="rgb(var(--c-stone))" strokeWidth="1.5" strokeDasharray="3 4" />
-        )}
         {paths.logged && <polyline points={paths.logged} fill="none" stroke="rgb(var(--c-primary))" strokeWidth="3" />}
         {paths.plan && <polyline points={paths.plan} fill="none" stroke={PLAN_STROKE} strokeWidth="2" strokeDasharray="6 5" />}
+
+        {/* Every logged rating gets a dot, so each point the hover readout
+            names (its exact UTR and date) is visible on the line. */}
+        {sortedActual.length > 1 &&
+          sortedActual.map((p) => (
+            <circle
+              key={`logged-${p.date.getTime()}`}
+              aria-hidden="true"
+              cx={x(p.date.getTime())}
+              cy={y(p.utr)}
+              r="3.5"
+              fill="rgb(var(--c-primary))"
+              stroke="rgb(var(--c-card))"
+              strokeWidth="1.5"
+            />
+          ))}
 
         {checkpoints.map((c, i) => {
           const cx = x(c.date.getTime());
           const cy = y(c.utr);
+          // Quarterly checkpoints (2026-11-27) are too many to label: only
+          // the last one (the Plan UTR) and a selected one print a label;
+          // the rest are small diamonds the readout and the checkpoint strip
+          // under the chart name.
+          const isLast = i === checkpoints.length - 1;
+          const showLabel = isLast || selected === i;
+          const size = isLast ? 14 : 9;
           const text = `${monthYearLabel(c.date)} · ${formatCheckpointUtr(c.utr, goal?.value)}`;
           const tw = approxTextWidth(text, 12);
           // The dashed line rises to the right of each diamond, so its label
@@ -253,10 +265,10 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
               >
                 <rect x={cx - 28} y={cy - 28} width="56" height="56" fill="transparent" />
                 <rect
-                  x={cx - 7}
-                  y={cy - 7}
-                  width="14"
-                  height="14"
+                  x={cx - size / 2}
+                  y={cy - size / 2}
+                  width={size}
+                  height={size}
                   fill="rgb(var(--c-gold))"
                   stroke={selected === i ? "rgb(var(--c-ink))" : "transparent"}
                   strokeWidth="2"
@@ -274,7 +286,7 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
                 fontSize="12"
                 fill="rgb(var(--c-ink))"
                 fontFamily={LABEL_FONT}
-                opacity={hoverX != null && readout ? 0 : 1}
+                opacity={!showLabel || (hoverX != null && readout) ? 0 : 1}
               >
                 {monthYearLabel(c.date)} · <tspan fontFamily={NUMBER_FONT}>{formatCheckpointUtr(c.utr, goal?.value)}</tspan>
               </text>
@@ -282,14 +294,14 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
           );
         })}
 
-        {/* End labels: the planning estimate at the end of the shaded band,
-            and "Estimate 9.40" at the end of the upside line — both from
-            lib/fit.ts chartEndLabels, the numbers the report prints. */}
+        {/* End label: the estimate at the end of its line (drawn only while
+            no Plan UTR is set) — lib/fit.ts chartEndLabels, the number the
+            report prints. */}
         {estimateEnd && endLabels.plan && (
           <text
             aria-hidden="true"
             x={W - PAD_R}
-            y={Math.max(14, Math.min(BASELINE - 4, y(estimateEnd.value) + (upsideEnd || checkpointAtEnd ? 20 : -9)))}
+            y={Math.max(14, Math.min(BASELINE - 4, y(estimateEnd.value) + (checkpointAtEnd ? 20 : -9)))}
             textAnchor="end"
             fontSize="12"
             fontWeight="600"
@@ -297,19 +309,6 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
             fill="rgb(var(--c-primary))"
           >
             {endLabels.plan}
-          </text>
-        )}
-        {upsideEnd && endLabels.upside && (
-          <text
-            aria-hidden="true"
-            x={W - PAD_R}
-            y={Math.max(PAD_TOP - 6, y(upsideEnd.value) - 8)}
-            textAnchor="end"
-            fontSize="12"
-            fontFamily={LABEL_FONT}
-            fill="rgb(var(--c-stone))"
-          >
-            {endLabels.upside}
           </text>
         )}
 
@@ -379,31 +378,23 @@ export function PlanTrajectoryChart({ actualPoints, roadmap, goal, estimate, ups
         {announcement}
       </p>
 
-      {/* The same words as /today's chart legend (lib/chart-legend.ts,
+      {/* The same swatches as /today's chart (lib/chart-legend.ts,
           final-check A3): each line style means one thing on both charts. */}
-      <p className="mt-2 text-sm text-stone">
-        {chartLegendSentence({
-          estimate: Boolean(paths.band),
-          estimateEnd: endLabels.plan,
-          plan: checkpoints.length > 0 ? "line" : null,
-          upside: Boolean(upsideLine),
+      <ChartLegend
+        items={chartLegendItems({
+          estimate: Boolean(paths.estimate),
+          planUtr: checkpoints.length > 0 && goal ? formatPlayerUtr(goal.value) : null,
         })}
-      </p>
+      />
 
       {sel && goal && (
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line bg-grass-50 p-4 text-sm">
           <p className="min-w-0 flex-1 text-ink">
-            <strong>{sel.label}:</strong> <span className="font-mono">{formatCheckpointUtr(sel.utr, goal?.value)}</span>. It sits on a
-            straight line from today&apos;s <span className="font-mono">{formatPlayerUtr(now.utr)}</span> to your goal of{" "}
-            <span className="font-mono">{formatPlayerUtr(goal.value)}</span>
-            {roadmap.length > 0 && ` by ${formatDate(new Date(roadmap[roadmap.length - 1].calendarYear, 5, 1))}`}.
+            <strong>By {sel.label}:</strong> <span className="font-mono">{formatCheckpointUtr(sel.utr, goal?.value)}</span>. It sits on
+            a straight line from today&apos;s <span className="font-mono">{formatPlayerUtr(now.utr)}</span> to your plan UTR of{" "}
+            <span className="font-mono">{formatPlayerUtr(goal.value)}</span> by {checkpoints[checkpoints.length - 1]?.label}.
           </p>
           <div className="flex shrink-0 gap-3">
-            {onChangeGoal && (
-              <button type="button" onClick={onChangeGoal} className="min-h-6 text-xs font-semibold text-grass">
-                Change goal
-              </button>
-            )}
             <button type="button" onClick={() => setSelected(null)} className="min-h-6 text-xs font-semibold text-stone hover:text-ink">
               Close
             </button>

@@ -284,26 +284,26 @@ export interface TargetSchoolsKpi {
 export function targetSchoolsKpi(report: Pick<FitReport, "inRange"> | null, targetCount: number): TargetSchoolsKpi {
   const value = String(targetCount);
   if (targetCount === 0) return { value, sentence: "No target schools saved yet." };
-  if (!report) return { value, sentence: "No UTR yet, so no bands." };
+  if (!report) return { value, sentence: "No UTR yet, so no fit." };
   const n = report.inRange;
   if (n === targetCount) {
     return {
       value,
       sentence:
         targetCount === 1
-          ? "It's a Target or Likely."
+          ? "It's in range: a Good match or Safe bet."
           : targetCount === 2
-            ? "Both are Target or Likely."
-            : `All ${targetCount} are Target or Likely.`,
+            ? "Both are in range."
+            : `All ${targetCount} are in range.`,
     };
   }
   if (n === 0) {
     return {
       value,
-      sentence: targetCount === 1 ? "It's not a Target or Likely yet." : `None of the ${targetCount} are Target or Likely yet.`,
+      sentence: targetCount === 1 ? "It's not in range yet." : `None of the ${targetCount} are in range yet.`,
     };
   }
-  return { value, sentence: `${n} of ${targetCount} ${n === 1 ? "is" : "are"} Target or Likely.` };
+  return { value, sentence: `${n} of ${targetCount} ${n === 1 ? "is" : "are"} in range.` };
 }
 
 export interface SeasonSpendKpi {

@@ -122,13 +122,13 @@ describe("KPI sentences", () => {
   });
 
   it("target schools: a true sentence from the report's own in-range count", () => {
-    expect(targetSchoolsKpi({ inRange: 3 }, 3).sentence).toBe("All 3 are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 2 }, 2).sentence).toBe("Both are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 1 }, 1).sentence).toBe("It's a Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 2 }, 5).sentence).toBe("2 of 5 are Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 1 }, 5).sentence).toBe("1 of 5 is Target or Likely.");
-    expect(targetSchoolsKpi({ inRange: 0 }, 4).sentence).toBe("None of the 4 are Target or Likely yet.");
-    expect(targetSchoolsKpi(null, 4).sentence).toBe("No UTR yet, so no bands.");
+    expect(targetSchoolsKpi({ inRange: 3 }, 3).sentence).toBe("All 3 are in range.");
+    expect(targetSchoolsKpi({ inRange: 2 }, 2).sentence).toBe("Both are in range.");
+    expect(targetSchoolsKpi({ inRange: 1 }, 1).sentence).toBe("It's in range: a Good match or Safe bet.");
+    expect(targetSchoolsKpi({ inRange: 2 }, 5).sentence).toBe("2 of 5 are in range.");
+    expect(targetSchoolsKpi({ inRange: 1 }, 5).sentence).toBe("1 of 5 is in range.");
+    expect(targetSchoolsKpi({ inRange: 0 }, 4).sentence).toBe("None of the 4 are in range yet.");
+    expect(targetSchoolsKpi(null, 4).sentence).toBe("No UTR yet, so no fit.");
     expect(targetSchoolsKpi({ inRange: 0 }, 0).sentence).toBe("No target schools saved yet.");
   });
 
@@ -139,7 +139,7 @@ describe("KPI sentences", () => {
       { slug: "c", minCompetitiveUTR: 13, avgRosterUTR: 14 },
     ] as SchoolLite[];
     const report = buildFitReport({ currentUtr: 9.2, graduationYear: 2027, gender: "male", schools, now: NOW })!;
-    expect(targetSchoolsKpi(report, 3).sentence).toBe(`${report.inRange} of 3 are Target or Likely.`);
+    expect(targetSchoolsKpi(report, 3).sentence).toBe(`${report.inRange} of 3 are in range.`);
   });
 
   it("UTR: two decimals, a real delta with its month, and never a number nobody logged", () => {
@@ -431,7 +431,7 @@ describe("the whole page model", () => {
     expect(m.chart).toBeNull();
     expect(m.chartAriaLabel).toBeNull();
     expect(m.targets.rows).toEqual([{ slug: "a", name: "School A", band: "unverified" }]);
-    expect(m.targets.sentence).toBe("No UTR yet, so no bands.");
+    expect(m.targets.sentence).toBe("No UTR yet, so no fit.");
     expect(m.actions).toEqual([]);
   });
 });

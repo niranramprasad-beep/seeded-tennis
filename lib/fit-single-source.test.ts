@@ -140,7 +140,7 @@ describe("(a) every number on the fit report comes from the same arithmetic", ()
     const r = buildFitReport({
       ...PERSONAS[0],
       schools: SCHOOLS,
-      overrideUtr: chosen,
+      planUtr: chosen,
       now: NOW,
     })!;
     expect(r.utr.value).toBe(chosen);

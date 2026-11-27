@@ -6,8 +6,8 @@ import { Check } from "lucide-react";
 import type { SchoolLite } from "@/lib/types";
 import { usePlayer } from "@/lib/context/player-context";
 import { usePlanGoal } from "@/lib/hooks/use-plan-goal";
-import type { PlanGoal } from "@/lib/fit";
-import type { GoalPace } from "@/lib/school-fit";
+import { planCheckpoints, type PlanGoal } from "@/lib/fit";
+import { summerBeforeSeniorYear } from "@/lib/school-fit";
 import { Toast } from "@/components/seeded/ui/toast";
 import { AuthGate } from "@/components/shared/auth-gate";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { CheckinDrawer } from "@/components/seeded/dashboard/checkin-drawer";
 import { SundayCheckinDrawer, type SundayCheckinSaveInput } from "./sunday-checkin-drawer";
 import { formatDate, localDateKey, parseLocalDate } from "@/lib/time";
 import { isSundayCheckinDue } from "@/lib/today-actions";
-import { formatPlayerUtr, utrInputValue } from "@/lib/utils";
+import { formatPlayerUtr, hasRealUtr, utrInputValue } from "@/lib/utils";
 import {
   createUtrEntry,
   loadUtrEntries,
@@ -113,7 +113,6 @@ function DashboardInner({ schools }: DashboardViewProps) {
   // to be the hardest target's floor, so "Next checkpoint" jumped whenever a
   // target was added (C11).
   const planGoal = usePlanGoal(player);
-  const roadmap = planGoal.roadmap;
 
   const firstName = player.name.trim().split(/\s+/)[0] || "";
   const [savedToast, setSavedToast] = useState<string | null>(null);
@@ -131,12 +130,18 @@ function DashboardInner({ schools }: DashboardViewProps) {
     }));
   }, [utrEntries, player.currentUTR]);
 
+  // The SAME quarterly checkpoint line /plan shows (lib/fit planCheckpoints,
+  // 2026-11-27), so "Next checkpoint" here is the first box on /plan.
   const targetPoints = useMemo(
     () => [
       { date: new Date(), utr: player.currentUTR },
-      ...roadmap.map((y) => ({ date: new Date(y.calendarYear, 5, 1), utr: y.utrTarget })),
+      ...planCheckpoints({
+        currentUtr: hasRealUtr(player.currentUTR) ? player.currentUTR : null,
+        planUtr: planGoal.goal?.value ?? null,
+        goalDate: summerBeforeSeniorYear(player.graduationYear),
+      }).map((c) => ({ date: c.date, utr: c.utr })),
     ],
-    [player.currentUTR, roadmap]
+    [player.currentUTR, player.graduationYear, planGoal.goal]
   );
 
   const handleSaveUtr = async (input: { utr: number; recordedAt: string; note: string }) => {
@@ -242,8 +247,6 @@ function DashboardInner({ schools }: DashboardViewProps) {
     sundayCheckinDue,
     setSundayCheckinOpen,
     planGoal: planGoal.goal,
-    goalPace: planGoal.goalPace,
-    onUseEstimateGoal: (value: number) => void planGoal.setGoal(value),
   };
 
   return (
@@ -298,9 +301,6 @@ export interface DashboardLayoutProps {
   setSundayCheckinOpen: (v: boolean) => void;
   /** lib/hooks/use-plan-goal.ts — the same goal /plan shows. */
   planGoal: PlanGoal | null;
-  goalPace: GoalPace | null;
-  /** Saves the planning estimate as the goal (the pace warning offers it). */
-  onUseEstimateGoal: (value: number) => void;
 }
 
 function UtrLogDrawer({

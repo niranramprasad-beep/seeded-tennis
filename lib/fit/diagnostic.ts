@@ -125,7 +125,7 @@ export function diagnosticProjection(input: {
   if (!recruiting) return null;
 
   const basis: DiagnosticProjectionBasis =
-    recruiting.source === "current" ? "summer-started" : recruiting.source;
+    recruiting.source === "current" || recruiting.source === "plan" ? "summer-started" : recruiting.source;
   return {
     value: recruiting.value,
     display: recruiting.value === today ? formatPlayerUtr(today) : formatUtrEstimate(recruiting.value),

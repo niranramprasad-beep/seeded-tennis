@@ -182,7 +182,7 @@ describe("each screen reads the one projection", () => {
 
   it("/today and /plan: the charts shade projectionPath, never a regression of their own", () => {
     for (const f of ["components/seeded/dashboard/seeded-dashboard-layout.tsx", "components/seeded/roadmap/seeded-roadmap-layout.tsx"]) {
-      expect(code(f), f).toMatch(/projectionPath\(\{\s*estimate: (fitReport|realReport)\?\.utr/);
+      expect(code(f), f).toMatch(/projectionPath\(\{\s*estimate: (fitReport|realReport|estimateReport)\?\.utr/);
     }
     for (const f of ["components/seeded/dashboard/utr-vs-plan-chart.tsx", "components/seeded/roadmap/plan-trajectory-chart.tsx"]) {
       const src = code(f);

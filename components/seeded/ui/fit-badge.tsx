@@ -2,7 +2,8 @@ import { Check, HelpCircle, Lock, Minus, Target, TrendingUp, type LucideIcon } f
 import { cn } from "@/lib/utils";
 import { SCHOOL_FIT_BAND_LABEL } from "@/lib/school-fit";
 
-// THE fit band pill. Every Likely / Target / Reach / Out of range on the site
+// THE fit pill. Every Safe bet / Good match / Stretch / Long shot on the site
+// (internally likely / target / reach / out-of-range)
 // — and the two non-band states, "No UTR yet" and "Locked" — is drawn here,
 // or reads its label, colour and icon from here (the schools filter chips,
 // the onboarding report tabs, the landing calculator's count tiles).
@@ -38,14 +39,14 @@ export const FIT_BAND_LABEL: Record<FitPillState, string> = {
 /** The rule behind each state, in one sentence: the pill's tooltip and the
  *  methodology legend both read it. Worded to classifySchoolFit. */
 export const FIT_BAND_RULE: Record<FitPillState, string> = {
-  likely: "Rating at or above the middle of the team's range.",
-  target: "Rating at or above the floor of the team's range, but below its middle.",
+  likely: "Your rating is at or above the middle of the team's range.",
+  target: "Your rating is inside the team's range: at or above the floor of the team's range, below its middle.",
   reach:
-    "Rating below the floor of the team's range, but projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year — or fewer than three ratings are logged, so the gap can't be shown to be too big.",
+    "Your rating is below the floor of the team's range, but your pace so far (planned at no more than 1.5 UTR a year) gets you there by the summer before senior year — or there are fewer than three ratings logged, so the gap can't be shown to be too big.",
   "out-of-range":
-    "Rating below the floor of the team's range, and not projected to reach it by the summer before senior year, planned at no more than 1.5 UTR a year.",
+    "Your rating is below the floor of the team's range, and your pace so far (planned at no more than 1.5 UTR a year) doesn't get you there by the summer before senior year.",
   unverified: "No rating logged yet, so there is nothing to compare with the team's range.",
-  locked: "The player has a rating; this plan hides it. The Family plan shows the band.",
+  locked: "The player has a rating; this plan hides it. The Family plan shows how they fit.",
 };
 
 /** What "floor" and "middle" are (methodology section 1). Two sources since

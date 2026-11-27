@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "How it works — Seeded",
   description:
-    "How Seeded works: build the player profile, band each college tennis program Likely, Target, Reach or Out of range against your UTR, set senior-summer targets, and keep coach outreach in one place.",
+    "How Seeded works: build the player profile, see whether each college tennis program is a Safe bet, Good match, Stretch or Long shot for your UTR, set your plan UTR, and keep coach outreach in one place.",
   alternates: { canonical: "/how-it-works" },
 };
 

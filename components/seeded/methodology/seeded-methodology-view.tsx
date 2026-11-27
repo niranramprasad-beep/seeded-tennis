@@ -33,7 +33,7 @@ const TOC: { id: string; label: string }[] = [
   { id: "ratings-count", label: "Your rating" },
   { id: "team-ranges", label: "Team ranges" },
   { id: "players-leaving", label: "Players leaving" },
-  { id: "fit-bands", label: "Fit bands" },
+  { id: "fit-bands", label: "How fit is judged" },
   { id: "confidence", label: "Confidence" },
   { id: "what-we-cant-know", label: "What we can't know" },
   TOURNAMENT_CHECKER_TOC,
@@ -68,7 +68,7 @@ const DATA_SOURCE_ROWS: { label: string; body: string }[] = [
   // as a statement of fact rather than of intent. Caught by widening
   // lib/copy-honesty.test.ts to scan for check-date claims.
   { label: "Ratings", body: "No individual player's rating is held — only each team's range: worked out from a hand-checked roster's reliable singles UTRs, or estimated." },
-  { label: "Academics", body: "A U.S. News academic rank for the schools first entered in our catalogue (no edition year recorded; “Not tracked” for the rest), and, for hand-checked programs, cost of attendance, acceptance rate and undergraduate enrollment, each with its College Scorecard or school source and read date. None of it is part of your fit band." },
+  { label: "Academics", body: "A U.S. News academic rank for the schools first entered in our catalogue (no edition year recorded; school pages leave it out where there is none), and, for hand-checked programs, cost of attendance, acceptance rate and undergraduate enrollment, each with its College Scorecard or school source and read date. None of it is part of your fit." },
 ];
 
 // The legend's words are the pill's tooltip words (FIT_BAND_RULE in
@@ -92,9 +92,10 @@ export function SeededMethodologyView() {
           How Seeded decides which teams are realistic for you.
         </h1>
         <p className="mt-4 max-w-[720px] text-lg leading-[1.55] text-stone">
-          Short version: we compare your UTR to each team&apos;s range and put every program in one of
-          four bands. Until the summer before senior year we judge you at your projected rating for that summer,
-          labelled as an estimate &mdash; and top D1 programs often decide earlier, during junior year.
+          Short version: we compare your UTR to each team&apos;s range and say plainly whether you have a
+          realistic shot: Safe bet, Good match, Stretch or Long shot. Once you set a plan UTR, we judge you at that
+          number for the summer before senior year; until you do, at our estimate for that summer, labelled as an
+          estimate &mdash; and top D1 programs often decide earlier, during junior year.
           Some team ranges come from a hand check of the official roster, with the date; the rest are our
           estimates, and every range says which it is. We never show a percent chance, because nobody can know that.
         </p>
@@ -115,7 +116,7 @@ export function SeededMethodologyView() {
           <div className="min-w-0 max-w-[760px] flex-1">
             <Section id="data-source" number={1} title="Where the data comes from">
               <p className="text-stone">
-                Each team has two numbers that decide its band: a floor and a middle. They come from one of two places.
+                Each team has two numbers that decide how you fit: a floor and a middle. They come from one of two places.
                 For a hand-checked team, a person read the program&apos;s official roster page and each listed
                 player&apos;s public UTR profile, kept only reliable singles ratings, and recorded the date; the floor is
                 the lower quartile of those ratings, the middle their median and the top the highest. Those schools
@@ -142,13 +143,21 @@ export function SeededMethodologyView() {
 
             <Section id="ratings-count" number={2} title="Your rating">
               <p className="text-stone">
-                Your band uses the UTR you enter yourself, and the ratings you log over time. Seeded never fetches,
+                Your fit uses the UTR you enter yourself, the ratings you log over time, and the plan UTR you set. Seeded never fetches,
                 checks or scrapes a rating from anywhere, so everything about you here is self-reported &mdash; and
                 the coach emails Seeded drafts say so.
               </p>
               <p className="text-stone">
-                Until the summer before senior year, the rating that decides your band is a projection to June 1 of
-                that summer. If you&apos;ve logged a rating from about 5 to 13 months ago, it carries your own pace
+                <strong className="text-ink">Your plan UTR.</strong> You set one number: the UTR you&apos;re aiming
+                for by the summer before senior year. Schools, Plan, Today and the tournament checker all use it, and
+                changing it on one of them changes it on all of them. Seeded never sets it for you. Your plan shows the
+                UTR you&apos;d need on the 1st of each quarter to get there on time, on a straight line from today, and
+                one note comparing the pace that needs with your own pace so far. Once today&apos;s rating reaches
+                your plan UTR, fit goes back to the estimate below until you set a higher one.
+              </p>
+              <p className="text-stone">
+                With no plan UTR set, and until the summer before senior year, the rating that decides your fit is a
+                projection to June 1 of that summer. If you&apos;ve logged a rating from about 5 to 13 months ago, it carries your own pace
                 forward from that rating (the one closest to a year ago, otherwise the one closest to 6 months ago),
                 but never faster than 1.5 UTR a year, capped near the top of college tennis and never below
                 today&apos;s rating &mdash; a rating that went down is held where it is. Without one, it grows
@@ -163,19 +172,9 @@ export function SeededMethodologyView() {
                 <strong className="text-ink">Why at most 1.5 a year.</strong> We plan with at most 1.5 UTR a year.
                 That&apos;s our planning rule, not a measured average &mdash; Seeded has no data on how fast junior
                 players improve. A few months of fast gains can be followed by a long flat stretch, so when your own
-                pace is faster than 1.5 a year, your bands,
-                fit chips, closest schools and school pages all use the slower number. We still show where your own
-                pace would take you, as a separate line marked &ldquo;Estimate&rdquo; &mdash; for example, &ldquo;At your current pace
-                you&apos;d reach 9.40, but we plan with 8.10. We plan with at most 1.5 UTR a year. That&apos;s our
-                planning rule, not a measured average.&rdquo;
-                That faster line never changes a band. Your pace is shown one way everywhere: UTR gained a year
-                since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.
-              </p>
-              <p className="text-stone">
-                A goal is yours to set on your plan; Seeded never sets one for you. If a goal you set needs more
-                than 1.55 a year to reach by the summer before senior year, the plan warns you. Between 1.45 and
-                1.55 a year it shows an amber note instead: the goal is a stretch, right at our 1.5-a-year planning
-                limit. The &ldquo;what would move it&rdquo; line on a school uses the same band.
+                pace is faster than 1.5 a year, the estimate uses the slower number. The same cap decides
+                whether a team you&apos;re below is a Stretch or a Long shot. Your pace is shown one way everywhere:
+                UTR gained a year since the rating that set it, to two decimals, like &ldquo;+1.45 a year&rdquo;.
               </p>
             </Section>
 
@@ -209,13 +208,13 @@ export function SeededMethodologyView() {
               <p className="text-stone">
                 Not tracked yet. Counting who graduates before you&apos;d arrive needs a player-by-player roster
                 with class years, and Seeded doesn&apos;t have one for any program &mdash; so no Seeded screen
-                shows a players-leaving number, and none of it feeds your fit band. Even with rosters, seniors
+                shows a players-leaving number, and none of it feeds your fit. Even with rosters, seniors
                 leaving would not equal places available: coaches also fill them with transfers and international
                 players, and some are already promised to committed recruits.
               </p>
             </Section>
 
-            <Section id="fit-bands" number={5} title="Fit bands">
+            <Section id="fit-bands" number={5} title="How fit is judged">
               <div className="rounded-card border border-line bg-card">
                 {FIT_BAND_ROWS.map((band, i) => (
                   <div
@@ -232,8 +231,8 @@ export function SeededMethodologyView() {
               </div>
               <p className="mt-3 text-stone">{FIT_RANGE_RULE}</p>
               <p className="mt-3 text-stone">
-                Nothing else moves a band. Players leaving, academics and your preferences are not tracked, so they
-                don&apos;t factor in &mdash; each school page says so under &ldquo;Why this band&rdquo;.
+                Nothing else changes your fit. Players leaving, academics and your preferences are not tracked, so they
+                don&apos;t factor in &mdash; each school page says so under &ldquo;Your chances here&rdquo;.
               </p>
             </Section>
 
@@ -245,7 +244,7 @@ export function SeededMethodologyView() {
                   where we actually are. */}
               <p className="text-stone">
                 A hand-checked range carries its source and the date the roster was read; a range more
-                than a year old stops deciding bands and says so. Every other team UTR range is an{" "}
+                than a year old stops deciding fit and says so. Every other team UTR range is an{" "}
                 <strong className="text-ink">unverified estimate</strong>, with no published source or check
                 date, labelled that way wherever it appears. Treat any range as a starting point for a
                 conversation with a coach, not as a roster you can plan around.

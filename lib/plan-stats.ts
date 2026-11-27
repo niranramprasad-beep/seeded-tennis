@@ -98,7 +98,7 @@ export function buildPlanChecklist(
   return [
     {
       id: "save-schools",
-      label: `Save 10+ schools across 3 bands`,
+      label: `Save 10+ schools, from safe bets to stretches`,
       done: targetSchoolCount >= 10,
     },
     {

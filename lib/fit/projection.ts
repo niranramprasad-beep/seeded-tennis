@@ -381,9 +381,11 @@ export type FitBasisKind = "projected" | "current";
 
 /** Which rule produced a RecruitingTimeUtr. */
 export type RecruitingUtrSource =
-  /** Today's rating: the summer before senior year has begun, or the what-if
-   *  slider's explicit choice. */
+  /** Today's rating: the summer before senior year has begun. */
   | "current"
+  /** The Plan UTR the player set (lib/db/settings.ts planGoalUtr), used as
+   *  given for the summer before senior year — buildFitReport's `planUtr`. */
+  | "plan"
   /** The player's own pace, from a logged rating 5–13 months old. */
   | "logged-pace"
   /** No qualifying logged rating: the typical-growth assumption. */

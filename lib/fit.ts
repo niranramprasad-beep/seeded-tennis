@@ -66,13 +66,12 @@ export type {
 
 export {
   resolvePlanGoal,
-  PACE_STRETCH_MARGIN_PER_YEAR,
-  planGoalPaceSeverity,
-  planGoalNeedsPaceWarning,
-  PACE_STRETCH_NOTE,
+  activePlanUtr,
+  planCheckpoints,
+  planRealismNote,
   planGoalInputError,
 } from "@/lib/fit/goal";
-export type { PlanGoal, PlanGoalPaceSeverity } from "@/lib/fit/goal";
+export type { PlanCheckpoint, PlanGoal } from "@/lib/fit/goal";
 
 export {
   isRealisticTarget,

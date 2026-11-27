@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import type { RoadmapYear } from "@/lib/types";
 import {
   buildChartSeries,
   chartValuesAt,
@@ -24,16 +23,17 @@ const logs = [
   { date: d(2026, 3, 12), utr: 6.8 },
   { date: d(2026, 9, 1), utr: 8 }, // the last log, 1 Oct 2026
 ];
-const roadmap: RoadmapYear[] = [
-  { calendarYear: 2026, gradeLabel: "FAKE past", shortLabel: "P", utrTarget: 7, milestones: [] }, // before Now: dropped
-  { calendarYear: 2028, gradeLabel: "FAKE pre-12", shortLabel: "P12", utrTarget: 10, milestones: [] },
-  { calendarYear: 2027, gradeLabel: "FAKE pre-11", shortLabel: "P11", utrTarget: 9, milestones: [] },
+// Checkpoints in lib/fit planCheckpoints' shape, out of order on purpose.
+const checkpoints = [
+  { date: d(2026, 5, 1), utr: 7, label: "FAKE past" }, // before Now: dropped
+  { date: d(2028, 5, 1), utr: 10, label: "FAKE pre-12" },
+  { date: d(2027, 5, 1), utr: 9, label: "FAKE pre-11" },
 ];
 const estimate = [
   { date: TODAY, low: 8, value: 8, high: 8 },
   { date: d(2028, 5, 1), low: 8.6, value: 9.2, high: 9.8 },
 ];
-const series = buildChartSeries({ actualPoints: [...logs].reverse(), roadmap, estimate, today: TODAY })!;
+const series = buildChartSeries({ actualPoints: [...logs].reverse(), checkpoints, estimate, today: TODAY })!;
 // A simple, exact geometry: x = days since the first log, y = 100 × UTR.
 const g = { x: (ms: number) => (ms - t(2026, 0, 10)) / DAY, y: (u: number) => 100 * u };
 
@@ -64,15 +64,15 @@ describe("buildChartSeries — the one series the chart draws", () => {
     expect(series.plan.map((p) => p.utr)).toEqual([8, 9, 10]);
   });
   it("no goal (no checkpoints): no plan line", () => {
-    expect(buildChartSeries({ actualPoints: logs, roadmap: [], estimate, today: TODAY })!.plan).toEqual([]);
+    expect(buildChartSeries({ actualPoints: logs, checkpoints: [], estimate, today: TODAY })!.plan).toEqual([]);
   });
   it("nothing logged (or only the 0 sentinel): no series", () => {
-    expect(buildChartSeries({ actualPoints: [], roadmap, estimate })).toBeNull();
-    expect(buildChartSeries({ actualPoints: [{ date: TODAY, utr: 0 }], roadmap, estimate })).toBeNull();
+    expect(buildChartSeries({ actualPoints: [], checkpoints, estimate })).toBeNull();
+    expect(buildChartSeries({ actualPoints: [{ date: TODAY, utr: 0 }], checkpoints, estimate })).toBeNull();
   });
   it("today defaults to the current date — a future-dated log is never Logged", () => {
     const future = d(2099, 0, 1);
-    const s = buildChartSeries({ actualPoints: [...logs, { date: future, utr: 9 }], roadmap: [], estimate: [] })!;
+    const s = buildChartSeries({ actualPoints: [...logs, { date: future, utr: 9 }], checkpoints: [], estimate: [] })!;
     expect(Math.abs(s.today.getTime() - Date.now())).toBeLessThan(60_000);
     expect(chartValuesAt(s, future.getTime()).logged).toBeNull();
     expect(readoutAt(s, future.getTime(), g).rows.find((r) => r.key === "logged")).toBeUndefined();
@@ -97,7 +97,7 @@ describe("seriesPaths — the lines come from the same series", () => {
     );
   });
   it("one log, no goal, no estimate: no lines", () => {
-    const one = buildChartSeries({ actualPoints: [logs[0]], roadmap: [], estimate: [], today: TODAY })!;
+    const one = buildChartSeries({ actualPoints: [logs[0]], checkpoints: [], estimate: [], today: TODAY })!;
     expect(seriesPaths(one, g)).toEqual({ logged: null, plan: null, estimate: null, band: null });
   });
 });
@@ -128,7 +128,7 @@ describe("chartValuesAt — only what is really on the chart", () => {
   it("an undated current-UTR point never prints a date", () => {
     const s = buildChartSeries({
       actualPoints: [{ date: TODAY, utr: 7.25, undated: true }],
-      roadmap: [],
+      checkpoints: [],
       estimate: [],
       today: TODAY,
     })!;
@@ -175,14 +175,14 @@ describe("readoutAt — the words and where each dot sits", () => {
     expect(r.rows).toHaveLength(1);
     expect(r.rows[0]).toEqual({
       key: "logged",
-      label: "Logged",
+      label: "Your UTR",
       text: "6.80 · Apr 12 '26",
       dot: { cx: g.x(t(2026, 3, 12)), cy: g.y(6.8) },
     });
-    expect(r.sentence).toBe("Jun '26: Logged 6.80 · Apr 12 '26");
+    expect(r.sentence).toBe("Jun '26: Your UTR 6.80 · Apr 12 '26");
   });
   it("names the entry's year when it differs from the cursor's", () => {
-    const s = buildChartSeries({ actualPoints: [{ date: d(2025, 11, 20), utr: 6 }, logs[2]], roadmap: [], estimate: [], today: TODAY })!;
+    const s = buildChartSeries({ actualPoints: [{ date: d(2025, 11, 20), utr: 6 }, logs[2]], checkpoints: [], estimate: [], today: TODAY })!;
     expect(readoutAt(s, t(2026, 1, 1), g).rows[0].text).toBe("6.00 · Dec 20 '25");
   });
   it("after today: Plan and 'Planning estimate' dots under the crosshair, on their own lines", () => {
@@ -190,9 +190,9 @@ describe("readoutAt — the words and where each dot sits", () => {
     const r = readoutAt(series, at, g, 10);
     expect(r.rows.map((x) => x.key)).toEqual(["plan", "estimate"]);
     const [plan, est] = r.rows;
-    expect(plan).toMatchObject({ label: "Your plan", text: "9.00", dot: { cx: g.x(at), cy: g.y(9) } });
+    expect(plan).toMatchObject({ label: "Plan", text: "9.00", dot: { cx: g.x(at), cy: g.y(9) } });
     const v = chartValuesAt(series, at).estimate!;
-    expect(est.label).toBe("Planning estimate");
+    expect(est.label).toBe("Estimate");
     // The middle value — not the band's high or low edge.
     expect(est.dot).toEqual({ cx: g.x(at), cy: g.y(v.value) });
     expect(est.dot.cy).not.toBeCloseTo(g.y(v.high), 6);
@@ -244,7 +244,7 @@ describe("the chart draws from the helpers, nothing of its own", () => {
     expect(src).toMatch(/touchAction: "pan-y pinch-zoom"/);
   });
   it("series, paths and dots come from the helper module", () => {
-    expect(src).toMatch(/buildChartSeries\(\{ actualPoints, roadmap, estimate, today \}\)/);
+    expect(src).toMatch(/buildChartSeries\(\{ actualPoints, checkpoints: planLine, estimate, today \}\)/);
     expect(src).toMatch(/seriesPaths\(series, geometry\)/);
     expect(src).toMatch(/readoutAt\(series, cursor, geometry, goal\?\.value\)/);
     for (const k of ["logged", "plan", "estimate", "band"]) expect(src).toMatch(new RegExp(`paths\\.${k}`));

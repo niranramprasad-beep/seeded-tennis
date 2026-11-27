@@ -6,9 +6,9 @@ import { useMemo, useState } from "react";
 import { seededLinkButtonClass } from "@/components/seeded/ui/button";
 import { EmptyState } from "@/components/seeded/ui/empty-state";
 import { Toast } from "@/components/seeded/ui/toast";
-import { WhatIfPanel } from "@/components/seeded/ui/what-if-panel";
+import { PlanUtrControl } from "@/components/seeded/ui/plan-utr-control";
+import { DataNote } from "@/components/seeded/ui/data-note";
 import { PlanTrajectoryChart } from "./plan-trajectory-chart";
-import { GoalPaceWarning } from "./goal-pace-warning";
 import { TargetSchoolsList } from "./target-schools-list";
 import { ClosestSchoolsCard } from "./closest-schools";
 import { RecruitingChecklistCard } from "./recruiting-checklist";
@@ -18,28 +18,29 @@ import {
   closestSchoolsFromReport,
   formatPacePerYear,
   isRealisticTarget,
+  planCheckpoints,
+  planRealismNote,
   playerPacePerYear,
   projectionPath,
-  upsideProjectionPath,
   utrHistoryFromEntries,
 } from "@/lib/fit";
 import { formatShortDate, parseLocalDate } from "@/lib/time";
 import { loadUtrEntries } from "@/lib/db/plan";
 import { loadMatches } from "@/lib/db/events";
 import { loadCoachOutreachDated } from "@/lib/db/outreach";
-import { useWhatIfUtr } from "@/lib/hooks/use-what-if-utr";
 import { useFitReport } from "@/lib/hooks/use-fit-report";
-import { PaceUpsideNote, ProjectionNote } from "@/components/seeded/ui/projection-note";
+import { ProjectionNote } from "@/components/seeded/ui/projection-note";
 import { useStarSchools, STAR_TOAST_DURATION_MS } from "@/lib/hooks/use-star-schools";
 import { useRecruitingChecklist } from "@/lib/hooks/use-recruiting-checklist";
 import { usePlayer } from "@/lib/context/player-context";
 import { winLossRecord } from "@/lib/plan-stats";
 import { utrProfileLinkHref } from "@/lib/utr-profile-link";
-import { cn, formatPlayerUtr, formatUtrEstimate, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
+import { cn, formatPlayerUtr, formatUtrOrNotTracked, hasRealUtr } from "@/lib/utils";
 import { judgingRatingFor } from "@/lib/fit-copy";
-import { PlanGoalEditor } from "./plan-goal-editor";
 import type { RoadmapLayoutProps } from "@/components/roadmap/roadmap-view";
 import { recordTile } from "@/lib/empty-state-copy";
+
+const NO_SCHOOLS: never[] = [];
 
 function initialOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -57,7 +58,7 @@ function initialOf(name: string): string {
 // adds editable target schools, a goal-pace warning, a "closest schools"
 // section, and the real recruiting checklist, all around the existing
 // pixel-exact structure.)
-export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerSchools, planGoal }: RoadmapLayoutProps) {
+export function SeededRoadmapLayout({ player, targetSchools, pickerSchools, planGoal }: RoadmapLayoutProps) {
   const { updatePlayer } = usePlayer();
   const { data: utrEntries } = useSWR("utr-entries", () => loadUtrEntries());
   const { data: matches } = useSWR("matches", () => loadMatches());
@@ -90,55 +91,29 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
       ? [{ date: todayAtMidnight(), utr: player.currentUTR, undated: true }]
       : [];
   }, [utrEntries, player.currentUTR]);
-  // The "what if my UTR is ___ by June {year}?" slider — same shared hook
-  // and math as the Schools browser (lib/hooks/use-what-if-utr.ts),
-  // defaulting to the player's real current UTR (identical to today's
-  // page until actually touched). `actualPoints` already fails
-  // computeUtrProjection's 3-point minimum whenever there's no real
-  // history (it's a single fallback anchor, same as the trajectory
-  // chart's), so handing it to "My pace" here is safe either way.
-  const whatIf = useWhatIfUtr({
-    currentUTR: player.currentUTR,
-    graduationYear: player.graduationYear,
-    gender: player.gender,
-    utrHistory: actualPoints,
-  });
-  const effectiveUtr = whatIf.hypotheticalUTR;
-
-  // The band on every target row comes from the SAME fit report /schools,
-  // /today and /family read. /plan used to classify each row itself on
-  // today's rating, so persona (a) — a 7th grader — saw Reach here and
-  // Target for the same school on /schools, which judges a pre-junior at
-  // their projected estimate. The slider is passed only once it has been
-  // moved, exactly as /schools does (an untouched slider equals the real
-  // rating, and buildFitReport treats any override as a deliberate choice).
-  const fitReport = useFitReport({
-    player,
-    schools: pickerSchools,
-    overrideUtr: whatIf.isAtRealCurrent ? null : effectiveUtr,
-  });
+  // Every tier on this page comes from the SAME fit report /schools,
+  // /today and /family read, judged on the player's stored Plan UTR while
+  // one is set (useFitReport reads it; 2026-11-27) and on the estimate
+  // otherwise. The "what if my UTR…" slider that used to sit here is gone:
+  // the plan UTR above the chart is the one number.
+  const fitReport = useFitReport({ player, schools: pickerSchools });
   const reportBandBySlug = fitReport?.bandBySlug;
+  const judging = judgingRatingFor({ report: fitReport });
 
   const { isStarred, toggleStar, toast, dismissToast } = useStarSchools();
 
-  // Same real grad-year context as the what-if hook, plus the full catalog
-  // — explainSchoolFit only needs the catalog for its point-7 alternative-
-  // school suggestion. Uses the SAME history choice as the what-if pass
-  // (real history only for "My pace"), so a target school's "why this
-  // band" never disagrees with the band badge right above it.
-  // `pickerSchools` (the full same-gender catalog roadmap-view.tsx already
-  // builds) is the real candidate pool for that suggestion.
+  // The real logged history — the same history the report's Stretch /
+  // Long shot split used — plus the full catalog (explainSchoolFit only
+  // needs it for its alternative-school suggestion), so a target's
+  // expanded explanation never disagrees with the tier chip above it.
   const explanationInput = useMemo(
     () => ({
-      // Always defined since P1-FIT-1 — "+1.5/yr" and "Custom" now carry a
-      // synthetic line instead of nothing, so the expanded "why this band"
-      // and the badge above it see the identical history.
-      utrHistory: whatIf.whatIfProjection.utrHistory,
+      utrHistory: actualPoints,
       graduationYear: player.graduationYear,
       gender: player.gender,
       catalog: pickerSchools,
     }),
-    [whatIf.whatIfProjection, player.graduationYear, player.gender, pickerSchools]
+    [actualPoints, player.graduationYear, player.gender, pickerSchools]
   );
   // THE pace number (lib/fit.ts playerPacePerYear), printed through the one
   // pace formatter. This tile read "+1.45 last 6 months" — a third way of
@@ -184,65 +159,58 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
     [pickerSchools, player.targetSchoolSlugs]
   );
 
-  // The goal, its checkpoints and the pace it needs all come from
-  // usePlanGoal (lib/fit.ts resolvePlanGoal) — the same hook /today reads.
-  const { goal, goalPace } = planGoal;
-  const [editingGoal, setEditingGoal] = useState(false);
+  // The plan UTR (usePlanGoal — the stored value every screen reads), its
+  // quarterly checkpoint line and the ONE realism note (2026-11-27). The
+  // "a stretch" / "1.5 UTR a year" banners that sat under the chart are gone.
+  const { goal } = planGoal;
+  const goalDate = useMemo(() => summerBeforeSeniorYear(player.graduationYear), [player.graduationYear]);
+  const realUtr = hasRealUtr(player.currentUTR) ? player.currentUTR : null;
+  const checkpoints = useMemo(
+    () => planCheckpoints({ currentUtr: realUtr, planUtr: goal?.value ?? null, goalDate }),
+    [realUtr, goal, goalDate]
+  );
+  const realismNote = useMemo(
+    () => planRealismNote({ currentUtr: realUtr, planUtr: goal?.value ?? null, goalDate, ownPacePerYear: pacePerYear }),
+    [realUtr, goal, goalDate, pacePerYear]
+  );
 
-  // C5: "Show realistic targets" used to filter on explainSchoolFit's
-  // what-if-aware bands and changed nothing. It now keeps the targets whose
-  // floor the player's estimated UTR for the summer before senior year
-  // reaches (lib/fit.ts isRealisticTarget), read from a report WITHOUT the
-  // what-if override — dragging the slider must not change which targets
-  // are realistic for the player they actually are.
-  const realReport = useFitReport({ player, schools: pickerSchools });
-
-  // The report's estimate (report.utr, not the what-if) drawn as a path for
-  // the chart — its last point is the number the ProjectionNote prints.
+  // The estimate, drawn on the chart only while no Plan UTR applies — it is
+  // where Seeded expects the player to be, and the report the tiers fall
+  // back to then.
+  const estimateReport = useFitReport({ player, schools: NO_SCHOOLS, judgeOn: "estimate" });
   const estimatePath = useMemo(
     () =>
-      projectionPath({
-        estimate: realReport?.utr,
-        currentUtr: player.currentUTR,
-        graduationYear: player.graduationYear,
-      }),
-    [realReport, player.currentUTR, player.graduationYear]
+      checkpoints.length > 0
+        ? []
+        : projectionPath({
+            estimate: estimateReport?.utr,
+            currentUtr: player.currentUTR,
+            graduationYear: player.graduationYear,
+          }),
+    [checkpoints.length, estimateReport, player.currentUTR, player.graduationYear]
   );
+
+  // "In range only": the targets that are a Good match or Safe bet on the
+  // SAME report every tier here reads (lib/fit.ts isRealisticTarget) — the
+  // plan UTR while one is set. Only offered when it would hide something.
   const realisticCount = useMemo(
-    () => orderedTargetSchools.filter((s) => isRealisticTarget(realReport, s.slug)).length,
-    [orderedTargetSchools, realReport]
+    () => orderedTargetSchools.filter((s) => isRealisticTarget(fitReport, s.slug)).length,
+    [orderedTargetSchools, fitReport]
   );
-  // A filter that would change nothing is not offered (same rule as the
-  // fit report's view toggle).
-  const canFilterRealistic = realReport != null && orderedTargetSchools.length > 0 && realisticCount < orderedTargetSchools.length;
+  const canFilterRealistic = fitReport != null && orderedTargetSchools.length > 0 && realisticCount < orderedTargetSchools.length;
   const [showRealisticOnly, setShowRealisticOnly] = useState(false);
   const filtering = showRealisticOnly && canFilterRealistic;
   const visibleTargetSchools = useMemo(
-    () => (filtering ? orderedTargetSchools.filter((s) => isRealisticTarget(realReport, s.slug)) : orderedTargetSchools),
-    [filtering, orderedTargetSchools, realReport]
+    () => (filtering ? orderedTargetSchools.filter((s) => isRealisticTarget(fitReport, s.slug)) : orderedTargetSchools),
+    [filtering, orderedTargetSchools, fitReport]
   );
 
-  // The upside: where the player's OWN pace would take them, when it is
-  // faster than the planning cap. A dashed "Estimate" line beside the plan,
-  // and one sentence under the chart — never a band (lib/fit.ts).
-  const upsidePath = useMemo(
-    () =>
-      upsideProjectionPath({
-        estimate: realReport?.utr,
-        currentUtr: player.currentUTR,
-        graduationYear: player.graduationYear,
-      }),
-    [realReport, player.currentUTR, player.graduationYear]
-  );
-
-  // Point 4: the 5 real catalog schools closest to the player's level —
-  // read off the SAME report as every band on this page (lib/fit.ts
-  // closestSchoolsFromReport), so a chip here matches the chip on /schools.
-  // No rating → no report → no list: from the sentinel it was simply the
-  // five lowest-rated programs in the catalog.
+  // Point 4: the 5 real catalog schools closest to the rating fit was
+  // judged on — read off the SAME report as every tier on this page.
+  // No rating → no report → no list.
   const closestSchools = useMemo(
-    () => (hasRealUtr(player.currentUTR) ? closestSchoolsFromReport(realReport, pickerSchools, 5) : []),
-    [player.currentUTR, realReport, pickerSchools]
+    () => (hasRealUtr(player.currentUTR) ? closestSchoolsFromReport(fitReport, pickerSchools, 5) : []),
+    [player.currentUTR, fitReport, pickerSchools]
   );
 
   // Point 5: the real recruiting-timeline checklist.
@@ -304,71 +272,54 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
       </div>
 
       <div className="mt-5 rounded-xl border border-line bg-card p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-ink">Your plan to senior summer</h2>
-          {/* No default goal (PR D, D1): until the player sets one, the plan
-              says so and asks — it never presents the estimate as a goal. */}
-          {/* Held invisible (not absent) until the saved goal is read, so the
-              row does not appear, or change, under the reader. */}
-          {!editingGoal && (
-            <span className={cn("flex items-baseline gap-2 text-[13px] text-stone", !planGoal.loaded && "invisible")}>
-              <span>
-                {goal ? (
-                  <>
-                    Goal: <span className="font-mono text-ink">{formatPlayerUtr(goal.value)}</span>
-                  </>
-                ) : (
-                  "No goal set"
-                )}
-              </span>
-              <button
-                type="button"
-                onClick={() => setEditingGoal(true)}
-                className="inline-flex min-h-11 items-center font-semibold text-grass sm:min-h-6"
-              >
-                {goal ? "Change" : "Set a goal"}
-              </button>
-            </span>
-          )}
-        </div>
-        {/* A goal saved earlier that today's rating has since reached: say
+        <h2 className="text-lg font-semibold text-ink">Your plan to senior summer</h2>
+        {/* The one stored Plan UTR (2026-11-27) — the same control as
+            /schools; saving it here re-judges every screen. No default
+            plan (PR D, D1): the estimate is offered, never applied. */}
+        <PlanUtrControl
+          id="plan-page-utr"
+          planUtr={goal?.value ?? (planGoal.loaded ? null : undefined)}
+          loaded={planGoal.loaded}
+          currentUtr={realUtr}
+          estimate={planGoal.estimate}
+          seniorSummerYear={goalDate.getFullYear()}
+          onSave={planGoal.setGoal}
+          className="mt-3"
+        />
+        {/* A plan saved earlier that today's rating has since reached: say
             so, rather than plotting checkpoints behind the player. */}
-        {goal && !editingGoal && hasRealUtr(player.currentUTR) && player.currentUTR >= goal.value && (
-          <p role="status" className="mt-2 text-sm text-stone">
-            You&apos;ve reached your {formatPlayerUtr(goal.value)} goal. Set a higher one.
+        {goal && realUtr != null && realUtr >= goal.value && (
+          <p role="status" className="mt-3 text-sm text-stone">
+            You&apos;ve reached your {formatPlayerUtr(goal.value)} plan UTR. Set a higher one.
           </p>
         )}
-        {editingGoal && (
-          <PlanGoalEditor
-            goal={goal}
-            estimate={planGoal.estimate}
-            currentUtr={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
-            onSave={async (v) => {
-              await planGoal.setGoal(v);
-              setEditingGoal(false);
-            }}
-            onCancel={() => setEditingGoal(false)}
-            className="mt-3"
-          />
-        )}
         <div className="mt-4">
-          <PlanTrajectoryChart
-            actualPoints={actualPoints}
-            roadmap={roadmap}
-            goal={goal}
-            estimate={estimatePath}
-            upside={upsidePath}
-            onChangeGoal={goal ? () => setEditingGoal(true) : undefined}
-          />
+          <PlanTrajectoryChart actualPoints={actualPoints} checkpoints={checkpoints} planUtr={goal?.value ?? null} estimate={estimatePath} />
         </div>
-        <PaceUpsideNote utr={realReport?.utr} className="mt-2" />
-        <GoalPaceWarning
-          goalPace={goalPace}
-          goal={goal}
-          currentUtr={player.currentUTR}
-          onUseEstimate={(v) => void planGoal.setGoal(v)}
-          className="mt-3.5"
-        />
+        {/* The checkpoint line: where the player needs to be on the 1st of
+            each quarter to reach the plan on time, on the same straight line
+            the chart draws (lib/fit planCheckpoints). */}
+        {checkpoints.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-ink">Checkpoints to {formatPlayerUtr(checkpoints[checkpoints.length - 1].utr)}</h3>
+            <ol className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="Quarterly UTR checkpoints">
+              {checkpoints.map((c) => (
+                <li
+                  key={c.date.getTime()}
+                  className={cn(
+                    "flex min-w-[88px] shrink-0 flex-col rounded-lg border px-3 py-2",
+                    c.isPlan ? "border-grass bg-grass-50" : "border-line bg-card"
+                  )}
+                >
+                  <span className="text-xs text-stone">By {c.label}</span>
+                  <span className="font-mono text-[15px] font-semibold tabular-nums text-ink">{formatPlayerUtr(c.utr)}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {/* THE realism note — shown here once, nowhere else. */}
+        {realismNote && <DataNote className="mt-3">{realismNote}</DataNote>}
       </div>
 
       {/* Recent results gets its own full-width row (D7). It sat in a
@@ -433,40 +384,19 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
                 showRealisticOnly ? "border-grass bg-grass-50 text-grass" : "border-line bg-card text-stone"
               )}
             >
-              {showRealisticOnly ? "Show all targets" : `Realistic only (${realisticCount})`}
+              {showRealisticOnly ? "Show all targets" : `In range only (${realisticCount})`}
             </button>
           )}
         </div>
         <ProjectionNote utr={fitReport?.utr} className="mt-1.5" />
-        {/* Collapsed by default (design polish round 1). A moved slider
-            still re-bands every row below, so the summary — the one part
-            that is always visible — says so; otherwise closing the panel
-            hid the only sign the bands were judged on a what-if number. */}
-        <details className="mt-3.5">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-grass">
-            What if my UTR…
-            {!whatIf.isAtRealCurrent && (
-              <span className="font-normal text-stone">
-                {" "}· bands below use what-if UTR{" "}
-                <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(whatIf.hypotheticalUTR)}</span>
-              </span>
-            )}
-          </summary>
-          <WhatIfPanel
-            {...whatIf}
-            seniorSummerYear={summerBeforeSeniorYear(player.graduationYear).getFullYear()}
-            bandUtr={fitReport?.utr.value ?? null}
-            historyLoaded={utrEntries !== undefined}
-          />
-        </details>
         <div className="mt-3.5">
           {orderedTargetSchools.length === 0 ? (
             <EmptyState title="No target schools yet." description="Search below to add your first one." />
           ) : filtering && visibleTargetSchools.length === 0 ? (
             <p className="text-sm text-stone">
-              No targets within your estimated UTR{" "}
-              {realReport ? <span className="font-mono">{formatUtrEstimate(realReport.utr.value)}</span> : null} by the
-              summer before senior year.{" "}
+              None of your targets is a Good match or Safe bet at{" "}
+              {judging ? <span className="font-mono">{formatPlayerUtr(judging.utr)}</span> : "your rating"} by the summer
+              before senior year.{" "}
               <Link href="/schools" className="font-semibold text-grass">
                 Find schools in range
               </Link>
@@ -476,7 +406,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
             targetSchools={visibleTargetSchools}
             addableSchools={addableSchools}
             todayUtr={hasRealUtr(player.currentUTR) ? player.currentUTR : null}
-            judging={judgingRatingFor({ report: fitReport, whatIf, graduationYear: player.graduationYear })}
+            judging={judging}
             explanationInput={explanationInput}
             reportBandBySlug={reportBandBySlug}
             isStarred={isStarred}
@@ -491,7 +421,7 @@ export function SeededRoadmapLayout({ player, targetSchools, roadmap, pickerScho
         results={closestSchools}
         isStarred={isStarred}
         onToggleStar={toggleStar}
-        judging={judgingRatingFor({ report: realReport, whatIf: null, graduationYear: player.graduationYear })}
+        judging={judging}
       />
 
       <Toast open={!!toast} onDismiss={dismissToast} action={toast?.action} duration={STAR_TOAST_DURATION_MS}>

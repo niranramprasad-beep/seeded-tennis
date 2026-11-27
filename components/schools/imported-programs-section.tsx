@@ -87,7 +87,7 @@ export async function ImportedProgramsSection() {
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone">
         A preview. These come from each program&apos;s own roster page. A team&apos;s UTR level is
         added one program at a time, with its source and date; until then it reads &ldquo;Level not
-        rated yet&rdquo; and the program gets no fit band. &ldquo;Seniors&rdquo; counts every player
+        rated yet&rdquo; and the program gets no fit. &ldquo;Seniors&rdquo; counts every player
         in their final season on that roster, including graduate students and 5th-years.
         {alreadyListed > 0
           ? ` ${alreadyListed} team${alreadyListed === 1 ? " is" : "s are"} already in the list above and ${alreadyListed === 1 ? "isn't" : "aren't"} repeated here.`

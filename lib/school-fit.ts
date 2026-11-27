@@ -256,7 +256,7 @@ export const PLANNING_RULE_SENTENCE = `We plan with at most ${REALISTIC_UTR_IMPR
  * banner (lib/fit.ts planGoalPaceSeverity) and the next-band message both use
  * paceIsStretch, so the two say the same thing about the same pace.
  */
-export const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
+const PACE_STRETCH_MARGIN_PER_YEAR = 0.05;
 
 /** "a stretch: right at our 1.5-a-year planning limit" */
 export const PACE_STRETCH_PHRASE = `a stretch: right at our ${REALISTIC_UTR_IMPROVEMENT_PER_YEAR.max}-a-year planning limit`;
@@ -285,13 +285,16 @@ function paceReadFor(requiredPaceUtrPerYear: number): Exclude<PaceRead, "no-time
   return "within-realistic-range";
 }
 
-/** The four band words. The one copy: the fit pill
- *  (components/seeded/ui/fit-badge.tsx) spreads these into its own labels. */
+/** The four tier names a player reads (Niran, 2026-11-27 — they replaced
+ *  Likely / Target / Reach / Out of range, and the word "band" left every
+ *  screen). The one copy: the fit pill (components/seeded/ui/fit-badge.tsx)
+ *  spreads these into its own labels. The internal keys keep their old
+ *  names; only what a person reads changed. */
 export const SCHOOL_FIT_BAND_LABEL: Record<SchoolFitBand, string> = {
-  reach: "Reach",
-  target: "Target",
-  likely: "Likely",
-  "out-of-range": "Out of range",
+  likely: "Safe bet",
+  target: "Good match",
+  reach: "Stretch",
+  "out-of-range": "Long shot",
 };
 
 // Honest statements for the two factors this app has never tracked real
@@ -299,9 +302,9 @@ export const SCHOOL_FIT_BAND_LABEL: Record<SchoolFitBand, string> = {
 // verbatim rather than built from a template per-school, since there is
 // nothing school-specific to plug in.
 const PLAYERS_LEAVING_NOTE =
-  "Roster openings and seniors leaving aren't tracked yet — this isn't factored into your band.";
+  "Roster openings and seniors leaving aren't tracked yet — this isn't part of your fit.";
 const ACADEMICS_NOTE =
-  "There's no real per-player academic admit range tracked yet — this isn't factored into your band.";
+  "There's no real per-player academic admit range tracked yet — this isn't part of your fit.";
 
 /** The same evergreen, non-personalized timing guidance /schools/[slug]'s
  * existing Timing driver row already shows — general recruiting-calendar

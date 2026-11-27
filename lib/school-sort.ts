@@ -11,7 +11,7 @@ export type SeededSchoolSort = "default" | "gap" | "fit" | "academics";
 export const SEEDED_SORT_LABEL: Record<SeededSchoolSort, string> = {
   default: "Default",
   gap: "Gap (closest first)",
-  fit: "Fit (band order)",
+  fit: "Fit (best first)",
   academics: "Academics",
 };
 

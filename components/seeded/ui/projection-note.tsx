@@ -1,13 +1,13 @@
 import type { RecruitingTimeUtr } from "@/lib/fit";
-import { paceUpsideSentence, projectionTargetLabel } from "@/lib/fit";
+import { projectionTargetLabel } from "@/lib/fit";
 import { EARLY_DECISION_NOTE } from "@/lib/config/growth";
 import { DataNote, EstimateChip } from "@/components/seeded/ui/data-note";
-import { cn, formatUtrEstimate } from "@/lib/utils";
+import { formatPlayerUtr, formatUtrEstimate } from "@/lib/utils";
 
 /**
- * The one sentence every screen shows when its bands come from the
- * PROJECTED rating rather than today's: which rating, for when, on what
- * assumption — and that top programs decide before then.
+ * The one sentence every screen shows when its fit comes from the player's
+ * Plan UTR or the PROJECTED rating rather than today's: which rating, for
+ * when — and that top programs decide before then.
  *
  * Before this, /schools printed the projection as plain "You 11.7" for a
  * player whose UTR is 8.7, and /today, /plan and /family banded schools on
@@ -36,16 +36,28 @@ export function ProjectionNote({
    */
   withEarlyDecisionNote?: boolean;
 }) {
-  if (!utr?.isProjected) return null;
   const whose = who ? `${who}'s` : "your";
+  // Judged on the player's own Plan UTR (2026-11-27): say so, with the
+  // number exactly as they saved it — it is theirs, not an estimate.
+  if (utr?.source === "plan") {
+    return (
+      <DataNote className={className}>
+        Fit uses {whose} plan UTR for {projectionTargetLabel(utr.year)}, the summer before senior year:{" "}
+        <span className="font-mono tabular-nums text-ink">{formatPlayerUtr(utr.value)}</span>.
+        {withEarlyDecisionNote ? ` ${EARLY_DECISION_NOTE}` : null}
+        {after ? ` ${after}` : null}
+      </DataNote>
+    );
+  }
+  if (!utr?.isProjected) return null;
   // Design system v2, rule 2: one calm data note — the dashed Estimate
-  // chip, one sentence, and "About our data". The growth assumption used to
-  // be spelled out here too; it lives in /methodology and beside the what-if
-  // slider, where it is the subject rather than a caveat on every screen.
+  // chip, one sentence, and "About our data". The growth assumption lives
+  // in /methodology, where it is the subject rather than a caveat on every
+  // screen.
   return (
     <DataNote className={className}>
       <EstimateChip className="mr-1.5" />
-      Bands use {whose} estimated UTR for {projectionTargetLabel(utr.year)}, the summer before senior year:{" "}
+      Fit uses {whose} estimated UTR for {projectionTargetLabel(utr.year)}, the summer before senior year:{" "}
       <span className="font-mono tabular-nums text-ink">{formatUtrEstimate(utr.value)}</span>.
       {withEarlyDecisionNote ? ` ${EARLY_DECISION_NOTE}` : null}
       {after ? ` ${after}` : null}
@@ -58,42 +70,4 @@ export function ProjectionNote({
 export function projectedYouLabel(utr: RecruitingTimeUtr | null | undefined, who?: string | null): string {
   const name = who ?? "You";
   return utr?.isProjected ? `${name} (est. ${projectionTargetLabel(utr.year)})` : name;
-}
-
-/**
- * The upside, said once beside the plan: "At your current pace you'd reach
- * 9.40, but we plan with 8.10. We plan with at most 1.5 UTR a year. That's
- * our planning rule, not a measured average."
- * Renders nothing unless the player's own pace is faster than the planning
- * cap (lib/fit.ts paceUpsideSentence) — it is shown, never banded.
- */
-export function PaceUpsideNote({
-  utr,
-  who,
-  className,
-  withLink = false,
-}: {
-  utr: RecruitingTimeUtr | null | undefined;
-  who?: string | null;
-  className?: string;
-  /** Render as the card's ONE data note (rule 2): info icon + "About our
-   *  data" — /today's chart card, where this sentence replaces the caption. */
-  withLink?: boolean;
-}) {
-  const sentence = paceUpsideSentence(utr, who);
-  if (!sentence) return null;
-  if (withLink) {
-    return (
-      <DataNote className={className}>
-        <EstimateChip className="mr-1.5" />
-        {sentence}
-      </DataNote>
-    );
-  }
-  return (
-    <p className={cn("text-[15px] leading-relaxed text-stone", className)}>
-      <EstimateChip className="mr-1.5" />
-      {sentence}
-    </p>
-  );
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  PACE_STRETCH_NOTE,
   PLANNING_PACE_CAP_PER_YEAR,
   PLANNING_RULE_SENTENCE,
   buildFitReport,
@@ -145,16 +144,16 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
     expect(heroFitCta({ counts: counts(9, 2, 1), utr: 9.4, schools: catalog })).toEqual({
       kind: "button",
       showCounts: true,
-      label: "See my 3 Target and Likely schools",
+      label: "See my 3 schools in range",
       projectedNote: null,
     });
   });
 
-  it("singular: 'See my 1 Target or Likely school'", () => {
-    expect(inRangeButtonLabel(1)).toBe("See my 1 Target or Likely school");
-    expect(inRangeButtonLabel(2)).toBe("See my 2 Target and Likely schools");
+  it("singular: 'See my 1 school in range'", () => {
+    expect(inRangeButtonLabel(1)).toBe("See my 1 school in range");
+    expect(inRangeButtonLabel(2)).toBe("See my 2 schools in range");
     expect(heroFitCta({ counts: counts(0, 0, 1), utr: 9.4, schools: catalog })).toMatchObject({
-      label: "See my 1 Target or Likely school",
+      label: "See my 1 school in range",
     });
   });
 
@@ -199,11 +198,11 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
   it("today's count on the button; the summer estimate is a separate, labelled line only when higher", () => {
     expect(
       heroFitCta({ counts: counts(1, 2, 0), projected: { inRange: 8, year: 2028 }, utr: 9.4, schools: catalog })
-    ).toMatchObject({ label: "See my 2 Target and Likely schools", projectedNote: "By summer 2028, est.: 8 Target and Likely." });
+    ).toMatchObject({ label: "See my 2 schools in range", projectedNote: "By summer 2028, est.: 8 in range." });
     expect(heroFitCta({ counts: counts(1, 2, 0), projected: { inRange: 2, year: 2028 }, utr: 9.4, schools: catalog }).projectedNote).toBeNull();
     const zero = heroFitCta({ counts: counts(3, 0, 0), projected: { inRange: 8, year: 2028 }, utr: 7.5, schools: catalog });
     expect(zero.kind).toBe("zero");
-    expect(zero.projectedNote).toBe("By summer 2028, est.: 8 Target and Likely.");
+    expect(zero.projectedNote).toBe("By summer 2028, est.: 8 in range.");
   });
 
   it("the verifier's case: a 7.5 Class of 2029 player is not told 'See my 8' while today 0 are in range", async () => {
@@ -222,7 +221,7 @@ describe("heroFitCta — the homepage card never shows 0 / 0 / 0 or 'See my — 
       if (report.todayInRange === 0) expect(cta.kind).toBe("zero");
       else expect(cta).toMatchObject({ kind: "button", label: inRangeButtonLabel(report.todayInRange) });
       if (report.recruitingInRange > report.todayInRange) {
-        expect(cta.projectedNote).toBe(`By summer ${report.utr.year}, est.: ${report.recruitingInRange} Target and Likely.`);
+        expect(cta.projectedNote).toBe(`By summer ${report.utr.year}, est.: ${report.recruitingInRange} in range.`);
       }
     }
   });
@@ -476,8 +475,7 @@ describe("the planning rule replaces the growth claim (A-008)", () => {
     expect(growthAssumptionLabel("normal")).toBe("Uses our default assumption of 1.0 UTR a year.");
   });
 
-  it("the next-band line and the goal banner say 'a stretch' for the same 1.45–1.55 band", () => {
-    expect(PACE_STRETCH_NOTE).toBe(`That's ${PACE_STRETCH_PHRASE}.`);
+  it("the next-band line says 'a stretch' for the 1.45–1.55 pace", () => {
     for (const [r, stretch] of [[1.44, false], [1.45, true], [1.5, true], [1.55, true], [1.56, false]] as const) {
       expect(paceIsStretch(r), String(r)).toBe(stretch);
     }

@@ -1,5 +1,6 @@
 // The fit engine — THE PLAN GOAL. The goal a player chose (never a default),
-// the pace banner under it, and why a typed goal can't be saved.
+// when it judges fit, its quarterly checkpoints and realism note, and why a
+// typed goal can't be saved.
 //
 // Moved verbatim from lib/fit.ts on 2026-11-21 (the fit.ts split; every
 // declaration below is byte-identical to the original, which
@@ -9,14 +10,7 @@
 // "lib/fit.ts". "This module" and "here" in the comments below mean the fit
 // engine as a whole.
 
-import {
-  PACE_STRETCH_MARGIN_PER_YEAR,
-  PACE_STRETCH_PHRASE,
-  paceIsStretch,
-  type GoalPace,
-} from "@/lib/school-fit";
-import { formatPlayerUtr } from "@/lib/utils";
-import { PLANNING_PACE_CAP_PER_YEAR } from "@/lib/fit/pace";
+import { formatPacePerYear, formatPlayerUtr } from "@/lib/utils";
 import type { RecruitingTimeUtr } from "@/lib/fit/projection";
 
 /* ==========================================================================
@@ -57,42 +51,114 @@ export function resolvePlanGoal(input: {
   return { value: chosen, estimate: est };
 }
 
-/** The stretch band's half-width, 0.05 a year — defined beside paceIsStretch
- * in lib/school-fit.ts, re-exported here. */
-export { PACE_STRETCH_MARGIN_PER_YEAR };
+/**
+ * THE rule for when the Plan UTR judges fit (2026-11-27): the value the
+ * player saved, while it is still ahead of them. With no real rating any
+ * saved plan applies. A plan today's rating has already reached is spent:
+ * fit then falls back to the estimate, and /plan says "Set a higher one" —
+ * judging a player on a number below the one they hold would understate
+ * them. Every screen gets this through useFitReport, so Schools, Plan,
+ * Today and a school page cannot disagree about which number they used.
+ */
+export function activePlanUtr(planUtr: number | null | undefined, currentUtr: number | null | undefined): number | null {
+  if (planUtr == null || !Number.isFinite(planUtr) || planUtr <= 0) return null;
+  if (currentUtr != null && currentUtr > 0 && Math.round(planUtr * 100) <= Math.round(currentUtr * 100)) return null;
+  return planUtr;
+}
 
-export type PlanGoalPaceSeverity = "warning" | "stretch" | null;
+export interface PlanCheckpoint {
+  date: Date;
+  /** Where the player needs to be on `date`, on the straight line from
+   * today's rating to the plan. Rounded to the hundredth; the last one is
+   * the plan itself, exactly as saved. */
+  utr: number;
+  /** "Mar 2027" — the label every checkpoint prints. */
+  label: string;
+  isPlan: boolean;
+}
+
+const QUARTER_MONTHS = [2, 5, 8, 11]; // Mar, Jun, Sep, Dec — the 1st of each.
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
- * THE rule for the pace banner under a goal — /plan and /today both render
- * GoalPaceWarning, which asks this, so the two screens cannot disagree.
- *
- * Only for a goal the PLAYER SET (there is no other kind now):
- *  - "warning" (red): it needs more than the cap + the stretch margin
- *    (above 1.55 a year), or there is no time left to close it;
- *  - "stretch" (amber): it needs within PACE_STRETCH_MARGIN_PER_YEAR of the
- *    cap (1.45–1.55 a year) — right at the limit the bands plan with, which
- *    is a stretch, not a red flag;
- *  - null: anything slower, or no goal.
- * Compared in hundredths: requiredPaceUtrPerYear is rounded to two decimals
- * (computeGoalPace), and 1.55 − 1.5 is not ≤ 0.05 in floating point.
+ * The quarterly checkpoint line to the Plan UTR (2026-11-27): the 1st of
+ * every March, June, September and December from a month out to the summer
+ * before senior year (June 1, which is itself a quarter date), each on the straight
+ * line in TIME from today's rating to the plan — the same line buildRoadmap's
+ * per-grade checkpoints sit on, so /today's "Next checkpoint" agrees with
+ * every point here. Empty without a real rating, without an active plan, or
+ * once the summer before senior year has begun (there is no "by" left).
  */
-export function planGoalPaceSeverity(goal: PlanGoal | null, pace: GoalPace | null): PlanGoalPaceSeverity {
-  if (!goal || !pace) return null;
-  if (pace.paceRead === "no-time-left") return "warning";
-  if (pace.requiredPaceUtrPerYear == null) return null;
-  if (paceIsStretch(pace.requiredPaceUtrPerYear)) return "stretch";
-  return Math.round(pace.requiredPaceUtrPerYear * 100) > Math.round(PLANNING_PACE_CAP_PER_YEAR * 100) ? "warning" : null;
+export function planCheckpoints(input: {
+  currentUtr: number | null | undefined;
+  planUtr: number | null | undefined;
+  /** June 1 of the summer before senior year (summerBeforeSeniorYear). */
+  goalDate: Date;
+  now?: Date;
+}): PlanCheckpoint[] {
+  const now = input.now ?? new Date();
+  const current = input.currentUtr;
+  const plan = activePlanUtr(input.planUtr, current);
+  if (plan == null || current == null || !(current > 0)) return [];
+  const end = input.goalDate.getTime();
+  const start = now.getTime();
+  if (end <= start) return [];
+  const out: PlanCheckpoint[] = [];
+  const d = new Date(now.getFullYear(), now.getMonth(), 1);
+  // The first quarter date at least a month away: a checkpoint four days
+  // out says nothing today's rating doesn't. (The plan date always stays.)
+  const soonest = start + 30 * 86_400_000;
+  while (!(QUARTER_MONTHS.includes(d.getMonth()) && (d.getTime() >= soonest || d.getTime() >= end))) d.setMonth(d.getMonth() + 1);
+  while (d.getTime() <= end) {
+    const t = d.getTime();
+    const isPlan = t === end;
+    const utr = isPlan ? plan : Math.round((current + ((plan - current) * (t - start)) / (end - start)) * 100) / 100;
+    out.push({ date: new Date(t), utr, label: `${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`, isPlan });
+    d.setMonth(d.getMonth() + 3);
+  }
+  // A goal date that is not itself a quarter date still ends the line.
+  if (out.length === 0 || !out[out.length - 1].isPlan) {
+    const g = input.goalDate;
+    out.push({ date: new Date(end), utr: plan, label: `${MONTH_SHORT[g.getMonth()]} ${g.getFullYear()}`, isPlan: true });
+  }
+  return out;
 }
 
-/** The red warning only — a goal needing more than the cap plus the stretch
- * margin, or with no time left. See planGoalPaceSeverity. */
-export function planGoalNeedsPaceWarning(goal: PlanGoal | null, pace: GoalPace | null): boolean {
-  return planGoalPaceSeverity(goal, pace) === "warning";
+/**
+ * The one realism note under the plan (/plan only — 2026-11-27, it replaced
+ * the "a stretch" and "1.5 UTR a year" banners on /plan and /today). It
+ * compares the pace the plan needs with the player's OWN logged pace, the
+ * one real number Seeded has about how fast this player improves. With no
+ * logged pace it says what would let us tell. Null without a real rating or
+ * an active plan, or once there is no time left.
+ */
+export function planRealismNote(input: {
+  currentUtr: number | null | undefined;
+  planUtr: number | null | undefined;
+  goalDate: Date;
+  /** lib/fit playerPacePerYear — null without a logged pace. */
+  ownPacePerYear: number | null | undefined;
+  now?: Date;
+}): string | null {
+  const now = input.now ?? new Date();
+  const current = input.currentUtr;
+  const plan = activePlanUtr(input.planUtr, current);
+  if (plan == null || current == null || !(current > 0)) return null;
+  const years = (input.goalDate.getTime() - now.getTime()) / (365.25 * 86_400_000);
+  if (years <= 0) return null;
+  const needs = Math.round(((plan - current) / years) * 100) / 100;
+  // The one pace formatter ("+1.32 a year"), like every other pace.
+  const needsText = formatPacePerYear(needs);
+  const own = input.ownPacePerYear;
+  if (own == null || !Number.isFinite(own)) {
+    return `Your plan needs about ${needsText}. Log your UTR every few months and Seeded will show whether you're keeping up.`;
+  }
+  const ownText = formatPacePerYear(own);
+  if (Math.round(own * 100) >= Math.round(needs * 100)) {
+    return `Your plan needs about ${needsText}, and your pace so far is ${ownText}. Keep that up and you're on track.`;
+  }
+  return `Your plan needs about ${needsText}, but your pace so far is ${ownText}. You'd need to speed up, so keep some schools on your list that fit your UTR today.`;
 }
-
-/** The amber banner's words for a goal in the stretch band (A-022). */
-export const PACE_STRETCH_NOTE = `That's ${PACE_STRETCH_PHRASE}.`;
 
 /**
  * Why a goal the player typed can't be saved, or null when it can. A goal is
@@ -103,7 +169,7 @@ export const PACE_STRETCH_NOTE = `That's ${PACE_STRETCH_PHRASE}.`;
 export function planGoalInputError(value: number, currentUtr: number | null | undefined): string | null {
   if (!Number.isFinite(value) || value < 1 || value > 16.5) return "Enter a UTR between 1.00 and 16.50.";
   if (currentUtr != null && currentUtr > 0 && Math.round(value * 100) <= Math.round(currentUtr * 100)) {
-    return `Your goal needs to be above your current UTR, ${formatPlayerUtr(currentUtr)}.`;
+    return `Your plan UTR needs to be above your current UTR, ${formatPlayerUtr(currentUtr)}.`;
   }
   return null;
 }

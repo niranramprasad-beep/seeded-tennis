@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRosterPagesSql, classLabel, parseEmails, parseNameTitles, parseRosterPages } from "./roster-pages";
-import { sortRoster, type RosterPlayer } from "@/lib/db/roster";
+import { rosterUtrWhole, sortRoster, toRosterPlayer, type RosterRow } from "@/lib/db/roster";
 
 // Invented people and schools only: the repo is public.
 const csv = (rows: string[][]) => rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -80,9 +80,24 @@ describe("small parsers", () => {
     expect([...parseEmails("A B: a@x.edu; C: nope")]).toEqual([["A B", "a@x.edu"]]);
   });
   it("roster order: reliable by rating, then unreliable, then unrated", () => {
-    const p = (name: string, utr: number | null, utrReliable: boolean): RosterPlayer => ({
-      name, utr, utrReliable, classLabel: null, gradYear: null, utrProfileUrl: utr ? "https://u" : null, hometown: null, readDate: "2026-11-22",
+    const p = (name: string, utr: number | null, utrReliable: boolean): RosterRow => ({
+      name, utr, utrReliable, classLabel: null, gradYear: null, utrProfileUrl: utr ? "https://u" : null, readDate: "2026-11-22",
     });
     expect(sortRoster([p("u", null, false), p("lo", 11, true), p("nr", 14, false), p("hi", 13, true)]).map((x) => x.name)).toEqual(["hi", "lo", "nr", "u"]);
+  });
+  // Niran, 2026-11-27: a college player's exact UTR never reaches a page or
+  // its source — only the whole-number band does.
+  it("a roster player's rating leaves the server as a whole-number band only", () => {
+    expect(rosterUtrWhole(12.37)).toBe(12);
+    expect(rosterUtrWhole(12)).toBe(12);
+    expect(rosterUtrWhole(9.99)).toBe(9);
+    expect(rosterUtrWhole(null)).toBeNull();
+    const out = toRosterPlayer({
+      name: "A B", utr: 12.37, utrReliable: true, classLabel: "Sophomore", gradYear: 2028, utrProfileUrl: "https://app.utrsports.net/profiles/1", readDate: "2026-11-22",
+    });
+    expect(out.utrWhole).toBe(12);
+    expect(out).not.toHaveProperty("utr");
+    expect(out).not.toHaveProperty("hometown");
+    expect(JSON.stringify(out)).not.toContain("12.37");
   });
 });

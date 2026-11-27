@@ -8,7 +8,6 @@ import {
   diagnosticProjection,
   isRealisticTarget,
   paceUpsideSentence,
-  planGoalNeedsPaceWarning,
   playerPacePerYear,
   projectedUtrOn,
   projectionPath,
@@ -188,10 +187,9 @@ describe("every screen shows the same conservative number and the same bands", (
         const onTrack = (r: FitReport) =>
           targets.filter((sch) => ["target", "likely"].includes(r.bandBySlug.get(sch.slug) ?? "")).length;
         expect(onTrack(today)).toBe(onTrack(report));
-        // No goal set → no pace warning on Today, whatever the pace.
+        // No plan set → no plan on Today, whatever the pace.
         const goal = resolvePlanGoal({ chosenGoalUtr: null, estimate: today.utr });
         expect(goal).toBeNull();
-        expect(planGoalNeedsPaceWarning(goal, computeGoalPace(s.currentUtr, 12, s.graduationYear, NOW))).toBe(false);
       });
 
       it("/plan: closest schools, realistic targets and the chart all read the report", () => {

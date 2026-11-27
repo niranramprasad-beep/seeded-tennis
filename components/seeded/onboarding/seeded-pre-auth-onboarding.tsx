@@ -147,12 +147,12 @@ export function DiagnosticFitReport({
           {report && counts.target + counts.likely > 0 && (
             <p className="mt-2 text-base text-stone">
               {report.utr.isProjected && report.view === "recruiting"
-                ? `By ${projectionTargetLabel(report.utr.year)}: ${counts.target} Target and ${counts.likely} Likely.`
-                : `Today: ${counts.target} Target and ${counts.likely} Likely.`}
+                ? `By ${projectionTargetLabel(report.utr.year)}: ${counts.target} Good match and ${counts.likely} Safe bet.`
+                : `Today: ${counts.target} Good match and ${counts.likely} Safe bet.`}
             </p>
           )}
           <p className="mt-2 text-base text-stone">
-            Bands compare {parent ? "the" : "your"} rating with each team&rsquo;s range.
+            Fit compares {parent ? "the" : "your"} rating with each team&rsquo;s range.
             They change when the UTR does.
           </p>
 
@@ -265,7 +265,7 @@ export function DiagnosticFitReport({
 
           {report && (
             <>
-              <div role="tablist" aria-label="Fit bands" className="mt-6 flex flex-wrap gap-2">
+              <div role="tablist" aria-label="Fit" className="mt-6 flex flex-wrap gap-2">
                 {(["reach", "target", "likely", "out-of-range"] as const).map((band) => (
                   <button
                     key={band}
@@ -367,10 +367,10 @@ export function DiagnosticFitReport({
           </h2>
           <p className="mb-5 mt-2 text-[15px] leading-[1.5] text-stone">
             {signedIn
-              ? "Every answer goes on your profile, and the bands update each time you log a result."
+              ? "Every answer goes on your profile, and your fit updates each time you log a result."
               : parent
                 ? "Free. You'll get a family code to give your player."
-                : "Free account. Every answer comes with you, and the bands update each time you log a result."}
+                : "Free account. Every answer comes with you, and your fit updates each time you log a result."}
           </p>
           {signedIn ? (
             <SignedInDiagnosticSave answers={answers} />
@@ -380,7 +380,7 @@ export function DiagnosticFitReport({
         </aside>
       </div>
       <p className="mx-auto max-w-[1200px] px-6 pb-4 text-xs text-stone">
-        Fit bands use {parent ? "the" : "your"} UTR and each program&apos;s roster range:{" "}
+        Fit uses {parent ? "the" : "your"} UTR and each program&apos;s roster range:{" "}
         {plural(filtered.length, "program", "programs")} for {GENDER_LABEL[gender]} in the catalog.
       </p>
     </div>

@@ -84,7 +84,7 @@ function Hero({ schools }: { schools: SchoolLite[] }) {
             range — and how many teams, counted from the catalogue. */}
         <p className="text-base leading-[1.5] text-[rgb(var(--c-court-text)/0.85)]">
           Your UTR against the range for {schools.length} college teams &mdash; a hand-checked roster where we
-          have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
+          have one, our estimate where we don&apos;t &mdash; each one a Safe bet, Good match, Stretch or Long shot.
         </p>
         {/* The card sits ON the court: the lines start just above it and
             spill out around its edges, so the copy above stays on plain
@@ -120,7 +120,7 @@ function HeroCopy({ teamCount }: { teamCount: number }) {
           catalogue-derived count stay (A-035). */}
       <p className="mt-5 hidden max-w-[520px] text-lg leading-[1.55] text-[rgb(var(--c-court-text)/0.85)] lg:block">
         Your UTR against the range for {teamCount} college teams &mdash; a hand-checked roster where we
-        have one, our estimate where we don&apos;t &mdash; sorted into Reach, Target, Likely and Out of range.
+        have one, our estimate where we don&apos;t &mdash; each one a Safe bet, Good match, Stretch or Long shot.
       </p>
       <div className="mt-7 hidden flex-wrap gap-3 lg:flex">
         <Link href="/onboarding" className={COURT_PRIMARY_CTA}>
@@ -441,7 +441,7 @@ function TrustStrip() {
         </span>
         <span className="flex items-start gap-2">
           <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
-          <strong className="text-ink">Bands, not promises &mdash; never a percent chance.</strong>
+          <strong className="text-ink">A plain fit, not a promise &mdash; never a percent chance.</strong>
         </span>
         <span className="flex items-start gap-2">
           <Check className="mt-[3px] h-4 w-4 shrink-0 text-grass" strokeWidth={2.5} aria-hidden />
@@ -771,8 +771,8 @@ function MethodAndFounder() {
             summer before senior year, labelled as an estimate. Top D1 programs often decide
             earlier.
           </li>
-          <li>Academics, division and region are filters you choose; they don&apos;t change your band.</li>
-          <li>You get one of four bands. We never show a percent chance.</li>
+          <li>Academics, division and region are filters you choose; they don&apos;t change your fit.</li>
+          <li>Each program is a Safe bet, Good match, Stretch or Long shot. We never show a percent chance.</li>
         </ol>
         <Link href="/methodology" className="mt-auto inline-flex min-h-11 items-center pt-4 font-semibold text-grass hover:text-grass-700 sm:min-h-6">
           Read the full methodology

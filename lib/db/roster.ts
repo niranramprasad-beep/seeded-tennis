@@ -8,15 +8,55 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publicClient } from "./programs";
 
-export interface RosterPlayer {
+/** A roster row as the database holds it — server-side only. Its exact
+ *  `utr` sorts the roster and never leaves this module: see RosterPlayer. */
+export interface RosterRow {
   name: string;
   classLabel: string | null;
   gradYear: number | null;
   utr: number | null;
   utrReliable: boolean;
   utrProfileUrl: string | null;
-  hometown: string | null;
   readDate: string;
+}
+
+/**
+ * A roster row as a page receives it (Niran, 2026-11-27): a college
+ * player's rating as its WHOLE-NUMBER band only — 12.37 is 12, shown
+ * "12.xx" — never the exact number. The exact rating stays in the database
+ * for the team range; it is dropped here, on the server, so it is in
+ * neither the page nor its source (this object is serialized into the
+ * client school page). The player's UTR profile link is kept: it opens the
+ * player's own public profile. Hometown is gone from the page entirely,
+ * and from this read.
+ */
+export interface RosterPlayer {
+  name: string;
+  classLabel: string | null;
+  gradYear: number | null;
+  /** Math.floor of the exact rating, or null without one. */
+  utrWhole: number | null;
+  utrReliable: boolean;
+  utrProfileUrl: string | null;
+  readDate: string;
+}
+
+/** 12.37 → 12. The one banding rule for a college player's rating. */
+export function rosterUtrWhole(utr: number | null): number | null {
+  return utr === null || !Number.isFinite(utr) ? null : Math.floor(utr);
+}
+
+/** Drops the exact rating: what leaves the server. */
+export function toRosterPlayer(row: RosterRow): RosterPlayer {
+  return {
+    name: row.name,
+    classLabel: row.classLabel,
+    gradYear: row.gradYear,
+    utrWhole: rosterUtrWhole(row.utr),
+    utrReliable: row.utrReliable,
+    utrProfileUrl: row.utrProfileUrl,
+    readDate: row.readDate,
+  };
 }
 
 export interface StaffMember {
@@ -36,8 +76,8 @@ export interface ProgramRosterPage {
 const httpUrl = (v: unknown): string | null => (typeof v === "string" && /^https?:\/\//i.test(v) ? v : null);
 
 /** Highest reliable rating first, then unreliable, then unrated; ties by name. */
-export function sortRoster(players: RosterPlayer[]): RosterPlayer[] {
-  const rank = (p: RosterPlayer) => (p.utr === null ? 2 : p.utrReliable ? 0 : 1);
+export function sortRoster(players: RosterRow[]): RosterRow[] {
+  const rank = (p: RosterRow) => (p.utr === null ? 2 : p.utrReliable ? 0 : 1);
   return [...players].sort(
     (a, b) => rank(a) - rank(b) || (b.utr ?? 0) - (a.utr ?? 0) || a.name.localeCompare(b.name)
   );
@@ -53,7 +93,7 @@ export async function loadProgramRosterPage(programSlug: string | undefined): Pr
   const [roster, staff] = await Promise.all([
     client
       .from("program_roster")
-      .select("player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, hometown, read_date")
+      .select("player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, read_date")
       .eq("program_id", id),
     client.from("program_staff").select("name, title, email, is_head, source_url, read_date").eq("program_id", id),
   ]);
@@ -69,7 +109,6 @@ export async function loadProgramRosterPage(programSlug: string | undefined): Pr
           utr: profile && r.utr !== null ? Number(r.utr) : null,
           utrReliable: Boolean(profile && r.utr !== null && r.utr_reliable),
           utrProfileUrl: profile,
-          hometown: r.hometown ?? null,
           readDate: String(r.read_date),
         };
       });
@@ -86,5 +125,5 @@ export async function loadProgramRosterPage(programSlug: string | undefined): Pr
           readDate: String(s.read_date),
         }))
         .sort((a, b) => Number(b.isHead) - Number(a.isHead) || a.name.localeCompare(b.name));
-  return { players: sortRoster(players), staff: members };
+  return { players: sortRoster(players).map(toRosterPlayer), staff: members };
 }
