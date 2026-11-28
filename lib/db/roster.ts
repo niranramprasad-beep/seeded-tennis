@@ -1,15 +1,23 @@
-// The roster page data (migration 054): a program's official roster by name
-// and its coaching staff, each row with the page it was read from. Public
-// catalog data, read with the publishable key and no session (like
+// The roster page data (migrations 054, 055): a program's official roster by
+// name and its coaching staff, each row with the page it was read from.
+// Public catalog data, read with the publishable key and no session (like
 // lib/db/programs.ts). Empty — never a throw — when the program has no rows,
-// 054 is not on the database, or the read fails: the page then shows what it
-// showed before.
+// 054/055 is not on the database, or the read fails: the page then shows
+// what it showed before.
+//
+// The roster is read ONLY through program_roster_page() (055), which returns
+// each rating as floor(utr) — the exact `utr` column (and the old home-town
+// column) is not granted to anon/authenticated at all since 055 (Niran, 2026-11-27).
+// lib/db/roster-private-ratings.test.ts fails the build if this file selects
+// `utr` from the table again.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publicClient } from "./programs";
 
-/** A roster row as the database holds it — server-side only. Its exact
- *  `utr` sorts the roster and never leaves this module: see RosterPlayer. */
+/** A roster row on the server, before it is handed to the page. Since 055
+ *  the loader fills `utr` with the WHOLE number program_roster_page()
+ *  returns — the database never gives this module the exact rating.
+ *  toRosterPlayer's floor is a second guard, not the only one. */
 export interface RosterRow {
   name: string;
   classLabel: string | null;
@@ -73,6 +81,17 @@ export interface ProgramRosterPage {
   staff: StaffMember[];
 }
 
+/** One row of program_roster_page() (055). There is no exact rating in it. */
+interface RosterPageRow {
+  player_name: string;
+  class_label: string | null;
+  grad_year: number | null;
+  utr_whole: number | null;
+  utr_reliable: boolean | null;
+  utr_profile_url: string | null;
+  read_date: string;
+}
+
 const httpUrl = (v: unknown): string | null => (typeof v === "string" && /^https?:\/\//i.test(v) ? v : null);
 
 /**
@@ -96,27 +115,25 @@ export async function loadProgramRosterPage(programSlug: string | undefined): Pr
   if (program.error || !program.data) return empty;
   const id = (program.data as { id: string }).id;
   const [roster, staff] = await Promise.all([
-    client
-      .from("program_roster")
-      .select("player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, read_date")
-      .eq("program_id", id),
+    // Whole numbers only (055): never a select on program_roster's `utr`.
+    client.rpc("program_roster_page", { p_slug: programSlug }),
     client.from("program_staff").select("name, title, email, is_head, source_url, read_date").eq("program_id", id),
   ]);
-  const players = roster.error
-    ? []
-    : (roster.data ?? []).map((r) => {
-        const profile = httpUrl(r.utr_profile_url);
-        return {
-          name: String(r.player_name),
-          classLabel: r.class_label ?? null,
-          gradYear: r.grad_year ?? null,
-          // A rating only with the profile it was read from (054's CHECK, again).
-          utr: profile && r.utr !== null ? Number(r.utr) : null,
-          utrReliable: Boolean(profile && r.utr !== null && r.utr_reliable),
-          utrProfileUrl: profile,
-          readDate: String(r.read_date),
-        };
-      });
+  const rosterRows: RosterPageRow[] = roster.error ? [] : ((roster.data ?? []) as RosterPageRow[]);
+  const players = rosterRows.map((r) => {
+    const profile = httpUrl(r.utr_profile_url);
+    const whole = r.utr_whole === null || r.utr_whole === undefined ? null : Number(r.utr_whole);
+    return {
+      name: String(r.player_name),
+      classLabel: r.class_label ?? null,
+      gradYear: r.grad_year ?? null,
+      // A rating only with the profile it was read from (054's CHECK, again).
+      utr: profile && whole !== null && Number.isFinite(whole) ? whole : null,
+      utrReliable: Boolean(profile && whole !== null && r.utr_reliable),
+      utrProfileUrl: profile,
+      readDate: String(r.read_date),
+    };
+  });
   const members = staff.error
     ? []
     : (staff.data ?? [])

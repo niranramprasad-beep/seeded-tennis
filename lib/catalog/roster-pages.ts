@@ -235,14 +235,14 @@ export function buildRosterPagesSql(
   if (data.players.length) {
     out.push(
       "insert into public.program_roster (program_id, player_name, class_label, grad_year, utr, utr_reliable, utr_profile_url, read_date)\n" +
-        "select p.id, v.n, v.c, v.g, v.u, v.r, v.l, v.h, v.d::date from (values\n" +
+        "select p.id, v.n, v.c, v.g, v.u, v.r, v.l, v.d::date from (values\n" +
         data.players
           .map(
             (x) =>
               `(${lit(x.slug)},${lit(x.playerName)},${lit(x.classLabel)}::text,${lit(x.gradYear)}::int,${lit(x.utr)}::numeric,${lit(x.utrReliable)},${lit(x.utrProfileUrl)}::text,${lit(x.readDate)})`
           )
           .join(",\n") +
-        "\n) as v(slug, n, c, g, u, r, l, h, d) join public.programs p on p.slug = v.slug;"
+        "\n) as v(slug, n, c, g, u, r, l, d) join public.programs p on p.slug = v.slug;"
     );
   }
   if (data.staff.length) {

@@ -143,28 +143,17 @@ it. Fixing it means judging fit on the server (an API that returns tiers and
 banded copy) and closing the public reads — bigger than PR #64; needs a plan
 and Niran's call.
 
-### College players' exact UTRs are still readable through the public API (2026-11-27)
+### ~~College players' exact UTRs are still readable through the public API~~ — closed by migration 055 (2026-11-27)
 
-Niran's rule (2026-11-27): a college roster player's exact UTR never reaches
-a screen, page source or API response a visitor can read; only the whole
-number ("12.xx"). Team ranges, the player's own UTR and their Plan UTR stay
-exact. `feat/plan-utr-fit-reframe` cuts the rating on the server
-(`lib/db/roster.ts` `toRosterPlayer`), so the page and its source carry only
-the whole number. **Not done:** migration 054 grants `select` on
-`program_roster` (all columns) to `anon` and `authenticated`, so anyone with
-the publishable key can still read `utr` through the REST API. Fix, as its
-own migration on Niran's go: revoke the table grant, grant every column but
-`utr` (and `hometown`, now unused), and give the server reader a SECURITY
-DEFINER function that returns `floor(utr)` (or read with a server-only key).
-Staging first, then production before the code that needs it. The same
-migration should null `program_roster.hometown`: the importer stopped
-writing it on 2026-11-27, but rows already imported (production included)
-still hold real hometowns that anyone with the publishable key can read.
-Note too: a checked team's range top is its highest reliable rating and its
-middle a median, so those team numbers can equal one player's rating — on
-screen they are now whole numbers too (Niran, 2026-11-27); see "Exact team
-numbers are still in the page source" above.
-
+Done on branch `claude/roster-utr-lockdown`: migration 055 revokes the
+table-wide grant on `program_roster`, grants every column but `utr` and
+`hometown` back to `anon`/`authenticated`, nulls `hometown`, and adds
+`program_roster_page(p_slug)` (SECURITY DEFINER, whole numbers only), which
+`lib/db/roster.ts` now reads. Verified on staging (evidence in
+`~/seeded-evidence/roster-utr-lockdown/`). **Production is closed only once
+055 is applied there on Niran's go, BEFORE the code merges** — HANDOFF §J
+Step 30. Still open and separate: "Exact team numbers are still in the page
+source" above (a checked team's top or middle can equal one player's rating).
 
 ### Pending under-13s and parents' own player rows (both are migrations; Niran, 2026-11-16)
 
