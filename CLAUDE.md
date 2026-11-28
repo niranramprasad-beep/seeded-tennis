@@ -3,7 +3,7 @@
 ## Current state (2026-11-26)
 - Production is seededtennis.com. `main` auto-deploys to it with no staging gate. Old branches live on as `archive/<name>` tags.
 - **Herdy's branches (`herdy-work`, `herdy-colours`, any he creates) are his. Never touch them.** No delete, merge, rebase, push, PR close or conflict fix, and never in a "clean up branches" sweep (Niran, 2026-11-22). If your work conflicts with his, adapt your branch or tell Niran.
-- Production database: every migration through **054**. Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
+- Production database: every migration through **055**. Check `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line.
 - Catalog phase 1 is ON in production (`NEXT_PUBLIC_CATALOG_PHASE1_ENABLED=true`). Fed by the owner's College Tennis UTR Database sheet: 63 ACC + SEC programs with a sourced range (floor = lower quartile, middle = median), 43 Program Info rows, 587 roster players, 141 staff (counted 2026-11-24). The sheet feeds the one catalog (`lib/catalog/merge.ts`).
 - `School.city/state/usNewsRanking` can be null ("Not tracked"). Render UTR numbers with `utrSourceLabel()` / `teamRangeNote()`, never the bare estimate label.
 - Staging `gnlcpnsweqbtwpaqhqqg` has the same schema. `.env.local` and Vercel Preview point at it. It has only 3 official rosters, so Preview roster sections are mostly empty.
@@ -198,7 +198,7 @@ this list in sync with `docs/MASTER_ROADMAP.md`.
   Supabase vars. Two env files are tracked (`.env.example`,
   `.env.local.example`) and hold placeholders only. Re-run the two greps for the
   project refs rather than trusting this file.
-- Every repo migration through 054 is on production. Check `list_migrations`.
+- Every repo migration through 055 is on production. Check `list_migrations`.
   Order, per-step verify and pasteable rollbacks: `docs/HANDOFF.md` §J.
 - 035 is not optional (without it 032/033 break every profile write and 034
   breaks `delete_my_account()`). 036 does not ship without 037, 038 and 039.

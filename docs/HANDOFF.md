@@ -3132,11 +3132,31 @@ Tables: `drop table public.program_staff; drop table public.program_roster;`
 
 ### Step 30 — migration 055 (program_roster: no public `utr` or `hometown`) + the roster loader (branch `claude/roster-utr-lockdown`)
 
-**NOT RUN ON PRODUCTION.** Staging only (2026-11-27; ledger
-`055_program_roster_private_ratings`, then a rollback rehearsal and
-`055_program_roster_private_ratings_reapply`). Waits for Niran's go.
+**RUN ON PRODUCTION 2026-11-28 00:56 UTC (Niran's go, 2026-11-27 local).**
+Niran pasted the body into the production SQL editor in one transaction with
+the ledger row (`20261128005638 055_program_roster_private_ratings`). Backup
+first: `~/seeded-backups/prod-20261127-1625-pre055.dump` (813,582 bytes, 74
+TABLE DATA entries). Pre-flight: ledger ended at 054; 587 rows, 393
+hometowns, 583 rated, 63 programs; table-wide SELECT for anon/authenticated;
+no function. Verified after, as `anon` and `authenticated`: `select utr`,
+`select hometown`, `select *`, `where utr > 12` and `order by utr` all 42501;
+the seven granted columns and `program_roster_page()` allowed. The function
+returned 587 players across all 63 programs, 583 rated, integers 3..15 only.
+`count(hometown)` = 0, `count(utr)` = 583. Function ACL: postgres,
+service_role, anon, authenticated; no PUBLIC entry. PostgREST with the
+publishable key: `select=utr|hometown|*`, `utr=gt.12`, `order=utr.desc` →
+401; granted columns and `rpc/program_roster_page` → 200 with whole numbers
+only. Fingerprint before → after: only functions (46→47), function_grants
+(46→47) and table_grants (43→50) changed; the other six are byte-identical.
+(Production's functions hash already differed from staging's before 055:
+pre-existing drift, not from this step.) PR #65 merged right after
+(`c7a40b4`); `/api/health` served `c7a40b4` about two minutes later and
+`/schools/vanderbilt-m` rendered its roster in whole numbers. The empty-roster
+window was from the commit to that deploy.
+Staging: 2026-11-27 (ledger `055_program_roster_private_ratings`, then a
+rollback rehearsal and `055_program_roster_private_ratings_reapply`).
 Evidence: `~/seeded-evidence/roster-utr-lockdown/` (probes.sql, output.md,
-fingerprint.sql).
+fingerprint.sql, REPORT.md).
 
 What it changes. 054 granted `anon`/`authenticated` SELECT on every column of
 `program_roster`, so `GET /rest/v1/program_roster?select=player_name,utr,hometown`

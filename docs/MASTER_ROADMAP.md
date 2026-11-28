@@ -20,7 +20,7 @@ Status lines are claims about live systems. Re-check the source each one names.
 - **Week of 2026-11-24:** Herdy is the main developer. Niran is away.
 - **Production** is seededtennis.com, deployed from `main`. Everything through
   PR #61 is live. Gate was green on 2026-11-24 (170 test files, 2,744 tests).
-- **Database:** every migration through 054 is on production. Check
+- **Database:** every migration through 055 is on production. Check
   `list_migrations` on `tfpjssmhiptbwigarxpx`, not this line. Runbook:
   [`HANDOFF.md`](HANDOFF.md) §J.
 - **Catalog:** phase 1 is on in production, fed by the owner's College Tennis
@@ -32,17 +32,16 @@ Status lines are claims about live systems. Re-check the source each one names.
   - Other legacy programs still carry labelled, unsourced estimates.
   - Rules: [`DATA_QUALITY.md`](DATA_QUALITY.md).
 - **Roster pages are live:** class and singles UTR, plus staff with the emails
-  each school publishes. Since `feat/plan-utr-fit-reframe` (2026-11-27, not
-  merged yet): a college player's UTR shows only as its whole number
-  ("12.xx") with a link-out button to their UTR profile, the exact rating is
-  cut on the server, and Hometown is gone. The exact ratings are still
-  readable through the public database API **on production** until migration
-  055 lands there (`claude/roster-utr-lockdown`: on STAGING since 2026-11-27,
-  production waits for Niran's go, HANDOFF §J Step 30). Team floors, middles and tops are
+  each school publishes. Since PR #64 (2026-11-27): a college player's UTR
+  shows only as its whole number ("12.xx") with a link-out button to their
+  UTR profile, the exact rating is cut on the server, and Hometown is gone.
+  Since migration 055 and PR #65 (production 2026-11-28 UTC, HANDOFF §J
+  Step 30) the database API no longer gives anyone the exact `utr` or a
+  hometown either: hometowns are nulled and the page reads
+  `program_roster_page()`, which returns whole numbers only. Team floors, middles and tops are
   whole numbers on screen too, but exact in the page source (TODO §2). Still open: the privacy policy's
   wording for these names, and a takedown path (TODO §5).
-- **Plan UTR and fit wording (branch `feat/plan-utr-fit-reframe`, not merged
-  yet):** one stored Plan UTR (`planGoalUtr`, no migration) judges fit on
+- **Plan UTR and fit wording (PR #64, merged 2026-11-27):** one stored Plan UTR (`planGoalUtr`, no migration) judges fit on
   Schools, Plan, Today, school pages and the tournament checker. It replaced
   the "what if" slider. /plan shows quarterly checkpoints and one realism
   note. The 1.5-a-year banners are gone from /plan and /today. Tiers are
@@ -90,14 +89,13 @@ Known and accepted, not blockers:
 
 Updated 2026-11-27. Previous lists are in `archive/ROADMAP_HISTORY.md`.
 
-1. **Close the roster read on production: migration 055.** Branch
-   `claude/roster-utr-lockdown`: column grants on `program_roster` without
-   `utr`/`hometown`, hometowns nulled, and `program_roster_page()` returning
-   whole numbers only. On staging and verified as anon/authenticated
-   2026-11-27. Production order (HANDOFF §J Step 30): backup, 055, verify,
-   THEN merge the code. It also fixes the roster import's SQL, broken since
-   PR #64. Parents still see fit on the estimate: the Plan UTR lives in the
-   player's own `user_settings` (TODO §4).
+1. **Exact team numbers in the page source (TODO §2).** The roster read is
+   closed (055 + PR #65 on production 2026-11-28 UTC), but a checked team's
+   range top and middle still reach the browser exact, and `team_ranges` /
+   `programs` are publicly readable. Fixing it means judging fit on the
+   server: plan first, Niran's call. Also: parents still see fit on the
+   estimate, because the Plan UTR lives in the player's own `user_settings`
+   (TODO §4).
 2. **Family follow-ups.**
    - Settings → Family shows who approved whom and each parent's home family.
      This needs a new `family_members()` column, so 038's shape test and
