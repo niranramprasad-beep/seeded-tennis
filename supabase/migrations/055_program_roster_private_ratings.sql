@@ -1,9 +1,9 @@
 -- 055_program_roster_private_ratings.sql
 --
 -- STATUS: written 2026-11-27 (Niran: "screen first, lock the DB next").
--- Applied to STAGING only. Production waits for Niran's go, a fresh backup
--- and docs/HANDOFF.md §J Step 30. It must reach production BEFORE the code
--- that calls program_roster_page() is merged (lib/db/roster.ts).
+-- Applied to staging 2026-11-27 and to PRODUCTION 2026-11-28 00:56 UTC
+-- (Niran's go; backup, verify and results in docs/HANDOFF.md §J Step 30),
+-- before the code that calls program_roster_page() merged (PR #65).
 --
 -- ===========================================================================
 -- Why, and the decision it implements

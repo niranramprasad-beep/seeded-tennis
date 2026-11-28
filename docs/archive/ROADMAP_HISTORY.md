@@ -14,6 +14,18 @@ Never edit or delete an older entry; correct it with a newer one.
 
 *(Entries after 2026-11-22 go here, newest first, above the snapshot.)*
 
+**2026-11-28 — Migration 055 on production, then PR #65 merged (`claude/record-055-production`; docs only).**
+Niran gave the go and ran 055 in the production SQL editor
+(ledger `20261128005638`), after a fresh backup
+(`prod-20261127-1625-pre055.dump`) and a pre-flight showing the ledger ended
+at 054. Verified as `anon` and `authenticated`: `utr`, `hometown`, `*`, a
+`utr` filter and a `utr` sort are all 42501 in SQL and 401 through
+PostgREST; `program_roster_page()` returns integers only (587 players, 63
+programs, 3..15); 0 hometowns left. Fingerprint: only functions, function
+grants and table grants moved. PR #65 merged at once (`c7a40b4`), and
+production served it about two minutes later with the Vanderbilt roster in
+whole numbers. Detail: HANDOFF §J Step 30.
+
 **2026-11-27 — Roster ratings locked in the database (`claude/roster-utr-lockdown`; migration 055, staging only).**
 054 granted `anon`/`authenticated` SELECT on every column of `program_roster`,
 so the exact `utr` and old hometowns were readable through the REST API

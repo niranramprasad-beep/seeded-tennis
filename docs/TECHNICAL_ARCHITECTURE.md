@@ -85,7 +85,7 @@ No AI provider, no Stripe, no email or push sender. V1 ships no AI feature.
 | Production | `tfpjssmhiptbwigarxpx` | Production (`main`) |
 | Staging | `gnlcpnsweqbtwpaqhqqg` | Preview + Development; local `.env.local` |
 
-Production runs every migration through 054 (ledger 56 on 2026-11-24);
+Production runs every migration through 055 (ledger 57 on 2026-11-28 UTC);
 048's catalog tables, 053's `program_details` and 054's `program_roster` /
 `program_staff` hold the owner's sheet (63 programs).
 Check `list_migrations` on the project, not this file.
